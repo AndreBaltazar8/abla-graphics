@@ -34,23 +34,16 @@ Updated: 2026-08-17.
   stage lookup, and compile-time rejection of invalid stage names. The
   surfaced triangle is compiled from this package rather than opaque strings.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
-- GitHub CI bootstraps `ablac` from its pinned seed and runs the Abla-only,
-  core, authenticated X11, and GLSL subparser gates on every push and pull
-  request. Driver-backed jobs remain local until the native-library compiler
-  change is integrated upstream and software ICD selection is pinned.
+- The required general `ablac` `nativeLibraries` contract is integrated in
+  compiler commit `116090f`; graphics tests use the stock sibling compiler.
+- GitHub CI bootstraps `ablac` from its pinned seed and runs the complete
+  Abla-only, core, authenticated X11, GLSL, Vulkan, OpenGL, and sample matrix
+  against pinned Mesa Lavapipe/software rendering on every push and pull
+  request.
 
 The full `nix-shell --run 'make test'` matrix passes on a host with an RTX
 4090, Intel UHD 770, NVIDIA Vulkan 1.4 driver, Mesa Vulkan/OpenGL, and no active
 desktop display.
-
-## Toolchain dependency
-
-`../ablac/src/toolchain.ab` has an uncommitted general implementation for a
-bounded root-manifest `nativeLibraries` array. Abla Graphics builds and tests
-that change as an isolated compiler candidate. Its focused linked-dependency
-and unsafe-name rejection test passes, as does the compiler's byte-identical
-pure-Abla O2 self-rebuild. It still needs review and integration before
-consumers can use the stock compiler.
 
 The current compiler also lacks usable source-level floating literals and
 floating arithmetic/ABI conformance. Graphics math is temporarily fixed-point;
@@ -63,8 +56,6 @@ capability lands.
   images/views, synchronization2, and dynamic rendering.
 - Wayland, Windows, or macOS platform modules.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
-- Vulkan swapchains, images, descriptors, pipelines, synchronization2, dynamic
-  rendering, compute, or advanced extension families.
 - Full GLSL 4.60 grammar validation, reflection, or SPIR-V emission. The
   current subparser owns stage structure/source preservation but deliberately
   rejects quoted includes and does not yet parse declarations or expressions.

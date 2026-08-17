@@ -3,16 +3,15 @@ set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 compiler_root=$(cd -- "$project_root/../ablac" && pwd)
-candidate="$project_root/build/toolchain/ablac-native-libs"
+compiler="$compiler_root/build/ablac"
 output_directory="$project_root/build/samples"
 
 mkdir -p "$output_directory"
-"$project_root/tools/ensure-toolchain.sh"
 
 for sample in x11-window vulkan-info vulkan-surface headless-opengl \
     opengl-window; do
     cd "$compiler_root"
-    ABLA_SYSROOT="$compiler_root" "$candidate" \
+    ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
         -o "$output_directory/$sample" --no-cache
 done

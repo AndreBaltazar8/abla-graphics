@@ -24,9 +24,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle; and
-- an isolated general `ablac` implementation for bounded
-  `nativeLibraries` manifest entries, used to link installed driver loaders
-  without a graphics-specific compiler exception.
+- the general `ablac` `nativeLibraries` manifest contract, used to link
+  installed driver loaders without a graphics-specific compiler exception.
 
 The installed Vulkan/EGL/OpenGL loaders and GPU drivers are external because
 they implement the Khronos driver specifications. All application-side calls,
@@ -49,8 +48,9 @@ This runs:
 - headless and surfaced EGL/OpenGL draw/readback tests; and
 - runtime/frozen GLSL subparser structure and invalid-stage diagnostics.
 
-The Vulkan and OpenGL tests build an isolated compiler candidate from the local
-`../ablac` sources when needed. They do not overwrite the shared compiler.
+The Vulkan and OpenGL tests use the stock compiler from `../ablac/build/ablac`.
+CI pins Mesa's Lavapipe and software OpenGL paths so the complete backend matrix
+also runs on clean GitHub-hosted machines without physical GPUs.
 
 ## Samples
 

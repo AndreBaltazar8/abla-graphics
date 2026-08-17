@@ -26,13 +26,9 @@ begin. Registry constants and bit flags are unaffected.
 
 ## Manifest-declared system driver libraries
 
-The current compiler only has internal demand-driven linking for its hosted TLS
-module. Abla Graphics needs a general package contract because Vulkan and
-OpenGL entry points are supplied by installed system/driver libraries even
-though all application-side ABI layouts and calls are Abla.
-
-The initial general implementation adds a bounded `nativeLibraries` string
-array to the root `abla.toml`. Names are passed as individual linker arguments,
-are limited to 32 safe names, affect the build cache identity, and are rejected
-for non-hosted targets. The Vulkan tests use `nativeLibraries = ["vulkan"]`.
-This is a toolchain feature, not a graphics-specific linker exception.
+Compiler commit `116090f` provides a bounded `nativeLibraries` string array in
+the nearest ancestor root `abla.toml`. Names are passed as individual linker
+arguments, limited to 32 distinct safe names, included in the build cache
+identity, and rejected for non-hosted targets. The Vulkan tests use
+`nativeLibraries = ["vulkan"]`. This is a general toolchain contract for
+installed system/driver libraries, not a graphics-specific linker exception.

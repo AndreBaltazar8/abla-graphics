@@ -3,14 +3,13 @@ set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 compiler_root=$(cd -- "$project_root/../ablac" && pwd)
-candidate="$project_root/build/toolchain/ablac-native-libs"
+compiler="$compiler_root/build/ablac"
 output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
-"$project_root/tools/ensure-toolchain.sh"
 
 cd "$compiler_root"
-ABLA_SYSROOT="$compiler_root" "$candidate" \
+ABLA_SYSROOT="$compiler_root" "$compiler" \
     build "$project_root/tests/vulkan/main.ab" \
     -o "$output_directory/vulkan" --no-cache
 

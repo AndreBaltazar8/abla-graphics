@@ -9,6 +9,7 @@ pkgs.mkShell {
     gcc
     gnumake
     libglvnd
+    mesa
     llvmPackages.llvm
     llvmPackages.clang
     llvmPackages.lld
@@ -25,6 +26,9 @@ pkgs.mkShell {
 
   shellHook = ''
     export ABLA_GRAPHICS_DEV_SHELL=1
-    export LD_LIBRARY_PATH="${pkgs.openssl.out}/lib:${pkgs.vulkan-loader}/lib:${pkgs.libglvnd}/lib:${pkgs.xorg.libX11}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export ABLA_GRAPHICS_LVP_ICD="${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.x86_64.json"
+    export ABLA_GRAPHICS_EGL_VENDOR="${pkgs.mesa}/share/glvnd/egl_vendor.d/50_mesa.json"
+    export ABLA_GRAPHICS_DRI="${pkgs.mesa}/lib/dri"
+    export LD_LIBRARY_PATH="${pkgs.openssl.out}/lib:${pkgs.vulkan-loader}/lib:${pkgs.libglvnd}/lib:${pkgs.mesa}/lib:${pkgs.xorg.libX11}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   '';
 }
