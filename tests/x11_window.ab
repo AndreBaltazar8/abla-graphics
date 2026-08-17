@@ -1,4 +1,5 @@
 import "../src/graphics.ab"
+import "abla/io"
 
 fun main: int {
     val window = x11Window(WindowConfig(
@@ -7,11 +8,24 @@ fun main: int {
         height = 180,
         visible = false
     ))
-    val event = window.pollEvent(250)
-    if (window.valid() &&
+    var passed = window.valid() &&
         window.width == 320 &&
         window.height == 180 &&
-        (event.kind == windowEventNone ||
-         event.kind == windowEventResized ||
-         event.kind == windowEventFocused)) 42 else 1
+        window.protocolsAtom != 0 &&
+        window.deleteAtom != 0
+    if (passed) passed = window.requestClose()
+    var event = WindowEvent()
+    var attempts = 0
+    while (passed && event.kind != windowEventCloseRequested &&
+        attempts < 32) {
+        event = window.pollEvent(50)
+        attempts = attempts + 1
+    }
+    if (passed) passed = event.kind == windowEventCloseRequested
+    if (!passed) {
+        println(
+            "X11 close test valid=${window.valid()} protocols=${window.protocolsAtom} delete=${window.deleteAtom} event=${event.kind}"
+        )
+    }
+    if (passed) 42 else 1
 }

@@ -317,6 +317,81 @@ fun x11SingleWindowRequest(opcode: int, window: int): string {
     x11Packet(request, 8)
 }
 
+fun x11InternAtomRequest(name: string): string {
+    var length = name.size
+    if (length > 4096) length = 4096
+    val padded = ((length + 3) / 4) * 4
+    val total = 8 + padded
+    val request = nativeByteBuffer(total + 1)
+    request.store(0, 16)
+    request.store(1, 0)
+    x11StoreU16(request, 2, total / 4)
+    x11StoreU16(request, 4, length)
+    request.store(6, 0)
+    request.store(7, 0)
+    var index = 0
+    while (index < length) {
+        request.store(8 + index, name[index])
+        index = index + 1
+    }
+    while (index < padded) {
+        request.store(8 + index, 0)
+        index = index + 1
+    }
+    x11Packet(request, total)
+}
+
+fun x11InternAtom(descriptor: int, name: string): int {
+    var atom = 0
+    if (descriptor >= 0 && name != "" &&
+        x11WriteAll(descriptor, x11InternAtomRequest(name))) {
+        val reply = x11ReadExact(descriptor, 32)
+        if (reply.size == 32 && reply[0] == 1) atom = x11U32(reply, 8)
+    }
+    atom
+}
+
+fun x11WindowProtocolsRequest(
+    window: int,
+    protocolsAtom: int,
+    deleteAtom: int
+): string {
+    val request = nativeByteBuffer(29)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 7)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, protocolsAtom)
+    x11StoreU32(request, 12, 4)
+    request.store(16, 32)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, 1)
+    x11StoreU32(request, 24, deleteAtom)
+    x11Packet(request, 28)
+}
+
+fun x11CloseClientMessageRequest(
+    window: int,
+    protocolsAtom: int,
+    deleteAtom: int
+): string {
+    val request = nativeByteBuffer(45)
+    request.store(0, 25)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 11)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, 0)
+    request.store(12, 33)
+    request.store(13, 32)
+    x11StoreU16(request, 14, 0)
+    x11StoreU32(request, 16, window)
+    x11StoreU32(request, 20, protocolsAtom)
+    x11StoreU32(request, 24, deleteAtom)
+    x11Packet(request, 44)
+}
+
 fun x11WindowTitleRequest(window: int, title: string): string {
     var length = title.size
     if (length > 4096) length = 4096
@@ -350,6 +425,8 @@ resource class X11Window(
     var descriptor: int,
     val identifier: int,
     val visual: int,
+    val protocolsAtom: int,
+    val deleteAtom: int,
     val width: int,
     val height: int
 ) {
@@ -399,6 +476,10 @@ resource class X11Window(
                         )
                     } else if (kind == 17) {
                         result = WindowEvent(windowEventCloseRequested)
+                    } else if (kind == 33 && event[1] == 32 &&
+                        x11U32(event, 8) == this.protocolsAtom &&
+                        x11U32(event, 12) == this.deleteAtom) {
+                        result = WindowEvent(windowEventCloseRequested)
                     } else if (kind == 22) {
                         result = WindowEvent(
                             windowEventResized,
@@ -411,6 +492,17 @@ resource class X11Window(
         }
         result
     }
+
+    fun requestClose(): bool =
+        this.valid() && this.protocolsAtom != 0 && this.deleteAtom != 0 &&
+        x11WriteAll(
+            this.descriptor,
+            x11CloseClientMessageRequest(
+                this.identifier,
+                this.protocolsAtom,
+                this.deleteAtom
+            )
+        )
 
     fun drop(): void {
         if (this.valid()) {
@@ -432,10 +524,14 @@ fun x11Window(
     var descriptor = -1
     var identifier = 0
     var visual = 0
+    var protocolsAtom = 0
+    var deleteAtom = 0
     if (config.valid()) descriptor = x11ConnectUnix(displayNumber)
     if (descriptor >= 0) {
         val setup = x11Setup(descriptor, x11Authority(displayNumber))
         if (setup.succeeded) {
+            protocolsAtom = x11InternAtom(descriptor, "WM_PROTOCOLS")
+            deleteAtom = x11InternAtom(descriptor, "WM_DELETE_WINDOW")
             visual = setup.rootVisual
             identifier = setup.resourceBase | (1 & setup.resourceMask)
             val created = x11WriteAll(
@@ -448,6 +544,16 @@ fun x11Window(
                     descriptor,
                     x11WindowTitleRequest(identifier, config.title)
                 )
+                if (protocolsAtom != 0 && deleteAtom != 0) {
+                    x11WriteAll(
+                        descriptor,
+                        x11WindowProtocolsRequest(
+                            identifier,
+                            protocolsAtom,
+                            deleteAtom
+                        )
+                    )
+                }
                 mapped = x11WriteAll(
                     descriptor,
                     x11SingleWindowRequest(8, identifier)
@@ -460,5 +566,13 @@ fun x11Window(
             descriptor = -1
         }
     }
-    X11Window(descriptor, identifier, visual, config.width, config.height)
+    X11Window(
+        descriptor,
+        identifier,
+        visual,
+        protocolsAtom,
+        deleteAtom,
+        config.width,
+        config.height
+    )
 }

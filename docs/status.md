@@ -8,7 +8,8 @@ Updated: 2026-08-17.
   geometry, and deterministic fixed-point vectors/colors.
 - X11 test: AF_UNIX connection, protocol 11 setup, server metadata parsing,
   binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
-  allocation, CreateWindow, title property, MapWindow, event poll/decode,
+  allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
+  MapWindow, event poll/decode, WM_DELETE_WINDOW client-message round trip,
   DestroyWindow, and close, running against authenticated Xvfb without an
   Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
