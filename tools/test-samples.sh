@@ -16,9 +16,9 @@ for sample in x11-window vulkan-info headless-opengl opengl-window; do
         -o "$output_directory/$sample" --no-cache
 done
 
-xvfb-run -a -s "-ac -screen 0 1024x768x24" \
+xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/x11-window"
 "$output_directory/vulkan-info"
 LIBGL_ALWAYS_SOFTWARE=1 "$output_directory/headless-opengl"
-LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-ac -screen 0 1024x768x24" \
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/opengl-window"

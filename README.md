@@ -12,7 +12,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 
 - a backend-neutral configuration, error, geometry, and fixed-point math core;
 - an affine pure-Abla X11 window that opens the Unix socket, performs the X11
-  handshake, creates/maps a window, decodes events, and destroys it;
+  authenticated handshake, creates/titles/maps a window, decodes events, and
+  destroys it;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - pure-Abla Vulkan buffer allocation, command-pool/buffer recording,
   `vkCmdFillBuffer` submission, host synchronization, mapping, and readback;

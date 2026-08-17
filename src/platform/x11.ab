@@ -4,6 +4,7 @@
 // XCB, GLFW, SDL, or a project native shim.
 
 import "abla/sys/linux"
+import "abla/sys/linux/fs"
 import "abla/sys/linux/process"
 import "abla/unsafe/memory"
 import "../window.ab"
@@ -15,6 +16,9 @@ fun x11U16(value: string, offset: int): int =
 
 fun x11U32(value: string, offset: int): int =
     x11U16(value, offset) + x11U16(value, offset + 2) * 65536
+
+fun x11BigU16(value: string, offset: int): int =
+    value[offset] * 256 + value[offset + 1]
 
 fun x11StoreU16(var buffer: NativeByteBuffer, offset: int, value: int): void {
     buffer.store(offset, value & 255)
@@ -89,6 +93,79 @@ fun x11ConfiguredDisplayNumber(): int {
     if (configured.found) x11DisplayNumber(configured.value) else -1
 }
 
+class X11Authority(val name: string, val data: string)
+
+fun x11AuthorityPath(): string {
+    val configured = linuxEnvironment("XAUTHORITY")
+    var result = if (configured.found) configured.value else ""
+    if (result == "") {
+        val home = linuxEnvironment("HOME")
+        if (home.found) result = "${home.value}/.Xauthority"
+    }
+    result
+}
+
+fun x11Authority(displayNumber: int): X11Authority {
+    var selectedName = ""
+    var selectedData = ""
+    val path = x11AuthorityPath()
+    var source = ""
+    if (path != "" && Path(path).exists()) source = Path(path).readText()
+    val wantedNumber = "$displayNumber"
+    var offset = 0
+    while (selectedData == "" && offset + 2 <= source.size) {
+        val family = x11BigU16(source, offset)
+        offset = offset + 2
+        var valid = offset + 2 <= source.size
+        var addressLength = 0
+        if (valid) {
+            addressLength = x11BigU16(source, offset)
+            offset = offset + 2
+            valid = addressLength <= 4096 &&
+                offset + addressLength + 2 <= source.size
+        }
+        if (valid) offset = offset + addressLength
+        var number = ""
+        if (valid) {
+            val length = x11BigU16(source, offset)
+            offset = offset + 2
+            valid = length <= 64 && offset + length + 2 <= source.size
+            if (valid) {
+                number = source.slice(offset, offset + length)
+                offset = offset + length
+            }
+        }
+        var name = ""
+        if (valid) {
+            val length = x11BigU16(source, offset)
+            offset = offset + 2
+            valid = length <= 256 && offset + length + 2 <= source.size
+            if (valid) {
+                name = source.slice(offset, offset + length)
+                offset = offset + length
+            }
+        }
+        var data = ""
+        if (valid) {
+            val length = x11BigU16(source, offset)
+            offset = offset + 2
+            valid = length <= 4096 && offset + length <= source.size
+            if (valid) {
+                data = source.slice(offset, offset + length)
+                offset = offset + length
+            }
+        }
+        if (valid && (family == 256 || family == 65535) &&
+            number == wantedNumber && name == "MIT-MAGIC-COOKIE-1" &&
+            data.size == 16) {
+            selectedName = name
+            selectedData = data
+        }
+        if (!valid) offset = source.size
+    }
+    X11Authority(selectedName, selectedData)
+}
+
 fun x11ConnectUnix(displayNumber: int): int {
     var descriptor = -1
     val path = "/tmp/.X11-unix/X$displayNumber"
@@ -131,19 +208,32 @@ class X11Setup(
     val whitePixel: int
 )
 
-fun x11Setup(descriptor: int): X11Setup {
+fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
     var succeeded = descriptor >= 0
     if (succeeded) {
-        val request = nativeByteBuffer(13)
+        val namePadded = ((authority.name.size + 3) / 4) * 4
+        val dataPadded = ((authority.data.size + 3) / 4) * 4
+        val length = 12 + namePadded + dataPadded
+        val request = nativeByteBuffer(length + 1)
         request.store(0, 108)
         request.store(1, 0)
         x11StoreU16(request, 2, 11)
         x11StoreU16(request, 4, 0)
-        x11StoreU16(request, 6, 0)
-        x11StoreU16(request, 8, 0)
+        x11StoreU16(request, 6, authority.name.size)
+        x11StoreU16(request, 8, authority.data.size)
         request.store(10, 0)
         request.store(11, 0)
-        succeeded = x11WriteAll(descriptor, x11Packet(request, 12))
+        var index = 0
+        while (index < authority.name.size) {
+            request.store(12 + index, authority.name[index])
+            index = index + 1
+        }
+        index = 0
+        while (index < authority.data.size) {
+            request.store(12 + namePadded + index, authority.data[index])
+            index = index + 1
+        }
+        succeeded = x11WriteAll(descriptor, x11Packet(request, length))
     }
 
     var prefix = ""
@@ -344,7 +434,7 @@ fun x11Window(
     var visual = 0
     if (config.valid()) descriptor = x11ConnectUnix(displayNumber)
     if (descriptor >= 0) {
-        val setup = x11Setup(descriptor)
+        val setup = x11Setup(descriptor, x11Authority(displayNumber))
         if (setup.succeeded) {
             visual = setup.rootVisual
             identifier = setup.resourceBase | (1 & setup.resourceMask)

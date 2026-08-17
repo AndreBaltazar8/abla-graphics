@@ -7,8 +7,10 @@ Updated: 2026-08-17.
 - Pure core test: backend selection, structured errors, window configuration,
   geometry, and deterministic fixed-point vectors/colors.
 - X11 test: AF_UNIX connection, protocol 11 setup, server metadata parsing,
-  XID allocation, CreateWindow, MapWindow, event poll/decode, DestroyWindow,
-  and close, running against Xvfb without Xlib/XCB/GLFW.
+  binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
+  allocation, CreateWindow, title property, MapWindow, event poll/decode,
+  DestroyWindow, and close, running against authenticated Xvfb without an
+  Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,

@@ -12,7 +12,7 @@ cd "$compiler_root"
     -o "$output_directory/x11_window" --no-cache
 
 set +e
-xvfb-run -a -s "-ac -screen 0 800x600x24" "$output_directory/x11_window"
+xvfb-run -a -s "-screen 0 800x600x24" "$output_directory/x11_window"
 status=$?
 set -e
 if [[ $status -ne 42 ]]; then

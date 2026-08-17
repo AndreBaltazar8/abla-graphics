@@ -15,7 +15,7 @@ ABLA_SYSROOT="$compiler_root" "$candidate" \
     -o "$output_directory/opengl-window" --no-cache
 
 set +e
-xvfb-run -a -s "-ac -screen 0 800x600x24" \
+xvfb-run -a -s "-screen 0 800x600x24" \
     "$output_directory/opengl-window"
 status=$?
 set -e
