@@ -30,6 +30,22 @@ using this surfaced facade currently declares
 `nativeLibraries = ["vulkan", "X11", "EGL", "GL"]` because the application,
 not a dependency package, chooses its installed native loader boundary.
 
+OpenGL applications may also keep one reusable software frame and upload it
+without rebuilding shaders, textures, or general heap values per frame:
+
+```abla
+val pixels = pixelBuffer(320, 200)
+pixels.clearRgba8(18, 35, 64)
+pixels.fillRectRgba8(80, 50, 160, 100, 204, 64, 32)
+app.presentPixels(pixels)
+```
+
+`PixelBuffer` bounds-checks dimensions, rectangles, channels, and pixel access.
+Its native storage is affine and released deterministically. The Vulkan pixel
+upload/presentation implementation is still pending; `presentPixels` currently
+returns false on a Vulkan-specialized application instead of silently changing
+backends.
+
 ## Small application
 
 The descriptor/encoder form below is the target surface being implemented on

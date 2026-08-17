@@ -1,0 +1,109 @@
+// Reusable owned RGBA8 frame storage for software renderers and uploads.
+
+import "abla/unsafe/memory"
+
+resource class PixelBuffer(
+    val storage: NativeByteBuffer,
+    val width: int,
+    val height: int
+) {
+    fun valid(): bool =
+        this.width > 0 && this.height > 0 &&
+        this.width <= 16384 && this.height <= 16384 &&
+        this.storage.capacity == this.width * this.height * 4 &&
+        !this.storage.closed
+
+    trusted fun rgba8(x: int, y: int): int {
+        var value = -1
+        if (this.valid() && x >= 0 && x < this.width &&
+            y >= 0 && y < this.height) {
+            val offset = (y * this.width + x) * 4
+            value = this.storage.load(offset) +
+                this.storage.load(offset + 1) * 256 +
+                this.storage.load(offset + 2) * 65536 +
+                this.storage.load(offset + 3) * 16777216
+        }
+        value
+    }
+
+    trusted fun setRgba8(
+        x: int,
+        y: int,
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool {
+        var stored = false
+        if (this.valid() && x >= 0 && x < this.width &&
+            y >= 0 && y < this.height &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255) {
+            val offset = (y * this.width + x) * 4
+            this.storage.store(offset, red)
+            this.storage.store(offset + 1, green)
+            this.storage.store(offset + 2, blue)
+            this.storage.store(offset + 3, alpha)
+            stored = true
+        }
+        stored
+    }
+
+    trusted fun clearRgba8(
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool = this.fillRectRgba8(
+        0,
+        0,
+        this.width,
+        this.height,
+        red,
+        green,
+        blue,
+        alpha
+    )
+
+    trusted fun fillRectRgba8(
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool {
+        val inside = this.valid() && x >= 0 && y >= 0 &&
+            width >= 0 && height >= 0 &&
+            x + width <= this.width && y + height <= this.height &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255
+        var row = 0
+        while (inside && row < height) {
+            var column = 0
+            var offset = ((y + row) * this.width + x) * 4
+            while (column < width) {
+                this.storage.store(offset, red)
+                this.storage.store(offset + 1, green)
+                this.storage.store(offset + 2, blue)
+                this.storage.store(offset + 3, alpha)
+                offset = offset + 4
+                column = column + 1
+            }
+            row = row + 1
+        }
+        inside
+    }
+}
+
+trusted fun pixelBuffer(width: int, height: int): PixelBuffer {
+    var capacity = 0
+    if (width > 0 && width <= 16384 && height > 0 && height <= 16384 &&
+        width <= 268435455 / height) {
+        capacity = width * height * 4
+    }
+    val storage = nativeByteBuffer(capacity)
+    PixelBuffer(move(storage), width, height)
+}

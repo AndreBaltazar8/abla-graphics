@@ -3,12 +3,14 @@
 import "abla/unsafe/memory"
 import "core.ab"
 import "window.ab"
+import "pixels.ab"
 import "platform/x11.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
 
 resource class GraphicsApplication(
     var window: X11Window,
+    var openGlPixels: OpenGlPixelPresenter,
     var openGl: OpenGlWindowContext,
     var vulkanSwapchain: VulkanSwapchain,
     var vulkanDevice: VulkanDevice,
@@ -43,11 +45,16 @@ resource class GraphicsApplication(
         presented
     }
 
+    trusted fun presentPixels(pixels: PixelBuffer): bool =
+        this.backend == graphicsBackendOpenGl &&
+        this.openGlPixels.present(this.openGl, pixels)
+
     trusted fun drop(): void {
         this.vulkanSwapchain.drop()
         this.vulkanDevice.drop()
         this.vulkanSurface.drop()
         this.vulkanInstance.drop()
+        this.openGlPixels.drop()
         this.openGl.drop()
         this.window.drop()
         return
@@ -64,6 +71,12 @@ trusted fun graphicsApplication(
         nativeNullPointer(),
         nativeNullPointer(),
         nativeNullPointer(),
+        0,
+        0
+    )
+    var openGlPixels = OpenGlPixelPresenter(
+        OpenGlProgram(0, 0, ""),
+        0,
         0,
         0
     )
@@ -154,6 +167,11 @@ trusted fun graphicsApplication(
     if (tryOpenGl) {
         openGl = openGlWindowContext(window)
         if (openGl.valid()) {
+            openGlPixels = openGlPixelPresenter(
+                openGl,
+                windowConfig.width,
+                windowConfig.height
+            )
             backend = graphicsBackendOpenGl
             adapterName = "OpenGL core context"
         }
@@ -169,6 +187,7 @@ trusted fun graphicsApplication(
 
     GraphicsApplication(
         move(window),
+        move(openGlPixels),
         move(openGl),
         move(vulkanSwapchain),
         move(vulkanDevice),

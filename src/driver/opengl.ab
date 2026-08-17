@@ -5,6 +5,7 @@
 
 import "abla/unsafe/memory"
 import "../core.ab"
+import "../pixels.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 import "../shader/glsl.ab"
@@ -138,6 +139,36 @@ noescape extern:"c" fun glDrawArrays(
     first: i32,
     count: i32
 ): void
+noescape extern:"c" fun glGenTextures(count: i32, textures: i64*): void
+noescape extern:"c" fun glBindTexture(target: i32, texture: i32): void
+noescape extern:"c" fun glTexParameteri(
+    target: i32,
+    name: i32,
+    value: i32
+): void
+noescape extern:"c" fun glTexImage2D(
+    target: i32,
+    level: i32,
+    internalFormat: i32,
+    width: i32,
+    height: i32,
+    border: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glTexSubImage2D(
+    target: i32,
+    level: i32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glDeleteTextures(count: i32, textures: i64*): void
 
 fun openGlStoreI32(
     var buffer: NativeByteBuffer,
@@ -303,6 +334,56 @@ resource class OpenGlProgram(
     }
 }
 
+resource class OpenGlPixelPresenter(
+    val program: OpenGlProgram,
+    var texture: int,
+    val width: int,
+    val height: int
+) {
+    fun valid(): bool =
+        this.program.valid() && this.texture != 0 &&
+        this.width > 0 && this.height > 0
+
+    trusted fun present(
+        context: OpenGlWindowContext,
+        pixels: PixelBuffer
+    ): bool {
+        var presented = false
+        if (this.valid() && context.valid() && pixels.valid() &&
+            pixels.width == this.width && pixels.height == this.height &&
+            context.makeCurrent()) {
+            glBindTexture(3553, this.texture)
+            glTexSubImage2D(
+                3553,
+                0,
+                0,
+                0,
+                this.width,
+                this.height,
+                6408,
+                5121,
+                pixels.storage.address
+            )
+            glViewport(0, 0, context.width, context.height)
+            glUseProgram(this.program.handle)
+            glBindVertexArray(this.program.vertexArray)
+            glDrawArrays(4, 0, 3)
+            presented = glGetError() == 0 &&
+                eglSwapBuffers(context.display, context.surface) == eglTrue
+        }
+        presented
+    }
+
+    trusted fun drop(): void {
+        if (this.texture != 0) {
+            val textureCell = nativeI64Cell(this.texture)
+            glDeleteTextures(1, textureCell.address)
+            this.texture = 0
+        }
+        return
+    }
+}
+
 class OpenGlShaderResult(val handle: int, val error: string)
 
 trusted fun openGlShaderLog(shader: int): string {
@@ -400,6 +481,72 @@ trusted fun openGlProgramFromPackage(
         shader.source(shaderStageVertex),
         shader.source(shaderStageFragment)
     ) else OpenGlProgram(0, 0, shader.error)
+}
+
+trusted fun openGlPixelPresenter(
+    context: OpenGlWindowContext,
+    width: int,
+    height: int
+): OpenGlPixelPresenter {
+    val shader = $glsl {
+        vertex {
+            #version 330 core
+            out vec2 textureCoordinate;
+            const vec2 positions[3] = vec2[3](
+                vec2(-1.0, -1.0),
+                vec2(3.0, -1.0),
+                vec2(-1.0, 3.0)
+            );
+            void main() {
+                vec2 position = positions[gl_VertexID];
+                textureCoordinate = position * 0.5 + 0.5;
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 330 core
+            in vec2 textureCoordinate;
+            out vec4 color;
+            uniform sampler2D frameTexture;
+            void main() {
+                color = texture(frameTexture, textureCoordinate);
+            }
+        }
+    }
+    var program = OpenGlProgram(0, 0, "invalid context or dimensions")
+    var texture = 0
+    if (context.valid() && width > 0 && width <= 16384 &&
+        height > 0 && height <= 16384 && context.makeCurrent()) {
+        program = openGlProgramFromPackage(shader)
+    }
+    if (program.valid()) {
+        val textureCell = nativeI64Cell(0)
+        glGenTextures(1, textureCell.address)
+        texture = textureCell.load() & 4294967295
+        if (texture != 0) {
+            glBindTexture(3553, texture)
+            glTexParameteri(3553, 10241, 9728)
+            glTexParameteri(3553, 10240, 9728)
+            glTexParameteri(3553, 10242, 33071)
+            glTexParameteri(3553, 10243, 33071)
+            glTexImage2D(
+                3553,
+                0,
+                32856,
+                width,
+                height,
+                0,
+                6408,
+                5121,
+                nativeNullPointer()
+            )
+            if (glGetError() != 0) {
+                glDeleteTextures(1, textureCell.address)
+                texture = 0
+            }
+        }
+    }
+    OpenGlPixelPresenter(move(program), texture, width, height)
 }
 
 resource class OpenGlWindowContext(

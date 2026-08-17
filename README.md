@@ -26,6 +26,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle; and
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, owns teardown, exposes copied events, and presents common clear colors;
+- reusable affine RGBA8 pixel storage plus a persistent nearest-filtered OpenGL
+  upload path for allocation-free software-rendered frames;
 - integer-only IEEE-754 color encoding so common colors reach both drivers
   without a foreign shim or source-level float ABI; and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
