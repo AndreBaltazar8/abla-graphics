@@ -3,6 +3,11 @@ set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 
+if ! command -v rg >/dev/null 2>&1; then
+    printf '%s\n' 'ripgrep is required for the Abla-only audit' >&2
+    exit 127
+fi
+
 forbidden=$(find "$project_root" \
     -path "$project_root/.git" -prune -o \
     -path "$project_root/build" -prune -o \

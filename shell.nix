@@ -13,6 +13,7 @@ pkgs.mkShell {
     llvmPackages.clang
     llvmPackages.lld
     openssl
+    ripgrep
     vulkan-loader
     vulkan-tools
     vulkan-validation-layers
