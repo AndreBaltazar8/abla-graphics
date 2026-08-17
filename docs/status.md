@@ -10,10 +10,11 @@ Updated: 2026-08-18.
   binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
   MapWindow, active keyboard-map retrieval, portable KeySym translation,
-  synthetic press/release round trips with raw diagnostic codes, event
-  poll/decode, initially hidden windows, idempotent show/hide, runtime title
-  changes, fixed-size and undecorated WM hints, fullscreen EWMH state,
-  explicit transparent-window rejection, WM_DELETE_WINDOW client-message
+  portable pointer buttons, wheel-to-scroll translation, signed pointer
+  coordinates, synthetic keyboard/pointer/scroll round trips with raw diagnostic
+  codes, event poll/decode, initially hidden windows, idempotent show/hide,
+  runtime title changes, fixed-size and undecorated WM hints, fullscreen EWMH
+  state, explicit transparent-window rejection, WM_DELETE_WINDOW client-message
   round trip, DestroyWindow, and close, running against authenticated Xvfb
   without an Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics

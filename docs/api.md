@@ -172,6 +172,12 @@ The X11 implementation obtains the active core keyboard mapping during window
 creation and translates KeySyms in Abla. It does not assume the common Xorg raw
 keycode layout.
 
+Pointer events similarly expose `pointerButtonLeft/right/middle/back/forward`
+and typed accessors. X11 wheel buttons 4 through 7 become signed horizontal or
+vertical scroll ticks on press, and their matching releases are suppressed.
+Pointer motion sign-extends the protocol's 16-bit coordinates, so motion outside
+the window's top or left edge remains negative instead of wrapping.
+
 On the current X11 platform, `visible=false` creates an initially unmapped
 window; `show()`, `hide()`, and `setTitle()` update both the wire-protocol state
 and the Abla-owned state. Fixed-size windows publish `WM_NORMAL_HINTS`,
