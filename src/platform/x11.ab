@@ -570,6 +570,73 @@ fun x11WindowTitleRequest(window: int, title: string): string {
     x11Packet(request, total)
 }
 
+fun x11WindowSizeHintsRequest(
+    window: int,
+    width: int,
+    height: int
+): string {
+    val request = nativeByteBuffer(97)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 24)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, 40)
+    x11StoreU32(request, 12, 41)
+    request.store(16, 32)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, 18)
+    x11StoreU32(request, 24, 48)
+    x11StoreU32(request, 44, width)
+    x11StoreU32(request, 48, height)
+    x11StoreU32(request, 52, width)
+    x11StoreU32(request, 56, height)
+    x11Packet(request, 96)
+}
+
+fun x11UndecoratedHintsRequest(window: int, motifHintsAtom: int): string {
+    val request = nativeByteBuffer(45)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 11)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, motifHintsAtom)
+    x11StoreU32(request, 12, motifHintsAtom)
+    request.store(16, 32)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, 5)
+    x11StoreU32(request, 24, 2)
+    x11StoreU32(request, 28, 0)
+    x11StoreU32(request, 32, 0)
+    x11StoreU32(request, 36, 0)
+    x11StoreU32(request, 40, 0)
+    x11Packet(request, 44)
+}
+
+fun x11AtomPropertyRequest(
+    window: int,
+    propertyAtom: int,
+    valueAtom: int
+): string {
+    val request = nativeByteBuffer(29)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 7)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, propertyAtom)
+    x11StoreU32(request, 12, 4)
+    request.store(16, 32)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, 1)
+    x11StoreU32(request, 24, valueAtom)
+    x11Packet(request, 28)
+}
+
 resource class X11Window(
     var descriptor: int,
     val identifier: int,
@@ -577,8 +644,10 @@ resource class X11Window(
     val protocolsAtom: int,
     val deleteAtom: int,
     val keysyms: array<int>,
-    val width: int,
-    val height: int
+    var width: int,
+    var height: int,
+    var visible: bool,
+    var title: string
 ) {
     fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
     fun keyboardMapped(): bool = x11KeyboardMappingAvailable(this.keysyms)
@@ -599,6 +668,40 @@ resource class X11Window(
             this.descriptor,
             x11SyntheticKeyRequest(this.identifier, platformCode, pressed)
         )
+
+    fun show(): bool {
+        var succeeded = this.valid()
+        if (succeeded && !this.visible) {
+            succeeded = x11WriteAll(
+                this.descriptor,
+                x11SingleWindowRequest(8, this.identifier)
+            )
+            if (succeeded) this.visible = true
+        }
+        succeeded
+    }
+
+    fun hide(): bool {
+        var succeeded = this.valid()
+        if (succeeded && this.visible) {
+            succeeded = x11WriteAll(
+                this.descriptor,
+                x11SingleWindowRequest(10, this.identifier)
+            )
+            if (succeeded) this.visible = false
+        }
+        succeeded
+    }
+
+    fun setTitle(title: string): bool {
+        val succeeded = this.valid() && title.size <= 4096 &&
+            x11WriteAll(
+                this.descriptor,
+                x11WindowTitleRequest(this.identifier, title)
+            )
+        if (succeeded) this.title = title
+        succeeded
+    }
 
     fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
         var result = WindowEvent()
@@ -655,10 +758,12 @@ resource class X11Window(
                         x11U32(event, 12) == this.deleteAtom) {
                         result = WindowEvent(windowEventCloseRequested)
                     } else if (kind == 22) {
+                        this.width = x11U16(event, 20)
+                        this.height = x11U16(event, 22)
                         result = WindowEvent(
                             windowEventResized,
-                            x11U16(event, 20),
-                            x11U16(event, 22)
+                            this.width,
+                            this.height
                         )
                     }
                 }
@@ -701,7 +806,9 @@ fun x11Window(
     var protocolsAtom = 0
     var deleteAtom = 0
     var keysyms: array<int> = []
-    if (config.valid()) descriptor = x11ConnectUnix(displayNumber)
+    if (config.valid() && !config.transparent) {
+        descriptor = x11ConnectUnix(displayNumber)
+    }
     if (descriptor >= 0) {
         val setup = x11Setup(descriptor, x11Authority(displayNumber))
         if (setup.succeeded) {
@@ -718,14 +825,15 @@ fun x11Window(
                 descriptor,
                 x11CreateRequest(setup, identifier, config)
             )
-            var mapped = false
+            var ready = false
             if (created) {
-                x11WriteAll(
+                var configured = x11KeyboardMappingAvailable(keysyms) &&
+                    protocolsAtom != 0 && deleteAtom != 0 && x11WriteAll(
                     descriptor,
                     x11WindowTitleRequest(identifier, config.title)
                 )
-                if (protocolsAtom != 0 && deleteAtom != 0) {
-                    x11WriteAll(
+                if (configured) {
+                    configured = x11WriteAll(
                         descriptor,
                         x11WindowProtocolsRequest(
                             identifier,
@@ -734,12 +842,53 @@ fun x11Window(
                         )
                     )
                 }
-                mapped = x11WriteAll(
-                    descriptor,
-                    x11SingleWindowRequest(8, identifier)
-                )
+                if (configured && !config.resizable) {
+                    configured = x11WriteAll(
+                        descriptor,
+                        x11WindowSizeHintsRequest(
+                            identifier,
+                            config.width,
+                            config.height
+                        )
+                    )
+                }
+                if (configured && !config.decorated) {
+                    val motifHints = x11InternAtom(
+                        descriptor,
+                        "_MOTIF_WM_HINTS"
+                    )
+                    configured = motifHints != 0
+                    if (configured) {
+                        configured = x11WriteAll(
+                            descriptor,
+                            x11UndecoratedHintsRequest(identifier, motifHints)
+                        )
+                    }
+                }
+                if (configured && config.fullscreen) {
+                    val state = x11InternAtom(descriptor, "_NET_WM_STATE")
+                    val fullscreen = x11InternAtom(
+                        descriptor,
+                        "_NET_WM_STATE_FULLSCREEN"
+                    )
+                    configured = state != 0 && fullscreen != 0
+                    if (configured) {
+                        configured = x11WriteAll(
+                            descriptor,
+                            x11AtomPropertyRequest(
+                                identifier,
+                                state,
+                                fullscreen
+                            )
+                        )
+                    }
+                }
+                ready = configured && (!config.visible || x11WriteAll(
+                        descriptor,
+                        x11SingleWindowRequest(8, identifier)
+                    ))
             }
-            if (!mapped) identifier = 0
+            if (!ready) identifier = 0
         }
         if (identifier == 0) {
             linuxSyscall1(3, descriptor)
@@ -754,6 +903,8 @@ fun x11Window(
         deleteAtom,
         keysyms,
         config.width,
-        config.height
+        config.height,
+        config.visible,
+        config.title
     )
 }

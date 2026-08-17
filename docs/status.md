@@ -11,9 +11,11 @@ Updated: 2026-08-18.
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
   MapWindow, active keyboard-map retrieval, portable KeySym translation,
   synthetic press/release round trips with raw diagnostic codes, event
-  poll/decode, WM_DELETE_WINDOW client-message round trip, DestroyWindow, and
-  close, running against authenticated Xvfb without an Xlib/XCB/GLFW
-  window-management layer.
+  poll/decode, initially hidden windows, idempotent show/hide, runtime title
+  changes, fixed-size and undecorated WM hints, fullscreen EWMH state,
+  explicit transparent-window rejection, WM_DELETE_WINDOW client-message
+  round trip, DestroyWindow, and close, running against authenticated Xvfb
+  without an Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,

@@ -172,6 +172,15 @@ The X11 implementation obtains the active core keyboard mapping during window
 creation and translates KeySyms in Abla. It does not assume the common Xorg raw
 keycode layout.
 
+On the current X11 platform, `visible=false` creates an initially unmapped
+window; `show()`, `hide()`, and `setTitle()` update both the wire-protocol state
+and the Abla-owned state. Fixed-size windows publish `WM_NORMAL_HINTS`,
+undecorated windows publish `_MOTIF_WM_HINTS`, and fullscreen windows publish
+the EWMH fullscreen state before mapping. Each required write/atom/map is part
+of creation success. Transparent X11 windows are rejected until alpha-visual
+and compositor capability selection is implemented, rather than silently
+creating an opaque window.
+
 Native code never retains an Abla callback. This keeps event ownership,
 serialization, and failure behavior explicit.
 
