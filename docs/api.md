@@ -41,11 +41,12 @@ app.presentPixels(pixels)
 ```
 
 `PixelBuffer` bounds-checks dimensions, rectangles, channels, and pixel access.
-Its native storage is affine and released deterministically. The Vulkan pixel
-upload/presentation implementation is still pending; `presentPixels` currently
-returns false on a Vulkan-specialized application instead of silently changing
-backends. Pixel coordinate `(0, 0)` is the top-left; the OpenGL presenter flips
-the texture coordinate once in its full-screen shader.
+Its native storage is affine and released deterministically. OpenGL uploads it
+through a persistent nearest-filtered texture. Vulkan keeps a host-visible
+staging buffer, adapts RGBA/BGRA order for the selected swapchain format, and
+copies into the acquired image before presentation. Pixel coordinate `(0, 0)`
+is the top-left; the OpenGL presenter flips the texture coordinate once in its
+full-screen shader.
 
 ## Small application
 

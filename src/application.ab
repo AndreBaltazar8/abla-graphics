@@ -12,6 +12,7 @@ resource class GraphicsApplication(
     var window: X11Window,
     var openGlPixels: OpenGlPixelPresenter,
     var openGl: OpenGlWindowContext,
+    var vulkanPixels: VulkanBuffer,
     var vulkanSwapchain: VulkanSwapchain,
     var vulkanDevice: VulkanDevice,
     var vulkanSurface: VulkanX11Surface,
@@ -25,7 +26,8 @@ resource class GraphicsApplication(
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan &&
           this.vulkanInstance.valid() && this.vulkanSurface.valid() &&
-          this.vulkanDevice.valid() && this.vulkanSwapchain.valid()))
+          this.vulkanDevice.valid() && this.vulkanSwapchain.valid() &&
+          this.vulkanPixels.valid()))
 
     fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent =
         this.window.pollEvent(timeoutMilliseconds)
@@ -45,11 +47,22 @@ resource class GraphicsApplication(
         presented
     }
 
-    trusted fun presentPixels(pixels: PixelBuffer): bool =
-        this.backend == graphicsBackendOpenGl &&
-        this.openGlPixels.present(this.openGl, pixels)
+    trusted fun presentPixels(pixels: PixelBuffer): bool {
+        var presented = false
+        if (this.backend == graphicsBackendOpenGl) {
+            presented = this.openGlPixels.present(this.openGl, pixels)
+        } else if (this.backend == graphicsBackendVulkan) {
+            presented = this.vulkanDevice.presentPixels(
+                this.vulkanSwapchain,
+                this.vulkanPixels,
+                pixels
+            )
+        }
+        presented
+    }
 
     trusted fun drop(): void {
+        this.vulkanPixels.drop()
         this.vulkanSwapchain.drop()
         this.vulkanDevice.drop()
         this.vulkanSurface.drop()
@@ -85,6 +98,15 @@ trusted fun graphicsApplication(
         nativeNullPointer(),
         [],
         0,
+        0,
+        0,
+        0
+    )
+    var vulkanPixels = VulkanBuffer(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        -1,
         0,
         0,
         0
@@ -146,13 +168,22 @@ trusted fun graphicsApplication(
                         adapter,
                         vulkanSurface
                     )
-                    if (vulkanSwapchain.valid()) adapterName = adapter.name
+                    if (vulkanSwapchain.valid()) {
+                        vulkanPixels = vulkanDevice.buffer(
+                            vulkanSwapchain.width *
+                                vulkanSwapchain.height * 4
+                        )
+                        if (vulkanPixels.valid()) adapterName = adapter.name
+                    }
                 }
             }
             index = index + 1
         }
-        if (vulkanSwapchain.valid()) backend = graphicsBackendVulkan
+        if (vulkanSwapchain.valid() && vulkanPixels.valid()) {
+            backend = graphicsBackendVulkan
+        }
         else {
+            vulkanPixels.drop()
             vulkanSwapchain.drop()
             vulkanDevice.drop()
             vulkanSurface.drop()
@@ -189,6 +220,7 @@ trusted fun graphicsApplication(
         move(window),
         move(openGlPixels),
         move(openGl),
+        move(vulkanPixels),
         move(vulkanSwapchain),
         move(vulkanDevice),
         move(vulkanSurface),

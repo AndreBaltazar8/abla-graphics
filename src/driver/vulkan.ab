@@ -6,6 +6,7 @@
 
 import "abla/unsafe/memory"
 import "../core.ab"
+import "../pixels.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 
@@ -232,6 +233,14 @@ noescape extern:"c" fun vkCmdClearColorImage(
     color: i64*,
     rangeCount: i32,
     ranges: i64*
+): void
+noescape extern:"c" fun vkCmdCopyBufferToImage(
+    commandBuffer: i64*,
+    sourceBuffer: int,
+    destinationImage: int,
+    destinationImageLayout: i32,
+    regionCount: i32,
+    regions: i64*
 ): void
 noescape extern:"c" fun vkQueuePresentKHR(
     queue: i64*,
@@ -742,6 +751,58 @@ resource class VulkanBuffer(
         succeeded
     }
 
+    trusted fun writePixels(
+        pixels: PixelBuffer,
+        format: int
+    ): bool {
+        val required = pixels.width * pixels.height * 4
+        var succeeded = this.valid() && pixels.valid() &&
+            required == this.size &&
+            (format == 37 || format == 43 || format == 44 || format == 50)
+        val mapped = nativePointerCell(nativeNullPointer())
+        if (succeeded) {
+            succeeded = vkMapMemory(
+                this.device,
+                this.memory,
+                0,
+                required,
+                0,
+                mapped.address
+            ) == vulkanSuccess
+        }
+        val destination = mapped.load()
+        var pixel = 0
+        val swapRedBlue = format == 44 || format == 50
+        while (succeeded && pixel < pixels.width * pixels.height) {
+            val offset = pixel * 4
+            val red = pixels.storage.load(offset)
+            val green = pixels.storage.load(offset + 1)
+            val blue = pixels.storage.load(offset + 2)
+            val alpha = pixels.storage.load(offset + 3)
+            ablaUnsafeStoreU8(
+                ablaUnsafePointerOffset(destination, offset),
+                if (swapRedBlue) blue else red
+            )
+            ablaUnsafeStoreU8(
+                ablaUnsafePointerOffset(destination, offset + 1),
+                green
+            )
+            ablaUnsafeStoreU8(
+                ablaUnsafePointerOffset(destination, offset + 2),
+                if (swapRedBlue) red else blue
+            )
+            ablaUnsafeStoreU8(
+                ablaUnsafePointerOffset(destination, offset + 3),
+                alpha
+            )
+            pixel = pixel + 1
+        }
+        if (!pointerIsNull(mapped.load())) {
+            vkUnmapMemory(this.device, this.memory)
+        }
+        succeeded
+    }
+
     trusted fun fill(value: int): bool {
         var succeeded = this.valid() &&
             this.size - this.size / 4 * 4 == 0
@@ -1134,7 +1195,8 @@ trusted fun VulkanDevice.swapchain(
     }
     var handle = 0
     if (this.valid() && capabilities.valid && selected.valid &&
-        width > 0 && height > 0 && imageCount > 0 && usage != 0) {
+        width > 0 && height > 0 && imageCount > 0 &&
+        (usage & 2) != 0) {
         val createInfo = nativeByteBuffer(104)
         createInfo.storeI64(0, 1000001000)
         createInfo.storePointer(8, nativeNullPointer())
@@ -1451,3 +1513,200 @@ trusted fun VulkanDevice.presentBlue(
         graphicsScalar(17, 20)
     )
 )
+
+trusted fun VulkanDevice.presentPixels(
+    swapchain: VulkanSwapchain,
+    staging: VulkanBuffer,
+    pixels: PixelBuffer
+): bool {
+    var succeeded = this.valid() && swapchain.valid() && staging.valid() &&
+        pixels.width == swapchain.width && pixels.height == swapchain.height &&
+        staging.writePixels(pixels, swapchain.format)
+    val semaphoreInfo = nativeByteBuffer(24)
+    semaphoreInfo.storeI64(0, 9)
+    semaphoreInfo.storePointer(8, nativeNullPointer())
+    semaphoreInfo.storeI64(16, 0)
+    val acquired = nativeI64Cell(0)
+    val rendered = nativeI64Cell(0)
+    if (succeeded) {
+        succeeded = vkCreateSemaphore(
+            this.handle,
+            semaphoreInfo.address,
+            nativeNullPointer(),
+            acquired.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        succeeded = vkCreateSemaphore(
+            this.handle,
+            semaphoreInfo.address,
+            nativeNullPointer(),
+            rendered.address
+        ) == vulkanSuccess
+    }
+    val imageIndex = nativeI64Cell(0)
+    if (succeeded) {
+        val status = vkAcquireNextImageKHR(
+            this.handle,
+            swapchain.handle,
+            9223372036854775807,
+            acquired.load(),
+            0,
+            imageIndex.address
+        )
+        succeeded = status == vulkanSuccess || status == 1000001003
+    }
+    val selectedIndex = imageIndex.load() & 4294967295
+    if (selectedIndex < 0 || selectedIndex >= swapchain.images.size) {
+        succeeded = false
+    }
+
+    val pool = nativeI64Cell(0)
+    val command = nativePointerCell(nativeNullPointer())
+    if (succeeded) {
+        val poolInfo = nativeByteBuffer(32)
+        poolInfo.storeI64(0, 39)
+        poolInfo.storePointer(8, nativeNullPointer())
+        poolInfo.storeI64(
+            16,
+            (this.queueFamily & 4294967295) * 4294967296 + 2
+        )
+        succeeded = vkCreateCommandPool(
+            this.handle,
+            poolInfo.address,
+            nativeNullPointer(),
+            pool.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val allocateInfo = nativeByteBuffer(32)
+        allocateInfo.storeI64(0, 40)
+        allocateInfo.storePointer(8, nativeNullPointer())
+        allocateInfo.storeI64(16, pool.load())
+        allocateInfo.storeI64(24, 4294967296)
+        succeeded = vkAllocateCommandBuffers(
+            this.handle,
+            allocateInfo.address,
+            command.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val beginInfo = nativeByteBuffer(32)
+        beginInfo.storeI64(0, 42)
+        beginInfo.storePointer(8, nativeNullPointer())
+        beginInfo.storeI64(16, 1)
+        beginInfo.storePointer(24, nativeNullPointer())
+        succeeded = vkBeginCommandBuffer(
+            command.load(),
+            beginInfo.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val image = swapchain.images[selectedIndex]
+        val toTransfer = vulkanImageBarrier(image, 0, 7, 0, 4096)
+        vkCmdPipelineBarrier(
+            command.load(),
+            1,
+            4096,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            toTransfer.address
+        )
+        val copy = nativeByteBuffer(56)
+        copy.storeI64(0, 0)
+        copy.storeI64(8, 0)
+        copy.storeI64(16, 1)
+        copy.storeI64(24, 4294967296)
+        copy.storeI64(32, 0)
+        copy.storeI64(40, swapchain.width * 4294967296)
+        copy.storeI64(48, 4294967296 + swapchain.height)
+        vkCmdCopyBufferToImage(
+            command.load(),
+            staging.handle,
+            image,
+            7,
+            1,
+            copy.address
+        )
+        val toPresent = vulkanImageBarrier(
+            image,
+            7,
+            1000001002,
+            4096,
+            0
+        )
+        vkCmdPipelineBarrier(
+            command.load(),
+            4096,
+            8192,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            toPresent.address
+        )
+        succeeded = vkEndCommandBuffer(command.load()) == vulkanSuccess
+    }
+    if (succeeded) {
+        val waitStage = nativeI64Cell(4096)
+        val submitInfo = nativeByteBuffer(72)
+        submitInfo.storeI64(0, 4)
+        submitInfo.storePointer(8, nativeNullPointer())
+        submitInfo.storeI64(16, 1)
+        submitInfo.storePointer(24, acquired.address)
+        submitInfo.storePointer(32, waitStage.address)
+        submitInfo.storeI64(40, 1)
+        submitInfo.storePointer(48, command.address)
+        submitInfo.storeI64(56, 1)
+        submitInfo.storePointer(64, rendered.address)
+        succeeded = vkQueueSubmit(
+            this.queue,
+            1,
+            submitInfo.address,
+            0
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val swapchainCell = nativeI64Cell(swapchain.handle)
+        val presentInfo = nativeByteBuffer(64)
+        presentInfo.storeI64(0, 1000001001)
+        presentInfo.storePointer(8, nativeNullPointer())
+        presentInfo.storeI64(16, 1)
+        presentInfo.storePointer(24, rendered.address)
+        presentInfo.storeI64(32, 1)
+        presentInfo.storePointer(40, swapchainCell.address)
+        presentInfo.storePointer(48, imageIndex.address)
+        presentInfo.storePointer(56, nativeNullPointer())
+        val status = vkQueuePresentKHR(this.queue, presentInfo.address)
+        succeeded = status == vulkanSuccess || status == 1000001003
+    }
+    if (succeeded) succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
+    if (pool.load() != 0) {
+        vkDestroyCommandPool(
+            this.handle,
+            pool.load(),
+            nativeNullPointer()
+        )
+    }
+    if (rendered.load() != 0) {
+        vkDestroySemaphore(
+            this.handle,
+            rendered.load(),
+            nativeNullPointer()
+        )
+    }
+    if (acquired.load() != 0) {
+        vkDestroySemaphore(
+            this.handle,
+            acquired.load(),
+            nativeNullPointer()
+        )
+    }
+    succeeded
+}

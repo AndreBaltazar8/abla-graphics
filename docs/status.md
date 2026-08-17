@@ -35,8 +35,10 @@ Updated: 2026-08-18.
   convert a common fixed-point color to IEEE-754 bits in Abla, and present it
   under Xvfb/Lavapipe.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
-  native storage, and surfaced OpenGL uploads the same buffer through one
-  persistent nearest-filtered texture and shader program.
+  native storage; surfaced OpenGL uploads it through one persistent
+  nearest-filtered texture/shader program, while Vulkan uses a persistent
+  coherent staging buffer, swapchain-format channel adaptation, image layout
+  barriers, buffer-to-image copy, and synchronized presentation.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, and compile-time rejection of invalid stage names. The
@@ -73,7 +75,6 @@ capability lands.
   rejects quoted includes and does not yet parse declarations or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Portable command encoders/render graph, asset formats, or performance gates.
-- Vulkan upload/presentation for the common `PixelBuffer` software-frame path.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
