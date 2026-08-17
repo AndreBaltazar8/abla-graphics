@@ -9,9 +9,11 @@ Updated: 2026-08-18.
 - X11 test: AF_UNIX connection, protocol 11 setup, server metadata parsing,
   binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
-  MapWindow, event poll/decode, WM_DELETE_WINDOW client-message round trip,
-  DestroyWindow, and close, running against authenticated Xvfb without an
-  Xlib/XCB/GLFW window-management layer.
+  MapWindow, active keyboard-map retrieval, portable KeySym translation,
+  synthetic press/release round trips with raw diagnostic codes, event
+  poll/decode, WM_DELETE_WINDOW client-message round trip, DestroyWindow, and
+  close, running against authenticated Xvfb without an Xlib/XCB/GLFW
+  window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,

@@ -9,13 +9,34 @@ fun main: int {
         visible = false
     ))
     var passed = window.valid() &&
+        window.keyboardMapped() &&
         window.width == 320 &&
         window.height == 180 &&
         window.protocolsAtom != 0 &&
         window.deleteAtom != 0
-    if (passed) passed = window.requestClose()
+    val wKeycode = window.platformKeycode(keyW)
+    if (passed) passed = wKeycode != 0 && window.sendSyntheticKey(wKeycode, true)
     var event = WindowEvent()
     var attempts = 0
+    while (passed && event.kind != windowEventKey &&
+        attempts < 32) {
+        event = window.pollEvent(50)
+        attempts = attempts + 1
+    }
+    if (passed) passed = event.key() == keyW && event.keyPressed() &&
+        event.platformCode == wKeycode
+    if (passed) passed = window.sendSyntheticKey(wKeycode, false)
+    event = WindowEvent()
+    attempts = 0
+    while (passed && event.kind != windowEventKey && attempts < 32) {
+        event = window.pollEvent(50)
+        attempts = attempts + 1
+    }
+    if (passed) passed = event.key() == keyW && !event.keyPressed() &&
+        event.platformCode == wKeycode
+    if (passed) passed = window.requestClose()
+    event = WindowEvent()
+    attempts = 0
     while (passed && event.kind != windowEventCloseRequested &&
         attempts < 32) {
         event = window.pollEvent(50)
@@ -24,7 +45,7 @@ fun main: int {
     if (passed) passed = event.kind == windowEventCloseRequested
     if (!passed) {
         println(
-            "X11 close test valid=${window.valid()} protocols=${window.protocolsAtom} delete=${window.deleteAtom} event=${event.kind}"
+            "X11 event test valid=${window.valid()} keyboard=${window.keyboardMapped()} w=$wKeycode protocols=${window.protocolsAtom} delete=${window.deleteAtom} event=${event.kind}"
         )
     }
     if (passed) 42 else 1

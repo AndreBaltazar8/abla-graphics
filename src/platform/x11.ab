@@ -205,7 +205,9 @@ class X11Setup(
     val rootVisual: int,
     val rootDepth: int,
     val blackPixel: int,
-    val whitePixel: int
+    val whitePixel: int,
+    val minimumKeycode: int,
+    val maximumKeycode: int
 )
 
 fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
@@ -254,12 +256,16 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
     var rootDepth = 0
     var blackPixel = 0
     var whitePixel = 0
+    var minimumKeycode = 0
+    var maximumKeycode = 0
     if (succeeded) {
         resourceBase = x11U32(body, 4)
         resourceMask = x11U32(body, 8)
         val vendorLength = x11U16(body, 16)
         val formatCount = body[21]
         val screenCount = body[20]
+        minimumKeycode = body[26]
+        maximumKeycode = body[27]
         val screenOffset =
             32 + ((vendorLength + 3) / 4) * 4 + formatCount * 8
         succeeded = screenCount > 0 && screenOffset + 40 <= body.size
@@ -280,8 +286,123 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
         rootVisual,
         rootDepth,
         blackPixel,
-        whitePixel
+        whitePixel,
+        minimumKeycode,
+        maximumKeycode
     )
+}
+
+fun x11KeyboardMappingRequest(first: int, count: int): string {
+    val request = nativeByteBuffer(9)
+    request.store(0, 101)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 2)
+    request.store(4, first)
+    request.store(5, count)
+    request.store(6, 0)
+    request.store(7, 0)
+    x11Packet(request, 8)
+}
+
+fun x11KeyboardMapping(
+    descriptor: int,
+    minimumKeycode: int,
+    maximumKeycode: int
+): array<int> {
+    val mapping: array<int> = []
+    var index = 0
+    while (index < 256) {
+        mapping.append(0)
+        index = index + 1
+    }
+    val count = maximumKeycode - minimumKeycode + 1
+    if (descriptor >= 0 && minimumKeycode >= 8 && maximumKeycode <= 255 &&
+        count > 0 && count <= 248 &&
+        x11WriteAll(
+            descriptor,
+            x11KeyboardMappingRequest(minimumKeycode, count)
+        )) {
+        val reply = x11ReadExact(descriptor, 32)
+        if (reply.size == 32 && reply[0] == 1) {
+            val symbolsPerKeycode = reply[1]
+            val bodyLength = x11U32(reply, 4) * 4
+            val body = x11ReadExact(descriptor, bodyLength)
+            if (symbolsPerKeycode > 0 &&
+                body.size == count * symbolsPerKeycode * 4) {
+                var keycode = minimumKeycode
+                while (keycode <= maximumKeycode) {
+                    var symbolIndex = 0
+                    var symbol = 0
+                    while (symbol == 0 && symbolIndex < symbolsPerKeycode) {
+                        val offset = (
+                            (keycode - minimumKeycode) * symbolsPerKeycode +
+                            symbolIndex
+                        ) * 4
+                        symbol = x11U32(body, offset)
+                        symbolIndex = symbolIndex + 1
+                    }
+                    mapping[keycode] = symbol
+                    keycode = keycode + 1
+                }
+            }
+        }
+    }
+    mapping
+}
+
+fun x11KeyboardMappingAvailable(mapping: array<int>): bool {
+    var available = false
+    var index = 0
+    while (!available && index < mapping.size) {
+        available = mapping[index] != 0
+        index = index + 1
+    }
+    available
+}
+
+fun x11KeyFromKeysym(symbol: int): int {
+    var key = keyUnknown
+    if (symbol >= 32 && symbol <= 126) {
+        key = symbol
+        if (key >= 97 && key <= 122) key = key - 32
+    } else if (symbol == 65288) key = keyBackspace
+    else if (symbol == 65289) key = keyTab
+    else if (symbol == 65293) key = keyEnter
+    else if (symbol == 65307) key = keyEscape
+    else if (symbol == 65360) key = keyHome
+    else if (symbol == 65361) key = keyLeft
+    else if (symbol == 65362) key = keyUp
+    else if (symbol == 65363) key = keyRight
+    else if (symbol == 65364) key = keyDown
+    else if (symbol == 65365) key = keyPageUp
+    else if (symbol == 65366) key = keyPageDown
+    else if (symbol == 65367) key = keyEnd
+    else if (symbol == 65379) key = keyInsert
+    else if (symbol == 65535) key = keyDelete
+    else if (symbol >= 65470 && symbol <= 65481) key = keyF1 + symbol - 65470
+    else if (symbol >= 65456 && symbol <= 65465) key = keyKp0 + symbol - 65456
+    else if (symbol == 65454) key = keyKpDecimal
+    else if (symbol == 65455) key = keyKpDivide
+    else if (symbol == 65450) key = keyKpMultiply
+    else if (symbol == 65453) key = keyKpSubtract
+    else if (symbol == 65451) key = keyKpAdd
+    else if (symbol == 65421) key = keyKpEnter
+    else if (symbol == 65469) key = keyKpEqual
+    else if (symbol == 65509) key = keyCapsLock
+    else if (symbol == 65300) key = keyScrollLock
+    else if (symbol == 65407) key = keyNumLock
+    else if (symbol == 65377) key = keyPrintScreen
+    else if (symbol == 65299) key = keyPause
+    else if (symbol == 65505) key = keyLeftShift
+    else if (symbol == 65506) key = keyRightShift
+    else if (symbol == 65507) key = keyLeftControl
+    else if (symbol == 65508) key = keyRightControl
+    else if (symbol == 65513) key = keyLeftAlt
+    else if (symbol == 65514) key = keyRightAlt
+    else if (symbol == 65515) key = keyLeftSuper
+    else if (symbol == 65516) key = keyRightSuper
+    else if (symbol == 65383) key = keyMenu
+    key
 }
 
 fun x11CreateRequest(
@@ -392,6 +513,34 @@ fun x11CloseClientMessageRequest(
     x11Packet(request, 44)
 }
 
+fun x11SyntheticKeyRequest(
+    window: int,
+    platformCode: int,
+    pressed: bool
+): string {
+    val request = nativeByteBuffer(45)
+    request.store(0, 25)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 11)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, if (pressed) 1 else 2)
+    request.store(12, if (pressed) 2 else 3)
+    request.store(13, platformCode)
+    x11StoreU16(request, 14, 0)
+    x11StoreU32(request, 16, 0)
+    x11StoreU32(request, 20, 0)
+    x11StoreU32(request, 24, window)
+    x11StoreU32(request, 28, 0)
+    x11StoreU16(request, 32, 0)
+    x11StoreU16(request, 34, 0)
+    x11StoreU16(request, 36, 0)
+    x11StoreU16(request, 38, 0)
+    x11StoreU16(request, 40, 0)
+    request.store(42, 1)
+    request.store(43, 0)
+    x11Packet(request, 44)
+}
+
 fun x11WindowTitleRequest(window: int, title: string): string {
     var length = title.size
     if (length > 4096) length = 4096
@@ -427,10 +576,29 @@ resource class X11Window(
     val visual: int,
     val protocolsAtom: int,
     val deleteAtom: int,
+    val keysyms: array<int>,
     val width: int,
     val height: int
 ) {
     fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
+    fun keyboardMapped(): bool = x11KeyboardMappingAvailable(this.keysyms)
+
+    fun platformKeycode(key: int): int {
+        var result = 0
+        var index = 0
+        while (result == 0 && index < this.keysyms.size) {
+            if (x11KeyFromKeysym(this.keysyms[index]) == key) result = index
+            index = index + 1
+        }
+        result
+    }
+
+    fun sendSyntheticKey(platformCode: int, pressed: bool): bool =
+        this.valid() && platformCode >= 8 && platformCode <= 255 &&
+        x11WriteAll(
+            this.descriptor,
+            x11SyntheticKeyRequest(this.identifier, platformCode, pressed)
+        )
 
     fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
         var result = WindowEvent()
@@ -452,10 +620,16 @@ resource class X11Window(
                 if (event.size == 32) {
                     val kind = event[0] & 127
                     if (kind == 2 || kind == 3) {
+                        val platformCode = event[1]
+                        val symbol = if (platformCode < this.keysyms.size)
+                            this.keysyms[platformCode]
+                        else 0
                         result = WindowEvent(
                             windowEventKey,
-                            event[1],
-                            if (kind == 2) 1 else 0
+                            x11KeyFromKeysym(symbol),
+                            if (kind == 2) 1 else 0,
+                            "",
+                            platformCode
                         )
                     } else if (kind == 4 || kind == 5) {
                         result = WindowEvent(
@@ -526,10 +700,16 @@ fun x11Window(
     var visual = 0
     var protocolsAtom = 0
     var deleteAtom = 0
+    var keysyms: array<int> = []
     if (config.valid()) descriptor = x11ConnectUnix(displayNumber)
     if (descriptor >= 0) {
         val setup = x11Setup(descriptor, x11Authority(displayNumber))
         if (setup.succeeded) {
+            keysyms = x11KeyboardMapping(
+                descriptor,
+                setup.minimumKeycode,
+                setup.maximumKeycode
+            )
             protocolsAtom = x11InternAtom(descriptor, "WM_PROTOCOLS")
             deleteAtom = x11InternAtom(descriptor, "WM_DELETE_WINDOW")
             visual = setup.rootVisual
@@ -572,6 +752,7 @@ fun x11Window(
         visual,
         protocolsAtom,
         deleteAtom,
+        keysyms,
         config.width,
         config.height
     )

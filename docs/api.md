@@ -164,6 +164,14 @@ graphics surface needs. `Window.pollEvents()` returns bounded value events for
 close, logical/framebuffer resize, focus, key, text, pointer, scroll, file drop,
 and monitor changes. Applications may poll or wait with a timeout.
 
+Key events expose stable `keyA` through `keyZ`, printable, navigation, function,
+keypad, and modifier constants rather than server-specific numbers.
+`event.key()` and `event.keyPressed()` are the portable path;
+`event.platformCode` is retained only for diagnostics and raw platform work.
+The X11 implementation obtains the active core keyboard mapping during window
+creation and translates KeySyms in Abla. It does not assume the common Xorg raw
+keycode layout.
+
 Native code never retains an Abla callback. This keeps event ownership,
 serialization, and failure behavior explicit.
 
