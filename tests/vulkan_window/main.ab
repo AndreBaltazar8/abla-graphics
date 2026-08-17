@@ -16,6 +16,7 @@ fun main: int {
     var supported = false
     var lastMinimum = 0
     var lastUsage = 0
+    var swapchainValid = false
     var index = 0
     while (passed && !supported && index < adapters.size) {
         val family = adapters[index].graphicsQueueFamily()
@@ -26,13 +27,19 @@ fun main: int {
             supported = capabilities.valid &&
                 capabilities.minimumImages > 0 &&
                 capabilities.supportedUsage != 0
+            if (supported) {
+                val device = adapters[index].deviceForSurface(surface)
+                val swapchain = device.swapchain(adapters[index], surface)
+                swapchainValid = device.valid() && swapchain.valid() &&
+                    swapchain.images.size >= capabilities.minimumImages
+            }
         }
         index = index + 1
     }
     if (!passed || !supported) {
         println(
-            "Vulkan surface failure window=${window.valid()} instance=${instance.valid()} surface=${surface.valid()} adapters=${adapters.size} min=$lastMinimum usage=$lastUsage"
+            "Vulkan surface failure window=${window.valid()} instance=${instance.valid()} surface=${surface.valid()} adapters=${adapters.size} min=$lastMinimum usage=$lastUsage swapchain=$swapchainValid"
         )
     }
-    if (passed && supported) 42 else 1
+    if (passed && supported && swapchainValid) 42 else 1
 }

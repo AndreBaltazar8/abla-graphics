@@ -15,7 +15,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   authenticated handshake, creates/titles/maps a window, decodes events, and
   handles the WM_DELETE_WINDOW protocol before destroying it;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
-- a Vulkan X11 surface with presentation-support and capability queries;
+- a Vulkan X11 surface with presentation support, capability/format queries,
+  and swapchain image enumeration;
 - pure-Abla Vulkan buffer allocation, command-pool/buffer recording,
   `vkCmdFillBuffer` submission, host synchronization, mapping, and readback;
 - a pure-Abla EGL/OpenGL surfaceless context, version query, clear, and pixel
