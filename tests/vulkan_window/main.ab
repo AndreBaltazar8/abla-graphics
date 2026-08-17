@@ -1,0 +1,38 @@
+import "../../src/platform/x11.ab"
+import "../../src/driver/vulkan.ab"
+import "abla/io"
+
+fun main: int {
+    val window = x11Window(WindowConfig(
+        title = "Abla Vulkan surface test",
+        width = 320,
+        height = 240,
+        visible = true
+    ))
+    val instance = vulkanX11Instance("Abla Vulkan surface test")
+    val surface = vulkanX11Surface(instance, window)
+    val adapters = instance.adapters()
+    var passed = window.valid() && instance.valid() && surface.valid()
+    var supported = false
+    var lastMinimum = 0
+    var lastUsage = 0
+    var index = 0
+    while (passed && !supported && index < adapters.size) {
+        val family = adapters[index].graphicsQueueFamily()
+        if (adapters[index].supportsSurface(surface, family)) {
+            val capabilities = adapters[index].surfaceCapabilities(surface)
+            lastMinimum = capabilities.minimumImages
+            lastUsage = capabilities.supportedUsage
+            supported = capabilities.valid &&
+                capabilities.minimumImages > 0 &&
+                capabilities.supportedUsage != 0
+        }
+        index = index + 1
+    }
+    if (!passed || !supported) {
+        println(
+            "Vulkan surface failure window=${window.valid()} instance=${instance.valid()} surface=${surface.valid()} adapters=${adapters.size} min=$lastMinimum usage=$lastUsage"
+        )
+    }
+    if (passed && supported) 42 else 1
+}

@@ -5,6 +5,8 @@
 // specification itself; this repository supplies no C shim.
 
 import "abla/unsafe/memory"
+import "../platform/x11.ab"
+import "../platform/x11_wsi.ab"
 
 val vulkanSuccess = 0
 val vulkanStructureApplicationInfo = 0
@@ -152,6 +154,34 @@ noescape extern:"c" fun vkQueueSubmit(
     fence: int
 ): i32
 noescape extern:"c" fun vkQueueWaitIdle(queue: i64*): i32
+noescape extern:"c" fun vkCreateXlibSurfaceKHR(
+    instance: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    surface: i64*
+): i32
+noescape extern:"c" fun vkDestroySurfaceKHR(
+    instance: i64*,
+    surface: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkGetPhysicalDeviceXlibPresentationSupportKHR(
+    physicalDevice: i64*,
+    queueFamilyIndex: i32,
+    display: i64*,
+    visual: int
+): i32
+noescape extern:"c" fun vkGetPhysicalDeviceSurfaceSupportKHR(
+    physicalDevice: i64*,
+    queueFamilyIndex: i32,
+    surface: int,
+    supported: i64*
+): i32
+noescape extern:"c" fun vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    physicalDevice: i64*,
+    surface: int,
+    capabilities: i64*
+): i32
 
 fun vulkanVersionMajor(version: int): int = (version >>> 22) & 127
 fun vulkanVersionMinor(version: int): int = (version >>> 12) & 1023
@@ -226,6 +256,16 @@ trusted fun vulkanInstanceCreateInfo(
     info
 }
 
+trusted fun vulkanX11InstanceCreateInfo(
+    application: NativeByteBuffer,
+    extensions: NativeByteBuffer
+): NativeByteBuffer {
+    val info = vulkanInstanceCreateInfo(application)
+    info.storeI64(48, 2)
+    info.storePointer(56, extensions.address)
+    info
+}
+
 resource class VulkanInstance(var handle: i64*, val apiVersion: int) {
     trusted fun valid(): bool = !pointerIsNull(this.handle)
 
@@ -263,6 +303,170 @@ trusted fun vulkanInstance(
         output.load()
     else nativeNullPointer()
     VulkanInstance(handle, selectedVersion)
+}
+
+trusted fun vulkanX11Instance(
+    applicationName: string = "Abla Graphics",
+    requestedVersion: int = vulkanApiVersion14
+): VulkanInstance {
+    val loaderVersion = vulkanLoaderVersion()
+    var selectedVersion = requestedVersion
+    if (selectedVersion > loaderVersion) selectedVersion = loaderVersion
+    if (selectedVersion < vulkanApiVersion10) {
+        selectedVersion = vulkanApiVersion10
+    }
+    val application = vulkanApplicationInfo(
+        applicationName,
+        selectedVersion
+    )
+    val extensions = nativeByteBuffer(16)
+    extensions.storePointer(
+        0,
+        nativePointerFromAddress(nativeCStringAddress("VK_KHR_surface"))
+    )
+    extensions.storePointer(
+        8,
+        nativePointerFromAddress(nativeCStringAddress("VK_KHR_xlib_surface"))
+    )
+    val createInfo = vulkanX11InstanceCreateInfo(application, extensions)
+    val output = nativePointerCell(nativeNullPointer())
+    val status = vkCreateInstance(
+        createInfo.address,
+        nativeNullPointer(),
+        output.address
+    )
+    val handle = if (status == vulkanSuccess)
+        output.load()
+    else nativeNullPointer()
+    VulkanInstance(handle, selectedVersion)
+}
+
+resource class VulkanX11Surface(
+    var handle: int,
+    var nativeDisplay: i64*,
+    var instance: i64*,
+    val visual: int,
+    val width: int,
+    val height: int
+) {
+    trusted fun valid(): bool =
+        this.handle != 0 &&
+        !pointerIsNull(this.nativeDisplay) &&
+        !pointerIsNull(this.instance)
+
+    trusted fun drop(): void {
+        if (this.handle != 0 && !pointerIsNull(this.instance)) {
+            vkDestroySurfaceKHR(
+                this.instance,
+                this.handle,
+                nativeNullPointer()
+            )
+        }
+        if (!pointerIsNull(this.nativeDisplay)) {
+            XCloseDisplay(this.nativeDisplay)
+        }
+        this.handle = 0
+        this.nativeDisplay = nativeNullPointer()
+        this.instance = nativeNullPointer()
+        return
+    }
+}
+
+trusted fun vulkanX11Surface(
+    instance: VulkanInstance,
+    window: X11Window
+): VulkanX11Surface {
+    var nativeDisplay = nativeNullPointer()
+    var surface = 0
+    if (instance.valid() && window.valid() && window.visual != 0) {
+        nativeDisplay = XOpenDisplay(nativeNullPointer())
+    }
+    if (!pointerIsNull(nativeDisplay)) {
+        val createInfo = nativeByteBuffer(40)
+        createInfo.storeI64(0, 1000004000)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, 0)
+        createInfo.storePointer(24, nativeDisplay)
+        createInfo.storeI64(32, window.identifier)
+        val output = nativeI64Cell(0)
+        if (vkCreateXlibSurfaceKHR(
+            instance.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess) {
+            surface = output.load()
+        }
+    }
+    if (surface == 0 && !pointerIsNull(nativeDisplay)) {
+        XCloseDisplay(nativeDisplay)
+        nativeDisplay = nativeNullPointer()
+    }
+    VulkanX11Surface(
+        surface,
+        nativeDisplay,
+        instance.handle,
+        window.visual,
+        window.width,
+        window.height
+    )
+}
+
+class VulkanSurfaceCapabilities(
+    val valid: bool,
+    val minimumImages: int,
+    val maximumImages: int,
+    val width: int,
+    val height: int,
+    val supportedUsage: int
+)
+
+trusted fun VulkanAdapter.supportsSurface(
+    surface: VulkanX11Surface,
+    queueFamily: int = this.graphicsQueueFamily()
+): bool {
+    var supported = false
+    var xlibSupported = 0
+    if (surface.valid() && queueFamily >= 0) {
+        xlibSupported = vkGetPhysicalDeviceXlibPresentationSupportKHR(
+            this.handle,
+            queueFamily,
+            surface.nativeDisplay,
+            surface.visual
+        )
+    }
+    if (surface.valid() && queueFamily >= 0 && xlibSupported != 0) {
+        val output = nativeI64Cell(0)
+        supported = vkGetPhysicalDeviceSurfaceSupportKHR(
+            this.handle,
+            queueFamily,
+            surface.handle,
+            output.address
+        ) == vulkanSuccess && (output.load() & 4294967295) != 0
+    }
+    supported
+}
+
+trusted fun VulkanAdapter.surfaceCapabilities(
+    surface: VulkanX11Surface
+): VulkanSurfaceCapabilities {
+    val bytes = nativeByteBuffer(64)
+    var status = -1
+    if (surface.valid()) {
+        status = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+            this.handle,
+            surface.handle,
+            bytes.address
+        )
+    }
+    VulkanSurfaceCapabilities(
+        status == vulkanSuccess,
+        bytes.loadI64(0) & 4294967295,
+        (bytes.loadI64(0) >>> 32) & 4294967295,
+        bytes.loadI64(8) & 4294967295,
+        (bytes.loadI64(8) >>> 32) & 4294967295,
+        bytes.loadI64(48) & 4294967295
+    )
 }
 
 class VulkanAdapter(
