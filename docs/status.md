@@ -27,6 +27,10 @@ Updated: 2026-08-17.
   stage lookup, and compile-time rejection of invalid stage names. The
   surfaced triangle is compiled from this package rather than opaque strings.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
+- GitHub CI bootstraps `ablac` from its pinned seed and runs the Abla-only,
+  core, authenticated X11, and GLSL subparser gates on every push and pull
+  request. Driver-backed jobs remain local until the native-library compiler
+  change is integrated upstream and software ICD selection is pinned.
 
 The full `nix-shell --run 'make test'` matrix passes on a host with an RTX
 4090, Intel UHD 770, NVIDIA Vulkan 1.4 driver, Mesa Vulkan/OpenGL, and no active
@@ -58,8 +62,7 @@ capability lands.
   rejects quoted includes and does not yet parse declarations or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Portable command encoders/render graph, asset formats, or performance gates.
-- The complete sample catalog, CI platform matrix, tagged release, or GitHub
-  publication.
+- The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.
