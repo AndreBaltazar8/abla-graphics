@@ -4,7 +4,8 @@ Abla Graphics is an Abla-only graphics and windowing framework targeting
 OpenGL 4.6 and Vulkan 1.4. Framework, platform protocol, driver ABI layout,
 resource ownership, and rendering policy are written in
 [Abla](https://github.com/AndreBaltazar8/ablac). The repository contains no C,
-C++, Rust, GLFW, SDL, Xlib, or XCB implementation layer.
+C++, or Rust implementation source and no GLFW/SDL or Xlib/XCB window-management
+layer.
 
 The project is under active development. The current vertical slice already
 proves the architecture rather than stopping at placeholder interfaces:
@@ -18,7 +19,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a pure-Abla EGL/OpenGL surfaceless context, version query, clear, and pixel
   readback;
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
-  compile/link diagnostics, a full-screen triangle, readback, and swap; and
+  compile/link diagnostics, a full-screen triangle, readback, and swap;
+- an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle; and
 - an isolated general `ablac` implementation for bounded
   `nativeLibraries` manifest entries, used to link installed driver loaders
   without a graphics-specific compiler exception.
@@ -40,8 +42,9 @@ This runs:
 
 - pure Abla core behavior;
 - the direct X11 protocol test under Xvfb;
-- a real Vulkan 1.4 instance/device/GPU-command/readback test; and
-- headless and surfaced EGL/OpenGL draw/readback tests.
+- a real Vulkan 1.4 instance/device/GPU-command/readback test;
+- headless and surfaced EGL/OpenGL draw/readback tests; and
+- runtime/frozen GLSL subparser structure and invalid-stage diagnostics.
 
 The Vulkan and OpenGL tests build an isolated compiler candidate from the local
 `../ablac` sources when needed. They do not overwrite the shared compiler.
@@ -49,7 +52,7 @@ The Vulkan and OpenGL tests build an isolated compiler candidate from the local
 ## Samples
 
 - `examples/x11-window`: direct X11 window/event loop;
-- `examples/vulkan-info`: loader and physical-adapter report; and
+- `examples/vulkan-info`: loader and physical-adapter report;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
 - `examples/opengl-window`: surfaced shader-backed triangle.
 

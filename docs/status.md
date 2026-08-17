@@ -20,6 +20,10 @@ Updated: 2026-08-17.
   X11/EGL WSI bridge, window surface and core context creation, GLSL shader
   compile/link diagnostics, VAO/full-screen triangle draw, pixel readback,
   buffer swap, and reverse-order affine cleanup.
+- Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
+  compute stage blocks, balanced nested scopes, comment preservation, typed
+  stage lookup, and compile-time rejection of invalid stage names. The
+  surfaced triangle is compiled from this package rather than opaque strings.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 
 The full `nix-shell --run 'make test'` matrix passes on a host with an RTX
@@ -47,7 +51,9 @@ capability lands.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Vulkan swapchains, images, descriptors, pipelines, synchronization2, dynamic
   rendering, compute, or advanced extension families.
-- The `$glsl` subparser, reflection, or SPIR-V emission.
+- Full GLSL 4.60 grammar validation, reflection, or SPIR-V emission. The
+  current subparser owns stage structure/source preservation but deliberately
+  rejects quoted includes and does not yet parse declarations or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Portable command encoders/render graph, asset formats, or performance gates.
 - The complete sample catalog, CI platform matrix, tagged release, or GitHub

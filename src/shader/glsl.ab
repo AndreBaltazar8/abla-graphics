@@ -1,0 +1,177 @@
+// Abla-defined GLSL embedded-source parser.
+//
+// This first grammar slice owns multi-stage block structure, balanced shader
+// scopes, comments, stage uniqueness, and source-preserving construction. The
+// GLSL declaration/expression grammar and reflection layer extend this module
+// without changing the public ShaderPackage value.
+
+import "abla/compiler/parser"
+
+val shaderStageVertex = "vertex"
+val shaderStageFragment = "fragment"
+val shaderStageCompute = "compute"
+val shaderStageGeometry = "geometry"
+val shaderStageTessellationControl = "tessellationControl"
+val shaderStageTessellationEvaluation = "tessellationEvaluation"
+
+class ShaderStageSource(val kind: string, val source: string)
+
+class ShaderPackage(
+    val stages: array<ShaderStageSource>,
+    val valid: bool,
+    val error: string
+) {
+    fun source(kind: string): string {
+        var result = ""
+        var index = 0
+        while (result == "" && index < this.stages.size) {
+            if (this.stages[index].kind == kind) {
+                result = this.stages[index].source
+            }
+            index = index + 1
+        }
+        result
+    }
+}
+
+fun glslStageNameValid(name: string): bool =
+    name == shaderStageVertex ||
+    name == shaderStageFragment ||
+    name == shaderStageCompute ||
+    name == shaderStageGeometry ||
+    name == shaderStageTessellationControl ||
+    name == shaderStageTessellationEvaluation
+
+fun glslPackage(
+    names: array<string>,
+    sources: array<string>
+): ShaderPackage {
+    val stages: array<ShaderStageSource> = []
+    var valid = names.size == sources.size && names.size > 0
+    var error = if (valid) "" else "GLSL package has no stages"
+    var compute = false
+    var raster = false
+    var index = 0
+    while (valid && index < names.size) {
+        if (!glslStageNameValid(names[index]) || sources[index] == "") {
+            valid = false
+            error = "GLSL package contains an invalid or empty stage"
+        }
+        var previous = 0
+        while (valid && previous < index) {
+            if (names[previous] == names[index]) {
+                valid = false
+                error = "GLSL package repeats stage '${names[index]}'"
+            }
+            previous = previous + 1
+        }
+        if (valid) {
+            compute = compute || names[index] == shaderStageCompute
+            raster = raster || names[index] != shaderStageCompute
+            stages.append(ShaderStageSource(names[index], sources[index]))
+        }
+        index = index + 1
+    }
+    if (valid && compute && raster) {
+        valid = false
+        error = "compute and raster GLSL stages cannot share one package"
+    }
+    ShaderPackage(stages, valid, error)
+}
+
+compile fun glslAppend(left: string, right: string): string = "$left$right"
+
+compile fun glslReadLineComment(cursor: ParserCursor): string {
+    parserRawExpect(cursor, "//")
+    var result = "//"
+    result = glslAppend(result, parserRawTakeUntil(cursor, "\r\n"))
+    if (parserRawConsume(cursor, "\r")) result = glslAppend(result, "\r")
+    if (parserRawConsume(cursor, "\n")) result = glslAppend(result, "\n")
+    result
+}
+
+compile fun glslReadBlockComment(cursor: ParserCursor): string {
+    parserRawExpect(cursor, "/*")
+    var result = "/*"
+    var closed = false
+    while (!closed && !parserRawEnd(cursor)) {
+        result = glslAppend(result, parserRawTakeUntil(cursor, "*"))
+        if (parserRawConsume(cursor, "*")) {
+            result = glslAppend(result, "*")
+            if (parserRawConsume(cursor, "/")) {
+                result = glslAppend(result, "/")
+                closed = true
+            }
+        }
+    }
+    if (!closed) parserFail(cursor, "unterminated GLSL block comment")
+    result
+}
+
+compile fun glslReadStageBody(cursor: ParserCursor): string {
+    var result = ""
+    var depth = 1
+    while (depth > 0 && !parserRawEnd(cursor)) {
+        val text = parserRawTakeUntil(cursor, "{}/\"")
+        result = glslAppend(result, text)
+        if (parserRawAt(cursor, "//")) {
+            result = glslAppend(result, glslReadLineComment(cursor))
+        } else if (parserRawAt(cursor, "/*")) {
+            result = glslAppend(result, glslReadBlockComment(cursor))
+        } else if (parserRawConsume(cursor, "/")) {
+            result = glslAppend(result, "/")
+        } else if (parserRawConsume(cursor, "{")) {
+            depth = depth + 1
+            result = glslAppend(result, "{")
+        } else if (parserRawConsume(cursor, "}")) {
+            depth = depth - 1
+            if (depth > 0) result = glslAppend(result, "}")
+        } else if (parserRawConsume(cursor, "\"")) {
+            parserFail(
+                cursor,
+                "GLSL string literals and quoted includes are not implemented yet"
+            )
+        }
+    }
+    if (depth != 0) parserFail(cursor, "unterminated GLSL stage block")
+    result
+}
+
+compile fun glslParsePackage(cursor: ParserCursor): SyntaxExpression {
+    parserRawSkipWhitespace(cursor)
+    parserRawExpect(cursor, "{")
+    val names: array<SyntaxExpression> = []
+    val sources: array<SyntaxExpression> = []
+    val measuredNames: array<string> = []
+    var done = false
+    while (!done && !parserRawEnd(cursor)) {
+        parserRawSkipWhitespace(cursor)
+        if (parserRawConsume(cursor, "}")) {
+            done = true
+        } else {
+            val name = parserRawTakeName(cursor)
+            if (!glslStageNameValid(name)) {
+                parserFail(cursor, "unknown GLSL stage '$name'")
+            }
+            var duplicate = false
+            var index = 0
+            while (!duplicate && index < measuredNames.size) {
+                duplicate = measuredNames[index] == name
+                index = index + 1
+            }
+            if (duplicate) parserFail(cursor, "duplicate GLSL stage '$name'")
+            measuredNames.append(name)
+            parserRawSkipWhitespace(cursor)
+            parserRawExpect(cursor, "{")
+            names.append(syntaxString(name))
+            sources.append(syntaxString(glslReadStageBody(cursor)))
+        }
+    }
+    if (!done) parserFail(cursor, "unterminated GLSL package")
+    val arguments: array<SyntaxExpression> = []
+    arguments.append(syntaxArray(names))
+    arguments.append(syntaxArray(sources))
+    syntaxCall("glslPackage", arguments)
+}
+
+#compilerRegisterSubparser("glsl", glslParsePackage)
