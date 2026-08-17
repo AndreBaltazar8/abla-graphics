@@ -4,6 +4,7 @@
 // configuration arrays, output storage, ownership, and calls are Abla.
 
 import "abla/unsafe/memory"
+import "../core.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 import "../shader/glsl.ab"
@@ -77,6 +78,11 @@ noescape extern:"c" fun glViewport(
     height: i32
 ): void
 noescape extern:"c" fun glClear(mask: i32): void
+noescape extern:"c" fun glClearBufferfv(
+    buffer: i32,
+    drawBuffer: i32,
+    value: i64*
+): void
 noescape extern:"c" fun glFinish(): void
 noescape extern:"c" fun glReadPixels(
     x: i32,
@@ -424,6 +430,22 @@ resource class OpenGlWindowContext(
         if (this.makeCurrent()) {
             glViewport(0, 0, this.width, this.height)
             glClear(16384)
+            presented = glGetError() == 0 &&
+                eglSwapBuffers(this.display, this.surface) == eglTrue
+        }
+        presented
+    }
+
+    trusted fun presentClear(color: Color): bool {
+        var presented = false
+        if (color.valid() && this.makeCurrent()) {
+            val values = nativeByteBuffer(16)
+            openGlStoreI32(values, 0, graphicsScalarF32Bits(color.red))
+            openGlStoreI32(values, 1, graphicsScalarF32Bits(color.green))
+            openGlStoreI32(values, 2, graphicsScalarF32Bits(color.blue))
+            openGlStoreI32(values, 3, graphicsScalarF32Bits(color.alpha))
+            glViewport(0, 0, this.width, this.height)
+            glClearBufferfv(6144, 0, values.address)
             presented = glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }

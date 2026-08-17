@@ -133,6 +133,31 @@ fun graphicsScalar(numerator: int, denominator: int = 1): int =
 fun graphicsScalarMultiply(left: int, right: int): int =
     left * right / graphicsScalarOne
 
+// Convert a clamped millionth fixed-point scalar to an IEEE-754 f32 bit
+// pattern without relying on source-level floating-point expressions.
+fun graphicsScalarF32Bits(value: int): int {
+    var result = 0
+    if (value >= graphicsScalarOne) result = 1065353216
+    else if (value > 0) {
+        var normalized = value
+        var exponent = 0
+        while (normalized < graphicsScalarOne) {
+            normalized = normalized * 2
+            exponent = exponent - 1
+        }
+        var mantissa = (
+            (normalized - graphicsScalarOne) * 8388608 +
+            graphicsScalarOne / 2
+        ) / graphicsScalarOne
+        if (mantissa >= 8388608) {
+            mantissa = 0
+            exponent = exponent + 1
+        }
+        result = (127 + exponent) * 8388608 + mantissa
+    }
+    result
+}
+
 class Vec2(val x: int, val y: int) {
     fun plus(other: Vec2): Vec2 = Vec2(
         this.x + other.x,
@@ -176,6 +201,12 @@ class Color(
     val blue: int,
     val alpha: int = graphicsScalarOne
 ) {
+    fun valid(): bool =
+        this.red >= 0 && this.red <= graphicsScalarOne &&
+        this.green >= 0 && this.green <= graphicsScalarOne &&
+        this.blue >= 0 && this.blue <= graphicsScalarOne &&
+        this.alpha >= 0 && this.alpha <= graphicsScalarOne
+
     fun premultiplied(): Color = Color(
         graphicsScalarMultiply(this.red, this.alpha),
         graphicsScalarMultiply(this.green, this.alpha),

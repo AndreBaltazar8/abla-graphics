@@ -1,0 +1,181 @@
+// Backend-neutral application ownership and one-time backend specialization.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "window.ab"
+import "platform/x11.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsApplication(
+    var window: X11Window,
+    var openGl: OpenGlWindowContext,
+    var vulkanSwapchain: VulkanSwapchain,
+    var vulkanDevice: VulkanDevice,
+    var vulkanSurface: VulkanX11Surface,
+    var vulkanInstance: VulkanInstance,
+    val backend: int,
+    val adapterName: string,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        this.window.valid() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkanInstance.valid() && this.vulkanSurface.valid() &&
+          this.vulkanDevice.valid() && this.vulkanSwapchain.valid()))
+
+    fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent =
+        this.window.pollEvent(timeoutMilliseconds)
+
+    fun requestClose(): bool = this.window.requestClose()
+
+    trusted fun presentClear(color: Color): bool {
+        var presented = false
+        if (this.backend == graphicsBackendOpenGl) {
+            presented = this.openGl.presentClear(color)
+        } else if (this.backend == graphicsBackendVulkan) {
+            presented = this.vulkanDevice.presentClear(
+                this.vulkanSwapchain,
+                color
+            )
+        }
+        presented
+    }
+
+    trusted fun drop(): void {
+        this.vulkanSwapchain.drop()
+        this.vulkanDevice.drop()
+        this.vulkanSurface.drop()
+        this.vulkanInstance.drop()
+        this.openGl.drop()
+        this.window.drop()
+        return
+    }
+}
+
+trusted fun graphicsApplication(
+    config: GraphicsConfig = GraphicsConfig(),
+    windowConfig: WindowConfig = WindowConfig()
+): GraphicsApplication {
+    var window = X11Window(-1, 0, 0, 0, 0, 0, 0)
+    var openGl = OpenGlWindowContext(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        0
+    )
+    var vulkanSwapchain = VulkanSwapchain(
+        0,
+        nativeNullPointer(),
+        [],
+        0,
+        0,
+        0,
+        0
+    )
+    var vulkanDevice = VulkanDevice(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        -1,
+        0,
+        nativeNullPointer()
+    )
+    var vulkanSurface = VulkanX11Surface(
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        0,
+        0
+    )
+    var vulkanInstance = VulkanInstance(nativeNullPointer(), 0)
+    var backend = graphicsBackendAuto
+    var adapterName = ""
+    var error = GraphicsError()
+
+    if (!config.valid() || !windowConfig.valid() ||
+        config.backend == graphicsBackendHeadless) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "graphicsApplication",
+            "surface application configuration is invalid"
+        )
+    } else {
+        window = x11Window(windowConfig)
+        if (!window.valid()) {
+            error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "x11Window",
+                "could not create the platform window"
+            )
+        }
+    }
+
+    val tryVulkan = !error.occurred() &&
+        (config.backend == graphicsBackendAuto ||
+         config.backend == graphicsBackendVulkan)
+    if (tryVulkan) {
+        vulkanInstance = vulkanX11Instance(windowConfig.title)
+        if (vulkanInstance.valid()) {
+            vulkanSurface = vulkanX11Surface(vulkanInstance, window)
+        }
+        val adapters = vulkanInstance.adapters()
+        var index = 0
+        while (!vulkanSwapchain.valid() && index < adapters.size) {
+            val adapter = adapters[index]
+            if (vulkanSurface.valid() && adapter.supportsSurface(vulkanSurface)) {
+                vulkanDevice = adapter.deviceForSurface(vulkanSurface)
+                if (vulkanDevice.valid()) {
+                    vulkanSwapchain = vulkanDevice.swapchain(
+                        adapter,
+                        vulkanSurface
+                    )
+                    if (vulkanSwapchain.valid()) adapterName = adapter.name
+                }
+            }
+            index = index + 1
+        }
+        if (vulkanSwapchain.valid()) backend = graphicsBackendVulkan
+        else {
+            vulkanSwapchain.drop()
+            vulkanDevice.drop()
+            vulkanSurface.drop()
+            vulkanInstance.drop()
+        }
+    }
+
+    val tryOpenGl = !error.occurred() &&
+        backend == graphicsBackendAuto &&
+        (config.backend == graphicsBackendAuto ||
+         config.backend == graphicsBackendOpenGl)
+    if (tryOpenGl) {
+        openGl = openGlWindowContext(window)
+        if (openGl.valid()) {
+            backend = graphicsBackendOpenGl
+            adapterName = "OpenGL core context"
+        }
+    }
+
+    if (!error.occurred() && backend == graphicsBackendAuto) {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "graphicsApplication",
+            "the requested surfaced backend is unavailable"
+        )
+    }
+
+    GraphicsApplication(
+        move(window),
+        move(openGl),
+        move(vulkanSwapchain),
+        move(vulkanDevice),
+        move(vulkanSurface),
+        move(vulkanInstance),
+        backend,
+        adapterName,
+        error
+    )
+}

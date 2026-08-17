@@ -1,0 +1,58 @@
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/graphics.ab"
+
+fun applicationBackendProbe(
+    requestedBackend: int,
+    expectedBackend: int,
+    title: string
+): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(backend = requestedBackend),
+        WindowConfig(title = title, width = 320, height = 200)
+    )
+    val valid = app.valid() && app.backend == expectedBackend
+    val presented = app.presentClear(Color(
+        graphicsScalar(3, 20),
+        graphicsScalar(9, 20),
+        graphicsScalar(17, 20)
+    ))
+    println(
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented adapter='${app.adapterName}' error='${app.error.message}'"
+    )
+    valid && presented
+}
+
+fun applicationUnavailableProbe(): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(backend = graphicsBackendVulkan),
+        WindowConfig(title = "Unavailable Vulkan", width = 320, height = 200)
+    )
+    val rejected = !app.valid() &&
+        app.error.code == graphicsErrorBackendUnavailable
+    println("unavailable vulkan: rejected=$rejected")
+    rejected
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    if (requested == "unavailable") {
+        if (applicationUnavailableProbe()) 42 else 1
+    } else {
+        val requestedBackend = if (requested == "opengl")
+            graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+        val expectedBackend = if (
+            requestedBackend == graphicsBackendOpenGl ||
+            requested == "fallback"
+        ) graphicsBackendOpenGl else graphicsBackendVulkan
+        if (applicationBackendProbe(
+            requestedBackend,
+            expectedBackend,
+            "Common $requested"
+        )) 42 else 1
+    }
+}

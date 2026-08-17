@@ -5,6 +5,7 @@
 // specification itself; this repository supplies no C shim.
 
 import "abla/unsafe/memory"
+import "../core.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 
@@ -1239,10 +1240,11 @@ trusted fun vulkanImageBarrier(
     barrier
 }
 
-trusted fun VulkanDevice.presentBlue(
-    swapchain: VulkanSwapchain
+trusted fun VulkanDevice.presentClear(
+    swapchain: VulkanSwapchain,
+    clear: Color
 ): bool {
-    var succeeded = this.valid() && swapchain.valid()
+    var succeeded = this.valid() && swapchain.valid() && clear.valid()
     val semaphoreInfo = nativeByteBuffer(24)
     semaphoreInfo.storeI64(0, 9)
     semaphoreInfo.storePointer(8, nativeNullPointer())
@@ -1338,8 +1340,18 @@ trusted fun VulkanDevice.presentBlue(
             toTransfer.address
         )
         val color = nativeByteBuffer(16)
-        color.storeI64(0, 4539628425446423757)
-        color.storeI64(8, 4575657222461010739)
+        color.storeI64(
+            0,
+            (graphicsScalarF32Bits(clear.green) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.red) & 4294967295)
+        )
+        color.storeI64(
+            8,
+            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.blue) & 4294967295)
+        )
         vkCmdClearColorImage(
             command.load(),
             image,
@@ -1428,3 +1440,14 @@ trusted fun VulkanDevice.presentBlue(
     }
     succeeded
 }
+
+trusted fun VulkanDevice.presentBlue(
+    swapchain: VulkanSwapchain
+): bool = this.presentClear(
+    swapchain,
+    Color(
+        graphicsScalar(3, 20),
+        graphicsScalar(9, 20),
+        graphicsScalar(17, 20)
+    )
+)

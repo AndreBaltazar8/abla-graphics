@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-17.
+Updated: 2026-08-18.
 
 ## Verified now
 
@@ -29,6 +29,11 @@ Updated: 2026-08-17.
   X11/EGL WSI bridge, window surface and core context creation, GLSL shader
   compile/link diagnostics, VAO/full-screen triangle draw, pixel readback,
   buffer swap, and reverse-order affine cleanup.
+- Common application test: explicit OpenGL, explicit Vulkan, automatic Vulkan
+  preference, automatic fallback to OpenGL, and explicit-unavailable rejection;
+  successful paths create an affine application, report the selected adapter,
+  convert a common fixed-point color to IEEE-754 bits in Abla, and present it
+  under Xvfb/Lavapipe.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, and compile-time rejection of invalid stage names. The
@@ -44,6 +49,10 @@ Updated: 2026-08-17.
 The full `nix-shell --run 'make test'` matrix passes on a host with an RTX
 4090, Intel UHD 770, NVIDIA Vulkan 1.4 driver, Mesa Vulkan/OpenGL, and no active
 desktop display.
+
+GitHub Actions run `32077897101` verifies the complete pre-common-facade matrix
+from a clean checkout against the pinned software drivers. The common-facade
+test will enter that same matrix with its implementation commit.
 
 The current compiler also lacks usable source-level floating literals and
 floating arithmetic/ABI conformance. Graphics math is temporarily fixed-point;

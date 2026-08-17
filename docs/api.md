@@ -3,7 +3,37 @@
 This document fixes the intended API shape. Names may be refined before 0.1,
 but the ownership and performance contracts are not optional.
 
+## Available application slice
+
+The current compiler-checked facade already performs one-time backend selection,
+owns the platform/backend resources, polls copied events, and presents a common
+fixed-point clear color:
+
+```abla
+val app = graphicsApplication(
+    GraphicsConfig(backend = graphicsBackendAuto),
+    WindowConfig(title = "Abla clear", width = 1280, height = 720)
+)
+if (app.valid()) {
+    app.presentClear(Color(
+        graphicsScalar(3, 20),
+        graphicsScalar(9, 20),
+        graphicsScalar(17, 20)
+    ))
+}
+```
+
+The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
+before frame work. Its destructor waits/destroys swapchain and device resources,
+then surface/instance/context, then the direct Abla window. A root application
+using this surfaced facade currently declares
+`nativeLibraries = ["vulkan", "X11", "EGL", "GL"]` because the application,
+not a dependency package, chooses its installed native loader boundary.
+
 ## Small application
+
+The descriptor/encoder form below is the target surface being implemented on
+top of the available application slice:
 
 ```abla
 import github("AndreBaltazar8/abla-graphics")

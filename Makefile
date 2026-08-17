@@ -2,7 +2,7 @@ PROJECT_DIR := $(abspath .)
 
 .PHONY: all test test-core test-x11 test-vulkan test-opengl \
 	test-vulkan-window test-opengl-window test-glsl test-samples test-toolchain \
-	check-abla-only clean
+	test-application check-abla-only clean
 
 all: check-abla-only test
 
@@ -10,7 +10,7 @@ check-abla-only:
 	./tools/check-abla-only.sh
 
 test: test-core test-x11 test-vulkan test-vulkan-window test-opengl \
-	test-opengl-window test-glsl
+	test-opengl-window test-glsl test-application
 
 test-core:
 	./tools/test-core.sh
@@ -32,6 +32,9 @@ test-opengl-window:
 
 test-glsl:
 	./tools/test-glsl.sh
+
+test-application:
+	./tools/test-application.sh
 
 test-samples:
 	./tools/test-samples.sh

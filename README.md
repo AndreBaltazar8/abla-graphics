@@ -24,6 +24,10 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle; and
+- a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
+  once, owns teardown, exposes copied events, and presents common clear colors;
+- integer-only IEEE-754 color encoding so common colors reach both drivers
+  without a foreign shim or source-level float ABI; and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
 
@@ -38,6 +42,13 @@ The framework is developed alongside `../ablac`. On NixOS:
 ```sh
 nix-shell --run 'make test'
 nix-shell --run 'make test-toolchain'
+```
+
+Applications that open a portable surface declare the installed loader boundary
+in their root manifest:
+
+```toml
+nativeLibraries = ["vulkan", "X11", "EGL", "GL"]
 ```
 
 This runs:
@@ -59,6 +70,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/vulkan-surface`: X11 WSI adapter/capability selection;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
 - `examples/opengl-window`: surfaced shader-backed triangle.
+- `examples/common-clear`: backend-neutral automatic selection and clear/present.
 
 Run the sample smoke matrix with:
 
