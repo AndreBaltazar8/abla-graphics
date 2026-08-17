@@ -40,6 +40,10 @@ Updated: 2026-08-18.
   coherent staging buffer, swapchain-format channel adaptation, image layout
   barriers, buffer-to-image copy, synchronized presentation, and persistent
   command-pool/command-buffer/semaphore resources across frames.
+- Portable descriptor test: immutable buffer, texture, texture-view, and sampler
+  descriptors validate usage flags, mapping constraints, dimensions, mip and
+  multisample rules, format/view compatibility, subresource ranges, aspects,
+  filters, comparison, LOD, and anisotropy with field-specific diagnostics.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, and compile-time rejection of invalid stage names. The
@@ -56,9 +60,10 @@ The full `nix-shell --run 'make test'` matrix passes on a host with an RTX
 4090, Intel UHD 770, NVIDIA Vulkan 1.4 driver, Mesa Vulkan/OpenGL, and no active
 desktop display.
 
-GitHub Actions run `32077897101` verifies the complete pre-common-facade matrix
-from a clean checkout against the pinned software drivers. The common-facade
-test will enter that same matrix with its implementation commit.
+GitHub Actions runs through `32080086836` verify the complete matrix, including
+the common facade and OpenGL/Vulkan software-frame presentation, from clean
+checkouts against the pinned software drivers. Newer commits retain the same
+local full-matrix gate before publication and receive their own hosted run.
 
 The current compiler also lacks usable source-level floating literals and
 floating arithmetic/ABI conformance. Graphics math is temporarily fixed-point;
@@ -67,15 +72,18 @@ capability lands.
 
 ## Not yet claimed
 
-- Repeated Vulkan frames, swapchain recreation, render pipelines, descriptors,
-  images/views, synchronization2, and dynamic rendering.
+- Vulkan frames-in-flight without per-frame queue idle, swapchain recreation,
+  render pipelines, driver-backed common descriptors/images/views,
+  synchronization2, and dynamic rendering.
 - Wayland, Windows, or macOS platform modules.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Full GLSL 4.60 grammar validation, reflection, or SPIR-V emission. The
   current subparser owns stage structure/source preservation but deliberately
   rejects quoted includes and does not yet parse declarations or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
-- Portable command encoders/render graph, asset formats, or performance gates.
+- Affine portable GPU resource creation, command encoders/render graph, asset
+  formats, or framework-wide performance gates. Immutable structural
+  descriptors are present, but they are not yet driver-backed common resources.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not

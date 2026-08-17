@@ -38,6 +38,54 @@ fun main: int {
     val pixelsCleared = pixels.clearRgba8(3, 5, 7, 11)
     val pixelStored = pixels.setRgba8(1, 1, 13, 17, 19, 23)
     val invalidPixelRejected = !pixels.setRgba8(2, 1, 0, 0, 0)
+    val vertexBuffer = BufferDescriptor(
+        label = "vertices",
+        size = 96,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val readbackBuffer = BufferDescriptor(
+        size = 4096,
+        usage = bufferUsageMapRead | bufferUsageCopyDestination
+    )
+    val invalidMappedBuffer = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapRead | bufferUsageVertex
+    ).validation()
+    val colorTexture = TextureDescriptor(
+        label = "color",
+        size = Extent3D(1280, 720),
+        mipLevels = 11,
+        format = textureFormatRgba8UnormSrgb,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    )
+    val colorView = TextureViewDescriptor(
+        mipLevelCount = 11
+    )
+    val invalidMultisample = TextureDescriptor(
+        size = Extent3D(1280, 720),
+        mipLevels = 2,
+        samples = 4,
+        usage = textureUsageRenderAttachment
+    ).validation()
+    val invalidDepthAspect = TextureViewDescriptor(
+        format = textureFormatRgba8Unorm,
+        aspect = textureAspectDepth
+    ).validation(TextureDescriptor(
+        size = Extent3D(16, 16),
+        usage = textureUsageSampled
+    ))
+    val invalidViewFormat = TextureViewDescriptor(
+        format = textureFormatR32Float
+    ).validation(TextureDescriptor(
+        size = Extent3D(16, 16),
+        usage = textureUsageSampled
+    ))
+    val sampler = SamplerDescriptor(
+        magFilter = samplerFilterLinear,
+        minFilter = samplerFilterLinear,
+        mipmapFilter = samplerFilterLinear,
+        maximumAnisotropy = 16
+    )
 
     if (automatic.succeeded &&
         automatic.backend == graphicsBackendVulkan &&
@@ -60,5 +108,17 @@ fun main: int {
         graphicsScalarF32Bits(graphicsScalar(1)) == 1065353216 &&
         pixelsCleared && pixelStored && invalidPixelRejected &&
         pixels.rgba8(0, 0) == 185009411 &&
-        pixels.rgba8(1, 1) == 387125517) 42 else 1
+        pixels.rgba8(1, 1) == 387125517 &&
+        vertexBuffer.valid() && readbackBuffer.valid() &&
+        !invalidMappedBuffer.succeeded &&
+        invalidMappedBuffer.field == "usage" &&
+        colorTexture.valid() &&
+        colorView.resolvedFormat(colorTexture) == textureFormatRgba8UnormSrgb &&
+        colorView.validation(colorTexture).succeeded &&
+        !invalidMultisample.succeeded &&
+        invalidMultisample.field == "samples" &&
+        !invalidDepthAspect.succeeded &&
+        invalidDepthAspect.field == "aspect" &&
+        !invalidViewFormat.succeeded &&
+        invalidViewFormat.field == "format" && sampler.valid()) 42 else 1
 }

@@ -1,0 +1,357 @@
+// Immutable backend-neutral GPU resource descriptors.
+
+import "core.ab"
+
+val bufferUsageMapRead = 1
+val bufferUsageMapWrite = 2
+val bufferUsageCopySource = 4
+val bufferUsageCopyDestination = 8
+val bufferUsageIndex = 16
+val bufferUsageVertex = 32
+val bufferUsageUniform = 64
+val bufferUsageStorage = 128
+val bufferUsageIndirect = 256
+val bufferUsageQueryResolve = 512
+val bufferUsageAll = 1023
+
+val textureUsageCopySource = 1
+val textureUsageCopyDestination = 2
+val textureUsageSampled = 4
+val textureUsageStorage = 8
+val textureUsageRenderAttachment = 16
+val textureUsageAll = 31
+
+val textureDimension1D = 1
+val textureDimension2D = 2
+val textureDimension3D = 3
+
+val textureFormatUndefined = 0
+val textureFormatR8Unorm = 1
+val textureFormatRg8Unorm = 2
+val textureFormatRgba8Unorm = 3
+val textureFormatRgba8UnormSrgb = 4
+val textureFormatBgra8Unorm = 5
+val textureFormatBgra8UnormSrgb = 6
+val textureFormatR16Float = 7
+val textureFormatRg16Float = 8
+val textureFormatRgba16Float = 9
+val textureFormatR32Float = 10
+val textureFormatRg32Float = 11
+val textureFormatRgba32Float = 12
+val textureFormatDepth16Unorm = 13
+val textureFormatDepth24Stencil8 = 14
+val textureFormatDepth32Float = 15
+val textureFormatDepth32FloatStencil8 = 16
+
+val textureAspectAll = 0
+val textureAspectColor = 1
+val textureAspectDepth = 2
+val textureAspectStencil = 3
+
+val samplerAddressClampToEdge = 0
+val samplerAddressRepeat = 1
+val samplerAddressMirrorRepeat = 2
+
+val samplerFilterNearest = 0
+val samplerFilterLinear = 1
+
+val compareFunctionUndefined = 0
+val compareFunctionNever = 1
+val compareFunctionLess = 2
+val compareFunctionEqual = 3
+val compareFunctionLessEqual = 4
+val compareFunctionGreater = 5
+val compareFunctionNotEqual = 6
+val compareFunctionGreaterEqual = 7
+val compareFunctionAlways = 8
+
+class GraphicsDescriptorValidation(
+    val succeeded: bool,
+    val field: string = "",
+    val message: string = ""
+)
+
+fun graphicsDescriptorValid(): GraphicsDescriptorValidation =
+    GraphicsDescriptorValidation(true)
+
+fun graphicsDescriptorInvalid(
+    field: string,
+    message: string
+): GraphicsDescriptorValidation =
+    GraphicsDescriptorValidation(false, field, message)
+
+fun graphicsUsageValid(usage: int, allowed: int): bool =
+    usage > 0 && (usage & allowed) == usage
+
+fun textureFormatValid(format: int): bool =
+    format >= textureFormatR8Unorm &&
+    format <= textureFormatDepth32FloatStencil8
+
+fun textureFormatHasDepth(format: int): bool =
+    format >= textureFormatDepth16Unorm &&
+    format <= textureFormatDepth32FloatStencil8
+
+fun textureFormatHasStencil(format: int): bool =
+    format == textureFormatDepth24Stencil8 ||
+    format == textureFormatDepth32FloatStencil8
+
+fun textureFormatsViewCompatible(textureFormat: int, viewFormat: int): bool =
+    textureFormat == viewFormat ||
+    (textureFormat == textureFormatRgba8Unorm &&
+     viewFormat == textureFormatRgba8UnormSrgb) ||
+    (textureFormat == textureFormatRgba8UnormSrgb &&
+     viewFormat == textureFormatRgba8Unorm) ||
+    (textureFormat == textureFormatBgra8Unorm &&
+     viewFormat == textureFormatBgra8UnormSrgb) ||
+    (textureFormat == textureFormatBgra8UnormSrgb &&
+     viewFormat == textureFormatBgra8Unorm)
+
+fun textureMaximumMipLevels(size: Extent3D): int {
+    var maximum = size.width
+    if (size.height > maximum) maximum = size.height
+    if (size.depth > maximum) maximum = size.depth
+    var levels = 0
+    while (maximum > 0) {
+        levels = levels + 1
+        maximum = maximum / 2
+    }
+    levels
+}
+
+class BufferDescriptor(
+    val label: string = "",
+    val size: int = 0,
+    val usage: int = 0,
+    val mappedAtCreation: bool = false
+) {
+    fun validation(): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (this.size <= 0) result = graphicsDescriptorInvalid(
+            "size",
+            "buffer size must be positive"
+        )
+        else if (!graphicsUsageValid(this.usage, bufferUsageAll)) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "buffer usage is empty or contains unknown flags"
+            )
+        } else if ((this.usage & bufferUsageMapRead) != 0 &&
+            (this.usage & ~(bufferUsageMapRead | bufferUsageCopyDestination)) != 0) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "map-read buffers may only add copy-destination usage"
+            )
+        } else if ((this.usage & bufferUsageMapWrite) != 0 &&
+            (this.usage & ~(bufferUsageMapWrite | bufferUsageCopySource)) != 0) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "map-write buffers may only add copy-source usage"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool = this.validation().succeeded
+}
+
+class TextureDescriptor(
+    val label: string = "",
+    val size: Extent3D = Extent3D(0, 0, 0),
+    val mipLevels: int = 1,
+    val samples: int = 1,
+    val dimension: int = textureDimension2D,
+    val format: int = textureFormatRgba8Unorm,
+    val usage: int = 0
+) {
+    fun validation(): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (!this.size.valid()) result = graphicsDescriptorInvalid(
+            "size",
+            "texture extent must be positive"
+        )
+        else if (this.dimension < textureDimension1D ||
+            this.dimension > textureDimension3D) {
+            result = graphicsDescriptorInvalid(
+                "dimension",
+                "texture dimension is unknown"
+            )
+        } else if (this.dimension == textureDimension1D &&
+            (this.size.height != 1 || this.size.depth != 1)) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "one-dimensional textures require height and depth of one"
+            )
+        } else if (this.dimension == textureDimension2D && this.size.depth != 1) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "two-dimensional textures require depth of one"
+            )
+        } else if (this.mipLevels < 1 ||
+            this.mipLevels > textureMaximumMipLevels(this.size)) {
+            result = graphicsDescriptorInvalid(
+                "mipLevels",
+                "texture mip-level count exceeds its extent"
+            )
+        } else if (this.samples != 1 && this.samples != 2 &&
+            this.samples != 4 && this.samples != 8 && this.samples != 16) {
+            result = graphicsDescriptorInvalid(
+                "samples",
+                "texture sample count is unsupported"
+            )
+        } else if (this.samples > 1 &&
+            (this.dimension != textureDimension2D || this.mipLevels != 1)) {
+            result = graphicsDescriptorInvalid(
+                "samples",
+                "multisampled textures must be two-dimensional with one mip level"
+            )
+        } else if (!textureFormatValid(this.format)) {
+            result = graphicsDescriptorInvalid(
+                "format",
+                "texture format is unknown"
+            )
+        } else if (!graphicsUsageValid(this.usage, textureUsageAll)) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "texture usage is empty or contains unknown flags"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool = this.validation().succeeded
+}
+
+class TextureViewDescriptor(
+    val label: string = "",
+    val format: int = textureFormatUndefined,
+    val dimension: int = textureDimension2D,
+    val aspect: int = textureAspectAll,
+    val baseMipLevel: int = 0,
+    val mipLevelCount: int = 1,
+    val baseArrayLayer: int = 0,
+    val arrayLayerCount: int = 1
+) {
+    fun resolvedFormat(texture: TextureDescriptor): int =
+        if (this.format == textureFormatUndefined) texture.format
+        else this.format
+
+    fun validation(texture: TextureDescriptor): GraphicsDescriptorValidation {
+        var result = texture.validation()
+        val selectedFormat = this.resolvedFormat(texture)
+        if (result.succeeded && !textureFormatValid(selectedFormat)) {
+            result = graphicsDescriptorInvalid("format", "view format is unknown")
+        } else if (result.succeeded &&
+            !textureFormatsViewCompatible(texture.format, selectedFormat)) {
+            result = graphicsDescriptorInvalid(
+                "format",
+                "view format is incompatible with the texture format"
+            )
+        } else if (result.succeeded &&
+            (this.dimension < textureDimension1D ||
+             this.dimension > textureDimension3D)) {
+            result = graphicsDescriptorInvalid(
+                "dimension",
+                "view dimension is unknown"
+            )
+        } else if (result.succeeded &&
+            (this.baseMipLevel < 0 ||
+             this.baseMipLevel >= texture.mipLevels ||
+             this.mipLevelCount < 1 ||
+             this.mipLevelCount > texture.mipLevels - this.baseMipLevel)) {
+            result = graphicsDescriptorInvalid(
+                "mipLevelCount",
+                "view mip-level range is outside the texture"
+            )
+        } else if (result.succeeded &&
+            (this.baseArrayLayer < 0 ||
+             this.baseArrayLayer >= texture.size.depth ||
+             this.arrayLayerCount < 1 ||
+             this.arrayLayerCount > texture.size.depth - this.baseArrayLayer)) {
+            result = graphicsDescriptorInvalid(
+                "arrayLayerCount",
+                "view array-layer range is outside the texture"
+            )
+        } else if (result.succeeded &&
+            (this.aspect < textureAspectAll || this.aspect > textureAspectStencil)) {
+            result = graphicsDescriptorInvalid("aspect", "view aspect is unknown")
+        } else if (result.succeeded && this.aspect == textureAspectColor &&
+            textureFormatHasDepth(selectedFormat)) {
+            result = graphicsDescriptorInvalid(
+                "aspect",
+                "color aspect cannot select a depth format"
+            )
+        } else if (result.succeeded && this.aspect == textureAspectDepth &&
+            !textureFormatHasDepth(selectedFormat)) {
+            result = graphicsDescriptorInvalid(
+                "aspect",
+                "depth aspect requires a depth format"
+            )
+        } else if (result.succeeded && this.aspect == textureAspectStencil &&
+            !textureFormatHasStencil(selectedFormat)) {
+            result = graphicsDescriptorInvalid(
+                "aspect",
+                "stencil aspect requires a stencil format"
+            )
+        }
+        result
+    }
+}
+
+class SamplerDescriptor(
+    val label: string = "",
+    val addressU: int = samplerAddressClampToEdge,
+    val addressV: int = samplerAddressClampToEdge,
+    val addressW: int = samplerAddressClampToEdge,
+    val magFilter: int = samplerFilterNearest,
+    val minFilter: int = samplerFilterNearest,
+    val mipmapFilter: int = samplerFilterNearest,
+    val lodMinimum: int = 0,
+    val lodMaximum: int = 32,
+    val compare: int = compareFunctionUndefined,
+    val maximumAnisotropy: int = 1
+) {
+    fun validation(): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (this.addressU < samplerAddressClampToEdge ||
+            this.addressU > samplerAddressMirrorRepeat ||
+            this.addressV < samplerAddressClampToEdge ||
+            this.addressV > samplerAddressMirrorRepeat ||
+            this.addressW < samplerAddressClampToEdge ||
+            this.addressW > samplerAddressMirrorRepeat) {
+            result = graphicsDescriptorInvalid(
+                "addressMode",
+                "sampler address mode is unknown"
+            )
+        } else if (this.magFilter < samplerFilterNearest ||
+            this.magFilter > samplerFilterLinear ||
+            this.minFilter < samplerFilterNearest ||
+            this.minFilter > samplerFilterLinear ||
+            this.mipmapFilter < samplerFilterNearest ||
+            this.mipmapFilter > samplerFilterLinear) {
+            result = graphicsDescriptorInvalid(
+                "filter",
+                "sampler filter is unknown"
+            )
+        } else if (this.lodMinimum < 0 || this.lodMaximum < this.lodMinimum) {
+            result = graphicsDescriptorInvalid(
+                "lodMaximum",
+                "sampler LOD range is invalid"
+            )
+        } else if (this.compare < compareFunctionUndefined ||
+            this.compare > compareFunctionAlways) {
+            result = graphicsDescriptorInvalid(
+                "compare",
+                "sampler comparison function is unknown"
+            )
+        } else if (this.maximumAnisotropy < 1 ||
+            this.maximumAnisotropy > 16) {
+            result = graphicsDescriptorInvalid(
+                "maximumAnisotropy",
+                "sampler anisotropy is outside 1 through 16"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool = this.validation().succeeded
+}

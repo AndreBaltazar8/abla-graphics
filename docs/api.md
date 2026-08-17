@@ -50,6 +50,35 @@ reused after each completed submission. Pixel coordinate `(0, 0)` is the
 top-left; the OpenGL presenter flips the texture coordinate once in its
 full-screen shader.
 
+The first immutable GPU descriptors are also compiler checked. Buffer usages
+compose with `|`; structural validation rejects empty/unknown bits and enforces
+portable mapping combinations before any driver call:
+
+```abla
+val vertices = BufferDescriptor(
+    label = "vertices",
+    size = 3 * 2 * 4,
+    usage = bufferUsageVertex | bufferUsageCopyDestination
+)
+val color = TextureDescriptor(
+    label = "color",
+    size = Extent3D(1280, 720),
+    mipLevels = 11,
+    format = textureFormatRgba8UnormSrgb,
+    usage = textureUsageSampled | textureUsageCopyDestination
+)
+```
+
+`BufferDescriptor`, `TextureDescriptor`, `TextureViewDescriptor`, and
+`SamplerDescriptor` separate backend-independent structural validity from
+device-limit/feature validation, which will occur when the affine resource is
+created. Texture checks cover dimensionality, mip and multisample constraints,
+format/view compatibility, subresource ranges, and color/depth/stencil aspects.
+Sampler checks cover address/filter/LOD/comparison/anisotropy domains. A failed
+`validation()` identifies the precise field and a stable diagnostic message.
+Texture views inherit their source texture format by default; an explicit
+linear/sRGB reinterpretation is accepted only for the matching channel layout.
+
 ## Small application
 
 The descriptor/encoder form below is the target surface being implemented on
@@ -121,7 +150,9 @@ The common device creates:
 - query sets and timestamp helpers; and
 - command encoders with render/compute/copy/debug operations.
 
-Creation descriptors are immutable values. Created objects are affine resources.
+Creation descriptors are immutable values; the initial buffer, texture, view,
+and sampler descriptor slice described above is available now. Created objects
+will be affine resources.
 Borrowing a resource for encoding does not transfer it. Explicit `move` is used
 only when ownership actually changes.
 
