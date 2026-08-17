@@ -19,8 +19,9 @@ Updated: 2026-08-17.
 - Vulkan X11 surface test: required instance extensions, `VkXlibSurfaceKHR`
   creation for the direct Abla window, per-adapter graphics/presentation queue
   checks, surface capabilities/formats, a swapchain-enabled logical device,
-  swapchain creation and image enumeration, and affine reverse-order teardown.
-  Image acquisition, rendering, and presentation are not claimed yet.
+  swapchain creation/image enumeration, semaphore-synchronized acquisition,
+  image layout barriers, GPU clear, queue submission/presentation/wait, and
+  affine reverse-order teardown.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version query, viewport/clear,
   RGBA8 readback, and affine EGL cleanup.
@@ -58,8 +59,8 @@ capability lands.
 
 ## Not yet claimed
 
-- Vulkan image acquisition, rendering, synchronization, and queue presentation
-  into the direct X11 window.
+- Repeated Vulkan frames, swapchain recreation, render pipelines, descriptors,
+  images/views, synchronization2, and dynamic rendering.
 - Wayland, Windows, or macOS platform modules.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Vulkan swapchains, images, descriptors, pipelines, synchronization2, dynamic
