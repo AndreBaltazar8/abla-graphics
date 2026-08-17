@@ -114,6 +114,11 @@ noescape extern:"c" fun vkDestroyCommandPool(
     commandPool: int,
     allocator: i64*
 ): void
+noescape extern:"c" fun vkResetCommandPool(
+    device: i64*,
+    commandPool: int,
+    flags: i32
+): i32
 noescape extern:"c" fun vkAllocateCommandBuffers(
     device: i64*,
     allocateInfo: i64*,
@@ -933,6 +938,53 @@ resource class VulkanBuffer(
     }
 }
 
+resource class VulkanPixelPresenter(
+    val staging: VulkanBuffer,
+    var commandPool: int,
+    var commandBuffer: i64*,
+    var acquired: int,
+    var rendered: int,
+    val width: int,
+    val height: int,
+    val format: int
+) {
+    trusted fun valid(): bool =
+        this.staging.valid() && this.commandPool != 0 &&
+        !pointerIsNull(this.commandBuffer) &&
+        this.acquired != 0 && this.rendered != 0 &&
+        this.width > 0 && this.height > 0
+
+    trusted fun drop(): void {
+        if (this.acquired != 0) {
+            vkDestroySemaphore(
+                this.staging.device,
+                this.acquired,
+                nativeNullPointer()
+            )
+            this.acquired = 0
+        }
+        if (this.rendered != 0) {
+            vkDestroySemaphore(
+                this.staging.device,
+                this.rendered,
+                nativeNullPointer()
+            )
+            this.rendered = 0
+        }
+        if (this.commandPool != 0) {
+            vkDestroyCommandPool(
+                this.staging.device,
+                this.commandPool,
+                nativeNullPointer()
+            )
+            this.commandPool = 0
+            this.commandBuffer = nativeNullPointer()
+        }
+        this.staging.drop()
+        return
+    }
+}
+
 trusted fun VulkanDevice.buffer(size: int): VulkanBuffer {
     var handle = 0
     var memory = 0
@@ -1017,6 +1069,101 @@ trusted fun VulkanDevice.buffer(size: int): VulkanBuffer {
         handle,
         memory,
         size
+    )
+}
+
+trusted fun VulkanDevice.pixelPresenter(
+    swapchain: VulkanSwapchain
+): VulkanPixelPresenter {
+    var staging = this.buffer(swapchain.width * swapchain.height * 4)
+    val pool = nativeI64Cell(0)
+    val command = nativePointerCell(nativeNullPointer())
+    val acquired = nativeI64Cell(0)
+    val rendered = nativeI64Cell(0)
+    var succeeded = staging.valid() && swapchain.valid()
+    if (succeeded) {
+        val poolInfo = nativeByteBuffer(32)
+        poolInfo.storeI64(0, 39)
+        poolInfo.storePointer(8, nativeNullPointer())
+        poolInfo.storeI64(
+            16,
+            (this.queueFamily & 4294967295) * 4294967296 + 2
+        )
+        succeeded = vkCreateCommandPool(
+            this.handle,
+            poolInfo.address,
+            nativeNullPointer(),
+            pool.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val allocateInfo = nativeByteBuffer(32)
+        allocateInfo.storeI64(0, 40)
+        allocateInfo.storePointer(8, nativeNullPointer())
+        allocateInfo.storeI64(16, pool.load())
+        allocateInfo.storeI64(24, 4294967296)
+        succeeded = vkAllocateCommandBuffers(
+            this.handle,
+            allocateInfo.address,
+            command.address
+        ) == vulkanSuccess
+    }
+    val semaphoreInfo = nativeByteBuffer(24)
+    semaphoreInfo.storeI64(0, 9)
+    semaphoreInfo.storePointer(8, nativeNullPointer())
+    semaphoreInfo.storeI64(16, 0)
+    if (succeeded) {
+        succeeded = vkCreateSemaphore(
+            this.handle,
+            semaphoreInfo.address,
+            nativeNullPointer(),
+            acquired.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        succeeded = vkCreateSemaphore(
+            this.handle,
+            semaphoreInfo.address,
+            nativeNullPointer(),
+            rendered.address
+        ) == vulkanSuccess
+    }
+    if (!succeeded) {
+        if (rendered.load() != 0) {
+            vkDestroySemaphore(
+                this.handle,
+                rendered.load(),
+                nativeNullPointer()
+            )
+            rendered.store(0)
+        }
+        if (acquired.load() != 0) {
+            vkDestroySemaphore(
+                this.handle,
+                acquired.load(),
+                nativeNullPointer()
+            )
+            acquired.store(0)
+        }
+        if (pool.load() != 0) {
+            vkDestroyCommandPool(
+                this.handle,
+                pool.load(),
+                nativeNullPointer()
+            )
+            pool.store(0)
+            command.store(nativeNullPointer())
+        }
+    }
+    VulkanPixelPresenter(
+        move(staging),
+        pool.load(),
+        command.load(),
+        acquired.load(),
+        rendered.load(),
+        swapchain.width,
+        swapchain.height,
+        swapchain.format
     )
 }
 
@@ -1516,34 +1663,17 @@ trusted fun VulkanDevice.presentBlue(
 
 trusted fun VulkanDevice.presentPixels(
     swapchain: VulkanSwapchain,
-    staging: VulkanBuffer,
+    presenter: VulkanPixelPresenter,
     pixels: PixelBuffer
 ): bool {
-    var succeeded = this.valid() && swapchain.valid() && staging.valid() &&
+    var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
         pixels.width == swapchain.width && pixels.height == swapchain.height &&
-        staging.writePixels(pixels, swapchain.format)
-    val semaphoreInfo = nativeByteBuffer(24)
-    semaphoreInfo.storeI64(0, 9)
-    semaphoreInfo.storePointer(8, nativeNullPointer())
-    semaphoreInfo.storeI64(16, 0)
-    val acquired = nativeI64Cell(0)
-    val rendered = nativeI64Cell(0)
-    if (succeeded) {
-        succeeded = vkCreateSemaphore(
-            this.handle,
-            semaphoreInfo.address,
-            nativeNullPointer(),
-            acquired.address
-        ) == vulkanSuccess
-    }
-    if (succeeded) {
-        succeeded = vkCreateSemaphore(
-            this.handle,
-            semaphoreInfo.address,
-            nativeNullPointer(),
-            rendered.address
-        ) == vulkanSuccess
-    }
+        presenter.width == swapchain.width &&
+        presenter.height == swapchain.height &&
+        presenter.format == swapchain.format &&
+        presenter.staging.writePixels(pixels, swapchain.format)
+    val acquired = nativeI64Cell(presenter.acquired)
+    val rendered = nativeI64Cell(presenter.rendered)
     val imageIndex = nativeI64Cell(0)
     if (succeeded) {
         val status = vkAcquireNextImageKHR(
@@ -1561,33 +1691,12 @@ trusted fun VulkanDevice.presentPixels(
         succeeded = false
     }
 
-    val pool = nativeI64Cell(0)
-    val command = nativePointerCell(nativeNullPointer())
+    val command = nativePointerCell(presenter.commandBuffer)
     if (succeeded) {
-        val poolInfo = nativeByteBuffer(32)
-        poolInfo.storeI64(0, 39)
-        poolInfo.storePointer(8, nativeNullPointer())
-        poolInfo.storeI64(
-            16,
-            (this.queueFamily & 4294967295) * 4294967296 + 2
-        )
-        succeeded = vkCreateCommandPool(
+        succeeded = vkResetCommandPool(
             this.handle,
-            poolInfo.address,
-            nativeNullPointer(),
-            pool.address
-        ) == vulkanSuccess
-    }
-    if (succeeded) {
-        val allocateInfo = nativeByteBuffer(32)
-        allocateInfo.storeI64(0, 40)
-        allocateInfo.storePointer(8, nativeNullPointer())
-        allocateInfo.storeI64(16, pool.load())
-        allocateInfo.storeI64(24, 4294967296)
-        succeeded = vkAllocateCommandBuffers(
-            this.handle,
-            allocateInfo.address,
-            command.address
+            presenter.commandPool,
+            0
         ) == vulkanSuccess
     }
     if (succeeded) {
@@ -1626,7 +1735,7 @@ trusted fun VulkanDevice.presentPixels(
         copy.storeI64(48, 4294967296 + swapchain.height)
         vkCmdCopyBufferToImage(
             command.load(),
-            staging.handle,
+            presenter.staging.handle,
             image,
             7,
             1,
@@ -1687,26 +1796,5 @@ trusted fun VulkanDevice.presentPixels(
         succeeded = status == vulkanSuccess || status == 1000001003
     }
     if (succeeded) succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
-    if (pool.load() != 0) {
-        vkDestroyCommandPool(
-            this.handle,
-            pool.load(),
-            nativeNullPointer()
-        )
-    }
-    if (rendered.load() != 0) {
-        vkDestroySemaphore(
-            this.handle,
-            rendered.load(),
-            nativeNullPointer()
-        )
-    }
-    if (acquired.load() != 0) {
-        vkDestroySemaphore(
-            this.handle,
-            acquired.load(),
-            nativeNullPointer()
-        )
-    }
     succeeded
 }

@@ -38,7 +38,8 @@ Updated: 2026-08-18.
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a persistent
   coherent staging buffer, swapchain-format channel adaptation, image layout
-  barriers, buffer-to-image copy, and synchronized presentation.
+  barriers, buffer-to-image copy, synchronized presentation, and persistent
+  command-pool/command-buffer/semaphore resources across frames.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, and compile-time rejection of invalid stage names. The
