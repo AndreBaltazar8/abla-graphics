@@ -1,0 +1,697 @@
+// Vulkan loader ABI implemented in Abla.
+//
+// Driver structures are laid out in bounded Abla native buffers. The only
+// external code is the installed Vulkan loader/driver required by the Vulkan
+// specification itself; this repository supplies no C shim.
+
+import "abla/unsafe/memory"
+
+val vulkanSuccess = 0
+val vulkanStructureApplicationInfo = 0
+val vulkanStructureInstanceCreateInfo = 1
+val vulkanApiVersion10 = 4194304
+val vulkanApiVersion14 = 4210688
+
+noescape extern:"c" fun vkEnumerateInstanceVersion(version: i64*): i32
+noescape extern:"c" fun vkCreateInstance(
+    createInfo: i64*,
+    allocator: i64*,
+    instance: i64*
+): i32
+noescape extern:"c" fun vkDestroyInstance(
+    instance: i64*,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkEnumeratePhysicalDevices(
+    instance: i64*,
+    count: i64*,
+    devices: i64*
+): i32
+noescape extern:"c" fun vkGetPhysicalDeviceProperties(
+    device: i64*,
+    properties: i64*
+): void
+noescape extern:"c" fun vkGetPhysicalDeviceQueueFamilyProperties(
+    device: i64*,
+    count: i64*,
+    properties: i64*
+): void
+noescape extern:"c" fun vkCreateDevice(
+    physicalDevice: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    device: i64*
+): i32
+noescape extern:"c" fun vkDestroyDevice(
+    device: i64*,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkGetDeviceQueue(
+    device: i64*,
+    queueFamilyIndex: i32,
+    queueIndex: i32,
+    queue: i64*
+): void
+noescape extern:"c" fun vkDeviceWaitIdle(device: i64*): i32
+noescape extern:"c" fun vkCreateBuffer(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    buffer: i64*
+): i32
+noescape extern:"c" fun vkDestroyBuffer(
+    device: i64*,
+    buffer: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkGetBufferMemoryRequirements(
+    device: i64*,
+    buffer: int,
+    requirements: i64*
+): void
+noescape extern:"c" fun vkGetPhysicalDeviceMemoryProperties(
+    physicalDevice: i64*,
+    properties: i64*
+): void
+noescape extern:"c" fun vkAllocateMemory(
+    device: i64*,
+    allocationInfo: i64*,
+    allocator: i64*,
+    memory: i64*
+): i32
+noescape extern:"c" fun vkFreeMemory(
+    device: i64*,
+    memory: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkBindBufferMemory(
+    device: i64*,
+    buffer: int,
+    memory: int,
+    offset: int
+): i32
+noescape extern:"c" fun vkMapMemory(
+    device: i64*,
+    memory: int,
+    offset: int,
+    size: int,
+    flags: i32,
+    data: i64*
+): i32
+noescape extern:"c" fun vkUnmapMemory(device: i64*, memory: int): void
+noescape extern:"c" fun vkCreateCommandPool(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    commandPool: i64*
+): i32
+noescape extern:"c" fun vkDestroyCommandPool(
+    device: i64*,
+    commandPool: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkAllocateCommandBuffers(
+    device: i64*,
+    allocateInfo: i64*,
+    commandBuffers: i64*
+): i32
+noescape extern:"c" fun vkFreeCommandBuffers(
+    device: i64*,
+    commandPool: int,
+    commandBufferCount: i32,
+    commandBuffers: i64*
+): void
+noescape extern:"c" fun vkBeginCommandBuffer(
+    commandBuffer: i64*,
+    beginInfo: i64*
+): i32
+noescape extern:"c" fun vkEndCommandBuffer(commandBuffer: i64*): i32
+noescape extern:"c" fun vkCmdFillBuffer(
+    commandBuffer: i64*,
+    destinationBuffer: int,
+    destinationOffset: int,
+    size: int,
+    data: i32
+): void
+noescape extern:"c" fun vkCmdPipelineBarrier(
+    commandBuffer: i64*,
+    sourceStageMask: i32,
+    destinationStageMask: i32,
+    dependencyFlags: i32,
+    memoryBarrierCount: i32,
+    memoryBarriers: i64*,
+    bufferMemoryBarrierCount: i32,
+    bufferMemoryBarriers: i64*,
+    imageMemoryBarrierCount: i32,
+    imageMemoryBarriers: i64*
+): void
+noescape extern:"c" fun vkQueueSubmit(
+    queue: i64*,
+    submitCount: i32,
+    submits: i64*,
+    fence: int
+): i32
+noescape extern:"c" fun vkQueueWaitIdle(queue: i64*): i32
+
+fun vulkanVersionMajor(version: int): int = (version >>> 22) & 127
+fun vulkanVersionMinor(version: int): int = (version >>> 12) & 1023
+fun vulkanVersionPatch(version: int): int = version & 4095
+
+trusted fun vulkanLoaderVersion(): int {
+    val output = nativeI64Cell(0)
+    val status = vkEnumerateInstanceVersion(output.address)
+    if (status == vulkanSuccess) output.load() & 4294967295
+    else vulkanApiVersion10
+}
+
+trusted fun vulkanBufferPointer(
+    buffer: NativeByteBuffer,
+    offset: int
+): i64* = NativePointerCell(buffer.pointerAt(offset), false, false).load()
+
+trusted fun vulkanCopyCString(
+    source: NativeByteBuffer,
+    offset: int,
+    maximum: int
+): string {
+    var length = 0
+    while (length < maximum && source.load(offset + length) != 0) {
+        length = length + 1
+    }
+    val output = nativeByteBuffer(length + 1)
+    var index = 0
+    while (index < length) {
+        output.store(index, source.load(offset + index))
+        index = index + 1
+    }
+    output.store(length, 0)
+    output.adoptString(length)
+}
+
+trusted fun vulkanApplicationInfo(
+    name: string,
+    requestedVersion: int
+): NativeByteBuffer {
+    val info = nativeByteBuffer(48)
+    info.storeI64(0, vulkanStructureApplicationInfo)
+    info.storePointer(8, nativeNullPointer())
+    info.storePointer(
+        16,
+        nativePointerFromAddress(nativeCStringAddress(name))
+    )
+    info.storeI64(24, 1)
+    info.storePointer(
+        32,
+        nativePointerFromAddress(nativeCStringAddress("abla-graphics"))
+    )
+    info.storeI64(
+        40,
+        (requestedVersion & 4294967295) * 4294967296 + 1
+    )
+    info
+}
+
+trusted fun vulkanInstanceCreateInfo(
+    application: NativeByteBuffer
+): NativeByteBuffer {
+    val info = nativeByteBuffer(64)
+    info.storeI64(0, vulkanStructureInstanceCreateInfo)
+    info.storePointer(8, nativeNullPointer())
+    info.storeI64(16, 0)
+    info.storePointer(24, application.address)
+    info.storeI64(32, 0)
+    info.storePointer(40, nativeNullPointer())
+    info.storeI64(48, 0)
+    info.storePointer(56, nativeNullPointer())
+    info
+}
+
+resource class VulkanInstance(var handle: i64*, val apiVersion: int) {
+    trusted fun valid(): bool = !pointerIsNull(this.handle)
+
+    trusted fun drop(): void {
+        if (this.valid()) {
+            vkDestroyInstance(this.handle, nativeNullPointer())
+            this.handle = nativeNullPointer()
+        }
+        return
+    }
+}
+
+trusted fun vulkanInstance(
+    applicationName: string = "Abla Graphics",
+    requestedVersion: int = vulkanApiVersion14
+): VulkanInstance {
+    val loaderVersion = vulkanLoaderVersion()
+    var selectedVersion = requestedVersion
+    if (selectedVersion > loaderVersion) selectedVersion = loaderVersion
+    if (selectedVersion < vulkanApiVersion10) {
+        selectedVersion = vulkanApiVersion10
+    }
+    val application = vulkanApplicationInfo(
+        applicationName,
+        selectedVersion
+    )
+    val createInfo = vulkanInstanceCreateInfo(application)
+    val output = nativePointerCell(nativeNullPointer())
+    val status = vkCreateInstance(
+        createInfo.address,
+        nativeNullPointer(),
+        output.address
+    )
+    val handle = if (status == vulkanSuccess)
+        output.load()
+    else nativeNullPointer()
+    VulkanInstance(handle, selectedVersion)
+}
+
+class VulkanAdapter(
+    val handle: i64*,
+    val name: string,
+    val apiVersion: int,
+    val driverVersion: int,
+    val vendor: int,
+    val device: int,
+    val kind: int
+)
+
+trusted fun VulkanInstance.adapters(): array<VulkanAdapter> {
+    val result: array<VulkanAdapter> = []
+    if (this.valid()) {
+        val count = nativeI64Cell(0)
+        var status = vkEnumeratePhysicalDevices(
+            this.handle,
+            count.address,
+            nativeNullPointer()
+        )
+        var measured = count.load() & 4294967295
+        if (measured > 256) measured = 0
+        if (status == vulkanSuccess && measured > 0) {
+            val handles = nativeByteBuffer(measured * 8)
+            status = vkEnumeratePhysicalDevices(
+                this.handle,
+                count.address,
+                handles.address
+            )
+            measured = count.load() & 4294967295
+            var index = 0
+            while (status == vulkanSuccess && index < measured) {
+                val handle = vulkanBufferPointer(handles, index * 8)
+                val properties = nativeByteBuffer(1024)
+                vkGetPhysicalDeviceProperties(
+                    handle,
+                    properties.address
+                )
+                result.append(VulkanAdapter(
+                    handle,
+                    vulkanCopyCString(properties, 20, 256),
+                    properties.loadI64(0) & 4294967295,
+                    (properties.loadI64(0) >>> 32) & 4294967295,
+                    properties.loadI64(8) & 4294967295,
+                    (properties.loadI64(8) >>> 32) & 4294967295,
+                    properties.loadI64(16) & 4294967295
+                ))
+                index = index + 1
+            }
+        }
+    }
+    result
+}
+
+trusted fun VulkanAdapter.graphicsQueueFamily(): int {
+    val count = nativeI64Cell(0)
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        this.handle,
+        count.address,
+        nativeNullPointer()
+    )
+    var measured = count.load() & 4294967295
+    if (measured > 256) measured = 0
+    var selected = -1
+    if (measured > 0) {
+        val properties = nativeByteBuffer(measured * 24)
+        vkGetPhysicalDeviceQueueFamilyProperties(
+            this.handle,
+            count.address,
+            properties.address
+        )
+        measured = count.load() & 4294967295
+        var index = 0
+        while (selected < 0 && index < measured) {
+            val flags = properties.loadI64(index * 24) & 4294967295
+            val queues =
+                (properties.loadI64(index * 24) >>> 32) & 4294967295
+            if ((flags & 1) != 0 && queues > 0) selected = index
+            index = index + 1
+        }
+    }
+    selected
+}
+
+resource class VulkanDevice(
+    var handle: i64*,
+    var queue: i64*,
+    val queueFamily: int,
+    val apiVersion: int,
+    val physicalDevice: i64*
+) {
+    trusted fun valid(): bool =
+        !pointerIsNull(this.handle) && !pointerIsNull(this.queue)
+
+    trusted fun waitIdle(): bool =
+        this.valid() && vkDeviceWaitIdle(this.handle) == vulkanSuccess
+
+    trusted fun drop(): void {
+        if (!pointerIsNull(this.handle)) {
+            vkDeviceWaitIdle(this.handle)
+            vkDestroyDevice(this.handle, nativeNullPointer())
+            this.handle = nativeNullPointer()
+            this.queue = nativeNullPointer()
+        }
+        return
+    }
+}
+
+trusted fun VulkanAdapter.device(): VulkanDevice {
+    val queueFamily = this.graphicsQueueFamily()
+    var handle = nativeNullPointer()
+    var queue = nativeNullPointer()
+    if (queueFamily >= 0) {
+        val priority = nativeByteBuffer(8)
+        priority.storeI64(0, 1065353216)
+        val queueInfo = nativeByteBuffer(40)
+        queueInfo.storeI64(0, 2)
+        queueInfo.storePointer(8, nativeNullPointer())
+        queueInfo.storeI64(
+            16,
+            (queueFamily & 4294967295) * 4294967296
+        )
+        queueInfo.storeI64(24, 1)
+        queueInfo.storePointer(32, priority.address)
+
+        val createInfo = nativeByteBuffer(72)
+        createInfo.storeI64(0, 3)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, 4294967296)
+        createInfo.storePointer(24, queueInfo.address)
+        createInfo.storeI64(32, 0)
+        createInfo.storePointer(40, nativeNullPointer())
+        createInfo.storeI64(48, 0)
+        createInfo.storePointer(56, nativeNullPointer())
+        createInfo.storePointer(64, nativeNullPointer())
+
+        val output = nativePointerCell(nativeNullPointer())
+        val status = vkCreateDevice(
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        )
+        if (status == vulkanSuccess) {
+            handle = output.load()
+            val queueOutput = nativePointerCell(nativeNullPointer())
+            vkGetDeviceQueue(
+                handle,
+                queueFamily,
+                0,
+                queueOutput.address
+            )
+            queue = queueOutput.load()
+        }
+    }
+    VulkanDevice(
+        handle,
+        queue,
+        queueFamily,
+        this.apiVersion,
+        this.handle
+    )
+}
+
+resource class VulkanBuffer(
+    val device: i64*,
+    val physicalDevice: i64*,
+    val queue: i64*,
+    val queueFamily: int,
+    var handle: int,
+    var memory: int,
+    val size: int
+) {
+    fun valid(): bool =
+        this.handle != 0 && this.memory != 0 && this.size > 0
+
+    trusted fun readI64(offset: int = 0): int {
+        var result = 0
+        if (this.valid() && offset >= 0 && offset + 8 <= this.size) {
+            val mapped = nativePointerCell(nativeNullPointer())
+            if (vkMapMemory(
+                this.device,
+                this.memory,
+                offset,
+                8,
+                0,
+                mapped.address
+            ) == vulkanSuccess) {
+                result = ablaUnsafeLoadI64(mapped.load())
+                vkUnmapMemory(this.device, this.memory)
+            }
+        }
+        result
+    }
+
+    trusted fun writeI64(value: int, offset: int = 0): bool {
+        var succeeded = false
+        if (this.valid() && offset >= 0 && offset + 8 <= this.size) {
+            val mapped = nativePointerCell(nativeNullPointer())
+            if (vkMapMemory(
+                this.device,
+                this.memory,
+                offset,
+                8,
+                0,
+                mapped.address
+            ) == vulkanSuccess) {
+                ablaUnsafeStoreI64(mapped.load(), value)
+                vkUnmapMemory(this.device, this.memory)
+                succeeded = true
+            }
+        }
+        succeeded
+    }
+
+    trusted fun fill(value: int): bool {
+        var succeeded = this.valid() &&
+            this.size - this.size / 4 * 4 == 0
+        val pool = nativeI64Cell(0)
+        val command = nativePointerCell(nativeNullPointer())
+        if (succeeded) {
+            val poolInfo = nativeByteBuffer(24)
+            poolInfo.storeI64(0, 39)
+            poolInfo.storePointer(8, nativeNullPointer())
+            poolInfo.storeI64(
+                16,
+                (this.queueFamily & 4294967295) * 4294967296 + 1
+            )
+            succeeded = vkCreateCommandPool(
+                this.device,
+                poolInfo.address,
+                nativeNullPointer(),
+                pool.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            val allocateInfo = nativeByteBuffer(32)
+            allocateInfo.storeI64(0, 40)
+            allocateInfo.storePointer(8, nativeNullPointer())
+            allocateInfo.storeI64(16, pool.load())
+            allocateInfo.storeI64(24, 4294967296)
+            succeeded = vkAllocateCommandBuffers(
+                this.device,
+                allocateInfo.address,
+                command.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            val beginInfo = nativeByteBuffer(32)
+            beginInfo.storeI64(0, 42)
+            beginInfo.storePointer(8, nativeNullPointer())
+            beginInfo.storeI64(16, 1)
+            beginInfo.storePointer(24, nativeNullPointer())
+            succeeded = vkBeginCommandBuffer(
+                command.load(),
+                beginInfo.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            vkCmdFillBuffer(
+                command.load(),
+                this.handle,
+                0,
+                this.size,
+                value
+            )
+            val barrier = nativeByteBuffer(24)
+            barrier.storeI64(0, 46)
+            barrier.storePointer(8, nativeNullPointer())
+            barrier.storeI64(16, 8192 * 4294967296 + 4096)
+            vkCmdPipelineBarrier(
+                command.load(),
+                4096,
+                16384,
+                0,
+                1,
+                barrier.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+            succeeded =
+                vkEndCommandBuffer(command.load()) == vulkanSuccess
+        }
+        if (succeeded) {
+            val submit = nativeByteBuffer(72)
+            submit.storeI64(0, 4)
+            submit.storePointer(8, nativeNullPointer())
+            submit.storeI64(16, 0)
+            submit.storePointer(24, nativeNullPointer())
+            submit.storePointer(32, nativeNullPointer())
+            submit.storeI64(40, 1)
+            submit.storePointer(48, command.address)
+            submit.storeI64(56, 0)
+            submit.storePointer(64, nativeNullPointer())
+            succeeded = vkQueueSubmit(
+                this.queue,
+                1,
+                submit.address,
+                0
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
+        }
+        if (!pointerIsNull(command.load())) {
+            vkFreeCommandBuffers(
+                this.device,
+                pool.load(),
+                1,
+                command.address
+            )
+        }
+        if (pool.load() != 0) {
+            vkDestroyCommandPool(
+                this.device,
+                pool.load(),
+                nativeNullPointer()
+            )
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        if (this.handle != 0) {
+            vkDestroyBuffer(
+                this.device,
+                this.handle,
+                nativeNullPointer()
+            )
+            this.handle = 0
+        }
+        if (this.memory != 0) {
+            vkFreeMemory(
+                this.device,
+                this.memory,
+                nativeNullPointer()
+            )
+            this.memory = 0
+        }
+        return
+    }
+}
+
+trusted fun VulkanDevice.buffer(size: int): VulkanBuffer {
+    var handle = 0
+    var memory = 0
+    if (this.valid() && size > 0 && size <= 1073741824) {
+        val createInfo = nativeByteBuffer(56)
+        createInfo.storeI64(0, 12)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, 0)
+        createInfo.storeI64(24, size)
+        createInfo.storeI64(32, 35)
+        createInfo.storeI64(40, 0)
+        createInfo.storePointer(48, nativeNullPointer())
+        val output = nativeI64Cell(0)
+        if (vkCreateBuffer(
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess) {
+            handle = output.load()
+        }
+    }
+    if (handle != 0) {
+        val requirements = nativeByteBuffer(24)
+        vkGetBufferMemoryRequirements(
+            this.handle,
+            handle,
+            requirements.address
+        )
+        val allocationSize = requirements.loadI64(0)
+        val typeBits = requirements.loadI64(16) & 4294967295
+        val properties = nativeByteBuffer(1024)
+        vkGetPhysicalDeviceMemoryProperties(
+            this.physicalDevice,
+            properties.address
+        )
+        val typeCount = properties.loadI64(0) & 4294967295
+        var typeIndex = -1
+        var index = 0
+        while (typeIndex < 0 && index < typeCount && index < 32) {
+            val flags = properties.loadI64(4 + index * 8) & 4294967295
+            if ((typeBits & (1 << index)) != 0 &&
+                (flags & 6) == 6) typeIndex = index
+            index = index + 1
+        }
+        if (typeIndex >= 0) {
+            val allocationInfo = nativeByteBuffer(32)
+            allocationInfo.storeI64(0, 5)
+            allocationInfo.storePointer(8, nativeNullPointer())
+            allocationInfo.storeI64(16, allocationSize)
+            allocationInfo.storeI64(24, typeIndex)
+            val output = nativeI64Cell(0)
+            if (vkAllocateMemory(
+                this.handle,
+                allocationInfo.address,
+                nativeNullPointer(),
+                output.address
+            ) == vulkanSuccess) {
+                memory = output.load()
+            }
+        }
+    }
+    if (handle != 0 && memory != 0 &&
+        vkBindBufferMemory(
+            this.handle,
+            handle,
+            memory,
+            0
+        ) != vulkanSuccess) {
+        vkFreeMemory(this.handle, memory, nativeNullPointer())
+        memory = 0
+    }
+    if (handle != 0 && memory == 0) {
+        vkDestroyBuffer(this.handle, handle, nativeNullPointer())
+        handle = 0
+    }
+    VulkanBuffer(
+        this.handle,
+        this.physicalDevice,
+        this.queue,
+        this.queueFamily,
+        handle,
+        memory,
+        size
+    )
+}

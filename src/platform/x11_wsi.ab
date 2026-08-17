@@ -1,0 +1,29 @@
+// X11 WSI handle bridge implemented in Abla.
+//
+// Window creation, input, and lifetime remain in the direct wire-protocol
+// client. EGL and Vulkan platform extensions require the platform's opaque
+// client handle, so this module obtains only that handle from the installed
+// X11 client library. There is no project native shim and no window management
+// is delegated to this bridge.
+
+import "abla/unsafe/memory"
+
+noescape extern:"c" fun XOpenDisplay(name: i64*): i64*
+noescape extern:"c" fun XCloseDisplay(display: i64*): i32
+noescape extern:"c" fun XSync(display: i64*, discard: i32): i32
+
+resource class X11WsiDisplay(var handle: i64*) {
+    trusted fun valid(): bool = !pointerIsNull(this.handle)
+
+    trusted fun synchronize(): bool =
+        this.valid() && XSync(this.handle, 0) == 0
+
+    trusted fun drop(): void {
+        if (this.valid()) XCloseDisplay(this.handle)
+        this.handle = nativeNullPointer()
+        return
+    }
+}
+
+trusted fun x11WsiDisplay(): X11WsiDisplay =
+    X11WsiDisplay(XOpenDisplay(nativeNullPointer()))

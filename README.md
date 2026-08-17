@@ -1,0 +1,79 @@
+# Abla Graphics
+
+Abla Graphics is an Abla-only graphics and windowing framework targeting
+OpenGL 4.6 and Vulkan 1.4. Framework, platform protocol, driver ABI layout,
+resource ownership, and rendering policy are written in
+[Abla](https://github.com/AndreBaltazar8/ablac). The repository contains no C,
+C++, Rust, GLFW, SDL, Xlib, or XCB implementation layer.
+
+The project is under active development. The current vertical slice already
+proves the architecture rather than stopping at placeholder interfaces:
+
+- a backend-neutral configuration, error, geometry, and fixed-point math core;
+- an affine pure-Abla X11 window that opens the Unix socket, performs the X11
+  handshake, creates/maps a window, decodes events, and destroys it;
+- a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
+- pure-Abla Vulkan buffer allocation, command-pool/buffer recording,
+  `vkCmdFillBuffer` submission, host synchronization, mapping, and readback;
+- a pure-Abla EGL/OpenGL surfaceless context, version query, clear, and pixel
+  readback;
+- a surfaced EGL/OpenGL context on the direct X11 window, including shader
+  compile/link diagnostics, a full-screen triangle, readback, and swap; and
+- an isolated general `ablac` implementation for bounded
+  `nativeLibraries` manifest entries, used to link installed driver loaders
+  without a graphics-specific compiler exception.
+
+The installed Vulkan/EGL/OpenGL loaders and GPU drivers are external because
+they implement the Khronos driver specifications. All application-side calls,
+layouts, loading policy, and ownership are Abla.
+
+## Build and test
+
+The framework is developed alongside `../ablac`. On NixOS:
+
+```sh
+nix-shell --run 'make test'
+nix-shell --run 'make test-toolchain'
+```
+
+This runs:
+
+- pure Abla core behavior;
+- the direct X11 protocol test under Xvfb;
+- a real Vulkan 1.4 instance/device/GPU-command/readback test; and
+- headless and surfaced EGL/OpenGL draw/readback tests.
+
+The Vulkan and OpenGL tests build an isolated compiler candidate from the local
+`../ablac` sources when needed. They do not overwrite the shared compiler.
+
+## Samples
+
+- `examples/x11-window`: direct X11 window/event loop;
+- `examples/vulkan-info`: loader and physical-adapter report; and
+- `examples/headless-opengl`: surfaceless context and framebuffer clear; and
+- `examples/opengl-window`: surfaced shader-backed triangle.
+
+Run the sample smoke matrix with:
+
+```sh
+nix-shell --run 'make test-samples'
+```
+
+## API direction
+
+Normal applications will use the backend-neutral `graphicsApplication`,
+resource descriptors, encoders, and render/compute passes described in
+[the API contract](docs/api.md). Complete generated escape hatches will live
+under `graphics/raw/opengl` and `graphics/raw/vulkan`.
+
+GPU/window resources are affine Abla `resource class` values. Frame command
+data will use reusable arenas and backend selection is kept out of inner draw
+loops. `$glsl` will be an Abla-defined compile-time subparser with source-span
+diagnostics and deterministic OpenGL GLSL/Vulkan SPIR-V output.
+
+See [the implementation plan](plan.md), [architecture](docs/architecture.md),
+[current status](docs/status.md), and [toolchain prerequisites](docs/toolchain-prerequisites.md).
+
+## License
+
+Abla Graphics is licensed under the Mozilla Public License 2.0.

@@ -1,0 +1,660 @@
+// Headless EGL/OpenGL context implemented in Abla.
+//
+// EGL and OpenGL entry points come from the installed graphics driver. All
+// configuration arrays, output storage, ownership, and calls are Abla.
+
+import "abla/unsafe/memory"
+import "../platform/x11.ab"
+import "../platform/x11_wsi.ab"
+
+val eglFalse = 0
+val eglTrue = 1
+val eglNone = 12344
+val eglOpenGlApi = 12450
+val eglPlatformSurfacelessMesa = 12765
+val eglPlatformX11 = 12757
+
+noescape extern:"c" fun eglGetPlatformDisplay(
+    platform: i32,
+    nativeDisplay: i64*,
+    attributes: i64*
+): i64*
+noescape extern:"c" fun eglInitialize(
+    display: i64*,
+    major: i64*,
+    minor: i64*
+): i32
+noescape extern:"c" fun eglTerminate(display: i64*): i32
+noescape extern:"c" fun eglBindAPI(api: i32): i32
+noescape extern:"c" fun eglChooseConfig(
+    display: i64*,
+    attributes: i64*,
+    configs: i64*,
+    configSize: i32,
+    configCount: i64*
+): i32
+noescape extern:"c" fun eglCreatePbufferSurface(
+    display: i64*,
+    config: i64*,
+    attributes: i64*
+): i64*
+noescape extern:"c" fun eglCreatePlatformWindowSurface(
+    display: i64*,
+    config: i64*,
+    nativeWindow: i64*,
+    attributes: i64*
+): i64*
+noescape extern:"c" fun eglDestroySurface(
+    display: i64*,
+    surface: i64*
+): i32
+noescape extern:"c" fun eglCreateContext(
+    display: i64*,
+    config: i64*,
+    sharedContext: i64*,
+    attributes: i64*
+): i64*
+noescape extern:"c" fun eglDestroyContext(
+    display: i64*,
+    context: i64*
+): i32
+noescape extern:"c" fun eglMakeCurrent(
+    display: i64*,
+    draw: i64*,
+    read: i64*,
+    context: i64*
+): i32
+noescape extern:"c" fun eglSwapBuffers(
+    display: i64*,
+    surface: i64*
+): i32
+noescape extern:"c" fun glGetIntegerv(name: i32, value: i64*): void
+noescape extern:"c" fun glViewport(
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32
+): void
+noescape extern:"c" fun glClear(mask: i32): void
+noescape extern:"c" fun glFinish(): void
+noescape extern:"c" fun glReadPixels(
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glGetError(): i32
+noescape extern:"c" fun glCreateShader(kind: i32): i32
+noescape extern:"c" fun glShaderSource(
+    shader: i32,
+    count: i32,
+    sources: i64*,
+    lengths: i64*
+): void
+noescape extern:"c" fun glCompileShader(shader: i32): void
+noescape extern:"c" fun glGetShaderiv(
+    shader: i32,
+    name: i32,
+    value: i64*
+): void
+noescape extern:"c" fun glGetShaderInfoLog(
+    shader: i32,
+    capacity: i32,
+    length: i64*,
+    log: i64*
+): void
+noescape extern:"c" fun glDeleteShader(shader: i32): void
+noescape extern:"c" fun glCreateProgram(): i32
+noescape extern:"c" fun glAttachShader(program: i32, shader: i32): void
+noescape extern:"c" fun glLinkProgram(program: i32): void
+noescape extern:"c" fun glGetProgramiv(
+    program: i32,
+    name: i32,
+    value: i64*
+): void
+noescape extern:"c" fun glGetProgramInfoLog(
+    program: i32,
+    capacity: i32,
+    length: i64*,
+    log: i64*
+): void
+noescape extern:"c" fun glDeleteProgram(program: i32): void
+noescape extern:"c" fun glUseProgram(program: i32): void
+noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
+noescape extern:"c" fun glBindVertexArray(array: i32): void
+noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
+noescape extern:"c" fun glDrawArrays(
+    mode: i32,
+    first: i32,
+    count: i32
+): void
+
+fun openGlStoreI32(
+    var buffer: NativeByteBuffer,
+    index: int,
+    value: int
+): void {
+    val offset = index * 4
+    buffer.store(offset, value & 255)
+    buffer.store(offset + 1, (value >>> 8) & 255)
+    buffer.store(offset + 2, (value >>> 16) & 255)
+    buffer.store(offset + 3, (value >>> 24) & 255)
+    return
+}
+
+fun openGlConfigAttributes(): NativeByteBuffer {
+    val values = nativeByteBuffer(64)
+    openGlStoreI32(values, 0, 12339)
+    openGlStoreI32(values, 1, 1)
+    openGlStoreI32(values, 2, 12352)
+    openGlStoreI32(values, 3, 8)
+    openGlStoreI32(values, 4, 12324)
+    openGlStoreI32(values, 5, 8)
+    openGlStoreI32(values, 6, 12323)
+    openGlStoreI32(values, 7, 8)
+    openGlStoreI32(values, 8, 12322)
+    openGlStoreI32(values, 9, 8)
+    openGlStoreI32(values, 10, 12321)
+    openGlStoreI32(values, 11, 8)
+    openGlStoreI32(values, 12, eglNone)
+    values
+}
+
+fun openGlWindowConfigAttributes(visual: int): NativeByteBuffer {
+    val values = nativeByteBuffer(72)
+    openGlStoreI32(values, 0, 12339)
+    openGlStoreI32(values, 1, 4)
+    openGlStoreI32(values, 2, 12352)
+    openGlStoreI32(values, 3, 8)
+    openGlStoreI32(values, 4, 12334)
+    openGlStoreI32(values, 5, visual)
+    openGlStoreI32(values, 6, 12324)
+    openGlStoreI32(values, 7, 8)
+    openGlStoreI32(values, 8, 12323)
+    openGlStoreI32(values, 9, 8)
+    openGlStoreI32(values, 10, 12322)
+    openGlStoreI32(values, 11, 8)
+    openGlStoreI32(values, 12, 12321)
+    openGlStoreI32(values, 13, 8)
+    openGlStoreI32(values, 14, eglNone)
+    values
+}
+
+fun openGlPbufferAttributes(width: int, height: int): NativeByteBuffer {
+    val values = nativeByteBuffer(24)
+    openGlStoreI32(values, 0, 12375)
+    openGlStoreI32(values, 1, width)
+    openGlStoreI32(values, 2, 12374)
+    openGlStoreI32(values, 3, height)
+    openGlStoreI32(values, 4, eglNone)
+    values
+}
+
+fun openGlContextAttributes(major: int, minor: int): NativeByteBuffer {
+    val values = nativeByteBuffer(32)
+    openGlStoreI32(values, 0, 12440)
+    openGlStoreI32(values, 1, major)
+    openGlStoreI32(values, 2, 12539)
+    openGlStoreI32(values, 3, minor)
+    openGlStoreI32(values, 4, 12541)
+    openGlStoreI32(values, 5, 1)
+    openGlStoreI32(values, 6, eglNone)
+    values
+}
+
+resource class OpenGlContext(
+    var display: i64*,
+    var surface: i64*,
+    var context: i64*,
+    val width: int,
+    val height: int
+) {
+    trusted fun valid(): bool =
+        !pointerIsNull(this.display) &&
+        !pointerIsNull(this.surface) &&
+        !pointerIsNull(this.context)
+
+    trusted fun makeCurrent(): bool =
+        this.valid() &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+
+    trusted fun version(): int {
+        var version = 0
+        if (this.makeCurrent()) {
+            val major = nativeI64Cell(0)
+            val minor = nativeI64Cell(0)
+            glGetIntegerv(33307, major.address)
+            glGetIntegerv(33308, minor.address)
+            version = (major.load() & 4294967295) * 1000 +
+                (minor.load() & 4294967295)
+        }
+        version
+    }
+
+    trusted fun clearBlackAndReadRgba8(): int {
+        var result = -1
+        if (this.makeCurrent()) {
+            glViewport(0, 0, this.width, this.height)
+            glClear(16384)
+            glFinish()
+            val pixel = nativeByteBuffer(8)
+            glReadPixels(0, 0, 1, 1, 6408, 5121, pixel.address)
+            if (glGetError() == 0) {
+                result = pixel.loadI64(0) & 4294967295
+            }
+        }
+        result
+    }
+
+    trusted fun drop(): void {
+        if (!pointerIsNull(this.display)) {
+            eglMakeCurrent(
+                this.display,
+                nativeNullPointer(),
+                nativeNullPointer(),
+                nativeNullPointer()
+            )
+            if (!pointerIsNull(this.context)) {
+                eglDestroyContext(this.display, this.context)
+            }
+            if (!pointerIsNull(this.surface)) {
+                eglDestroySurface(this.display, this.surface)
+            }
+            eglTerminate(this.display)
+        }
+        this.context = nativeNullPointer()
+        this.surface = nativeNullPointer()
+        this.display = nativeNullPointer()
+        return
+    }
+}
+
+resource class OpenGlProgram(
+    var handle: int,
+    var vertexArray: int,
+    val error: string
+) {
+    fun valid(): bool = this.handle != 0 && this.vertexArray != 0
+
+    trusted fun drop(): void {
+        if (this.handle != 0) glDeleteProgram(this.handle)
+        if (this.vertexArray != 0) {
+            val array = nativeI64Cell(this.vertexArray)
+            glDeleteVertexArrays(1, array.address)
+        }
+        this.handle = 0
+        this.vertexArray = 0
+        return
+    }
+}
+
+class OpenGlShaderResult(val handle: int, val error: string)
+
+trusted fun openGlShaderLog(shader: int): string {
+    val length = nativeI64Cell(0)
+    val bytes = nativeByteBuffer(4097)
+    glGetShaderInfoLog(shader, 4096, length.address, bytes.address)
+    var measured = length.load() & 4294967295
+    if (measured > 4096) measured = 4096
+    bytes.adoptString(measured)
+}
+
+trusted fun openGlProgramLog(program: int): string {
+    val length = nativeI64Cell(0)
+    val bytes = nativeByteBuffer(4097)
+    glGetProgramInfoLog(program, 4096, length.address, bytes.address)
+    var measured = length.load() & 4294967295
+    if (measured > 4096) measured = 4096
+    bytes.adoptString(measured)
+}
+
+trusted fun openGlCompileShader(
+    kind: int,
+    source: string
+): OpenGlShaderResult {
+    var shader = glCreateShader(kind)
+    var error = ""
+    if (shader != 0) {
+        val sourcePointer = nativePointerCell(
+            nativePointerFromAddress(nativeCStringAddress(source))
+        )
+        glShaderSource(
+            shader,
+            1,
+            sourcePointer.address,
+            nativeNullPointer()
+        )
+        glCompileShader(shader)
+        val compiled = nativeI64Cell(0)
+        glGetShaderiv(shader, 35713, compiled.address)
+        if ((compiled.load() & 4294967295) == 0) {
+            error = openGlShaderLog(shader)
+            glDeleteShader(shader)
+            shader = 0
+        }
+    } else {
+        error = "OpenGL returned shader handle zero"
+    }
+    OpenGlShaderResult(shader, error)
+}
+
+trusted fun openGlProgram(
+    vertexSource: string,
+    fragmentSource: string
+): OpenGlProgram {
+    val vertex = openGlCompileShader(35633, vertexSource)
+    val fragment = openGlCompileShader(35632, fragmentSource)
+    var program = 0
+    var vertexArray = 0
+    var error = if (vertex.error != "") vertex.error else fragment.error
+    if (vertex.handle != 0 && fragment.handle != 0) {
+        program = glCreateProgram()
+        if (program != 0) {
+            glAttachShader(program, vertex.handle)
+            glAttachShader(program, fragment.handle)
+            glLinkProgram(program)
+            val linked = nativeI64Cell(0)
+            glGetProgramiv(program, 35714, linked.address)
+            if ((linked.load() & 4294967295) == 0) {
+                error = openGlProgramLog(program)
+                glDeleteProgram(program)
+                program = 0
+            }
+        } else {
+            error = "OpenGL returned program handle zero"
+        }
+    }
+    if (vertex.handle != 0) glDeleteShader(vertex.handle)
+    if (fragment.handle != 0) glDeleteShader(fragment.handle)
+    if (program != 0) {
+        val array = nativeI64Cell(0)
+        glGenVertexArrays(1, array.address)
+        vertexArray = array.load() & 4294967295
+        if (vertexArray == 0) {
+            glDeleteProgram(program)
+            program = 0
+        }
+    }
+    OpenGlProgram(program, vertexArray, error)
+}
+
+resource class OpenGlWindowContext(
+    var nativeDisplay: i64*,
+    var display: i64*,
+    var surface: i64*,
+    var context: i64*,
+    val width: int,
+    val height: int
+) {
+    trusted fun valid(): bool =
+        !pointerIsNull(this.nativeDisplay) &&
+        !pointerIsNull(this.display) &&
+        !pointerIsNull(this.surface) &&
+        !pointerIsNull(this.context)
+
+    trusted fun makeCurrent(): bool =
+        this.valid() &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+
+    trusted fun presentBlack(): bool {
+        var presented = false
+        if (this.makeCurrent()) {
+            glViewport(0, 0, this.width, this.height)
+            glClear(16384)
+            presented = glGetError() == 0 &&
+                eglSwapBuffers(this.display, this.surface) == eglTrue
+        }
+        presented
+    }
+
+    trusted fun drawAndPresent(
+        program: OpenGlProgram
+    ): int {
+        var pixelValue = -1
+        if (program.valid() && this.makeCurrent()) {
+            glViewport(0, 0, this.width, this.height)
+            glClear(16384)
+            glUseProgram(program.handle)
+            glBindVertexArray(program.vertexArray)
+            glDrawArrays(4, 0, 3)
+            glFinish()
+            val pixel = nativeByteBuffer(8)
+            glReadPixels(
+                this.width / 2,
+                this.height / 2,
+                1,
+                1,
+                6408,
+                5121,
+                pixel.address
+            )
+            if (glGetError() == 0 &&
+                eglSwapBuffers(this.display, this.surface) == eglTrue) {
+                pixelValue = pixel.loadI64(0) & 4294967295
+            }
+        }
+        pixelValue
+    }
+
+    trusted fun drop(): void {
+        if (!pointerIsNull(this.display)) {
+            eglMakeCurrent(
+                this.display,
+                nativeNullPointer(),
+                nativeNullPointer(),
+                nativeNullPointer()
+            )
+            if (!pointerIsNull(this.context)) {
+                eglDestroyContext(this.display, this.context)
+            }
+            if (!pointerIsNull(this.surface)) {
+                eglDestroySurface(this.display, this.surface)
+            }
+            eglTerminate(this.display)
+        }
+        if (!pointerIsNull(this.nativeDisplay)) {
+            XCloseDisplay(this.nativeDisplay)
+        }
+        this.context = nativeNullPointer()
+        this.surface = nativeNullPointer()
+        this.display = nativeNullPointer()
+        this.nativeDisplay = nativeNullPointer()
+        return
+    }
+}
+
+trusted fun openGlWindowContext(
+    window: X11Window
+): OpenGlWindowContext {
+    var nativeDisplay = nativeNullPointer()
+    var display = nativeNullPointer()
+    var surface = nativeNullPointer()
+    var context = nativeNullPointer()
+    if (window.valid() && window.visual != 0) {
+        nativeDisplay = XOpenDisplay(nativeNullPointer())
+    }
+    if (!pointerIsNull(nativeDisplay)) {
+        display = eglGetPlatformDisplay(
+            eglPlatformX11,
+            nativeDisplay,
+            nativeNullPointer()
+        )
+    }
+    if (!pointerIsNull(display)) {
+        val major = nativeI64Cell(0)
+        val minor = nativeI64Cell(0)
+        if (eglInitialize(display, major.address, minor.address) != eglTrue ||
+            eglBindAPI(eglOpenGlApi) != eglTrue) {
+            eglTerminate(display)
+            display = nativeNullPointer()
+        }
+    }
+    var config = nativeNullPointer()
+    if (!pointerIsNull(display)) {
+        val attributes = openGlWindowConfigAttributes(window.visual)
+        val configOutput = nativePointerCell(nativeNullPointer())
+        val configCount = nativeI64Cell(0)
+        if (eglChooseConfig(
+            display,
+            attributes.address,
+            configOutput.address,
+            1,
+            configCount.address
+        ) == eglTrue && configCount.load() > 0) {
+            config = configOutput.load()
+        }
+    }
+    if (!pointerIsNull(config)) {
+        val nativeWindow = nativeI64Cell(window.identifier)
+        surface = eglCreatePlatformWindowSurface(
+            display,
+            config,
+            nativeWindow.address,
+            nativeNullPointer()
+        )
+    }
+    if (!pointerIsNull(surface)) {
+        var attributes = openGlContextAttributes(4, 6)
+        context = eglCreateContext(
+            display,
+            config,
+            nativeNullPointer(),
+            attributes.address
+        )
+        if (pointerIsNull(context)) {
+            attributes = openGlContextAttributes(4, 5)
+            context = eglCreateContext(
+                display,
+                config,
+                nativeNullPointer(),
+                attributes.address
+            )
+        }
+        if (pointerIsNull(context)) {
+            attributes = openGlContextAttributes(3, 3)
+            context = eglCreateContext(
+                display,
+                config,
+                nativeNullPointer(),
+                attributes.address
+            )
+        }
+    }
+    if (pointerIsNull(context)) {
+        if (!pointerIsNull(display)) {
+            if (!pointerIsNull(surface)) {
+                eglDestroySurface(display, surface)
+            }
+            eglTerminate(display)
+        }
+        if (!pointerIsNull(nativeDisplay)) XCloseDisplay(nativeDisplay)
+        nativeDisplay = nativeNullPointer()
+        display = nativeNullPointer()
+        surface = nativeNullPointer()
+    }
+    OpenGlWindowContext(
+        nativeDisplay,
+        display,
+        surface,
+        context,
+        window.width,
+        window.height
+    )
+}
+
+trusted fun openGlHeadlessContext(
+    width: int = 64,
+    height: int = 64
+): OpenGlContext {
+    var display = nativeNullPointer()
+    var surface = nativeNullPointer()
+    var context = nativeNullPointer()
+    if (width > 0 && width <= 16384 && height > 0 && height <= 16384) {
+        display = eglGetPlatformDisplay(
+            eglPlatformSurfacelessMesa,
+            nativeNullPointer(),
+            nativeNullPointer()
+        )
+    }
+    if (!pointerIsNull(display)) {
+        val major = nativeI64Cell(0)
+        val minor = nativeI64Cell(0)
+        if (eglInitialize(display, major.address, minor.address) != eglTrue ||
+            eglBindAPI(eglOpenGlApi) != eglTrue) {
+            eglTerminate(display)
+            display = nativeNullPointer()
+        }
+    }
+    var config = nativeNullPointer()
+    if (!pointerIsNull(display)) {
+        val attributes = openGlConfigAttributes()
+        val configOutput = nativePointerCell(nativeNullPointer())
+        val configCount = nativeI64Cell(0)
+        if (eglChooseConfig(
+            display,
+            attributes.address,
+            configOutput.address,
+            1,
+            configCount.address
+        ) == eglTrue && configCount.load() > 0) {
+            config = configOutput.load()
+        }
+    }
+    if (!pointerIsNull(config)) {
+        val attributes = openGlPbufferAttributes(width, height)
+        surface = eglCreatePbufferSurface(
+            display,
+            config,
+            attributes.address
+        )
+    }
+    if (!pointerIsNull(surface)) {
+        var attributes = openGlContextAttributes(4, 6)
+        context = eglCreateContext(
+            display,
+            config,
+            nativeNullPointer(),
+            attributes.address
+        )
+        if (pointerIsNull(context)) {
+            attributes = openGlContextAttributes(4, 5)
+            context = eglCreateContext(
+                display,
+                config,
+                nativeNullPointer(),
+                attributes.address
+            )
+        }
+        if (pointerIsNull(context)) {
+            attributes = openGlContextAttributes(3, 3)
+            context = eglCreateContext(
+                display,
+                config,
+                nativeNullPointer(),
+                attributes.address
+            )
+        }
+    }
+    if (pointerIsNull(context) && !pointerIsNull(display)) {
+        if (!pointerIsNull(surface)) {
+            eglDestroySurface(display, surface)
+        }
+        eglTerminate(display)
+        display = nativeNullPointer()
+        surface = nativeNullPointer()
+    }
+    OpenGlContext(display, surface, context, width, height)
+}

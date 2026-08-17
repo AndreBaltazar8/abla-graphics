@@ -1,0 +1,201 @@
+# Abla Graphics implementation plan
+
+Status: active implementation contract, 2026-08-17.
+
+Abla Graphics is the graphics and windowing framework for the Abla ecosystem.
+It targets OpenGL 4.6 core and Vulkan 1.4, with an idiomatic common API for
+applications and generated raw APIs for features that cannot or should not be
+hidden behind a common abstraction.
+
+The plan is ordered. A milestone is complete only when its implementation,
+tests, samples, documentation, and relevant performance/validation gates pass.
+
+## Non-negotiable design rules
+
+1. Application state, rendering policy, resource ownership, shader declarations,
+   and command construction are Abla code.
+2. Framework and platform implementation is Abla-only. There is no C/C++/Rust
+   shim and no GLFW/SDL dependency. Abla marshals operating-system and graphics
+   driver ABI layouts directly through typed unsafe platform modules.
+3. Every GPU/window object has explicit ownership. Abla `resource class` values
+   perform deterministic destruction and cannot be copied accidentally.
+4. Backend dispatch occurs outside hot draw loops. Backend-specific command
+   encoders may specialize the common API after device creation.
+5. A successful call is not assumed. Fallible operations return structured
+   results, and optional functionality is guarded by queried capabilities.
+6. The steady-state frame path performs no general heap allocation. Frame-local
+   command data comes from reusable arenas and bounded pools.
+7. The common API covers portable intent. `graphics/raw/opengl` and
+   `graphics/raw/vulkan` expose specification-level escape hatches.
+8. Generated registry files are reproducible, version-stamped, reviewed through
+   compact manifests, and never edited by hand.
+9. Debug builds favor validation and precise errors. Release builds remove
+   validation branches that are proven redundant without changing semantics.
+10. Claims require evidence: compiler tests, native tests, API validation,
+    rendered-output checks, and repeatable benchmarks where applicable.
+
+## Milestone 0 - repository and contracts
+
+- Establish the MPL-2.0 package, source-only Git hygiene, CI skeleton, pinned
+  Nix development environment, contributor guide, security policy, and version
+  policy.
+- Publish the architecture and public API contract before expanding the code.
+- Add a Khronos registry importer design with pinned OpenGL/Vulkan registry
+  revisions and deterministic output checks.
+- Add test/build entry points that work from this checkout with `../ablac`.
+
+Exit gate: a clean checkout can run the pure Abla contract and platform ABI
+suites; repository metadata contains no non-Abla implementation source or
+generated binaries.
+
+## Milestone 1 - core, windowing, and headless execution
+
+- Implement scalar/vector/matrix/color/rectangle primitives and overflow-safe
+  size/range helpers.
+- Implement `GraphicsConfig`, backend selection, adapters, feature/limit queries,
+  structured errors, logging, and debug labels.
+- Implement `Window`, event polling/waiting, keyboard, text, pointer, scroll,
+  resize, focus, close, clipboard, cursor, monitor, DPI, fullscreen, and timing.
+- Implement Linux X11 and Wayland wire protocols, event queues, and surfaces in
+  Abla over OS sockets/syscalls; add equivalent Win32 and Cocoa platform modules
+  in Abla. Headless surfaces are first-class for tests and servers.
+- Implement deterministic resource IDs, parent/child lifetime validation, and
+  debug leak reporting.
+
+Exit gate: window/event samples pass under a real session and Xvfb; a headless
+probe runs without a display; continuous create/destroy stress is leak-free.
+
+## Milestone 2 - OpenGL 4.6 core backend
+
+- Load core/extension entry points per context and expose exact capability data.
+- Implement contexts, swap interval, debug callbacks, buffers, textures,
+  samplers, shaders/programs, vertex input, framebuffers, renderbuffers, queries,
+  synchronization, compute, image load/store, indirect draws, transform feedback,
+  tessellation, geometry shaders, sparse/bindless/vendor features when present,
+  and robust context reset handling.
+- Use direct-state-access paths where supported and cache only state that avoids
+  measured driver calls without making external raw calls incorrect.
+- Generate `graphics/raw/opengl` from the official registry, including extension
+  constants, layouts, and commands supported by the Abla driver ABI modules.
+
+Exit gate: the common sample suite renders on OpenGL, Khronos validation/debug
+output is clean, and raw coverage matches the pinned registry manifest.
+
+## Milestone 3 - Vulkan 1.4 backend
+
+- Implement loader/instance/device selection, queue planning, surfaces,
+  swapchains, synchronization2, timeline semaphores, dynamic rendering, command
+  pools/buffers, descriptors, pipeline layouts/caches, buffers/images/views,
+  memory allocation, transfers, queries, compute, indirect work, and debug utils.
+- Implement frames-in-flight, swapchain recreation, staging rings, transient
+  pools, dedicated allocations, memory-budget reporting, and device-loss errors.
+- Cover Vulkan 1.4 core, promoted features, and extension negotiation without
+  silently enabling unsupported behavior.
+- Generate `graphics/raw/vulkan` from `vk.xml`, including types, flags, structure
+  builders, commands, feature chains, and extension metadata.
+
+Exit gate: headless and surfaced Vulkan samples pass with validation enabled;
+the common golden-image suite matches OpenGL within documented tolerances; raw
+coverage matches the pinned Vulkan registry manifest.
+
+## Milestone 4 - shaders as an Abla language feature
+
+- Implement an Abla-defined `$glsl` subparser supporting GLSL 4.60 syntax,
+  stages, includes/modules, source spans, diagnostics, and safe Abla constant
+  interpolation.
+- Reflect vertex inputs, descriptor/binding declarations, push constants,
+  uniforms, fragment outputs, specialization constants, and workgroup sizes.
+- Validate reflected interfaces against Abla pipeline descriptions at compile
+  time when static and at creation time otherwise.
+- Produce OpenGL GLSL and Vulkan SPIR-V deterministically. Cache by compiler,
+  target, source, defines, include graph, and optimization/debug profile.
+- Preserve `ShaderSource` and raw SPIR-V entry points for generated or external
+  shader toolchains.
+
+Exit gate: valid multi-stage shaders compile for both backends; malformed syntax
+and interface mismatches report original Abla spans; repeated builds are byte
+identical.
+
+## Milestone 5 - portable rendering API and performance layer
+
+- Implement immutable descriptors plus resource classes for buffers, textures,
+  samplers, bind groups, shader modules, pipelines, surfaces, and query sets.
+- Implement render/compute passes, copies, barriers, indirect commands, instancing,
+  multiple render targets, depth/stencil, blending, multisampling, mip generation,
+  timestamps, and debug groups.
+- Add streaming upload/readback rings, transient render targets, pipeline cache
+  persistence, texture/buffer suballocation, descriptor reuse, and frame pacing.
+- Add an optional render graph that derives lifetimes/barriers/aliasing while
+  preserving direct encoders for applications that need exact ordering.
+- Make backend-native handles available only through explicit unsafe/raw modules.
+
+Exit gate: zero steady-state general allocations in representative scenes;
+submission scales with command count; CPU/GPU timing and memory metrics are
+reported by repeatable benchmarks.
+
+## Milestone 6 - advanced specification coverage
+
+- Add geometry/tessellation, mesh/task when exposed, ray tracing, acceleration
+  structures, variable-rate shading, multiview, sparse resources, external
+  memory/semaphores, video queues, protected content, device groups, calibrated
+  timestamps, shader objects, and vendor extensions behind capability types.
+- Maintain a generated coverage ledger mapping every pinned core command and
+  extension to common, raw, intentionally unsupported, or platform-inapplicable.
+- Never claim support solely because a token exists; each supported family needs
+  a loader path, ABI path, positive test, and unsupported-path test.
+
+Exit gate: there are no unclassified items in either registry coverage ledger.
+
+## Milestone 7 - samples and learning path
+
+Every sample is small, documented, independently buildable, and runs on both
+backends unless it demonstrates a backend-specific feature:
+
+1. window and input inspector;
+2. clear color and animated triangle;
+3. indexed textured cube with depth;
+4. camera, meshes, materials, and glTF scene;
+5. instancing and indirect drawing;
+6. render-to-texture and post-processing;
+7. compute particles;
+8. shadow mapping and HDR/PBR lighting;
+9. deferred renderer/render graph;
+10. UI overlay and text rendering;
+11. multi-window and multi-monitor;
+12. headless image generation;
+13. GPU queries/profiler;
+14. raw OpenGL feature lab;
+15. raw Vulkan feature lab;
+16. ray tracing when available;
+17. boids/particle stress benchmark;
+18. complete small 2D game;
+19. complete small 3D application;
+20. Abla Mobile/native surface integration proof.
+
+Exit gate: sample matrix builds in CI, smoke samples run headlessly, surfaced
+samples have local test scripts, and golden outputs are versioned intentionally.
+
+## Milestone 8 - optimization, portability, and releases
+
+- Benchmark startup, shader compilation, resource creation, upload bandwidth,
+  draw/dispatch submission, frame pacing, and memory on discrete/integrated/CPU
+  adapters where available.
+- Profile before changing hot paths; retain benchmark evidence and regression
+  thresholds. Use batched ABI calls only where measurements justify them.
+- Add Linux, Windows, and macOS CI/builds; document OpenGL/Vulkan availability
+  and portability extensions rather than pretending every backend exists equally.
+- Fuzz shader parsing, descriptors, events, registry generation, and driver ABI
+  boundaries. Run sanitizers and Vulkan validation in dedicated jobs.
+- Publish packages and signed source releases only after API compatibility,
+  license, generated-source, and clean-tree checks pass.
+
+Exit gate: versioned release checklist passes and the GitHub repository is
+published at `AndreBaltazar8/abla-graphics` with reproducible source artifacts.
+
+## Definition of done
+
+The long-term goal is complete when the common API is pleasant for ordinary
+applications, both production backends pass the shared conformance/sample suite,
+the raw coverage ledger classifies the complete pinned specifications, `$glsl`
+provides source-accurate deterministic shader builds, performance gates pass,
+and clean source releases are reproducible on every supported platform.

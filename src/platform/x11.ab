@@ -1,0 +1,374 @@
+// Minimal X11 wire-protocol client implemented entirely in Abla.
+//
+// This module talks to the local X server over AF_UNIX. It does not use Xlib,
+// XCB, GLFW, SDL, or a project native shim.
+
+import "abla/sys/linux"
+import "abla/sys/linux/process"
+import "abla/unsafe/memory"
+import "../window.ab"
+
+val x11EventMask = 1 | 2 | 4 | 8 | 64 | 32768 | 131072 | 2097152
+
+fun x11U16(value: string, offset: int): int =
+    value[offset] + value[offset + 1] * 256
+
+fun x11U32(value: string, offset: int): int =
+    x11U16(value, offset) + x11U16(value, offset + 2) * 65536
+
+fun x11StoreU16(var buffer: NativeByteBuffer, offset: int, value: int): void {
+    buffer.store(offset, value & 255)
+    buffer.store(offset + 1, (value >>> 8) & 255)
+    return
+}
+
+fun x11StoreU32(var buffer: NativeByteBuffer, offset: int, value: int): void {
+    x11StoreU16(buffer, offset, value & 65535)
+    x11StoreU16(buffer, offset + 2, (value >>> 16) & 65535)
+    return
+}
+
+fun x11Packet(var buffer: NativeByteBuffer, length: int): string =
+    buffer.adoptString(length)
+
+fun x11WriteAll(descriptor: int, value: string): bool {
+    var offset = 0
+    var succeeded = descriptor >= 0
+    while (succeeded && offset < value.size) {
+        val written = linuxWrite(
+            descriptor,
+            value.slice(offset, value.size)
+        )
+        if (written <= 0) succeeded = false
+        else offset = offset + written
+    }
+    succeeded
+}
+
+fun x11ReadExact(descriptor: int, length: int): string {
+    var result = ""
+    var reading = descriptor >= 0 && length >= 0 && length <= 16777216
+    while (reading && result.size < length) {
+        val file = LinuxFileDescriptor(descriptor)
+        val part = file.read(length - result.size)
+        if (part.size == 0) reading = false
+        else result = "$result$part"
+    }
+    if (result.size == length) result else ""
+}
+
+fun x11DisplayNumber(value: string): int {
+    var colon = -1
+    var index = 0
+    while (index < value.size) {
+        if (value[index] == 58) colon = index
+        index = index + 1
+    }
+    var result = -1
+    if (colon >= 0 && colon + 1 < value.size) {
+        var parsed = 0
+        var valid = true
+        index = colon + 1
+        var digits = 0
+        while (valid && index < value.size && value[index] != 46) {
+            val digit = value[index] - 48
+            if (digit < 0 || digit > 9) valid = false
+            else {
+                parsed = parsed * 10 + digit
+                digits = digits + 1
+            }
+            index = index + 1
+        }
+        if (valid && digits > 0 && parsed <= 65535) result = parsed
+    }
+    result
+}
+
+fun x11ConfiguredDisplayNumber(): int {
+    val configured = linuxEnvironment("DISPLAY")
+    if (configured.found) x11DisplayNumber(configured.value) else -1
+}
+
+fun x11ConnectUnix(displayNumber: int): int {
+    var descriptor = -1
+    val path = "/tmp/.X11-unix/X$displayNumber"
+    if (displayNumber >= 0 && displayNumber <= 65535 && path.size <= 107) {
+        descriptor = linuxSyscall3(41, 1, 524289, 0)
+    }
+    if (descriptor >= 0) {
+        val address = nativeByteBuffer(110)
+        address.store(0, 1)
+        address.store(1, 0)
+        var index = 0
+        while (index < path.size) {
+            address.store(2 + index, path[index])
+            index = index + 1
+        }
+        address.store(2 + path.size, 0)
+        val connected = linuxSyscall3(
+            42,
+            descriptor,
+            nativePointerAddress(address.address),
+            3 + path.size
+        )
+        address.close()
+        if (connected != 0) {
+            linuxSyscall1(3, descriptor)
+            descriptor = connected
+        }
+    }
+    descriptor
+}
+
+class X11Setup(
+    val succeeded: bool,
+    val resourceBase: int,
+    val resourceMask: int,
+    val root: int,
+    val rootVisual: int,
+    val rootDepth: int,
+    val blackPixel: int,
+    val whitePixel: int
+)
+
+fun x11Setup(descriptor: int): X11Setup {
+    var succeeded = descriptor >= 0
+    if (succeeded) {
+        val request = nativeByteBuffer(13)
+        request.store(0, 108)
+        request.store(1, 0)
+        x11StoreU16(request, 2, 11)
+        x11StoreU16(request, 4, 0)
+        x11StoreU16(request, 6, 0)
+        x11StoreU16(request, 8, 0)
+        request.store(10, 0)
+        request.store(11, 0)
+        succeeded = x11WriteAll(descriptor, x11Packet(request, 12))
+    }
+
+    var prefix = ""
+    if (succeeded) prefix = x11ReadExact(descriptor, 8)
+    succeeded = prefix.size == 8 && prefix[0] == 1
+    var body = ""
+    if (succeeded) {
+        val bodyLength = x11U16(prefix, 6) * 4
+        succeeded = bodyLength >= 32 && bodyLength <= 16777216
+        if (succeeded) body = x11ReadExact(descriptor, bodyLength)
+        succeeded = body.size == bodyLength
+    }
+
+    var resourceBase = 0
+    var resourceMask = 0
+    var root = 0
+    var rootVisual = 0
+    var rootDepth = 0
+    var blackPixel = 0
+    var whitePixel = 0
+    if (succeeded) {
+        resourceBase = x11U32(body, 4)
+        resourceMask = x11U32(body, 8)
+        val vendorLength = x11U16(body, 16)
+        val formatCount = body[21]
+        val screenCount = body[20]
+        val screenOffset =
+            32 + ((vendorLength + 3) / 4) * 4 + formatCount * 8
+        succeeded = screenCount > 0 && screenOffset + 40 <= body.size
+        if (succeeded) {
+            root = x11U32(body, screenOffset)
+            whitePixel = x11U32(body, screenOffset + 8)
+            blackPixel = x11U32(body, screenOffset + 12)
+            rootVisual = x11U32(body, screenOffset + 32)
+            rootDepth = body[screenOffset + 38]
+            succeeded = root != 0 && resourceMask != 0 && rootDepth > 0
+        }
+    }
+    X11Setup(
+        succeeded,
+        resourceBase,
+        resourceMask,
+        root,
+        rootVisual,
+        rootDepth,
+        blackPixel,
+        whitePixel
+    )
+}
+
+fun x11CreateRequest(
+    setup: X11Setup,
+    window: int,
+    config: WindowConfig
+): string {
+    val request = nativeByteBuffer(41)
+    request.store(0, 1)
+    request.store(1, setup.rootDepth)
+    x11StoreU16(request, 2, 10)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, setup.root)
+    x11StoreU16(request, 12, 0)
+    x11StoreU16(request, 14, 0)
+    x11StoreU16(request, 16, config.width)
+    x11StoreU16(request, 18, config.height)
+    x11StoreU16(request, 20, 0)
+    x11StoreU16(request, 22, 1)
+    x11StoreU32(request, 24, setup.rootVisual)
+    x11StoreU32(request, 28, 2050)
+    x11StoreU32(request, 32, setup.blackPixel)
+    x11StoreU32(request, 36, x11EventMask)
+    x11Packet(request, 40)
+}
+
+fun x11SingleWindowRequest(opcode: int, window: int): string {
+    val request = nativeByteBuffer(9)
+    request.store(0, opcode)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 2)
+    x11StoreU32(request, 4, window)
+    x11Packet(request, 8)
+}
+
+fun x11WindowTitleRequest(window: int, title: string): string {
+    var length = title.size
+    if (length > 4096) length = 4096
+    val padded = ((length + 3) / 4) * 4
+    val total = 24 + padded
+    val request = nativeByteBuffer(total + 1)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, total / 4)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, 39)
+    x11StoreU32(request, 12, 31)
+    request.store(16, 8)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, length)
+    var index = 0
+    while (index < length) {
+        request.store(24 + index, title[index])
+        index = index + 1
+    }
+    while (index < padded) {
+        request.store(24 + index, 0)
+        index = index + 1
+    }
+    x11Packet(request, total)
+}
+
+resource class X11Window(
+    var descriptor: int,
+    val identifier: int,
+    val visual: int,
+    val width: int,
+    val height: int
+) {
+    fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
+
+    fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
+        var result = WindowEvent()
+        if (this.valid() && timeoutMilliseconds >= 0 &&
+            timeoutMilliseconds <= 600000) {
+            val poll = nativeByteBuffer(8)
+            x11StoreU32(poll, 0, this.descriptor)
+            x11StoreU16(poll, 4, 1)
+            val measured = linuxSyscall3(
+                7,
+                nativePointerAddress(poll.address),
+                1,
+                timeoutMilliseconds
+            )
+            val readable = measured > 0 && poll.load(6) != 0
+            poll.close()
+            if (readable) {
+                val event = x11ReadExact(this.descriptor, 32)
+                if (event.size == 32) {
+                    val kind = event[0] & 127
+                    if (kind == 2 || kind == 3) {
+                        result = WindowEvent(
+                            windowEventKey,
+                            event[1],
+                            if (kind == 2) 1 else 0
+                        )
+                    } else if (kind == 4 || kind == 5) {
+                        result = WindowEvent(
+                            windowEventPointerButton,
+                            event[1],
+                            if (kind == 4) 1 else 0
+                        )
+                    } else if (kind == 6) {
+                        result = WindowEvent(
+                            windowEventPointerMoved,
+                            x11U16(event, 24),
+                            x11U16(event, 26)
+                        )
+                    } else if (kind == 9 || kind == 10) {
+                        result = WindowEvent(
+                            windowEventFocused,
+                            if (kind == 9) 1 else 0
+                        )
+                    } else if (kind == 17) {
+                        result = WindowEvent(windowEventCloseRequested)
+                    } else if (kind == 22) {
+                        result = WindowEvent(
+                            windowEventResized,
+                            x11U16(event, 20),
+                            x11U16(event, 22)
+                        )
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    fun drop(): void {
+        if (this.valid()) {
+            x11WriteAll(
+                this.descriptor,
+                x11SingleWindowRequest(4, this.identifier)
+            )
+        }
+        if (this.descriptor >= 0) linuxSyscall1(3, this.descriptor)
+        this.descriptor = -1
+        return
+    }
+}
+
+fun x11Window(
+    config: WindowConfig = WindowConfig(),
+    displayNumber: int = x11ConfiguredDisplayNumber()
+): X11Window {
+    var descriptor = -1
+    var identifier = 0
+    var visual = 0
+    if (config.valid()) descriptor = x11ConnectUnix(displayNumber)
+    if (descriptor >= 0) {
+        val setup = x11Setup(descriptor)
+        if (setup.succeeded) {
+            visual = setup.rootVisual
+            identifier = setup.resourceBase | (1 & setup.resourceMask)
+            val created = x11WriteAll(
+                descriptor,
+                x11CreateRequest(setup, identifier, config)
+            )
+            var mapped = false
+            if (created) {
+                x11WriteAll(
+                    descriptor,
+                    x11WindowTitleRequest(identifier, config.title)
+                )
+                mapped = x11WriteAll(
+                    descriptor,
+                    x11SingleWindowRequest(8, identifier)
+                )
+            }
+            if (!mapped) identifier = 0
+        }
+        if (identifier == 0) {
+            linuxSyscall1(3, descriptor)
+            descriptor = -1
+        }
+    }
+    X11Window(descriptor, identifier, visual, config.width, config.height)
+}

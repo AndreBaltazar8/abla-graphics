@@ -1,0 +1,185 @@
+// Backend-neutral value types and selection policy.
+
+val graphicsBackendAuto = 0
+val graphicsBackendVulkan = 1
+val graphicsBackendOpenGl = 2
+val graphicsBackendHeadless = 3
+
+val graphicsErrorNone = 0
+val graphicsErrorInvalidConfiguration = 1
+val graphicsErrorBackendUnavailable = 2
+val graphicsErrorAttachmentMismatch = 3
+val graphicsErrorDriverFailure = 4
+
+class GraphicsVersion(
+    val major: int,
+    val minor: int,
+    val patch: int = 0
+) {
+    fun atLeast(requiredMajor: int, requiredMinor: int): bool =
+        this.major > requiredMajor ||
+        (this.major == requiredMajor && this.minor >= requiredMinor)
+
+    fun text(): string = "${this.major}.${this.minor}.${this.patch}"
+}
+
+class GraphicsError(
+    val code: int = graphicsErrorNone,
+    val operation: string = "",
+    val message: string = ""
+) {
+    fun occurred(): bool = this.code != graphicsErrorNone
+}
+
+class GraphicsConfig(
+    val backend: int = graphicsBackendAuto,
+    val validation: bool = true,
+    val debugLabels: bool = true,
+    val allowHeadlessFallback: bool = false,
+    val framesInFlight: int = 2
+) {
+    fun valid(): bool =
+        this.backend >= graphicsBackendAuto &&
+        this.backend <= graphicsBackendHeadless &&
+        this.framesInFlight >= 1 &&
+        this.framesInFlight <= 8
+}
+
+class GraphicsBackendSupport(
+    val vulkan: bool,
+    val openGl: bool,
+    val headless: bool = true
+)
+
+class GraphicsBackendSelection(
+    val succeeded: bool,
+    val backend: int,
+    val error: GraphicsError
+)
+
+fun graphicsBackendName(backend: int): string {
+    var result = "unknown"
+    if (backend == graphicsBackendAuto) result = "auto"
+    else if (backend == graphicsBackendVulkan) result = "vulkan"
+    else if (backend == graphicsBackendOpenGl) result = "opengl"
+    else if (backend == graphicsBackendHeadless) result = "headless"
+    result
+}
+
+fun graphicsSelectBackend(
+    config: GraphicsConfig,
+    support: GraphicsBackendSupport
+): GraphicsBackendSelection {
+    var selected = graphicsBackendAuto
+    var error = GraphicsError()
+
+    if (!config.valid()) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "graphicsSelectBackend",
+            "backend or framesInFlight is outside its supported range"
+        )
+    } else if (config.backend == graphicsBackendAuto) {
+        if (support.vulkan) selected = graphicsBackendVulkan
+        else if (support.openGl) selected = graphicsBackendOpenGl
+        else if (config.allowHeadlessFallback && support.headless) {
+            selected = graphicsBackendHeadless
+        } else {
+            error = GraphicsError(
+                graphicsErrorBackendUnavailable,
+                "graphicsSelectBackend",
+                "neither Vulkan nor OpenGL is available"
+            )
+        }
+    } else if (config.backend == graphicsBackendVulkan && support.vulkan) {
+        selected = graphicsBackendVulkan
+    } else if (config.backend == graphicsBackendOpenGl && support.openGl) {
+        selected = graphicsBackendOpenGl
+    } else if (config.backend == graphicsBackendHeadless && support.headless) {
+        selected = graphicsBackendHeadless
+    } else {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "graphicsSelectBackend",
+            "requested ${graphicsBackendName(config.backend)} backend is unavailable"
+        )
+    }
+
+    GraphicsBackendSelection(!error.occurred(), selected, error)
+}
+
+class Extent2D(val width: int, val height: int) {
+    fun valid(): bool = this.width > 0 && this.height > 0
+    fun area(): int = if (this.valid()) this.width * this.height else 0
+}
+
+class Offset2D(val x: int, val y: int)
+
+class Rect2D(val offset: Offset2D, val extent: Extent2D) {
+    fun contains(x: int, y: int): bool =
+        x >= this.offset.x && y >= this.offset.y &&
+        x < this.offset.x + this.extent.width &&
+        y < this.offset.y + this.extent.height
+}
+
+// The current compiler recognizes f32/f64 type names but does not yet parse or
+// lower floating-point arithmetic. Public coordinates use a deterministic
+// millionth fixed-point scalar until that compiler prerequisite lands.
+val graphicsScalarOne = 1000000
+
+fun graphicsScalar(numerator: int, denominator: int = 1): int =
+    if (denominator == 0) 0 else numerator * graphicsScalarOne / denominator
+
+fun graphicsScalarMultiply(left: int, right: int): int =
+    left * right / graphicsScalarOne
+
+class Vec2(val x: int, val y: int) {
+    fun plus(other: Vec2): Vec2 = Vec2(
+        this.x + other.x,
+        this.y + other.y
+    )
+
+    fun scaled(amount: int): Vec2 = Vec2(
+        graphicsScalarMultiply(this.x, amount),
+        graphicsScalarMultiply(this.y, amount)
+    )
+
+    fun dot(other: Vec2): int =
+        graphicsScalarMultiply(this.x, other.x) +
+        graphicsScalarMultiply(this.y, other.y)
+}
+
+class Vec3(val x: int, val y: int, val z: int) {
+    fun plus(other: Vec3): Vec3 = Vec3(
+        this.x + other.x,
+        this.y + other.y,
+        this.z + other.z
+    )
+
+    fun scaled(amount: int): Vec3 = Vec3(
+        graphicsScalarMultiply(this.x, amount),
+        graphicsScalarMultiply(this.y, amount),
+        graphicsScalarMultiply(this.z, amount)
+    )
+
+    fun dot(other: Vec3): int =
+        graphicsScalarMultiply(this.x, other.x) +
+        graphicsScalarMultiply(this.y, other.y) +
+        graphicsScalarMultiply(this.z, other.z)
+}
+
+class Vec4(val x: int, val y: int, val z: int, val w: int)
+
+class Color(
+    val red: int,
+    val green: int,
+    val blue: int,
+    val alpha: int = graphicsScalarOne
+) {
+    fun premultiplied(): Color = Color(
+        graphicsScalarMultiply(this.red, this.alpha),
+        graphicsScalarMultiply(this.green, this.alpha),
+        graphicsScalarMultiply(this.blue, this.alpha),
+        this.alpha
+    )
+}
