@@ -44,7 +44,8 @@ app.presentPixels(pixels)
 Its native storage is affine and released deterministically. The Vulkan pixel
 upload/presentation implementation is still pending; `presentPixels` currently
 returns false on a Vulkan-specialized application instead of silently changing
-backends.
+backends. Pixel coordinate `(0, 0)` is the top-left; the OpenGL presenter flips
+the texture coordinate once in its full-screen shader.
 
 ## Small application
 
