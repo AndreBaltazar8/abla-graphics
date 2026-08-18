@@ -16,6 +16,7 @@ proves the architecture rather than stopping at placeholder interfaces:
   maps portable keyboard/pointer/scroll/UTF-8 text events, and handles the
   WM_DELETE_WINDOW protocol before destroying it;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
+- a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,
   swapchain image enumeration, synchronized GPU clear, and queue presentation;
 - pure-Abla Vulkan buffer allocation, command-pool/buffer recording,

@@ -1,0 +1,70 @@
+// Deterministic SPIR-V word container and structural validation in Abla.
+
+val spirvMagic = 119734787
+val spirvVersion10 = 65536
+val spirvVersion16 = 67072
+
+class SpirvValidation(
+    val succeeded: bool,
+    val word: int = -1,
+    val error: string = ""
+)
+
+class SpirvModule(
+    val words: array<int>,
+    val validation: SpirvValidation
+) {
+    fun valid(): bool = this.validation.succeeded
+    fun version(): int = if (this.words.size >= 2) this.words[1] else 0
+    fun bound(): int = if (this.words.size >= 4) this.words[3] else 0
+}
+
+fun spirvValidate(words: array<int>): SpirvValidation {
+    var result = SpirvValidation(true)
+    if (words.size < 5) {
+        result = SpirvValidation(false, 0, "SPIR-V header is incomplete")
+    } else if (words[0] != spirvMagic) {
+        result = SpirvValidation(false, 0, "SPIR-V magic word is invalid")
+    } else if (words[1] < spirvVersion10 ||
+        words[1] > spirvVersion16 || (words[1] & 255) != 0) {
+        result = SpirvValidation(false, 1, "SPIR-V version is unsupported")
+    } else if (words[3] < 1 || words[3] > 4294967295) {
+        result = SpirvValidation(false, 3, "SPIR-V identifier bound is invalid")
+    } else if (words[4] != 0) {
+        result = SpirvValidation(false, 4, "SPIR-V schema word must be zero")
+    }
+    var word = 0
+    while (result.succeeded && word < words.size) {
+        if (words[word] < 0 || words[word] > 4294967295) {
+            result = SpirvValidation(
+                false,
+                word,
+                "SPIR-V word is outside the unsigned 32-bit domain"
+            )
+        }
+        word = word + 1
+    }
+    var index = 5
+    while (result.succeeded && index < words.size) {
+        val instruction = words[index]
+        val count = (instruction >> 16) & 65535
+        if (count < 1 || count > words.size - index) {
+            result = SpirvValidation(
+                false,
+                index,
+                "SPIR-V instruction has an invalid word count"
+            )
+        } else index = index + count
+    }
+    result
+}
+
+fun spirvModule(words: array<int>): SpirvModule {
+    val copy: array<int> = []
+    var index = 0
+    while (index < words.size) {
+        copy.append(words[index])
+        index = index + 1
+    }
+    SpirvModule(copy, spirvValidate(copy))
+}

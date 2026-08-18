@@ -8,6 +8,7 @@ import "abla/unsafe/memory"
 import "../core.ab"
 import "../resources.ab"
 import "../pixels.ab"
+import "../shader/spirv.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 
@@ -104,6 +105,17 @@ noescape extern:"c" fun vkCreateSampler(
 noescape extern:"c" fun vkDestroySampler(
     device: i64*,
     sampler: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkCreateShaderModule(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    shaderModule: i64*
+): i32
+noescape extern:"c" fun vkDestroyShaderModule(
+    device: i64*,
+    shaderModule: int,
     allocator: i64*
 ): void
 noescape extern:"c" fun vkCreateImage(
@@ -1055,6 +1067,57 @@ trusted fun VulkanDevice.sampler(
         ) == vulkanSuccess) handle = output.load()
     }
     VulkanSampler(this.handle, handle)
+}
+
+resource class VulkanShaderModule(
+    val device: i64*,
+    var handle: int
+) {
+    fun valid(): bool = !pointerIsNull(this.device) && this.handle != 0
+
+    trusted fun drop(): void {
+        if (this.handle != 0 && !pointerIsNull(this.device)) {
+            vkDestroyShaderModule(
+                this.device,
+                this.handle,
+                nativeNullPointer()
+            )
+            this.handle = 0
+        }
+        return
+    }
+}
+
+trusted fun VulkanDevice.shaderModule(
+    module: SpirvModule
+): VulkanShaderModule {
+    var handle = 0
+    if (this.valid() && module.valid()) {
+        val code = nativeByteBuffer(module.words.size * 4)
+        var index = 0
+        while (index < module.words.size) {
+            val word = module.words[index]
+            code.store(index * 4, word & 255)
+            code.store(index * 4 + 1, (word >> 8) & 255)
+            code.store(index * 4 + 2, (word >> 16) & 255)
+            code.store(index * 4 + 3, (word >> 24) & 255)
+            index = index + 1
+        }
+        val createInfo = nativeByteBuffer(40)
+        createInfo.storeI64(0, 16)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, 0)
+        createInfo.storeI64(24, module.words.size * 4)
+        createInfo.storePointer(32, code.address)
+        val output = nativeI64Cell(0)
+        if (vkCreateShaderModule(
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess) handle = output.load()
+    }
+    VulkanShaderModule(this.handle, handle)
 }
 
 fun vulkanTextureFormat(format: int): int {

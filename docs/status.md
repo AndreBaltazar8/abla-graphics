@@ -87,6 +87,11 @@ Updated: 2026-08-18.
   extents, checked compute workgroup sizes/defaults, and compile-time rejection
   of invalid stage names. The surfaced triangle is compiled from this package
   rather than opaque strings.
+- Pure-Abla SPIR-V/Vulkan shader-module test: immutable copied words validate
+  the SPIR-V 1.0-1.6 header, unsigned word domain, and every instruction
+  boundary before little-endian packing. A minimal valid compute module creates
+  and affinely destroys a real `VkShaderModule`; a zero-word-count instruction
+  is rejected before reaching the driver.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.

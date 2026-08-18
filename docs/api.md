@@ -297,9 +297,18 @@ source-preserved and are not misclassified. For compute packages,
 constants, and general workgroup specialization reflection are still
 forthcoming.
 
-Dynamic source is accepted through `ShaderSource`; precompiled SPIR-V and raw
-OpenGL source remain supported. Pipeline creation always validates that the
-selected backend can consume the provided representation.
+`spirvModule(words)` copies and structurally validates precompiled SPIR-V:
+magic/version/bound/schema fields, unsigned 32-bit word domains, and every
+instruction word-count boundary are checked before a driver call.
+`VulkanDevice.shaderModule(module)` packs those words little-endian in Abla,
+creates a real `VkShaderModule`, and destroys it affinely. This is the raw input
+path for external/generated toolchains and the destination for the forthcoming
+deterministic `$glsl` translator; structural validation does not claim full
+SPIR-V semantic validation.
+
+Dynamic source through a common `ShaderSource` and common pipeline creation are
+still target APIs. They will validate that the selected backend can consume the
+provided representation.
 
 ## Raw access
 
