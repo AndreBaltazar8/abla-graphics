@@ -11,7 +11,10 @@ native `f64` clear color:
 
 ```abla
 val app = graphicsApplication(
-    GraphicsConfig(backend = graphicsBackendAuto),
+    GraphicsConfig(
+        backend = graphicsBackendAuto,
+        framesInFlight = 3
+    ),
     WindowConfig(title = "Abla clear", width = 1280, height = 720)
 )
 if (app.valid()) {
@@ -96,9 +99,11 @@ through a persistent nearest-filtered texture. Vulkan keeps a host-visible
 staging buffer, adapts RGBA/BGRA order for the selected swapchain format, and
 copies into the acquired image before presentation. Its command pool, command
 buffer, and acquire/render semaphores are created once with the application and
-reused after each completed submission. Pixel coordinate `(0, 0)` is the
-top-left; the OpenGL presenter flips the texture coordinate once in its
-full-screen shader.
+reused after each completed submission. `GraphicsConfig.framesInFlight` selects
+one through eight independently fenced Vulkan pixel-upload slots (two by
+default), and the same count is preserved when a stale swapchain is rebuilt.
+Pixel coordinate `(0, 0)` is the top-left; the OpenGL presenter flips the
+texture coordinate once in its full-screen shader.
 
 The first immutable GPU descriptors are also compiler checked. Buffer usages
 compose with `|`; structural validation rejects empty/unknown bits and enforces

@@ -1868,8 +1868,7 @@ resource class VulkanPixelFrame(
 }
 
 resource class VulkanPixelPresenter(
-    val first: VulkanPixelFrame,
-    val second: VulkanPixelFrame,
+    val frames: array<VulkanPixelFrame>,
     val rendered: array<int>,
     val imageCount: int,
     var frameIndex: int,
@@ -1877,22 +1876,34 @@ resource class VulkanPixelPresenter(
     val height: int,
     val format: int
 ) {
-    trusted fun valid(): bool =
-        this.first.valid() && this.second.valid() &&
-        this.imageCount > 0 && this.rendered.size == this.imageCount &&
-        this.frameIndex >= 0 && this.frameIndex < 2 &&
-        this.width > 0 && this.height > 0 &&
-        this.format != 0
+    trusted fun valid(): bool {
+        var validFrames = this.frames.size >= 1 && this.frames.size <= 8
+        var index = 0
+        while (validFrames && index < this.frames.size) {
+            validFrames = this.frames[index].valid()
+            index = index + 1
+        }
+        validFrames && this.imageCount > 0 &&
+            this.rendered.size == this.imageCount &&
+            this.frameIndex >= 0 && this.frameIndex < this.frames.size &&
+            this.width > 0 && this.height > 0 && this.format != 0
+    }
 
     trusted fun drop(): void {
-        if (this.first.inFlight || this.second.inFlight) {
-            vkDeviceWaitIdle(this.first.staging.device)
-        }
+        var inFlight = false
         var index = 0
+        while (index < this.frames.size) {
+            inFlight = inFlight || this.frames[index].inFlight
+            index = index + 1
+        }
+        if (inFlight) {
+            vkDeviceWaitIdle(this.frames[0].staging.device)
+        }
+        index = 0
         while (index < this.rendered.size) {
-            if (this.rendered[index] != 0) {
+            if (this.frames.size > 0 && this.rendered[index] != 0) {
                 vkDestroySemaphore(
-                    this.first.staging.device,
+                    this.frames[0].staging.device,
                     this.rendered[index],
                     nativeNullPointer()
                 )
@@ -1900,8 +1911,11 @@ resource class VulkanPixelPresenter(
             }
             index = index + 1
         }
-        this.first.drop()
-        this.second.drop()
+        index = 0
+        while (index < this.frames.size) {
+            this.frames[index].drop()
+            index = index + 1
+        }
         this.frameIndex = 0
         return
     }
@@ -2110,20 +2124,27 @@ trusted fun VulkanDevice.pixelFrame(size: int): VulkanPixelFrame {
 }
 
 trusted fun VulkanDevice.pixelPresenter(
-    swapchain: VulkanSwapchain
+    swapchain: VulkanSwapchain,
+    framesInFlight: int = 2
 ): VulkanPixelPresenter {
     val size = if (swapchain.valid())
         swapchain.width * swapchain.height * 4
     else 0
-    var first = this.pixelFrame(size)
-    var second = this.pixelFrame(size)
+    val frames: array<VulkanPixelFrame> = []
     val rendered: array<int> = []
     val semaphoreInfo = nativeByteBuffer(24)
     semaphoreInfo.storeI64(0, 9)
     semaphoreInfo.storePointer(8, nativeNullPointer())
     semaphoreInfo.storeI64(16, 0)
     var index = 0
-    var succeeded = first.valid() && second.valid()
+    var succeeded = framesInFlight >= 1 && framesInFlight <= 8
+    while (succeeded && index < framesInFlight) {
+        val frame = this.pixelFrame(size)
+        succeeded = frame.valid()
+        frames.append(move(frame))
+        index = index + 1
+    }
+    index = 0
     while (succeeded && index < swapchain.images.size) {
         val semaphore = nativeI64Cell(0)
         succeeded = vkCreateSemaphore(
@@ -2136,8 +2157,7 @@ trusted fun VulkanDevice.pixelPresenter(
         index = index + 1
     }
     VulkanPixelPresenter(
-        move(first),
-        move(second),
+        move(frames),
         rendered,
         swapchain.images.size,
         0,
@@ -2849,23 +2869,18 @@ trusted fun VulkanDevice.presentPixelsOutcome(
         presenter.height == swapchain.height &&
         presenter.format == swapchain.format
     var outcome = VulkanPresentOutcome(false, false, -1)
-    if (succeeded && presenter.frameIndex == 0) {
+    if (succeeded) {
         outcome = this.presentPixelFrameOutcome(
             swapchain,
-            presenter.first,
-            presenter.rendered,
-            pixels
-        )
-    } else if (succeeded) {
-        outcome = this.presentPixelFrameOutcome(
-            swapchain,
-            presenter.second,
+            presenter.frames[presenter.frameIndex],
             presenter.rendered,
             pixels
         )
     }
     if (outcome.submitted) {
-        presenter.frameIndex = if (presenter.frameIndex == 0) 1 else 0
+        presenter.frameIndex = if (
+            presenter.frameIndex + 1 == presenter.frames.size
+        ) 0 else presenter.frameIndex + 1
     }
     outcome
 }

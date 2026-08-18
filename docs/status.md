@@ -62,12 +62,14 @@ Updated: 2026-08-18.
   failure classification.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
-  nearest-filtered texture/shader program, while Vulkan uses a persistent
-  two-slot set of coherent staging buffers, swapchain-format channel adaptation,
+  nearest-filtered texture/shader program, while Vulkan uses a configured
+  three-slot set of coherent staging buffers, swapchain-format channel adaptation,
   image layout barriers, buffer-to-image copy, synchronized presentation,
   per-slot command pools/buffers/acquire semaphores/fences, and render-finished
-  semaphores owned per swapchain image. Three consecutive uploads exercise both
-  slots and fence-guarded reuse without a per-frame queue-wide idle.
+  semaphores owned per swapchain image. Four consecutive uploads exercise all
+  three slots and fence-guarded reuse without a per-frame queue-wide idle. The
+  public one-to-eight-slot setting survives both clear and pixel swapchain
+  recovery; its default remains two.
 - Portable descriptor test: immutable buffer, texture, texture-view, and sampler
   descriptors validate usage flags, mapping constraints, dimensions, mip and
   multisample rules, format/view compatibility, subresource ranges, aspects,
@@ -174,9 +176,9 @@ work.
 
 - General Vulkan frames-in-flight for clear and future render-pipeline paths,
   render pipelines, synchronization2, and dynamic rendering. The reusable
-  pixel-upload path has two fence-guarded slots and no per-frame queue-wide
-  idle; clear and pixel presentation now recover once from suboptimal or
-  out-of-date swapchains.
+  pixel-upload path honors the configured one-to-eight fence-guarded slots and
+  has no per-frame queue-wide idle; clear and pixel presentation now recover
+  once from suboptimal or out-of-date swapchains.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.

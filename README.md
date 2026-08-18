@@ -39,7 +39,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a backend-neutral affine headless application that selects a real Vulkan or
   surfaceless EGL/OpenGL device and probes it without connecting to a display;
 - reusable affine RGBA8 pixel storage, a persistent nearest-filtered OpenGL
-  upload path, and a two-frame Vulkan staging/copy/present path with per-image
+  upload path, and a configurable one-to-eight-frame Vulkan
+  staging/copy/present path with per-image
   presentation semaphores, fence-guarded slot reuse, and bounded automatic
   swapchain recovery for software renderers;
 - immutable portable buffer/texture/view/sampler descriptors plus affine

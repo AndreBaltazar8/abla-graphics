@@ -8,7 +8,12 @@ fun applicationBackendProbe(
     title: string
 ): bool {
     val app = graphicsApplication(
-        GraphicsConfig(backend = requestedBackend),
+        GraphicsConfig(
+            backend = requestedBackend,
+            framesInFlight = if (
+                requestedBackend != graphicsBackendOpenGl
+            ) 3 else 2
+        ),
         WindowConfig(title = title, width = 320, height = 200)
     )
     val monitor = app.primaryMonitor()
@@ -24,11 +29,14 @@ fun applicationBackendProbe(
     pixels.clearRgba8(18, 35, 64)
     pixels.fillRectRgba8(80, 50, 160, 100, 204, 64, 32)
     val pixelsPresented = app.presentPixels(pixels) &&
-        app.presentPixels(pixels) && app.presentPixels(pixels)
+        app.presentPixels(pixels) && app.presentPixels(pixels) &&
+        app.presentPixels(pixels)
     val frameSlotsPassed = app.backend != graphicsBackendVulkan ||
-        (app.vulkanPixels.frameIndex == 1 &&
-         app.vulkanPixels.first.inFlight &&
-         app.vulkanPixels.second.inFlight)
+        (app.framesInFlight == 3 && app.vulkanPixels.frames.size == 3 &&
+         app.vulkanPixels.frameIndex == 1 &&
+         app.vulkanPixels.frames[0].inFlight &&
+         app.vulkanPixels.frames[1].inFlight &&
+         app.vulkanPixels.frames[2].inFlight)
     val buffer = app.buffer(BufferDescriptor(
         label = "common-storage",
         size = 64,
@@ -201,7 +209,7 @@ fun applicationBackendProbe(
             app.vulkanPixels.height == 260
     }
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && presented && pixelsPresented && frameSlotsPassed &&
         buffer.valid() && bufferWritten &&
