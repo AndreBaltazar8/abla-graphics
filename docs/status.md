@@ -5,7 +5,8 @@ Updated: 2026-08-18.
 ## Verified now
 
 - Pure core test: backend selection, structured errors, window configuration,
-  geometry, native `f64` vectors/colors, and exact binary32 rounding.
+  geometry, native `f64` vectors/matrix composition/colors, and exact binary32
+  rounding.
 - X11 test: AF_UNIX connection, protocol 11 setup, server metadata parsing,
   binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,

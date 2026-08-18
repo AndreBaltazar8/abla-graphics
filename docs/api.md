@@ -26,6 +26,17 @@ using this surfaced facade currently declares
 `nativeLibraries = ["vulkan", "X11", "EGL", "GL"]` because the application,
 not a dependency package, chooses its installed native loader boundary.
 
+Vectors and matrices use native `f64` values. `Mat4` names elements row-first
+(`m23` is row 2, column 3) and transforms column vectors. Composition is
+explicit: `left.multiplied(right)` applies `right` before `left`.
+
+```abla
+val model = mat4Translation(Vec3(3.0, 5.0, 7.0)).multiplied(
+    mat4Scaling(Vec3(2.0, 3.0, 4.0))
+)
+val worldPoint = model.transformPoint(Vec3(1.0, 1.0, 1.0))
+```
+
 OpenGL applications may also keep one reusable software frame and upload it
 without rebuilding shaders, textures, or general heap values per frame:
 
