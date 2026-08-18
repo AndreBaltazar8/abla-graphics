@@ -14,6 +14,35 @@ val graphicsErrorAttachmentMismatch = 3
 val graphicsErrorDriverFailure = 4
 val graphicsErrorUnsupportedFeature = 5
 
+val graphicsMaximumInt = 9223372036854775807
+val graphicsMinimumInt = -9223372036854775807 - 1
+
+class GraphicsIntResult(
+    val succeeded: bool,
+    val value: int = 0
+)
+
+fun graphicsAddFits(left: int, right: int): bool =
+    !((right > 0 && left > graphicsMaximumInt - right) ||
+      (right < 0 && left < graphicsMinimumInt - right))
+
+fun graphicsSizeProductFits(left: int, right: int): bool =
+    left >= 0 && right >= 0 &&
+    (right == 0 || left <= graphicsMaximumInt / right)
+
+fun graphicsCheckedAdd(left: int, right: int): GraphicsIntResult {
+    val succeeded = graphicsAddFits(left, right)
+    GraphicsIntResult(succeeded, if (succeeded) left + right else 0)
+}
+
+fun graphicsCheckedSizeProduct(
+    left: int,
+    right: int
+): GraphicsIntResult {
+    val succeeded = graphicsSizeProductFits(left, right)
+    GraphicsIntResult(succeeded, if (succeeded) left * right else 0)
+}
+
 class GraphicsVersion(
     val major: int,
     val minor: int,
@@ -113,20 +142,54 @@ fun graphicsSelectBackend(
 
 class Extent2D(val width: int, val height: int) {
     fun valid(): bool = this.width > 0 && this.height > 0
-    fun area(): int = if (this.valid()) this.width * this.height else 0
+    fun areaChecked(): GraphicsIntResult = if (this.valid())
+        graphicsCheckedSizeProduct(this.width, this.height)
+    else GraphicsIntResult(false)
+    fun area(): int = if (this.valid() &&
+        graphicsSizeProductFits(this.width, this.height))
+        this.width * this.height else 0
 }
 
 class Extent3D(val width: int, val height: int, val depth: int = 1) {
     fun valid(): bool = this.width > 0 && this.height > 0 && this.depth > 0
+    fun volumeChecked(): GraphicsIntResult {
+        var result = GraphicsIntResult(false)
+        if (this.valid()) {
+            val plane = graphicsCheckedSizeProduct(this.width, this.height)
+            if (plane.succeeded) {
+                result = graphicsCheckedSizeProduct(plane.value, this.depth)
+            }
+        }
+        result
+    }
+
+    fun volume(): int {
+        var result = 0
+        if (this.valid() &&
+            graphicsSizeProductFits(this.width, this.height)) {
+            val plane = this.width * this.height
+            if (graphicsSizeProductFits(plane, this.depth)) {
+                result = plane * this.depth
+            }
+        }
+        result
+    }
 }
 
 class Offset2D(val x: int, val y: int)
 
 class Rect2D(val offset: Offset2D, val extent: Extent2D) {
-    fun contains(x: int, y: int): bool =
-        x >= this.offset.x && y >= this.offset.y &&
-        x < this.offset.x + this.extent.width &&
-        y < this.offset.y + this.extent.height
+    fun contains(x: int, y: int): bool {
+        var inside = false
+        if (this.extent.valid() &&
+            graphicsAddFits(this.offset.x, this.extent.width) &&
+            graphicsAddFits(this.offset.y, this.extent.height)) {
+            inside = x >= this.offset.x && y >= this.offset.y &&
+                x < this.offset.x + this.extent.width &&
+                y < this.offset.y + this.extent.height
+        }
+        inside
+    }
 }
 
 // Deterministically round a native f64 to its IEEE-754 binary32 encoding.

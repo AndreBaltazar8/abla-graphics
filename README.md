@@ -10,7 +10,8 @@ layer.
 The project is under active development. The current vertical slice already
 proves the architecture rather than stopping at placeholder interfaces:
 
-- a backend-neutral configuration, error, geometry, and native `f64` math core;
+- a backend-neutral configuration, error, overflow-checked geometry, and native
+  `f64` math core;
 - an affine pure-Abla X11 window that opens the Unix socket, performs the X11
   authenticated handshake, honors visibility/size/decoration/fullscreen hints,
   reports screen dimensions/DPI/content scale, maps portable

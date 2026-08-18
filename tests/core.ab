@@ -22,6 +22,16 @@ fun main: int {
     )
     val virtualMonitor = Monitor("virtual", 1920, 1080)
     val rectangle = Rect2D(Offset2D(10, 20), Extent2D(30, 40))
+    val boundaryRectangle = Rect2D(
+        Offset2D(graphicsMaximumInt - 2, graphicsMinimumInt),
+        Extent2D(2, 2)
+    )
+    val overflowingRectangle = Rect2D(
+        Offset2D(graphicsMaximumInt - 1, 0),
+        Extent2D(2, 1)
+    )
+    val largeArea = Extent2D(graphicsMaximumInt, 2).areaChecked()
+    val volume = Extent3D(2, 3, 4).volumeChecked()
     val vector = Vec2(2.0, 3.0).plus(Vec2(4.0, 5.0)).scaled(2.0)
     val transform = mat4Translation(Vec3(3.0, 5.0, 7.0)).multiplied(
         mat4Scaling(Vec3(2.0, 3.0, 4.0))
@@ -61,6 +71,10 @@ fun main: int {
         samples = 4,
         usage = textureUsageRenderAttachment
     ).validation()
+    val overflowingTexture = TextureDescriptor(
+        size = Extent3D(4294967296, 1),
+        usage = textureUsageSampled
+    ).validation()
     val invalidDepthAspect = TextureViewDescriptor(
         format = textureFormatRgba8Unorm,
         aspect = textureAspectDepth
@@ -98,6 +112,16 @@ fun main: int {
         rectangle.contains(10, 20) &&
         rectangle.contains(39, 59) &&
         !rectangle.contains(40, 60) &&
+        boundaryRectangle.contains(
+            graphicsMaximumInt - 1,
+            graphicsMinimumInt + 1
+        ) &&
+        !overflowingRectangle.contains(graphicsMaximumInt, 0) &&
+        !graphicsCheckedAdd(graphicsMaximumInt, 1).succeeded &&
+        !graphicsCheckedAdd(graphicsMinimumInt, -1).succeeded &&
+        graphicsCheckedAdd(20, -7).value == 13 &&
+        !largeArea.succeeded && Extent2D(graphicsMaximumInt, 2).area() == 0 &&
+        volume.succeeded && volume.value == 24 &&
         vector.x == 12.0 && vector.y == 16.0 &&
         transformedPoint.x == 5.0 && transformedPoint.y == 8.0 &&
         transformedPoint.z == 11.0 &&
@@ -129,6 +153,7 @@ fun main: int {
         colorView.validation(colorTexture).succeeded &&
         !invalidMultisample.succeeded &&
         invalidMultisample.field == "samples" &&
+        !overflowingTexture.succeeded && overflowingTexture.field == "size" &&
         !invalidDepthAspect.succeeded &&
         invalidDepthAspect.field == "aspect" &&
         !invalidViewFormat.succeeded &&
