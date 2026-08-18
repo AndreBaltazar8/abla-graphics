@@ -132,6 +132,7 @@ noescape extern:"c" fun glGetProgramInfoLog(
 ): void
 noescape extern:"c" fun glDeleteProgram(program: i32): void
 noescape extern:"c" fun glUseProgram(program: i32): void
+noescape extern:"c" fun glDispatchCompute(x: i32, y: i32, z: i32): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
@@ -845,6 +846,90 @@ trusted fun openGlProgramFromPackage(
         shader.source(shaderStageVertex),
         shader.source(shaderStageFragment)
     ) else OpenGlProgram(0, 0, shader.error)
+}
+
+resource class OpenGlComputePipeline(
+    var handle: int,
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*,
+    val error: string
+) {
+    fun valid(): bool = this.handle != 0 &&
+        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+
+    trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
+        var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
+            x <= 65535 && y <= 65535 && z <= 65535 &&
+            eglMakeCurrent(
+                this.display,
+                this.surface,
+                this.surface,
+                this.context
+            ) == eglTrue
+        if (succeeded) {
+            glUseProgram(this.handle)
+            glDispatchCompute(x, y, z)
+            glFinish()
+            succeeded = glGetError() == 0
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        if (this.handle != 0) {
+            if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {
+                eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            }
+            glDeleteProgram(this.handle)
+            this.handle = 0
+        }
+        return
+    }
+}
+
+trusted fun OpenGlWindowContext.computePipeline(
+    shader: ShaderPackage
+): OpenGlComputePipeline {
+    var program = 0
+    var error = if (shader.valid) "" else shader.error
+    if (shader.valid && shader.stages.size == 1 &&
+        shader.stages[0].kind == shaderStageCompute && this.makeCurrent()) {
+        val compute = openGlCompileShader(
+            37305,
+            shader.source(shaderStageCompute)
+        )
+        error = compute.error
+        if (compute.handle != 0) {
+            program = glCreateProgram()
+            if (program != 0) {
+                glAttachShader(program, compute.handle)
+                glLinkProgram(program)
+                val linked = nativeI64Cell(0)
+                glGetProgramiv(program, 35714, linked.address)
+                if ((linked.load() & 4294967295) == 0) {
+                    error = openGlProgramLog(program)
+                    glDeleteProgram(program)
+                    program = 0
+                }
+            }
+            glDeleteShader(compute.handle)
+        }
+    } else if (error == "") {
+        error = "OpenGL compute requires one valid compute stage and context"
+    }
+    OpenGlComputePipeline(
+        program,
+        this.display,
+        this.surface,
+        this.context,
+        error
+    )
 }
 
 trusted fun openGlPixelPresenter(

@@ -1,0 +1,93 @@
+// Affine backend-neutral compute pipeline and dispatch.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "application.ab"
+import "shader/glsl.ab"
+import "shader/glsl_spirv.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsComputePipeline(
+    val openGl: OpenGlComputePipeline,
+    val vulkan: VulkanComputePipeline,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
+        if (this.backend == graphicsBackendOpenGl) {
+            this.openGl.dispatch(x, y, z)
+        } else if (this.backend == graphicsBackendVulkan) {
+            this.vulkan.dispatch(x, y, z)
+        } else false
+    }
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.computePipeline(
+    shader: ShaderPackage
+): GraphicsComputePipeline {
+    var openGl = OpenGlComputePipeline(
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        ""
+    )
+    var vulkan = VulkanComputePipeline(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        -1,
+        0,
+        0
+    )
+    var error = GraphicsError()
+    if (!this.valid() || !shader.valid) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.computePipeline",
+            if (shader.error != "") shader.error else
+                "the application or shader package is invalid"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.computePipeline(shader)
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "OpenGlWindowContext.computePipeline",
+            openGl.error
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        val translatable = glslPackage(
+            [shaderStageCompute],
+            [shader.source(shaderStageCompute)]
+        )
+        val emitted = translatable.spirv(shaderStageCompute)
+        if (!emitted.succeeded) {
+            error = GraphicsError(
+                graphicsErrorUnsupportedFeature,
+                "ShaderPackage.spirv",
+                emitted.error
+            )
+        } else {
+            val module = this.vulkanDevice.shaderModule(emitted.module)
+            if (module.valid()) {
+                vulkan = this.vulkanDevice.computePipeline(module)
+            }
+            if (!vulkan.valid()) error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "VulkanDevice.computePipeline",
+                "Vulkan compute pipeline creation failed"
+            )
+        }
+    }
+    GraphicsComputePipeline(move(openGl), move(vulkan), this.backend, error)
+}

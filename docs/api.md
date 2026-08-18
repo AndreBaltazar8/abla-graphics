@@ -326,6 +326,15 @@ destroyed affinely. This is a verified execution foundation; descriptor-set
 layouts, reusable command encoders, asynchronous fences, and the common compute
 pipeline facade remain upcoming.
 
+The first portable compute facade is `app.computePipeline(shader)`. It owns an
+OpenGL compute program or a Vulkan pipeline created from the Abla-emitted
+SPIR-V, reports structured creation errors, and exposes the same checked
+`dispatch(x, y, z)` call on both backends. Backend choice occurs once during
+creation; dispatch contains no backend probing beyond the selected affine
+resource branch. The current implementation finishes/waits each dispatch for
+deterministic validation. Reusable command encoders and asynchronous fences are
+required before this becomes the high-throughput production path.
+
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the
 provided representation.

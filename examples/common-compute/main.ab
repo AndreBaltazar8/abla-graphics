@@ -1,0 +1,35 @@
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend),
+        WindowConfig(title = "Abla Graphics compute", width = 480, height = 270)
+    )
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 8, local_size_y = 4) in;
+            void main() {}
+        }
+    }
+    val pipeline = app.computePipeline(shader)
+    val passed = app.valid() && pipeline.valid() &&
+        pipeline.dispatch(4, 2) &&
+        app.presentClear(Color(
+            graphicsScalar(1, 16),
+            graphicsScalar(3, 16),
+            graphicsScalar(7, 16)
+        ))
+    println(
+        "Common compute ${graphicsBackendName(app.backend)}: dispatched on ${app.adapterName}"
+    )
+    if (passed) 0 else 1
+}

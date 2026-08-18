@@ -102,6 +102,10 @@ Updated: 2026-08-18.
   one-time command buffer, submits two workgroups, waits for completion, and
   destroys pipeline-before-layout. A zero-group dispatch is rejected before
   command recording.
+- Common compute test/sample: the same `$glsl` package creates an OpenGL 4.5
+  compute program or the Vulkan SPIR-V/module/pipeline chain after one-time
+  backend selection. Explicit OpenGL/Vulkan plus automatic/fallback paths
+  dispatch successfully; zero-sized dispatch is rejected on both backends.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
