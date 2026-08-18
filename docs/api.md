@@ -216,9 +216,13 @@ val linear = app.sampler(SamplerDescriptor(
 The common descriptor maps address, magnification/minification/mipmap filters,
 integer LOD bounds, and optional comparison state to OpenGL sampler objects and
 `VkSampler` values. Abla rounds the API's native `f64` values to the required
-IEEE-754 binary32 representation in pure Abla. Anisotropy above one returns
-`graphicsErrorUnsupportedFeature` until adapter feature negotiation can enable
-it honestly; the value is not silently ignored.
+IEEE-754 binary32 representation in pure Abla. Anisotropy above one is accepted
+only when `graphicsFeatureSamplerAnisotropy` is present and the requested
+integer value does not exceed `maximumSamplerAnisotropy`; otherwise creation
+returns `graphicsErrorUnsupportedFeature`. OpenGL discovers the registered
+ARB/EXT extension and sets `GL_TEXTURE_MAX_ANISOTROPY` through a float-vector
+parameter. Vulkan queries and explicitly enables `samplerAnisotropy`, then sets
+both `anisotropyEnable` and `maxAnisotropy` in `VkSamplerCreateInfo`.
 
 ## Small application
 
@@ -281,7 +285,8 @@ Selection is performed once and never becomes a silent per-frame fallback.
 `graphicsFeatureCompute`, `graphicsFeatureStorageBuffers`,
 `graphicsFeatureSampledTextures`, `graphicsFeatureDepthTextures`,
 `graphicsFeatureComparisonSamplers`, and
-`graphicsFeatureViewFormatReinterpretation`. Creation fails with
+`graphicsFeatureViewFormatReinterpretation`, and
+`graphicsFeatureSamplerAnisotropy`. Creation fails with
 `graphicsErrorUnsupportedFeature` when an installed requested backend cannot
 provide every required bit. Automatic selection may skip such a backend and
 select the next capable one.
@@ -289,7 +294,8 @@ select the next capable one.
 After successful creation, `app.capabilities` reports the selected driver's
 feature mask, `GraphicsVersion`, maximum 2D texture dimension, maximum storage
 buffer byte range, maximum compute workgroups in X, maximum compute workgroup
-size in X, and maximum compute invocations. These values come from
+size in X, maximum compute invocations, and maximum integer sampler anisotropy.
+These values come from
 `glGet*` on the current OpenGL context or `vkGetPhysicalDeviceProperties` and
 the selected Vulkan queue family. The current OpenGL path deliberately does not
 advertise view-format reinterpretation; Vulkan does because the implemented

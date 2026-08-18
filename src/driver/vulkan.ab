@@ -53,6 +53,10 @@ noescape extern:"c" fun vkGetPhysicalDeviceProperties(
     device: i64*,
     properties: i64*
 ): void
+noescape extern:"c" fun vkGetPhysicalDeviceFeatures(
+    device: i64*,
+    features: i64*
+): void
 noescape extern:"c" fun vkGetPhysicalDeviceQueueFamilyProperties(
     device: i64*,
     count: i64*,
@@ -826,7 +830,9 @@ trusted fun VulkanAdapter.queueFamilyFlags(queueFamily: int): int {
 
 trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     val properties = nativeByteBuffer(1024)
+    val deviceFeatures = nativeByteBuffer(224)
     vkGetPhysicalDeviceProperties(this.handle, properties.address)
+    vkGetPhysicalDeviceFeatures(this.handle, deviceFeatures.address)
     val queueFamily = this.graphicsQueueFamily()
     val queueFlags = this.queueFamilyFlags(queueFamily)
     var features = graphicsFeatureSampledTextures |
@@ -835,6 +841,13 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     if ((queueFlags & 2) != 0) {
         features = features | graphicsFeatureCompute |
             graphicsFeatureStorageBuffers
+    }
+    val maximumAnisotropy = graphicsPositiveF32Floor(
+        properties.loadI64(568) & 4294967295
+    )
+    if (((deviceFeatures.loadI64(72) >>> 32) & 4294967295) != 0 &&
+        maximumAnisotropy > 1) {
+        features = features | graphicsFeatureSamplerAnisotropy
     }
     GraphicsCapabilities(
         features,
@@ -845,7 +858,8 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
             properties.loadI64(324) & 4294967295,
             properties.loadI64(516) & 4294967295,
             properties.loadI64(532) & 4294967295,
-            properties.loadI64(528) & 4294967295
+            properties.loadI64(528) & 4294967295,
+            maximumAnisotropy
         ),
         GraphicsVersion(
             vulkanVersionMajor(this.apiVersion),
@@ -853,6 +867,21 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
             vulkanVersionPatch(this.apiVersion)
         )
     )
+}
+
+trusted fun VulkanAdapter.enabledDeviceFeatures(): NativeByteBuffer {
+    val available = nativeByteBuffer(224)
+    val enabled = nativeByteBuffer(224)
+    vkGetPhysicalDeviceFeatures(this.handle, available.address)
+    var index = 0
+    while (index < enabled.capacity) {
+        enabled.store(index, 0)
+        index = index + 1
+    }
+    if (((available.loadI64(72) >>> 32) & 4294967295) != 0) {
+        enabled.store(76, 1)
+    }
+    enabled
 }
 
 resource class VulkanDevice(
@@ -884,6 +913,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
     var handle = nativeNullPointer()
     var queue = nativeNullPointer()
     if (queueFamily >= 0) {
+        val enabledFeatures = this.enabledDeviceFeatures()
         val priority = nativeByteBuffer(8)
         priority.storeI64(0, 1065353216)
         val queueInfo = nativeByteBuffer(40)
@@ -905,7 +935,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         createInfo.storePointer(40, nativeNullPointer())
         createInfo.storeI64(48, 0)
         createInfo.storePointer(56, nativeNullPointer())
-        createInfo.storePointer(64, nativeNullPointer())
+        createInfo.storePointer(64, enabledFeatures.address)
 
         val output = nativePointerCell(nativeNullPointer())
         val status = vkCreateDevice(
@@ -1194,8 +1224,23 @@ trusted fun VulkanDevice.sampler(
     descriptor: SamplerDescriptor
 ): VulkanSampler {
     var handle = 0
+    var capabilities = GraphicsCapabilities()
+    if (this.valid()) {
+        capabilities = VulkanAdapter(
+            this.physicalDevice,
+            "",
+            this.apiVersion,
+            0,
+            0,
+            0,
+            0
+        ).capabilities()
+    }
     if (this.valid() && descriptor.valid() &&
-        descriptor.maximumAnisotropy == 1) {
+        graphicsSamplerAnisotropySupported(
+            capabilities,
+            descriptor.maximumAnisotropy
+        )) {
         val createInfo = nativeByteBuffer(80)
         createInfo.storeI64(0, 31)
         createInfo.storePointer(8, nativeNullPointer())
@@ -1212,7 +1257,10 @@ trusted fun VulkanDevice.sampler(
         createInfo.storeI64(40, vulkanSamplerAddress(descriptor.addressW))
         createInfo.storeI64(
             48,
-            graphicsUnsignedIntegerF32Bits(1) * 4294967296
+            graphicsUnsignedIntegerF32Bits(
+                descriptor.maximumAnisotropy
+            ) * 4294967296 +
+                (if (descriptor.maximumAnisotropy > 1) 1 else 0)
         )
         var compareEnable = 0
         var compareOperation = 0
@@ -2229,6 +2277,7 @@ trusted fun VulkanAdapter.deviceForSurface(
     var handle = nativeNullPointer()
     var queue = nativeNullPointer()
     if (queueFamily >= 0 && this.supportsSurface(surface, queueFamily)) {
+        val enabledFeatures = this.enabledDeviceFeatures()
         val priority = nativeByteBuffer(8)
         priority.storeI64(0, 1065353216)
         val queueInfo = nativeByteBuffer(40)
@@ -2257,7 +2306,7 @@ trusted fun VulkanAdapter.deviceForSurface(
         createInfo.storePointer(40, nativeNullPointer())
         createInfo.storeI64(48, 1)
         createInfo.storePointer(56, extensionNames.address)
-        createInfo.storePointer(64, nativeNullPointer())
+        createInfo.storePointer(64, enabledFeatures.address)
 
         val output = nativePointerCell(nativeNullPointer())
         if (vkCreateDevice(

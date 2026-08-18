@@ -20,7 +20,8 @@ val graphicsFeatureSampledTextures = 4
 val graphicsFeatureDepthTextures = 8
 val graphicsFeatureComparisonSamplers = 16
 val graphicsFeatureViewFormatReinterpretation = 32
-val graphicsFeatureAll = 63
+val graphicsFeatureSamplerAnisotropy = 64
+val graphicsFeatureAll = 127
 
 val graphicsMaximumInt = 9223372036854775807
 val graphicsMinimumInt = -9223372036854775807 - 1
@@ -49,6 +50,19 @@ fun graphicsCheckedSizeProduct(
 ): GraphicsIntResult {
     val succeeded = graphicsSizeProductFits(left, right)
     GraphicsIntResult(succeeded, if (succeeded) left * right else 0)
+}
+
+fun graphicsPositiveF32Floor(bits: int): int {
+    val exponent = (bits >>> 23) & 255
+    val significand = 8388608 + (bits & 8388607)
+    var result = 0
+    if ((bits & 2147483648) == 0 && exponent >= 127 && exponent < 255) {
+        val shift = exponent - 127
+        if (shift >= 63) result = graphicsMaximumInt
+        else if (shift >= 23) result = significand << (shift - 23)
+        else result = significand >>> (23 - shift)
+    }
+    result
 }
 
 class GraphicsVersion(
@@ -92,13 +106,15 @@ class GraphicsLimits(
     val maximumStorageBufferBytes: int = 0,
     val maximumComputeWorkgroupsX: int = 0,
     val maximumComputeWorkgroupSizeX: int = 0,
-    val maximumComputeInvocations: int = 0
+    val maximumComputeInvocations: int = 0,
+    val maximumSamplerAnisotropy: int = 1
 ) {
     fun valid(): bool = this.maximumTextureDimension2D > 0 &&
         this.maximumStorageBufferBytes >= 0 &&
         this.maximumComputeWorkgroupsX >= 0 &&
         this.maximumComputeWorkgroupSizeX >= 0 &&
-        this.maximumComputeInvocations >= 0
+        this.maximumComputeInvocations >= 0 &&
+        this.maximumSamplerAnisotropy >= 1
 }
 
 class GraphicsCapabilities(
@@ -114,12 +130,22 @@ class GraphicsCapabilities(
         ((this.features & graphicsFeatureCompute) == 0 ||
          (this.limits.maximumComputeWorkgroupsX > 0 &&
           this.limits.maximumComputeWorkgroupSizeX > 0 &&
-          this.limits.maximumComputeInvocations > 0))
+          this.limits.maximumComputeInvocations > 0)) &&
+        ((this.features & graphicsFeatureSamplerAnisotropy) == 0 ||
+         this.limits.maximumSamplerAnisotropy > 1)
 
     fun supports(required: int): bool = required >= 0 &&
         (required & graphicsFeatureAll) == required &&
         (this.features & required) == required
 }
+
+fun graphicsSamplerAnisotropySupported(
+    capabilities: GraphicsCapabilities,
+    requested: int
+): bool = requested == 1 ||
+    (requested > 1 &&
+     capabilities.supports(graphicsFeatureSamplerAnisotropy) &&
+     requested <= capabilities.limits.maximumSamplerAnisotropy)
 
 class GraphicsBackendSupport(
     val vulkan: bool,

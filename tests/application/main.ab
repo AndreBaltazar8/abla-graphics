@@ -9,7 +9,8 @@ fun applicationBackendProbe(
 ): bool {
     val commonFeatures = graphicsFeatureCompute |
         graphicsFeatureStorageBuffers | graphicsFeatureSampledTextures |
-        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers
+        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers |
+        graphicsFeatureSamplerAnisotropy
     val requiredFeatures = if (requestedBackend == graphicsBackendVulkan)
         commonFeatures | graphicsFeatureViewFormatReinterpretation
     else commonFeatures
@@ -32,6 +33,7 @@ fun applicationBackendProbe(
         app.capabilities.limits.maximumComputeWorkgroupsX > 0 &&
         app.capabilities.limits.maximumComputeWorkgroupSizeX > 0 &&
         app.capabilities.limits.maximumComputeInvocations > 0 &&
+        app.capabilities.limits.maximumSamplerAnisotropy >= 16 &&
         monitor.valid() && monitor.contentScaleX() > 0.0 &&
         monitor.contentScaleY() > 0.0
     val cursorPassed = app.setCursorVisible(false) &&
@@ -83,7 +85,7 @@ fun applicationBackendProbe(
         mipmapFilter = samplerFilterLinear,
         compare = compareFunctionLessEqual
     ))
-    val unsupportedSampler = app.sampler(SamplerDescriptor(
+    val anisotropicSampler = app.sampler(SamplerDescriptor(
         maximumAnisotropy = 16
     ))
     val texture = app.texture(TextureDescriptor(
@@ -226,7 +228,7 @@ fun applicationBackendProbe(
             app.vulkanPixels.height == 260
     }
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} workgroups=${app.capabilities.limits.maximumComputeWorkgroupsX} workgroupSize=${app.capabilities.limits.maximumComputeWorkgroupSizeX} invocations=${app.capabilities.limits.maximumComputeInvocations} presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} workgroups=${app.capabilities.limits.maximumComputeWorkgroupsX} workgroupSize=${app.capabilities.limits.maximumComputeWorkgroupSizeX} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && frameSlotsPassed &&
         buffer.valid() && bufferWritten &&
@@ -237,8 +239,7 @@ fun applicationBackendProbe(
         mappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
         readbackBuffer.valid() && sampler.valid() &&
-        !unsupportedSampler.valid() &&
-        unsupportedSampler.error.code == graphicsErrorUnsupportedFeature &&
+        anisotropicSampler.valid() &&
         texture.valid() && textureView.valid() &&
         textureView.descriptor.resolvedFormat(texture.descriptor) ==
             textureFormatRgba8Unorm &&

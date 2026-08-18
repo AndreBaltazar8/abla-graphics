@@ -32,9 +32,10 @@ Updated: 2026-08-18.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
-  require and verify the common compute/storage/texture feature set and real
-  queried limits; Vulkan additionally requires format reinterpretation, while
-  an explicit OpenGL request for it is rejected before application use.
+  require and verify the common compute/storage/texture/anisotropy feature set
+  and real queried limits; Vulkan additionally requires format
+  reinterpretation, while an explicit OpenGL request for it is rejected before
+  application use.
 - Vulkan test: loader version, instance, physical-adapter API version, queried
   2D texture/storage/compute limits and portable feature mask, graphics
   queue-family selection, logical device, host-visible coherent allocation,
@@ -57,7 +58,8 @@ Updated: 2026-08-18.
 - Common application test: explicit OpenGL, explicit Vulkan, automatic Vulkan
   preference, automatic fallback to OpenGL, explicit-unavailable rejection,
   and explicit unsupported-feature rejection. Every successful path requires
-  compute, storage buffers, sampled/depth textures, and comparison samplers,
+  compute, storage buffers, sampled/depth textures, comparison samplers, and
+  sampler anisotropy,
   then verifies the reported API version and driver limits. Explicit Vulkan
   additionally requires the implemented view-format reinterpretation feature;
   successful paths create an affine application, report the selected adapter,
@@ -98,8 +100,13 @@ Updated: 2026-08-18.
   the software-driver sample matrix.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
-  linear min/mag/mipmap filtering, LOD range, and comparison state. Anisotropy
-  above one is rejected as an unsupported negotiated feature on both paths.
+  linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
+  anisotropy. OpenGL queries the ARB/EXT extension and maximum before using the
+  float-vector parameter ABI. Vulkan queries the physical-device feature and
+  float limit, zero-initializes the entire enabled-feature structure, enables
+  only the advertised sampler bit, and records the anisotropic sampler state.
+  Pure capability tests reject a request above the reported limit and a request
+  on a device without the feature.
 - Common affine texture/view test: one descriptor creates complete color mip
   chains and depth images as OpenGL 2D texture objects or bound Vulkan images.
   Omitted view counts resolve to all remaining subresources; full OpenGL views
@@ -205,8 +212,9 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional
   feature preferences, per-dimension/per-stage limits, and typed extension
-  objects. The current common capability report covers the initial six-feature
-  mask and five directly queried limits documented in the API contract.
+  objects. The current common capability report covers the initial
+  seven-feature mask and six directly queried limits documented in the API
+  contract.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration and cross-stage compatibility slice,

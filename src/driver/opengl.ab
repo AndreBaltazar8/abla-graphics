@@ -79,6 +79,8 @@ noescape extern:"c" fun glGetIntegeri_v(
     index: i32,
     value: i64*
 ): void
+noescape extern:"c" fun glGetFloatv(name: i32, value: i64*): void
+noescape extern:"c" fun glGetStringi(name: i32, index: i32): i64*
 noescape extern:"c" fun glViewport(
     x: i32,
     y: i32,
@@ -205,6 +207,11 @@ noescape extern:"c" fun glSamplerParameteri(
     name: i32,
     value: i32
 ): void
+noescape extern:"c" fun glSamplerParameterfv(
+    sampler: i32,
+    name: i32,
+    value: i64*
+): void
 noescape extern:"c" fun glDeleteSamplers(count: i32, samplers: i64*): void
 
 fun openGlStoreI32(
@@ -228,6 +235,7 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     val workgroups = nativeI64Cell(0)
     val workgroupSize = nativeI64Cell(0)
     val invocations = nativeI64Cell(0)
+    val anisotropy = nativeI64Cell(0)
     glGetIntegerv(33307, major.address)
     glGetIntegerv(33308, minor.address)
     glGetIntegerv(3379, texture.address)
@@ -241,11 +249,36 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
         glGetIntegeri_v(37311, 0, workgroupSize.address)
         glGetIntegerv(37099, invocations.address)
     }
+    val extensionCount = nativeI64Cell(0)
+    glGetIntegerv(33309, extensionCount.address)
+    var supportsAnisotropy = false
+    var extensionIndex = 0
+    while (!supportsAnisotropy &&
+        extensionIndex < (extensionCount.load() & 4294967295)) {
+        val extension = glGetStringi(7939, extensionIndex)
+        if (!pointerIsNull(extension)) {
+            val name = borrowNativeCString(extension)
+            supportsAnisotropy =
+                name == "GL_EXT_texture_filter_anisotropic" ||
+                name == "GL_ARB_texture_filter_anisotropic"
+        }
+        extensionIndex = extensionIndex + 1
+    }
+    var maximumAnisotropy = 1
+    if (supportsAnisotropy) {
+        glGetFloatv(34047, anisotropy.address)
+        maximumAnisotropy = graphicsPositiveF32Floor(
+            anisotropy.load() & 4294967295
+        )
+    }
     var features = graphicsFeatureSampledTextures |
         graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers
     if (compute) {
         features = features | graphicsFeatureCompute |
             graphicsFeatureStorageBuffers
+    }
+    if (maximumAnisotropy > 1) {
+        features = features | graphicsFeatureSamplerAnisotropy
     }
     GraphicsCapabilities(
         features,
@@ -254,7 +287,8 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
             storage.load(),
             workgroups.load() & 4294967295,
             workgroupSize.load() & 4294967295,
-            invocations.load() & 4294967295
+            invocations.load() & 4294967295,
+            maximumAnisotropy
         ),
         GraphicsVersion(majorValue, minorValue)
     )
@@ -553,8 +587,11 @@ trusted fun OpenGlWindowContext.sampler(
     descriptor: SamplerDescriptor
 ): OpenGlSampler {
     var handle = 0
-    if (descriptor.valid() && descriptor.maximumAnisotropy == 1 &&
-        this.makeCurrent()) {
+    val capabilities = this.capabilities()
+    if (descriptor.valid() && graphicsSamplerAnisotropySupported(
+            capabilities,
+            descriptor.maximumAnisotropy
+        ) && this.makeCurrent()) {
         val output = nativeI64Cell(0)
         glGenSamplers(1, output.address)
         handle = output.load()
@@ -586,6 +623,14 @@ trusted fun OpenGlWindowContext.sampler(
                     34893,
                     openGlCompareFunction(descriptor.compare)
                 )
+            }
+            if (descriptor.maximumAnisotropy > 1) {
+                val anisotropy = nativeI64Cell(
+                    graphicsUnsignedIntegerF32Bits(
+                        descriptor.maximumAnisotropy
+                    )
+                )
+                glSamplerParameterfv(handle, 34046, anisotropy.address)
             }
             if (glGetError() != 0) {
                 glDeleteSamplers(1, output.address)
