@@ -20,10 +20,27 @@ fun main: int {
         -1,
         0,
         nativeNullPointer(),
+        false,
         0,
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(0)
     )
+    val timeline = device.timelineSemaphore(3)
+    val invalidTimeline = device.timelineSemaphore(-1)
+    val timelineHandle = timeline.handle
+    val timelineInitial = timeline.currentValue()
+    val timelineLiveBefore = runtimeMemoryLiveBytes()
+    var timelinePassed = timeline.valid() && !invalidTimeline.valid() &&
+        timelineInitial == 3 && timeline.signal(4) &&
+        timeline.wait(4, 1000000000) && timeline.currentValue() == 4
+    var timelineValue = 5
+    while (timelinePassed && timelineValue <= 8) {
+        timelinePassed = timeline.signal(timelineValue) &&
+            timeline.wait(timelineValue, 1000000000) &&
+            timeline.currentValue() == timelineValue
+        timelineValue = timelineValue + 1
+    }
+    val timelineLiveAfter = runtimeMemoryLiveBytes()
     val computePackage = $glsl {
         compute {
             #version 450
@@ -130,7 +147,9 @@ fun main: int {
         capabilities.limits.maximumComputeWorkgroupSizeZ <= 0 ||
         capabilities.limits.maximumComputeInvocations <= 0 ||
         capabilities.limits.maximumSamplerAnisotropy < 16) result = 14
-    else if (!device.valid()) result = 8
+    else if (!device.valid() || !device.timelineSemaphores ||
+        !timelinePassed || timeline.handle != timelineHandle ||
+        timelineLiveAfter != timelineLiveBefore) result = 8
     else if (!computeCode.succeeded || !computeCode.module.valid() ||
         computeCode.module.words[18] != 8 ||
         computeCode.module.words[19] != 4 || !shader.valid() ||

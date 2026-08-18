@@ -31,6 +31,24 @@ does not create command pools or synchronization objects per clear. Four
 repeated clears preserve native handles and runtime live bytes on both
 backends.
 
+Advanced Vulkan code can use an explicitly enabled timeline semaphore through
+the selected device:
+
+```abla
+val timeline = app.vulkanDevice.timelineSemaphore(3)
+timeline.signal(4)
+timeline.wait(4, 1000000000)
+val completed = timeline.currentValue()
+```
+
+This is intentionally a Vulkan-specific primitive rather than a false portable
+wrapper. Device creation queries `VkPhysicalDeviceVulkan12Features` through
+`vkGetPhysicalDeviceFeatures2` and enables only `timelineSemaphore` when the
+adapter reports it. `VulkanTimelineSemaphore` owns the native handle and one
+reusable ABI block; counter queries, strictly monotonic host signals, and waits
+perform no general heap allocation. Negative initial/counter values,
+non-increasing signals, and negative timeouts are rejected before driver calls.
+
 The first portable raster pipeline uses the same embedded shader package on
 both backends:
 

@@ -31,6 +31,12 @@ fun main: int {
                 capabilities.supportedUsage != 0
             if (supported) {
                 val device = adapters[index].deviceForSurface(surface)
+                val timeline = device.timelineSemaphore(2)
+                val timelinePassed = device.timelineSemaphores &&
+                    timeline.valid() && timeline.currentValue() == 2 &&
+                    timeline.signal(3) &&
+                    timeline.wait(3, 1000000000) &&
+                    timeline.currentValue() == 3
                 val swapchain = device.swapchain(adapters[index], surface)
                 val triangle = $glsl {
                     vertex {
@@ -120,7 +126,8 @@ fun main: int {
                     (presenter.frames.size <= 1 || nativePointerAddress(
                         presenter.frames[1].command.load()
                      ) == command1)
-                swapchainValid = device.valid() && swapchain.valid() &&
+                swapchainValid = device.valid() && timelinePassed &&
+                    swapchain.valid() &&
                     swapchain.images.size >= capabilities.minimumImages &&
                     vertexCode.succeeded && fragmentCode.succeeded &&
                     vertex.valid() && fragment.valid() && pipeline.valid() &&

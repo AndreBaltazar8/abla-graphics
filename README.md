@@ -96,6 +96,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   both drivers without a foreign shim;
 - an allocation-free portable idle boundary backed directly by `glFinish` or
   `vkDeviceWaitIdle` for diagnostics and lifecycle synchronization;
+- queried and explicitly enabled Vulkan 1.2 timeline semaphores with affine
+  ownership plus allocation-free counter, monotonic host-signal, and bounded
+  wait operations on both headless and surfaced logical devices;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,

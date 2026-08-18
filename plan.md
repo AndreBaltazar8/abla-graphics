@@ -35,7 +35,8 @@ using reusable OpenGL blits or native Vulkan subpass resolve attachments plus
 allocation-free GPU mip-chain generation with per-level Vulkan barriers plus
 affine two-to-eight-stage procedural subpass sequences using native Vulkan
 subpasses and explicit dependencies or ordered OpenGL FBO draws are
-implemented. Repeated clear,
+implemented, together with queried and explicitly enabled Vulkan 1.2 timeline
+semaphores and allocation-free counter/signal/wait operations. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

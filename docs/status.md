@@ -42,11 +42,14 @@ Updated: 2026-08-18.
   2D texture/storage/compute limits and portable feature mask, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,
-  queue submission/wait, mapping/readback, and reverse-order affine cleanup.
+  queue submission/wait, mapping/readback, queried/enabled Vulkan 1.2 timeline
+  semaphores with allocation-free counter/signal/wait operations, and
+  reverse-order affine cleanup.
 - Vulkan X11 surface test: required instance extensions, `VkXlibSurfaceKHR`
   creation for the direct Abla window, per-adapter graphics/presentation queue
   checks, surface capabilities/formats, a swapchain-enabled logical device,
-  swapchain creation/image enumeration, semaphore-synchronized acquisition,
+  swapchain creation/image enumeration, surfaced-device timeline enablement,
+  semaphore-synchronized acquisition,
   image layout barriers, GPU clear, queue submission/presentation/wait, and
   affine reverse-order teardown.
 - Common triangle render test/sample: one strict `$glsl` vertex/fragment
