@@ -92,7 +92,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
-  hash-verified Vulkan/OpenGL inputs plus honest unclassified coverage ledgers;
+  hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
+  audits that leave every unaudited row visibly unclassified;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

@@ -376,11 +376,16 @@ Updated: 2026-08-18.
   registry commits and SHA-256 digests are pinned in one manifest; the generator
   filters Vulkan SC, OpenGL ES, and compatibility-only requirement branches,
   resolves selected command references against definitions, merges API
-  variants, byte-sorts output, and produces committed coverage ledgers for 608
-  Vulkan commands/5 core versions/473 extensions and 2,892 OpenGL commands/19
-  core versions/623 extensions. Offline fixtures prove API filtering, aliases,
-  exact output, and repeated-run determinism. Every row remains explicitly
-  `unclassified`, so inventory presence is not represented as backend support.
+  variants, follows the selected internal Vulkan base/compute/graphics groups,
+  byte-sorts output, and produces committed coverage ledgers for 842 Vulkan
+  commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
+  core versions/623 extensions. Offline fixtures prove API filtering, internal
+  dependency collection, aliases, exact output, and repeated-run determinism.
+  A strict audit join currently classifies 12 Vulkan and 10 OpenGL commands as
+  `common`, with separate loader, ABI, positive-test, and unsupported-path
+  evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
+  rows are rejected. Every other row remains explicitly `unclassified`, so
+  inventory presence is not represented as backend support.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
 - GitHub CI bootstraps `ablac` from its pinned seed and runs the complete
@@ -434,9 +439,9 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   interleaved position/color, and sampled-texture triangle vertex/fragment
   subsets described above, not general shaders.
 - Generated Khronos ABI bindings and fully classified coverage ledgers. The
-  pinned, deterministic inventory ledgers exist, but all rows deliberately
-  remain `unclassified` until loader/ABI and positive/negative test evidence is
-  attached.
+  pinned, deterministic inventory and strict evidence join exist, with the
+  initial 22 exercised common commands classified; all other rows deliberately
+  remain `unclassified` until equivalent evidence is attached.
 - General texture byte uploads/format-converting copies/render-pass use,
   persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command

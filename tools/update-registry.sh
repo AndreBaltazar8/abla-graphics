@@ -57,8 +57,10 @@ cd "$compiler_root"
 "$compiler" build --project "$project_root/tools/registry-generator" \
     -o "$generator" --no-cache
 "$generator" vulkan "$cache_directory/vk.xml" \
+    "$project_root/registry/audit/vulkan.tsv" \
     "$project_root/registry/coverage/vulkan.md" \
     "$vulkan_revision" "$vulkan_sha256"
 "$generator" opengl "$cache_directory/gl.xml" \
+    "$project_root/registry/audit/opengl.tsv" \
     "$project_root/registry/coverage/opengl.md" \
     "$opengl_revision" "$opengl_sha256"

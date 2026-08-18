@@ -12,6 +12,18 @@ class RegistryInventory(
     val error: string
 )
 
+class RegistryAudit(
+    val kinds: array<string>,
+    val names: array<string>,
+    val statuses: array<string>,
+    val loaders: array<string>,
+    val abis: array<string>,
+    val positives: array<string>,
+    val unsupportedPaths: array<string>,
+    val valid: bool,
+    val error: string
+)
+
 fun registryOpeningTagEnd(source: string, begin: int): int =
     textFindByte(source, 62, begin, source.size)
 
@@ -59,6 +71,139 @@ fun registryArrayIndex(values: array<string>, wanted: string): int {
         index = index + 1
     }
     result
+}
+
+fun registryAuditIndex(
+    audit: RegistryAudit,
+    kind: string,
+    name: string
+): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < audit.names.size) {
+        if (audit.kinds[index] == kind && audit.names[index] == name) {
+            result = index
+        }
+        index = index + 1
+    }
+    result
+}
+
+fun registryAuditFieldSafe(field: string): bool =
+    field != "" && textFindByte(field, 124) < 0 &&
+    textFindByte(field, 96) < 0 && textFindByte(field, 10) < 0 &&
+    textFindByte(field, 13) < 0
+
+fun registryParseAudit(source: string): RegistryAudit {
+    val kinds: array<string> = []
+    val names: array<string> = []
+    val statuses: array<string> = []
+    val loaders: array<string> = []
+    val abis: array<string> = []
+    val positives: array<string> = []
+    val unsupportedPaths: array<string> = []
+    var valid = true
+    var error = ""
+    var cursor = 0
+    var lineNumber = 1
+    while (valid && cursor <= source.size) {
+        var end = textFindByte(source, 10, cursor, source.size)
+        if (end < 0) end = source.size
+        var line = source.slice(cursor, end)
+        if (line.size > 0 && line[line.size - 1] == 13) {
+            line = line.slice(0, line.size - 1)
+        }
+        if (line != "" && line[0] != 35) {
+            val fields: array<string> = []
+            var fieldBegin = 0
+            var fieldOffset = 0
+            while (fieldOffset <= line.size) {
+                if (fieldOffset == line.size || line[fieldOffset] == 9) {
+                    fields.append(line.slice(fieldBegin, fieldOffset))
+                    fieldBegin = fieldOffset + 1
+                }
+                fieldOffset = fieldOffset + 1
+            }
+            if (fields.size != 7) {
+                valid = false
+                error = "audit line $lineNumber must have 7 tab-separated fields"
+            } else {
+                val kind = fields[0]
+                val name = fields[1]
+                val status = fields[2]
+                val knownKind = kind == "command" || kind == "core-feature" ||
+                    kind == "extension"
+                val knownStatus = status == "common" || status == "raw" ||
+                    status == "unsupported" ||
+                    status == "platform-inapplicable"
+                var safe = name != "" && registryAuditFieldSafe(fields[3]) &&
+                    registryAuditFieldSafe(fields[4]) &&
+                    registryAuditFieldSafe(fields[5]) &&
+                    registryAuditFieldSafe(fields[6])
+                if (textFindByte(name, 124) >= 0 ||
+                    textFindByte(name, 96) >= 0) safe = false
+                if (!knownKind) {
+                    valid = false
+                    error = "unknown audit kind on line $lineNumber: $kind"
+                } else if (!knownStatus) {
+                    valid = false
+                    error = "unknown audit status on line $lineNumber: $status"
+                } else if (!safe) {
+                    valid = false
+                    error = "unsafe or incomplete audit evidence on line $lineNumber"
+                } else {
+                    var duplicate = false
+                    var index = 0
+                    while (!duplicate && index < names.size) {
+                        duplicate = kinds[index] == kind && names[index] == name
+                        index = index + 1
+                    }
+                    if (duplicate) {
+                        valid = false
+                        error = "duplicate audit row on line $lineNumber: $kind $name"
+                    } else {
+                        kinds.append(kind)
+                        names.append(name)
+                        statuses.append(status)
+                        loaders.append(fields[3])
+                        abis.append(fields[4])
+                        positives.append(fields[5])
+                        unsupportedPaths.append(fields[6])
+                    }
+                }
+            }
+        }
+        cursor = end + 1
+        lineNumber = lineNumber + 1
+        if (end == source.size) cursor = source.size + 1
+    }
+    RegistryAudit(
+        kinds, names, statuses, loaders, abis, positives, unsupportedPaths,
+        valid, error
+    )
+}
+
+fun registryAuditValidate(
+    audit: RegistryAudit,
+    inventory: RegistryInventory
+): string {
+    var error = ""
+    var index = 0
+    while (error == "" && index < audit.names.size) {
+        val kind = audit.kinds[index]
+        val name = audit.names[index]
+        var known = false
+        if (kind == "command") {
+            known = registryArrayContains(inventory.commands, name)
+        } else if (kind == "core-feature") {
+            known = registryArrayContains(inventory.features, name)
+        } else if (kind == "extension") {
+            known = registryArrayContains(inventory.extensions, name)
+        }
+        if (!known) error = "audit row is absent from selected registry: $kind $name"
+        index = index + 1
+    }
+    error
 }
 
 fun registryStringLess(left: string, right: string): bool {
@@ -308,9 +453,10 @@ fun registryParse(source: string, api: string): RegistryInventory {
             val featureApi = registryAttribute(opening, "api")
             val name = registryAttribute(opening, "name")
             val apiType = registryAttribute(opening, "apitype")
-            val selected = registryTokenListContains(featureApi, wantedApi) &&
-                apiType != "internal" && name != ""
-            if (selected && !registryArrayContains(features, name)) {
+            val selectedApi = registryTokenListContains(featureApi, wantedApi) &&
+                name != ""
+            val published = selectedApi && apiType != "internal"
+            if (published && !registryArrayContains(features, name)) {
                 features.append(name)
             }
             if (registryTagSelfClosing(opening)) {
@@ -323,7 +469,7 @@ fun registryParse(source: string, api: string): RegistryInventory {
                     valid = false
                     error = "unterminated core feature"
                 } else {
-                    if (selected && !registryAppendRequiredCommands(
+                    if (selectedApi && !registryAppendRequiredCommands(
                         source, openEnd + 1, close, wantedApi,
                         api == "opengl", requiredCommands
                     )) {
@@ -422,7 +568,8 @@ fun registryWrite(
     api: string,
     revision: string,
     sha256: string,
-    inventory: RegistryInventory
+    inventory: RegistryInventory,
+    audit: RegistryAudit
 ): bool {
     val title = if (api == "vulkan") "Vulkan" else "OpenGL"
     var success = output.writeText("")
@@ -440,46 +587,103 @@ fun registryWrite(
     if (success) batch = registryAppend(
         output, batch, "- Extensions: ${inventory.extensions.size}"
     )
+    var commandAudits = 0
+    var featureAudits = 0
+    var extensionAudits = 0
+    var auditIndex = 0
+    while (auditIndex < audit.kinds.size) {
+        if (audit.kinds[auditIndex] == "command") commandAudits = commandAudits + 1
+        if (audit.kinds[auditIndex] == "core-feature") featureAudits = featureAudits + 1
+        if (audit.kinds[auditIndex] == "extension") extensionAudits = extensionAudits + 1
+        auditIndex = auditIndex + 1
+    }
     if (success) batch = registryAppend(
-        output, batch,
-        "- Classification state: all rows are `unclassified` until separately audited"
+        output, batch, "- Classified commands: $commandAudits/${inventory.commands.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "- Classified core features: $featureAudits/${inventory.features.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "- Classified extensions: $extensionAudits/${inventory.extensions.size}"
     )
     if (success) batch = registryAppend(output, batch, "")
     if (success) batch = registryAppend(output, batch, "## Commands")
     if (success) batch = registryAppend(output, batch, "")
-    if (success) batch = registryAppend(output, batch, "| Name | Form | Status |")
-    if (success) batch = registryAppend(output, batch, "| --- | --- | --- |")
+    if (success) batch = registryAppend(
+        output, batch,
+        "| Name | Form | Status | Loader | ABI | Positive test | Unsupported path |"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "| --- | --- | --- | --- | --- | --- | --- |"
+    )
     var index = 0
     while (success && index < inventory.commands.size) {
+        val found = registryAuditIndex(
+            audit, "command", inventory.commands[index]
+        )
+        val status = if (found >= 0) audit.statuses[found] else "unclassified"
+        val loader = if (found >= 0) audit.loaders[found] else "-"
+        val abi = if (found >= 0) audit.abis[found] else "-"
+        val positive = if (found >= 0) audit.positives[found] else "-"
+        val unsupported = if (found >= 0)
+            audit.unsupportedPaths[found] else "-"
         batch = registryAppend(
             output, batch,
-            "| `${inventory.commands[index]}` | ${inventory.commandForms[index]} | unclassified |"
+            "| `${inventory.commands[index]}` | ${inventory.commandForms[index]} | $status | $loader | $abi | $positive | $unsupported |"
         )
         index = index + 1
     }
     if (success) batch = registryAppend(output, batch, "")
     if (success) batch = registryAppend(output, batch, "## Core features")
     if (success) batch = registryAppend(output, batch, "")
-    if (success) batch = registryAppend(output, batch, "| Name | Status |")
-    if (success) batch = registryAppend(output, batch, "| --- | --- |")
+    if (success) batch = registryAppend(
+        output, batch,
+        "| Name | Status | Loader | ABI | Positive test | Unsupported path |"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "| --- | --- | --- | --- | --- | --- |"
+    )
     index = 0
     while (success && index < inventory.features.size) {
+        val found = registryAuditIndex(
+            audit, "core-feature", inventory.features[index]
+        )
+        val status = if (found >= 0) audit.statuses[found] else "unclassified"
+        val loader = if (found >= 0) audit.loaders[found] else "-"
+        val abi = if (found >= 0) audit.abis[found] else "-"
+        val positive = if (found >= 0) audit.positives[found] else "-"
+        val unsupported = if (found >= 0)
+            audit.unsupportedPaths[found] else "-"
         batch = registryAppend(
             output, batch,
-            "| `${inventory.features[index]}` | unclassified |"
+            "| `${inventory.features[index]}` | $status | $loader | $abi | $positive | $unsupported |"
         )
         index = index + 1
     }
     if (success) batch = registryAppend(output, batch, "")
     if (success) batch = registryAppend(output, batch, "## Extensions")
     if (success) batch = registryAppend(output, batch, "")
-    if (success) batch = registryAppend(output, batch, "| Name | Status |")
-    if (success) batch = registryAppend(output, batch, "| --- | --- |")
+    if (success) batch = registryAppend(
+        output, batch,
+        "| Name | Status | Loader | ABI | Positive test | Unsupported path |"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "| --- | --- | --- | --- | --- | --- |"
+    )
     index = 0
     while (success && index < inventory.extensions.size) {
+        val found = registryAuditIndex(
+            audit, "extension", inventory.extensions[index]
+        )
+        val status = if (found >= 0) audit.statuses[found] else "unclassified"
+        val loader = if (found >= 0) audit.loaders[found] else "-"
+        val abi = if (found >= 0) audit.abis[found] else "-"
+        val positive = if (found >= 0) audit.positives[found] else "-"
+        val unsupported = if (found >= 0)
+            audit.unsupportedPaths[found] else "-"
         batch = registryAppend(
             output, batch,
-            "| `${inventory.extensions[index]}` | unclassified |"
+            "| `${inventory.extensions[index]}` | $status | $loader | $abi | $positive | $unsupported |"
         )
         index = index + 1
     }
@@ -489,23 +693,35 @@ fun registryWrite(
 }
 
 fun main: int {
-    if (processArgumentCount() != 5) {
-        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <output.md> <revision> <sha256>")
+    if (processArgumentCount() != 6) {
+        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <output.md> <revision> <sha256>")
         2
     } else {
         val api = processArgument(0)
         val input = Path(processArgument(1))
-        val output = Path(processArgument(2))
+        val auditInput = Path(processArgument(2))
+        val output = Path(processArgument(3))
         if (!input.exists()) {
             eprintln("registry input does not exist: ${input.text}")
             3
+        } else if (!auditInput.exists()) {
+            eprintln("registry audit does not exist: ${auditInput.text}")
+            3
         } else {
             val inventory = registryParse(input.readText(), api)
+            val audit = registryParseAudit(auditInput.readText())
             if (!inventory.valid) {
                 eprintln("registry parse failed: ${inventory.error}")
                 4
+            } else if (!audit.valid) {
+                eprintln("registry audit failed: ${audit.error}")
+                4
+            } else if (registryAuditValidate(audit, inventory) != "") {
+                eprintln("registry audit failed: ${registryAuditValidate(audit, inventory)}")
+                4
             } else if (!registryWrite(
-                output, api, processArgument(3), processArgument(4), inventory
+                output, api, processArgument(4), processArgument(5), inventory,
+                audit
             )) {
                 eprintln("failed to write registry inventory: ${output.text}")
                 5
