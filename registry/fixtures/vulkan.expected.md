@@ -7,6 +7,7 @@
 - Extensions: 2
 - Constants: 8
 - Types: 3
+- Command parameters: 1
 - Classified commands: 1/4
 - Classified core features: 1/1
 - Classified extensions: 2/2

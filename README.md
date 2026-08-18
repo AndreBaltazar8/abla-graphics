@@ -97,8 +97,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,
   43 desktop OpenGL type records, 2,497 selected Vulkan type records, and
-  independently compiled raw metadata modules that leave every unaudited row
-  visibly unclassified;
+  structured ABI signatures for 9,526 OpenGL and 2,845 Vulkan command
+  parameters; the independently compiled raw metadata modules leave every
+  unaudited row visibly unclassified;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

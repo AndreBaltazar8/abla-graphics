@@ -28,6 +28,11 @@ Both modules also expose aligned, byte-sorted type name, category, alias, and
 declared-dependency arrays: 43 desktop OpenGL types and 2,497 selected Vulkan
 types, including the Vulkan registry's internal base/compute/graphics feature
 layers that compose its five public core versions.
+Every selected command additionally has an aligned return type and parameter
+count. Flat parameter arrays retain the owning command, parameter name, base
+type, ABI pointer depth (including fixed-array decay), and constness for all
+9,526 OpenGL and 2,845 Vulkan ABI parameters; command aliases inherit the
+canonical signature.
 Explicit desktop OpenGL definitions win over GLES-only collisions. Unknown
 expressions, unresolved or cyclic Vulkan aliases, missing definitions, and
 conflicts stop generation. The modules are compiled by `make test-registry` through the

@@ -7,6 +7,7 @@
 - Extensions: 473
 - Constants: 5633
 - Types: 2497
+- Command parameters: 2845
 - Classified commands: 18/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
