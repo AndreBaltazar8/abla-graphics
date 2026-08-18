@@ -17,14 +17,15 @@ class VertexBufferLayout(val stride: int = 0) {
 
 resource class GraphicsRenderPipeline(
     val openGl: OpenGlProgram,
-    val vulkan: VulkanRenderPipeline,
+    var vulkan: VulkanRenderPipeline,
     val backend: int,
     val vertexLayout: VertexBufferLayout,
     val raster: RasterPipelineState,
+    val shader: ShaderPackage,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
-        this.raster.valid() &&
+        this.raster.valid() && this.shader.valid &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -137,12 +138,78 @@ trusted fun GraphicsApplication.renderPipeline(
         this.backend,
         vertexLayout,
         raster,
+        shader,
         error
     )
 }
 
+trusted fun GraphicsApplication.recreateRenderTarget(
+    var pipeline: GraphicsRenderPipeline,
+    width: int,
+    height: int
+): bool {
+    var succeeded = this.backend == graphicsBackendVulkan &&
+        pipeline.backend == graphicsBackendVulkan &&
+        pipeline.shader.valid && pipeline.vertexLayout.valid() &&
+        pipeline.raster.valid() && width > 0 && height > 0
+    if (succeeded) {
+        pipeline.vulkan.drop()
+        succeeded = this.recreateVulkanSwapchain(width, height)
+    }
+    if (succeeded) {
+        val translatable = glslPackage(
+            [shaderStageVertex, shaderStageFragment],
+            [
+                pipeline.shader.source(shaderStageVertex),
+                pipeline.shader.source(shaderStageFragment)
+            ]
+        )
+        val vertexCode = translatable.spirv(shaderStageVertex)
+        val fragmentCode = translatable.spirv(shaderStageFragment)
+        succeeded = vertexCode.succeeded && fragmentCode.succeeded
+        if (succeeded) {
+            val vertex = this.vulkanDevice.shaderModule(vertexCode.module)
+            val fragment = this.vulkanDevice.shaderModule(fragmentCode.module)
+            if (vertex.valid() && fragment.valid()) {
+                pipeline.vulkan = this.vulkanDevice.renderPipeline(
+                    this.vulkanSwapchain,
+                    vertex,
+                    fragment,
+                    pipeline.vertexLayout.stride,
+                    pipeline.raster.topology,
+                    pipeline.raster.cullMode,
+                    pipeline.raster.frontFace,
+                    pipeline.raster.alphaBlend
+                )
+            }
+            succeeded = pipeline.vulkan.valid()
+        }
+    }
+    succeeded
+}
+
+trusted fun GraphicsApplication.renderTargetReady(
+    var pipeline: GraphicsRenderPipeline
+): bool {
+    var ready = this.backend == graphicsBackendVulkan && pipeline.valid()
+    if (ready && (
+        this.vulkanSwapchain.width != this.window.width ||
+        this.vulkanSwapchain.height != this.window.height ||
+        pipeline.vulkan.width != this.vulkanSwapchain.width ||
+        pipeline.vulkan.height != this.vulkanSwapchain.height ||
+        pipeline.vulkan.format != this.vulkanSwapchain.format
+    )) {
+        ready = this.recreateRenderTarget(
+            pipeline,
+            this.window.width,
+            this.window.height
+        )
+    }
+    ready
+}
+
 trusted fun GraphicsApplication.presentRender(
-    pipeline: GraphicsRenderPipeline,
+    var pipeline: GraphicsRenderPipeline,
     clear: Color
 ): bool {
     if (!this.valid() || !pipeline.valid() || !clear.valid() ||
@@ -155,21 +222,38 @@ trusted fun GraphicsApplication.presentRender(
             pipeline.raster
         )
     } else if (this.backend == graphicsBackendVulkan) {
-        val outcome = this.vulkanDevice.presentRenderOutcome(
-            this.vulkanSwapchain,
-            this.vulkanPixels,
-            pipeline.vulkan,
-            clear
-        )
-        // Surface-dependent pipelines deliberately reject a resized swapchain
-        // until the application creates a replacement pipeline.
-        vulkanPresentSucceeded(outcome) &&
-            !vulkanPresentNeedsRecreation(outcome)
+        var ready = this.renderTargetReady(pipeline)
+        var outcome = vulkanPresentOutcome(false, false, -1)
+        if (ready) outcome = this.vulkanDevice.presentRenderOutcome(
+                this.vulkanSwapchain,
+                this.vulkanPixels,
+                pipeline.vulkan,
+                clear
+            )
+        var presented = vulkanPresentSucceeded(outcome)
+        if (ready && vulkanPresentNeedsRecreation(outcome)) {
+            ready = this.recreateRenderTarget(
+                pipeline,
+                this.window.width,
+                this.window.height
+            )
+            if (ready && !presented) {
+                outcome = this.vulkanDevice.presentRenderOutcome(
+                    this.vulkanSwapchain,
+                    this.vulkanPixels,
+                    pipeline.vulkan,
+                    clear
+                )
+                presented = vulkanPresentSucceeded(outcome) &&
+                    !vulkanPresentNeedsRecreation(outcome)
+            }
+        }
+        ready && presented
     } else false
 }
 
 trusted fun GraphicsApplication.presentRenderVertices(
-    pipeline: GraphicsRenderPipeline,
+    var pipeline: GraphicsRenderPipeline,
     vertices: GraphicsBuffer,
     vertexCount: int,
     clear: Color,
@@ -193,24 +277,48 @@ trusted fun GraphicsApplication.presentRenderVertices(
             pipeline.raster
         )
     } else if (this.backend == graphicsBackendVulkan) {
-        val outcome = this.vulkanDevice.presentRenderOutcome(
-            this.vulkanSwapchain,
-            this.vulkanPixels,
-            pipeline.vulkan,
-            clear,
-            vertices.vulkan.handle,
-            vertexCount,
-            0,
-            0,
-            instanceCount
-        )
-        vulkanPresentSucceeded(outcome) &&
-            !vulkanPresentNeedsRecreation(outcome)
+        var ready = this.renderTargetReady(pipeline)
+        var outcome = vulkanPresentOutcome(false, false, -1)
+        if (ready) outcome = this.vulkanDevice.presentRenderOutcome(
+                this.vulkanSwapchain,
+                this.vulkanPixels,
+                pipeline.vulkan,
+                clear,
+                vertices.vulkan.handle,
+                vertexCount,
+                0,
+                0,
+                instanceCount
+            )
+        var presented = vulkanPresentSucceeded(outcome)
+        if (ready && vulkanPresentNeedsRecreation(outcome)) {
+            ready = this.recreateRenderTarget(
+                pipeline,
+                this.window.width,
+                this.window.height
+            )
+            if (ready && !presented) outcome =
+                this.vulkanDevice.presentRenderOutcome(
+                    this.vulkanSwapchain,
+                    this.vulkanPixels,
+                    pipeline.vulkan,
+                    clear,
+                    vertices.vulkan.handle,
+                    vertexCount,
+                    0,
+                    0,
+                    instanceCount
+                )
+            presented = presented ||
+                (vulkanPresentSucceeded(outcome) &&
+                 !vulkanPresentNeedsRecreation(outcome))
+        }
+        ready && presented
     } else false
 }
 
 trusted fun GraphicsApplication.presentRenderIndexed(
-    pipeline: GraphicsRenderPipeline,
+    var pipeline: GraphicsRenderPipeline,
     vertices: GraphicsBuffer,
     indices: GraphicsBuffer,
     indexCount: int,
@@ -239,18 +347,42 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             pipeline.raster
         )
     } else if (this.backend == graphicsBackendVulkan) {
-        val outcome = this.vulkanDevice.presentRenderOutcome(
-            this.vulkanSwapchain,
-            this.vulkanPixels,
-            pipeline.vulkan,
-            clear,
-            vertices.vulkan.handle,
-            vertices.descriptor.size / stride,
-            indices.vulkan.handle,
-            indexCount,
-            instanceCount
-        )
-        vulkanPresentSucceeded(outcome) &&
-            !vulkanPresentNeedsRecreation(outcome)
+        var ready = this.renderTargetReady(pipeline)
+        var outcome = vulkanPresentOutcome(false, false, -1)
+        if (ready) outcome = this.vulkanDevice.presentRenderOutcome(
+                this.vulkanSwapchain,
+                this.vulkanPixels,
+                pipeline.vulkan,
+                clear,
+                vertices.vulkan.handle,
+                vertices.descriptor.size / stride,
+                indices.vulkan.handle,
+                indexCount,
+                instanceCount
+            )
+        var presented = vulkanPresentSucceeded(outcome)
+        if (ready && vulkanPresentNeedsRecreation(outcome)) {
+            ready = this.recreateRenderTarget(
+                pipeline,
+                this.window.width,
+                this.window.height
+            )
+            if (ready && !presented) outcome =
+                this.vulkanDevice.presentRenderOutcome(
+                    this.vulkanSwapchain,
+                    this.vulkanPixels,
+                    pipeline.vulkan,
+                    clear,
+                    vertices.vulkan.handle,
+                    vertices.descriptor.size / stride,
+                    indices.vulkan.handle,
+                    indexCount,
+                    instanceCount
+                )
+            presented = presented ||
+                (vulkanPresentSucceeded(outcome) &&
+                 !vulkanPresentNeedsRecreation(outcome))
+        }
+        ready && presented
     } else false
 }

@@ -65,7 +65,9 @@ pipeline creation. Presentation reuses the application's configured command
 slots, semaphores, fences, command buffers, and native scratch. Repeated calls
 with a reused `Color` perform no general allocation and preserve native
 handles. This initial pipeline is surface-dependent: after a Vulkan swapchain
-resize, create a replacement pipeline before presenting again.
+resize, the common presentation path releases framebuffer/image-view state,
+recreates the swapchain, recompiles the immutable pipeline recipe, and retries
+when the original presentation did not succeed.
 
 The first vertex-input slice supports one location-zero `vec2` attribute in an
 interleaved common buffer. `storeF32` performs deterministic IEEE-754
@@ -150,6 +152,18 @@ same topology, cull mode, front face, and blend factors into the graphics
 pipeline. Invalid enum values are rejected before backend driver creation.
 The sample creates and presents both a blended triangle-list pipeline and an
 alternate line-strip/front-cull/clockwise pipeline on both backends.
+
+`GraphicsRenderPipeline` retains its immutable shader, vertex layout, and
+raster recipe. A copied Vulkan resize event updates the desired surface extent
+but deliberately defers swapchain recreation until presentation, when the
+pipeline can first release every framebuffer and image view that references
+the old swapchain. `presentRender`, `presentRenderVertices`, and
+`presentRenderIndexed` detect an extent/format mismatch or classified
+suboptimal/out-of-date result, rebuild in dependency order, and retry a failed
+presentation once. The common-triangle sample resizes from 800x600 to 640x480
+and requires the rebuilt swapchain, pipeline extent, and framebuffer count to
+match before succeeding. OpenGL keeps the same pipeline and updates its viewport
+from the copied resize event.
 
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,

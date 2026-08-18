@@ -84,6 +84,15 @@ Updated: 2026-08-18.
   line-strip/front-cull/clockwise pipelines under software OpenGL and
   validation-enabled Lavapipe, rejects an invalid topology before driver work,
   and retains the repeated-draw no-growth gate.
+- Render-pipeline resize recovery: an affine pipeline retains its immutable
+  shader/layout/raster recipe. Vulkan resize events defer recreation until a
+  render presentation can wait, destroy framebuffer/image-view/pipeline state,
+  then drop and recreate presenter/swapchain state in dependency order before
+  rebuilding the pipeline. Extent/format mismatch and classified suboptimal/
+  out-of-date results share this path; a failed presentation is retried once.
+  The common sample resizes 800x600 to 640x480 and presents again with matching
+  swapchain/pipeline/framebuffer state under validation. OpenGL updates its
+  viewport while retaining the original program and VAO.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,
@@ -303,12 +312,12 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 
-- General Vulkan render-pass descriptors, vertex/index inputs, bind groups,
-  synchronization2, and dynamic rendering. The initial fixed triangle pipeline,
+- General Vulkan render-pass descriptors, multi-attribute vertex inputs, bind
+  groups, synchronization2, and dynamic rendering. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
-  presentation recover once from suboptimal/out-of-date swapchains; the first
-  surface-dependent render pipeline must be recreated after resize.
+  and render presentation recover once from suboptimal/out-of-date swapchains;
+  render recovery rebuilds surface-dependent pipeline objects automatically.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.

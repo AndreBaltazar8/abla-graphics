@@ -15,10 +15,10 @@ headless OpenGL/Vulkan selection, common buffers/textures/views/samplers,
 reusable copies/fills/pixel presentation, compute pipelines, strict initial
 `$glsl`-to-SPIR-V subsets, and the first procedural, common-vertex-buffer, and
 `uint32` indexed and instanced render paths with immutable topology, culling,
-winding, and alpha-blend state are implemented. Repeated clear, pixel, transfer,
-compute, event-poll, and triangle hot paths have stable native handles and zero
-runtime live-byte growth. The remaining milestone work below is intentionally
-still open.
+winding, and alpha-blend state plus dependency-ordered Vulkan resize recovery
+are implemented. Repeated clear, pixel, transfer, compute, event-poll, and
+triangle hot paths have stable native handles and zero runtime live-byte growth.
+The remaining milestone work below is intentionally still open.
 
 ## Non-negotiable design rules
 

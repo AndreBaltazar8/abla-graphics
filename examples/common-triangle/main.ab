@@ -159,11 +159,36 @@ fun main: int {
         indices.vulkan.handle == vulkanIndexBuffer &&
         pipeline.vulkan.framebuffers[0] == vulkanFramebuffer &&
         app.vulkanPixels.frames[0].commandPool == commandPool &&
-        nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
+            nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             command
+    var resized = app.resize(640, 480)
+    var resizeEvent = WindowEvent()
+    var resizePoll = 0
+    while (resized && resizeEvent.kind != windowEventResized &&
+        resizePoll < 32) {
+        resizeEvent = app.pollEvent(50)
+        resizePoll = resizePoll + 1
+    }
+    resized = resized && resizeEvent.first == 640 &&
+        resizeEvent.second == 480 &&
+        app.presentRenderIndexed(
+            pipeline,
+            vertices,
+            indices,
+            3,
+            clear,
+            2
+        )
+    val targetResized = resized &&
+        (app.backend == graphicsBackendOpenGl ||
+         (app.vulkanSwapchain.width == 640 &&
+          app.vulkanSwapchain.height == 480 &&
+          pipeline.vulkan.width == 640 && pipeline.vulkan.height == 480 &&
+          pipeline.vulkan.framebuffers.size ==
+            app.vulkanSwapchain.images.size))
     println(
-        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, instances=2, alphaBlend=${pipeline.raster.alphaBlend}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, instances=2, alphaBlend=${pipeline.raster.alphaBlend}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, resized=$targetResized, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
-    app.pollEvent(250)
-    if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
+    if (presented && frame == 4 && noGrowth && handlesStable &&
+        targetResized) 0 else 1
 }
