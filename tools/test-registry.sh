@@ -99,7 +99,7 @@ rg -q 'unsupported Vulkan constant expression' \
 
 cd "$compiler_root"
 "$compiler" build "$project_root/tests/raw_registry.ab" \
-    -o "$output_directory/raw-registry" --no-cache
+    -o "$output_directory/raw-registry" --fast --no-cache
 set +e
 "$output_directory/raw-registry"
 status=$?

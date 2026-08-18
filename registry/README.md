@@ -38,3 +38,8 @@ expressions, unresolved or cyclic Vulkan aliases, missing definitions, and
 conflicts stop generation. The modules are compiled by `make test-registry` through the
 stable `src/raw/opengl.ab` and `src/raw/vulkan.ab` facades. Never edit generated
 coverage or source files directly.
+
+The raw metadata verification build uses Abla's semantics-equivalent `--fast`
+pipeline to keep CI practical as the generated modules grow. Release-mode
+whole-module LTO is also exercised whenever a new generated metadata family is
+introduced; it is not required on every deterministic-regeneration check.
