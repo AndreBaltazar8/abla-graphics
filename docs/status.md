@@ -112,10 +112,13 @@ Updated: 2026-08-18.
   either OpenGL or Vulkan pipeline creation.
 - Observable storage compute test/sample: a reflected binding-zero `std430`
   block is emitted as SPIR-V `BufferBlock`/descriptor decorations and a real
-  access-chain/store. OpenGL binds an SSBO; Vulkan creates and binds descriptor
+  access-chain/store. The grammar accepts both an unsigned constant assignment
+  and self-plus-unsigned assignment; the latter emits `OpLoad`, `OpIAdd`, and
+  `OpStore`. OpenGL binds an SSBO; Vulkan creates and binds descriptor
   layout/pool/set state. Explicit and automatic/fallback paths dispatch the
   same package and common buffer readback returns exactly `42`; the raw Vulkan
-  variant parses and returns `77`, proving the constant is source-derived.
+  variant dispatches an increment twice and returns `2`, proving repeated
+  commands operate on observable persistent storage.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
@@ -151,7 +154,8 @@ capability lands.
   location/set/binding declaration and cross-stage compatibility slice,
   deliberately rejects quoted includes, and does not yet parse block members,
   general declarations, or expressions. SPIR-V emission currently covers the
-  strict no-op and one storage-write compute subsets described above, not
+  strict no-op and single-member storage-assignment compute subsets described
+  above, not
   general shaders.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
