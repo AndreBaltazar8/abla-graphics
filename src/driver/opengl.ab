@@ -185,11 +185,18 @@ noescape extern:"c" fun glTexSubImage2D(
     kind: i32,
     pixels: i64*
 ): void
-noescape extern:"c" fun glGetTexImage(
-    target: i32,
+noescape extern:"c" fun glGetTextureSubImage(
+    texture: i32,
     level: i32,
+    x: i32,
+    y: i32,
+    z: i32,
+    width: i32,
+    height: i32,
+    depth: i32,
     format: i32,
     kind: i32,
+    bufferSize: i32,
     pixels: i64*
 ): void
 noescape extern:"c" fun glCopyImageSubData(
@@ -866,10 +873,12 @@ resource class OpenGlTexture(
     var handle: int,
     val display: i64*,
     val surface: i64*,
-    val context: i64*
+    val context: i64*,
+    val readback: NativeByteBuffer
 ) {
     fun valid(): bool = this.handle != 0 &&
-        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+        !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
+        !this.readback.closed && this.readback.capacity >= 8
 
     trusted fun drop(): void {
         if (this.handle != 0) {
@@ -885,6 +894,7 @@ resource class OpenGlTexture(
             glDeleteTextures(1, output.address)
             this.handle = 0
         }
+        this.readback.close()
         return
     }
 }
@@ -933,12 +943,11 @@ trusted fun OpenGlTexture.writePixels(
     pixels: PixelBuffer,
     write: TextureWriteDescriptor
 ): bool {
-    val validation = write.validation(
+    var succeeded = this.valid() && pixels.valid() && write.valid(
         texture,
         pixels.width,
         pixels.height
     )
-    var succeeded = this.valid() && pixels.valid() && validation.succeeded
     if (succeeded) {
         succeeded = eglMakeCurrent(
             this.display,
@@ -971,39 +980,41 @@ trusted fun OpenGlTexture.rgba8(
     y: int,
     mipLevel: int = 0
 ): int {
-    val read = TextureWriteDescriptor(mipLevel, x, y)
-    val validation = read.validation(
-        texture,
-        1,
-        1,
-        textureUsageCopySource
-    )
     var result = -1
-    var succeeded = this.valid() && validation.succeeded &&
+    var succeeded = this.valid() && texture.valid() &&
+        (texture.usage & textureUsageCopySource) != 0 &&
+        textureFormatAcceptsRgba8Pixels(texture.format) &&
+        mipLevel >= 0 && mipLevel < texture.mipLevels &&
+        x >= 0 && y >= 0 &&
+        x < textureMipDimension(texture.size.width, mipLevel) &&
+        y < textureMipDimension(texture.size.height, mipLevel) &&
         eglMakeCurrent(
             this.display,
             this.surface,
             this.surface,
             this.context
         ) == eglTrue
-    val width = textureMipDimension(texture.size.width, mipLevel)
-    val height = textureMipDimension(texture.size.height, mipLevel)
-    val storage = nativeByteBuffer(
-        if (succeeded && graphicsSizeProductFits(width, height) &&
-            graphicsSizeProductFits(width * height, 4))
-            width * height * 4
-        else 0
-    )
-    if (succeeded && storage.capacity > 0) {
-        glBindTexture(3553, this.handle)
-        glGetTexImage(3553, mipLevel, 6408, 5121, storage.address)
+    if (succeeded) {
+        glGetTextureSubImage(
+            this.handle,
+            mipLevel,
+            x,
+            y,
+            0,
+            1,
+            1,
+            1,
+            6408,
+            5121,
+            4,
+            this.readback.address
+        )
         succeeded = glGetError() == 0
     }
     if (succeeded) {
-        val offset = (y * width + x) * 4
-        result = storage.load(offset) + storage.load(offset + 1) * 256 +
-            storage.load(offset + 2) * 65536 +
-            storage.load(offset + 3) * 16777216
+        result = this.readback.load(0) + this.readback.load(1) * 256 +
+            this.readback.load(2) * 65536 +
+            this.readback.load(3) * 16777216
     }
     result
 }
@@ -1056,7 +1067,13 @@ trusted fun OpenGlWindowContext.texture(
             }
         }
     }
-    OpenGlTexture(handle, this.display, this.surface, this.context)
+    OpenGlTexture(
+        handle,
+        this.display,
+        this.surface,
+        this.context,
+        nativeByteBuffer(8)
+    )
 }
 
 fun OpenGlTexture.view(

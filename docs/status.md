@@ -147,10 +147,13 @@ Updated: 2026-08-18.
   per-mip old-layout tracking, and rejected when its region crosses the mip
   boundary. A separate BGRA texture round-trips the original logical RGBA value
   on both drivers. Vulkan reuses a texture-owned coherent staging buffer,
-  command pool, and command buffer for explicit buffer/image copies and layout
-  transitions; OpenGL uses `glTexSubImage2D` and `glGetTexImage`. The
-  independently buildable common-texture sample runs this slice under explicit
-  OpenGL and Vulkan.
+  command pool, command pointer cell, and scratch ABI block for explicit
+  buffer/image copies and layout transitions; OpenGL uses `glTexSubImage2D` and
+  exact `glGetTextureSubImage` readback into texture-owned scratch. Direct
+  transfer validation plus four repeated upload/readback cycles preserve native
+  handles and show zero live-byte growth on both backends. The independently
+  buildable common-texture sample runs this slice under explicit OpenGL and
+  Vulkan.
 - Common GPU texture-copy test: `GraphicsApplication.copyTexture` validates
   distinct application-owned color textures, exact format, copy usages, source
   and destination mip levels/origins, and a shared 2D extent. A 2x2 region moves

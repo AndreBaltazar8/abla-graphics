@@ -29,10 +29,8 @@ fun main: int {
     val pixels = pixelBuffer(2, 2)
     val pixelsReady = pixels.clearRgba8(23, 47, 89, 131) &&
         pixels.setRgba8(1, 1, 149, 167, 191, 211)
-    val uploaded = pixelsReady && color.writePixels(
-        pixels,
-        TextureWriteDescriptor(2, 7, 9)
-    )
+    val writeRegion = TextureWriteDescriptor(2, 7, 9)
+    val uploaded = pixelsReady && color.writePixels(pixels, writeRegion)
     val readback = color.rgba8(8, 10, 2)
     val copyDestination = app.texture(TextureDescriptor(
         label = "sample-copy-destination",
@@ -50,22 +48,27 @@ fun main: int {
         app.backend == graphicsBackendVulkan &&
         !app.vulkanDevice.transferCommand.closed
     ) nativePointerAddress(app.vulkanDevice.transferCommand.load()) else 0
+    val textureCommandPoolBefore = color.vulkan.commandPool
+    val textureCommandBefore = if (
+        app.backend == graphicsBackendVulkan && !color.vulkan.command.closed
+    ) nativePointerAddress(color.vulkan.command.load()) else 0
     val liveBeforeCopies = runtimeMemoryLiveBytes()
     var copiesRepeated = gpuCopied
     var copyIndex = 0
     while (copiesRepeated && copyIndex < 4) {
-        copiesRepeated = app.copyTexture(
-            color,
-            copyDestination,
-            copyRegion
-        )
+        copiesRepeated = color.writePixels(pixels, writeRegion) &&
+            color.rgba8(8, 10, 2) == 3552552853 &&
+            app.copyTexture(color, copyDestination, copyRegion)
         copyIndex = copyIndex + 1
     }
     val liveAfterCopies = runtimeMemoryLiveBytes()
     val transferStateStable = app.backend != graphicsBackendVulkan ||
         (app.vulkanDevice.transferPool == transferPoolBefore &&
          nativePointerAddress(app.vulkanDevice.transferCommand.load()) ==
-            transferCommandBefore)
+            transferCommandBefore &&
+         color.vulkan.commandPool == textureCommandPoolBefore &&
+         nativePointerAddress(color.vulkan.command.load()) ==
+            textureCommandBefore)
     val copiesNoGrowth = liveAfterCopies == liveBeforeCopies
     val colorView = color.view()
     val depth = app.texture(TextureDescriptor(

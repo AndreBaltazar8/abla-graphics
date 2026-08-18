@@ -309,12 +309,16 @@ app.copyTexture(color, copied, TextureCopyDescriptor(
 region bounds, format, and declared copy usage before a driver call.
 `texture.rgba8(x, y, mipLevel)` provides synchronous diagnostic readback when
 `textureUsageCopySource` was declared. OpenGL uses direct subimage upload and
-texture readback. Vulkan owns a reusable coherent staging buffer, command pool,
-and command buffer with the texture, tracks every mip layout independently,
+exact `glGetTextureSubImage` readback into texture-owned scratch. Vulkan owns a
+reusable coherent staging buffer, command pool, command pointer cell, and
+scratch ABI block with the texture, tracks every mip layout independently,
 performs explicit transfer/shader-read transitions, and converts RGBA/BGRA byte
-order. Repeated writes reuse those native resources; synchronization is
-currently queue-idle and therefore intended for asset upload and verification,
-not streaming every frame.
+order. Texture-transfer validation is a direct non-allocating predicate, and
+the write descriptor is explicit so applications can reuse it. Four repeated
+upload/readback/copy cycles preserve native handles and show zero runtime
+live-byte growth on both backends. Synchronization is currently queue-idle and
+therefore intended for asset upload and verification, not streaming every
+frame.
 
 `app.copyTexture(source, destination, descriptor)` copies a checked 2D region
 between distinct same-format, single-sample color textures owned by the
