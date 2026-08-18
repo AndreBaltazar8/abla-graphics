@@ -1,5 +1,6 @@
 import "abla/io"
 import "abla/process/arguments"
+import "abla/runtime/memory"
 import "../../src/graphics.ab"
 
 fun bufferRangesEqual(
@@ -389,6 +390,34 @@ fun applicationBackendProbe(
         computeBuffer
     )
     val storageComputed = storageCompute.dispatch(1)
+    val computeCommandPool = compute.vulkan.commandPool
+    val computeCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(compute.vulkan.command.load())
+    else 0
+    val storageCommandPool = storageCompute.vulkan.commandPool
+    val storageCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(storageCompute.vulkan.command.load())
+    else 0
+    val computeOpenGlHandle = compute.openGl.handle
+    val storageOpenGlHandle = storageCompute.openGl.handle
+    val computeLiveBefore = runtimeMemoryLiveBytes()
+    var computeRepeated = storageComputed
+    var computeRepeat = 0
+    while (computeRepeated && computeRepeat < 4) {
+        computeRepeated = compute.dispatch(2) &&
+            storageCompute.dispatch(1)
+        computeRepeat = computeRepeat + 1
+    }
+    val computeLiveAfter = runtimeMemoryLiveBytes()
+    val computeNoGrowth = computeLiveAfter == computeLiveBefore
+    val computeHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        compute.openGl.handle == computeOpenGlHandle &&
+            storageCompute.openGl.handle == storageOpenGlHandle
+    else compute.vulkan.commandPool == computeCommandPool &&
+        nativePointerAddress(compute.vulkan.command.load()) == computeCommand &&
+        storageCompute.vulkan.commandPool == storageCommandPool &&
+        nativePointerAddress(storageCompute.vulkan.command.load()) ==
+            storageCommand
     val computeValue = computeBuffer.readI64()
     var resizePassed = true
     var recoveryDetail = ""
@@ -537,7 +566,8 @@ fun applicationBackendProbe(
         !excessiveInvocations.valid() &&
         excessiveInvocations.error.code == graphicsErrorLimitExceeded &&
         computeBuffer.valid() && computeBufferCleared &&
-        storageCompute.valid() && storageComputed && computeValue == 6 &&
+        storageCompute.valid() && storageComputed && computeRepeated &&
+        computeNoGrowth && computeHandlesStable && computeValue == 486 &&
         resizePassed
 }
 

@@ -1742,7 +1742,8 @@ resource class VulkanComputePipeline(
     var layout: int,
     var handle: int,
     var commandPool: int,
-    var commandBuffer: i64*,
+    val command: NativePointerCell,
+    val scratch: NativeByteBuffer,
     var descriptorSetLayout: int,
     var descriptorPool: int,
     var descriptorSet: int
@@ -1750,61 +1751,61 @@ resource class VulkanComputePipeline(
     fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.queueFamily >= 0 &&
         this.layout != 0 && this.handle != 0 && this.commandPool != 0 &&
-        !pointerIsNull(this.commandBuffer)
+        !this.command.closed && !pointerIsNull(this.command.load()) &&
+        !this.scratch.closed && this.scratch.capacity >= 72
 
     trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
         var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
             x <= 65535 && y <= 65535 && z <= 65535
-        val command = nativePointerCell(this.commandBuffer)
         if (succeeded) succeeded = vkResetCommandPool(
             this.device,
             this.commandPool,
             0
         ) == vulkanSuccess
         if (succeeded) {
-            val beginInfo = nativeByteBuffer(32)
-            beginInfo.storeI64(0, 42)
-            beginInfo.storePointer(8, nativeNullPointer())
-            beginInfo.storeI64(16, 1)
-            beginInfo.storePointer(24, nativeNullPointer())
+            this.scratch.storeI64(0, 42)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 1)
+            this.scratch.storePointer(24, nativeNullPointer())
             succeeded = vkBeginCommandBuffer(
-                this.commandBuffer,
-                beginInfo.address
+                this.command.load(),
+                this.scratch.address
             ) == vulkanSuccess
         }
         if (succeeded) {
-            vkCmdBindPipeline(this.commandBuffer, 1, this.handle)
+            vkCmdBindPipeline(this.command.load(), 1, this.handle)
             if (this.descriptorSet != 0) {
-                val descriptor = nativeI64Cell(this.descriptorSet)
+                this.scratch.storeI64(0, this.descriptorSet)
                 vkCmdBindDescriptorSets(
-                    this.commandBuffer,
+                    this.command.load(),
                     1,
                     this.layout,
                     0,
                     1,
-                    descriptor.address,
+                    this.scratch.address,
                     0,
                     nativeNullPointer()
                 )
             }
-            vkCmdDispatch(this.commandBuffer, x, y, z)
-            succeeded = vkEndCommandBuffer(this.commandBuffer) == vulkanSuccess
+            vkCmdDispatch(this.command.load(), x, y, z)
+            succeeded = vkEndCommandBuffer(
+                this.command.load()
+            ) == vulkanSuccess
         }
         if (succeeded) {
-            val submit = nativeByteBuffer(72)
-            submit.storeI64(0, 4)
-            submit.storePointer(8, nativeNullPointer())
-            submit.storeI64(16, 0)
-            submit.storePointer(24, nativeNullPointer())
-            submit.storePointer(32, nativeNullPointer())
-            submit.storeI64(40, 1)
-            submit.storePointer(48, command.address)
-            submit.storeI64(56, 0)
-            submit.storePointer(64, nativeNullPointer())
+            this.scratch.storeI64(0, 4)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 0)
+            this.scratch.storePointer(24, nativeNullPointer())
+            this.scratch.storePointer(32, nativeNullPointer())
+            this.scratch.storeI64(40, 1)
+            this.scratch.storePointer(48, this.command.address)
+            this.scratch.storeI64(56, 0)
+            this.scratch.storePointer(64, nativeNullPointer())
             succeeded = vkQueueSubmit(
                 this.queue,
                 1,
-                submit.address,
+                this.scratch.address,
                 0
             ) == vulkanSuccess
         }
@@ -1814,6 +1815,7 @@ resource class VulkanComputePipeline(
     }
 
     trusted fun drop(): void {
+        if (!pointerIsNull(this.queue)) vkQueueWaitIdle(this.queue)
         if (this.handle != 0 && !pointerIsNull(this.device)) {
             vkDestroyPipeline(this.device, this.handle, nativeNullPointer())
             this.handle = 0
@@ -1825,7 +1827,7 @@ resource class VulkanComputePipeline(
                 nativeNullPointer()
             )
             this.commandPool = 0
-            this.commandBuffer = nativeNullPointer()
+            this.command.store(nativeNullPointer())
         }
         if (this.descriptorPool != 0 && !pointerIsNull(this.device)) {
             vkDestroyDescriptorPool(
@@ -1852,6 +1854,8 @@ resource class VulkanComputePipeline(
             )
             this.descriptorSetLayout = 0
         }
+        this.command.close()
+        this.scratch.close()
         return
     }
 }
@@ -1864,7 +1868,8 @@ trusted fun VulkanDevice.computePipelineNative(
     var layout = 0
     var pipeline = 0
     var commandPool = 0
-    var commandBuffer = nativeNullPointer()
+    var command = nativePointerCell(nativeNullPointer())
+    var scratch = nativeByteBuffer(72)
     var descriptorSetLayout = 0
     var descriptorPool = 0
     var descriptorSet = 0
@@ -2017,15 +2022,14 @@ trusted fun VulkanDevice.computePipelineNative(
         allocateInfo.storePointer(8, nativeNullPointer())
         allocateInfo.storeI64(16, commandPool)
         allocateInfo.storeI64(24, 4294967296)
-        val output = nativePointerCell(nativeNullPointer())
         if (vkAllocateCommandBuffers(
             this.handle,
             allocateInfo.address,
-            output.address
-        ) == vulkanSuccess) commandBuffer = output.load()
+            command.address
+        ) != vulkanSuccess) command.store(nativeNullPointer())
     }
     val descriptorFailed = storageHandle != 0 && descriptorSet == 0
-    if ((pointerIsNull(commandBuffer) || descriptorFailed) && pipeline != 0) {
+    if ((pointerIsNull(command.load()) || descriptorFailed) && pipeline != 0) {
         vkDestroyPipeline(this.handle, pipeline, nativeNullPointer())
         if (commandPool != 0) vkDestroyCommandPool(
             this.handle,
@@ -2072,7 +2076,8 @@ trusted fun VulkanDevice.computePipelineNative(
         layout,
         pipeline,
         commandPool,
-        commandBuffer,
+        move(command),
+        move(scratch),
         descriptorSetLayout,
         descriptorPool,
         descriptorSet
@@ -2090,7 +2095,7 @@ trusted fun VulkanDevice.computeStoragePipeline(
     this.computePipelineNative(shader, storage.handle, storage.size)
 else VulkanComputePipeline(
     nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
-    nativeNullPointer(), 0, 0, 0
+    nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0
 )
 
 fun vulkanTextureFormat(format: int): int {

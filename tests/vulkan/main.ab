@@ -1,3 +1,4 @@
+import "abla/runtime/memory"
 import "../../src/driver/vulkan.ab"
 import "../../src/shader/glsl_spirv.ab"
 
@@ -46,9 +47,17 @@ fun main: int {
     val storageShader = device.shaderModule(storageCode.module)
     val pipeline = device.computePipeline(shader)
     val commandPool = pipeline.commandPool
-    val commandBuffer = pipeline.commandBuffer
+    val commandBuffer = nativePointerAddress(pipeline.command.load())
     val dispatched = pipeline.dispatch(2)
     val dispatchedAgain = pipeline.dispatch(3)
+    val dispatchLiveBefore = runtimeMemoryLiveBytes()
+    var dispatchRepeated = dispatched && dispatchedAgain
+    var dispatchRepeat = 0
+    while (dispatchRepeated && dispatchRepeat < 4) {
+        dispatchRepeated = pipeline.dispatch(2)
+        dispatchRepeat = dispatchRepeat + 1
+    }
+    val dispatchLiveAfter = runtimeMemoryLiveBytes()
     val storageBuffer = device.buffer(8)
     val storageCleared = storageBuffer.writeI64(2)
     val storagePipeline = device.computeStoragePipeline(
@@ -98,8 +107,9 @@ fun main: int {
         !storagePipeline.valid() || !storageDispatched ||
         !storageDispatchedAgain || storageValue != 18 ||
         !pipeline.valid() || !dispatched || !dispatchedAgain ||
+        !dispatchRepeated || dispatchLiveAfter != dispatchLiveBefore ||
         pipeline.commandPool != commandPool ||
-        pipeline.commandBuffer != commandBuffer ||
+        nativePointerAddress(pipeline.command.load()) != commandBuffer ||
         pipeline.dispatch(0)) result = 9
     else if (!buffer.valid()) result = 10
     else if (!filled) result = 11

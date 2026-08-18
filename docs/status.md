@@ -186,9 +186,10 @@ Updated: 2026-08-18.
 - Vulkan compute execution test: the Abla-emitted module creates an empty
   pipeline layout and real compute pipeline, records bind/dispatch into a
   persistent command buffer, submits workgroups, waits for completion, and
-  resets for reuse. Repeated dispatch preserves command-pool/buffer handles;
-  teardown destroys pipeline, pool, then layout. A zero-group dispatch is
-  rejected before command recording.
+  resets for reuse. Pipeline-owned command-pointer and 72-byte ABI scratch
+  storage make repeated dispatch allocation-free while preserving
+  command-pool/buffer handles; teardown destroys pipeline, pool, then layout.
+  A zero-group dispatch is rejected before command recording.
 - Common compute test/sample: the same `$glsl` package creates an OpenGL 4.5
   compute program or the Vulkan SPIR-V/module/pipeline chain after one-time
   backend selection. Explicit OpenGL/Vulkan plus automatic/fallback paths
@@ -196,7 +197,9 @@ Updated: 2026-08-18.
   both backends. Pipeline creation rejects local dimensions above the reported
   X/Y/Z limits and a legal per-axis layout whose product exceeds the maximum
   invocation count, all before driver calls.
-  OpenGL does not force `glFinish` after dispatch.
+  Four additional empty and storage-bound dispatches on each backend preserve
+  native handles and leave runtime live bytes unchanged. OpenGL does not force
+  `glFinish` after dispatch.
   Unsupported compute statements return the same common feature error before
   either OpenGL or Vulkan pipeline creation.
 - Observable storage compute test/sample: a reflected binding-zero `std430`
@@ -206,7 +209,8 @@ Updated: 2026-08-18.
   `OpLoad`, `OpIAdd` or `OpIMul`, and `OpStore`. OpenGL binds an SSBO; Vulkan
   creates and binds descriptor
   layout/pool/set state. Explicit and automatic/fallback paths dispatch the
-  same multiplication package and common buffer readback returns exactly `6`;
+  same multiplication package five times and common buffer readback returns
+  exactly `486`, with no live-memory growth across the four repeated calls;
   the raw Vulkan variant multiplies twice and returns `18`, proving repeated
   commands operate on observable persistent storage.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.

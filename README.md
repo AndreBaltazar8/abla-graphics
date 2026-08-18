@@ -54,7 +54,7 @@ proves the architecture rather than stopping at placeholder interfaces:
   resources on either OpenGL or Vulkan, including allocation-free repeated
   partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
-  GPU buffer/texture copies;
+  GPU buffer/texture copies, plus allocation-free repeated compute dispatch;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and

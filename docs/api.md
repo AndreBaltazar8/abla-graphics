@@ -573,10 +573,12 @@ On the raw Vulkan path, `device.computePipeline(shader)` creates an empty
 `pipeline.dispatch(x, y, z)` validates positive bounded group counts, records
 and binds the pipeline in a persistent command buffer, submits it, and waits for
 completion. The command pool/buffer are allocated once with the pipeline and
-reset for reuse; repeated dispatch retains both native handles. Pipeline,
-command pool, then layout are destroyed affinely. This is a verified execution
-foundation; descriptor-set layouts, general reusable command encoders, and
-asynchronous fences remain upcoming.
+reset for reuse. A pipeline-owned 72-byte native scratch buffer supplies the
+begin, optional descriptor-set handle, and submit ABI structures, so repeated
+dispatch performs no general heap allocation and retains both native handles.
+Pipeline, command pool, then layout are destroyed affinely. This is a verified
+execution foundation; general reusable command encoders and asynchronous
+fences remain upcoming.
 
 The first portable compute facade is `app.computePipeline(shader)`. It owns an
 OpenGL compute program or a Vulkan pipeline created from the Abla-emitted
@@ -588,9 +590,10 @@ X/Y/Z limit or the maximum total invocations. Dispatch rejects a group count
 exceeding the selected device's X/Y/Z maximum. These checks return before a
 driver pipeline or command call; creation uses `graphicsErrorLimitExceeded`.
 OpenGL queues work without a forced full-context finish.
-Vulkan currently waits for queue completion before resetting its persistent
-command resources; asynchronous fences and frames-in-flight are required before
-this becomes the high-throughput production path.
+Repeated dispatch on both backends has a live-memory no-growth gate. Vulkan
+currently waits for queue completion before resetting its persistent command
+resources; asynchronous fences and frames-in-flight are required before this
+becomes the high-throughput production path.
 The common facade runs the shared Abla SPIR-V translator validation before
 either backend is created, so OpenGL cannot accidentally accept a shader that
 would fail after switching the same application to Vulkan.
@@ -602,8 +605,9 @@ OpenGL binds the existing buffer object as SSBO binding zero and issues a shader
 storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
 Both paths execute the parsed assignment and common checked readback observes
-the result. The pipeline
-must drop before its borrowed storage buffer; additional bindings, general
+the result. Repeated storage dispatch also reuses the Vulkan descriptor handle
+and pipeline-owned ABI scratch without live-memory growth. The pipeline must
+drop before its borrowed storage buffer; additional bindings, general
 block layouts, dynamic offsets, and descriptor reuse are still upcoming.
 
 Dynamic source through a common `ShaderSource` and common pipeline creation are

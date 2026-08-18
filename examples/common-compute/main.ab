@@ -1,5 +1,6 @@
 import "abla/io"
 import "abla/process/arguments"
+import "abla/runtime/memory"
 import "../../src/graphics.ab"
 
 fun main: int {
@@ -37,17 +38,51 @@ fun main: int {
             bufferUsageCopyDestination
     ))
     val storagePipeline = app.computeStoragePipeline(storageShader, storage)
-    val passed = app.valid() && pipeline.valid() &&
+    val initialized = app.valid() && pipeline.valid() &&
         pipeline.dispatch(4, 2) && pipeline.dispatch(3, 2) &&
         storage.writeI64(2) && storagePipeline.valid() &&
-        storagePipeline.dispatch(1) && storage.readI64() == 6 &&
+        storagePipeline.dispatch(1) && storage.readI64() == 6
+    val computePoolBefore = pipeline.vulkan.commandPool
+    val computeCommandBefore = if (
+        app.backend == graphicsBackendVulkan &&
+        !pipeline.vulkan.command.closed
+    ) nativePointerAddress(pipeline.vulkan.command.load()) else 0
+    val storagePoolBefore = storagePipeline.vulkan.commandPool
+    val storageCommandBefore = if (
+        app.backend == graphicsBackendVulkan &&
+        !storagePipeline.vulkan.command.closed
+    ) nativePointerAddress(storagePipeline.vulkan.command.load()) else 0
+    val openGlHandleBefore = pipeline.openGl.handle
+    val openGlStorageHandleBefore = storagePipeline.openGl.handle
+    val liveBeforeDispatches = runtimeMemoryLiveBytes()
+    var repeated = initialized
+    var dispatchIndex = 0
+    while (repeated && dispatchIndex < 4) {
+        repeated = pipeline.dispatch(4, 2) &&
+            storagePipeline.dispatch(1)
+        dispatchIndex = dispatchIndex + 1
+    }
+    val liveAfterDispatches = runtimeMemoryLiveBytes()
+    val dispatchesNoGrowth = liveAfterDispatches == liveBeforeDispatches
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        pipeline.openGl.handle == openGlHandleBefore &&
+            storagePipeline.openGl.handle == openGlStorageHandleBefore
+    else pipeline.vulkan.commandPool == computePoolBefore &&
+        nativePointerAddress(pipeline.vulkan.command.load()) ==
+            computeCommandBefore &&
+        storagePipeline.vulkan.commandPool == storagePoolBefore &&
+        nativePointerAddress(storagePipeline.vulkan.command.load()) ==
+            storageCommandBefore
+    val storageResult = storage.readI64()
+    val passed = initialized && repeated && dispatchesNoGrowth &&
+        handlesStable && storageResult == 486 &&
         app.presentClear(Color(
             0.0625,
             0.1875,
             0.4375
         ))
     println(
-        "Common compute ${graphicsBackendName(app.backend)}: storage result=${storage.readI64()} on ${app.adapterName}"
+        "Common compute ${graphicsBackendName(app.backend)}: storage result=${storageResult}, repeatNoGrowth=${dispatchesNoGrowth}, handlesStable=${handlesStable}, liveDelta=${liveAfterDispatches - liveBeforeDispatches} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }
