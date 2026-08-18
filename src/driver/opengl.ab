@@ -5,6 +5,7 @@
 
 import "abla/unsafe/memory"
 import "../core.ab"
+import "../resources.ab"
 import "../pixels.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
@@ -185,6 +186,13 @@ noescape extern:"c" fun glMapBufferRange(
 ): i64*
 noescape extern:"c" fun glUnmapBuffer(target: i32): i32
 noescape extern:"c" fun glDeleteBuffers(count: i32, buffers: i64*): void
+noescape extern:"c" fun glGenSamplers(count: i32, samplers: i64*): void
+noescape extern:"c" fun glSamplerParameteri(
+    sampler: i32,
+    name: i32,
+    value: i32
+): void
+noescape extern:"c" fun glDeleteSamplers(count: i32, samplers: i64*): void
 
 fun openGlStoreI32(
     var buffer: NativeByteBuffer,
@@ -429,6 +437,106 @@ trusted fun OpenGlWindowContext.buffer(size: int): OpenGlBuffer {
         }
     }
     OpenGlBuffer(handle, size, this.display, this.surface, this.context)
+}
+
+fun openGlSamplerAddress(value: int): int {
+    var result = 33071
+    if (value == samplerAddressRepeat) result = 10497
+    else if (value == samplerAddressMirrorRepeat) result = 33648
+    result
+}
+
+fun openGlSamplerMinimumFilter(minimum: int, mipmap: int): int {
+    var result = 9984
+    if (minimum == samplerFilterLinear && mipmap == samplerFilterNearest) {
+        result = 9985
+    } else if (minimum == samplerFilterNearest &&
+        mipmap == samplerFilterLinear) result = 9986
+    else if (minimum == samplerFilterLinear &&
+        mipmap == samplerFilterLinear) result = 9987
+    result
+}
+
+fun openGlCompareFunction(value: int): int {
+    var result = 519
+    if (value >= compareFunctionNever && value <= compareFunctionAlways) {
+        result = 511 + value
+    }
+    result
+}
+
+resource class OpenGlSampler(
+    var handle: int,
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*
+) {
+    fun valid(): bool = this.handle != 0 &&
+        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+
+    trusted fun drop(): void {
+        if (this.handle != 0) {
+            if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {
+                eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            }
+            val output = nativeI64Cell(this.handle)
+            glDeleteSamplers(1, output.address)
+            this.handle = 0
+        }
+        return
+    }
+}
+
+trusted fun OpenGlWindowContext.sampler(
+    descriptor: SamplerDescriptor
+): OpenGlSampler {
+    var handle = 0
+    if (descriptor.valid() && descriptor.maximumAnisotropy == 1 &&
+        this.makeCurrent()) {
+        val output = nativeI64Cell(0)
+        glGenSamplers(1, output.address)
+        handle = output.load()
+        if (handle != 0) {
+            glSamplerParameteri(handle, 10242, openGlSamplerAddress(descriptor.addressU))
+            glSamplerParameteri(handle, 10243, openGlSamplerAddress(descriptor.addressV))
+            glSamplerParameteri(handle, 32882, openGlSamplerAddress(descriptor.addressW))
+            glSamplerParameteri(
+                handle,
+                10240,
+                if (descriptor.magFilter == samplerFilterLinear) 9729 else 9728
+            )
+            glSamplerParameteri(
+                handle,
+                10241,
+                openGlSamplerMinimumFilter(
+                    descriptor.minFilter,
+                    descriptor.mipmapFilter
+                )
+            )
+            glSamplerParameteri(handle, 33082, descriptor.lodMinimum)
+            glSamplerParameteri(handle, 33083, descriptor.lodMaximum)
+            if (descriptor.compare == compareFunctionUndefined) {
+                glSamplerParameteri(handle, 34892, 0)
+            } else {
+                glSamplerParameteri(handle, 34892, 34894)
+                glSamplerParameteri(
+                    handle,
+                    34893,
+                    openGlCompareFunction(descriptor.compare)
+                )
+            }
+            if (glGetError() != 0) {
+                glDeleteSamplers(1, output.address)
+                handle = 0
+            }
+        }
+    }
+    OpenGlSampler(handle, this.display, this.surface, this.context)
 }
 
 resource class OpenGlPixelPresenter(

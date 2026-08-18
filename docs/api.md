@@ -99,6 +99,25 @@ storage and exposes checked 64-bit read/write probes; mapped ranges, queued
 uploads, device-local selection, and general byte ranges remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 
+Samplers are also driver-backed affine resources:
+
+```abla
+val linear = app.sampler(SamplerDescriptor(
+    addressU = samplerAddressRepeat,
+    magFilter = samplerFilterLinear,
+    minFilter = samplerFilterLinear,
+    mipmapFilter = samplerFilterLinear
+))
+```
+
+The common descriptor maps address, magnification/minification/mipmap filters,
+integer LOD bounds, and optional comparison state to OpenGL sampler objects and
+`VkSampler` values. Abla encodes Vulkan's required nonnegative float fields
+directly as IEEE-754 bits while the compiler's source-level float prerequisite
+is unfinished. Anisotropy above one returns
+`graphicsErrorUnsupportedFeature` until adapter feature negotiation can enable
+it honestly; the value is not silently ignored.
+
 ## Small application
 
 The descriptor/encoder form below is the target surface being implemented on
@@ -172,8 +191,8 @@ The common device creates:
 
 Creation descriptors are immutable values; the initial buffer, texture, view,
 and sampler descriptor slice described above is available now. Common buffers
-are affine resources; the remaining resource implementations will follow the
-same ownership rule.
+and samplers are affine resources; the remaining resource implementations will
+follow the same ownership rule.
 Borrowing a resource for encoding does not transfer it. Explicit `move` is used
 only when ownership actually changes.
 

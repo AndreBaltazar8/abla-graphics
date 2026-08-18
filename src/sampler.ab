@@ -1,0 +1,90 @@
+// Affine backend-neutral sampler ownership and dispatch.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "resources.ab"
+import "application.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsSampler(
+    val openGl: OpenGlSampler,
+    val vulkan: VulkanSampler,
+    val descriptor: SamplerDescriptor,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() && this.descriptor.valid() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.sampler(
+    descriptor: SamplerDescriptor = SamplerDescriptor()
+): GraphicsSampler {
+    var openGl = OpenGlSampler(
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer()
+    )
+    var vulkan = VulkanSampler(nativeNullPointer(), 0)
+    var error = GraphicsError()
+    val validation = descriptor.validation()
+    if (!this.valid()) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.sampler",
+            "the graphics application is invalid"
+        )
+    } else if (!validation.succeeded) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.sampler.${validation.field}",
+            validation.message
+        )
+    } else if (descriptor.maximumAnisotropy > 1) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "GraphicsApplication.sampler.maximumAnisotropy",
+            "anisotropy requires device feature negotiation"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.sampler(descriptor)
+        if (!openGl.valid()) {
+            error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "OpenGlWindowContext.sampler",
+                "OpenGL sampler creation failed"
+            )
+        }
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.sampler(descriptor)
+        if (!vulkan.valid()) {
+            error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "VulkanDevice.sampler",
+                "Vulkan sampler creation failed"
+            )
+        }
+    } else {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "GraphicsApplication.sampler",
+            "the selected backend cannot create samplers"
+        )
+    }
+    GraphicsSampler(
+        move(openGl),
+        move(vulkan),
+        descriptor,
+        this.backend,
+        error
+    )
+}

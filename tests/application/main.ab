@@ -42,6 +42,17 @@ fun applicationBackendProbe(
         size = 64,
         usage = bufferUsageMapRead
     ))
+    val sampler = app.sampler(SamplerDescriptor(
+        addressU = samplerAddressRepeat,
+        addressV = samplerAddressMirrorRepeat,
+        magFilter = samplerFilterLinear,
+        minFilter = samplerFilterLinear,
+        mipmapFilter = samplerFilterLinear,
+        compare = compareFunctionLessEqual
+    ))
+    val unsupportedSampler = app.sampler(SamplerDescriptor(
+        maximumAnisotropy = 16
+    ))
     var resizePassed = true
     if (requestedBackend == graphicsBackendOpenGl ||
         requestedBackend == graphicsBackendVulkan) {
@@ -81,7 +92,10 @@ fun applicationBackendProbe(
         !mappedBuffer.valid() &&
         mappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
-        readbackBuffer.valid() && resizePassed
+        readbackBuffer.valid() && sampler.valid() &&
+        !unsupportedSampler.valid() &&
+        unsupportedSampler.error.code == graphicsErrorUnsupportedFeature &&
+        resizePassed
 }
 
 fun applicationUnavailableProbe(): bool {

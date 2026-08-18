@@ -64,6 +64,10 @@ Updated: 2026-08-18.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same 256-byte storage buffer under explicit OpenGL and Vulkan in
   the software-driver sample matrix.
+- Common affine sampler test: one immutable descriptor creates and destroys an
+  OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
+  linear min/mag/mipmap filtering, LOD range, and comparison state. Anisotropy
+  above one is rejected as an unsupported negotiated feature on both paths.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and
@@ -106,7 +110,7 @@ capability lands.
   location/set/binding declaration slice, deliberately rejects quoted includes,
   and does not yet parse general types, arrays, blocks, or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
-- Driver-backed common textures/views/samplers, mapped/general buffer ranges,
+- Driver-backed common textures/views, mapped/general buffer ranges,
   queued uploads, device-local allocation policy, command encoders/render graph,
   asset formats, or framework-wide performance gates. Common buffers and
   immutable structural descriptors are present; the wider resource surface is
