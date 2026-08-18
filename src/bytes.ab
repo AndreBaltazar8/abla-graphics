@@ -1,0 +1,53 @@
+// Reusable contiguous byte storage for GPU uploads and readback.
+
+import "abla/unsafe/memory"
+
+// Lowered directly to LLVM memcpy by the pinned Abla compiler. This is kept at
+// the framework's trusted boundary until the bootstrap compiler can expose the
+// intrinsic from the global standard library without a staged upgrade.
+trusted noescape extern:"intrinsic" fun ablaUnsafeCopyMemory(
+    destination: i64*,
+    source: i64*,
+    size: int
+): void
+
+resource class BufferBytes(
+    val storage: NativeByteBuffer,
+    val size: int
+) {
+    fun valid(): bool = this.size > 0 &&
+        this.storage.capacity == this.size && !this.storage.closed
+
+    trusted fun load(index: int): int =
+        if (this.valid() && index >= 0 && index < this.size)
+            this.storage.load(index)
+        else -1
+
+    trusted fun store(index: int, value: int): bool =
+        this.valid() && value >= 0 && value <= 255 &&
+        this.storage.store(index, value)
+
+    trusted fun loadI64(offset: int = 0): int =
+        if (this.valid() && offset >= 0 && offset <= this.size - 8)
+            this.storage.loadI64(offset)
+        else 0
+
+    trusted fun storeI64(value: int, offset: int = 0): bool =
+        this.valid() && offset >= 0 && offset <= this.size - 8 &&
+        this.storage.storeI64(offset, value)
+
+    trusted fun fill(value: int): bool {
+        val accepted = this.valid() && value >= 0 && value <= 255
+        var index = 0
+        while (accepted && index < this.size) {
+            this.storage.store(index, value)
+            index = index + 1
+        }
+        accepted
+    }
+}
+
+trusted fun bufferBytes(size: int): BufferBytes {
+    val storage = nativeByteBuffer(if (size > 0) size else 0)
+    BufferBytes(move(storage), size)
+}

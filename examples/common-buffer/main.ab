@@ -1,5 +1,6 @@
 import "abla/io"
 import "abla/process/arguments"
+import "abla/runtime/memory"
 import "../../src/graphics.ab"
 
 fun main: int {
@@ -20,18 +21,47 @@ fun main: int {
     val buffer = app.buffer(BufferDescriptor(
         label = "sample-storage",
         size = 256,
-        usage = bufferUsageStorage | bufferUsageCopyDestination
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
     ))
     val expected = 1311768465173141112
+    val upload = bufferBytes(32)
+    val uploadReady = upload.fill(23) &&
+        upload.storeI64(72623859790382856, 8)
+    val uploadRange = BufferCopyDescriptor(5, 80, 19)
+    val uploaded = uploadReady && buffer.writeBytes(
+        upload,
+        uploadRange
+    )
+    val readback = bufferBytes(32)
+    val readbackRange = BufferCopyDescriptor(80, 3, 19)
+    val downloaded = readback.fill(0) && buffer.readBytes(
+        readback,
+        readbackRange
+    )
+    val liveBeforeRepeats = runtimeMemoryLiveBytes()
+    var repeated = uploaded && downloaded
+    var repeat = 0
+    while (repeated && repeat < 4) {
+        repeated = buffer.writeBytes(upload, uploadRange) &&
+            buffer.readBytes(readback, readbackRange)
+        repeat = repeat + 1
+    }
+    val liveAfterRepeats = runtimeMemoryLiveBytes()
+    val noTransferAllocations = liveAfterRepeats == liveBeforeRepeats
     val passed = app.valid() && buffer.valid() &&
         buffer.writeI64(expected, 24) && buffer.readI64(24) == expected &&
+        uploaded && downloaded && repeated && noTransferAllocations &&
+        readback.load(3) == 23 &&
+        readback.loadI64(6) == 72623859790382856 &&
+        readback.load(21) == 23 &&
         app.presentClear(Color(
             0.0625,
             0.1875,
             0.4375
         ))
     println(
-        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes on ${app.adapterName}"
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, repeatNoAlloc=${noTransferAllocations}, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

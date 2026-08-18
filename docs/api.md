@@ -164,9 +164,23 @@ Buffers are the first driver-backed common resource:
 val storage = app.buffer(BufferDescriptor(
     label = "simulation",
     size = 4096,
-    usage = bufferUsageStorage | bufferUsageCopyDestination
+    usage = bufferUsageStorage | bufferUsageCopySource |
+        bufferUsageCopyDestination
 ))
-storage.writeI64(42)
+val upload = bufferBytes(256)
+upload.storeI64(42, 16)
+storage.writeBytes(upload, BufferCopyDescriptor(
+    sourceOffset = 8,
+    destinationOffset = 128,
+    size = 64
+))
+
+val readback = bufferBytes(64)
+storage.readBytes(readback, BufferCopyDescriptor(
+    sourceOffset = 128,
+    destinationOffset = 0,
+    size = 64
+))
 ```
 
 `GraphicsBuffer` is affine, dispatches outside the read/write hot operation,
@@ -175,9 +189,24 @@ maps portable usage flags to Vulkan usage bits and returns a structured error
 for invalid descriptors or driver failure. Bounds checks use subtraction rather
 than overflow-prone `offset + length`. A storage buffer larger than
 `maximumStorageBufferBytes` returns `graphicsErrorLimitExceeded` before a
-driver allocation. The current slice uses host-visible
-storage and exposes checked 64-bit read/write probes; mapped ranges, queued
-uploads, device-local selection, and general byte ranges remain upcoming APIs.
+driver allocation. `BufferBytes` is reusable contiguous Abla-owned storage with
+checked byte and 64-bit access. `BufferCopyDescriptor` validates positive size,
+source and destination offsets, and both ends of the range with subtraction;
+its default `size = -1` selects all bytes remaining after `sourceOffset`.
+Uploads require map-write or copy-destination usage, while readback requires
+map-read or copy-source usage. `writeAllBytes` and `readAllBytes` are convenient
+whole-range operations; performance-sensitive loops should construct one
+`BufferCopyDescriptor` and reuse it with `writeBytes`/`readBytes`.
+
+OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
+Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
+and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
+owns its map output cell, so repeated `writeBytes`/`readBytes` calls allocate no
+general memory. The common-buffer sample checks this with four repeated pairs
+and requires zero Abla runtime live-byte growth. Checked 64-bit probes remain
+available for small diagnostics.
+Persistent mapped-at-creation ranges, queued transfers, and device-local
+selection remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:

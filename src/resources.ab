@@ -222,8 +222,85 @@ class BufferDescriptor(
         result
     }
 
-    fun valid(): bool = this.validation().succeeded
+    fun valid(): bool = this.size > 0 &&
+        graphicsUsageValid(this.usage, bufferUsageAll) &&
+        ((this.usage & bufferUsageMapRead) == 0 ||
+         (this.usage & ~(bufferUsageMapRead |
+            bufferUsageCopyDestination)) == 0) &&
+        ((this.usage & bufferUsageMapWrite) == 0 ||
+         (this.usage & ~(bufferUsageMapWrite | bufferUsageCopySource)) == 0)
 }
+
+class BufferCopyDescriptor(
+    val sourceOffset: int = 0,
+    val destinationOffset: int = 0,
+    val size: int = -1
+) {
+    fun resolvedSize(sourceSize: int): int =
+        if (this.size == -1 && this.sourceOffset >= 0 &&
+            this.sourceOffset <= sourceSize)
+            sourceSize - this.sourceOffset
+        else this.size
+
+    fun valid(sourceSize: int, destinationSize: int): bool {
+        val byteCount = this.resolvedSize(sourceSize)
+        sourceSize > 0 && destinationSize > 0 &&
+            this.sourceOffset >= 0 && this.sourceOffset < sourceSize &&
+            this.destinationOffset >= 0 &&
+            this.destinationOffset < destinationSize &&
+            byteCount > 0 &&
+            byteCount <= sourceSize - this.sourceOffset &&
+            byteCount <= destinationSize - this.destinationOffset
+    }
+
+    fun validation(
+        sourceSize: int,
+        destinationSize: int
+    ): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        val byteCount = this.resolvedSize(sourceSize)
+        if (sourceSize <= 0 || destinationSize <= 0) {
+            result = graphicsDescriptorInvalid(
+                "buffer",
+                "buffer copy requires valid non-empty storage"
+            )
+        } else if (this.sourceOffset < 0 ||
+            this.sourceOffset >= sourceSize) {
+            result = graphicsDescriptorInvalid(
+                "sourceOffset",
+                "buffer copy source offset is out of range"
+            )
+        } else if (this.destinationOffset < 0 ||
+            this.destinationOffset >= destinationSize) {
+            result = graphicsDescriptorInvalid(
+                "destinationOffset",
+                "buffer copy destination offset is out of range"
+            )
+        } else if (byteCount <= 0) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "buffer copy size must be positive"
+            )
+        } else if (byteCount > sourceSize - this.sourceOffset) {
+            result = graphicsDescriptorInvalid(
+                "sourceOffset",
+                "buffer copy exceeds the source range"
+            )
+        } else if (byteCount > destinationSize - this.destinationOffset) {
+            result = graphicsDescriptorInvalid(
+                "destinationOffset",
+                "buffer copy exceeds the destination range"
+            )
+        }
+        result
+    }
+}
+
+fun bufferUsageAllowsCpuWrite(usage: int): bool =
+    (usage & (bufferUsageMapWrite | bufferUsageCopyDestination)) != 0
+
+fun bufferUsageAllowsCpuRead(usage: int): bool =
+    (usage & (bufferUsageMapRead | bufferUsageCopySource)) != 0
 
 class TextureDescriptor(
     val label: string = "",

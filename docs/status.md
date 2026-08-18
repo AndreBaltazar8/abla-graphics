@@ -94,12 +94,19 @@ Updated: 2026-08-18.
   filters, comparison, LOD, and anisotropy with field-specific diagnostics.
 - Common affine buffer test: one `BufferDescriptor` creates an OpenGL buffer or
   Vulkan buffer/allocation after one-time backend selection; both paths pass
-  checked nonzero-offset 64-bit write/read, overflow-safe bounds rejection,
-  invalid-descriptor errors, mapped-at-creation rejection, and deterministic
-  destruction under the surfaced application test.
+  checked nonzero-offset 64-bit write/read plus a 19-byte upload/readback between
+  different CPU/GPU offsets. Pure tests cover default remaining-source size,
+  zero size, and crossing source/destination bounds; application tests reject
+  missing copy usage and an overflowing range. OpenGL uses direct buffer-subdata
+  calls. Vulkan maps coherent memory from aligned offset zero and uses one
+  buffer-owned output cell plus the Abla compiler's LLVM copy intrinsic, so
+  repeated range transfers allocate no general memory. Four repeated
+  upload/readback pairs on each backend produce zero Abla runtime live-byte
+  growth. Invalid descriptors, mapped-at-creation rejection, and deterministic
+  destruction also pass.
 - Common buffer sample: one independently buildable Abla source creates and
-  verifies the same 256-byte storage buffer under explicit OpenGL and Vulkan in
-  the software-driver sample matrix.
+  verifies the same partial reusable-byte upload/readback on a 256-byte storage
+  buffer under explicit OpenGL and Vulkan in the software-driver sample matrix.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -237,14 +244,17 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   pinned, deterministic inventory ledgers exist, but all rows deliberately
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
-- General texture uploads/copies/render-pass use, mapped/general buffer ranges,
-  queued uploads, device-local suballocation policy, command encoders/render
+- General texture uploads/copies/render-pass use, persistent mapped-at-creation
+  buffer ranges, queued uploads, device-local suballocation policy, command
+  encoders/render
   graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
   `PixelBuffer` uploads and synchronous diagnostic readback are present;
   general byte layouts, image-to-image copies, and asynchronous streaming are
-  not. Common buffers, textures, views, samplers, and immutable structural
-  descriptors are present;
+  not. General reusable buffer byte-range upload/readback is present, including
+  distinct source and destination offsets; persistent mapping and asynchronous
+  transfers are not. Common buffers, textures, views, samplers, and immutable
+  structural descriptors are present;
   the wider resource surface is not yet claimed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 

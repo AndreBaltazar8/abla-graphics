@@ -3,6 +3,7 @@
 import "abla/unsafe/memory"
 import "core.ab"
 import "resources.ab"
+import "bytes.ab"
 import "application.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
@@ -38,6 +39,42 @@ resource class GraphicsBuffer(
         succeeded
     }
 
+    trusted fun writeBytes(
+        source: BufferBytes,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && source.valid() &&
+            copy.valid(source.size, this.descriptor.size) &&
+            bufferUsageAllowsCpuWrite(this.descriptor.usage)
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.writeBytes(source, copy)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.writeBytes(source, copy)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
+    trusted fun writeAllBytes(source: BufferBytes): bool =
+        this.writeBytes(source, BufferCopyDescriptor())
+
+    trusted fun readBytes(
+        var destination: BufferBytes,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && destination.valid() &&
+            copy.valid(this.descriptor.size, destination.size) &&
+            bufferUsageAllowsCpuRead(this.descriptor.usage)
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.readBytes(destination, copy)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.readBytes(destination, copy)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
+    trusted fun readAllBytes(var destination: BufferBytes): bool =
+        this.readBytes(destination, BufferCopyDescriptor())
+
     trusted fun drop(): void {
         this.openGl.drop()
         this.vulkan.drop()
@@ -62,7 +99,8 @@ trusted fun GraphicsApplication.buffer(
         -1,
         0,
         0,
-        0
+        0,
+        nativePointerCell(nativeNullPointer())
     )
     var error = GraphicsError()
     val validation = descriptor.validation()

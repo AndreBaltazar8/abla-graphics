@@ -8,6 +8,7 @@ import "abla/unsafe/memory"
 import "../core.ab"
 import "../resources.ab"
 import "../pixels.ab"
+import "../bytes.ab"
 import "../shader/spirv.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
@@ -984,7 +985,8 @@ resource class VulkanBuffer(
     val queueFamily: int,
     var handle: int,
     var memory: int,
-    val size: int
+    val size: int,
+    val mapped: NativePointerCell
 ) {
     fun valid(): bool =
         this.handle != 0 && this.memory != 0 && this.size > 0
@@ -992,16 +994,17 @@ resource class VulkanBuffer(
     trusted fun readI64(offset: int = 0): int {
         var result = 0
         if (this.valid() && offset >= 0 && offset <= this.size - 8) {
-            val mapped = nativePointerCell(nativeNullPointer())
             if (vkMapMemory(
                 this.device,
                 this.memory,
-                offset,
-                8,
                 0,
-                mapped.address
+                this.size,
+                0,
+                this.mapped.address
             ) == vulkanSuccess) {
-                result = ablaUnsafeLoadI64(mapped.load())
+                result = ablaUnsafeLoadI64(
+                    ablaUnsafePointerOffset(this.mapped.load(), offset)
+                )
                 vkUnmapMemory(this.device, this.memory)
             }
         }
@@ -1011,16 +1014,18 @@ resource class VulkanBuffer(
     trusted fun writeI64(value: int, offset: int = 0): bool {
         var succeeded = false
         if (this.valid() && offset >= 0 && offset <= this.size - 8) {
-            val mapped = nativePointerCell(nativeNullPointer())
             if (vkMapMemory(
                 this.device,
                 this.memory,
-                offset,
-                8,
                 0,
-                mapped.address
+                this.size,
+                0,
+                this.mapped.address
             ) == vulkanSuccess) {
-                ablaUnsafeStoreI64(mapped.load(), value)
+                ablaUnsafeStoreI64(
+                    ablaUnsafePointerOffset(this.mapped.load(), offset),
+                    value
+                )
                 vkUnmapMemory(this.device, this.memory)
                 succeeded = true
             }
@@ -1036,7 +1041,6 @@ resource class VulkanBuffer(
         var succeeded = this.valid() && pixels.valid() &&
             required <= this.size &&
             (format == 37 || format == 43 || format == 44 || format == 50)
-        val mapped = nativePointerCell(nativeNullPointer())
         if (succeeded) {
             succeeded = vkMapMemory(
                 this.device,
@@ -1044,10 +1048,10 @@ resource class VulkanBuffer(
                 0,
                 required,
                 0,
-                mapped.address
+                this.mapped.address
             ) == vulkanSuccess
         }
-        val destination = mapped.load()
+        val destination = this.mapped.load()
         var pixel = 0
         val swapRedBlue = format == 44 || format == 50
         while (succeeded && pixel < pixels.width * pixels.height) {
@@ -1074,7 +1078,7 @@ resource class VulkanBuffer(
             )
             pixel = pixel + 1
         }
-        if (!pointerIsNull(mapped.load())) {
+        if (succeeded) {
             vkUnmapMemory(this.device, this.memory)
         }
         succeeded
@@ -1082,7 +1086,6 @@ resource class VulkanBuffer(
 
     trusted fun rgba8(format: int): int {
         var result = -1
-        val mapped = nativePointerCell(nativeNullPointer())
         if (this.valid() && this.size >= 4 &&
             vkMapMemory(
                 this.device,
@@ -1090,9 +1093,9 @@ resource class VulkanBuffer(
                 0,
                 4,
                 0,
-                mapped.address
+                this.mapped.address
             ) == vulkanSuccess) {
-            val source = mapped.load()
+            val source = this.mapped.load()
             var red = ablaUnsafeLoadU8(source)
             val green = ablaUnsafeLoadU8(
                 ablaUnsafePointerOffset(source, 1)
@@ -1113,6 +1116,66 @@ resource class VulkanBuffer(
             vkUnmapMemory(this.device, this.memory)
         }
         result
+    }
+
+    trusted fun writeBytes(
+        source: BufferBytes,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && source.valid() &&
+            copy.valid(source.size, this.size)
+        if (succeeded) {
+            succeeded = vkMapMemory(
+                this.device,
+                this.memory,
+                0,
+                this.size,
+                0,
+                this.mapped.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            ablaUnsafeCopyMemory(
+                ablaUnsafePointerOffset(
+                    this.mapped.load(),
+                    copy.destinationOffset
+                ),
+                source.storage.pointerAt(copy.sourceOffset),
+                copy.resolvedSize(source.size)
+            )
+            vkUnmapMemory(this.device, this.memory)
+        }
+        succeeded
+    }
+
+    trusted fun readBytes(
+        var destination: BufferBytes,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && destination.valid() &&
+            copy.valid(this.size, destination.size)
+        if (succeeded) {
+            succeeded = vkMapMemory(
+                this.device,
+                this.memory,
+                0,
+                this.size,
+                0,
+                this.mapped.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            ablaUnsafeCopyMemory(
+                destination.storage.pointerAt(copy.destinationOffset),
+                ablaUnsafePointerOffset(
+                    this.mapped.load(),
+                    copy.sourceOffset
+                ),
+                copy.resolvedSize(this.size)
+            )
+            vkUnmapMemory(this.device, this.memory)
+        }
+        succeeded
     }
 
     trusted fun fill(value: int): bool {
@@ -1241,6 +1304,7 @@ resource class VulkanBuffer(
             )
             this.memory = 0
         }
+        this.mapped.close()
         return
     }
 }
@@ -2107,7 +2171,8 @@ trusted fun VulkanDevice.texture(
         -1,
         0,
         0,
-        0
+        0,
+        nativePointerCell(nativeNullPointer())
     )
     var commandPool = 0
     var commandBuffer = nativeNullPointer()
@@ -2510,7 +2575,8 @@ trusted fun VulkanDevice.buffer(
         this.queueFamily,
         handle,
         memory,
-        size
+        size,
+        nativePointerCell(nativeNullPointer())
     )
 }
 

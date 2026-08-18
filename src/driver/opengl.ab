@@ -7,6 +7,7 @@ import "abla/unsafe/memory"
 import "../core.ab"
 import "../resources.ab"
 import "../pixels.ab"
+import "../bytes.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 import "../shader/glsl.ab"
@@ -199,6 +200,18 @@ noescape extern:"c" fun glBufferData(
     size: i64,
     data: i64*,
     usage: i32
+): void
+noescape extern:"c" fun glBufferSubData(
+    target: i32,
+    offset: int,
+    size: int,
+    data: i64*
+): void
+noescape extern:"c" fun glGetBufferSubData(
+    target: i32,
+    offset: int,
+    size: int,
+    data: i64*
 ): void
 noescape extern:"c" fun glMapBufferRange(
     target: i32,
@@ -509,6 +522,46 @@ resource class OpenGlBuffer(
                 ablaUnsafeStoreI64(mapped, value)
                 succeeded = glUnmapBuffer(34962) == 1 && glGetError() == 0
             }
+        }
+        succeeded
+    }
+
+    trusted fun writeBytes(
+        source: BufferBytes,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && source.valid() &&
+            copy.valid(source.size, this.size) && this.makeCurrent()
+        if (succeeded) {
+            val byteCount = copy.resolvedSize(source.size)
+            glBindBuffer(34962, this.handle)
+            glBufferSubData(
+                34962,
+                copy.destinationOffset,
+                byteCount,
+                source.storage.pointerAt(copy.sourceOffset)
+            )
+            succeeded = glGetError() == 0
+        }
+        succeeded
+    }
+
+    trusted fun readBytes(
+        var destination: BufferBytes,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && destination.valid() &&
+            copy.valid(this.size, destination.size) && this.makeCurrent()
+        if (succeeded) {
+            val byteCount = copy.resolvedSize(this.size)
+            glBindBuffer(34962, this.handle)
+            glGetBufferSubData(
+                34962,
+                copy.sourceOffset,
+                byteCount,
+                destination.storage.pointerAt(copy.destinationOffset)
+            )
+            succeeded = glGetError() == 0
         }
         succeeded
     }

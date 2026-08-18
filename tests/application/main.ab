@@ -2,6 +2,25 @@ import "abla/io"
 import "abla/process/arguments"
 import "../../src/graphics.ab"
 
+fun bufferRangesEqual(
+    left: BufferBytes,
+    leftOffset: int,
+    right: BufferBytes,
+    rightOffset: int,
+    size: int
+): bool {
+    var equal = left.valid() && right.valid() && leftOffset >= 0 &&
+        rightOffset >= 0 && size >= 0 &&
+        size <= left.size - leftOffset && size <= right.size - rightOffset
+    var index = 0
+    while (equal && index < size) {
+        equal = left.load(leftOffset + index) ==
+            right.load(rightOffset + index)
+        index = index + 1
+    }
+    equal
+}
+
 fun applicationBackendProbe(
     requestedBackend: int,
     expectedBackend: int,
@@ -64,6 +83,54 @@ fun applicationBackendProbe(
     ))
     val bufferWritten = buffer.writeI64(1311768465173141112, 8)
     val bufferRead = buffer.readI64(8)
+    val uploadBytes = bufferBytes(32)
+    val uploadInitialized = uploadBytes.storeI64(81985529216486895, 0) &&
+        uploadBytes.storeI64(1311768465173141112, 8) &&
+        uploadBytes.storeI64(72623859790382856, 16) &&
+        uploadBytes.storeI64(2387509390608836392, 24)
+    val rangeUploaded = uploadInitialized && buffer.writeBytes(
+        uploadBytes,
+        BufferCopyDescriptor(5, 17, 19)
+    )
+    val downloadBytes = bufferBytes(32)
+    val downloadCleared = downloadBytes.fill(0)
+    val rangeRead = downloadCleared && buffer.readBytes(
+        downloadBytes,
+        BufferCopyDescriptor(17, 4, 19)
+    )
+    val rangeMatches = bufferRangesEqual(
+        uploadBytes,
+        5,
+        downloadBytes,
+        4,
+        19
+    )
+    val invalidBufferRangeRejected = !buffer.writeBytes(
+        uploadBytes,
+        BufferCopyDescriptor(20, 60, 16)
+    )
+    val wholeUploadBytes = bufferBytes(64)
+    val wholeDownloadBytes = bufferBytes(64)
+    val wholeBufferTransferred = wholeUploadBytes.fill(41) &&
+        wholeUploadBytes.store(37, 199) &&
+        buffer.writeAllBytes(wholeUploadBytes) &&
+        wholeDownloadBytes.fill(0) &&
+        buffer.readAllBytes(wholeDownloadBytes) &&
+        wholeDownloadBytes.load(0) == 41 &&
+        wholeDownloadBytes.load(37) == 199 &&
+        wholeDownloadBytes.load(63) == 41
+    val usageRestrictedBuffer = app.buffer(BufferDescriptor(
+        size = 32,
+        usage = bufferUsageStorage
+    ))
+    val missingWriteUsageRejected = !usageRestrictedBuffer.writeBytes(
+        uploadBytes,
+        BufferCopyDescriptor()
+    )
+    val missingReadUsageRejected = !usageRestrictedBuffer.readBytes(
+        downloadBytes,
+        BufferCopyDescriptor()
+    )
     val invalidBuffer = app.buffer(BufferDescriptor(
         size = 0,
         usage = bufferUsageStorage
@@ -295,7 +362,11 @@ fun applicationBackendProbe(
         !mappedBuffer.valid() &&
         mappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
-        readbackBuffer.valid() && sampler.valid() &&
+        readbackBuffer.valid() && rangeUploaded && rangeRead && rangeMatches &&
+        invalidBufferRangeRejected && wholeBufferTransferred &&
+        usageRestrictedBuffer.valid() &&
+        missingWriteUsageRejected && missingReadUsageRejected &&
+        sampler.valid() &&
         anisotropicSampler.valid() &&
         texture.valid() && textureUploaded && textureReuploaded &&
         uploadedPixel == 1835094855 && invalidUploadRejected &&
