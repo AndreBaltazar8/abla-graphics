@@ -75,11 +75,53 @@ resource class GraphicsBuffer(
     trusted fun readAllBytes(var destination: BufferBytes): bool =
         this.readBytes(destination, BufferCopyDescriptor())
 
+    fun sameResource(other: GraphicsBuffer): bool =
+        this.backend == other.backend &&
+        ((this.backend == graphicsBackendOpenGl &&
+          this.openGl.handle != 0 &&
+          this.openGl.context == other.openGl.context &&
+          this.openGl.handle == other.openGl.handle) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkan.handle != 0 &&
+          this.vulkan.device == other.vulkan.device &&
+          this.vulkan.handle == other.vulkan.handle))
+
     trusted fun drop(): void {
         this.openGl.drop()
         this.vulkan.drop()
         return
     }
+}
+
+fun GraphicsApplication.ownsBuffer(buffer: GraphicsBuffer): bool =
+    this.backend == buffer.backend &&
+    ((this.backend == graphicsBackendOpenGl &&
+      this.openGl.display == buffer.openGl.display &&
+      this.openGl.context == buffer.openGl.context) ||
+     (this.backend == graphicsBackendVulkan &&
+      this.vulkanDevice.handle == buffer.vulkan.device))
+
+trusted fun GraphicsApplication.copyBuffer(
+    source: GraphicsBuffer,
+    destination: GraphicsBuffer,
+    copy: BufferCopyDescriptor
+): bool {
+    var succeeded = this.valid() && source.valid() && destination.valid() &&
+        this.ownsBuffer(source) && this.ownsBuffer(destination) &&
+        !source.sameResource(destination) &&
+        copy.valid(source.descriptor.size, destination.descriptor.size) &&
+        bufferUsageAllowsGpuCopySource(source.descriptor.usage) &&
+        bufferUsageAllowsGpuCopyDestination(destination.descriptor.usage)
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = source.openGl.copyTo(destination.openGl, copy)
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.copyBuffer(
+            source.vulkan,
+            destination.vulkan,
+            copy
+        )
+    } else if (succeeded) succeeded = false
+    succeeded
 }
 
 trusted fun GraphicsApplication.buffer(

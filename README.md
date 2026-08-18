@@ -53,7 +53,7 @@ proves the architecture rather than stopping at placeholder interfaces:
   common buffers, textures, views, and samplers that create and drop real
   resources on either OpenGL or Vulkan, including partial mip-level RGBA/BGRA
   upload/readback, queried 16x sampler anisotropy, and allocation-free checked
-  buffer subrange upload/readback;
+  buffer subrange upload/readback plus GPU buffer-to-buffer copies;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
@@ -104,7 +104,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
 - `examples/common-buffer`: one affine descriptor/resource plus reusable byte
-  ranges exercised unchanged on explicit OpenGL and Vulkan; and
+  ranges and GPU copies exercised unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback; and

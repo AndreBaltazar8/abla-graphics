@@ -427,6 +427,13 @@ noescape extern:"c" fun vkCmdCopyBufferToImage(
     regionCount: i32,
     regions: i64*
 ): void
+noescape extern:"c" fun vkCmdCopyBuffer(
+    commandBuffer: i64*,
+    sourceBuffer: int,
+    destinationBuffer: int,
+    regionCount: i32,
+    regions: i64*
+): void
 noescape extern:"c" fun vkCmdCopyImageToBuffer(
     commandBuffer: i64*,
     sourceImage: int,
@@ -902,7 +909,10 @@ resource class VulkanDevice(
     var queue: i64*,
     val queueFamily: int,
     val apiVersion: int,
-    val physicalDevice: i64*
+    val physicalDevice: i64*,
+    var transferPool: int,
+    val transferCommand: NativePointerCell,
+    val transferScratch: NativeByteBuffer
 ) {
     trusted fun valid(): bool =
         !pointerIsNull(this.handle) && !pointerIsNull(this.queue)
@@ -910,13 +920,162 @@ resource class VulkanDevice(
     trusted fun waitIdle(): bool =
         this.valid() && vkDeviceWaitIdle(this.handle) == vulkanSuccess
 
+    trusted fun transferValid(): bool = this.valid() &&
+        this.transferPool != 0 &&
+        !pointerIsNull(this.transferCommand.load()) &&
+        !this.transferScratch.closed && this.transferScratch.capacity >= 72
+
+    trusted fun initializeTransfer(): bool {
+        var succeeded = this.valid() && this.transferPool == 0 &&
+            !this.transferCommand.closed && !this.transferScratch.closed
+        if (succeeded) {
+            val poolInfo = nativeByteBuffer(24)
+            poolInfo.storeI64(0, 39)
+            poolInfo.storePointer(8, nativeNullPointer())
+            poolInfo.storeI64(
+                16,
+                (this.queueFamily & 4294967295) * 4294967296 + 2
+            )
+            val output = nativeI64Cell(0)
+            succeeded = vkCreateCommandPool(
+                this.handle,
+                poolInfo.address,
+                nativeNullPointer(),
+                output.address
+            ) == vulkanSuccess
+            if (succeeded) this.transferPool = output.load()
+        }
+        if (succeeded) {
+            val allocateInfo = nativeByteBuffer(32)
+            allocateInfo.storeI64(0, 40)
+            allocateInfo.storePointer(8, nativeNullPointer())
+            allocateInfo.storeI64(16, this.transferPool)
+            allocateInfo.storeI64(24, 4294967296)
+            succeeded = vkAllocateCommandBuffers(
+                this.handle,
+                allocateInfo.address,
+                this.transferCommand.address
+            ) == vulkanSuccess
+        }
+        if (!succeeded && this.transferPool != 0) {
+            vkDestroyCommandPool(
+                this.handle,
+                this.transferPool,
+                nativeNullPointer()
+            )
+            this.transferPool = 0
+            this.transferCommand.store(nativeNullPointer())
+        }
+        succeeded
+    }
+
+    trusted fun beginTransfer(): bool {
+        var succeeded = this.transferValid() && vkResetCommandPool(
+            this.handle,
+            this.transferPool,
+            0
+        ) == vulkanSuccess
+        if (succeeded) {
+            this.transferScratch.storeI64(0, 42)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 1)
+            this.transferScratch.storePointer(24, nativeNullPointer())
+            succeeded = vkBeginCommandBuffer(
+                this.transferCommand.load(),
+                this.transferScratch.address
+            ) == vulkanSuccess
+        }
+        succeeded
+    }
+
+    trusted fun submitTransfer(): bool {
+        var succeeded = this.transferValid() && vkEndCommandBuffer(
+            this.transferCommand.load()
+        ) == vulkanSuccess
+        if (succeeded) {
+            this.transferScratch.storeI64(0, 4)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 0)
+            this.transferScratch.storePointer(24, nativeNullPointer())
+            this.transferScratch.storePointer(32, nativeNullPointer())
+            this.transferScratch.storeI64(40, 1)
+            this.transferScratch.storePointer(
+                48,
+                this.transferCommand.address
+            )
+            this.transferScratch.storeI64(56, 0)
+            this.transferScratch.storePointer(64, nativeNullPointer())
+            succeeded = vkQueueSubmit(
+                this.queue,
+                1,
+                this.transferScratch.address,
+                0
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
+        }
+        succeeded
+    }
+
+    trusted fun copyBuffer(
+        source: VulkanBuffer,
+        destination: VulkanBuffer,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.transferValid() && source.valid() &&
+            destination.valid() && source.device == this.handle &&
+            destination.device == this.handle &&
+            copy.valid(source.size, destination.size) && this.beginTransfer()
+        if (succeeded) {
+            this.transferScratch.storeI64(0, copy.sourceOffset)
+            this.transferScratch.storeI64(8, copy.destinationOffset)
+            this.transferScratch.storeI64(16, copy.resolvedSize(source.size))
+            vkCmdCopyBuffer(
+                this.transferCommand.load(),
+                source.handle,
+                destination.handle,
+                1,
+                this.transferScratch.address
+            )
+            this.transferScratch.storeI64(0, 46)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 8192 * 4294967296 + 4096)
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                4096,
+                16384,
+                0,
+                1,
+                this.transferScratch.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+            succeeded = this.submitTransfer()
+        }
+        succeeded
+    }
+
     trusted fun drop(): void {
         if (!pointerIsNull(this.handle)) {
             vkDeviceWaitIdle(this.handle)
+            if (this.transferPool != 0) {
+                vkDestroyCommandPool(
+                    this.handle,
+                    this.transferPool,
+                    nativeNullPointer()
+                )
+                this.transferPool = 0
+                this.transferCommand.store(nativeNullPointer())
+            }
             vkDestroyDevice(this.handle, nativeNullPointer())
             this.handle = nativeNullPointer()
             this.queue = nativeNullPointer()
         }
+        this.transferCommand.close()
+        this.transferScratch.close()
         return
     }
 }
@@ -969,13 +1128,18 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
             queue = queueOutput.load()
         }
     }
-    VulkanDevice(
+    val result = VulkanDevice(
         handle,
         queue,
         queueFamily,
         this.apiVersion,
-        this.handle
+        this.handle,
+        0,
+        nativePointerCell(nativeNullPointer()),
+        nativeByteBuffer(72)
     )
+    if (result.valid()) result.initializeTransfer()
+    result
 }
 
 resource class VulkanBuffer(
@@ -2775,13 +2939,18 @@ trusted fun VulkanAdapter.deviceForSurface(
             queue = queueOutput.load()
         }
     }
-    VulkanDevice(
+    val result = VulkanDevice(
         handle,
         queue,
         queueFamily,
         this.apiVersion,
-        this.handle
+        this.handle,
+        0,
+        nativePointerCell(nativeNullPointer()),
+        nativeByteBuffer(72)
     )
+    if (result.valid()) result.initializeTransfer()
+    result
 }
 
 class VulkanSurfaceFormat(

@@ -39,29 +39,48 @@ fun main: int {
         readback,
         readbackRange
     )
+    val copiedBuffer = app.buffer(BufferDescriptor(
+        label = "sample-copy-destination",
+        size = 256,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val gpuCopyRange = BufferCopyDescriptor(80, 41, 19)
+    val gpuCopied = app.copyBuffer(buffer, copiedBuffer, gpuCopyRange)
+    val gpuReadback = bufferBytes(32)
+    val gpuReadbackRange = BufferCopyDescriptor(41, 6, 19)
+    val gpuDownloaded = gpuReadback.fill(0) && copiedBuffer.readBytes(
+        gpuReadback,
+        gpuReadbackRange
+    )
     val liveBeforeRepeats = runtimeMemoryLiveBytes()
-    var repeated = uploaded && downloaded
+    var repeated = uploaded && downloaded && gpuCopied && gpuDownloaded
     var repeat = 0
     while (repeated && repeat < 4) {
         repeated = buffer.writeBytes(upload, uploadRange) &&
-            buffer.readBytes(readback, readbackRange)
+            buffer.readBytes(readback, readbackRange) &&
+            app.copyBuffer(buffer, copiedBuffer, gpuCopyRange) &&
+            copiedBuffer.readBytes(gpuReadback, gpuReadbackRange)
         repeat = repeat + 1
     }
     val liveAfterRepeats = runtimeMemoryLiveBytes()
     val noTransferAllocations = liveAfterRepeats == liveBeforeRepeats
-    val passed = app.valid() && buffer.valid() &&
+    val passed = app.valid() && buffer.valid() && copiedBuffer.valid() &&
         buffer.writeI64(expected, 24) && buffer.readI64(24) == expected &&
-        uploaded && downloaded && repeated && noTransferAllocations &&
+        uploaded && downloaded && gpuCopied && gpuDownloaded &&
+        repeated && noTransferAllocations &&
         readback.load(3) == 23 &&
         readback.loadI64(6) == 72623859790382856 &&
         readback.load(21) == 23 &&
+        gpuReadback.load(6) == 23 &&
+        gpuReadback.loadI64(9) == 72623859790382856 &&
+        gpuReadback.load(24) == 23 &&
         app.presentClear(Color(
             0.0625,
             0.1875,
             0.4375
         ))
     println(
-        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, repeatNoAlloc=${noTransferAllocations}, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, gpuCopy=${gpuCopied && gpuDownloaded}, repeatNoAlloc=${noTransferAllocations}, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

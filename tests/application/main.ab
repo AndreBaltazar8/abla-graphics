@@ -119,6 +119,43 @@ fun applicationBackendProbe(
         wholeDownloadBytes.load(0) == 41 &&
         wholeDownloadBytes.load(37) == 199 &&
         wholeDownloadBytes.load(63) == 41
+    val gpuCopyDestination = app.buffer(BufferDescriptor(
+        label = "gpu-copy-destination",
+        size = 64,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val transferPoolBefore = app.vulkanDevice.transferPool
+    val transferCommandBefore = if (
+        app.backend == graphicsBackendVulkan &&
+        !app.vulkanDevice.transferCommand.closed
+    ) nativePointerAddress(app.vulkanDevice.transferCommand.load()) else 0
+    val gpuRangeCopied = app.copyBuffer(
+        buffer,
+        gpuCopyDestination,
+        BufferCopyDescriptor(7, 19, 31)
+    )
+    val gpuCopyReadback = bufferBytes(40)
+    val gpuCopyRead = gpuCopyReadback.fill(0) &&
+        gpuCopyDestination.readBytes(
+            gpuCopyReadback,
+            BufferCopyDescriptor(19, 2, 31)
+        )
+    val gpuCopyMatches = bufferRangesEqual(
+        wholeUploadBytes,
+        7,
+        gpuCopyReadback,
+        2,
+        31
+    )
+    val transferStateStable = app.backend != graphicsBackendVulkan ||
+        (app.vulkanDevice.transferPool == transferPoolBefore &&
+         nativePointerAddress(app.vulkanDevice.transferCommand.load()) ==
+            transferCommandBefore)
+    val invalidGpuCopyRejected = !app.copyBuffer(
+        buffer,
+        gpuCopyDestination,
+        BufferCopyDescriptor(50, 60, 8)
+    )
     val usageRestrictedBuffer = app.buffer(BufferDescriptor(
         size = 32,
         usage = bufferUsageStorage
@@ -130,6 +167,16 @@ fun applicationBackendProbe(
     val missingReadUsageRejected = !usageRestrictedBuffer.readBytes(
         downloadBytes,
         BufferCopyDescriptor()
+    )
+    val missingCopySourceUsageRejected = !app.copyBuffer(
+        usageRestrictedBuffer,
+        gpuCopyDestination,
+        BufferCopyDescriptor(size = 8)
+    )
+    val missingCopyDestinationUsageRejected = !app.copyBuffer(
+        buffer,
+        usageRestrictedBuffer,
+        BufferCopyDescriptor(size = 8)
     )
     val invalidBuffer = app.buffer(BufferDescriptor(
         size = 0,
@@ -364,8 +411,12 @@ fun applicationBackendProbe(
             "GraphicsApplication.buffer.mappedAtCreation" &&
         readbackBuffer.valid() && rangeUploaded && rangeRead && rangeMatches &&
         invalidBufferRangeRejected && wholeBufferTransferred &&
+        gpuCopyDestination.valid() && gpuRangeCopied && gpuCopyRead &&
+        gpuCopyMatches && transferStateStable && invalidGpuCopyRejected &&
         usageRestrictedBuffer.valid() &&
         missingWriteUsageRejected && missingReadUsageRejected &&
+        missingCopySourceUsageRejected &&
+        missingCopyDestinationUsageRejected &&
         sampler.valid() &&
         anisotropicSampler.valid() &&
         texture.valid() && textureUploaded && textureReuploaded &&

@@ -213,6 +213,13 @@ noescape extern:"c" fun glGetBufferSubData(
     size: int,
     data: i64*
 ): void
+noescape extern:"c" fun glCopyBufferSubData(
+    readTarget: i32,
+    writeTarget: i32,
+    readOffset: int,
+    writeOffset: int,
+    size: int
+): void
 noescape extern:"c" fun glMapBufferRange(
     target: i32,
     offset: i64,
@@ -560,6 +567,29 @@ resource class OpenGlBuffer(
                 copy.sourceOffset,
                 byteCount,
                 destination.storage.pointerAt(copy.destinationOffset)
+            )
+            succeeded = glGetError() == 0
+        }
+        succeeded
+    }
+
+    trusted fun copyTo(
+        destination: OpenGlBuffer,
+        copy: BufferCopyDescriptor
+    ): bool {
+        var succeeded = this.valid() && destination.valid() &&
+            this.context == destination.context &&
+            this.display == destination.display &&
+            copy.valid(this.size, destination.size) && this.makeCurrent()
+        if (succeeded) {
+            glBindBuffer(36662, this.handle)
+            glBindBuffer(36663, destination.handle)
+            glCopyBufferSubData(
+                36662,
+                36663,
+                copy.sourceOffset,
+                copy.destinationOffset,
+                copy.resolvedSize(this.size)
             )
             succeeded = glGetError() == 0
         }

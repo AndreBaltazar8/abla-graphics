@@ -104,9 +104,19 @@ Updated: 2026-08-18.
   upload/readback pairs on each backend produce zero Abla runtime live-byte
   growth. Invalid descriptors, mapped-at-creation rejection, and deterministic
   destruction also pass.
+- Common GPU buffer-copy test: `GraphicsApplication.copyBuffer` validates
+  distinct same-backend resources, source/destination copy usages, and both
+  ranges before dispatch. A partial 31-byte copy between different offsets is
+  read back exactly on OpenGL and Vulkan; crossing bounds and missing usages are
+  rejected. OpenGL uses `glCopyBufferSubData`. Vulkan reuses one device-owned
+  transfer pool, command buffer, and scratch ABI block, records
+  `vkCmdCopyBuffer` plus a transfer-to-host barrier, and preserves native handles
+  across repeated copies. Khronos validation is silent on the Lavapipe path.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same partial reusable-byte upload/readback on a 256-byte storage
-  buffer under explicit OpenGL and Vulkan in the software-driver sample matrix.
+  buffer plus GPU copy/readback under explicit OpenGL and Vulkan in the
+  software-driver sample matrix. Four repeated upload, copy, and readback cycles
+  produce zero Abla runtime live-byte growth on both backends.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -252,9 +262,10 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   `PixelBuffer` uploads and synchronous diagnostic readback are present;
   general byte layouts, image-to-image copies, and asynchronous streaming are
   not. General reusable buffer byte-range upload/readback is present, including
-  distinct source and destination offsets; persistent mapping and asynchronous
-  transfers are not. Common buffers, textures, views, samplers, and immutable
-  structural descriptors are present;
+  distinct source and destination offsets, and synchronous GPU buffer copies
+  reuse backend command state; persistent mapping and asynchronous transfers are
+  not. Common buffers, textures, views, samplers, and immutable structural
+  descriptors are present;
   the wider resource surface is not yet claimed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 

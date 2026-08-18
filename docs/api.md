@@ -181,6 +181,16 @@ storage.readBytes(readback, BufferCopyDescriptor(
     destinationOffset = 0,
     size = 64
 ))
+
+val destination = app.buffer(BufferDescriptor(
+    size = 4096,
+    usage = bufferUsageCopySource | bufferUsageCopyDestination
+))
+app.copyBuffer(storage, destination, BufferCopyDescriptor(
+    sourceOffset = 128,
+    destinationOffset = 512,
+    size = 64
+))
 ```
 
 `GraphicsBuffer` is affine, dispatches outside the read/write hot operation,
@@ -205,6 +215,19 @@ owns its map output cell, so repeated `writeBytes`/`readBytes` calls allocate no
 general memory. The common-buffer sample checks this with four repeated pairs
 and requires zero Abla runtime live-byte growth. Checked 64-bit probes remain
 available for small diagnostics.
+
+`app.copyBuffer(source, destination, descriptor)` performs a GPU-side copy
+between distinct buffers owned by the same application. Source and destination
+copy usages are mandatory, and the same overflow-safe descriptor validates both
+ranges. OpenGL binds copy-read/copy-write targets and calls
+`glCopyBufferSubData`. Vulkan owns one transfer command pool, command buffer,
+and scratch ABI block with the device, resets and reuses them, emits
+`vkCmdCopyBuffer` plus a transfer-to-host barrier, and waits for queue completion.
+Repeated copies preserve those handles and show zero Abla runtime live-byte
+growth. This initial operation is deliberately synchronous; it establishes the
+copy semantics and reusable command state needed by future queued transfer
+rings.
+
 Persistent mapped-at-creation ranges, queued transfers, and device-local
 selection remain upcoming APIs.
 An application must let child buffers drop before its device/context.
