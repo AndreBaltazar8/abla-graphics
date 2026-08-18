@@ -58,6 +58,12 @@ resource class GraphicsApplication(
             }
             succeeded = this.vulkanSwapchain.valid() &&
                 this.vulkanPixels.valid()
+            if (succeeded) {
+                this.vulkanSurface.width = this.vulkanSwapchain.width
+                this.vulkanSurface.height = this.vulkanSwapchain.height
+                this.window.width = this.vulkanSwapchain.width
+                this.window.height = this.vulkanSwapchain.height
+            }
         }
         succeeded
     }
@@ -96,10 +102,27 @@ resource class GraphicsApplication(
         if (this.backend == graphicsBackendOpenGl) {
             presented = this.openGl.presentClear(color)
         } else if (this.backend == graphicsBackendVulkan) {
-            presented = this.vulkanDevice.presentClear(
+            var outcome = this.vulkanDevice.presentClearOutcome(
                 this.vulkanSwapchain,
                 color
             )
+            presented = outcome.presented
+            if (outcome.recreateSwapchain) {
+                val recovered = this.recreateVulkanSwapchain(
+                    this.window.width,
+                    this.window.height
+                )
+                if (!recovered) {
+                    presented = false
+                } else if (!outcome.presented) {
+                    outcome = this.vulkanDevice.presentClearOutcome(
+                        this.vulkanSwapchain,
+                        color
+                    )
+                    presented = outcome.presented &&
+                        !outcome.recreateSwapchain
+                }
+            }
         }
         presented
     }
@@ -109,11 +132,45 @@ resource class GraphicsApplication(
         if (this.backend == graphicsBackendOpenGl) {
             presented = this.openGlPixels.present(this.openGl, pixels)
         } else if (this.backend == graphicsBackendVulkan) {
-            presented = this.vulkanDevice.presentPixels(
-                this.vulkanSwapchain,
-                this.vulkanPixels,
-                pixels
-            )
+            var ready = true
+            if ((pixels.width != this.vulkanSwapchain.width ||
+                pixels.height != this.vulkanSwapchain.height) &&
+                pixels.width == this.window.width &&
+                pixels.height == this.window.height) {
+                ready = this.recreateVulkanSwapchain(
+                    this.window.width,
+                    this.window.height
+                )
+            }
+            var outcome = VulkanPresentOutcome(false, false, -1)
+            if (ready) {
+                outcome = this.vulkanDevice.presentPixelsOutcome(
+                    this.vulkanSwapchain,
+                    this.vulkanPixels,
+                    pixels
+                )
+                presented = outcome.presented
+            }
+            if (ready && outcome.recreateSwapchain) {
+                val recovered = this.recreateVulkanSwapchain(
+                    this.window.width,
+                    this.window.height
+                )
+                if (!recovered) {
+                    presented = false
+                } else if (!outcome.presented) {
+                    if (pixels.width == this.vulkanSwapchain.width &&
+                        pixels.height == this.vulkanSwapchain.height) {
+                        outcome = this.vulkanDevice.presentPixelsOutcome(
+                            this.vulkanSwapchain,
+                            this.vulkanPixels,
+                            pixels
+                        )
+                        presented = outcome.presented &&
+                            !outcome.recreateSwapchain
+                    } else presented = false
+                }
+            }
         }
         presented
     }

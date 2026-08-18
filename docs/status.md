@@ -53,7 +53,10 @@ Updated: 2026-08-18.
   the new window size. The explicit Vulkan path performs the same round trip,
   waits for the queue, drops presenter-before-swapchain, re-queries the surface,
   recreates the swapchain and persistent upload resources at 360x240, and
-  presents again.
+  presents again. A second surfaced probe deliberately consumes ConfigureNotify
+  through the raw window instead of the common application, proving that both
+  clear presentation and a correctly resized pixel buffer detect stale Vulkan
+  state, rebuild once, synchronize owned extents, and present successfully.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a persistent
@@ -167,10 +170,10 @@ work.
 ## Not yet claimed
 
 - General Vulkan frames-in-flight for clear and future render-pipeline paths,
-  automatic recovery from acquire/present out-of-date results that arrive
-  without a resize event, render pipelines, synchronization2, and dynamic
-  rendering. The reusable pixel-upload path has two fence-guarded slots and no
-  per-frame queue-wide idle.
+  render pipelines, synchronization2, and dynamic rendering. The reusable
+  pixel-upload path has two fence-guarded slots and no per-frame queue-wide
+  idle; clear and pixel presentation now recover once from suboptimal or
+  out-of-date swapchains.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.

@@ -309,9 +309,14 @@ size update. The common application synchronizes its OpenGL viewport dimensions
 before returning that event. Vulkan waits for outstanding queue work, destroys
 the persistent pixel presenter before the old swapchain, updates the surface
 extent, re-queries capabilities/format, and recreates both resources before
-returning the event. `recreateVulkanSwapchain()` is also available for an
-explicit retry after a platform out-of-date result. A software renderer must
-provide a `PixelBuffer` matching the new swapchain extent. Fixed-size windows
+returning the event. `presentClear()` and `presentPixels()` also classify
+`VK_SUBOPTIMAL_KHR` and `VK_ERROR_OUT_OF_DATE_KHR`, rebuild the swapchain once,
+and perform at most one retry when the original frame was not presented. A
+resized `PixelBuffer` whose extent matches the authoritative window extent
+triggers recreation before acquire when the old swapchain extent is stale. If
+the rebuilt extent does not match the supplied pixels, presentation returns
+`false` so the application can redraw rather than stretching or reading beyond
+the buffer. Fixed-size windows
 publish `WM_NORMAL_HINTS`,
 undecorated windows publish `_MOTIF_WM_HINTS`, and fullscreen windows publish
 the EWMH fullscreen state before mapping. Each required write/atom/map is part
