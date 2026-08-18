@@ -24,6 +24,13 @@ class RegistryAudit(
     val error: string
 )
 
+class RegistryConstants(
+    val names: array<string>,
+    val values: array<string>,
+    val valid: bool,
+    val error: string
+)
+
 fun registryOpeningTagEnd(source: string, begin: int): int =
     textFindByte(source, 62, begin, source.size)
 
@@ -253,6 +260,85 @@ fun registrySort(var values: array<string>): void {
         values[target] = value
         index = index + 1
     }
+}
+
+fun registryConstantValueValid(value: string): bool {
+    var valid = value.size > 0
+    var offset = 0
+    if (valid && value[0] == 45) {
+        offset = 1
+        valid = value.size > 1
+    }
+    var hexadecimal = false
+    if (valid && offset + 2 <= value.size && value[offset] == 48 &&
+        value[offset + 1] == 120) {
+        hexadecimal = true
+        offset = offset + 2
+        valid = offset < value.size
+    }
+    while (valid && offset < value.size) {
+        val byte = value[offset]
+        if (hexadecimal) {
+            valid = (byte >= 48 && byte <= 57) ||
+                (byte >= 65 && byte <= 70) ||
+                (byte >= 97 && byte <= 102)
+        } else valid = byte >= 48 && byte <= 57
+        offset = offset + 1
+    }
+    valid
+}
+
+fun registryParseConstants(source: string, api: string): RegistryConstants {
+    val names: array<string> = []
+    val values: array<string> = []
+    val priorities: array<int> = []
+    var valid = api == "vulkan" || api == "opengl"
+    var error = if (valid) "" else "API must be vulkan or opengl"
+    var cursor = 0
+    while (valid && api == "opengl") {
+        val begin = textFindSequence(source, "<enum", cursor, source.size)
+        if (begin < 0) break
+        cursor = begin + 5
+        if (cursor < source.size && source[cursor] != 62 &&
+            source[cursor] != 32 && source[cursor] != 9 &&
+            source[cursor] != 10 && source[cursor] != 13) continue
+        val end = registryOpeningTagEnd(source, cursor)
+        if (end < 0) {
+            valid = false
+            error = "unterminated enum opening tag"
+        } else {
+            val opening = source.slice(begin, end + 1)
+            val name = registryAttribute(opening, "name")
+            val value = registryAttribute(opening, "value")
+            val enumApi = registryAttribute(opening, "api")
+            val selected = name.size > 3 && name.slice(0, 3) == "GL_" &&
+                value != "" && (enumApi == "" ||
+                    registryTokenListContains(enumApi, "gl") ||
+                    registryTokenListContains(enumApi, "glcore"))
+            val priority = if (enumApi == "") 1 else 2
+            if (selected && !registryConstantValueValid(value)) {
+                valid = false
+                error = "unsupported OpenGL constant expression: $name=$value"
+            } else if (selected) {
+                val existing = registryArrayIndex(names, name)
+                if (existing < 0) {
+                    names.append(name)
+                    values.append(value)
+                    priorities.append(priority)
+                } else if (priority > priorities[existing]) {
+                    values[existing] = value
+                    priorities[existing] = priority
+                } else if (priority == priorities[existing] &&
+                    values[existing] != value) {
+                    valid = false
+                    error = "conflicting OpenGL constant definition: $name"
+                }
+            }
+            cursor = end + 1
+        }
+    }
+    if (valid) registrySortPaired(names, values)
+    RegistryConstants(names, values, valid, error)
 }
 
 fun registryCommandName(source: string, begin: int, end: int): string {
@@ -747,7 +833,8 @@ fun registryWriteSource(
     revision: string,
     sha256: string,
     inventory: RegistryInventory,
-    audit: RegistryAudit
+    audit: RegistryAudit,
+    constants: RegistryConstants
 ): bool {
     val prefix = registrySourcePrefix(api)
     val commandStatuses = registryStatuses(
@@ -794,7 +881,31 @@ fun registryWriteSource(
         batch,
         "val ${prefix}ExtensionCount = ${inventory.extensions.size}"
     )
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "val ${prefix}ConstantCount = ${constants.names.size}"
+    )
+    if (success && constants.names.size > 0) {
+        batch = registryAppend(output, batch, "")
+        var constantIndex = 0
+        while (batch != "#write-failed" &&
+            constantIndex < constants.names.size) {
+            batch = registryAppend(
+                output,
+                batch,
+                "val ${constants.names[constantIndex]} = ${constants.values[constantIndex]}"
+            )
+            constantIndex = constantIndex + 1
+        }
+    }
     if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}ConstantNames",
+        constants.names
+    )
     if (success) batch = registryWriteSourceArray(
         output,
         batch,
@@ -862,11 +973,15 @@ fun main: int {
         } else {
             val inventory = registryParse(input.readText(), api)
             val audit = registryParseAudit(auditInput.readText())
+            val constants = registryParseConstants(input.readText(), api)
             if (!inventory.valid) {
                 eprintln("registry parse failed: ${inventory.error}")
                 4
             } else if (!audit.valid) {
                 eprintln("registry audit failed: ${audit.error}")
+                4
+            } else if (!constants.valid) {
+                eprintln("registry constants failed: ${constants.error}")
                 4
             } else if (registryAuditValidate(audit, inventory) != "") {
                 eprintln("registry audit failed: ${registryAuditValidate(audit, inventory)}")
@@ -883,7 +998,8 @@ fun main: int {
                 processArgument(5),
                 processArgument(6),
                 inventory,
-                audit
+                audit,
+                constants
             )) {
                 eprintln("failed to write raw registry source: ${sourceOutput.text}")
                 5

@@ -61,6 +61,29 @@ rg -q 'unknown audit status' "$output_directory/audit-invalid-status.log"
 rg -q 'audit row is absent from selected registry' \
     "$output_directory/audit-unknown.log"
 
+"$generator" opengl \
+    "$project_root/registry/fixtures/opengl-registry.xml" \
+    "$project_root/registry/fixtures/opengl-audit.tsv" \
+    "$output_directory/opengl.md" "$output_directory/opengl.ab" \
+    fixture-revision fixture-sha256
+rg -q '^val rawOpenGlRegistryConstantCount = 2$' \
+    "$output_directory/opengl.ab"
+rg -q '^val GL_FIXTURE_ONE = 0x1$' "$output_directory/opengl.ab"
+rg -q '^val GL_FIXTURE_OVERRIDE = 0x3$' "$output_directory/opengl.ab"
+
+if "$generator" opengl \
+    "$project_root/registry/fixtures/opengl-invalid-constant.xml" \
+    "$project_root/registry/fixtures/opengl-audit.tsv" \
+    "$output_directory/opengl-invalid.md" \
+    "$output_directory/opengl-invalid.ab" \
+    fixture-revision fixture-sha256 \
+    >"$output_directory/opengl-invalid.log" 2>&1; then
+    printf '%s\n' 'invalid OpenGL constant unexpectedly passed' >&2
+    exit 1
+fi
+rg -q 'unsupported OpenGL constant expression' \
+    "$output_directory/opengl-invalid.log"
+
 cd "$compiler_root"
 "$compiler" build "$project_root/tests/raw_registry.ab" \
     -o "$output_directory/raw-registry" --no-cache

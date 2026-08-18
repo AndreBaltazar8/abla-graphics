@@ -27,7 +27,11 @@ public core features/statuses, and extensions/statuses. Normal applications do
 not import or initialize these inspection arrays. The offline fixture compares
 their exact bytes across two runs, and the full pinned modules are compiler-
 checked together. This is the generated raw namespace and metadata foundation;
-it does not yet emit constants, ABI layouts, or callable commands.
+the OpenGL side also emits 6,271 exact signed-decimal/hexadecimal constant
+declarations. API-qualified desktop definitions override GLES-only collisions;
+unknown literal forms and conflicting equal-priority definitions are hard
+errors. Vulkan constants, ABI layouts, and callable commands are not yet
+emitted.
 
 The inventory parser recognizes only the XML structures needed for this stage;
 other registry structures are not interpreted or presented as generated ABI

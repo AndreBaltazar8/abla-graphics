@@ -18,6 +18,10 @@ Run `make test-registry` for the offline parser and determinism tests. Run
 digests, join the reviewed audits, and regenerate both the committed ledgers
 and `src/raw/*_registry.ab`. The generated Abla modules expose the exact pinned
 revision/hash, counts, byte-sorted names, command forms, and joined statuses;
-they are compiled by `make test-registry` through the stable `src/raw/opengl.ab`
+the OpenGL module additionally exposes all 6,271 selected `GL_*` literals as
+exact Abla values and a sorted name inventory. Explicit desktop definitions
+win over GLES-only collisions. Unknown expressions and same-priority conflicts
+stop generation. The modules are compiled by `make test-registry` through the
+stable `src/raw/opengl.ab`
 and `src/raw/vulkan.ab` facades. Never edit generated coverage or source files
 directly.

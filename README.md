@@ -95,8 +95,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   `vkDeviceWaitIdle` for diagnostics and lifecycle synchronization;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
-  audits and independently compiled raw metadata modules that leave every
-  unaudited row visibly unclassified;
+  audits, 6,271 generated OpenGL constants, and independently compiled raw
+  metadata modules that leave every unaudited row visibly unclassified;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
