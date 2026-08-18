@@ -20,6 +20,49 @@ fun main: int {
         GraphicsConfig(framesInFlight = 0),
         GraphicsBackendSupport(true, true)
     )
+    val invalidFeatureMask = graphicsSelectBackend(
+        GraphicsConfig(requiredFeatures = 64),
+        GraphicsBackendSupport(true, true)
+    )
+    val featureFallback = graphicsSelectBackend(
+        GraphicsConfig(
+            requiredFeatures = graphicsFeatureViewFormatReinterpretation
+        ),
+        GraphicsBackendSupport(
+            true,
+            true,
+            vulkanFeatures = graphicsFeatureAll,
+            openGlFeatures = graphicsFeatureAll &
+                ~graphicsFeatureViewFormatReinterpretation
+        )
+    )
+    val explicitUnsupported = graphicsSelectBackend(
+        GraphicsConfig(
+            backend = graphicsBackendOpenGl,
+            requiredFeatures = graphicsFeatureViewFormatReinterpretation
+        ),
+        GraphicsBackendSupport(
+            true,
+            true,
+            openGlFeatures = graphicsFeatureAll &
+                ~graphicsFeatureViewFormatReinterpretation
+        )
+    )
+    val automaticUnsupported = graphicsSelectBackend(
+        GraphicsConfig(requiredFeatures = graphicsFeatureCompute),
+        GraphicsBackendSupport(
+            true,
+            true,
+            vulkanFeatures = graphicsFeatureSampledTextures,
+            openGlFeatures = graphicsFeatureSampledTextures
+        )
+    )
+    val capabilities = GraphicsCapabilities(
+        graphicsFeatureCompute | graphicsFeatureStorageBuffers |
+            graphicsFeatureSampledTextures,
+        GraphicsLimits(16384, 134217728, 65535, 1024, 1024),
+        GraphicsVersion(1, 4)
+    )
     val virtualMonitor = Monitor("virtual", 1920, 1080)
     val rectangle = Rect2D(Offset2D(10, 20), Extent2D(30, 40))
     val boundaryRectangle = Rect2D(
@@ -141,6 +184,18 @@ fun main: int {
         unavailable.error.code == graphicsErrorBackendUnavailable &&
         !invalid.succeeded &&
         invalid.error.code == graphicsErrorInvalidConfiguration &&
+        !invalidFeatureMask.succeeded &&
+        invalidFeatureMask.error.code == graphicsErrorInvalidConfiguration &&
+        featureFallback.succeeded &&
+        featureFallback.backend == graphicsBackendVulkan &&
+        !explicitUnsupported.succeeded &&
+        explicitUnsupported.error.code == graphicsErrorUnsupportedFeature &&
+        !automaticUnsupported.succeeded &&
+        automaticUnsupported.error.code == graphicsErrorUnsupportedFeature &&
+        capabilities.valid() &&
+        capabilities.supports(graphicsFeatureCompute |
+            graphicsFeatureStorageBuffers) &&
+        !capabilities.supports(graphicsFeatureDepthTextures) &&
         virtualMonitor.valid() && !virtualMonitor.physicalSizeKnown() &&
         virtualMonitor.dpiX() == 96.0 &&
         virtualMonitor.contentScaleX() == 1.0 &&

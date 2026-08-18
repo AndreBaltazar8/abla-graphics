@@ -19,11 +19,13 @@ resource class GraphicsApplication(
     var vulkanInstance: VulkanInstance,
     val backend: int,
     val framesInFlight: int,
+    val capabilities: GraphicsCapabilities,
     val adapterName: string,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() &&
         this.window.valid() &&
+        this.capabilities.valid() &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan &&
           this.vulkanInstance.valid() && this.vulkanSurface.valid() &&
@@ -274,8 +276,10 @@ trusted fun graphicsApplication(
     )
     var vulkanInstance = VulkanInstance(nativeNullPointer(), 0)
     var backend = graphicsBackendAuto
+    var capabilities = GraphicsCapabilities()
     var adapterName = ""
     var error = GraphicsError()
+    var requiredFeaturesUnavailable = false
 
     if (!config.valid() || !windowConfig.valid() ||
         config.backend == graphicsBackendHeadless) {
@@ -307,7 +311,14 @@ trusted fun graphicsApplication(
         var index = 0
         while (!vulkanSwapchain.valid() && index < adapters.size) {
             val adapter = adapters[index]
-            if (vulkanSurface.valid() && adapter.supportsSurface(vulkanSurface)) {
+            val adapterCapabilities = adapter.capabilities()
+            if (adapterCapabilities.valid() &&
+                !adapterCapabilities.supports(config.requiredFeatures)) {
+                requiredFeaturesUnavailable = true
+            }
+            if (vulkanSurface.valid() && adapter.supportsSurface(vulkanSurface) &&
+                adapterCapabilities.valid() &&
+                adapterCapabilities.supports(config.requiredFeatures)) {
                 vulkanDevice = adapter.deviceForSurface(vulkanSurface)
                 if (vulkanDevice.valid()) {
                     vulkanSwapchain = vulkanDevice.swapchain(
@@ -320,7 +331,10 @@ trusted fun graphicsApplication(
                                 vulkanSwapchain,
                                 config.framesInFlight
                             )
-                        if (vulkanPixels.valid()) adapterName = adapter.name
+                        if (vulkanPixels.valid()) {
+                            adapterName = adapter.name
+                            capabilities = adapterCapabilities
+                        }
                     }
                 }
             }
@@ -345,21 +359,33 @@ trusted fun graphicsApplication(
     if (tryOpenGl) {
         openGl = openGlWindowContext(window)
         if (openGl.valid()) {
-            openGlPixels = openGlPixelPresenter(
-                openGl,
-                windowConfig.width,
-                windowConfig.height
-            )
-            backend = graphicsBackendOpenGl
-            adapterName = "OpenGL core context"
+            val openGlCapabilities = openGl.capabilities()
+            if (openGlCapabilities.valid() &&
+                openGlCapabilities.supports(config.requiredFeatures)) {
+                openGlPixels = openGlPixelPresenter(
+                    openGl,
+                    windowConfig.width,
+                    windowConfig.height
+                )
+                backend = graphicsBackendOpenGl
+                adapterName = "OpenGL core context"
+                capabilities = openGlCapabilities
+            } else {
+                requiredFeaturesUnavailable = true
+                openGl.drop()
+            }
         }
     }
 
     if (!error.occurred() && backend == graphicsBackendAuto) {
         error = GraphicsError(
-            graphicsErrorBackendUnavailable,
+            if (requiredFeaturesUnavailable)
+                graphicsErrorUnsupportedFeature
+            else graphicsErrorBackendUnavailable,
             "graphicsApplication",
-            "the requested surfaced backend is unavailable"
+            if (requiredFeaturesUnavailable)
+                "the requested features are unavailable"
+            else "the requested surfaced backend is unavailable"
         )
     }
 
@@ -374,6 +400,7 @@ trusted fun graphicsApplication(
         move(vulkanInstance),
         backend,
         config.framesInFlight,
+        capabilities,
         adapterName,
         error
     )

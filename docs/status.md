@@ -4,7 +4,9 @@ Updated: 2026-08-18.
 
 ## Verified now
 
-- Pure core test: backend selection, structured errors, window configuration,
+- Pure core test: requirement-aware backend selection/fallback, explicit and
+  automatic unsupported-feature errors, capability masks and limit validity,
+  structured errors, window configuration,
   signed-extreme checked geometry/area/volume, native `f64` vectors/matrix
   composition/colors, exact binary32 rounding, and deterministic nanosecond
   frame-period distribution, overflow handling, and late-frame resynchronizing.
@@ -29,8 +31,12 @@ Updated: 2026-08-18.
   against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
-  submits a buffer fill, synchronizes, and reads the result back.
-- Vulkan test: loader version, instance, physical-adapter properties, graphics
+  submits a buffer fill, synchronizes, and reads the result back. Both paths
+  require and verify the common compute/storage/texture feature set and real
+  queried limits; Vulkan additionally requires format reinterpretation, while
+  an explicit OpenGL request for it is rejected before application use.
+- Vulkan test: loader version, instance, physical-adapter API version, queried
+  2D texture/storage/compute limits and portable feature mask, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,
   queue submission/wait, mapping/readback, and reverse-order affine cleanup.
@@ -41,14 +47,19 @@ Updated: 2026-08-18.
   image layout barriers, GPU clear, queue submission/presentation/wait, and
   affine reverse-order teardown.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
-  creation with 4.6/4.5/3.3 negotiation, core version query, viewport/clear,
-  RGBA8 readback, and affine EGL cleanup.
+  creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
+  2D texture/storage/compute limit queries and portable feature mask,
+  viewport/clear, RGBA8 readback, and affine EGL cleanup.
 - Surfaced OpenGL test: direct Abla X11 window creation/title, an Abla-owned
   X11/EGL WSI bridge, window surface and core context creation, GLSL shader
   compile/link diagnostics, VAO/full-screen triangle draw, pixel readback,
   buffer swap, and reverse-order affine cleanup.
 - Common application test: explicit OpenGL, explicit Vulkan, automatic Vulkan
-  preference, automatic fallback to OpenGL, and explicit-unavailable rejection;
+  preference, automatic fallback to OpenGL, explicit-unavailable rejection,
+  and explicit unsupported-feature rejection. Every successful path requires
+  compute, storage buffers, sampled/depth textures, and comparison samplers,
+  then verifies the reported API version and driver limits. Explicit Vulkan
+  additionally requires the implemented view-format reinterpretation feature;
   successful paths create an affine application, report the selected adapter,
   round a common native `f64` color to IEEE-754 binary32 in Abla, and present it
   under Xvfb/Lavapipe. The explicit OpenGL path additionally requests a resize,
@@ -192,6 +203,10 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
+- Complete Vulkan feature-structure and OpenGL extension negotiation, optional
+  feature preferences, per-dimension/per-stage limits, and typed extension
+  objects. The current common capability report covers the initial six-feature
+  mask and five directly queried limits documented in the API contract.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration and cross-stage compatibility slice,

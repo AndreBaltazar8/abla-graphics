@@ -13,7 +13,9 @@ native `f64` clear color:
 val app = graphicsApplication(
     GraphicsConfig(
         backend = graphicsBackendAuto,
-        framesInFlight = 3
+        framesInFlight = 3,
+        requiredFeatures = graphicsFeatureCompute |
+            graphicsFeatureStorageBuffers
     ),
     WindowConfig(title = "Abla clear", width = 1280, height = 720)
 )
@@ -270,14 +272,33 @@ and Abla-defined subparsers are deliberate language features used here.
 
 ## Backend selection
 
-`GraphicsBackend.auto` prefers Vulkan when the requested features and surface
-are supported, otherwise OpenGL. `vulkan`, `opengl`, and `headless` are
-explicit choices. Selection returns the chosen backend and adapter report; it is
-never a silent per-frame fallback.
+`graphicsBackendAuto` prefers Vulkan when the requested features and surface
+are supported, otherwise OpenGL. `graphicsBackendVulkan`,
+`graphicsBackendOpenGl`, and `graphicsBackendHeadless` are explicit choices.
+Selection is performed once and never becomes a silent per-frame fallback.
 
-Applications request required and optional features. Creation fails if a
-required feature is absent. Optional features are exposed through capability
-queries and typed extension objects.
+`GraphicsConfig.requiredFeatures` is a bit mask of
+`graphicsFeatureCompute`, `graphicsFeatureStorageBuffers`,
+`graphicsFeatureSampledTextures`, `graphicsFeatureDepthTextures`,
+`graphicsFeatureComparisonSamplers`, and
+`graphicsFeatureViewFormatReinterpretation`. Creation fails with
+`graphicsErrorUnsupportedFeature` when an installed requested backend cannot
+provide every required bit. Automatic selection may skip such a backend and
+select the next capable one.
+
+After successful creation, `app.capabilities` reports the selected driver's
+feature mask, `GraphicsVersion`, maximum 2D texture dimension, maximum storage
+buffer byte range, maximum compute workgroups in X, maximum compute workgroup
+size in X, and maximum compute invocations. These values come from
+`glGet*` on the current OpenGL context or `vkGetPhysicalDeviceProperties` and
+the selected Vulkan queue family. The current OpenGL path deliberately does not
+advertise view-format reinterpretation; Vulkan does because the implemented
+mutable-format view path has positive coverage. Unknown requirement bits are
+an invalid configuration.
+
+This is the delivered portable capability subset, not a claim of complete
+extension/feature-chain negotiation. Optional feature preferences and typed
+extension objects remain planned API work.
 
 ## Resource surface
 

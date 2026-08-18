@@ -14,6 +14,14 @@ val graphicsErrorAttachmentMismatch = 3
 val graphicsErrorDriverFailure = 4
 val graphicsErrorUnsupportedFeature = 5
 
+val graphicsFeatureCompute = 1
+val graphicsFeatureStorageBuffers = 2
+val graphicsFeatureSampledTextures = 4
+val graphicsFeatureDepthTextures = 8
+val graphicsFeatureComparisonSamplers = 16
+val graphicsFeatureViewFormatReinterpretation = 32
+val graphicsFeatureAll = 63
+
 val graphicsMaximumInt = 9223372036854775807
 val graphicsMinimumInt = -9223372036854775807 - 1
 
@@ -68,19 +76,58 @@ class GraphicsConfig(
     val validation: bool = true,
     val debugLabels: bool = true,
     val allowHeadlessFallback: bool = false,
-    val framesInFlight: int = 2
+    val framesInFlight: int = 2,
+    val requiredFeatures: int = 0
 ) {
     fun valid(): bool =
         this.backend >= graphicsBackendAuto &&
         this.backend <= graphicsBackendHeadless &&
         this.framesInFlight >= 1 &&
-        this.framesInFlight <= 8
+        this.framesInFlight <= 8 && this.requiredFeatures >= 0 &&
+        (this.requiredFeatures & graphicsFeatureAll) == this.requiredFeatures
+}
+
+class GraphicsLimits(
+    val maximumTextureDimension2D: int = 0,
+    val maximumStorageBufferBytes: int = 0,
+    val maximumComputeWorkgroupsX: int = 0,
+    val maximumComputeWorkgroupSizeX: int = 0,
+    val maximumComputeInvocations: int = 0
+) {
+    fun valid(): bool = this.maximumTextureDimension2D > 0 &&
+        this.maximumStorageBufferBytes >= 0 &&
+        this.maximumComputeWorkgroupsX >= 0 &&
+        this.maximumComputeWorkgroupSizeX >= 0 &&
+        this.maximumComputeInvocations >= 0
+}
+
+class GraphicsCapabilities(
+    val features: int = 0,
+    val limits: GraphicsLimits = GraphicsLimits(),
+    val version: GraphicsVersion = GraphicsVersion(0, 0)
+) {
+    fun valid(): bool = this.features >= 0 &&
+        (this.features & graphicsFeatureAll) == this.features &&
+        this.limits.valid() && this.version.major > 0 &&
+        ((this.features & graphicsFeatureStorageBuffers) == 0 ||
+         this.limits.maximumStorageBufferBytes > 0) &&
+        ((this.features & graphicsFeatureCompute) == 0 ||
+         (this.limits.maximumComputeWorkgroupsX > 0 &&
+          this.limits.maximumComputeWorkgroupSizeX > 0 &&
+          this.limits.maximumComputeInvocations > 0))
+
+    fun supports(required: int): bool = required >= 0 &&
+        (required & graphicsFeatureAll) == required &&
+        (this.features & required) == required
 }
 
 class GraphicsBackendSupport(
     val vulkan: bool,
     val openGl: bool,
-    val headless: bool = true
+    val headless: bool = true,
+    val vulkanFeatures: int = graphicsFeatureAll,
+    val openGlFeatures: int = graphicsFeatureAll,
+    val headlessFeatures: int = graphicsFeatureAll
 )
 
 class GraphicsBackendSelection(
@@ -112,28 +159,50 @@ fun graphicsSelectBackend(
             "backend or framesInFlight is outside its supported range"
         )
     } else if (config.backend == graphicsBackendAuto) {
-        if (support.vulkan) selected = graphicsBackendVulkan
-        else if (support.openGl) selected = graphicsBackendOpenGl
-        else if (config.allowHeadlessFallback && support.headless) {
+        if (support.vulkan &&
+            (support.vulkanFeatures & config.requiredFeatures) ==
+                config.requiredFeatures) selected = graphicsBackendVulkan
+        else if (support.openGl &&
+            (support.openGlFeatures & config.requiredFeatures) ==
+                config.requiredFeatures) selected = graphicsBackendOpenGl
+        else if (config.allowHeadlessFallback && support.headless &&
+            (support.headlessFeatures & config.requiredFeatures) ==
+                config.requiredFeatures) {
             selected = graphicsBackendHeadless
         } else {
+            val backendAvailable = support.vulkan || support.openGl ||
+                (config.allowHeadlessFallback && support.headless)
             error = GraphicsError(
-                graphicsErrorBackendUnavailable,
+                if (backendAvailable) graphicsErrorUnsupportedFeature
+                else graphicsErrorBackendUnavailable,
                 "graphicsSelectBackend",
-                "neither Vulkan nor OpenGL is available"
+                if (backendAvailable) "requested features are unavailable"
+                else "neither Vulkan nor OpenGL is available"
             )
         }
-    } else if (config.backend == graphicsBackendVulkan && support.vulkan) {
+    } else if (config.backend == graphicsBackendVulkan && support.vulkan &&
+        (support.vulkanFeatures & config.requiredFeatures) ==
+            config.requiredFeatures) {
         selected = graphicsBackendVulkan
-    } else if (config.backend == graphicsBackendOpenGl && support.openGl) {
+    } else if (config.backend == graphicsBackendOpenGl && support.openGl &&
+        (support.openGlFeatures & config.requiredFeatures) ==
+            config.requiredFeatures) {
         selected = graphicsBackendOpenGl
-    } else if (config.backend == graphicsBackendHeadless && support.headless) {
+    } else if (config.backend == graphicsBackendHeadless && support.headless &&
+        (support.headlessFeatures & config.requiredFeatures) ==
+            config.requiredFeatures) {
         selected = graphicsBackendHeadless
     } else {
+        val backendAvailable =
+            (config.backend == graphicsBackendVulkan && support.vulkan) ||
+            (config.backend == graphicsBackendOpenGl && support.openGl) ||
+            (config.backend == graphicsBackendHeadless && support.headless)
         error = GraphicsError(
-            graphicsErrorBackendUnavailable,
+            if (backendAvailable) graphicsErrorUnsupportedFeature
+            else graphicsErrorBackendUnavailable,
             "graphicsSelectBackend",
-            "requested ${graphicsBackendName(config.backend)} backend is unavailable"
+            if (backendAvailable) "requested features are unavailable"
+            else "requested ${graphicsBackendName(config.backend)} backend is unavailable"
         )
     }
 

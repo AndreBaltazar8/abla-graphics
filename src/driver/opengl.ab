@@ -73,6 +73,12 @@ noescape extern:"c" fun eglSwapBuffers(
     surface: i64*
 ): i32
 noescape extern:"c" fun glGetIntegerv(name: i32, value: i64*): void
+noescape extern:"c" fun glGetInteger64v(name: i32, value: i64*): void
+noescape extern:"c" fun glGetIntegeri_v(
+    name: i32,
+    index: i32,
+    value: i64*
+): void
 noescape extern:"c" fun glViewport(
     x: i32,
     y: i32,
@@ -214,6 +220,46 @@ fun openGlStoreI32(
     return
 }
 
+trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
+    val major = nativeI64Cell(0)
+    val minor = nativeI64Cell(0)
+    val texture = nativeI64Cell(0)
+    val storage = nativeI64Cell(0)
+    val workgroups = nativeI64Cell(0)
+    val workgroupSize = nativeI64Cell(0)
+    val invocations = nativeI64Cell(0)
+    glGetIntegerv(33307, major.address)
+    glGetIntegerv(33308, minor.address)
+    glGetIntegerv(3379, texture.address)
+    val majorValue = major.load() & 4294967295
+    val minorValue = minor.load() & 4294967295
+    val compute = majorValue > 4 ||
+        (majorValue == 4 && minorValue >= 3)
+    if (compute) {
+        glGetInteger64v(37086, storage.address)
+        glGetIntegeri_v(37310, 0, workgroups.address)
+        glGetIntegeri_v(37311, 0, workgroupSize.address)
+        glGetIntegerv(37099, invocations.address)
+    }
+    var features = graphicsFeatureSampledTextures |
+        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers
+    if (compute) {
+        features = features | graphicsFeatureCompute |
+            graphicsFeatureStorageBuffers
+    }
+    GraphicsCapabilities(
+        features,
+        GraphicsLimits(
+            texture.load() & 4294967295,
+            storage.load(),
+            workgroups.load() & 4294967295,
+            workgroupSize.load() & 4294967295,
+            invocations.load() & 4294967295
+        ),
+        GraphicsVersion(majorValue, minorValue)
+    )
+}
+
 fun openGlConfigAttributes(): NativeByteBuffer {
     val values = nativeByteBuffer(64)
     openGlStoreI32(values, 0, 12339)
@@ -307,6 +353,10 @@ resource class OpenGlContext(
         }
         version
     }
+
+    trusted fun capabilities(): GraphicsCapabilities =
+        if (this.makeCurrent()) openGlCurrentCapabilities()
+        else GraphicsCapabilities()
 
     trusted fun clearBlackAndReadRgba8(): int {
         var result = -1
@@ -1033,6 +1083,10 @@ resource class OpenGlWindowContext(
             this.surface,
             this.context
         ) == eglTrue
+
+    trusted fun capabilities(): GraphicsCapabilities =
+        if (this.makeCurrent()) openGlCurrentCapabilities()
+        else GraphicsCapabilities()
 
     trusted fun presentBlack(): bool {
         var presented = false

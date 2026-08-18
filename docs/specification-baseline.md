@@ -23,3 +23,10 @@ Specification breadth is split intentionally:
 “Supported” means there is a callable loader/ABI path, capability negotiation,
 at least one positive test, and an unsupported-path test. Merely defining a
 constant does not count.
+
+The first implemented portable negotiation slice covers compute, storage
+buffers, sampled textures, depth textures, comparison samplers, and compatible
+view-format reinterpretation. It reports API version plus 2D texture, storage
+buffer, and compute workgroup limits from the active OpenGL context or selected
+Vulkan physical device/queue family. Broader extension and feature-structure
+negotiation is still classified as future work.

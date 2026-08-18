@@ -800,6 +800,61 @@ trusted fun VulkanAdapter.graphicsQueueFamily(): int {
     selected
 }
 
+trusted fun VulkanAdapter.queueFamilyFlags(queueFamily: int): int {
+    val count = nativeI64Cell(0)
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        this.handle,
+        count.address,
+        nativeNullPointer()
+    )
+    var measured = count.load() & 4294967295
+    var flags = 0
+    if (queueFamily >= 0 && queueFamily < measured && measured <= 256) {
+        val properties = nativeByteBuffer(measured * 24)
+        vkGetPhysicalDeviceQueueFamilyProperties(
+            this.handle,
+            count.address,
+            properties.address
+        )
+        measured = count.load() & 4294967295
+        if (queueFamily < measured) {
+            flags = properties.loadI64(queueFamily * 24) & 4294967295
+        }
+    }
+    flags
+}
+
+trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
+    val properties = nativeByteBuffer(1024)
+    vkGetPhysicalDeviceProperties(this.handle, properties.address)
+    val queueFamily = this.graphicsQueueFamily()
+    val queueFlags = this.queueFamilyFlags(queueFamily)
+    var features = graphicsFeatureSampledTextures |
+        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers |
+        graphicsFeatureViewFormatReinterpretation
+    if ((queueFlags & 2) != 0) {
+        features = features | graphicsFeatureCompute |
+            graphicsFeatureStorageBuffers
+    }
+    GraphicsCapabilities(
+        features,
+        GraphicsLimits(
+            // VkPhysicalDeviceProperties::limits begins at byte 296 on the
+            // supported 64-bit ABI; these are uint32 fields within it.
+            properties.loadI64(300) & 4294967295,
+            properties.loadI64(324) & 4294967295,
+            properties.loadI64(516) & 4294967295,
+            properties.loadI64(532) & 4294967295,
+            properties.loadI64(528) & 4294967295
+        ),
+        GraphicsVersion(
+            vulkanVersionMajor(this.apiVersion),
+            vulkanVersionMinor(this.apiVersion),
+            vulkanVersionPatch(this.apiVersion)
+        )
+    )
+}
+
 resource class VulkanDevice(
     var handle: i64*,
     var queue: i64*,

@@ -1,13 +1,28 @@
 import "../../src/graphics.ab"
 
 fun headlessProbe(backend: int): bool {
+    val commonFeatures = graphicsFeatureCompute |
+        graphicsFeatureStorageBuffers | graphicsFeatureSampledTextures |
+        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers
+    val requiredFeatures = if (backend == graphicsBackendVulkan)
+        commonFeatures | graphicsFeatureViewFormatReinterpretation
+    else commonFeatures
     val app = graphicsHeadlessApplication(
-        GraphicsConfig(backend = backend),
+        GraphicsConfig(
+            backend = backend,
+            requiredFeatures = requiredFeatures
+        ),
         32,
         32
     )
     app.valid() && app.backend == backend && app.adapterName != "" &&
-        app.probe()
+        app.capabilities.valid() &&
+        app.capabilities.supports(requiredFeatures) &&
+        app.capabilities.limits.maximumTextureDimension2D > 0 &&
+        app.capabilities.limits.maximumStorageBufferBytes > 0 &&
+        app.capabilities.limits.maximumComputeWorkgroupsX > 0 &&
+        app.capabilities.limits.maximumComputeWorkgroupSizeX > 0 &&
+        app.capabilities.limits.maximumComputeInvocations > 0 && app.probe()
 }
 
 fun automaticHeadlessProbe(): bool {
@@ -29,5 +44,13 @@ fun main: int = if (
         GraphicsConfig(),
         0,
         32
-    ).error.code == graphicsErrorInvalidConfiguration
+    ).error.code == graphicsErrorInvalidConfiguration &&
+    graphicsHeadlessApplication(
+        GraphicsConfig(
+            backend = graphicsBackendOpenGl,
+            requiredFeatures = graphicsFeatureViewFormatReinterpretation
+        ),
+        32,
+        32
+    ).error.code == graphicsErrorUnsupportedFeature
 ) 42 else 1

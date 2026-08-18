@@ -7,17 +7,31 @@ fun applicationBackendProbe(
     expectedBackend: int,
     title: string
 ): bool {
+    val commonFeatures = graphicsFeatureCompute |
+        graphicsFeatureStorageBuffers | graphicsFeatureSampledTextures |
+        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers
+    val requiredFeatures = if (requestedBackend == graphicsBackendVulkan)
+        commonFeatures | graphicsFeatureViewFormatReinterpretation
+    else commonFeatures
     val app = graphicsApplication(
         GraphicsConfig(
             backend = requestedBackend,
             framesInFlight = if (
                 requestedBackend != graphicsBackendOpenGl
-            ) 3 else 2
+            ) 3 else 2,
+            requiredFeatures = requiredFeatures
         ),
         WindowConfig(title = title, width = 320, height = 200)
     )
     val monitor = app.primaryMonitor()
     val valid = app.valid() && app.backend == expectedBackend &&
+        app.capabilities.valid() &&
+        app.capabilities.supports(requiredFeatures) &&
+        app.capabilities.limits.maximumTextureDimension2D > 0 &&
+        app.capabilities.limits.maximumStorageBufferBytes > 0 &&
+        app.capabilities.limits.maximumComputeWorkgroupsX > 0 &&
+        app.capabilities.limits.maximumComputeWorkgroupSizeX > 0 &&
+        app.capabilities.limits.maximumComputeInvocations > 0 &&
         monitor.valid() && monitor.contentScaleX() > 0.0 &&
         monitor.contentScaleY() > 0.0
     val cursorPassed = app.setCursorVisible(false) &&
@@ -212,7 +226,7 @@ fun applicationBackendProbe(
             app.vulkanPixels.height == 260
     }
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} workgroups=${app.capabilities.limits.maximumComputeWorkgroupsX} workgroupSize=${app.capabilities.limits.maximumComputeWorkgroupSizeX} invocations=${app.capabilities.limits.maximumComputeInvocations} presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && frameSlotsPassed &&
         buffer.valid() && bufferWritten &&
@@ -257,12 +271,32 @@ fun applicationUnavailableProbe(): bool {
     rejected
 }
 
+fun applicationUnsupportedFeatureProbe(): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = graphicsBackendOpenGl,
+            requiredFeatures = graphicsFeatureViewFormatReinterpretation
+        ),
+        WindowConfig(
+            title = "Unsupported OpenGL feature",
+            width = 320,
+            height = 200
+        )
+    )
+    val rejected = !app.valid() &&
+        app.error.code == graphicsErrorUnsupportedFeature
+    println("unsupported OpenGL feature: rejected=$rejected")
+    rejected
+}
+
 fun main: int {
     val requested = if (processArgumentCount() > 0)
         processArgument(0)
     else ""
     if (requested == "unavailable") {
         if (applicationUnavailableProbe()) 42 else 1
+    } else if (requested == "unsupported") {
+        if (applicationUnsupportedFeatureProbe()) 42 else 1
     } else {
         val requestedBackend = if (requested == "opengl")
             graphicsBackendOpenGl

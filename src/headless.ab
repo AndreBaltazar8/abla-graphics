@@ -11,10 +11,12 @@ resource class GraphicsHeadlessApplication(
     var vulkanDevice: VulkanDevice,
     var vulkanInstance: VulkanInstance,
     val backend: int,
+    val capabilities: GraphicsCapabilities,
     val adapterName: string,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() &&
+        this.capabilities.valid() &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan &&
           this.vulkanInstance.valid() && this.vulkanDevice.valid()))
@@ -60,8 +62,10 @@ trusted fun graphicsHeadlessApplication(
     )
     var vkInstance = VulkanInstance(nativeNullPointer(), 0)
     var backend = graphicsBackendAuto
+    var capabilities = GraphicsCapabilities()
     var adapterName = ""
     var error = GraphicsError()
+    var requiredFeaturesUnavailable = false
 
     if (!config.valid() || width <= 0 || width > 16384 ||
         height <= 0 || height > 16384) {
@@ -81,8 +85,17 @@ trusted fun graphicsHeadlessApplication(
         val adapters = vkInstance.adapters()
         var index = 0
         while (!vulkanDevice.valid() && index < adapters.size) {
-            vulkanDevice = adapters[index].device()
-            if (vulkanDevice.valid()) adapterName = adapters[index].name
+            val adapterCapabilities = adapters[index].capabilities()
+            if (adapterCapabilities.valid() &&
+                adapterCapabilities.supports(config.requiredFeatures)) {
+                vulkanDevice = adapters[index].device()
+                if (vulkanDevice.valid()) {
+                    adapterName = adapters[index].name
+                    capabilities = adapterCapabilities
+                }
+            } else if (adapterCapabilities.valid()) {
+                requiredFeaturesUnavailable = true
+            }
             index = index + 1
         }
         if (vulkanDevice.valid()) backend = graphicsBackendVulkan
@@ -96,16 +109,28 @@ trusted fun graphicsHeadlessApplication(
     if (tryOpenGl) {
         openGl = openGlHeadlessContext(width, height)
         if (openGl.valid()) {
-            backend = graphicsBackendOpenGl
-            adapterName = "OpenGL surfaceless context"
+            val openGlCapabilities = openGl.capabilities()
+            if (openGlCapabilities.valid() &&
+                openGlCapabilities.supports(config.requiredFeatures)) {
+                backend = graphicsBackendOpenGl
+                adapterName = "OpenGL surfaceless context"
+                capabilities = openGlCapabilities
+            } else {
+                requiredFeaturesUnavailable = true
+                openGl.drop()
+            }
         }
     }
 
     if (!error.occurred() && backend == graphicsBackendAuto) {
         error = GraphicsError(
-            graphicsErrorBackendUnavailable,
+            if (requiredFeaturesUnavailable)
+                graphicsErrorUnsupportedFeature
+            else graphicsErrorBackendUnavailable,
             "graphicsHeadlessApplication",
-            "the requested headless backend is unavailable"
+            if (requiredFeaturesUnavailable)
+                "the requested features are unavailable"
+            else "the requested headless backend is unavailable"
         )
     }
 
@@ -114,6 +139,7 @@ trusted fun graphicsHeadlessApplication(
         move(vulkanDevice),
         move(vkInstance),
         backend,
+        capabilities,
         adapterName,
         error
     )

@@ -25,7 +25,7 @@ for backend in opengl vulkan auto; do
     fi
 done
 
-for mode in fallback unavailable; do
+for mode in fallback unavailable unsupported; do
     set +e
     VK_DRIVER_FILES=/abla-graphics/no-vulkan-driver.json \
         xvfb-run -a -s "-screen 0 800x600x24" \
