@@ -146,7 +146,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   tested cube faces rendered unchanged on explicit OpenGL and Vulkan;
 - `examples/render-to-texture`: direct, indexed, and GPU-indirect vertex-buffer
   scene draws render with depth into a 256x256 affine color/depth target, then a
-  fullscreen textured pass samples it into the window for four allocation-free
+  fullscreen textured pass samples it into the window; one reusable target-
+  bound pass supplies all four offscreen command forms for four allocation-free
   frames on both backends;
 - `examples/multiple-render-targets`: one pure-Abla `$glsl` fragment stage
   writes exact red and green results to two affine color attachments over

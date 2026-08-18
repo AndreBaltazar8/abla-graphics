@@ -674,14 +674,34 @@ depth presence, and backend once. Reusing that pass performs no general heap
 allocation on either backend. The scalar-clear `renderToTarget` form remains a
 compact shorthand and applies the same color to every color attachment.
 
+The same pass resource drives every buffered command form without rebuilding
+or repacking its attachment clears:
+
+```abla
+app.renderPassVerticesToTarget(target, pipeline, pass, vertices, 3)
+app.renderPassIndexedToTarget(target, pipeline, pass, vertices, indices, 3)
+app.renderPassVerticesIndirectToTarget(
+    target, pipeline, pass, vertices, drawCommand
+)
+app.renderPassIndexedIndirectToTarget(
+    target, pipeline, pass, vertices, indices, indexedDrawCommand
+)
+```
+
+Direct variants accept an optional instance count. The common validation rejects
+a pass created for another target even when its attachment dimensions happen
+to match.
+
 `app.renderTargetPipeline(target, shader, vertexLayout, raster, depth, binding)`
 compiles a raster pipeline against the target format. Procedural pipelines use
-`renderToTarget`; buffered pipelines use `renderVerticesToTarget` or
-`renderIndexedToTarget`. Their `*IndirectToTarget` counterparts consume one
-portable OpenGL/Vulkan indirect command from a buffer, and every direct form
-accepts an instance count. Bind groups are applied exactly as they are for a
-surface pipeline. Vulkan borrows the target render pass and framebuffer through
-explicit non-owning pipeline flags; OpenGL binds the target FBO. A target
+`renderToTarget`, or `renderPassToTarget` with prepared attachment values;
+buffered pipelines use the matching `renderPass*ToTarget` family above or the
+scalar-clear `renderVerticesToTarget`/`renderIndexedToTarget` forms. Indirect
+counterparts consume one portable OpenGL/Vulkan indirect command from a buffer,
+and every direct form accepts an instance count. Bind groups are applied exactly
+as they are for a surface pipeline. Vulkan borrows the target render pass and
+framebuffer through explicit non-owning pipeline flags; OpenGL binds the target
+FBO. A target
 declaring sampled usage can then feed an ordinary bind group and surface
 pipeline. A depth-enabled pipeline must target a depth-attached target; color-
 only/depth-state mismatches are rejected. The `render-to-texture` sample

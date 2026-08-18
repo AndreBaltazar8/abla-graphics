@@ -25,7 +25,8 @@ indexed, instanced, bind-group, and GPU-indirect offscreen draws and sampled
 fullscreen post-processing passes plus affine depth attachment ownership and
 depth-tested offscreen pipelines plus reflected two-to-eight color render
 targets combinable with depth and reusable per-attachment clear passes with
-allocation-free exact-output validation are
+procedural, direct, indexed, and GPU-indirect encoding plus allocation-free
+exact-output validation are
 implemented. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below

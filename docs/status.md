@@ -288,10 +288,11 @@ Updated: 2026-08-18.
 - Render-to-texture/post-process sample: a 256x256 target receives a procedural
   and buffered scene pass, becomes a sampled-texture bind-group entry, and is
   drawn through a fullscreen surface pass unchanged on OpenGL and Vulkan. The
-  buffered pass covers direct, indexed, and both indirect commands with depth
-  testing and writes. Exact center-pixel readback verifies the result; four
-  repeated command sequences preserve target, pipeline, descriptor, and
-  transfer-command handles with zero live growth.
+  reusable target-bound pass covers direct, indexed, and both indirect commands
+  with depth testing and writes. Exact center-pixel readback verifies the
+  result; four repeated command sequences preserve target, pipeline,
+  descriptor, pass-clear storage, and transfer-command handles with zero live
+  growth.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and
