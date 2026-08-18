@@ -177,6 +177,13 @@ noescape extern:"c" fun glVertexAttribPointer(
     stride: i32,
     pointer: i64*
 ): void
+noescape extern:"c" fun glVertexAttribIPointer(
+    index: i32,
+    size: i32,
+    dataType: i32,
+    stride: i32,
+    pointer: i64*
+): void
 noescape extern:"c" fun glDrawArrays(
     mode: i32,
     first: i32,
@@ -390,6 +397,58 @@ trusted fun openGlApplyDepthState(state: DepthStencilState): bool {
         succeeded = glGetError() == 0
     }
     succeeded
+}
+
+fun openGlVertexComponents(format: int): int {
+    var components = 1
+    if (format == vertexFormatFloat32x2) components = 2
+    else if (format == vertexFormatFloat32x3) components = 3
+    else if (format == vertexFormatFloat32x4) components = 4
+    components
+}
+
+trusted fun openGlConfigureVertexLayout(
+    layout: VertexBufferLayout
+): bool {
+    var succeeded = layout.valid() && layout.buffered()
+    if (succeeded && layout.attributes.size == 0) {
+        glEnableVertexAttribArray(0)
+        glVertexAttribPointer(
+            0,
+            2,
+            5126,
+            0,
+            layout.stride,
+            nativeNullPointer()
+        )
+    } else {
+        var index = 0
+        while (succeeded && index < layout.attributes.size) {
+            val attribute = layout.attributes[index]
+            val pointer = nativePointerFromAddress(attribute.offset)
+            glEnableVertexAttribArray(attribute.location)
+            if (attribute.format == vertexFormatUint32) {
+                glVertexAttribIPointer(
+                    attribute.location,
+                    1,
+                    5125,
+                    layout.stride,
+                    pointer
+                )
+            } else {
+                glVertexAttribPointer(
+                    attribute.location,
+                    openGlVertexComponents(attribute.format),
+                    5126,
+                    0,
+                    layout.stride,
+                    pointer
+                )
+            }
+            index = index + 1
+        }
+    }
+    succeeded && glGetError() == 0
 }
 
 trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
@@ -1660,14 +1719,15 @@ resource class OpenGlWindowContext(
         vertices: OpenGlBuffer,
         vertexCount: int,
         instanceCount: int,
-        vertexStride: int,
+        vertexLayout: VertexBufferLayout,
         clear: Color,
         raster: RasterPipelineState,
         depth: DepthStencilState
     ): bool {
         var presented = program.valid() && vertices.valid() &&
-            vertexCount > 0 && instanceCount > 0 && vertexStride >= 8 &&
-            vertexStride <= 2048 && clear.valid() && raster.valid() &&
+            vertexCount > 0 && instanceCount > 0 &&
+            vertexLayout.valid() && vertexLayout.buffered() &&
+            clear.valid() && raster.valid() &&
             depth.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
@@ -1695,16 +1755,8 @@ resource class OpenGlWindowContext(
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
             glBindBuffer(34962, vertices.handle)
-            glEnableVertexAttribArray(0)
-            glVertexAttribPointer(
-                0,
-                2,
-                5126,
-                0,
-                vertexStride,
-                nativeNullPointer()
-            )
-            presented = openGlApplyDepthState(depth) &&
+            presented = openGlConfigureVertexLayout(vertexLayout) &&
+                openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
             if (presented) glDrawArraysInstanced(
                 openGlPrimitiveMode(raster.topology),
@@ -1724,15 +1776,15 @@ resource class OpenGlWindowContext(
         indices: OpenGlBuffer,
         indexCount: int,
         instanceCount: int,
-        vertexStride: int,
+        vertexLayout: VertexBufferLayout,
         clear: Color,
         raster: RasterPipelineState,
         depth: DepthStencilState
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
-            vertexStride >= 8 &&
-            vertexStride <= 2048 && clear.valid() && raster.valid() &&
+            vertexLayout.valid() && vertexLayout.buffered() &&
+            clear.valid() && raster.valid() &&
             depth.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
@@ -1760,17 +1812,9 @@ resource class OpenGlWindowContext(
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
             glBindBuffer(34962, vertices.handle)
-            glEnableVertexAttribArray(0)
-            glVertexAttribPointer(
-                0,
-                2,
-                5126,
-                0,
-                vertexStride,
-                nativeNullPointer()
-            )
+            presented = openGlConfigureVertexLayout(vertexLayout)
             glBindBuffer(34963, indices.handle)
-            presented = openGlApplyDepthState(depth) &&
+            presented = presented && openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
             if (presented) glDrawElementsInstanced(
                     openGlPrimitiveMode(raster.topology),

@@ -69,30 +69,43 @@ resize, the common presentation path releases framebuffer/image-view state,
 recreates the swapchain, recompiles the immutable pipeline recipe, and retries
 when the original presentation did not succeed.
 
-The first vertex-input slice supports one location-zero `vec2` attribute in an
-interleaved common buffer. `storeF32` performs deterministic IEEE-754
-binary32 encoding from Abla's native `f64` without a foreign helper:
+Portable vertex layouts support up to 16 explicitly located interleaved
+attributes. The current formats are scalar/2/3/4-component `float32` and scalar
+`uint32`; locations must be unique, offsets must fit the stride, and shader
+reflection must match every location and GLSL type. Omitting the attribute list
+retains the concise legacy location-zero `vec2` layout. `storeF32` performs
+deterministic IEEE-754 binary32 encoding from Abla's native `f64` without a
+foreign helper:
 
 ```abla
-val data = bufferBytes(24)
+val layout = VertexBufferLayout(stride = 24, attributes = [
+    VertexAttribute(0, 0, vertexFormatFloat32x2),
+    VertexAttribute(1, 8, vertexFormatFloat32x4)
+])
+val data = bufferBytes(72)
 data.storeF32(-0.75, 0)
 data.storeF32(-0.65, 4)
-// Store the remaining two positions at byte offsets 8 through 23.
+data.storeF32(1.0, 8)
+data.storeF32(0.2, 12)
+data.storeF32(0.1, 16)
+data.storeF32(0.8, 20)
+// Store two more position/color records at byte offsets 24 through 71.
 val vertices = app.buffer(BufferDescriptor(
-    size = 24,
+    size = 72,
     usage = bufferUsageVertex | bufferUsageCopyDestination
 ))
 vertices.writeAllBytes(data)
 
-val pipeline = app.renderPipeline(shader, VertexBufferLayout(stride = 8))
+val pipeline = app.renderPipeline(shader, layout)
 app.presentRenderVertices(pipeline, vertices, 3, clear)
 ```
 
 Pipeline creation rejects a layout whose reflected vertex input does not match
-this supported subset. Presentation checks application ownership, vertex usage,
+the declaration. Presentation checks application ownership, vertex usage,
 positive count, and `count * stride` bounds before dispatch. OpenGL binds the
-buffer and location-zero attribute into the pipeline VAO; Vulkan describes the
-same binding/attribute in pipeline state and records `vkCmdBindVertexBuffers`.
+buffer and configures every floating or integer attribute in the pipeline VAO;
+Vulkan packs the matching binding/attribute descriptions into pipeline state
+and records `vkCmdBindVertexBuffers`.
 Repeated draws preserve the vertex buffer and command/pipeline handles with
 zero runtime live-byte growth.
 
@@ -739,12 +752,14 @@ binding, global, statement, version, or stage returns a checked
 narrow subsets establish the pure-Abla emitter and execution path, not
 completion of general GLSL-to-SPIR-V compilation.
 
-The first raster path recognizes one exact two-stage triangle package. Its
-vertex stage declares three constant `vec2` positions and selects one with
-`gl_VertexID`; its fragment stage writes the documented constant RGBA color to
-location zero. The Abla emitter maps the OpenGL vertex builtin to Vulkan
-`VertexIndex`, emits deterministic Vulkan 1.0 vertex and fragment modules, and
-rejects any declaration, literal, builtin, or statement outside this subset.
+The initial raster translator recognizes strict procedural and vertex-buffer
+triangle packages. The procedural form declares three constant `vec2`
+positions and selects one with `gl_VertexID`; the buffered forms accept either
+one location-zero `vec2` position or an interleaved location-zero `vec2`
+position plus location-one `vec4` tint passed through a location-zero varying.
+The Abla emitter maps the OpenGL vertex builtin to Vulkan `VertexIndex`, emits
+deterministic Vulkan 1.0 vertex and fragment modules, and rejects any
+declaration, literal, builtin, or statement outside these subsets.
 Repeated emission is word-identical, structural validation passes, and both
 modules create real Lavapipe `VkShaderModule` objects. This is the shader
 foundation for the first common graphics pipeline, not a claim that arbitrary

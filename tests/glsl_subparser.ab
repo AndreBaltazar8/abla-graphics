@@ -156,6 +156,30 @@ fun main: int {
     val vertexBufferSpirv = vertexBufferTriangle.spirv(shaderStageVertex)
     val vertexBufferSpirvAgain =
         vertexBufferTriangle.spirv(shaderStageVertex)
+    val coloredTriangle = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec4 tint;
+            layout(location = 0) out vec4 vertexTint;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                vertexTint = tint;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec4 vertexTint;
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vertexTint;
+            }
+        }
+    }
+    val coloredVertex = coloredTriangle.spirv(shaderStageVertex)
+    val coloredVertexAgain = coloredTriangle.spirv(shaderStageVertex)
+    val coloredFragment = coloredTriangle.spirv(shaderStageFragment)
+    val coloredFragmentAgain = coloredTriangle.spirv(shaderStageFragment)
     val unsupportedTriangle = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -241,6 +265,18 @@ fun main: int {
         spirvWordsEqual(
             vertexBufferSpirv.module,
             vertexBufferSpirvAgain.module
+        ) &&
+        coloredTriangle.valid && coloredTriangle.locations.size == 5 &&
+        coloredVertex.succeeded && coloredVertex.module.valid() &&
+        coloredVertex.module.words.size == 187 &&
+        coloredVertex.module.bound() == 31 &&
+        spirvWordsEqual(coloredVertex.module, coloredVertexAgain.module) &&
+        coloredFragment.succeeded && coloredFragment.module.valid() &&
+        coloredFragment.module.words.size == 78 &&
+        coloredFragment.module.bound() == 13 &&
+        spirvWordsEqual(
+            coloredFragment.module,
+            coloredFragmentAgain.module
         ) &&
         !unsupportedTriangle.succeeded && unsupportedTriangle.error != "" &&
         shader.source(shaderStageVertex) != "" &&

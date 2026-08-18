@@ -3361,7 +3361,7 @@ trusted fun VulkanDevice.renderPipeline(
     swapchain: VulkanSwapchain,
     vertex: VulkanShaderModule,
     fragment: VulkanShaderModule,
-    vertexStride: int = 0,
+    vertexLayout: VertexBufferLayout = VertexBufferLayout(),
     topology: int = primitiveTopologyTriangleList,
     cull: int = cullModeNone,
     front: int = frontFaceCounterClockwise,
@@ -3377,10 +3377,11 @@ trusted fun VulkanDevice.renderPipeline(
     val framebuffers: array<int> = []
     val depthTextures: array<VulkanTexture> = []
     val depthViews: array<VulkanTextureView> = []
+    val vertexStride = vertexLayout.stride
     var succeeded = this.valid() && swapchain.valid() &&
         swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
         vertex.device == this.handle && fragment.device == this.handle &&
-        vertexStride >= 0 && vertexStride <= 2048 &&
+        vertexLayout.valid() &&
         topology >= primitiveTopologyPointList &&
         topology <= primitiveTopologyTriangleStrip &&
         cull >= cullModeNone && cull <= cullModeBack &&
@@ -3565,12 +3566,34 @@ trusted fun VulkanDevice.renderPipeline(
         )
         stages.storePointer(88, nativeNullPointer())
 
+        val attributeCount = vertexLayout.attributeCount()
         val binding = nativeByteBuffer(16)
         binding.storeI64(0, vertexStride * 4294967296)
         binding.storeI64(8, 0)
-        val attribute = nativeByteBuffer(16)
-        attribute.storeI64(0, 0)
-        attribute.storeI64(8, 103)
+        val attributes = nativeByteBuffer(
+            if (attributeCount > 0) attributeCount * 16 else 16
+        )
+        if (vertexLayout.buffered() &&
+            vertexLayout.attributes.size == 0) {
+            attributes.storeI64(0, 0)
+            attributes.storeI64(8, 103)
+        } else {
+            var attributeIndex = 0
+            while (attributeIndex < vertexLayout.attributes.size) {
+                val attribute = vertexLayout.attributes[attributeIndex]
+                var format = 100
+                if (attribute.format == vertexFormatUint32) format = 98
+                else if (attribute.format == vertexFormatFloat32x2) format = 103
+                else if (attribute.format == vertexFormatFloat32x3) format = 106
+                else if (attribute.format == vertexFormatFloat32x4) format = 109
+                val offset = attributeIndex * 16
+                attributes.storeI64(offset,
+                    attribute.location)
+                attributes.storeI64(offset + 8,
+                    attribute.offset * 4294967296 + format)
+                attributeIndex = attributeIndex + 1
+            }
+        }
         val vertexInput = nativeByteBuffer(48)
         vertexInput.storeI64(0, 19)
         vertexInput.storePointer(8, nativeNullPointer())
@@ -3582,10 +3605,10 @@ trusted fun VulkanDevice.renderPipeline(
             24,
             if (vertexStride > 0) binding.address else nativeNullPointer()
         )
-        vertexInput.storeI64(32, if (vertexStride > 0) 1 else 0)
+        vertexInput.storeI64(32, attributeCount)
         vertexInput.storePointer(
             40,
-            if (vertexStride > 0) attribute.address else nativeNullPointer()
+            if (attributeCount > 0) attributes.address else nativeNullPointer()
         )
         val inputAssembly = nativeByteBuffer(32)
         inputAssembly.storeI64(0, 20)

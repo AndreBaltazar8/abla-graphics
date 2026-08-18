@@ -57,11 +57,13 @@ Updated: 2026-08-18.
   fence-guarded application frame slots. Explicit OpenGL and Vulkan each draw
   four warmed frames with stable program/pipeline/framebuffer/command handles
   and zero runtime live-byte growth. Vulkan validation is silent.
-- Common vertex-input triangle: `VertexBufferLayout(8)` matches one reflected
-  location-zero `vec2` input. Reusable `BufferBytes.storeF32` encodes three
-  positions in Abla and uploads them to the existing common affine buffer.
-  OpenGL configures the attribute and draws from that buffer; Vulkan creates
-  matching binding/attribute pipeline state and records
+- Common multi-attribute triangle: `VertexBufferLayout` validates an interleaved
+  24-byte record containing reflected location-zero `vec2` position and
+  location-one `vec4` tint inputs. Reusable `BufferBytes.storeF32` encodes three
+  colored vertices in Abla and uploads them to the common affine buffer. The
+  strict pure-Abla `$glsl` emitter passes the color through a location-zero
+  varying. OpenGL configures both attributes and draws from that buffer; Vulkan
+  creates matching binding/attribute pipeline state and records
   `vkCmdBindVertexBuffers`. Explicit OpenGL and Lavapipe Vulkan runs preserve
   buffer/pipeline/command handles and live bytes across four warmed draws; the
   Vulkan run is also clean with `VK_LAYER_KHRONOS_validation` forced on.
@@ -322,8 +324,8 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 
-- General Vulkan render-pass descriptors, multi-attribute vertex inputs, bind
-  groups, synchronization2, and dynamic rendering. The initial raster pipeline,
+- General Vulkan render-pass descriptors, bind groups, synchronization2, and
+  dynamic rendering. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
@@ -340,8 +342,8 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   location/set/binding declaration and cross-stage compatibility slice,
   deliberately rejects quoted includes, and does not yet parse block members,
   general declarations, or expressions. SPIR-V emission currently covers the
-  strict no-op and single-member storage-assignment compute subsets plus one
-  fixed constant-position/color triangle vertex/fragment subset described
+  strict no-op and single-member storage-assignment compute subsets plus fixed
+  and interleaved position/color triangle vertex/fragment subsets described
   above, not general shaders.
 - Generated Khronos ABI bindings and fully classified coverage ledgers. The
   pinned, deterministic inventory ledgers exist, but all rows deliberately

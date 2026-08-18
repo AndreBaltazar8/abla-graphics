@@ -23,29 +23,49 @@ fun main: int {
         vertex {
             #version 450
             layout(location = 0) in vec2 position;
+            layout(location = 1) in vec4 tint;
+            layout(location = 0) out vec4 vertexTint;
             void main() {
                 gl_Position = vec4(position, 0.0, 1.0);
+                vertexTint = tint;
             }
         }
         fragment {
             #version 450
+            layout(location = 0) in vec4 vertexTint;
             layout(location = 0) out vec4 color;
             void main() {
-                color = vec4(0.12, 0.54, 0.96, 1.0);
+                color = vertexTint;
             }
         }
     }
-    val vertexBytes = bufferBytes(24)
+    val vertexLayout = VertexBufferLayout(24, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2),
+        VertexAttribute(1, 8, vertexFormatFloat32x4)
+    ])
+    val vertexBytes = bufferBytes(72)
     val verticesStored =
         vertexBytes.storeF32(-0.75, 0) &&
         vertexBytes.storeF32(-0.65, 4) &&
-        vertexBytes.storeF32(0.75, 8) &&
-        vertexBytes.storeF32(-0.65, 12) &&
-        vertexBytes.storeF32(0.0, 16) &&
-        vertexBytes.storeF32(0.75, 20)
+        vertexBytes.storeF32(1.0, 8) &&
+        vertexBytes.storeF32(0.2, 12) &&
+        vertexBytes.storeF32(0.1, 16) &&
+        vertexBytes.storeF32(0.8, 20) &&
+        vertexBytes.storeF32(0.75, 24) &&
+        vertexBytes.storeF32(-0.65, 28) &&
+        vertexBytes.storeF32(0.1, 32) &&
+        vertexBytes.storeF32(1.0, 36) &&
+        vertexBytes.storeF32(0.2, 40) &&
+        vertexBytes.storeF32(0.8, 44) &&
+        vertexBytes.storeF32(0.0, 48) &&
+        vertexBytes.storeF32(0.75, 52) &&
+        vertexBytes.storeF32(0.1, 56) &&
+        vertexBytes.storeF32(0.3, 60) &&
+        vertexBytes.storeF32(1.0, 64) &&
+        vertexBytes.storeF32(0.8, 68)
     val vertices = app.buffer(BufferDescriptor(
         label = "triangle-positions",
-        size = 24,
+        size = 72,
         usage = bufferUsageVertex | bufferUsageCopyDestination
     ))
     val verticesUploaded = verticesStored &&
@@ -72,25 +92,34 @@ fun main: int {
     )
     val pipeline = app.renderPipeline(
         shader,
-        VertexBufferLayout(8),
+        vertexLayout,
         raster,
         depth
     )
     val invalidPipeline = app.renderPipeline(
         shader,
-        VertexBufferLayout(8),
+        vertexLayout,
         RasterPipelineState(topology = 99)
     )
     val invalidDepthPipeline = app.renderPipeline(
         shader,
-        VertexBufferLayout(8),
+        vertexLayout,
         raster,
         DepthStencilState(write = true)
+    )
+    val mismatchedLayoutPipeline = app.renderPipeline(
+        shader,
+        VertexBufferLayout(20, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x3)
+        ]),
+        raster,
+        depth
     )
     val clear = Color(0.02, 0.03, 0.05)
     val alternatePipeline = app.renderPipeline(
         shader,
-        VertexBufferLayout(8),
+        vertexLayout,
         RasterPipelineState(
             topology = primitiveTopologyLineStrip,
             cullMode = cullModeFront,
@@ -126,6 +155,9 @@ fun main: int {
         invalidPipeline.error.code == graphicsErrorInvalidConfiguration &&
         !invalidDepthPipeline.valid() &&
         invalidDepthPipeline.error.code ==
+            graphicsErrorInvalidConfiguration &&
+        !mismatchedLayoutPipeline.valid() &&
+        mismatchedLayoutPipeline.error.code ==
             graphicsErrorInvalidConfiguration &&
         vertices.valid() &&
         indices.valid() && verticesUploaded && indicesUploaded &&

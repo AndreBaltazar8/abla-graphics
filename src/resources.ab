@@ -14,6 +14,70 @@ val bufferUsageIndirect = 256
 val bufferUsageQueryResolve = 512
 val bufferUsageAll = 1023
 
+val vertexFormatFloat32 = 1
+val vertexFormatFloat32x2 = 2
+val vertexFormatFloat32x3 = 3
+val vertexFormatFloat32x4 = 4
+val vertexFormatUint32 = 5
+
+fun vertexFormatSize(format: int): int {
+    var size = 0
+    if (format == vertexFormatFloat32 || format == vertexFormatUint32) size = 4
+    else if (format == vertexFormatFloat32x2) size = 8
+    else if (format == vertexFormatFloat32x3) size = 12
+    else if (format == vertexFormatFloat32x4) size = 16
+    size
+}
+
+fun vertexFormatGlslType(format: int): string {
+    var dataType = ""
+    if (format == vertexFormatFloat32) dataType = "float"
+    else if (format == vertexFormatFloat32x2) dataType = "vec2"
+    else if (format == vertexFormatFloat32x3) dataType = "vec3"
+    else if (format == vertexFormatFloat32x4) dataType = "vec4"
+    else if (format == vertexFormatUint32) dataType = "uint"
+    dataType
+}
+
+class VertexAttribute(
+    val location: int = 0,
+    val offset: int = 0,
+    val format: int = vertexFormatFloat32x2
+) {
+    fun valid(stride: int): bool {
+        val size = vertexFormatSize(this.format)
+        stride > 0 && this.location >= 0 && this.location <= 31 &&
+            this.offset >= 0 && size > 0 && this.offset <= stride - size
+    }
+}
+
+class VertexBufferLayout(
+    val stride: int = 0,
+    val attributes: array<VertexAttribute> = []
+) {
+    fun valid(): bool {
+        var valid = (this.stride == 0 && this.attributes.size == 0) ||
+            (this.stride >= 8 && this.stride <= 2048 &&
+             this.attributes.size <= 16)
+        var index = 0
+        while (valid && index < this.attributes.size) {
+            valid = this.attributes[index].valid(this.stride)
+            var earlier = 0
+            while (valid && earlier < index) {
+                valid = this.attributes[earlier].location !=
+                    this.attributes[index].location
+                earlier = earlier + 1
+            }
+            index = index + 1
+        }
+        valid
+    }
+
+    fun buffered(): bool = this.stride > 0
+    fun attributeCount(): int = if (!this.buffered()) 0
+        else if (this.attributes.size == 0) 1 else this.attributes.size
+}
+
 val textureUsageCopySource = 1
 val textureUsageCopyDestination = 2
 val textureUsageSampled = 4

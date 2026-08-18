@@ -31,15 +31,16 @@ proves the architecture rather than stopping at placeholder interfaces:
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
-  single-member storage arithmetic compute subsets plus the first fixed
-  vertex/fragment triangle subset, with unsupported GLSL rejected rather than
-  ignored;
+  single-member storage arithmetic compute subsets plus fixed and interleaved
+  position/color vertex/fragment triangle subsets, with unsupported GLSL
+  rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`
   package compiles to an OpenGL program or deterministic Abla-emitted SPIR-V,
-  accepts procedural vertices or one interleaved `vec2` common vertex buffer
-  with optional `uint32` common indices and instanced submission, then records
+  accepts procedural vertices or checked interleaved multi-attribute common
+  vertex buffers with optional `uint32` common indices and instanced submission,
+  then records
   point/line/triangle topology, culling/front-face state, and standard alpha
   blending plus checked depth testing/writes before presenting a real Vulkan
   render pass or OpenGL draw without steady-state runtime allocation, including
@@ -118,9 +119,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
-  pipeline plus common uploaded vertex/index buffers rendered unchanged on
-  explicit OpenGL and Vulkan, with repeated no-growth and stable-handle
-  assertions;
+  pipeline plus an interleaved `vec2` position/`vec4` color vertex buffer and
+  common index buffer rendered unchanged on explicit OpenGL and Vulkan, with
+  repeated no-growth and stable-handle assertions;
 - `examples/common-buffer`: one affine descriptor/resource plus reusable byte
   ranges and GPU copies exercised unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised

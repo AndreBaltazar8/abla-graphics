@@ -9,12 +9,6 @@ import "shader/glsl_spirv.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
 
-class VertexBufferLayout(val stride: int = 0) {
-    fun valid(): bool = this.stride == 0 ||
-        (this.stride >= 8 && this.stride <= 2048)
-    fun buffered(): bool = this.stride > 0
-}
-
 resource class GraphicsRenderPipeline(
     val openGl: OpenGlProgram,
     var vulkan: VulkanRenderPipeline,
@@ -65,21 +59,37 @@ trusted fun GraphicsApplication.renderPipeline(
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != ""
     var vertexInputCount = 0
-    var vertexInputValid = false
+    var vertexInputValid = true
     var locationIndex = 0
     while (locationIndex < shader.locations.size) {
         val location = shader.locations[locationIndex]
         if (location.stage == shaderStageVertex &&
             location.direction == "in") {
             vertexInputCount = vertexInputCount + 1
-            vertexInputValid = location.location == 0 &&
-                location.dataType == "vec2" && location.arraySize == 1
+            var matched = false
+            if (vertexLayout.attributes.size == 0) {
+                matched = location.location == 0 &&
+                    location.dataType == "vec2"
+            } else {
+                var attributeIndex = 0
+                while (!matched &&
+                    attributeIndex < vertexLayout.attributes.size) {
+                    val attribute = vertexLayout.attributes[attributeIndex]
+                    matched = attribute.location == location.location &&
+                        vertexFormatGlslType(attribute.format) ==
+                            location.dataType
+                    attributeIndex = attributeIndex + 1
+                }
+            }
+            vertexInputValid = vertexInputValid && matched &&
+                location.arraySize == 1
         }
         locationIndex = locationIndex + 1
     }
     val layoutMatches = vertexLayout.valid() && raster.valid() &&
         depth.valid() &&
-        ((vertexLayout.buffered() && vertexInputCount == 1 &&
+        ((vertexLayout.buffered() &&
+          vertexInputCount == vertexLayout.attributeCount() &&
           vertexInputValid) ||
          (!vertexLayout.buffered() && vertexInputCount == 0))
     val translatable = glslPackage(
@@ -124,7 +134,7 @@ trusted fun GraphicsApplication.renderPipeline(
                 this.vulkanSwapchain,
                 vertex,
                 fragment,
-                vertexLayout.stride,
+                vertexLayout,
                 raster.topology,
                 raster.cullMode,
                 raster.frontFace,
@@ -186,7 +196,7 @@ trusted fun GraphicsApplication.recreateRenderTarget(
                     this.vulkanSwapchain,
                     vertex,
                     fragment,
-                    pipeline.vertexLayout.stride,
+                    pipeline.vertexLayout,
                     pipeline.raster.topology,
                     pipeline.raster.cullMode,
                     pipeline.raster.frontFace,
@@ -287,7 +297,7 @@ trusted fun GraphicsApplication.presentRenderVertices(
             vertices.openGl,
             vertexCount,
             instanceCount,
-            stride,
+            pipeline.vertexLayout,
             clear,
             pipeline.raster,
             pipeline.depth
@@ -358,7 +368,7 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             indices.openGl,
             indexCount,
             instanceCount,
-            stride,
+            pipeline.vertexLayout,
             clear,
             pipeline.raster,
             pipeline.depth
