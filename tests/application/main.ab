@@ -23,7 +23,12 @@ fun applicationBackendProbe(
     val pixels = pixelBuffer(320, 200)
     pixels.clearRgba8(18, 35, 64)
     pixels.fillRectRgba8(80, 50, 160, 100, 204, 64, 32)
-    val pixelsPresented = app.presentPixels(pixels)
+    val pixelsPresented = app.presentPixels(pixels) &&
+        app.presentPixels(pixels) && app.presentPixels(pixels)
+    val frameSlotsPassed = app.backend != graphicsBackendVulkan ||
+        (app.vulkanPixels.frameIndex == 1 &&
+         app.vulkanPixels.first.inFlight &&
+         app.vulkanPixels.second.inFlight)
     val buffer = app.buffer(BufferDescriptor(
         label = "common-storage",
         size = 64,
@@ -152,7 +157,8 @@ fun applicationBackendProbe(
     println(
         "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
-    valid && presented && pixelsPresented && buffer.valid() && bufferWritten &&
+    valid && presented && pixelsPresented && frameSlotsPassed &&
+        buffer.valid() && bufferWritten &&
         bufferRead == 1311768465173141112 &&
         !buffer.writeI64(1, 60) && !invalidBuffer.valid() &&
         invalidBuffer.error.code == graphicsErrorInvalidConfiguration &&

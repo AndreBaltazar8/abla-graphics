@@ -57,9 +57,11 @@ Updated: 2026-08-18.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a persistent
-  coherent staging buffer, swapchain-format channel adaptation, image layout
-  barriers, buffer-to-image copy, synchronized presentation, and persistent
-  command-pool/command-buffer/semaphore resources across frames.
+  two-slot set of coherent staging buffers, swapchain-format channel adaptation,
+  image layout barriers, buffer-to-image copy, synchronized presentation,
+  per-slot command pools/buffers/acquire semaphores/fences, and render-finished
+  semaphores owned per swapchain image. Three consecutive uploads exercise both
+  slots and fence-guarded reuse without a per-frame queue-wide idle.
 - Portable descriptor test: immutable buffer, texture, texture-view, and sampler
   descriptors validate usage flags, mapping constraints, dimensions, mip and
   multisample rules, format/view compatibility, subresource ranges, aspects,
@@ -164,9 +166,11 @@ work.
 
 ## Not yet claimed
 
-- Vulkan frames-in-flight without per-frame queue idle, automatic recovery from
-  acquire/present out-of-date results that arrive without a resize event,
-  render pipelines, synchronization2, and dynamic rendering.
+- General Vulkan frames-in-flight for clear and future render-pipeline paths,
+  automatic recovery from acquire/present out-of-date results that arrive
+  without a resize event, render pipelines, synchronization2, and dynamic
+  rendering. The reusable pixel-upload path has two fence-guarded slots and no
+  per-frame queue-wide idle.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.

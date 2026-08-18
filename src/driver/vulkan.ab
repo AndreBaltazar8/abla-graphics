@@ -359,6 +359,29 @@ noescape extern:"c" fun vkDestroySemaphore(
     semaphore: int,
     allocator: i64*
 ): void
+noescape extern:"c" fun vkCreateFence(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    fence: i64*
+): i32
+noescape extern:"c" fun vkDestroyFence(
+    device: i64*,
+    fence: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkWaitForFences(
+    device: i64*,
+    fenceCount: i32,
+    fences: i64*,
+    waitAll: i32,
+    timeout: int
+): i32
+noescape extern:"c" fun vkResetFences(
+    device: i64*,
+    fenceCount: i32,
+    fences: i64*
+): i32
 noescape extern:"c" fun vkAcquireNextImageKHR(
     device: i64*,
     swapchain: int,
@@ -1783,23 +1806,29 @@ trusted fun VulkanTexture.view(
     VulkanTextureView(this.device, handle)
 }
 
-resource class VulkanPixelPresenter(
+resource class VulkanPixelFrame(
     val staging: VulkanBuffer,
     var commandPool: int,
     var commandBuffer: i64*,
     var acquired: int,
-    var rendered: int,
-    val width: int,
-    val height: int,
-    val format: int
+    var fence: int,
+    var inFlight: bool
 ) {
     trusted fun valid(): bool =
         this.staging.valid() && this.commandPool != 0 &&
         !pointerIsNull(this.commandBuffer) &&
-        this.acquired != 0 && this.rendered != 0 &&
-        this.width > 0 && this.height > 0
+        this.acquired != 0 && this.fence != 0
 
     trusted fun drop(): void {
+        if (this.fence != 0) {
+            vkDestroyFence(
+                this.staging.device,
+                this.fence,
+                nativeNullPointer()
+            )
+            this.fence = 0
+            this.inFlight = false
+        }
         if (this.acquired != 0) {
             vkDestroySemaphore(
                 this.staging.device,
@@ -1807,14 +1836,6 @@ resource class VulkanPixelPresenter(
                 nativeNullPointer()
             )
             this.acquired = 0
-        }
-        if (this.rendered != 0) {
-            vkDestroySemaphore(
-                this.staging.device,
-                this.rendered,
-                nativeNullPointer()
-            )
-            this.rendered = 0
         }
         if (this.commandPool != 0) {
             vkDestroyCommandPool(
@@ -1826,6 +1847,46 @@ resource class VulkanPixelPresenter(
             this.commandBuffer = nativeNullPointer()
         }
         this.staging.drop()
+        return
+    }
+}
+
+resource class VulkanPixelPresenter(
+    val first: VulkanPixelFrame,
+    val second: VulkanPixelFrame,
+    val rendered: array<int>,
+    val imageCount: int,
+    var frameIndex: int,
+    val width: int,
+    val height: int,
+    val format: int
+) {
+    trusted fun valid(): bool =
+        this.first.valid() && this.second.valid() &&
+        this.imageCount > 0 && this.rendered.size == this.imageCount &&
+        this.frameIndex >= 0 && this.frameIndex < 2 &&
+        this.width > 0 && this.height > 0 &&
+        this.format != 0
+
+    trusted fun drop(): void {
+        if (this.first.inFlight || this.second.inFlight) {
+            vkDeviceWaitIdle(this.first.staging.device)
+        }
+        var index = 0
+        while (index < this.rendered.size) {
+            if (this.rendered[index] != 0) {
+                vkDestroySemaphore(
+                    this.first.staging.device,
+                    this.rendered[index],
+                    nativeNullPointer()
+                )
+                this.rendered[index] = 0
+            }
+            index = index + 1
+        }
+        this.first.drop()
+        this.second.drop()
+        this.frameIndex = 0
         return
     }
 }
@@ -1937,15 +1998,13 @@ trusted fun VulkanDevice.buffer(
     )
 }
 
-trusted fun VulkanDevice.pixelPresenter(
-    swapchain: VulkanSwapchain
-): VulkanPixelPresenter {
-    var staging = this.buffer(swapchain.width * swapchain.height * 4)
+trusted fun VulkanDevice.pixelFrame(size: int): VulkanPixelFrame {
+    var staging = this.buffer(size)
     val pool = nativeI64Cell(0)
     val command = nativePointerCell(nativeNullPointer())
     val acquired = nativeI64Cell(0)
-    val rendered = nativeI64Cell(0)
-    var succeeded = staging.valid() && swapchain.valid()
+    val fence = nativeI64Cell(0)
+    var succeeded = staging.valid()
     if (succeeded) {
         val poolInfo = nativeByteBuffer(32)
         poolInfo.storeI64(0, 39)
@@ -1986,21 +2045,25 @@ trusted fun VulkanDevice.pixelPresenter(
         ) == vulkanSuccess
     }
     if (succeeded) {
-        succeeded = vkCreateSemaphore(
+        val fenceInfo = nativeByteBuffer(24)
+        fenceInfo.storeI64(0, 8)
+        fenceInfo.storePointer(8, nativeNullPointer())
+        fenceInfo.storeI64(16, 0)
+        succeeded = vkCreateFence(
             this.handle,
-            semaphoreInfo.address,
+            fenceInfo.address,
             nativeNullPointer(),
-            rendered.address
+            fence.address
         ) == vulkanSuccess
     }
     if (!succeeded) {
-        if (rendered.load() != 0) {
-            vkDestroySemaphore(
+        if (fence.load() != 0) {
+            vkDestroyFence(
                 this.handle,
-                rendered.load(),
+                fence.load(),
                 nativeNullPointer()
             )
-            rendered.store(0)
+            fence.store(0)
         }
         if (acquired.load() != 0) {
             vkDestroySemaphore(
@@ -2020,12 +2083,48 @@ trusted fun VulkanDevice.pixelPresenter(
             command.store(nativeNullPointer())
         }
     }
-    VulkanPixelPresenter(
+    VulkanPixelFrame(
         move(staging),
         pool.load(),
         command.load(),
         acquired.load(),
-        rendered.load(),
+        fence.load(),
+        false
+    )
+}
+
+trusted fun VulkanDevice.pixelPresenter(
+    swapchain: VulkanSwapchain
+): VulkanPixelPresenter {
+    val size = if (swapchain.valid())
+        swapchain.width * swapchain.height * 4
+    else 0
+    var first = this.pixelFrame(size)
+    var second = this.pixelFrame(size)
+    val rendered: array<int> = []
+    val semaphoreInfo = nativeByteBuffer(24)
+    semaphoreInfo.storeI64(0, 9)
+    semaphoreInfo.storePointer(8, nativeNullPointer())
+    semaphoreInfo.storeI64(16, 0)
+    var index = 0
+    var succeeded = first.valid() && second.valid()
+    while (succeeded && index < swapchain.images.size) {
+        val semaphore = nativeI64Cell(0)
+        succeeded = vkCreateSemaphore(
+            this.handle,
+            semaphoreInfo.address,
+            nativeNullPointer(),
+            semaphore.address
+        ) == vulkanSuccess
+        if (succeeded) rendered.append(semaphore.load())
+        index = index + 1
+    }
+    VulkanPixelPresenter(
+        move(first),
+        move(second),
+        rendered,
+        swapchain.images.size,
+        0,
         swapchain.width,
         swapchain.height,
         swapchain.format
@@ -2526,19 +2625,29 @@ trusted fun VulkanDevice.presentBlue(
     )
 )
 
-trusted fun VulkanDevice.presentPixels(
+trusted fun VulkanDevice.presentPixelFrame(
     swapchain: VulkanSwapchain,
-    presenter: VulkanPixelPresenter,
+    var frame: VulkanPixelFrame,
+    renderedSemaphores: array<int>,
     pixels: PixelBuffer
 ): bool {
-    var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
-        pixels.width == swapchain.width && pixels.height == swapchain.height &&
-        presenter.width == swapchain.width &&
-        presenter.height == swapchain.height &&
-        presenter.format == swapchain.format &&
-        presenter.staging.writePixels(pixels, swapchain.format)
-    val acquired = nativeI64Cell(presenter.acquired)
-    val rendered = nativeI64Cell(presenter.rendered)
+    var succeeded = this.valid() && swapchain.valid() && frame.valid() &&
+        pixels.width == swapchain.width && pixels.height == swapchain.height
+    val fence = nativeI64Cell(frame.fence)
+    if (succeeded && frame.inFlight) {
+        succeeded = vkWaitForFences(
+            this.handle,
+            1,
+            fence.address,
+            1,
+            18446744073709551615
+        ) == vulkanSuccess
+        if (succeeded) frame.inFlight = false
+    }
+    if (succeeded) {
+        succeeded = frame.staging.writePixels(pixels, swapchain.format)
+    }
+    val acquired = nativeI64Cell(frame.acquired)
     val imageIndex = nativeI64Cell(0)
     if (succeeded) {
         val status = vkAcquireNextImageKHR(
@@ -2555,12 +2664,18 @@ trusted fun VulkanDevice.presentPixels(
     if (selectedIndex < 0 || selectedIndex >= swapchain.images.size) {
         succeeded = false
     }
+    if (selectedIndex < 0 || selectedIndex >= renderedSemaphores.size) {
+        succeeded = false
+    }
+    val rendered = nativeI64Cell(
+        if (succeeded) renderedSemaphores[selectedIndex] else 0
+    )
 
-    val command = nativePointerCell(presenter.commandBuffer)
+    val command = nativePointerCell(frame.commandBuffer)
     if (succeeded) {
         succeeded = vkResetCommandPool(
             this.handle,
-            presenter.commandPool,
+            frame.commandPool,
             0
         ) == vulkanSuccess
     }
@@ -2600,7 +2715,7 @@ trusted fun VulkanDevice.presentPixels(
         copy.storeI64(48, 4294967296 + swapchain.height)
         vkCmdCopyBufferToImage(
             command.load(),
-            presenter.staging.handle,
+            frame.staging.handle,
             image,
             7,
             1,
@@ -2628,6 +2743,13 @@ trusted fun VulkanDevice.presentPixels(
         succeeded = vkEndCommandBuffer(command.load()) == vulkanSuccess
     }
     if (succeeded) {
+        succeeded = vkResetFences(
+            this.handle,
+            1,
+            fence.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
         val waitStage = nativeI64Cell(4096)
         val submitInfo = nativeByteBuffer(72)
         submitInfo.storeI64(0, 4)
@@ -2643,8 +2765,9 @@ trusted fun VulkanDevice.presentPixels(
             this.queue,
             1,
             submitInfo.address,
-            0
+            frame.fence
         ) == vulkanSuccess
+        if (succeeded) frame.inFlight = true
     }
     if (succeeded) {
         val swapchainCell = nativeI64Cell(swapchain.handle)
@@ -2660,6 +2783,36 @@ trusted fun VulkanDevice.presentPixels(
         val status = vkQueuePresentKHR(this.queue, presentInfo.address)
         succeeded = status == vulkanSuccess || status == 1000001003
     }
-    if (succeeded) succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
+    succeeded
+}
+
+trusted fun VulkanDevice.presentPixels(
+    swapchain: VulkanSwapchain,
+    var presenter: VulkanPixelPresenter,
+    pixels: PixelBuffer
+): bool {
+    var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
+        pixels.width == presenter.width && pixels.height == presenter.height &&
+        presenter.width == swapchain.width &&
+        presenter.height == swapchain.height &&
+        presenter.format == swapchain.format
+    if (succeeded && presenter.frameIndex == 0) {
+        succeeded = this.presentPixelFrame(
+            swapchain,
+            presenter.first,
+            presenter.rendered,
+            pixels
+        )
+    } else if (succeeded) {
+        succeeded = this.presentPixelFrame(
+            swapchain,
+            presenter.second,
+            presenter.rendered,
+            pixels
+        )
+    }
+    if (succeeded) {
+        presenter.frameIndex = if (presenter.frameIndex == 0) 1 else 0
+    }
     succeeded
 }
