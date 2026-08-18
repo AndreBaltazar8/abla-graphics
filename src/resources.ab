@@ -466,6 +466,66 @@ class BufferCopyDescriptor(
     }
 }
 
+class BufferFillDescriptor(
+    val value: int = 0,
+    val offset: int = 0,
+    val size: int = -1
+) {
+    fun resolvedSize(bufferSize: int): int =
+        if (this.size == -1 && this.offset >= 0 && this.offset <= bufferSize)
+            bufferSize - this.offset
+        else this.size
+
+    fun valid(bufferSize: int): bool {
+        val byteCount = this.resolvedSize(bufferSize)
+        bufferSize > 0 && this.value >= 0 && this.value <= 4294967295 &&
+            this.offset >= 0 && this.offset < bufferSize &&
+            this.offset - this.offset / 4 * 4 == 0 && byteCount > 0 &&
+            byteCount - byteCount / 4 * 4 == 0 &&
+            byteCount <= bufferSize - this.offset
+    }
+
+    fun validation(bufferSize: int): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        val byteCount = this.resolvedSize(bufferSize)
+        if (bufferSize <= 0) result = graphicsDescriptorInvalid(
+            "buffer",
+            "buffer fill requires valid non-empty storage"
+        ) else if (this.value < 0 || this.value > 4294967295) {
+            result = graphicsDescriptorInvalid(
+                "value",
+                "buffer fill value must fit an unsigned 32-bit pattern"
+            )
+        } else if (this.offset < 0 || this.offset >= bufferSize) {
+            result = graphicsDescriptorInvalid(
+                "offset",
+                "buffer fill offset is out of range"
+            )
+        } else if (this.offset - this.offset / 4 * 4 != 0) {
+            result = graphicsDescriptorInvalid(
+                "offset",
+                "buffer fill offset must be aligned to four bytes"
+            )
+        } else if (byteCount <= 0) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "buffer fill size must be positive"
+            )
+        } else if (byteCount - byteCount / 4 * 4 != 0) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "buffer fill size must be aligned to four bytes"
+            )
+        } else if (byteCount > bufferSize - this.offset) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "buffer fill exceeds the destination range"
+            )
+        }
+        result
+    }
+}
+
 fun bufferUsageAllowsCpuWrite(usage: int): bool =
     (usage & (bufferUsageMapWrite | bufferUsageCopyDestination)) != 0
 

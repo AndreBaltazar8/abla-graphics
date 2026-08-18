@@ -52,14 +52,29 @@ fun main: int {
         gpuReadback,
         gpuReadbackRange
     )
+    val gpuFillRange = BufferFillDescriptor(2309737967, 8, 20)
+    val gpuFilled = app.fillBuffer(copiedBuffer, gpuFillRange)
+    val gpuFillReadback = bufferBytes(24)
+    val gpuFillReadbackRange = BufferCopyDescriptor(8, 2, 20)
+    val gpuFillDownloaded = gpuFillReadback.fill(0) &&
+        copiedBuffer.readBytes(
+            gpuFillReadback,
+            gpuFillReadbackRange
+        )
     val liveBeforeRepeats = runtimeMemoryLiveBytes()
-    var repeated = uploaded && downloaded && gpuCopied && gpuDownloaded
+    var repeated = uploaded && downloaded && gpuCopied && gpuDownloaded &&
+        gpuFilled && gpuFillDownloaded
     var repeat = 0
     while (repeated && repeat < 4) {
         repeated = buffer.writeBytes(upload, uploadRange) &&
             buffer.readBytes(readback, readbackRange) &&
             app.copyBuffer(buffer, copiedBuffer, gpuCopyRange) &&
-            copiedBuffer.readBytes(gpuReadback, gpuReadbackRange)
+            copiedBuffer.readBytes(gpuReadback, gpuReadbackRange) &&
+            app.fillBuffer(copiedBuffer, gpuFillRange) &&
+            copiedBuffer.readBytes(
+                gpuFillReadback,
+                gpuFillReadbackRange
+            )
         repeat = repeat + 1
     }
     val liveAfterRepeats = runtimeMemoryLiveBytes()
@@ -67,6 +82,7 @@ fun main: int {
     val passed = app.valid() && buffer.valid() && copiedBuffer.valid() &&
         buffer.writeI64(expected, 24) && buffer.readI64(24) == expected &&
         uploaded && downloaded && gpuCopied && gpuDownloaded &&
+        gpuFilled && gpuFillDownloaded &&
         repeated && noTransferAllocations &&
         readback.load(3) == 23 &&
         readback.loadI64(6) == 72623859790382856 &&
@@ -74,13 +90,20 @@ fun main: int {
         gpuReadback.load(6) == 23 &&
         gpuReadback.loadI64(9) == 72623859790382856 &&
         gpuReadback.load(24) == 23 &&
+        gpuFillReadback.load(1) == 0 &&
+        gpuFillReadback.load(2) == 239 &&
+        gpuFillReadback.load(3) == 205 &&
+        gpuFillReadback.load(4) == 171 &&
+        gpuFillReadback.load(5) == 137 &&
+        gpuFillReadback.load(21) == 137 &&
+        gpuFillReadback.load(22) == 0 &&
         app.presentClear(Color(
             0.0625,
             0.1875,
             0.4375
         ))
     println(
-        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, gpuCopy=${gpuCopied && gpuDownloaded}, repeatNoAlloc=${noTransferAllocations}, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

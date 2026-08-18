@@ -191,6 +191,13 @@ app.copyBuffer(storage, destination, BufferCopyDescriptor(
     destinationOffset = 512,
     size = 64
 ))
+
+val fill = BufferFillDescriptor(
+    value = 0xff336699,
+    offset = 1024,
+    size = 256
+)
+app.fillBuffer(destination, fill)
 ```
 
 `GraphicsBuffer` is affine, dispatches outside the read/write hot operation,
@@ -227,6 +234,17 @@ Repeated copies preserve those handles and show zero Abla runtime live-byte
 growth. This initial operation is deliberately synchronous; it establishes the
 copy semantics and reusable command state needed by future queued transfer
 rings.
+
+`app.fillBuffer(buffer, descriptor)` writes one unsigned 32-bit pattern across
+a four-byte-aligned GPU buffer range. The destination requires copy-destination
+usage; the descriptor rejects out-of-range patterns, unaligned offsets/sizes,
+empty fills, and crossing ranges before dispatch. OpenGL uses
+`glClearBufferSubData` with an eight-byte buffer-owned native scratch cell.
+Vulkan records `vkCmdFillBuffer` and a transfer-to-host barrier in the same
+device-owned reusable transfer command state used by copies. The descriptor is
+explicit so performance-sensitive loops can construct it once and avoid
+per-call descriptor allocation. Repeated fills preserve native handles and
+produce zero runtime live-byte growth in the common-buffer sample.
 
 Persistent mapped-at-creation ranges, queued transfers, and device-local
 selection remain upcoming APIs.

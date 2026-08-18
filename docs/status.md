@@ -112,11 +112,20 @@ Updated: 2026-08-18.
   transfer pool, command buffer, and scratch ABI block, records
   `vkCmdCopyBuffer` plus a transfer-to-host barrier, and preserves native handles
   across repeated copies. Khronos validation is silent on the Lavapipe path.
+- Common GPU buffer-fill test: `GraphicsApplication.fillBuffer` validates
+  application ownership, copy-destination usage, unsigned 32-bit pattern,
+  four-byte alignment, and an overflow-safe destination range. A 20-byte fill
+  beginning at byte 12 preserves both neighboring bytes and repeats the exact
+  little-endian pattern on OpenGL and Vulkan; missing usage and unaligned ranges
+  are rejected. OpenGL uses `glClearBufferSubData` with buffer-owned scratch.
+  Vulkan reuses the device transfer command to record `vkCmdFillBuffer` plus a
+  transfer-to-host barrier. Repeated fills show zero live-byte growth and silent
+  Khronos validation on Lavapipe.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same partial reusable-byte upload/readback on a 256-byte storage
-  buffer plus GPU copy/readback under explicit OpenGL and Vulkan in the
-  software-driver sample matrix. Four repeated upload, copy, and readback cycles
-  produce zero Abla runtime live-byte growth on both backends.
+  buffer plus GPU copy/fill/readback under explicit OpenGL and Vulkan in the
+  software-driver sample matrix. Four repeated upload, copy, fill, and readback
+  cycles produce zero Abla runtime live-byte growth on both backends.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -274,9 +283,10 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   general byte layouts, asynchronous image copies, and streaming are not.
   Same-format synchronous 2D image copies are present. General reusable buffer
   byte-range upload/readback is present, including
-  distinct source and destination offsets, and synchronous GPU buffer copies
-  reuse backend command state; persistent mapping and asynchronous transfers are
-  not. Common buffers, textures, views, samplers, and immutable structural
+  distinct source and destination offsets; synchronous GPU buffer copies and
+  aligned 32-bit pattern fills reuse backend command state. Persistent mapping
+  and asynchronous transfers are not. Common buffers, textures, views,
+  samplers, and immutable structural
   descriptors are present;
   the wider resource surface is not yet claimed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.

@@ -124,6 +124,21 @@ trusted fun GraphicsApplication.copyBuffer(
     succeeded
 }
 
+trusted fun GraphicsApplication.fillBuffer(
+    buffer: GraphicsBuffer,
+    descriptor: BufferFillDescriptor
+): bool {
+    var succeeded = this.valid() && buffer.valid() &&
+        this.ownsBuffer(buffer) && descriptor.valid(buffer.descriptor.size) &&
+        bufferUsageAllowsGpuCopyDestination(buffer.descriptor.usage)
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = buffer.openGl.fill(descriptor)
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.fillBuffer(buffer.vulkan, descriptor)
+    } else if (succeeded) succeeded = false
+    succeeded
+}
+
 trusted fun GraphicsApplication.buffer(
     descriptor: BufferDescriptor
 ): GraphicsBuffer {
@@ -132,7 +147,8 @@ trusted fun GraphicsApplication.buffer(
         0,
         nativeNullPointer(),
         nativeNullPointer(),
-        nativeNullPointer()
+        nativeNullPointer(),
+        nativeByteBuffer(0)
     )
     var vulkan = VulkanBuffer(
         nativeNullPointer(),

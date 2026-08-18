@@ -1067,6 +1067,41 @@ resource class VulkanDevice(
         succeeded
     }
 
+    trusted fun fillBuffer(
+        buffer: VulkanBuffer,
+        descriptor: BufferFillDescriptor
+    ): bool {
+        var succeeded = this.transferValid() && buffer.valid() &&
+            buffer.device == this.handle && descriptor.valid(buffer.size) &&
+            this.beginTransfer()
+        if (succeeded) {
+            vkCmdFillBuffer(
+                this.transferCommand.load(),
+                buffer.handle,
+                descriptor.offset,
+                descriptor.resolvedSize(buffer.size),
+                descriptor.value
+            )
+            this.transferScratch.storeI64(0, 46)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 8192 * 4294967296 + 4096)
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                4096,
+                16384,
+                0,
+                1,
+                this.transferScratch.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+            succeeded = this.submitTransfer()
+        }
+        succeeded
+    }
+
     trusted fun copyTexture(
         source: VulkanTexture,
         sourceDescriptor: TextureDescriptor,

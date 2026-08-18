@@ -156,6 +156,37 @@ fun applicationBackendProbe(
         gpuCopyDestination,
         BufferCopyDescriptor(50, 60, 8)
     )
+    val gpuFillBuffer = app.buffer(BufferDescriptor(
+        label = "gpu-fill-destination",
+        size = 64,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val gpuFillInitialization = bufferBytes(64)
+    val gpuFillReadback = bufferBytes(64)
+    val gpuFillInitialized = gpuFillInitialization.fill(0) &&
+        gpuFillBuffer.writeAllBytes(gpuFillInitialization)
+    val gpuFilled = app.fillBuffer(
+        gpuFillBuffer,
+        BufferFillDescriptor(305419896, 12, 20)
+    )
+    val gpuFillRead = gpuFillReadback.fill(255) &&
+        gpuFillBuffer.readAllBytes(gpuFillReadback)
+    val gpuFillMatches = gpuFillReadback.load(11) == 0 &&
+        gpuFillReadback.load(12) == 120 &&
+        gpuFillReadback.load(13) == 86 &&
+        gpuFillReadback.load(14) == 52 &&
+        gpuFillReadback.load(15) == 18 &&
+        gpuFillReadback.load(28) == 120 &&
+        gpuFillReadback.load(31) == 18 &&
+        gpuFillReadback.load(32) == 0
+    val fillTransferStateStable = app.backend != graphicsBackendVulkan ||
+        (app.vulkanDevice.transferPool == transferPoolBefore &&
+         nativePointerAddress(app.vulkanDevice.transferCommand.load()) ==
+            transferCommandBefore)
+    val invalidGpuFillRejected = !app.fillBuffer(
+        gpuFillBuffer,
+        BufferFillDescriptor(1, 2, 8)
+    )
     val usageRestrictedBuffer = app.buffer(BufferDescriptor(
         size = 32,
         usage = bufferUsageStorage
@@ -177,6 +208,10 @@ fun applicationBackendProbe(
         buffer,
         usageRestrictedBuffer,
         BufferCopyDescriptor(size = 8)
+    )
+    val missingFillUsageRejected = !app.fillBuffer(
+        usageRestrictedBuffer,
+        BufferFillDescriptor(size = 8)
     )
     val invalidBuffer = app.buffer(BufferDescriptor(
         size = 0,
@@ -447,10 +482,14 @@ fun applicationBackendProbe(
         invalidBufferRangeRejected && wholeBufferTransferred &&
         gpuCopyDestination.valid() && gpuRangeCopied && gpuCopyRead &&
         gpuCopyMatches && transferStateStable && invalidGpuCopyRejected &&
+        gpuFillBuffer.valid() && gpuFillInitialized && gpuFilled &&
+        gpuFillRead && gpuFillMatches && fillTransferStateStable &&
+        invalidGpuFillRejected &&
         usageRestrictedBuffer.valid() &&
         missingWriteUsageRejected && missingReadUsageRejected &&
         missingCopySourceUsageRejected &&
         missingCopyDestinationUsageRejected &&
+        missingFillUsageRejected &&
         sampler.valid() &&
         anisotropicSampler.valid() &&
         texture.valid() && textureUploaded && textureReuploaded &&
