@@ -666,11 +666,12 @@ all owned resolves before returning. Explicit
 `resolveRenderTarget` requires a single-color multisampled source and an
 application-owned, same-size, same-format single-sample destination declaring
 `textureUsageCopyDestination`. OpenGL reuses a target-owned resolve FBO and
-`glBlitFramebuffer`; Vulkan reuses the device transfer command state, records
-`vkCmdResolveImage`, and restores tracked image layouts. Repeated render/resolve
-cycles preserve native handles and show zero runtime live-byte growth. General
-Vulkan subpass-native resolve references remain future work; the current Vulkan
-path records reusable resolve commands immediately after the render pass.
+`glBlitFramebuffer`. Vulkan target-owned outputs are image views in the target
+framebuffer and native `pResolveAttachments` references in both default and
+operation-specialized compatible render passes. Separately owned explicit
+resolves reuse device transfer state, record `vkCmdResolveImage`, and restore
+tracked image layouts. Repeated render/resolve cycles preserve native handles
+and show zero runtime live-byte growth.
 
 Two to eight same-size color attachments use the same affine ownership model.
 Attachment zero remains `target.texture`; subsequent attachments are held in

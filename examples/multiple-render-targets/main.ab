@@ -142,6 +142,10 @@ fun main: int {
         loadPass.vulkan.handle else loadPass.targetHandle
     val discardPassHandle = if (app.backend == graphicsBackendVulkan)
         discardPass.vulkan.handle else discardPass.targetHandle
+    val resolveHandleZero = if (app.backend == graphicsBackendVulkan)
+        target.vulkan.resolveViews[0] else target.openGl.resolveFramebuffer
+    val resolveHandleOne = if (app.backend == graphicsBackendVulkan)
+        target.vulkan.resolveViews[1] else target.openGl.resolveFramebuffer
     val liveBefore = runtimeMemoryLiveBytes()
     var rendered = warmed
     var frame = 0
@@ -168,14 +172,19 @@ fun main: int {
     val secondClearPixel = target.resolveTextures[1].rgba8(0, 0)
     val noGrowth = liveAfter == liveBefore
     val handlesStable = passHandle != 0 && loadPassHandle != 0 &&
-        discardPassHandle != 0 &&
+        discardPassHandle != 0 && resolveHandleZero != 0 &&
+        resolveHandleOne != 0 &&
         (if (app.backend == graphicsBackendVulkan)
             pass.vulkan.handle == passHandle &&
                 loadPass.vulkan.handle == loadPassHandle &&
-                discardPass.vulkan.handle == discardPassHandle
+                discardPass.vulkan.handle == discardPassHandle &&
+                target.vulkan.resolveViews.size == 2 &&
+                target.vulkan.resolveViews[0] == resolveHandleZero &&
+                target.vulkan.resolveViews[1] == resolveHandleOne
          else pass.targetHandle == passHandle &&
             loadPass.targetHandle == loadPassHandle &&
-            discardPass.targetHandle == discardPassHandle)
+            discardPass.targetHandle == discardPassHandle &&
+            target.openGl.resolveFramebuffer == resolveHandleZero)
     println(
         "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, samples=${target.texture.descriptor.samples}, depth=${target.hasDepth()}, passes=clear/mixed/discard, resolved=2, frames=$frame, first=$firstPixel/$firstClearPixel, second=$secondPixel/$secondClearPixel, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )

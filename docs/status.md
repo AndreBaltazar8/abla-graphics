@@ -278,12 +278,13 @@ Updated: 2026-08-18.
   color/depth target renders and automatically resolves into a target-owned
   single-sample texture with exact readback, stable native handles, and zero
   live-memory growth on explicit/automatic OpenGL and Vulkan. OpenGL reuses a
-  target-owned resolve FBO; Vulkan reuses device transfer state and explicit
-  image barriers. `resolveRenderTargetColor` selects and verifies individual
+  target-owned resolve FBO; Vulkan encodes owned resolve views in the framebuffer
+  and native subpass resolve-reference arrays for default and specialized
+  render passes. Explicit Vulkan resolves reuse device transfer state and image
+  barriers. `resolveRenderTargetColor` selects and verifies individual
   MRT colors. Target constructors optionally own exactly one resolve texture
   per color and automatically update them after every clear or draw, including
-  all MRT command forms. Multisampled sampled usage is rejected; Vulkan native
-  subpass resolve references remain explicitly unclaimed.
+  all MRT command forms. Multisampled sampled usage is rejected.
 - Multiple color attachments: `renderTargetWithColors` and
   `renderTargetWithColorsAndDepth` take affine ownership of two to eight
   same-size render textures, optionally plus depth, while preserving attachment
@@ -404,7 +405,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 ## Not yet claimed
 
 - General multi-subpass Vulkan render-pass descriptors,
-  attachment resolve/input/preserve lists,
+  input/preserve attachment lists and inter-subpass dependencies,
   synchronization2, and dynamic rendering. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
@@ -430,7 +431,6 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  Vulkan subpass-native multisample resolve references,
   persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command
   encoders/render

@@ -86,7 +86,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   color multisampled targets into application-owned single-sample textures for
   sampling or readback; target constructors can instead take affine ownership
   of one resolve texture per color and update them automatically after every
-  clear or draw pass;
+  clear or draw pass through native Vulkan subpass resolve attachments or a
+  reusable OpenGL resolve FBO;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and

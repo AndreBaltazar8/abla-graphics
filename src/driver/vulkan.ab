@@ -2831,6 +2831,7 @@ resource class VulkanRenderTarget(
     val device: i64*,
     var view: int,
     val additionalViews: array<int>,
+    val resolveViews: array<int>,
     var depthView: int,
     var renderPass: int,
     var framebuffer: int,
@@ -2842,12 +2843,26 @@ resource class VulkanRenderTarget(
     val height: int,
     val samples: int
 ) {
+    fun resolvesValid(): bool {
+        var valid = this.resolveViews.size == 0 || (
+            this.samples > 1 &&
+            this.resolveViews.size == 1 + this.additionalViews.size
+        )
+        var index = 0
+        while (valid && index < this.resolveViews.size) {
+            valid = this.resolveViews[index] != 0
+            index = index + 1
+        }
+        valid
+    }
+
     fun valid(): bool = !pointerIsNull(this.device) && this.view != 0 &&
         this.additionalViews.size <= 7 && this.renderPass != 0 &&
         this.framebuffer != 0 && this.image != 0 &&
         this.format != 0 && this.width > 0 && this.height > 0 &&
         (this.samples == 1 || this.samples == 2 || this.samples == 4 ||
          this.samples == 8 || this.samples == 16) &&
+        this.resolvesValid() &&
         ((this.depthView == 0 && this.depthImage == 0 &&
           this.depthFormat == 0) ||
          (this.depthView != 0 && this.depthImage != 0 &&
@@ -2887,6 +2902,17 @@ resource class VulkanRenderTarget(
             this.additionalViews[colorIndex] = 0
             colorIndex = colorIndex + 1
         }
+        colorIndex = 0
+        while (colorIndex < this.resolveViews.size) {
+            if (this.resolveViews[colorIndex] != 0 &&
+                !pointerIsNull(this.device)) vkDestroyImageView(
+                    this.device,
+                    this.resolveViews[colorIndex],
+                    nativeNullPointer()
+                )
+            this.resolveViews[colorIndex] = 0
+            colorIndex = colorIndex + 1
+        }
         if (this.depthView != 0 && !pointerIsNull(this.device)) {
             vkDestroyImageView(
                 this.device,
@@ -2918,17 +2944,20 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
     target: VulkanRenderTarget,
     colorFormats: array<int>,
     colorFinalLayouts: array<int>,
+    resolveFinalLayouts: array<int>,
     colorLoadOperations: array<int>,
     colorStoreOperations: array<int>,
     depthLoadOperation: int,
     depthStoreOperation: int
 ): VulkanCompatibleRenderPass {
     val colorCount = 1 + target.additionalViews.size
+    val resolveCount = target.resolveViews.size
     val hasDepth = target.hasDepth()
     var handle = 0
     var succeeded = this.valid() && target.valid() &&
         target.device == this.handle && colorFormats.size == colorCount &&
         colorFinalLayouts.size == colorCount &&
+        resolveFinalLayouts.size == resolveCount &&
         colorLoadOperations.size == colorCount &&
         colorStoreOperations.size == colorCount &&
         (!hasDepth || (
@@ -2946,8 +2975,15 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             colorStoreOperations[colorIndex] <= 1
         colorIndex = colorIndex + 1
     }
+    var resolveIndex = 0
+    while (succeeded && resolveIndex < resolveCount) {
+        succeeded = resolveFinalLayouts[resolveIndex] == 2 ||
+            resolveFinalLayouts[resolveIndex] == 5
+        resolveIndex = resolveIndex + 1
+    }
     if (succeeded) {
-        val attachmentCount = colorCount + (if (hasDepth) 1 else 0)
+        val resolveBase = colorCount + (if (hasDepth) 1 else 0)
+        val attachmentCount = resolveBase + resolveCount
         val attachments = nativeByteBuffer(attachmentCount * 40)
         colorIndex = 0
         while (colorIndex < colorCount) {
@@ -2996,6 +3032,25 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             )
             attachments.storeI64(depthOffset + 32, 3)
         }
+        resolveIndex = 0
+        while (resolveIndex < resolveCount) {
+            val resolveOffset = (resolveBase + resolveIndex) * 36
+            attachments.storeI64(
+                resolveOffset,
+                colorFormats[resolveIndex] * 4294967296
+            )
+            attachments.storeI64(
+                resolveOffset + 8,
+                2 * 4294967296 + 1
+            )
+            attachments.storeI64(resolveOffset + 16, 2 * 4294967296)
+            attachments.storeI64(resolveOffset + 24, 1)
+            attachments.storeI64(
+                resolveOffset + 32,
+                resolveFinalLayouts[resolveIndex]
+            )
+            resolveIndex = resolveIndex + 1
+        }
         val colorReferences = nativeByteBuffer(colorCount * 8)
         colorIndex = 0
         while (colorIndex < colorCount) {
@@ -3007,13 +3062,26 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
         }
         val depthReference = nativeByteBuffer(8)
         depthReference.storeI64(0, 3 * 4294967296 + colorCount)
+        val resolveReferences = nativeByteBuffer(resolveCount * 8)
+        resolveIndex = 0
+        while (resolveIndex < resolveCount) {
+            resolveReferences.storeI64(
+                resolveIndex * 8,
+                2 * 4294967296 + resolveBase + resolveIndex
+            )
+            resolveIndex = resolveIndex + 1
+        }
         val subpass = nativeByteBuffer(72)
         subpass.storeI64(0, 0)
         subpass.storeI64(8, 0)
         subpass.storePointer(16, nativeNullPointer())
         subpass.storeI64(24, colorCount)
         subpass.storePointer(32, colorReferences.address)
-        subpass.storePointer(40, nativeNullPointer())
+        subpass.storePointer(
+            40,
+            if (resolveCount > 0) resolveReferences.address
+            else nativeNullPointer()
+        )
         subpass.storePointer(
             48,
             if (hasDepth) depthReference.address else nativeNullPointer()
@@ -3047,16 +3115,20 @@ trusted fun VulkanDevice.renderTarget(
     depthImage: int = 0,
     depthDescriptor: TextureDescriptor = TextureDescriptor(),
     additionalImages: array<int> = [],
-    additionalDescriptors: array<TextureDescriptor> = []
+    additionalDescriptors: array<TextureDescriptor> = [],
+    resolveImages: array<int> = [],
+    resolveDescriptors: array<TextureDescriptor> = []
 ): VulkanRenderTarget {
     var view = 0
     val additionalViews: array<int> = []
+    val resolveViews: array<int> = []
     var depthView = 0
     var renderPass = 0
     var framebuffer = 0
     val format = vulkanTextureFormat(descriptor.format)
     val hasDepth = depthImage != 0
     val colorCount = 1 + additionalImages.size
+    val resolveCount = resolveImages.size
     val depthFormat = if (hasDepth)
         vulkanTextureFormat(depthDescriptor.format) else 0
     var succeeded = this.valid() && texture.valid() &&
@@ -3066,6 +3138,10 @@ trusted fun VulkanDevice.renderTarget(
         (descriptor.usage & textureUsageRenderAttachment) != 0 && format != 0 &&
         additionalImages.size == additionalDescriptors.size &&
         additionalImages.size <= 7 &&
+        resolveImages.size == resolveDescriptors.size &&
+        (resolveImages.size == 0 || (
+            descriptor.samples > 1 && resolveImages.size == colorCount
+        )) &&
         (!hasDepth || (
             depthDescriptor.valid() &&
             depthDescriptor.dimension == textureDimension2D &&
@@ -3089,6 +3165,21 @@ trusted fun VulkanDevice.renderTarget(
             vulkanTextureFormat(color.format) != 0
         additionalIndex = additionalIndex + 1
     }
+    var resolveIndex = 0
+    while (succeeded && resolveIndex < resolveImages.size) {
+        val source = if (resolveIndex == 0) descriptor
+            else additionalDescriptors[resolveIndex - 1]
+        val resolve = resolveDescriptors[resolveIndex]
+        succeeded = resolveImages[resolveIndex] != 0 && resolve.valid() &&
+            resolve.dimension == textureDimension2D &&
+            resolve.samples == 1 && resolve.format == source.format &&
+            resolve.size.width == source.size.width &&
+            resolve.size.height == source.size.height &&
+            !textureFormatHasDepth(resolve.format) &&
+            (resolve.usage & textureUsageRenderAttachment) != 0 &&
+            vulkanTextureFormat(resolve.format) != 0
+        resolveIndex = resolveIndex + 1
+    }
     if (succeeded) {
         view = vulkanTextureViewHandle(
             this.handle,
@@ -3110,6 +3201,18 @@ trusted fun VulkanDevice.renderTarget(
         if (succeeded) additionalViews.append(additionalView)
         additionalIndex = additionalIndex + 1
     }
+    resolveIndex = 0
+    while (succeeded && resolveIndex < resolveImages.size) {
+        val resolveView = vulkanTextureViewHandle(
+            this.handle,
+            resolveImages[resolveIndex],
+            resolveDescriptors[resolveIndex],
+            TextureViewDescriptor()
+        )
+        succeeded = resolveView != 0
+        if (succeeded) resolveViews.append(resolveView)
+        resolveIndex = resolveIndex + 1
+    }
     if (succeeded && hasDepth) {
         depthView = vulkanTextureViewHandle(
             this.handle,
@@ -3120,8 +3223,10 @@ trusted fun VulkanDevice.renderTarget(
         succeeded = depthView != 0
     }
     if (succeeded) {
+        val attachmentCount = colorCount + (if (hasDepth) 1 else 0) +
+            resolveCount
         val attachments = nativeByteBuffer(
-            (colorCount + (if (hasDepth) 1 else 0)) * 40
+            attachmentCount * 40
         )
         var colorIndex = 0
         while (colorIndex < colorCount) {
@@ -3155,6 +3260,27 @@ trusted fun VulkanDevice.renderTarget(
             attachments.storeI64(depthOffset + 24, 1)
             attachments.storeI64(depthOffset + 32, 3)
         }
+        val resolveBase = colorCount + (if (hasDepth) 1 else 0)
+        var resolveIndex = 0
+        while (resolveIndex < resolveCount) {
+            val resolve = resolveDescriptors[resolveIndex]
+            val resolveOffset = (resolveBase + resolveIndex) * 36
+            attachments.storeI64(
+                resolveOffset,
+                vulkanTextureFormat(resolve.format) * 4294967296
+            )
+            attachments.storeI64(
+                resolveOffset + 8,
+                2 * 4294967296 + 1
+            )
+            attachments.storeI64(resolveOffset + 16, 2 * 4294967296)
+            attachments.storeI64(resolveOffset + 24, 1)
+            attachments.storeI64(
+                resolveOffset + 32,
+                if ((resolve.usage & textureUsageSampled) != 0) 5 else 2
+            )
+            resolveIndex = resolveIndex + 1
+        }
         val colorReference = nativeByteBuffer(colorCount * 8)
         colorIndex = 0
         while (colorIndex < colorCount) {
@@ -3166,13 +3292,26 @@ trusted fun VulkanDevice.renderTarget(
         }
         val depthReference = nativeByteBuffer(8)
         depthReference.storeI64(0, 3 * 4294967296 + colorCount)
+        val resolveReferences = nativeByteBuffer(resolveCount * 8)
+        resolveIndex = 0
+        while (resolveIndex < resolveCount) {
+            resolveReferences.storeI64(
+                resolveIndex * 8,
+                2 * 4294967296 + resolveBase + resolveIndex
+            )
+            resolveIndex = resolveIndex + 1
+        }
         val subpass = nativeByteBuffer(72)
         subpass.storeI64(0, 0)
         subpass.storeI64(8, 0)
         subpass.storePointer(16, nativeNullPointer())
         subpass.storeI64(24, colorCount)
         subpass.storePointer(32, colorReference.address)
-        subpass.storePointer(40, nativeNullPointer())
+        subpass.storePointer(
+            40,
+            if (resolveCount > 0) resolveReferences.address
+            else nativeNullPointer()
+        )
         subpass.storePointer(
             48,
             if (hasDepth) depthReference.address else nativeNullPointer()
@@ -3184,7 +3323,7 @@ trusted fun VulkanDevice.renderTarget(
         createInfo.storePointer(8, nativeNullPointer())
         createInfo.storeI64(
             16,
-            (colorCount + (if (hasDepth) 1 else 0)) * 4294967296
+            attachmentCount * 4294967296
         )
         createInfo.storePointer(24, attachments.address)
         createInfo.storeI64(32, 1)
@@ -3201,8 +3340,11 @@ trusted fun VulkanDevice.renderTarget(
         if (succeeded) renderPass = output.load()
     }
     if (succeeded) {
+        val attachmentCount = colorCount + (if (hasDepth) 1 else 0) +
+            resolveCount
+        val resolveBase = colorCount + (if (hasDepth) 1 else 0)
         val attachment = nativeByteBuffer(
-            (colorCount + (if (hasDepth) 1 else 0)) * 8
+            attachmentCount * 8
         )
         attachment.storeI64(0, view)
         var colorIndex = 0
@@ -3214,6 +3356,14 @@ trusted fun VulkanDevice.renderTarget(
             colorIndex = colorIndex + 1
         }
         if (hasDepth) attachment.storeI64(colorCount * 8, depthView)
+        var resolveIndex = 0
+        while (resolveIndex < resolveViews.size) {
+            attachment.storeI64(
+                (resolveBase + resolveIndex) * 8,
+                resolveViews[resolveIndex]
+            )
+            resolveIndex = resolveIndex + 1
+        }
         val createInfo = nativeByteBuffer(64)
         createInfo.storeI64(0, 37)
         createInfo.storePointer(8, nativeNullPointer())
@@ -3221,7 +3371,7 @@ trusted fun VulkanDevice.renderTarget(
         createInfo.storeI64(24, renderPass)
         createInfo.storeI64(
             32,
-            colorCount + (if (hasDepth) 1 else 0)
+            attachmentCount
         )
         createInfo.storePointer(40, attachment.address)
         createInfo.storeI64(
@@ -3269,6 +3419,16 @@ trusted fun VulkanDevice.renderTarget(
             additionalViews[additionalIndex] = 0
             additionalIndex = additionalIndex + 1
         }
+        resolveIndex = 0
+        while (resolveIndex < resolveViews.size) {
+            if (resolveViews[resolveIndex] != 0) vkDestroyImageView(
+                this.handle,
+                resolveViews[resolveIndex],
+                nativeNullPointer()
+            )
+            resolveViews[resolveIndex] = 0
+            resolveIndex = resolveIndex + 1
+        }
         framebuffer = 0
         renderPass = 0
         view = 0
@@ -3278,6 +3438,7 @@ trusted fun VulkanDevice.renderTarget(
         this.handle,
         view,
         additionalViews,
+        resolveViews,
         depthView,
         renderPass,
         framebuffer,

@@ -218,6 +218,30 @@ fun GraphicsApplication.resolveAttachmentsValid(
     valid
 }
 
+fun graphicsVulkanTextureImages(
+    textures: array<GraphicsTexture>
+): array<int> {
+    val images: array<int> = []
+    var index = 0
+    while (index < textures.size) {
+        images.append(textures[index].vulkan.image)
+        index = index + 1
+    }
+    images
+}
+
+fun graphicsTextureDescriptors(
+    textures: array<GraphicsTexture>
+): array<TextureDescriptor> {
+    val descriptors: array<TextureDescriptor> = []
+    var index = 0
+    while (index < textures.size) {
+        descriptors.append(textures[index].descriptor)
+        index = index + 1
+    }
+    descriptors
+}
+
 trusted fun GraphicsApplication.renderPass(
     target: GraphicsRenderTarget,
     own values: RenderPassClearValues,
@@ -233,6 +257,7 @@ trusted fun GraphicsApplication.renderPass(
     var discardAfterMask = 0
     val colorFormats: array<int> = []
     val colorFinalLayouts: array<int> = []
+    val resolveFinalLayouts: array<int> = []
     val colorLoadOperations: array<int> = []
     val colorStoreOperations: array<int> = []
     var colorIndex = 0
@@ -272,6 +297,16 @@ trusted fun GraphicsApplication.renderPass(
         }
         colorIndex = colorIndex + 1
     }
+    if (valid && this.backend == graphicsBackendVulkan) {
+        colorIndex = 0
+        while (colorIndex < target.resolveTextures.size) {
+            resolveFinalLayouts.append(
+                if ((target.resolveTextures[colorIndex].descriptor.usage &
+                    textureUsageSampled) != 0) 5 else 2
+            )
+            colorIndex = colorIndex + 1
+        }
+    }
     if (valid && target.hasDepth()) {
         if (operations.depth.load == attachmentLoadOperationClear) {
             clearMask = clearMask | (1 << 8)
@@ -295,6 +330,7 @@ trusted fun GraphicsApplication.renderPass(
             target.vulkan,
             colorFormats,
             colorFinalLayouts,
+            resolveFinalLayouts,
             colorLoadOperations,
             colorStoreOperations,
             operations.depth.load,
@@ -360,6 +396,7 @@ trusted fun GraphicsApplication.renderTarget(
         nativeNullPointer(),
         0,
         [],
+        [],
         0,
         0,
         0,
@@ -394,7 +431,13 @@ trusted fun GraphicsApplication.renderTarget(
     } else if (this.backend == graphicsBackendVulkan) {
         vulkan = this.vulkanDevice.renderTarget(
             texture.vulkan,
-            texture.descriptor
+            texture.descriptor,
+            0,
+            TextureDescriptor(),
+            [],
+            [],
+            graphicsVulkanTextureImages(resolveTextures),
+            graphicsTextureDescriptors(resolveTextures)
         )
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -439,6 +482,7 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
     var vulkan = VulkanRenderTarget(
         nativeNullPointer(),
         0,
+        [],
         [],
         0,
         0,
@@ -490,7 +534,11 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
             texture.vulkan,
             texture.descriptor,
             depthTexture.vulkan.image,
-            depthTexture.descriptor
+            depthTexture.descriptor,
+            [],
+            [],
+            graphicsVulkanTextureImages(resolveTextures),
+            graphicsTextureDescriptors(resolveTextures)
         )
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -535,6 +583,7 @@ trusted fun GraphicsApplication.renderTargetWithColors(
     var vulkan = VulkanRenderTarget(
         nativeNullPointer(),
         0,
+        [],
         [],
         0,
         0,
@@ -614,7 +663,9 @@ trusted fun GraphicsApplication.renderTargetWithColors(
             0,
             TextureDescriptor(),
             vulkanImages,
-            descriptors
+            descriptors,
+            graphicsVulkanTextureImages(resolveTextures),
+            graphicsTextureDescriptors(resolveTextures)
         )
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -660,6 +711,7 @@ trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
     var vulkan = VulkanRenderTarget(
         nativeNullPointer(),
         0,
+        [],
         [],
         0,
         0,
@@ -748,7 +800,9 @@ trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
             depthTexture.vulkan.image,
             depthTexture.descriptor,
             vulkanImages,
-            descriptors
+            descriptors,
+            graphicsVulkanTextureImages(resolveTextures),
+            graphicsTextureDescriptors(resolveTextures)
         )
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -904,8 +958,12 @@ trusted fun GraphicsApplication.finishRenderTarget(
     if (succeeded && this.backend == graphicsBackendVulkan) {
         target.storeVulkanLayouts()
     }
+    val nativeVulkanResolves = this.backend == graphicsBackendVulkan &&
+        target.vulkan.resolveViews.size == target.resolveTextures.size &&
+        target.resolveTextures.size > 0
     var index = 0
-    while (succeeded && index < target.resolveTextures.size) {
+    while (succeeded && !nativeVulkanResolves &&
+        index < target.resolveTextures.size) {
         succeeded = this.resolveRenderTargetColor(
             target,
             index,
