@@ -106,12 +106,22 @@ val indices = app.buffer(BufferDescriptor(
     usage = bufferUsageIndex | bufferUsageCopyDestination
 ))
 indices.writeAllBytes(indexData)
-app.presentRenderIndexed(pipeline, vertices, indices, 3, clear)
+app.presentRenderIndexed(
+    pipeline,
+    vertices,
+    indices,
+    3,
+    clear,
+    instanceCount = 2
+)
 ```
 
 The indexed path validates ownership, usage, positive count, and available
 four-byte index storage before dispatch. It maps to `glDrawElements` with
 `GL_UNSIGNED_INT` and Vulkan `vkCmdBindIndexBuffer`/`vkCmdDrawIndexed`.
+Vertex and indexed presentation accept a positive `instanceCount` (one by
+default), selecting core OpenGL instanced draw calls and the Vulkan draw
+command's native instance field. Zero instances are rejected before dispatch.
 Vertex/index buffers and backend command state remain stable with zero live-byte
 growth across the repeated sample draw loop.
 

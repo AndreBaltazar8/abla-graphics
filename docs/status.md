@@ -71,6 +71,11 @@ Updated: 2026-08-18.
   `vkCmdDrawIndexed`; a count exceeding the buffer is rejected before either
   driver. Explicit software OpenGL and validation-enabled Lavapipe runs keep
   vertex/index/pipeline/command handles and live bytes stable across four draws.
+- Common instanced submission: vertex and indexed presentation accept a checked
+  positive instance count. The sample submits two instances through core
+  OpenGL instanced drawing or Vulkan's native draw-indexed instance field;
+  zero is rejected before dispatch. Four repeated software-backend frames
+  preserve handles and live bytes, with Vulkan validation enabled.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,

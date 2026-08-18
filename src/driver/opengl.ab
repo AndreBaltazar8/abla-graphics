@@ -171,6 +171,19 @@ noescape extern:"c" fun glDrawElements(
     dataType: i32,
     indices: i64*
 ): void
+noescape extern:"c" fun glDrawArraysInstanced(
+    mode: i32,
+    first: i32,
+    count: i32,
+    instanceCount: i32
+): void
+noescape extern:"c" fun glDrawElementsInstanced(
+    mode: i32,
+    count: i32,
+    dataType: i32,
+    indices: i64*,
+    instanceCount: i32
+): void
 noescape extern:"c" fun glGenTextures(count: i32, textures: i64*): void
 noescape extern:"c" fun glBindTexture(target: i32, texture: i32): void
 noescape extern:"c" fun glTexParameteri(
@@ -1556,11 +1569,12 @@ resource class OpenGlWindowContext(
         program: OpenGlProgram,
         vertices: OpenGlBuffer,
         vertexCount: int,
+        instanceCount: int,
         vertexStride: int,
         clear: Color
     ): bool {
         var presented = program.valid() && vertices.valid() &&
-            vertexCount > 0 && vertexStride >= 8 &&
+            vertexCount > 0 && instanceCount > 0 && vertexStride >= 8 &&
             vertexStride <= 2048 && clear.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
@@ -1597,7 +1611,7 @@ resource class OpenGlWindowContext(
                 vertexStride,
                 nativeNullPointer()
             )
-            glDrawArrays(4, 0, vertexCount)
+            glDrawArraysInstanced(4, 0, vertexCount, instanceCount)
             presented = glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -1609,11 +1623,13 @@ resource class OpenGlWindowContext(
         vertices: OpenGlBuffer,
         indices: OpenGlBuffer,
         indexCount: int,
+        instanceCount: int,
         vertexStride: int,
         clear: Color
     ): bool {
         var presented = program.valid() && vertices.valid() &&
-            indices.valid() && indexCount > 0 && vertexStride >= 8 &&
+            indices.valid() && indexCount > 0 && instanceCount > 0 &&
+            vertexStride >= 8 &&
             vertexStride <= 2048 && clear.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
@@ -1651,7 +1667,13 @@ resource class OpenGlWindowContext(
                 nativeNullPointer()
             )
             glBindBuffer(34963, indices.handle)
-            glDrawElements(4, indexCount, 5125, nativeNullPointer())
+            glDrawElementsInstanced(
+                4,
+                indexCount,
+                5125,
+                nativeNullPointer(),
+                instanceCount
+            )
             presented = glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
