@@ -3343,7 +3343,11 @@ trusted fun VulkanDevice.renderPipeline(
     swapchain: VulkanSwapchain,
     vertex: VulkanShaderModule,
     fragment: VulkanShaderModule,
-    vertexStride: int = 0
+    vertexStride: int = 0,
+    topology: int = primitiveTopologyTriangleList,
+    cull: int = cullModeNone,
+    front: int = frontFaceCounterClockwise,
+    alphaBlend: bool = false
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -3353,7 +3357,12 @@ trusted fun VulkanDevice.renderPipeline(
     var succeeded = this.valid() && swapchain.valid() &&
         swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
         vertex.device == this.handle && fragment.device == this.handle &&
-        vertexStride >= 0 && vertexStride <= 2048
+        vertexStride >= 0 && vertexStride <= 2048 &&
+        topology >= primitiveTopologyPointList &&
+        topology <= primitiveTopologyTriangleStrip &&
+        cull >= cullModeNone && cull <= cullModeBack &&
+        (front == frontFaceClockwise ||
+         front == frontFaceCounterClockwise)
 
     if (succeeded) {
         val attachment = nativeByteBuffer(40)
@@ -3507,7 +3516,7 @@ trusted fun VulkanDevice.renderPipeline(
         val inputAssembly = nativeByteBuffer(32)
         inputAssembly.storeI64(0, 20)
         inputAssembly.storePointer(8, nativeNullPointer())
-        inputAssembly.storeI64(16, 3 * 4294967296)
+        inputAssembly.storeI64(16, topology * 4294967296)
         inputAssembly.storeI64(24, 0)
         val viewport = nativeByteBuffer(48)
         viewport.storeI64(0, 22)
@@ -3521,7 +3530,7 @@ trusted fun VulkanDevice.renderPipeline(
         rasterization.storePointer(8, nativeNullPointer())
         rasterization.storeI64(16, 0)
         rasterization.storeI64(24, 0)
-        rasterization.storeI64(32, 4294967296)
+        rasterization.storeI64(32, front * 4294967296 + cull)
         rasterization.storeI64(40, 0)
         rasterization.storeI64(48, 0)
         rasterization.storeI64(56, 1065353216)
@@ -3533,9 +3542,15 @@ trusted fun VulkanDevice.renderPipeline(
         multisample.storePointer(32, nativeNullPointer())
         multisample.storeI64(40, 0)
         val colorAttachment = nativeByteBuffer(32)
-        colorAttachment.storeI64(0, 0)
-        colorAttachment.storeI64(8, 0)
-        colorAttachment.storeI64(16, 0)
+        colorAttachment.storeI64(
+            0,
+            if (alphaBlend) 6 * 4294967296 + 1 else 0
+        )
+        colorAttachment.storeI64(8, if (alphaBlend) 7 else 0)
+        colorAttachment.storeI64(
+            16,
+            if (alphaBlend) 7 * 4294967296 + 1 else 0
+        )
         colorAttachment.storeI64(24, 15 * 4294967296)
         val colorBlend = nativeByteBuffer(56)
         colorBlend.storeI64(0, 26)

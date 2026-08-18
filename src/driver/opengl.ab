@@ -148,6 +148,20 @@ noescape extern:"c" fun glBindBufferBase(
     buffer: i32
 ): void
 noescape extern:"c" fun glMemoryBarrier(barriers: i32): void
+noescape extern:"c" fun glEnable(capability: i32): void
+noescape extern:"c" fun glDisable(capability: i32): void
+noescape extern:"c" fun glCullFace(mode: i32): void
+noescape extern:"c" fun glFrontFace(mode: i32): void
+noescape extern:"c" fun glBlendFuncSeparate(
+    sourceRgb: i32,
+    destinationRgb: i32,
+    sourceAlpha: i32,
+    destinationAlpha: i32
+): void
+noescape extern:"c" fun glBlendEquationSeparate(
+    rgb: i32,
+    alpha: i32
+): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
@@ -313,6 +327,36 @@ fun openGlStoreI32(
     buffer.store(offset + 2, (value >>> 16) & 255)
     buffer.store(offset + 3, (value >>> 24) & 255)
     return
+}
+
+fun openGlPrimitiveMode(topology: int): int {
+    var mode = 4
+    if (topology == primitiveTopologyPointList) mode = 0
+    else if (topology == primitiveTopologyLineList) mode = 1
+    else if (topology == primitiveTopologyLineStrip) mode = 3
+    else if (topology == primitiveTopologyTriangleStrip) mode = 5
+    mode
+}
+
+trusted fun openGlApplyRasterState(state: RasterPipelineState): bool {
+    var succeeded = state.valid()
+    if (succeeded) {
+        if (state.cullMode == cullModeNone) glDisable(2884)
+        else {
+            glEnable(2884)
+            glCullFace(if (state.cullMode == cullModeFront) 1028 else 1029)
+        }
+        glFrontFace(
+            if (state.frontFace == frontFaceCounterClockwise) 2305 else 2304
+        )
+        if (state.alphaBlend) {
+            glEnable(3042)
+            glBlendEquationSeparate(32774, 32774)
+            glBlendFuncSeparate(770, 771, 1, 771)
+        } else glDisable(3042)
+        succeeded = glGetError() == 0
+    }
+    succeeded
 }
 
 trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
@@ -1530,9 +1574,11 @@ resource class OpenGlWindowContext(
 
     trusted fun presentProgram(
         program: OpenGlProgram,
-        clear: Color
+        clear: Color,
+        raster: RasterPipelineState
     ): bool {
-        var presented = program.valid() && clear.valid() && this.makeCurrent()
+        var presented = program.valid() && clear.valid() && raster.valid() &&
+            this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -1558,8 +1604,13 @@ resource class OpenGlWindowContext(
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
-            glDrawArrays(4, 0, 3)
-            presented = glGetError() == 0 &&
+            presented = openGlApplyRasterState(raster)
+            if (presented) glDrawArrays(
+                openGlPrimitiveMode(raster.topology),
+                0,
+                3
+            )
+            presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
         presented
@@ -1571,11 +1622,13 @@ resource class OpenGlWindowContext(
         vertexCount: int,
         instanceCount: int,
         vertexStride: int,
-        clear: Color
+        clear: Color,
+        raster: RasterPipelineState
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             vertexCount > 0 && instanceCount > 0 && vertexStride >= 8 &&
-            vertexStride <= 2048 && clear.valid() && this.makeCurrent()
+            vertexStride <= 2048 && clear.valid() && raster.valid() &&
+            this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -1611,8 +1664,14 @@ resource class OpenGlWindowContext(
                 vertexStride,
                 nativeNullPointer()
             )
-            glDrawArraysInstanced(4, 0, vertexCount, instanceCount)
-            presented = glGetError() == 0 &&
+            presented = openGlApplyRasterState(raster)
+            if (presented) glDrawArraysInstanced(
+                openGlPrimitiveMode(raster.topology),
+                0,
+                vertexCount,
+                instanceCount
+            )
+            presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
         presented
@@ -1625,12 +1684,14 @@ resource class OpenGlWindowContext(
         indexCount: int,
         instanceCount: int,
         vertexStride: int,
-        clear: Color
+        clear: Color,
+        raster: RasterPipelineState
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
             vertexStride >= 8 &&
-            vertexStride <= 2048 && clear.valid() && this.makeCurrent()
+            vertexStride <= 2048 && clear.valid() && raster.valid() &&
+            this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -1667,14 +1728,15 @@ resource class OpenGlWindowContext(
                 nativeNullPointer()
             )
             glBindBuffer(34963, indices.handle)
-            glDrawElementsInstanced(
-                4,
-                indexCount,
-                5125,
-                nativeNullPointer(),
-                instanceCount
-            )
-            presented = glGetError() == 0 &&
+            presented = openGlApplyRasterState(raster)
+            if (presented) glDrawElementsInstanced(
+                    openGlPrimitiveMode(raster.topology),
+                    indexCount,
+                    5125,
+                    nativeNullPointer(),
+                    instanceCount
+                )
+            presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
         presented

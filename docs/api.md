@@ -125,6 +125,32 @@ command's native instance field. Zero instances are rejected before dispatch.
 Vertex/index buffers and backend command state remain stable with zero live-byte
 growth across the repeated sample draw loop.
 
+Portable fixed raster state is immutable and supplied when creating the
+pipeline:
+
+```abla
+val raster = RasterPipelineState(
+    topology = primitiveTopologyTriangleList,
+    cullMode = cullModeBack,
+    frontFace = frontFaceCounterClockwise,
+    alphaBlend = true
+)
+val pipeline = app.renderPipeline(
+    shader,
+    VertexBufferLayout(stride = 8),
+    raster
+)
+```
+
+The initial state surface covers point/line/triangle lists and strips, no/front/
+back culling, clockwise/counter-clockwise winding, and disabled or standard
+source-alpha blending. OpenGL applies the complete state before each draw so
+external raw calls cannot silently poison the common path. Vulkan bakes the
+same topology, cull mode, front face, and blend factors into the graphics
+pipeline. Invalid enum values are rejected before backend driver creation.
+The sample creates and presents both a blended triangle-list pipeline and an
+alternate line-strip/front-cull/clockwise pipeline on both backends.
+
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,
 then surface/instance/context, then the direct Abla window. A root application

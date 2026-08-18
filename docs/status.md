@@ -76,6 +76,14 @@ Updated: 2026-08-18.
   OpenGL instanced drawing or Vulkan's native draw-indexed instance field;
   zero is rejected before dispatch. Four repeated software-backend frames
   preserve handles and live bytes, with Vulkan validation enabled.
+- Common immutable raster state: pipeline creation validates point/line/
+  triangle list-or-strip topology, no/front/back culling, front-face winding,
+  and standard source-alpha blending. OpenGL reapplies the complete state before
+  every draw; Vulkan bakes matching input-assembly, rasterization, and color-
+  blend structures. The sample presents both blended triangle-list and
+  line-strip/front-cull/clockwise pipelines under software OpenGL and
+  validation-enabled Lavapipe, rejects an invalid topology before driver work,
+  and retains the repeated-draw no-growth gate.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,

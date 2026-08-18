@@ -20,9 +20,11 @@ resource class GraphicsRenderPipeline(
     val vulkan: VulkanRenderPipeline,
     val backend: int,
     val vertexLayout: VertexBufferLayout,
+    val raster: RasterPipelineState,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
+        this.raster.valid() &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -35,7 +37,8 @@ resource class GraphicsRenderPipeline(
 
 trusted fun GraphicsApplication.renderPipeline(
     shader: ShaderPackage,
-    vertexLayout: VertexBufferLayout = VertexBufferLayout()
+    vertexLayout: VertexBufferLayout = VertexBufferLayout(),
+    raster: RasterPipelineState = RasterPipelineState()
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -68,7 +71,7 @@ trusted fun GraphicsApplication.renderPipeline(
         }
         locationIndex = locationIndex + 1
     }
-    val layoutMatches = vertexLayout.valid() &&
+    val layoutMatches = vertexLayout.valid() && raster.valid() &&
         ((vertexLayout.buffered() && vertexInputCount == 1 &&
           vertexInputValid) ||
          (!vertexLayout.buffered() && vertexInputCount == 0))
@@ -114,7 +117,11 @@ trusted fun GraphicsApplication.renderPipeline(
                 this.vulkanSwapchain,
                 vertex,
                 fragment,
-                vertexLayout.stride
+                vertexLayout.stride,
+                raster.topology,
+                raster.cullMode,
+                raster.frontFace,
+                raster.alphaBlend
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -129,6 +136,7 @@ trusted fun GraphicsApplication.renderPipeline(
         move(vulkan),
         this.backend,
         vertexLayout,
+        raster,
         error
     )
 }
@@ -141,7 +149,11 @@ trusted fun GraphicsApplication.presentRender(
         pipeline.vertexLayout.buffered() ||
         pipeline.backend != this.backend) false
     else if (this.backend == graphicsBackendOpenGl) {
-        this.openGl.presentProgram(pipeline.openGl, clear)
+        this.openGl.presentProgram(
+            pipeline.openGl,
+            clear,
+            pipeline.raster
+        )
     } else if (this.backend == graphicsBackendVulkan) {
         val outcome = this.vulkanDevice.presentRenderOutcome(
             this.vulkanSwapchain,
@@ -177,7 +189,8 @@ trusted fun GraphicsApplication.presentRenderVertices(
             vertexCount,
             instanceCount,
             stride,
-            clear
+            clear,
+            pipeline.raster
         )
     } else if (this.backend == graphicsBackendVulkan) {
         val outcome = this.vulkanDevice.presentRenderOutcome(
@@ -222,7 +235,8 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             indexCount,
             instanceCount,
             stride,
-            clear
+            clear,
+            pipeline.raster
         )
     } else if (this.backend == graphicsBackendVulkan) {
         val outcome = this.vulkanDevice.presentRenderOutcome(
