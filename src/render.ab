@@ -51,7 +51,8 @@ trusted fun GraphicsApplication.renderPipeline(
     targetView: int = 0,
     targetFormat: int = 0,
     targetWidth: int = 0,
-    targetHeight: int = 0
+    targetHeight: int = 0,
+    targetDepthView: int = 0
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -79,7 +80,7 @@ trusted fun GraphicsApplication.renderPipeline(
         shader.source(shaderStageFragment) != ""
     val offscreen = targetHandle != 0
     val targetValid = (!offscreen && targetRenderPass == 0 &&
-        targetView == 0 && targetFormat == 0 &&
+        targetView == 0 && targetFormat == 0 && targetDepthView == 0 &&
         targetWidth == 0 && targetHeight == 0) ||
         (offscreen && targetWidth > 0 && targetHeight > 0 &&
          ((this.backend == graphicsBackendOpenGl &&
@@ -180,7 +181,8 @@ trusted fun GraphicsApplication.renderPipeline(
                 targetHandle,
                 targetFormat,
                 targetWidth,
-                targetHeight
+                targetHeight,
+                targetDepthView
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -212,6 +214,7 @@ trusted fun GraphicsApplication.renderTargetPipeline(
     shader: ShaderPackage,
     vertexLayout: VertexBufferLayout = VertexBufferLayout(),
     raster: RasterPipelineState = RasterPipelineState(),
+    depth: DepthStencilState = DepthStencilState(),
     own binding: GraphicsBindGroup = emptyGraphicsBindGroup()
 ): GraphicsRenderPipeline {
     if (!target.valid() || target.backend != this.backend) {
@@ -219,7 +222,7 @@ trusted fun GraphicsApplication.renderTargetPipeline(
             shader,
             vertexLayout,
             raster,
-            DepthStencilState(),
+            depth,
             move(binding),
             -1
         )
@@ -227,7 +230,7 @@ trusted fun GraphicsApplication.renderTargetPipeline(
         shader,
         vertexLayout,
         raster,
-        DepthStencilState(),
+        depth,
         move(binding),
         if (this.backend == graphicsBackendOpenGl) target.openGl.handle
         else target.vulkan.framebuffer,
@@ -236,7 +239,9 @@ trusted fun GraphicsApplication.renderTargetPipeline(
         if (this.backend == graphicsBackendVulkan) target.vulkan.view else 0,
         if (this.backend == graphicsBackendVulkan) target.vulkan.format else 0,
         target.texture.descriptor.size.width,
-        target.texture.descriptor.size.height
+        target.texture.descriptor.size.height,
+        if (this.backend == graphicsBackendVulkan)
+            target.vulkan.depthView else 0
     )
 }
 
@@ -251,7 +256,7 @@ trusted fun GraphicsApplication.renderToTarget(
         pipeline.targetWidth == target.texture.descriptor.size.width &&
         pipeline.targetHeight == target.texture.descriptor.size.height &&
         !pipeline.vertexLayout.buffered() &&
-        !pipeline.depth.enabled
+        pipeline.depth.enabled == target.hasDepth()
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -290,6 +295,9 @@ trusted fun GraphicsApplication.renderToTarget(
                 5
             else 2
         )
+        if (succeeded && target.hasDepth()) {
+            target.depthTexture.vulkan.storeLayout(0, 3)
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -312,7 +320,7 @@ trusted fun GraphicsApplication.renderVerticesToTarget(
         vertexCount <= vertices.descriptor.size / stride &&
         this.ownsBuffer(vertices) &&
         (vertices.descriptor.usage & bufferUsageVertex) != 0 &&
-        !pipeline.depth.enabled
+        pipeline.depth.enabled == target.hasDepth()
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -351,6 +359,9 @@ trusted fun GraphicsApplication.renderVerticesToTarget(
                 5
             else 2
         )
+        if (succeeded && target.hasDepth()) {
+            target.depthTexture.vulkan.storeLayout(0, 3)
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -377,7 +388,7 @@ trusted fun GraphicsApplication.renderIndexedToTarget(
         this.ownsBuffer(vertices) && this.ownsBuffer(indices) &&
         (vertices.descriptor.usage & bufferUsageVertex) != 0 &&
         (indices.descriptor.usage & bufferUsageIndex) != 0 &&
-        !pipeline.depth.enabled
+        pipeline.depth.enabled == target.hasDepth()
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -416,6 +427,9 @@ trusted fun GraphicsApplication.renderIndexedToTarget(
                 5
             else 2
         )
+        if (succeeded && target.hasDepth()) {
+            target.depthTexture.vulkan.storeLayout(0, 3)
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -439,7 +453,7 @@ trusted fun GraphicsApplication.renderVerticesIndirectToTarget(
         this.ownsBuffer(vertices) && this.ownsBuffer(indirect) &&
         (vertices.descriptor.usage & bufferUsageVertex) != 0 &&
         (indirect.descriptor.usage & bufferUsageIndirect) != 0 &&
-        !pipeline.depth.enabled
+        pipeline.depth.enabled == target.hasDepth()
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -480,6 +494,9 @@ trusted fun GraphicsApplication.renderVerticesIndirectToTarget(
                 5
             else 2
         )
+        if (succeeded && target.hasDepth()) {
+            target.depthTexture.vulkan.storeLayout(0, 3)
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -506,7 +523,7 @@ trusted fun GraphicsApplication.renderIndexedIndirectToTarget(
         (vertices.descriptor.usage & bufferUsageVertex) != 0 &&
         (indices.descriptor.usage & bufferUsageIndex) != 0 &&
         (indirect.descriptor.usage & bufferUsageIndirect) != 0 &&
-        !pipeline.depth.enabled
+        pipeline.depth.enabled == target.hasDepth()
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -549,6 +566,9 @@ trusted fun GraphicsApplication.renderIndexedIndirectToTarget(
                 5
             else 2
         )
+        if (succeeded && target.hasDepth()) {
+            target.depthTexture.vulkan.storeLayout(0, 3)
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }

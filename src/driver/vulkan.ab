@@ -2655,16 +2655,25 @@ resource class VulkanTextureView(
 resource class VulkanRenderTarget(
     val device: i64*,
     var view: int,
+    var depthView: int,
     var renderPass: int,
     var framebuffer: int,
     val image: int,
+    val depthImage: int,
     val format: int,
+    val depthFormat: int,
     val width: int,
     val height: int
 ) {
     fun valid(): bool = !pointerIsNull(this.device) && this.view != 0 &&
         this.renderPass != 0 && this.framebuffer != 0 && this.image != 0 &&
-        this.format != 0 && this.width > 0 && this.height > 0
+        this.format != 0 && this.width > 0 && this.height > 0 &&
+        ((this.depthView == 0 && this.depthImage == 0 &&
+          this.depthFormat == 0) ||
+         (this.depthView != 0 && this.depthImage != 0 &&
+          this.depthFormat != 0))
+
+    fun hasDepth(): bool = this.depthView != 0
 
     trusted fun drop(): void {
         if (this.framebuffer != 0 && !pointerIsNull(this.device)) {
@@ -2687,23 +2696,47 @@ resource class VulkanRenderTarget(
             vkDestroyImageView(this.device, this.view, nativeNullPointer())
             this.view = 0
         }
+        if (this.depthView != 0 && !pointerIsNull(this.device)) {
+            vkDestroyImageView(
+                this.device,
+                this.depthView,
+                nativeNullPointer()
+            )
+            this.depthView = 0
+        }
         return
     }
 }
 
 trusted fun VulkanDevice.renderTarget(
     texture: VulkanTexture,
-    descriptor: TextureDescriptor
+    descriptor: TextureDescriptor,
+    depthImage: int = 0,
+    depthDescriptor: TextureDescriptor = TextureDescriptor()
 ): VulkanRenderTarget {
     var view = 0
+    var depthView = 0
     var renderPass = 0
     var framebuffer = 0
     val format = vulkanTextureFormat(descriptor.format)
+    val hasDepth = depthImage != 0
+    val depthFormat = if (hasDepth)
+        vulkanTextureFormat(depthDescriptor.format) else 0
     var succeeded = this.valid() && texture.valid() &&
         texture.device == this.handle && descriptor.valid() &&
         descriptor.dimension == textureDimension2D &&
         descriptor.samples == 1 && !textureFormatHasDepth(descriptor.format) &&
-        (descriptor.usage & textureUsageRenderAttachment) != 0 && format != 0
+        (descriptor.usage & textureUsageRenderAttachment) != 0 && format != 0 &&
+        (!hasDepth || (
+            depthDescriptor.valid() &&
+            depthDescriptor.dimension == textureDimension2D &&
+            depthDescriptor.samples == 1 &&
+            depthDescriptor.size.width == descriptor.size.width &&
+            depthDescriptor.size.height == descriptor.size.height &&
+            textureFormatHasDepth(depthDescriptor.format) &&
+            (depthDescriptor.usage & textureUsageRenderAttachment) != 0 &&
+            depthFormat != 0
+        ))
     if (succeeded) {
         view = vulkanTextureViewHandle(
             this.handle,
@@ -2713,8 +2746,17 @@ trusted fun VulkanDevice.renderTarget(
         )
         succeeded = view != 0
     }
+    if (succeeded && hasDepth) {
+        depthView = vulkanTextureViewHandle(
+            this.handle,
+            depthImage,
+            depthDescriptor,
+            TextureViewDescriptor(aspect = textureAspectDepth)
+        )
+        succeeded = depthView != 0
+    }
     if (succeeded) {
-        val attachments = nativeByteBuffer(40)
+        val attachments = nativeByteBuffer(if (hasDepth) 80 else 40)
         attachments.storeI64(0, format * 4294967296)
         attachments.storeI64(8, 4294967296 + 1)
         attachments.storeI64(16, 2 * 4294967296)
@@ -2723,8 +2765,17 @@ trusted fun VulkanDevice.renderTarget(
             32,
             if ((descriptor.usage & textureUsageSampled) != 0) 5 else 2
         )
+        if (hasDepth) {
+            attachments.storeI64(36, depthFormat * 4294967296)
+            attachments.storeI64(44, 4294967296 + 1)
+            attachments.storeI64(52, 4294967296 + 1)
+            attachments.storeI64(60, 1)
+            attachments.storeI64(68, 3)
+        }
         val colorReference = nativeByteBuffer(8)
         colorReference.storeI64(0, 2 * 4294967296)
+        val depthReference = nativeByteBuffer(8)
+        depthReference.storeI64(0, 3 * 4294967296 + 1)
         val subpass = nativeByteBuffer(72)
         subpass.storeI64(0, 0)
         subpass.storeI64(8, 0)
@@ -2732,13 +2783,19 @@ trusted fun VulkanDevice.renderTarget(
         subpass.storeI64(24, 1)
         subpass.storePointer(32, colorReference.address)
         subpass.storePointer(40, nativeNullPointer())
-        subpass.storePointer(48, nativeNullPointer())
+        subpass.storePointer(
+            48,
+            if (hasDepth) depthReference.address else nativeNullPointer()
+        )
         subpass.storeI64(56, 0)
         subpass.storePointer(64, nativeNullPointer())
         val createInfo = nativeByteBuffer(64)
         createInfo.storeI64(0, 38)
         createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 4294967296)
+        createInfo.storeI64(
+            16,
+            (if (hasDepth) 2 else 1) * 4294967296
+        )
         createInfo.storePointer(24, attachments.address)
         createInfo.storeI64(32, 1)
         createInfo.storePointer(40, subpass.address)
@@ -2754,13 +2811,15 @@ trusted fun VulkanDevice.renderTarget(
         if (succeeded) renderPass = output.load()
     }
     if (succeeded) {
-        val attachment = nativeI64Cell(view)
+        val attachment = nativeByteBuffer(16)
+        attachment.storeI64(0, view)
+        if (hasDepth) attachment.storeI64(8, depthView)
         val createInfo = nativeByteBuffer(64)
         createInfo.storeI64(0, 37)
         createInfo.storePointer(8, nativeNullPointer())
         createInfo.storeI64(16, 0)
         createInfo.storeI64(24, renderPass)
-        createInfo.storeI64(32, 1)
+        createInfo.storeI64(32, if (hasDepth) 2 else 1)
         createInfo.storePointer(40, attachment.address)
         createInfo.storeI64(
             48,
@@ -2792,17 +2851,26 @@ trusted fun VulkanDevice.renderTarget(
             view,
             nativeNullPointer()
         )
+        if (depthView != 0) vkDestroyImageView(
+            this.handle,
+            depthView,
+            nativeNullPointer()
+        )
         framebuffer = 0
         renderPass = 0
         view = 0
+        depthView = 0
     }
     VulkanRenderTarget(
         this.handle,
         view,
+        depthView,
         renderPass,
         framebuffer,
         texture.image,
+        depthImage,
         format,
+        depthFormat,
         descriptor.size.width,
         descriptor.size.height
     )
@@ -2824,7 +2892,10 @@ trusted fun VulkanDevice.clearRenderTarget(
             40,
             target.height * 4294967296 + target.width
         )
-        this.transferScratch.storeI64(48, 1)
+        this.transferScratch.storeI64(
+            48,
+            if (target.hasDepth()) 2 else 1
+        )
         this.transferScratch.storePointer(
             56,
             this.transferScratch.pointerAt(72)
@@ -2841,6 +2912,7 @@ trusted fun VulkanDevice.clearRenderTarget(
                 4294967296 +
                 (graphicsScalarF32Bits(clear.blue) & 4294967295)
         )
+        if (target.hasDepth()) this.transferScratch.storeI64(88, 1065353216)
         vkCmdBeginRenderPass(
             this.transferCommand.load(),
             this.transferScratch.address,
@@ -2868,7 +2940,8 @@ trusted fun VulkanDevice.renderTargetProgram(
     val indexed = indexCount > 0 || indexedIndirect
     var succeeded = this.transferValid() && target.valid() &&
         pipeline.valid() && clear.valid() && target.device == this.handle &&
-        pipeline.device == this.handle && !pipeline.depthEnabled &&
+        pipeline.device == this.handle &&
+        pipeline.depthEnabled == target.hasDepth() &&
         vertexCount > 0 && indexCount >= 0 && instanceCount > 0 &&
         ((pipeline.vertexStride == 0 && vertexBuffer == 0) ||
          (pipeline.vertexStride > 0 && vertexBuffer != 0)) &&
@@ -2891,7 +2964,10 @@ trusted fun VulkanDevice.renderTargetProgram(
             40,
             target.height * 4294967296 + target.width
         )
-        this.transferScratch.storeI64(48, 1)
+        this.transferScratch.storeI64(
+            48,
+            if (target.hasDepth()) 2 else 1
+        )
         this.transferScratch.storePointer(
             56,
             this.transferScratch.pointerAt(72)
@@ -2908,6 +2984,7 @@ trusted fun VulkanDevice.renderTargetProgram(
                 4294967296 +
                 (graphicsScalarF32Bits(clear.blue) & 4294967295)
         )
+        if (target.hasDepth()) this.transferScratch.storeI64(88, 1065353216)
         vkCmdBeginRenderPass(
             this.transferCommand.load(),
             this.transferScratch.address,
@@ -3991,9 +4068,13 @@ resource class VulkanRenderPipeline(
         this.framebuffers.size == this.imageViews.size &&
         ((!this.depthEnabled && this.depthTextures.size == 0 &&
           this.depthViews.size == 0) ||
-         (this.depthEnabled &&
-          this.depthTextures.size == this.imageViews.size &&
-          this.depthViews.size == this.imageViews.size))
+         (this.depthEnabled && (
+          (this.ownsAttachments &&
+           this.depthTextures.size == this.imageViews.size &&
+           this.depthViews.size == this.imageViews.size) ||
+          (!this.ownsAttachments && this.depthTextures.size == 0 &&
+           this.depthViews.size == 0)
+         )))
 
     trusted fun drop(): void {
         if (!pointerIsNull(this.queue)) vkQueueWaitIdle(this.queue)
@@ -4076,7 +4157,8 @@ trusted fun VulkanDevice.renderPipeline(
     targetFramebuffer: int = 0,
     targetFormat: int = 0,
     targetWidth: int = 0,
-    targetHeight: int = 0
+    targetHeight: int = 0,
+    targetDepthView: int = 0
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -4103,7 +4185,8 @@ trusted fun VulkanDevice.renderPipeline(
          front == frontFaceCounterClockwise) &&
         depthCompare >= compareFunctionNever &&
         depthCompare <= compareFunctionAlways &&
-        (!depthWrite || depthEnabled) && (!offscreen || !depthEnabled)
+        (!depthWrite || depthEnabled) &&
+        (!offscreen || depthEnabled == (targetDepthView != 0))
 
     if (succeeded && offscreen) renderPass = targetRenderPass
     if (succeeded && !offscreen) {

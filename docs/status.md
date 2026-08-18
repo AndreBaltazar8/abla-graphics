@@ -265,13 +265,20 @@ Updated: 2026-08-18.
   ownership of the attachments. Direct/indexed, instanced, bind-group, and
   GPU-indirect commands share the surface-rendering validation and encoding
   model.
+- Owned target depth: `app.renderTargetWithDepth(move(color), move(depth))`
+  validates same-size, single-sample color/depth attachments and owns both
+  textures. OpenGL attaches and clears the depth texture in the FBO. Vulkan
+  owns the compatible depth view and two-attachment render pass/framebuffer,
+  records depth clears, and tracks the depth-optimal layout. Depth-enabled
+  target pipelines borrow those attachments; mismatched depth state is
+  rejected.
 - Render-to-texture/post-process sample: a 256x256 target receives a procedural
   and buffered scene pass, becomes a sampled-texture bind-group entry, and is
   drawn through a fullscreen surface pass unchanged on OpenGL and Vulkan. The
-  buffered pass covers direct, indexed, and both indirect commands. Exact
-  center-pixel readback verifies the result; four repeated command sequences
-  preserve target, pipeline, descriptor, and transfer-command handles with zero
-  live growth.
+  buffered pass covers direct, indexed, and both indirect commands with depth
+  testing and writes. Exact center-pixel readback verifies the result; four
+  repeated command sequences preserve target, pipeline, descriptor, and
+  transfer-command handles with zero live growth.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and

@@ -1264,6 +1264,7 @@ resource class OpenGlTextureView(var handle: int) {
 resource class OpenGlRenderTarget(
     var handle: int,
     val texture: int,
+    val depthTexture: int,
     val width: int,
     val height: int,
     val display: i64*,
@@ -1293,7 +1294,8 @@ resource class OpenGlRenderTarget(
 
 trusted fun OpenGlWindowContext.renderTarget(
     texture: OpenGlTexture,
-    descriptor: TextureDescriptor
+    descriptor: TextureDescriptor,
+    depthTexture: int = 0
 ): OpenGlRenderTarget {
     var handle = 0
     var succeeded = this.valid() && texture.valid() &&
@@ -1312,6 +1314,13 @@ trusted fun OpenGlWindowContext.renderTarget(
     if (succeeded) {
         glBindFramebuffer(36160, handle)
         glFramebufferTexture2D(36160, 36064, 3553, texture.handle, 0)
+        if (depthTexture != 0) glFramebufferTexture2D(
+            36160,
+            36096,
+            3553,
+            depthTexture,
+            0
+        )
         succeeded = glCheckFramebufferStatus(36160) == 36053 &&
             glGetError() == 0
         glBindFramebuffer(36160, 0)
@@ -1324,6 +1333,7 @@ trusted fun OpenGlWindowContext.renderTarget(
     OpenGlRenderTarget(
         handle,
         texture.handle,
+        depthTexture,
         descriptor.size.width,
         descriptor.size.height,
         this.display,
@@ -1347,6 +1357,10 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
         glClearBufferfv(6144, 0, this.clearScratch.address)
+        if (target.depthTexture != 0) {
+            openGlStoreI32(this.clearScratch, 0, 1065353216)
+            glClearBufferfv(6145, 0, this.clearScratch.address)
+        }
         succeeded = glGetError() == 0
         glBindFramebuffer(36160, 0)
     }
@@ -1392,6 +1406,10 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
         glClearBufferfv(6144, 0, this.clearScratch.address)
+        if (target.depthTexture != 0) {
+            openGlStoreI32(this.clearScratch, 0, 1065353216)
+            glClearBufferfv(6145, 0, this.clearScratch.address)
+        }
         glUseProgram(program.handle)
         glBindVertexArray(program.vertexArray)
         if (vertexLayout.buffered()) {

@@ -1,4 +1,4 @@
-// Affine color render-target attachment ownership shared by both backends.
+// Affine color/depth render-target attachment ownership shared by both backends.
 
 import "abla/unsafe/memory"
 import "core.ab"
@@ -12,6 +12,7 @@ resource class GraphicsRenderTarget(
     val openGl: OpenGlRenderTarget,
     val vulkan: VulkanRenderTarget,
     val texture: GraphicsTexture,
+    val depthTexture: GraphicsTexture,
     val backend: int,
     val error: GraphicsError
 ) {
@@ -19,6 +20,16 @@ resource class GraphicsRenderTarget(
         this.texture.valid() &&
         (this.texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
         !textureFormatHasDepth(this.texture.descriptor.format) &&
+        (!this.depthTexture.valid() || (
+            this.depthTexture.backend == this.backend &&
+            textureFormatHasDepth(this.depthTexture.descriptor.format) &&
+            (this.depthTexture.descriptor.usage &
+                textureUsageRenderAttachment) != 0 &&
+            this.depthTexture.descriptor.size.width ==
+                this.texture.descriptor.size.width &&
+            this.depthTexture.descriptor.size.height ==
+                this.texture.descriptor.size.height
+        )) &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -26,8 +37,11 @@ resource class GraphicsRenderTarget(
         this.openGl.drop()
         this.vulkan.drop()
         this.texture.drop()
+        this.depthTexture.drop()
         return
     }
+
+    fun hasDepth(): bool = this.depthTexture.valid()
 }
 
 trusted fun GraphicsApplication.renderTarget(
@@ -38,12 +52,16 @@ trusted fun GraphicsApplication.renderTarget(
         0,
         0,
         0,
+        0,
         nativeNullPointer(),
         nativeNullPointer(),
         nativeNullPointer()
     )
     var vulkan = VulkanRenderTarget(
         nativeNullPointer(),
+        0,
+        0,
+        0,
         0,
         0,
         0,
@@ -91,6 +109,95 @@ trusted fun GraphicsApplication.renderTarget(
         move(openGl),
         move(vulkan),
         move(texture),
+        emptyGraphicsTexture(),
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.renderTargetWithDepth(
+    own texture: GraphicsTexture,
+    own depthTexture: GraphicsTexture
+): GraphicsRenderTarget {
+    var openGl = OpenGlRenderTarget(
+        0,
+        0,
+        0,
+        0,
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer()
+    )
+    var vulkan = VulkanRenderTarget(
+        nativeNullPointer(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    )
+    var error = GraphicsError()
+    val compatible = this.valid() && texture.valid() &&
+        depthTexture.valid() && this.ownsTexture(texture) &&
+        this.ownsTexture(depthTexture) &&
+        texture.descriptor.dimension == textureDimension2D &&
+        depthTexture.descriptor.dimension == textureDimension2D &&
+        texture.descriptor.samples == 1 &&
+        depthTexture.descriptor.samples == 1 &&
+        !textureFormatHasDepth(texture.descriptor.format) &&
+        textureFormatHasDepth(depthTexture.descriptor.format) &&
+        texture.descriptor.size.width ==
+            depthTexture.descriptor.size.width &&
+        texture.descriptor.size.height ==
+            depthTexture.descriptor.size.height &&
+        (texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
+        (depthTexture.descriptor.usage &
+            textureUsageRenderAttachment) != 0
+    if (!compatible) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.renderTargetWithDepth",
+            "depth render targets require owned, same-size, single-sample 2D color and depth textures with render-attachment usage"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.renderTarget(
+            texture.openGl,
+            texture.descriptor,
+            depthTexture.openGl.handle
+        )
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorAttachmentMismatch,
+            "OpenGlWindowContext.renderTarget",
+            "OpenGL color/depth framebuffer creation or completeness validation failed"
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.renderTarget(
+            texture.vulkan,
+            texture.descriptor,
+            depthTexture.vulkan.image,
+            depthTexture.descriptor
+        )
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.renderTarget",
+            "Vulkan color/depth render pass, views, or framebuffer creation failed"
+        )
+    } else error = GraphicsError(
+        graphicsErrorBackendUnavailable,
+        "GraphicsApplication.renderTargetWithDepth",
+        "the selected backend cannot create a color/depth render target"
+    )
+    GraphicsRenderTarget(
+        move(openGl),
+        move(vulkan),
+        move(texture),
+        move(depthTexture),
         this.backend,
         error
     )
@@ -115,6 +222,9 @@ trusted fun GraphicsApplication.clearRenderTarget(
                 5
             else 2
         )
+        if (succeeded && target.hasDepth()) {
+            target.depthTexture.vulkan.storeLayout(0, 3)
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }

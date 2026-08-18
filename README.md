@@ -76,7 +76,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - affine color render targets that own completeness-checked OpenGL FBOs or
   Vulkan image views/render passes/framebuffers and support allocation-free
   validated clear/readback plus procedural, direct, indexed, instanced, bind-
-  group, and GPU-indirect offscreen draws;
+  group, and GPU-indirect offscreen draws, with optional affine depth-texture
+  ownership and depth-tested/written target pipelines;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
@@ -142,9 +143,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   reusable indices, a four-color atlas, a 64-byte transform uniform, and depth-
   tested cube faces rendered unchanged on explicit OpenGL and Vulkan;
 - `examples/render-to-texture`: direct, indexed, and GPU-indirect vertex-buffer
-  scene draws render into a 256x256 affine color target, then a fullscreen
-  textured pass samples it into the window for four allocation-free frames on
-  both backends;
+  scene draws render with depth into a 256x256 affine color/depth target, then a
+  fullscreen textured pass samples it into the window for four allocation-free
+  frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
   mutation and readback; and

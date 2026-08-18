@@ -606,6 +606,22 @@ val target = app.renderTarget(move(color))
 app.clearRenderTarget(target, Color(0.25, 0.5, 0.75))
 ```
 
+An explicitly owned, same-size depth attachment is added without hidden target
+allocations:
+
+```abla
+val depthColor = app.texture(TextureDescriptor(
+    size = Extent3D(640, 360),
+    usage = textureUsageRenderAttachment | textureUsageSampled
+))
+val depth = app.texture(TextureDescriptor(
+    size = Extent3D(640, 360),
+    format = textureFormatDepth32Float,
+    usage = textureUsageRenderAttachment
+))
+val depthTarget = app.renderTargetWithDepth(move(depthColor), move(depth))
+```
+
 The target owns the texture, ensuring the backend attachment dies before its
 image. OpenGL owns and completeness-checks a framebuffer object. Vulkan owns a
 compatible full image view, render pass, and framebuffer, with a sampled target
@@ -614,7 +630,7 @@ pass through the reusable device transfer command or binds and clears the
 OpenGL FBO. Repeated clears allocate nothing and preserve all attachment and
 command handles.
 
-`app.renderTargetPipeline(target, shader, vertexLayout, raster, binding)`
+`app.renderTargetPipeline(target, shader, vertexLayout, raster, depth, binding)`
 compiles a raster pipeline against the target format. Procedural pipelines use
 `renderToTarget`; buffered pipelines use `renderVerticesToTarget` or
 `renderIndexedToTarget`. Their `*IndirectToTarget` counterparts consume one
@@ -623,10 +639,12 @@ accepts an instance count. Bind groups are applied exactly as they are for a
 surface pipeline. Vulkan borrows the target render pass and framebuffer through
 explicit non-owning pipeline flags; OpenGL binds the target FBO. A target
 declaring sampled usage can then feed an ordinary bind group and surface
-pipeline. The `render-to-texture` sample exercises all four buffered command
-forms before sampling the result, with exact center-pixel verification, stable
-native handles, and zero live-byte growth. Depth offscreen draws and multiple
-attachments remain subsequent extensions of this path.
+pipeline. A depth-enabled pipeline must target a depth-attached target; color-
+only/depth-state mismatches are rejected. The `render-to-texture` sample
+exercises all four buffered command forms with depth testing/writes before
+sampling the result, with exact center-pixel verification, stable native
+handles, and zero live-byte growth. Multiple color attachments remain the next
+extension of this path.
 
 Samplers are also driver-backed affine resources:
 

@@ -62,14 +62,26 @@ fun main: int {
         usage = textureUsageRenderAttachment | textureUsageSampled |
             textureUsageCopySource
     ))
-    val target = app.renderTarget(move(color))
+    val depth = app.texture(TextureDescriptor(
+        label = "post-process-depth",
+        size = Extent3D(256, 256),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    ))
+    val target = app.renderTargetWithDepth(move(color), move(depth))
     val sceneLayout = VertexBufferLayout(8, [
         VertexAttribute(0, 0, vertexFormatFloat32x2)
     ])
     val scenePipeline = app.renderTargetPipeline(
         target,
         sceneShader,
-        sceneLayout
+        sceneLayout,
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        )
     )
     val sceneVertexBytes = bufferBytes(24)
     val sceneVerticesStored =
@@ -251,7 +263,7 @@ fun main: int {
                 postPipeline.vulkan.handle == postHandle &&
                 postPipeline.binding.vulkan.descriptorSet == bindingHandle)
     println(
-        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, sampled=true, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, depth=${target.hasDepth()}, sampled=true, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
 }

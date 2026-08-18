@@ -394,7 +394,36 @@ fun applicationBackendProbe(
         format = textureFormatDepth16Unorm,
         usage = textureUsageRenderAttachment
     ))
+    val depthRenderColor = app.texture(TextureDescriptor(
+        label = "depth-render-color",
+        size = Extent3D(32, 24),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val depthRenderDepth = app.texture(TextureDescriptor(
+        label = "depth-render-depth",
+        size = Extent3D(32, 24),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    ))
+    val mismatchedDepthColor = app.texture(TextureDescriptor(
+        size = Extent3D(8, 8),
+        usage = textureUsageRenderAttachment
+    ))
+    val mismatchedDepth = app.texture(TextureDescriptor(
+        size = Extent3D(4, 4),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    ))
     val renderTarget = app.renderTarget(move(renderTexture))
+    val depthRenderTarget = app.renderTargetWithDepth(
+        move(depthRenderColor),
+        move(depthRenderDepth)
+    )
+    val mismatchedDepthTarget = app.renderTargetWithDepth(
+        move(mismatchedDepthColor),
+        move(mismatchedDepth)
+    )
     val missingRenderUsageTarget = app.renderTarget(
         move(noAttachmentTexture)
     )
@@ -681,6 +710,23 @@ fun applicationBackendProbe(
         renderTarget,
         triangleShader
     )
+    val depthTargetPipeline = app.renderTargetPipeline(
+        depthRenderTarget,
+        triangleShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        )
+    )
+    val depthTargetRendered = app.renderToTarget(
+        depthRenderTarget,
+        depthTargetPipeline,
+        Color(0.01, 0.02, 0.03)
+    )
+    val depthTargetPixel = depthRenderTarget.texture.rgba8(16, 12)
     val targetPipelineCompatible = targetPipeline.valid() &&
         targetPipeline.targetHandle != 0 &&
         targetPipeline.targetWidth == 32 && targetPipeline.targetHeight == 24 &&
@@ -756,7 +802,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && pixelNoGrowth &&
         pixelHandlesStable && frameSlotsPassed &&
@@ -809,11 +855,20 @@ fun applicationBackendProbe(
         !oversizedTexture.valid() &&
         oversizedTexture.error.code == graphicsErrorLimitExceeded &&
         renderTarget.valid() &&
+        depthRenderTarget.valid() && depthRenderTarget.hasDepth() &&
+        (if (app.backend == graphicsBackendOpenGl)
+            depthRenderTarget.openGl.depthTexture != 0
+         else depthRenderTarget.vulkan.depthView != 0) &&
         renderTarget.texture.descriptor.size.width == 32 &&
         renderTarget.texture.descriptor.size.height == 24 &&
         renderTargetCleared && renderTargetPixel == 4290740288 &&
         targetRepeated && targetRepeat == 4 && targetNoGrowth &&
         targetHandlesStable &&
+        depthTargetPipeline.valid() && depthTargetRendered &&
+        depthTargetPixel == 4294281759 &&
+        !mismatchedDepthTarget.valid() &&
+        mismatchedDepthTarget.error.code ==
+            graphicsErrorInvalidConfiguration &&
         !missingRenderUsageTarget.valid() &&
         missingRenderUsageTarget.error.code ==
             graphicsErrorInvalidConfiguration &&
