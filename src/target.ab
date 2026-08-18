@@ -265,6 +265,7 @@ trusted fun GraphicsApplication.renderTarget(
     var openGl = OpenGlRenderTarget(
         0,
         0,
+        0,
         [],
         0,
         0,
@@ -339,6 +340,7 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
     own depthTexture: GraphicsTexture
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
+        0,
         0,
         0,
         [],
@@ -431,6 +433,7 @@ trusted fun GraphicsApplication.renderTargetWithColors(
     own additionalTextures: array<GraphicsTexture>
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
+        0,
         0,
         0,
         [],
@@ -548,6 +551,7 @@ trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
     own depthTexture: GraphicsTexture
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
+        0,
         0,
         0,
         [],
@@ -721,6 +725,40 @@ trusted fun GraphicsApplication.clearRenderTargetValues(
             values.address
         )
         if (succeeded) target.storeVulkanLayouts()
+    } else if (succeeded) succeeded = false
+    succeeded
+}
+
+trusted fun GraphicsApplication.resolveRenderTarget(
+    target: GraphicsRenderTarget,
+    destination: GraphicsTexture
+): bool {
+    var succeeded = this.valid() && target.valid() && destination.valid() &&
+        target.backend == this.backend && destination.backend == this.backend &&
+        target.colorCount() == 1 &&
+        target.texture.descriptor.samples > 1 &&
+        destination.descriptor.samples == 1 &&
+        target.texture.descriptor.size.width ==
+            destination.descriptor.size.width &&
+        target.texture.descriptor.size.height ==
+            destination.descriptor.size.height &&
+        target.texture.descriptor.format == destination.descriptor.format &&
+        !textureFormatHasDepth(destination.descriptor.format) &&
+        (destination.descriptor.usage & textureUsageCopyDestination) != 0 &&
+        this.ownsTexture(destination) &&
+        !target.texture.sameResource(destination)
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = this.openGl.resolveRenderTarget(
+            target.openGl,
+            destination.openGl
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.resolveTexture(
+            target.texture.vulkan,
+            target.texture.descriptor,
+            destination.vulkan,
+            destination.descriptor
+        )
     } else if (succeeded) succeeded = false
     succeeded
 }

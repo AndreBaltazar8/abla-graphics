@@ -183,6 +183,18 @@ noescape extern:"c" fun glInvalidateFramebuffer(
     count: i32,
     attachments: i64*
 ): void
+noescape extern:"c" fun glBlitFramebuffer(
+    sourceX0: i32,
+    sourceY0: i32,
+    sourceX1: i32,
+    sourceY1: i32,
+    destinationX0: i32,
+    destinationY0: i32,
+    destinationX1: i32,
+    destinationY1: i32,
+    mask: i32,
+    filter: i32
+): void
 noescape extern:"c" fun glCheckFramebufferStatus(target: i32): i32
 noescape extern:"c" fun glDeleteFramebuffers(
     count: i32,
@@ -1293,6 +1305,7 @@ resource class OpenGlTextureView(var handle: int) {
 
 resource class OpenGlRenderTarget(
     var handle: int,
+    var resolveFramebuffer: int,
     val texture: int,
     val additionalTextures: array<int>,
     val depthTexture: int,
@@ -1308,9 +1321,23 @@ resource class OpenGlRenderTarget(
         this.width > 0 && this.height > 0 &&
         (this.samples == 1 || this.samples == 2 || this.samples == 4 ||
          this.samples == 8 || this.samples == 16) &&
+        ((this.samples == 1 && this.resolveFramebuffer == 0) ||
+         (this.samples > 1 && this.resolveFramebuffer != 0)) &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context)
 
     trusted fun drop(): void {
+        if (this.resolveFramebuffer != 0) {
+            if (!pointerIsNull(this.display) &&
+                !pointerIsNull(this.context)) eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            val resolveOutput = nativeI64Cell(this.resolveFramebuffer)
+            glDeleteFramebuffers(1, resolveOutput.address)
+            this.resolveFramebuffer = 0
+        }
         if (this.handle != 0) {
             if (!pointerIsNull(this.display) &&
                 !pointerIsNull(this.context)) eglMakeCurrent(
@@ -1356,6 +1383,7 @@ trusted fun OpenGlWindowContext.renderTarget(
     additionalTextures: array<int> = []
 ): OpenGlRenderTarget {
     var handle = 0
+    var resolveFramebuffer = 0
     var succeeded = this.valid() && texture.valid() &&
         texture.display == this.display && texture.context == this.context &&
         descriptor.valid() && descriptor.dimension == textureDimension2D &&
@@ -1410,13 +1438,25 @@ trusted fun OpenGlWindowContext.renderTarget(
             glGetError() == 0
         glBindFramebuffer(36160, 0)
     }
+    if (succeeded && descriptor.samples > 1) {
+        val output = nativeI64Cell(0)
+        glGenFramebuffers(1, output.address)
+        resolveFramebuffer = output.load() & 4294967295
+        succeeded = resolveFramebuffer != 0 && glGetError() == 0
+    }
     if (!succeeded && handle != 0) {
         val output = nativeI64Cell(handle)
         glDeleteFramebuffers(1, output.address)
         handle = 0
     }
+    if (!succeeded && resolveFramebuffer != 0) {
+        val output = nativeI64Cell(resolveFramebuffer)
+        glDeleteFramebuffers(1, output.address)
+        resolveFramebuffer = 0
+    }
     OpenGlRenderTarget(
         handle,
+        resolveFramebuffer,
         texture.handle,
         additionalTextures,
         depthTexture,
@@ -1427,6 +1467,45 @@ trusted fun OpenGlWindowContext.renderTarget(
         this.surface,
         this.context
     )
+}
+
+trusted fun OpenGlWindowContext.resolveRenderTarget(
+    target: OpenGlRenderTarget,
+    destination: OpenGlTexture
+): bool {
+    var succeeded = this.valid() && target.valid() && destination.valid() &&
+        target.samples > 1 && target.additionalTextures.size == 0 &&
+        target.resolveFramebuffer != 0 && destination.target == 3553 &&
+        target.display == this.display && target.context == this.context &&
+        destination.display == this.display &&
+        destination.context == this.context && this.makeCurrent()
+    if (succeeded) {
+        glBindFramebuffer(36008, target.handle)
+        glBindFramebuffer(36009, target.resolveFramebuffer)
+        glFramebufferTexture2D(
+            36009,
+            36064,
+            destination.target,
+            destination.handle,
+            0
+        )
+        succeeded = glCheckFramebufferStatus(36009) == 36053
+        if (succeeded) glBlitFramebuffer(
+            0,
+            0,
+            target.width,
+            target.height,
+            0,
+            0,
+            target.width,
+            target.height,
+            16384,
+            9728
+        )
+        succeeded = succeeded && glGetError() == 0
+        glBindFramebuffer(36160, 0)
+    }
+    succeeded
 }
 
 trusted fun OpenGlWindowContext.clearRenderTarget(

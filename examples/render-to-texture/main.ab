@@ -56,17 +56,25 @@ fun main: int {
         }
     }
     val color = app.texture(TextureDescriptor(
-        label = "post-process-color",
+        label = "post-process-multisample-color",
         size = Extent3D(256, 256),
+        samples = 4,
         format = textureFormatRgba8Unorm,
-        usage = textureUsageRenderAttachment | textureUsageSampled |
-            textureUsageCopySource
+        usage = textureUsageRenderAttachment
     ))
     val depth = app.texture(TextureDescriptor(
-        label = "post-process-depth",
+        label = "post-process-multisample-depth",
         size = Extent3D(256, 256),
+        samples = 4,
         format = textureFormatDepth32Float,
         usage = textureUsageRenderAttachment
+    ))
+    val resolvedColor = app.texture(TextureDescriptor(
+        label = "post-process-resolved-color",
+        size = Extent3D(256, 256),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination |
+            textureUsageCopySource
     ))
     val target = app.renderTargetWithDepth(move(color), move(depth))
     val sceneLayout = VertexBufferLayout(8, [
@@ -156,7 +164,7 @@ fun main: int {
         magFilter = samplerFilterLinear,
         minFilter = samplerFilterLinear
     ))
-    val binding = app.textureBinding(target.texture, sampler)
+    val binding = app.textureBinding(resolvedColor, sampler)
     val bindingHandle = if (app.backend == graphicsBackendOpenGl)
         binding.openGlResources[0]
     else binding.vulkan.descriptorSet
@@ -176,7 +184,7 @@ fun main: int {
     val windowClear = Color(0.0, 0.0, 0.0)
     val warmed = app.valid() && target.valid() && scenePipeline.valid() &&
         scenePass.valid() && postPipeline.valid() && vertices.valid() &&
-        sampler.valid() &&
+        sampler.valid() && resolvedColor.valid() &&
         sceneVertices.valid() && sceneIndices.valid() && sceneDraw.valid() &&
         sceneIndexedDraw.valid() && verticesUploaded &&
         sceneVerticesUploaded && sceneIndicesUploaded && sceneDrawUploaded &&
@@ -207,12 +215,15 @@ fun main: int {
             sceneVertices,
             sceneIndices,
             sceneIndexedDraw
+        ) && app.resolveRenderTarget(
+            target,
+            resolvedColor
         ) && app.presentRenderVertices(
             postPipeline,
             vertices,
             3,
             windowClear
-        ) && target.texture.rgba8(128, 128) == 4294281759
+        ) && resolvedColor.rgba8(128, 128) == 4294281759
     val sceneHandle = if (app.backend == graphicsBackendOpenGl)
         scenePipeline.openGl.handle else scenePipeline.vulkan.handle
     val postHandle = if (app.backend == graphicsBackendOpenGl)
@@ -247,6 +258,9 @@ fun main: int {
             sceneVertices,
             sceneIndices,
             sceneIndexedDraw
+        ) && app.resolveRenderTarget(
+            target,
+            resolvedColor
         ) && app.presentRenderVertices(
             postPipeline,
             vertices,
@@ -266,7 +280,7 @@ fun main: int {
                 postPipeline.vulkan.handle == postHandle &&
                 postPipeline.binding.vulkan.descriptorSet == bindingHandle)
     println(
-        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, depth=${target.hasDepth()}, sampled=true, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, samples=${target.texture.descriptor.samples}, depth=${target.hasDepth()}, resolved=true, sampled=true, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
 }

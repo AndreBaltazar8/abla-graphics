@@ -526,8 +526,9 @@ on the current OpenGL path and an owning `VkImageView` on Vulkan. Both paths
 support single-sample 2D color and depth formats, complete mip allocation, and
 validated color/depth/stencil aspect ranges. They also create 2x, 4x, 8x, and
 16x multisampled 2D color/depth textures when usage is exactly
-`textureUsageRenderAttachment`; sampled/copy usage remains rejected until the
-common resolve-attachment API is present. Vulkan compatible linear/sRGB
+`textureUsageRenderAttachment`; sampled/copy usage remains rejected, so an
+application explicitly resolves into a separate single-sample resource. Vulkan
+compatible linear/sRGB
 reinterpretation uses mutable-format images. OpenGL subresource and
 format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
 texture-view support is negotiated. Width or height above
@@ -590,9 +591,9 @@ layouts, restores the source layout, selects the destination resting layout,
 and keeps per-mip layout state in initialized native storage. It reuses the
 device transfer pool, command buffer, and scratch block established for buffer
 copies; repeated image copies preserve those handles and general live memory.
-The current operation waits for queue completion. Multisample/1D/3D creation,
-format-converting copies, general byte layouts, and asynchronous upload queues
-are not yet part of this common slice. Views must
+The current operation waits for queue completion. Multisample image copies,
+1D/3D copies, format-converting copies, general byte layouts, and asynchronous
+upload queues are not yet part of this common slice. Views must
 drop before their parent texture, and textures must drop before the application
 device/context.
 
@@ -644,13 +645,25 @@ val msaaTarget = app.renderTargetWithDepth(
     move(msaaColor),
     move(msaaDepth)
 )
+val resolved = app.texture(TextureDescriptor(
+    size = Extent3D(640, 360),
+    usage = textureUsageCopyDestination |
+        textureUsageCopySource | textureUsageSampled
+))
+
+app.renderPassToTarget(msaaTarget, pipeline, pass)
+app.resolveRenderTarget(msaaTarget, resolved)
 ```
 
 OpenGL allocates `GL_TEXTURE_2D_MULTISAMPLE` attachments and Vulkan records the
 same sample count in image, attachment, compatible-pass, and raster pipeline
-state. The current foundation renders and clears these targets but deliberately
-does not expose their contents without a future owned single-sample resolve
-attachment.
+state. `resolveRenderTarget` requires a single-color multisampled source and an
+application-owned, same-size, same-format single-sample destination declaring
+`textureUsageCopyDestination`. OpenGL reuses a target-owned resolve FBO and
+`glBlitFramebuffer`; Vulkan reuses the device transfer command state, records
+`vkCmdResolveImage`, and restores tracked image layouts. Repeated render/resolve
+cycles preserve native handles and show zero runtime live-byte growth. General
+MRT resolve attachments and render-pass-integrated resolves remain future work.
 
 Two to eight same-size color attachments use the same affine ownership model.
 Attachment zero remains `target.texture`; subsequent attachments are held in
@@ -771,10 +784,11 @@ FBO. A target
 declaring sampled usage can then feed an ordinary bind group and surface
 pipeline. A depth-enabled pipeline must target a depth-attached target; color-
 only/depth-state mismatches are rejected. The `render-to-texture` sample
-exercises all four buffered command forms with depth testing/writes before
-sampling the result, with exact center-pixel verification, stable native
-handles, and zero live-byte growth. The same command forms operate on multiple
-color attachments and honor the same per-attachment operations.
+exercises all four buffered command forms against a 4x color/depth target,
+explicitly resolves it, then samples the result, with exact center-pixel
+verification, stable native handles, and zero live-byte growth. The same
+command forms operate on multiple color attachments and honor the same
+per-attachment operations.
 
 Samplers are also driver-backed affine resources:
 

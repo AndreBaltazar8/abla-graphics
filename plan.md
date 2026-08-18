@@ -28,7 +28,8 @@ targets combinable with depth and reusable per-attachment clear passes with
 procedural, direct, indexed, and GPU-indirect encoding plus allocation-free
 exact-output validation and portable per-attachment clear/load/discard and
 store/discard operations plus render-attachment-only multisampled color/depth
-texture and matching pipeline foundations are
+texture and matching pipeline foundations plus allocation-free explicit
+single-color resolve into an owned single-sample texture are
 implemented. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
