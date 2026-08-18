@@ -1,0 +1,115 @@
+// First affine sampled-texture binding shared by OpenGL and Vulkan rendering.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "application.ab"
+import "texture.ab"
+import "sampler.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsTextureBinding(
+    val openGlTexture: int,
+    val openGlSampler: int,
+    val openGlDisplay: i64*,
+    val openGlContext: i64*,
+    val vulkan: VulkanTextureBinding,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        ((this.backend == graphicsBackendOpenGl &&
+          this.openGlTexture != 0 && this.openGlSampler != 0 &&
+          !pointerIsNull(this.openGlDisplay) &&
+          !pointerIsNull(this.openGlContext)) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    fun empty(): bool = this.backend == graphicsBackendAuto &&
+        this.openGlTexture == 0 && this.openGlSampler == 0 &&
+        !this.vulkan.valid() && !this.error.occurred()
+
+    trusted fun drop(): void {
+        this.vulkan.drop()
+        return
+    }
+}
+
+fun emptyGraphicsTextureBinding(): GraphicsTextureBinding =
+    GraphicsTextureBinding(
+        0,
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        VulkanTextureBinding(
+            nativeNullPointer(),
+            0,
+            0,
+            0,
+            VulkanTextureView(nativeNullPointer(), 0)
+        ),
+        graphicsBackendAuto,
+        GraphicsError()
+    )
+
+trusted fun GraphicsApplication.textureBinding(
+    texture: GraphicsTexture,
+    sampler: GraphicsSampler
+): GraphicsTextureBinding {
+    var openGlTexture = 0
+    var openGlSampler = 0
+    var openGlDisplay = nativeNullPointer()
+    var openGlContext = nativeNullPointer()
+    var vulkan = VulkanTextureBinding(
+        nativeNullPointer(),
+        0,
+        0,
+        0,
+        VulkanTextureView(nativeNullPointer(), 0)
+    )
+    var error = GraphicsError()
+    if (!this.valid() || !texture.valid() || !sampler.valid() ||
+        !this.ownsTexture(texture) || !this.ownsSampler(sampler)) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.textureBinding",
+            "sampled texture binding requires application-owned texture and sampler resources"
+        )
+    } else if ((texture.descriptor.usage & textureUsageSampled) == 0 ||
+        textureFormatHasDepth(texture.descriptor.format)) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.textureBinding.texture",
+            "sampled color usage is required by the initial texture binding"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGlTexture = texture.openGl.handle
+        openGlSampler = sampler.openGl.handle
+        openGlDisplay = texture.openGl.display
+        openGlContext = texture.openGl.context
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.textureBinding(
+            texture.vulkan,
+            texture.descriptor,
+            sampler.vulkan
+        )
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.textureBinding",
+            "Vulkan combined image sampler binding creation failed"
+        )
+    } else {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "GraphicsApplication.textureBinding",
+            "the selected backend cannot bind sampled textures"
+        )
+    }
+    GraphicsTextureBinding(
+        openGlTexture,
+        openGlSampler,
+        openGlDisplay,
+        openGlContext,
+        move(vulkan),
+        this.backend,
+        error
+    )
+}

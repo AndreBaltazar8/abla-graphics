@@ -140,6 +140,41 @@ command's native instance field. Zero instances are rejected before dispatch.
 Vertex/index buffers and backend command state remain stable with zero live-byte
 growth across the repeated sample draw loop.
 
+The first sampled-texture binding is also affine and pipeline-owned:
+
+```abla
+val texture = app.texture(TextureDescriptor(
+    size = Extent3D(2, 2),
+    format = textureFormatRgba8Unorm,
+    usage = textureUsageSampled | textureUsageCopyDestination
+))
+texture.writePixels(pixels, TextureWriteDescriptor())
+val sampler = app.sampler()
+val binding = app.textureBinding(texture, sampler)
+val pipeline = app.renderPipeline(
+    shader,
+    vertexLayout,
+    RasterPipelineState(),
+    DepthStencilState(),
+    move(binding)
+)
+```
+
+The strict initial shader contract is one fragment-stage
+`layout(binding=0) uniform sampler2D` declaration. Pipeline creation rejects a
+missing, extra, wrong-stage, wrong-set, array, or non-`sampler2D` binding before
+driver work. OpenGL maps it to texture unit zero and reapplies both texture and
+sampler state before each draw. Vulkan owns a full image view, compatible set
+layout, descriptor pool, and combined-image-sampler descriptor set in the
+binding; the pipeline layout consumes the same structural layout and every draw
+records `vkCmdBindDescriptorSets`. The descriptor set survives swapchain and
+graphics-pipeline recreation.
+
+The source texture and sampler are borrowed when the binding is created and
+must outlive the pipeline. Declare them before the binding/pipeline so Abla's
+reverse affine destruction order enforces that lifetime naturally. Repeated
+indexed draws reuse every binding handle with zero live-byte growth.
+
 Portable fixed raster state is immutable and supplied when creating the
 pipeline:
 
@@ -756,7 +791,9 @@ The initial raster translator recognizes strict procedural and vertex-buffer
 triangle packages. The procedural form declares three constant `vec2`
 positions and selects one with `gl_VertexID`; the buffered forms accept either
 one location-zero `vec2` position or an interleaved location-zero `vec2`
-position plus location-one `vec4` tint passed through a location-zero varying.
+position plus a location-one `vec4` tint or `vec2` texture coordinate passed
+through a location-zero varying. The texture form also accepts one binding-zero
+fragment `sampler2D` and emits the corresponding sampled-image operation.
 The Abla emitter maps the OpenGL vertex builtin to Vulkan `VertexIndex`, emits
 deterministic Vulkan 1.0 vertex and fragment modules, and rejects any
 declaration, literal, builtin, or statement outside these subsets.

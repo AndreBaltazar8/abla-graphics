@@ -4,6 +4,7 @@ import "abla/unsafe/memory"
 import "core.ab"
 import "application.ab"
 import "buffer.ab"
+import "binding.ab"
 import "shader/glsl.ab"
 import "shader/glsl_spirv.ab"
 import "driver/opengl.ab"
@@ -17,16 +18,19 @@ resource class GraphicsRenderPipeline(
     val raster: RasterPipelineState,
     val depth: DepthStencilState,
     val shader: ShaderPackage,
+    val binding: GraphicsTextureBinding,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
         this.raster.valid() && this.depth.valid() && this.shader.valid &&
+        (this.binding.empty() || this.binding.valid()) &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
     trusted fun drop(): void {
         this.openGl.drop()
         this.vulkan.drop()
+        this.binding.drop()
         return
     }
 }
@@ -35,7 +39,8 @@ trusted fun GraphicsApplication.renderPipeline(
     shader: ShaderPackage,
     vertexLayout: VertexBufferLayout = VertexBufferLayout(),
     raster: RasterPipelineState = RasterPipelineState(),
-    depth: DepthStencilState = DepthStencilState()
+    depth: DepthStencilState = DepthStencilState(),
+    own binding: GraphicsTextureBinding = emptyGraphicsTextureBinding()
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -52,6 +57,7 @@ trusted fun GraphicsApplication.renderPipeline(
         0,
         0,
         0,
+        false,
         false
     )
     var error = GraphicsError()
@@ -92,6 +98,15 @@ trusted fun GraphicsApplication.renderPipeline(
           vertexInputCount == vertexLayout.attributeCount() &&
           vertexInputValid) ||
          (!vertexLayout.buffered() && vertexInputCount == 0))
+    var shaderBindingMatches = shader.bindings.size == 0 && binding.empty()
+    if (shader.bindings.size == 1 && binding.valid()) {
+        val reflected = shader.bindings[0]
+        shaderBindingMatches = reflected.stage == shaderStageFragment &&
+            reflected.set == 0 && reflected.binding == 0 &&
+            reflected.storage == "uniform" &&
+            reflected.dataType == "sampler2D" &&
+            reflected.arraySize == 1
+    }
     val translatable = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -102,7 +117,8 @@ trusted fun GraphicsApplication.renderPipeline(
     val vertexCode = translatable.spirv(shaderStageVertex)
     val fragmentCode = translatable.spirv(shaderStageFragment)
 
-    if (!this.valid() || !stagesValid || !layoutMatches) {
+    if (!this.valid() || !stagesValid || !layoutMatches ||
+        !shaderBindingMatches) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.renderPipeline",
@@ -141,7 +157,8 @@ trusted fun GraphicsApplication.renderPipeline(
                 raster.alphaBlend,
                 depth.enabled,
                 depth.write,
-                depth.compare
+                depth.compare,
+                if (binding.valid()) binding.vulkan.descriptorSetLayout else 0
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -159,6 +176,7 @@ trusted fun GraphicsApplication.renderPipeline(
         raster,
         depth,
         shader,
+        move(binding),
         error
     )
 }
@@ -203,7 +221,10 @@ trusted fun GraphicsApplication.recreateRenderTarget(
                     pipeline.raster.alphaBlend,
                     pipeline.depth.enabled,
                     pipeline.depth.write,
-                    pipeline.depth.compare
+                    pipeline.depth.compare,
+                    if (pipeline.binding.valid())
+                        pipeline.binding.vulkan.descriptorSetLayout
+                    else 0
                 )
             }
             succeeded = pipeline.vulkan.valid()
@@ -244,7 +265,9 @@ trusted fun GraphicsApplication.presentRender(
             pipeline.openGl,
             clear,
             pipeline.raster,
-            pipeline.depth
+            pipeline.depth,
+            pipeline.binding.openGlTexture,
+            pipeline.binding.openGlSampler
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -253,7 +276,13 @@ trusted fun GraphicsApplication.presentRender(
                 this.vulkanSwapchain,
                 this.vulkanPixels,
                 pipeline.vulkan,
-                clear
+                clear,
+                0,
+                3,
+                0,
+                0,
+                1,
+                pipeline.binding.vulkan.descriptorSet
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -267,7 +296,13 @@ trusted fun GraphicsApplication.presentRender(
                     this.vulkanSwapchain,
                     this.vulkanPixels,
                     pipeline.vulkan,
-                    clear
+                    clear,
+                    0,
+                    3,
+                    0,
+                    0,
+                    1,
+                    pipeline.binding.vulkan.descriptorSet
                 )
                 presented = vulkanPresentSucceeded(outcome) &&
                     !vulkanPresentNeedsRecreation(outcome)
@@ -300,7 +335,9 @@ trusted fun GraphicsApplication.presentRenderVertices(
             pipeline.vertexLayout,
             clear,
             pipeline.raster,
-            pipeline.depth
+            pipeline.depth,
+            pipeline.binding.openGlTexture,
+            pipeline.binding.openGlSampler
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -314,7 +351,8 @@ trusted fun GraphicsApplication.presentRenderVertices(
                 vertexCount,
                 0,
                 0,
-                instanceCount
+                instanceCount,
+                pipeline.binding.vulkan.descriptorSet
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -333,7 +371,8 @@ trusted fun GraphicsApplication.presentRenderVertices(
                     vertexCount,
                     0,
                     0,
-                    instanceCount
+                    instanceCount,
+                    pipeline.binding.vulkan.descriptorSet
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -371,7 +410,9 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             pipeline.vertexLayout,
             clear,
             pipeline.raster,
-            pipeline.depth
+            pipeline.depth,
+            pipeline.binding.openGlTexture,
+            pipeline.binding.openGlSampler
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -385,7 +426,8 @@ trusted fun GraphicsApplication.presentRenderIndexed(
                 vertices.descriptor.size / stride,
                 indices.vulkan.handle,
                 indexCount,
-                instanceCount
+                instanceCount,
+                pipeline.binding.vulkan.descriptorSet
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -404,7 +446,8 @@ trusted fun GraphicsApplication.presentRenderIndexed(
                     vertices.descriptor.size / stride,
                     indices.vulkan.handle,
                     indexCount,
-                    instanceCount
+                    instanceCount,
+                    pipeline.binding.vulkan.descriptorSet
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&

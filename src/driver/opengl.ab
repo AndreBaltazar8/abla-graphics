@@ -210,6 +210,8 @@ noescape extern:"c" fun glDrawElementsInstanced(
 ): void
 noescape extern:"c" fun glGenTextures(count: i32, textures: i64*): void
 noescape extern:"c" fun glBindTexture(target: i32, texture: i32): void
+noescape extern:"c" fun glActiveTexture(texture: i32): void
+noescape extern:"c" fun glBindSampler(unit: i32, sampler: i32): void
 noescape extern:"c" fun glTexParameteri(
     target: i32,
     name: i32,
@@ -447,6 +449,20 @@ trusted fun openGlConfigureVertexLayout(
             }
             index = index + 1
         }
+    }
+    succeeded && glGetError() == 0
+}
+
+trusted fun openGlApplyTextureBinding(
+    texture: int,
+    sampler: int
+): bool {
+    var succeeded = (texture == 0 && sampler == 0) ||
+        (texture != 0 && sampler != 0)
+    if (succeeded) {
+        glActiveTexture(33984)
+        glBindTexture(3553, texture)
+        glBindSampler(0, sampler)
     }
     succeeded && glGetError() == 0
 }
@@ -1672,7 +1688,9 @@ resource class OpenGlWindowContext(
         program: OpenGlProgram,
         clear: Color,
         raster: RasterPipelineState,
-        depth: DepthStencilState
+        depth: DepthStencilState,
+        texture: int,
+        sampler: int
     ): bool {
         var presented = program.valid() && clear.valid() && raster.valid() &&
             depth.valid() && this.makeCurrent()
@@ -1701,7 +1719,8 @@ resource class OpenGlWindowContext(
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
-            presented = openGlApplyDepthState(depth) &&
+            presented = openGlApplyTextureBinding(texture, sampler) &&
+                openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
             if (presented) glDrawArrays(
                 openGlPrimitiveMode(raster.topology),
@@ -1722,7 +1741,9 @@ resource class OpenGlWindowContext(
         vertexLayout: VertexBufferLayout,
         clear: Color,
         raster: RasterPipelineState,
-        depth: DepthStencilState
+        depth: DepthStencilState,
+        texture: int,
+        sampler: int
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             vertexCount > 0 && instanceCount > 0 &&
@@ -1756,6 +1777,7 @@ resource class OpenGlWindowContext(
             glBindVertexArray(program.vertexArray)
             glBindBuffer(34962, vertices.handle)
             presented = openGlConfigureVertexLayout(vertexLayout) &&
+                openGlApplyTextureBinding(texture, sampler) &&
                 openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
             if (presented) glDrawArraysInstanced(
@@ -1779,7 +1801,9 @@ resource class OpenGlWindowContext(
         vertexLayout: VertexBufferLayout,
         clear: Color,
         raster: RasterPipelineState,
-        depth: DepthStencilState
+        depth: DepthStencilState,
+        texture: int,
+        sampler: int
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
@@ -1812,7 +1836,8 @@ resource class OpenGlWindowContext(
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
             glBindBuffer(34962, vertices.handle)
-            presented = openGlConfigureVertexLayout(vertexLayout)
+            presented = openGlConfigureVertexLayout(vertexLayout) &&
+                openGlApplyTextureBinding(texture, sampler)
             glBindBuffer(34963, indices.handle)
             presented = presented && openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)

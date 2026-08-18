@@ -105,6 +105,15 @@ Updated: 2026-08-18.
   byte; resize rebuilds the per-image set at 640x480. The complete path is clean
   under `VK_LAYER_KHRONOS_validation` after an explicit 36-byte
   `VkAttachmentDescription` array-stride regression check.
+- Common sampled-texture binding: `GraphicsTextureBinding` validates an
+  application-owned sampled color texture and sampler, then provides OpenGL
+  texture-unit-zero handles or owns a Vulkan full image view, compatible set
+  layout, descriptor pool, and combined-image-sampler set. A strict reflected
+  `sampler2D` fragment shader samples a four-color 2x2 atlas on an indexed
+  triangle. Four warmed frames preserve binding/pipeline handles with zero
+  live-byte growth; resize keeps the descriptor set stable while Vulkan rebuilds
+  the surface-dependent pipeline. Explicit software OpenGL and validation-
+  enabled Lavapipe runs pass, and omitting the reflected binding is rejected.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,
@@ -324,8 +333,8 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 
-- General Vulkan render-pass descriptors, bind groups, synchronization2, and
-  dynamic rendering. The initial raster pipeline,
+- General Vulkan render-pass descriptors, multi-entry bind groups,
+  synchronization2, and dynamic rendering. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
@@ -342,9 +351,9 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   location/set/binding declaration and cross-stage compatibility slice,
   deliberately rejects quoted includes, and does not yet parse block members,
   general declarations, or expressions. SPIR-V emission currently covers the
-  strict no-op and single-member storage-assignment compute subsets plus fixed
-  and interleaved position/color triangle vertex/fragment subsets described
-  above, not general shaders.
+  strict no-op and single-member storage-assignment compute subsets plus fixed,
+  interleaved position/color, and sampled-texture triangle vertex/fragment
+  subsets described above, not general shaders.
 - Generated Khronos ABI bindings and fully classified coverage ledgers. The
   pinned, deterministic inventory ledgers exist, but all rows deliberately
   remain `unclassified` until loader/ABI and positive/negative test evidence is

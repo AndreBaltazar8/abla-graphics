@@ -262,6 +262,35 @@ fun glslColoredFragmentSource(source: string): bool =
         "color", "=", "vertexTint", ";", "}"
     ])
 
+fun glslTexturedVertexSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", "450",
+        "layout", "(", "location", "=", "0", ")",
+        "in", "vec2", "position", ";",
+        "layout", "(", "location", "=", "1", ")",
+        "in", "vec2", "uv", ";",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec2", "texCoord", ";",
+        "void", "main", "(", ")", "{",
+        "gl_Position", "=", "vec4", "(",
+        "position", ",", "0.0", ",", "1.0", ")", ";",
+        "texCoord", "=", "uv", ";", "}"
+    ])
+
+fun glslTexturedFragmentSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", "450",
+        "layout", "(", "location", "=", "0", ")",
+        "in", "vec2", "texCoord", ";",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec4", "color", ";",
+        "layout", "(", "binding", "=", "0", ")",
+        "uniform", "sampler2D", "atlas", ";",
+        "void", "main", "(", ")", "{",
+        "color", "=", "texture", "(",
+        "atlas", ",", "texCoord", ")", ";", "}"
+    ])
+
 fun glslTriangleFragmentSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", "450",
@@ -287,7 +316,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.bindings[0].storage == "buffer" &&
         this.bindings[0].dataType == "Values" && storageWrite.valid
     val graphicsCommon = this.valid && this.stages.size == 2 &&
-        this.bindings.size == 0 && this.workgroups.size == 0
+        this.workgroups.size == 0
     val vertex = graphicsCommon && stage == shaderStageVertex &&
         glslTriangleVertexSource(this.source(shaderStageVertex))
     val vertexBuffer = graphicsCommon && stage == shaderStageVertex &&
@@ -298,8 +327,13 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslTriangleFragmentSource(this.source(shaderStageFragment))
     val coloredFragment = graphicsCommon && stage == shaderStageFragment &&
         glslColoredFragmentSource(this.source(shaderStageFragment))
+    val texturedVertex = graphicsCommon && stage == shaderStageVertex &&
+        glslTexturedVertexSource(this.source(shaderStageVertex))
+    val texturedFragment = graphicsCommon && stage == shaderStageFragment &&
+        glslTexturedFragmentSource(this.source(shaderStageFragment))
     var succeeded = noOp || storage || vertex || vertexBuffer || fragment ||
-        coloredVertex || coloredFragment
+        coloredVertex || coloredFragment || texturedVertex ||
+        texturedFragment
     var error = ""
     var words: array<int> = []
     if (noOp) {
@@ -512,6 +546,55 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65789,
             65592
         ]
+    } else if (texturedVertex) {
+        words = [
+            119734787, 65536, 524299, 31, 0,
+            131089, 1,
+            393227, 1, 1280527431, 1685353262, 808793134, 0,
+            196622, 0, 1,
+            589839, 0, 4, 1852399981, 0, 13, 18, 28, 29,
+            196679, 11, 2,
+            327752, 11, 0, 11, 0,
+            327752, 11, 1, 11, 1,
+            327752, 11, 2, 11, 3,
+            327752, 11, 3, 11, 4,
+            262215, 18, 30, 0,
+            262215, 28, 30, 0,
+            262215, 29, 30, 1,
+            131091, 2,
+            196641, 3, 2,
+            196630, 6, 32,
+            262167, 7, 6, 4,
+            262165, 8, 32, 0,
+            262187, 8, 9, 1,
+            262172, 10, 6, 9,
+            393246, 11, 7, 6, 10, 10,
+            262176, 12, 3, 11,
+            262203, 12, 13, 3,
+            262165, 14, 32, 1,
+            262187, 14, 15, 0,
+            262167, 16, 6, 2,
+            262176, 17, 1, 16,
+            262203, 17, 18, 1,
+            262187, 6, 20, 0,
+            262187, 6, 21, 1065353216,
+            262176, 25, 3, 7,
+            262176, 27, 3, 16,
+            262203, 27, 28, 3,
+            262203, 17, 29, 1,
+            327734, 2, 4, 0, 3,
+            131320, 5,
+            262205, 16, 19, 18,
+            327761, 6, 22, 19, 0,
+            327761, 6, 23, 19, 1,
+            458832, 7, 24, 22, 23, 20, 21,
+            327745, 25, 26, 13, 15,
+            196670, 26, 24,
+            262205, 16, 30, 29,
+            196670, 28, 30,
+            65789,
+            65592
+        ]
     } else if (fragment) {
         words = [
             119734787, 65536, 458752, 15, 0,
@@ -560,6 +643,40 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             131320, 5,
             262205, 7, 12, 11,
             196670, 9, 12,
+            65789,
+            65592
+        ]
+    } else if (texturedFragment) {
+        words = [
+            119734787, 65536, 524299, 20, 0,
+            131089, 1,
+            393227, 1, 1280527431, 1685353262, 808793134, 0,
+            196622, 0, 1,
+            458767, 4, 4, 1852399981, 0, 9, 17,
+            196624, 4, 7,
+            262215, 9, 30, 0,
+            262215, 13, 33, 0,
+            262215, 13, 34, 0,
+            262215, 17, 30, 0,
+            131091, 2,
+            196641, 3, 2,
+            196630, 6, 32,
+            262167, 7, 6, 4,
+            262176, 8, 3, 7,
+            262203, 8, 9, 3,
+            589849, 10, 6, 1, 0, 0, 0, 1, 0,
+            196635, 11, 10,
+            262176, 12, 0, 11,
+            262203, 12, 13, 0,
+            262167, 15, 6, 2,
+            262176, 16, 1, 15,
+            262203, 16, 17, 1,
+            327734, 2, 4, 0, 3,
+            131320, 5,
+            262205, 11, 14, 13,
+            262205, 15, 18, 17,
+            327767, 7, 19, 14, 18,
+            196670, 9, 19,
             65789,
             65592
         ]

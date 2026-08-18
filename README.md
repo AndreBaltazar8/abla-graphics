@@ -31,9 +31,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
-  single-member storage arithmetic compute subsets plus fixed and interleaved
-  position/color vertex/fragment triangle subsets, with unsupported GLSL
-  rejected rather than ignored;
+  single-member storage arithmetic compute subsets plus fixed, interleaved
+  position/color, and sampled-texture vertex/fragment triangle subsets, with
+  unsupported GLSL rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`
@@ -43,8 +43,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   then records
   point/line/triangle topology, culling/front-face state, and standard alpha
   blending plus checked depth testing/writes before presenting a real Vulkan
-  render pass or OpenGL draw without steady-state runtime allocation, including
-  ordered Vulkan pipeline/swapchain/depth rebuilding after a window resize;
+  render pass or OpenGL draw without steady-state runtime allocation; one
+  affine combined texture/sampler binding feeds strict texture-sampling shaders
+  and survives ordered Vulkan pipeline/swapchain/depth rebuilding after a
+  window resize;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, rejects missing required features, reports the real API version and
   portable device limits, rejects oversized resources/work before driver calls,
@@ -127,6 +129,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and
+- `examples/common-textured`: an uploaded 2x2 atlas, affine sampler binding,
+  reflected texture shader, and indexed textured triangle exercised unchanged
+  on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
   mutation and readback; and
