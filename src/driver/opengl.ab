@@ -192,6 +192,23 @@ noescape extern:"c" fun glGetTexImage(
     kind: i32,
     pixels: i64*
 ): void
+noescape extern:"c" fun glCopyImageSubData(
+    sourceName: i32,
+    sourceTarget: i32,
+    sourceLevel: i32,
+    sourceX: i32,
+    sourceY: i32,
+    sourceZ: i32,
+    destinationName: i32,
+    destinationTarget: i32,
+    destinationLevel: i32,
+    destinationX: i32,
+    destinationY: i32,
+    destinationZ: i32,
+    width: i32,
+    height: i32,
+    depth: i32
+): void
 noescape extern:"c" fun glDeleteTextures(count: i32, textures: i64*): void
 noescape extern:"c" fun glGenBuffers(count: i32, buffers: i64*): void
 noescape extern:"c" fun glBindBuffer(target: i32, buffer: i32): void
@@ -831,6 +848,45 @@ resource class OpenGlTexture(
         }
         return
     }
+}
+
+trusted fun OpenGlTexture.copyTo(
+    sourceDescriptor: TextureDescriptor,
+    destination: OpenGlTexture,
+    destinationDescriptor: TextureDescriptor,
+    copy: TextureCopyDescriptor
+): bool {
+    var succeeded = this.valid() && destination.valid() &&
+        this.context == destination.context &&
+        this.display == destination.display &&
+        copy.valid(sourceDescriptor, destinationDescriptor) &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    if (succeeded) {
+        glCopyImageSubData(
+            this.handle,
+            3553,
+            copy.sourceMipLevel,
+            copy.sourceX,
+            copy.sourceY,
+            0,
+            destination.handle,
+            3553,
+            copy.destinationMipLevel,
+            copy.destinationX,
+            copy.destinationY,
+            0,
+            copy.resolvedWidth(sourceDescriptor),
+            copy.resolvedHeight(sourceDescriptor),
+            1
+        )
+        succeeded = glGetError() == 0
+    }
+    succeeded
 }
 
 trusted fun OpenGlTexture.writePixels(

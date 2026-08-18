@@ -49,11 +49,58 @@ resource class GraphicsTexture(
         } else -1
     }
 
+    fun sameResource(other: GraphicsTexture): bool =
+        this.backend == other.backend &&
+        ((this.backend == graphicsBackendOpenGl &&
+          this.openGl.handle != 0 &&
+          this.openGl.context == other.openGl.context &&
+          this.openGl.handle == other.openGl.handle) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkan.image != 0 &&
+          this.vulkan.device == other.vulkan.device &&
+          this.vulkan.image == other.vulkan.image))
+
     trusted fun drop(): void {
         this.openGl.drop()
         this.vulkan.drop()
         return
     }
+}
+
+fun GraphicsApplication.ownsTexture(texture: GraphicsTexture): bool =
+    this.backend == texture.backend &&
+    ((this.backend == graphicsBackendOpenGl &&
+      this.openGl.display == texture.openGl.display &&
+      this.openGl.context == texture.openGl.context) ||
+     (this.backend == graphicsBackendVulkan &&
+      this.vulkanDevice.handle == texture.vulkan.device))
+
+trusted fun GraphicsApplication.copyTexture(
+    source: GraphicsTexture,
+    destination: GraphicsTexture,
+    copy: TextureCopyDescriptor
+): bool {
+    var succeeded = this.valid() && source.valid() && destination.valid() &&
+        this.ownsTexture(source) && this.ownsTexture(destination) &&
+        !source.sameResource(destination) &&
+        copy.valid(source.descriptor, destination.descriptor)
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = source.openGl.copyTo(
+            source.descriptor,
+            destination.openGl,
+            destination.descriptor,
+            copy
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.copyTexture(
+            source.vulkan,
+            source.descriptor,
+            destination.vulkan,
+            destination.descriptor,
+            copy
+        )
+    } else if (succeeded) succeeded = false
+    succeeded
 }
 
 resource class GraphicsTextureView(
@@ -102,7 +149,7 @@ trusted fun GraphicsApplication.texture(
         ),
         0,
         nativeNullPointer(),
-        []
+        nativeByteBuffer(0)
     )
     var error = GraphicsError()
     val validation = descriptor.validation()

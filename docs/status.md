@@ -142,6 +142,16 @@ Updated: 2026-08-18.
   transitions; OpenGL uses `glTexSubImage2D` and `glGetTexImage`. The
   independently buildable common-texture sample runs this slice under explicit
   OpenGL and Vulkan.
+- Common GPU texture-copy test: `GraphicsApplication.copyTexture` validates
+  distinct application-owned color textures, exact format, copy usages, source
+  and destination mip levels/origins, and a shared 2D extent. A 2x2 region moves
+  between different mip levels and origins and reads back both corner pixels
+  exactly on OpenGL and Vulkan; same-resource and crossing-range copies are
+  rejected. OpenGL uses `glCopyImageSubData`. Vulkan uses `vkCmdCopyImage`,
+  explicit source/destination layout barriers, initialized native per-mip layout
+  tracking, and the reusable device transfer pool, command buffer, and scratch
+  block. Repeated copies preserve the transfer handles and live-memory level;
+  Khronos validation is silent on Lavapipe.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and
@@ -254,14 +264,16 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   pinned, deterministic inventory ledgers exist, but all rows deliberately
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
-- General texture uploads/copies/render-pass use, persistent mapped-at-creation
+- General texture byte uploads/format-converting copies/render-pass use,
+  persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command
   encoders/render
   graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
   `PixelBuffer` uploads and synchronous diagnostic readback are present;
-  general byte layouts, image-to-image copies, and asynchronous streaming are
-  not. General reusable buffer byte-range upload/readback is present, including
+  general byte layouts, asynchronous image copies, and streaming are not.
+  Same-format synchronous 2D image copies are present. General reusable buffer
+  byte-range upload/readback is present, including
   distinct source and destination offsets, and synchronous GPU buffer copies
   reuse backend command state; persistent mapping and asynchronous transfers are
   not. Common buffers, textures, views, samplers, and immutable structural

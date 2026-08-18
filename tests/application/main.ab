@@ -229,6 +229,40 @@ fun applicationBackendProbe(
         TextureWriteDescriptor(2, 1, 1)
     )
     val reuploadedPixel = texture.rgba8(1, 1, 2)
+    val textureCopyDestination = app.texture(TextureDescriptor(
+        label = "gpu-texture-copy-destination",
+        size = Extent3D(16, 16),
+        mipLevels = 4,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    ))
+    val textureTransferPoolBefore = app.vulkanDevice.transferPool
+    val textureTransferCommandBefore = if (
+        app.backend == graphicsBackendVulkan &&
+        !app.vulkanDevice.transferCommand.closed
+    ) nativePointerAddress(app.vulkanDevice.transferCommand.load()) else 0
+    val textureCopied = app.copyTexture(
+        texture,
+        textureCopyDestination,
+        TextureCopyDescriptor(2, 1, 1, 1, 3, 4, 2, 2)
+    )
+    val textureCopyFirstPixel = textureCopyDestination.rgba8(3, 4, 1)
+    val textureCopyLastPixel = textureCopyDestination.rgba8(4, 5, 1)
+    val textureTransferStateStable = app.backend != graphicsBackendVulkan ||
+        (app.vulkanDevice.transferPool == textureTransferPoolBefore &&
+         nativePointerAddress(app.vulkanDevice.transferCommand.load()) ==
+            textureTransferCommandBefore)
+    val invalidTextureCopyRejected = !app.copyTexture(
+        texture,
+        textureCopyDestination,
+        TextureCopyDescriptor(2, 3, 3, 1, 0, 0, 2, 2)
+    )
+    val sameTextureCopyRejected = !app.copyTexture(
+        texture,
+        texture,
+        TextureCopyDescriptor(2, 0, 0, 2, 2, 2, 1, 1)
+    )
     val invalidUploadRejected = !texture.writePixels(
         uploadPixels,
         TextureWriteDescriptor(2, 3, 3)
@@ -422,6 +456,11 @@ fun applicationBackendProbe(
         texture.valid() && textureUploaded && textureReuploaded &&
         uploadedPixel == 1835094855 && invalidUploadRejected &&
         reuploadedPixel == 218826501 &&
+        textureCopyDestination.valid() && textureCopied &&
+        textureCopyFirstPixel == 218826501 &&
+        textureCopyLastPixel == 1835094855 &&
+        textureTransferStateStable && invalidTextureCopyRejected &&
+        sameTextureCopyRejected &&
         textureView.valid() &&
         textureView.descriptor.resolvedFormat(texture.descriptor) ==
             textureFormatRgba8Unorm &&

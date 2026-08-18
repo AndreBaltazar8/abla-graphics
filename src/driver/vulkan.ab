@@ -434,6 +434,15 @@ noescape extern:"c" fun vkCmdCopyBuffer(
     regionCount: i32,
     regions: i64*
 ): void
+noescape extern:"c" fun vkCmdCopyImage(
+    commandBuffer: i64*,
+    sourceImage: int,
+    sourceImageLayout: i32,
+    destinationImage: int,
+    destinationImageLayout: i32,
+    regionCount: i32,
+    regions: i64*
+): void
 noescape extern:"c" fun vkCmdCopyImageToBuffer(
     commandBuffer: i64*,
     sourceImage: int,
@@ -1054,6 +1063,190 @@ resource class VulkanDevice(
                 nativeNullPointer()
             )
             succeeded = this.submitTransfer()
+        }
+        succeeded
+    }
+
+    trusted fun copyTexture(
+        source: VulkanTexture,
+        sourceDescriptor: TextureDescriptor,
+        destination: VulkanTexture,
+        destinationDescriptor: TextureDescriptor,
+        copy: TextureCopyDescriptor
+    ): bool {
+        var succeeded = this.transferValid() && source.valid() &&
+            destination.valid() && source.device == this.handle &&
+            destination.device == this.handle &&
+            copy.valid(sourceDescriptor, destinationDescriptor) &&
+            copy.sourceMipLevel * 8 < source.layouts.capacity &&
+            copy.destinationMipLevel * 8 < destination.layouts.capacity &&
+            this.beginTransfer()
+        var sourceFinalLayout = 1
+        var destinationFinalLayout = 1
+        if (succeeded) {
+            val sourceOldLayout = source.layouts.loadI64(
+                copy.sourceMipLevel * 8
+            )
+            val destinationOldLayout =
+                destination.layouts.loadI64(copy.destinationMipLevel * 8)
+            sourceFinalLayout = if (sourceOldLayout != 0) sourceOldLayout
+                else if ((sourceDescriptor.usage & textureUsageSampled) != 0)
+                    5
+                else 1
+            destinationFinalLayout = if (
+                (destinationDescriptor.usage & textureUsageSampled) != 0
+            ) 5 else 1
+            vulkanStoreImageBarrier(
+                this.transferScratch.address,
+                source.image,
+                sourceOldLayout,
+                6,
+                if (sourceOldLayout == 0) 0 else
+                    vulkanTextureRestingAccess(
+                        sourceDescriptor,
+                        sourceOldLayout
+                    ),
+                2048,
+                vulkanTextureAspect(sourceDescriptor.format, textureAspectAll),
+                copy.sourceMipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                if (sourceOldLayout == 0) 1 else 65536,
+                4096,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.transferScratch.address
+            )
+            vulkanStoreImageBarrier(
+                this.transferScratch.address,
+                destination.image,
+                destinationOldLayout,
+                7,
+                if (destinationOldLayout == 0) 0 else
+                    vulkanTextureRestingAccess(
+                        destinationDescriptor,
+                        destinationOldLayout
+                    ),
+                4096,
+                vulkanTextureAspect(
+                    destinationDescriptor.format,
+                    textureAspectAll
+                ),
+                copy.destinationMipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                if (destinationOldLayout == 0) 1 else 65536,
+                4096,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.transferScratch.address
+            )
+            val aspect = vulkanTextureAspect(
+                sourceDescriptor.format,
+                textureAspectAll
+            )
+            this.transferScratch.storeI64(
+                0,
+                copy.sourceMipLevel * 4294967296 + aspect
+            )
+            this.transferScratch.storeI64(8, 4294967296)
+            this.transferScratch.storeI64(
+                16,
+                copy.sourceY * 4294967296 + copy.sourceX
+            )
+            this.transferScratch.storeI64(24, aspect * 4294967296)
+            this.transferScratch.storeI64(32, copy.destinationMipLevel)
+            this.transferScratch.storeI64(
+                40,
+                copy.destinationX * 4294967296 + 1
+            )
+            this.transferScratch.storeI64(48, copy.destinationY)
+            this.transferScratch.storeI64(
+                56,
+                copy.resolvedHeight(sourceDescriptor) * 4294967296 +
+                    copy.resolvedWidth(sourceDescriptor)
+            )
+            this.transferScratch.storeI64(64, 1)
+            vkCmdCopyImage(
+                this.transferCommand.load(),
+                source.image,
+                6,
+                destination.image,
+                7,
+                1,
+                this.transferScratch.address
+            )
+            vulkanStoreImageBarrier(
+                this.transferScratch.address,
+                source.image,
+                6,
+                sourceFinalLayout,
+                2048,
+                vulkanTextureRestingAccess(
+                    sourceDescriptor,
+                    sourceFinalLayout
+                ),
+                aspect,
+                copy.sourceMipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                4096,
+                65536,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.transferScratch.address
+            )
+            vulkanStoreImageBarrier(
+                this.transferScratch.address,
+                destination.image,
+                7,
+                destinationFinalLayout,
+                4096,
+                vulkanTextureRestingAccess(
+                    destinationDescriptor,
+                    destinationFinalLayout
+                ),
+                aspect,
+                copy.destinationMipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                4096,
+                65536,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.transferScratch.address
+            )
+            succeeded = this.submitTransfer()
+            if (succeeded) {
+                source.storeLayout(
+                    copy.sourceMipLevel,
+                    sourceFinalLayout
+                )
+                destination.storeLayout(
+                    copy.destinationMipLevel,
+                    destinationFinalLayout
+                )
+            }
         }
         succeeded
     }
@@ -2035,7 +2228,7 @@ resource class VulkanTexture(
     val staging: VulkanBuffer,
     var commandPool: int,
     var commandBuffer: i64*,
-    val layouts: array<int>
+    val layouts: NativeByteBuffer
 ) {
     fun valid(): bool = !pointerIsNull(this.device) &&
         this.image != 0 && this.memory != 0
@@ -2043,7 +2236,16 @@ resource class VulkanTexture(
     trusted fun transferValid(): bool = this.valid() &&
         this.staging.valid() && this.commandPool != 0 &&
         !pointerIsNull(this.commandBuffer) &&
-        !pointerIsNull(this.queue) && this.queueFamily >= 0
+        !pointerIsNull(this.queue) && this.queueFamily >= 0 &&
+        !this.layouts.closed
+
+    trusted fun storeLayout(mipLevel: int, layout: int): void {
+        ablaUnsafeStoreI64(
+            ablaUnsafePointerOffset(this.layouts.address, mipLevel * 8),
+            layout
+        )
+        return
+    }
 
     trusted fun beginTransfer(): bool {
         val command = nativePointerCell(this.commandBuffer)
@@ -2114,6 +2316,7 @@ resource class VulkanTexture(
             vkFreeMemory(this.device, this.memory, nativeNullPointer())
             this.memory = 0
         }
+        this.layouts.close()
         return
     }
 }
@@ -2147,10 +2350,10 @@ trusted fun VulkanTexture.writePixels(
     )
     val format = vulkanTextureFormat(texture.format)
     var succeeded = validation.succeeded && this.transferValid() &&
-        write.mipLevel < this.layouts.size &&
+        write.mipLevel * 8 < this.layouts.capacity &&
         this.staging.writePixels(pixels, format) && this.beginTransfer()
     if (succeeded) {
-        val oldLayout = this.layouts[write.mipLevel]
+        val oldLayout = this.layouts.loadI64(write.mipLevel * 8)
         val oldAccess = if (oldLayout == 0) 0
             else vulkanTextureRestingAccess(texture, oldLayout)
         val toTransfer = vulkanImageBarrier(
@@ -2215,7 +2418,7 @@ trusted fun VulkanTexture.writePixels(
             fromTransfer.address
         )
         succeeded = this.submitTransfer()
-        if (succeeded) this.layouts[write.mipLevel] = finalLayout
+        if (succeeded) this.storeLayout(write.mipLevel, finalLayout)
     }
     succeeded
 }
@@ -2235,10 +2438,10 @@ trusted fun VulkanTexture.rgba8(
     )
     val format = vulkanTextureFormat(texture.format)
     var succeeded = validation.succeeded && this.transferValid() &&
-        mipLevel < this.layouts.size && this.beginTransfer()
+        mipLevel * 8 < this.layouts.capacity && this.beginTransfer()
     var finalLayout = 1
     if (succeeded) {
-        val oldLayout = this.layouts[mipLevel]
+        val oldLayout = this.layouts.loadI64(mipLevel * 8)
         val oldAccess = if (oldLayout == 0) 0
             else vulkanTextureRestingAccess(texture, oldLayout)
         finalLayout = if (oldLayout != 0) oldLayout
@@ -2303,7 +2506,7 @@ trusted fun VulkanTexture.rgba8(
             fromTransfer.address
         )
         succeeded = this.submitTransfer()
-        if (succeeded) this.layouts[mipLevel] = finalLayout
+        if (succeeded) this.storeLayout(mipLevel, finalLayout)
     }
     if (succeeded) this.staging.rgba8(format) else -1
 }
@@ -2340,7 +2543,12 @@ trusted fun VulkanDevice.texture(
     )
     var commandPool = 0
     var commandBuffer = nativeNullPointer()
-    val layouts: array<int> = []
+    var layouts = nativeByteBuffer(descriptor.mipLevels * 8)
+    var layoutLevel = 0
+    while (layoutLevel < descriptor.mipLevels) {
+        layouts.storeI64(layoutLevel * 8, 0)
+        layoutLevel = layoutLevel + 1
+    }
     val format = vulkanTextureFormat(descriptor.format)
     val usage = vulkanTextureUsage(descriptor.usage, descriptor.format)
     if (this.valid() && descriptor.valid() && format != 0 && usage != 0) {
@@ -2428,11 +2636,6 @@ trusted fun VulkanDevice.texture(
         vkDestroyImage(this.handle, image, nativeNullPointer())
         image = 0
     }
-    var level = 0
-    while (level < descriptor.mipLevels) {
-        layouts.append(0)
-        level = level + 1
-    }
     val transferPixels = image != 0 &&
         textureFormatAcceptsRgba8Pixels(descriptor.format) &&
         (descriptor.usage & (textureUsageCopySource |
@@ -2489,7 +2692,7 @@ trusted fun VulkanDevice.texture(
         move(staging),
         commandPool,
         commandBuffer,
-        layouts
+        move(layouts)
     )
 }
 
@@ -3141,6 +3344,49 @@ trusted fun VulkanDevice.swapchain(
         width,
         height
     )
+}
+
+trusted fun vulkanStoreImageBarrier(
+    barrier: i64*,
+    image: int,
+    oldLayout: int,
+    newLayout: int,
+    sourceAccess: int,
+    destinationAccess: int,
+    aspect: int = 1,
+    baseMipLevel: int = 0,
+    mipLevels: int = 1
+): void {
+    ablaUnsafeStoreI64(barrier, 45)
+    ablaUnsafeStorePointer(
+        ablaUnsafePointerOffset(barrier, 8),
+        nativeNullPointer()
+    )
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(barrier, 16),
+        (destinationAccess & 4294967295) * 4294967296 +
+            (sourceAccess & 4294967295)
+    )
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(barrier, 24),
+        (newLayout & 4294967295) * 4294967296 +
+            (oldLayout & 4294967295)
+    )
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(barrier, 32),
+        18446744073709551615
+    )
+    ablaUnsafeStoreI64(ablaUnsafePointerOffset(barrier, 40), image)
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(barrier, 48),
+        baseMipLevel * 4294967296 + aspect
+    )
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(barrier, 56),
+        mipLevels
+    )
+    ablaUnsafeStoreI64(ablaUnsafePointerOffset(barrier, 64), 1)
+    return
 }
 
 trusted fun vulkanImageBarrier(

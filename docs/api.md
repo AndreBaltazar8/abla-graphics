@@ -239,7 +239,8 @@ val color = app.texture(TextureDescriptor(
     size = Extent3D(1024, 1024),
     mipLevels = 11,
     format = textureFormatRgba8UnormSrgb,
-    usage = textureUsageSampled | textureUsageCopyDestination
+    usage = textureUsageSampled | textureUsageCopySource |
+        textureUsageCopyDestination
 ))
 val fullView = color.view()
 ```
@@ -266,6 +267,24 @@ texture.writePixels(pixels, TextureWriteDescriptor(
     x = 8,
     y = 4
 ))
+
+val copied = app.texture(TextureDescriptor(
+    size = Extent3D(1024, 1024),
+    mipLevels = 11,
+    format = textureFormatRgba8UnormSrgb,
+    usage = textureUsageSampled | textureUsageCopySource |
+        textureUsageCopyDestination
+))
+app.copyTexture(color, copied, TextureCopyDescriptor(
+    sourceMipLevel = 2,
+    sourceX = 8,
+    sourceY = 4,
+    destinationMipLevel = 1,
+    destinationX = 32,
+    destinationY = 16,
+    width = 64,
+    height = 64
+))
 ```
 
 `TextureWriteDescriptor` checks mip range, nonnegative origin, overflow-safe
@@ -277,10 +296,23 @@ and command buffer with the texture, tracks every mip layout independently,
 performs explicit transfer/shader-read transitions, and converts RGBA/BGRA byte
 order. Repeated writes reuse those native resources; synchronization is
 currently queue-idle and therefore intended for asset upload and verification,
-not streaming every frame. Multisample/1D/3D creation, general byte layouts,
-image-to-image copies, asynchronous upload queues, and render-pass attachment
-use are not yet part of this common slice. Views must drop before their parent
-texture, and textures must drop before the application device/context.
+not streaming every frame.
+
+`app.copyTexture(source, destination, descriptor)` copies a checked 2D region
+between distinct same-format, single-sample color textures owned by the
+application.
+The descriptor validates both usage flags, mip levels, origins, and resolved
+extent without overflow-prone end arithmetic. OpenGL calls
+`glCopyImageSubData`. Vulkan records `vkCmdCopyImage` between explicit transfer
+layouts, restores the source layout, selects the destination resting layout,
+and keeps per-mip layout state in initialized native storage. It reuses the
+device transfer pool, command buffer, and scratch block established for buffer
+copies; repeated image copies preserve those handles and general live memory.
+The current operation waits for queue completion. Multisample/1D/3D creation,
+format-converting copies, general byte layouts, asynchronous upload queues, and
+render-pass attachment use are not yet part of this common slice. Views must
+drop before their parent texture, and textures must drop before the application
+device/context.
 
 Samplers are also driver-backed affine resources:
 

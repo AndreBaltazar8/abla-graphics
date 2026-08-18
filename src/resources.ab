@@ -189,6 +189,176 @@ class TextureWriteDescriptor(
     }
 }
 
+class TextureCopyDescriptor(
+    val sourceMipLevel: int = 0,
+    val sourceX: int = 0,
+    val sourceY: int = 0,
+    val destinationMipLevel: int = 0,
+    val destinationX: int = 0,
+    val destinationY: int = 0,
+    val width: int = -1,
+    val height: int = -1
+) {
+    fun resolvedWidth(source: TextureDescriptor): int =
+        if (this.width == -1 && this.sourceMipLevel >= 0 &&
+            this.sourceMipLevel < source.mipLevels)
+            textureMipDimension(
+                source.size.width,
+                this.sourceMipLevel
+            ) - this.sourceX
+        else this.width
+
+    fun resolvedHeight(source: TextureDescriptor): int =
+        if (this.height == -1 && this.sourceMipLevel >= 0 &&
+            this.sourceMipLevel < source.mipLevels)
+            textureMipDimension(
+                source.size.height,
+                this.sourceMipLevel
+            ) - this.sourceY
+        else this.height
+
+    fun validation(
+        source: TextureDescriptor,
+        destination: TextureDescriptor
+    ): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (!source.valid() || !destination.valid()) {
+            result = graphicsDescriptorInvalid(
+                "texture",
+                "texture copy requires valid source and destination textures"
+            )
+        } else if ((source.usage & textureUsageCopySource) == 0) {
+            result = graphicsDescriptorInvalid(
+                "sourceUsage",
+                "texture copy source usage is missing"
+            )
+        } else if ((destination.usage & textureUsageCopyDestination) == 0) {
+            result = graphicsDescriptorInvalid(
+                "destinationUsage",
+                "texture copy destination usage is missing"
+            )
+        } else if (source.dimension != textureDimension2D ||
+            destination.dimension != textureDimension2D ||
+            source.samples != 1 || destination.samples != 1) {
+            result = graphicsDescriptorInvalid(
+                "dimension",
+                "portable texture copies require single-sample 2D textures"
+            )
+        } else if (source.format != destination.format) {
+            result = graphicsDescriptorInvalid(
+                "format",
+                "texture copy formats must match"
+            )
+        } else if (textureFormatHasDepth(source.format)) {
+            result = graphicsDescriptorInvalid(
+                "format",
+                "portable texture copies currently support color formats"
+            )
+        } else if (this.sourceMipLevel < 0 ||
+            this.sourceMipLevel >= source.mipLevels) {
+            result = graphicsDescriptorInvalid(
+                "sourceMipLevel",
+                "texture copy source mip level is out of range"
+            )
+        } else if (this.destinationMipLevel < 0 ||
+            this.destinationMipLevel >= destination.mipLevels) {
+            result = graphicsDescriptorInvalid(
+                "destinationMipLevel",
+                "texture copy destination mip level is out of range"
+            )
+        } else {
+            val sourceWidth = textureMipDimension(
+                source.size.width,
+                this.sourceMipLevel
+            )
+            val sourceHeight = textureMipDimension(
+                source.size.height,
+                this.sourceMipLevel
+            )
+            val destinationWidth = textureMipDimension(
+                destination.size.width,
+                this.destinationMipLevel
+            )
+            val destinationHeight = textureMipDimension(
+                destination.size.height,
+                this.destinationMipLevel
+            )
+            val copyWidth = this.resolvedWidth(source)
+            val copyHeight = this.resolvedHeight(source)
+            if (this.sourceX < 0 || this.sourceY < 0 ||
+                this.sourceX >= sourceWidth ||
+                this.sourceY >= sourceHeight || copyWidth <= 0 ||
+                copyHeight <= 0 ||
+                copyWidth > sourceWidth - this.sourceX ||
+                copyHeight > sourceHeight - this.sourceY) {
+                result = graphicsDescriptorInvalid(
+                    "sourceOrigin",
+                    "texture copy region exceeds the source mip level"
+                )
+            } else if (this.destinationX < 0 || this.destinationY < 0 ||
+                this.destinationX >= destinationWidth ||
+                this.destinationY >= destinationHeight ||
+                copyWidth > destinationWidth - this.destinationX ||
+                copyHeight > destinationHeight - this.destinationY) {
+                result = graphicsDescriptorInvalid(
+                    "destinationOrigin",
+                    "texture copy region exceeds the destination mip level"
+                )
+            }
+        }
+        result
+    }
+
+    fun valid(
+        source: TextureDescriptor,
+        destination: TextureDescriptor
+    ): bool {
+        var succeeded = source.valid() && destination.valid() &&
+            (source.usage & textureUsageCopySource) != 0 &&
+            (destination.usage & textureUsageCopyDestination) != 0 &&
+            source.dimension == textureDimension2D &&
+            destination.dimension == textureDimension2D &&
+            source.samples == 1 && destination.samples == 1 &&
+            source.format == destination.format &&
+            !textureFormatHasDepth(source.format) &&
+            this.sourceMipLevel >= 0 &&
+            this.sourceMipLevel < source.mipLevels &&
+            this.destinationMipLevel >= 0 &&
+            this.destinationMipLevel < destination.mipLevels
+        if (succeeded) {
+            val sourceWidth = textureMipDimension(
+                source.size.width,
+                this.sourceMipLevel
+            )
+            val sourceHeight = textureMipDimension(
+                source.size.height,
+                this.sourceMipLevel
+            )
+            val destinationWidth = textureMipDimension(
+                destination.size.width,
+                this.destinationMipLevel
+            )
+            val destinationHeight = textureMipDimension(
+                destination.size.height,
+                this.destinationMipLevel
+            )
+            val copyWidth = this.resolvedWidth(source)
+            val copyHeight = this.resolvedHeight(source)
+            succeeded = this.sourceX >= 0 && this.sourceY >= 0 &&
+                this.sourceX < sourceWidth && this.sourceY < sourceHeight &&
+                this.destinationX >= 0 && this.destinationY >= 0 &&
+                this.destinationX < destinationWidth &&
+                this.destinationY < destinationHeight &&
+                copyWidth > 0 && copyHeight > 0 &&
+                copyWidth <= sourceWidth - this.sourceX &&
+                copyHeight <= sourceHeight - this.sourceY &&
+                copyWidth <= destinationWidth - this.destinationX &&
+                copyHeight <= destinationHeight - this.destinationY
+        }
+        succeeded
+    }
+}
+
 class BufferDescriptor(
     val label: string = "",
     val size: int = 0,
@@ -379,7 +549,34 @@ class TextureDescriptor(
         result
     }
 
-    fun valid(): bool = this.validation().succeeded
+    fun valid(): bool {
+        var succeeded = this.size.valid() &&
+            this.size.width <= 4294967295 &&
+            this.size.height <= 4294967295 &&
+            this.size.depth <= 4294967295 &&
+            graphicsSizeProductFits(this.size.width, this.size.height)
+        if (succeeded) {
+            succeeded = graphicsSizeProductFits(
+                this.size.width * this.size.height,
+                this.size.depth
+            )
+        }
+        succeeded = succeeded &&
+            this.dimension >= textureDimension1D &&
+            this.dimension <= textureDimension3D &&
+            (this.dimension != textureDimension1D ||
+             (this.size.height == 1 && this.size.depth == 1)) &&
+            (this.dimension != textureDimension2D || this.size.depth == 1) &&
+            this.mipLevels >= 1 &&
+            this.mipLevels <= textureMaximumMipLevels(this.size) &&
+            (this.samples == 1 || this.samples == 2 || this.samples == 4 ||
+             this.samples == 8 || this.samples == 16) &&
+            (this.samples == 1 ||
+             (this.dimension == textureDimension2D && this.mipLevels == 1)) &&
+            textureFormatValid(this.format) &&
+            graphicsUsageValid(this.usage, textureUsageAll)
+        succeeded
+    }
 }
 
 class TextureViewDescriptor(
