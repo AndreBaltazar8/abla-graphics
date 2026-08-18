@@ -692,15 +692,167 @@ fun registryWrite(
     success
 }
 
+fun registrySourcePrefix(api: string): string =
+    if (api == "vulkan") "rawVulkanRegistry" else "rawOpenGlRegistry"
+
+fun registryWriteSourceArray(
+    output: Path,
+    batch: string,
+    name: string,
+    values: array<string>,
+    blankAfter: bool = true
+): string {
+    var result = registryAppend(
+        output,
+        batch,
+        "fun $name(): array<string> = ["
+    )
+    var index = 0
+    while (result != "#write-failed" && index < values.size) {
+        val suffix = if (index + 1 < values.size) "," else ""
+        result = registryAppend(
+            output,
+            result,
+            "    \"${values[index]}\"$suffix"
+        )
+        index = index + 1
+    }
+    if (result != "#write-failed") {
+        result = registryAppend(output, result, "]")
+        if (blankAfter) result = registryAppend(output, result, "")
+    }
+    result
+}
+
+fun registryStatuses(
+    audit: RegistryAudit,
+    kind: string,
+    names: array<string>
+): array<string> {
+    val statuses: array<string> = []
+    var index = 0
+    while (index < names.size) {
+        val found = registryAuditIndex(audit, kind, names[index])
+        statuses.append(
+            if (found >= 0) audit.statuses[found] else "unclassified"
+        )
+        index = index + 1
+    }
+    statuses
+}
+
+fun registryWriteSource(
+    output: Path,
+    api: string,
+    revision: string,
+    sha256: string,
+    inventory: RegistryInventory,
+    audit: RegistryAudit
+): bool {
+    val prefix = registrySourcePrefix(api)
+    val commandStatuses = registryStatuses(
+        audit,
+        "command",
+        inventory.commands
+    )
+    val featureStatuses = registryStatuses(
+        audit,
+        "core-feature",
+        inventory.features
+    )
+    val extensionStatuses = registryStatuses(
+        audit,
+        "extension",
+        inventory.extensions
+    )
+    var success = output.writeText("")
+    var batch = ""
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "// Generated from the pinned Khronos registry. Do not edit."
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(
+        output, batch, "val ${prefix}Revision = \"$revision\""
+    )
+    if (success) batch = registryAppend(
+        output, batch, "val ${prefix}Sha256 = \"$sha256\""
+    )
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "val ${prefix}CommandCount = ${inventory.commands.size}"
+    )
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "val ${prefix}CoreFeatureCount = ${inventory.features.size}"
+    )
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "val ${prefix}ExtensionCount = ${inventory.extensions.size}"
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}Commands",
+        inventory.commands
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}CommandForms",
+        inventory.commandForms
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}CommandStatuses",
+        commandStatuses
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}CoreFeatures",
+        inventory.features
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}CoreFeatureStatuses",
+        featureStatuses
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}Extensions",
+        inventory.extensions
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}ExtensionStatuses",
+        extensionStatuses,
+        false
+    )
+    if (batch == "#write-failed") success = false
+    if (success && batch != "") success = output.appendText(batch)
+    success
+}
+
 fun main: int {
-    if (processArgumentCount() != 6) {
-        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <output.md> <revision> <sha256>")
+    if (processArgumentCount() != 7) {
+        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256>")
         2
     } else {
         val api = processArgument(0)
         val input = Path(processArgument(1))
         val auditInput = Path(processArgument(2))
         val output = Path(processArgument(3))
+        val sourceOutput = Path(processArgument(4))
         if (!input.exists()) {
             eprintln("registry input does not exist: ${input.text}")
             3
@@ -720,10 +872,20 @@ fun main: int {
                 eprintln("registry audit failed: ${registryAuditValidate(audit, inventory)}")
                 4
             } else if (!registryWrite(
-                output, api, processArgument(4), processArgument(5), inventory,
+                output, api, processArgument(5), processArgument(6), inventory,
                 audit
             )) {
                 eprintln("failed to write registry inventory: ${output.text}")
+                5
+            } else if (!registryWriteSource(
+                sourceOutput,
+                api,
+                processArgument(5),
+                processArgument(6),
+                inventory,
+                audit
+            )) {
+                eprintln("failed to write raw registry source: ${sourceOutput.text}")
                 5
             } else {
                 println("$api: ${inventory.commands.size} commands, ${inventory.features.size} core features, ${inventory.extensions.size} extensions")

@@ -398,6 +398,11 @@ Updated: 2026-08-18.
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
   inventory presence is not represented as backend support.
+  The same deterministic pass generates independently importable raw Abla
+  modules containing the pinned revision/hash and all sorted command names,
+  forms, core features, extensions, and joined statuses. Exact fixture bytes
+  are compared across two runs, and the full 2,892-command OpenGL plus
+  842-command Vulkan modules compile together behind stable raw facades.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
 - GitHub CI bootstraps `ablac` from its pinned seed and runs the complete
@@ -450,10 +455,11 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   strict no-op and single-member storage-assignment compute subsets plus fixed,
   interleaved position/color, and sampled-texture triangle vertex/fragment
   subsets described above, not general shaders.
-- Generated Khronos ABI bindings and fully classified coverage ledgers. The
-  pinned, deterministic inventory and strict evidence join exist, with the
-  initial 33 exercised common commands classified; all other rows deliberately
-  remain `unclassified` until equivalent evidence is attached.
+- Generated Khronos constants, ABI layouts, callable bindings, and fully
+  classified coverage ledgers. The pinned deterministic inventory, strict
+  evidence join, and compiled raw metadata modules exist, with the initial 33
+  exercised common commands classified; all other rows deliberately remain
+  `unclassified` until equivalent evidence is attached.
 - General texture byte uploads/format-converting copies/render-pass use,
   persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command

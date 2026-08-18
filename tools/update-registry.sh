@@ -42,7 +42,8 @@ for value in "$vulkan_repository" "$vulkan_revision" "$vulkan_path" \
     fi
 done
 
-mkdir -p "$cache_directory" "$project_root/registry/coverage"
+mkdir -p "$cache_directory" "$project_root/registry/coverage" \
+    "$project_root/src/raw"
 curl --fail --location --silent --show-error \
     "https://raw.githubusercontent.com/${vulkan_repository#https://github.com/}/$vulkan_revision/$vulkan_path" \
     --output "$cache_directory/vk.xml"
@@ -59,8 +60,10 @@ cd "$compiler_root"
 "$generator" vulkan "$cache_directory/vk.xml" \
     "$project_root/registry/audit/vulkan.tsv" \
     "$project_root/registry/coverage/vulkan.md" \
+    "$project_root/src/raw/vulkan_registry.ab" \
     "$vulkan_revision" "$vulkan_sha256"
 "$generator" opengl "$cache_directory/gl.xml" \
     "$project_root/registry/audit/opengl.tsv" \
     "$project_root/registry/coverage/opengl.md" \
+    "$project_root/src/raw/opengl_registry.ab" \
     "$opengl_revision" "$opengl_sha256"

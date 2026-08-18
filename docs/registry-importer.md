@@ -18,7 +18,16 @@ reviewed classifications and four independent evidence fields. Unlisted rows
 remain `unclassified`; duplicate classifications, names absent from the
 selected registry, unknown kinds/statuses, empty evidence, and Markdown control
 characters are hard errors. Offline fixtures exercise all four statuses and
-each rejection class. This stage does not generate ABI declarations.
+each rejection class.
+
+The same inventory and audit join now generate importable Abla modules behind
+`src/raw/opengl.ab` and `src/raw/vulkan.ab`. They contain the pinned
+revision/hash and complete byte-sorted arrays for command names/forms/statuses,
+public core features/statuses, and extensions/statuses. Normal applications do
+not import or initialize these inspection arrays. The offline fixture compares
+their exact bytes across two runs, and the full pinned modules are compiler-
+checked together. This is the generated raw namespace and metadata foundation;
+it does not yet emit constants, ABI layouts, or callable commands.
 
 The inventory parser recognizes only the XML structures needed for this stage;
 other registry structures are not interpreted or presented as generated ABI
@@ -36,7 +45,7 @@ The binding stage will generate, in dependency order:
 Generated declarations will feed the existing audit join rather than infer
 support from the presence of a registry token.
 
-Generated files carry the upstream revision and content hash. Generation uses
+Generated ledger and Abla files carry the upstream revision and content hash. Generation uses
 byte-order sorting and no wall-clock timestamp. `make test-registry` checks the
 pure-Abla parser against a fixture twice and compares the exact expected bytes.
 `make update-registry` reads `registry/manifest.toml`, downloads only the pinned

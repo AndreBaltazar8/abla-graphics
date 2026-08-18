@@ -1163,6 +1163,14 @@ native handle explicitly, and issue generated raw commands. Crossing this
 boundary disables common-layer state assumptions for the affected object until
 the documented synchronization/import operation is performed.
 
+The repository now has stable `src/raw/opengl.ab` and `src/raw/vulkan.ab`
+facades backed by deterministic generated registry modules. The delivered raw
+slice exposes pinned revisions/hashes and complete command, form, feature,
+extension, and audit-status metadata; its full modules compile in the offline
+registry gate. Constants, ABI layouts, native handles, and callable generated
+commands remain future raw-generator stages, so the current metadata facade is
+not represented as executable specification coverage.
+
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are
 unvalidated casts.

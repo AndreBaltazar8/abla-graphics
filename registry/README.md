@@ -15,5 +15,9 @@ generated ledger is not a support claim.
 
 Run `make test-registry` for the offline parser and determinism tests. Run
 `make update-registry` to download the pinned upstream files, verify their
-digests, join the reviewed audits, and regenerate the committed ledgers. Never
-edit a file in `coverage/` directly.
+digests, join the reviewed audits, and regenerate both the committed ledgers
+and `src/raw/*_registry.ab`. The generated Abla modules expose the exact pinned
+revision/hash, counts, byte-sorted names, command forms, and joined statuses;
+they are compiled by `make test-registry` through the stable `src/raw/opengl.ab`
+and `src/raw/vulkan.ab` facades. Never edit generated coverage or source files
+directly.
