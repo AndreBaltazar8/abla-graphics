@@ -140,6 +140,27 @@ command's native instance field. Zero instances are rejected before dispatch.
 Vertex/index buffers and backend command state remain stable with zero live-byte
 growth across the repeated sample draw loop.
 
+GPU-authored draw parameters use buffers created with `bufferUsageIndirect`:
+
+```abla
+app.presentRenderVerticesIndirect(pipeline, vertices, commands, clear)
+app.presentRenderIndexedIndirect(
+    pipeline,
+    vertices,
+    indices,
+    indexedCommands,
+    clear
+)
+```
+
+The first command begins at byte zero. A non-indexed command uses the standard
+16-byte `vertexCount`, `instanceCount`, `firstVertex`, `firstInstance` ABI; an
+indexed command uses the standard 20-byte layout. OpenGL binds
+`GL_DRAW_INDIRECT_BUFFER` and calls the corresponding core indirect draw.
+Vulkan records `vkCmdDrawIndirect` or `vkCmdDrawIndexedIndirect`. The framework
+validates ownership, vertex/index/indirect usage, and minimum storage, while
+command values intentionally remain GPU-readable rather than CPU-inspected.
+
 Bind groups are affine and pipeline-owned. Entries carry an explicit binding
 number, shader-stage visibility, and resource kind:
 

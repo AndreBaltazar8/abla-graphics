@@ -384,6 +384,20 @@ noescape extern:"c" fun vkCmdDrawIndexed(
     vertexOffset: i32,
     firstInstance: i32
 ): void
+noescape extern:"c" fun vkCmdDrawIndirect(
+    commandBuffer: i64*,
+    buffer: int,
+    offset: int,
+    drawCount: i32,
+    stride: i32
+): void
+noescape extern:"c" fun vkCmdDrawIndexedIndirect(
+    commandBuffer: i64*,
+    buffer: int,
+    offset: int,
+    drawCount: i32,
+    stride: i32
+): void
 noescape extern:"c" fun vkCmdBindDescriptorSets(
     commandBuffer: i64*,
     pipelineBindPoint: i32,
@@ -4743,8 +4757,11 @@ trusted fun VulkanDevice.presentRenderOutcome(
     indexBuffer: int = 0,
     indexCount: int = 0,
     instanceCount: int = 1,
-    descriptorSet: int = 0
+    descriptorSet: int = 0,
+    indirectBuffer: int = 0,
+    indexedIndirect: bool = false
 ): int {
+    val indexed = indexCount > 0 || indexedIndirect
     var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
         pipeline.valid() && pipeline.device == this.handle &&
         presenter.width == swapchain.width &&
@@ -4757,8 +4774,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
         vertexCount > 0 && indexCount >= 0 && instanceCount > 0 &&
         ((pipeline.vertexStride == 0 && vertexBuffer == 0) ||
          (pipeline.vertexStride > 0 && vertexBuffer != 0)) &&
-        ((indexCount == 0 && indexBuffer == 0) ||
-         (pipeline.vertexStride > 0 && indexCount > 0 && indexBuffer != 0)) &&
+        ((!indexed && indexBuffer == 0) ||
+         (pipeline.vertexStride > 0 && indexed && indexBuffer != 0)) &&
+        (!indexedIndirect || indirectBuffer != 0) &&
         pipeline.requiresBinding == (descriptorSet != 0)
     var recreateSwapchain = false
     var status = if (succeeded) vulkanSuccess else -1
@@ -4960,20 +4978,35 @@ trusted fun VulkanDevice.presentRenderOutcome(
                 )
             )
         }
-        if (indexCount > 0) {
+        if (indexed) {
             vkCmdBindIndexBuffer(
                 presenter.frames[frame].command.load(),
                 indexBuffer,
                 0,
                 1
             )
-            vkCmdDrawIndexed(
+            if (indirectBuffer != 0) vkCmdDrawIndexedIndirect(
+                    presenter.frames[frame].command.load(),
+                    indirectBuffer,
+                    0,
+                    1,
+                    20
+                )
+            else vkCmdDrawIndexed(
+                    presenter.frames[frame].command.load(),
+                    indexCount,
+                    instanceCount,
+                    0,
+                    0,
+                    0
+                )
+        } else if (indirectBuffer != 0) {
+            vkCmdDrawIndirect(
                 presenter.frames[frame].command.load(),
-                indexCount,
-                instanceCount,
+                indirectBuffer,
                 0,
-                0,
-                0
+                1,
+                16
             )
         } else {
             vkCmdDraw(

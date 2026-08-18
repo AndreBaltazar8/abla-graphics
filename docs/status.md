@@ -114,6 +114,12 @@ Updated: 2026-08-18.
   duplicate bindings and usage mismatches before driver work. The strict
   textured triangle and texture-plus-uniform cube remain allocation-free and
   preserve descriptor handles through repeated frames and resize recovery.
+- Indirect rendering: common vertex and `uint32` indexed paths accept
+  GPU-readable indirect command buffers after ownership, usage, and minimum-size
+  validation. OpenGL uses core indirect draws; Vulkan records the matching
+  indirect commands. The common triangle warms both variants, rejects a buffer
+  without indirect usage, then renders four indexed indirect frames and resize
+  recovery with stable handles and zero live-byte growth on both backends.
 - Indexed textured cube sample: one strict `vec3` position/`vec2` UV shader,
   24 interleaved face vertices, 36 reusable `uint32` indices, a four-quadrant
   atlas, a vertex-visible std140 64-byte MVP uniform, and enabled less/depth-

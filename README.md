@@ -39,13 +39,14 @@ proves the architecture rather than stopping at placeholder interfaces:
 - one backend-neutral affine triangle render pipeline: the same `$glsl`
   package compiles to an OpenGL program or deterministic Abla-emitted SPIR-V,
   accepts procedural vertices or checked interleaved multi-attribute common
-  vertex buffers with optional `uint32` common indices and instanced submission,
+  vertex buffers with optional `uint32` common indices plus direct, instanced,
+  and GPU-buffer-driven indirect submission,
   then records
   point/line/triangle topology, culling/front-face state, and standard alpha
   blending plus checked depth testing/writes before presenting a real Vulkan
-  render pass or OpenGL draw without steady-state runtime allocation; one
-  affine multi-entry bind groups feed sampled textures plus uniform/storage
-  buffers to strict reflected shaders
+  render pass or OpenGL draw without steady-state runtime allocation; affine
+  multi-entry bind groups feed sampled textures plus uniform/storage buffers to
+  strict reflected shaders
   and survives ordered Vulkan pipeline/swapchain/depth rebuilding after a
   window resize;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
@@ -67,8 +68,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a nanosecond monotonic clock and configurable drift-corrected frame pacer
   whose reusable steady-state wait path performs no general allocation;
 - immutable portable buffer/texture/view/sampler descriptors plus affine
-  common buffers, textures, views, samplers, and bind groups that create and drop real
-  resources on either OpenGL or Vulkan, including allocation-free repeated
+  common buffers, textures, views, samplers, and bind groups that create and
+  drop real resources on either OpenGL or Vulkan, including allocation-free repeated
   partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
   GPU buffer/texture copies, plus allocation-free repeated compute dispatch;

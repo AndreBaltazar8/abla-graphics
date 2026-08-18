@@ -208,6 +208,15 @@ noescape extern:"c" fun glDrawElementsInstanced(
     indices: i64*,
     instanceCount: i32
 ): void
+noescape extern:"c" fun glDrawArraysIndirect(
+    mode: i32,
+    indirect: i64*
+): void
+noescape extern:"c" fun glDrawElementsIndirect(
+    mode: i32,
+    dataType: i32,
+    indirect: i64*
+): void
 noescape extern:"c" fun glGenTextures(count: i32, textures: i64*): void
 noescape extern:"c" fun glBindTexture(target: i32, texture: i32): void
 noescape extern:"c" fun glActiveTexture(texture: i32): void
@@ -1778,7 +1787,8 @@ resource class OpenGlWindowContext(
         bindingKinds: array<int>,
         bindingNumbers: array<int>,
         bindingResources: array<int>,
-        bindingSamplers: array<int>
+        bindingSamplers: array<int>,
+        indirectBuffer: int = 0
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             vertexCount > 0 && instanceCount > 0 &&
@@ -1820,12 +1830,18 @@ resource class OpenGlWindowContext(
                 ) &&
                 openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
-            if (presented) glDrawArraysInstanced(
-                openGlPrimitiveMode(raster.topology),
-                0,
-                vertexCount,
-                instanceCount
-            )
+            if (presented && indirectBuffer != 0) {
+                glBindBuffer(36671, indirectBuffer)
+                glDrawArraysIndirect(
+                    openGlPrimitiveMode(raster.topology),
+                    nativeNullPointer()
+                )
+            } else if (presented) glDrawArraysInstanced(
+                    openGlPrimitiveMode(raster.topology),
+                    0,
+                    vertexCount,
+                    instanceCount
+                )
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -1845,7 +1861,8 @@ resource class OpenGlWindowContext(
         bindingKinds: array<int>,
         bindingNumbers: array<int>,
         bindingResources: array<int>,
-        bindingSamplers: array<int>
+        bindingSamplers: array<int>,
+        indirectBuffer: int = 0
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
@@ -1888,13 +1905,20 @@ resource class OpenGlWindowContext(
             glBindBuffer(34963, indices.handle)
             presented = presented && openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
-            if (presented) glDrawElementsInstanced(
+            if (presented && indirectBuffer != 0) {
+                glBindBuffer(36671, indirectBuffer)
+                glDrawElementsIndirect(
                     openGlPrimitiveMode(raster.topology),
-                    indexCount,
                     5125,
-                    nativeNullPointer(),
-                    instanceCount
+                    nativeNullPointer()
                 )
+            } else if (presented) glDrawElementsInstanced(
+                openGlPrimitiveMode(raster.topology),
+                indexCount,
+                5125,
+                nativeNullPointer(),
+                instanceCount
+            )
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }

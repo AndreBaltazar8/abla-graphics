@@ -79,6 +79,26 @@ fun main: int {
         usage = bufferUsageIndex | bufferUsageCopyDestination
     ))
     val indicesUploaded = indicesStored && indices.writeAllBytes(indexBytes)
+    val drawBytes = bufferBytes(16)
+    val drawStored = drawBytes.storeI64(8589934595, 0) &&
+        drawBytes.storeI64(0, 8)
+    val drawIndirect = app.buffer(BufferDescriptor(
+        label = "triangle-draw-indirect",
+        size = 16,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    ))
+    val drawUploaded = drawStored && drawIndirect.writeAllBytes(drawBytes)
+    val indexedDrawBytes = bufferBytes(24)
+    val indexedDrawStored = indexedDrawBytes.storeI64(8589934595, 0) &&
+        indexedDrawBytes.storeI64(0, 8) &&
+        indexedDrawBytes.storeI64(0, 16)
+    val indexedDrawIndirect = app.buffer(BufferDescriptor(
+        label = "triangle-indexed-draw-indirect",
+        size = 24,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    ))
+    val indexedDrawUploaded = indexedDrawStored &&
+        indexedDrawIndirect.writeAllBytes(indexedDrawBytes)
     val raster = RasterPipelineState(
         topology = primitiveTopologyTriangleList,
         cullMode = cullModeNone,
@@ -149,6 +169,19 @@ fun main: int {
         clear,
         0
     )
+    val invalidIndirectUsageRejected = !app.presentRenderIndexedIndirect(
+        pipeline,
+        vertices,
+        indices,
+        vertices,
+        clear
+    )
+    val vertexIndirectPresented = app.presentRenderVerticesIndirect(
+        pipeline,
+        vertices,
+        drawIndirect,
+        clear
+    )
     val warmed = app.valid() && pipeline.valid() &&
         alternatePipeline.valid() && alternatePresented &&
         !invalidPipeline.valid() &&
@@ -160,18 +193,28 @@ fun main: int {
         mismatchedLayoutPipeline.error.code ==
             graphicsErrorInvalidConfiguration &&
         vertices.valid() &&
-        indices.valid() && verticesUploaded && indicesUploaded &&
-        invalidCountRejected && invalidInstancesRejected &&
-        app.presentRenderIndexed(pipeline, vertices, indices, 3, clear, 2)
+        indices.valid() && drawIndirect.valid() &&
+        indexedDrawIndirect.valid() && verticesUploaded && indicesUploaded &&
+        drawUploaded && indexedDrawUploaded && invalidCountRejected &&
+        invalidInstancesRejected && invalidIndirectUsageRejected &&
+        vertexIndirectPresented && app.presentRenderIndexedIndirect(
+            pipeline,
+            vertices,
+            indices,
+            indexedDrawIndirect,
+            clear
+        )
     alternatePipeline.drop()
     val openGlProgram = pipeline.openGl.handle
     val openGlArray = pipeline.openGl.vertexArray
     val openGlVertexBuffer = vertices.openGl.handle
     val openGlIndexBuffer = indices.openGl.handle
+    val openGlIndirectBuffer = indexedDrawIndirect.openGl.handle
     val vulkanPipeline = pipeline.vulkan.handle
     val vulkanRenderPass = pipeline.vulkan.renderPass
     val vulkanVertexBuffer = vertices.vulkan.handle
     val vulkanIndexBuffer = indices.vulkan.handle
+    val vulkanIndirectBuffer = indexedDrawIndirect.vulkan.handle
     val vulkanDepthImage = if (
         app.backend == graphicsBackendVulkan &&
         pipeline.vulkan.depthTextures.size > 0
@@ -193,13 +236,12 @@ fun main: int {
     var presented = warmed
     var frame = 0
     while (presented && frame < 4) {
-        presented = app.presentRenderIndexed(
+        presented = app.presentRenderIndexedIndirect(
             pipeline,
             vertices,
             indices,
-            3,
-            clear,
-            2
+            indexedDrawIndirect,
+            clear
         )
         frame = frame + 1
     }
@@ -209,11 +251,13 @@ fun main: int {
         pipeline.openGl.handle == openGlProgram &&
             pipeline.openGl.vertexArray == openGlArray &&
             vertices.openGl.handle == openGlVertexBuffer &&
-            indices.openGl.handle == openGlIndexBuffer
+            indices.openGl.handle == openGlIndexBuffer &&
+            indexedDrawIndirect.openGl.handle == openGlIndirectBuffer
     else pipeline.vulkan.handle == vulkanPipeline &&
         pipeline.vulkan.renderPass == vulkanRenderPass &&
         vertices.vulkan.handle == vulkanVertexBuffer &&
         indices.vulkan.handle == vulkanIndexBuffer &&
+        indexedDrawIndirect.vulkan.handle == vulkanIndirectBuffer &&
         pipeline.vulkan.depthTextures[0].image == vulkanDepthImage &&
         pipeline.vulkan.depthViews[0].handle == vulkanDepthView &&
         pipeline.vulkan.framebuffers[0] == vulkanFramebuffer &&
@@ -230,13 +274,12 @@ fun main: int {
     }
     resized = resized && resizeEvent.first == 640 &&
         resizeEvent.second == 480 &&
-        app.presentRenderIndexed(
+        app.presentRenderIndexedIndirect(
             pipeline,
             vertices,
             indices,
-            3,
-            clear,
-            2
+            indexedDrawIndirect,
+            clear
         )
     val targetResized = resized &&
         (app.backend == graphicsBackendOpenGl ||
@@ -250,7 +293,7 @@ fun main: int {
           pipeline.vulkan.depthViews.size ==
             app.vulkanSwapchain.images.size))
     println(
-        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, instances=2, alphaBlend=${pipeline.raster.alphaBlend}, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, resized=$targetResized, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, indirect=true, instances=2, alphaBlend=${pipeline.raster.alphaBlend}, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, resized=$targetResized, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (presented && frame == 4 && noGrowth && handlesStable &&
         targetResized) 0 else 1

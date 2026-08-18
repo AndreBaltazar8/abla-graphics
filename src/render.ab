@@ -456,3 +456,161 @@ trusted fun GraphicsApplication.presentRenderIndexed(
         ready && presented
     } else false
 }
+
+trusted fun GraphicsApplication.presentRenderVerticesIndirect(
+    var pipeline: GraphicsRenderPipeline,
+    vertices: GraphicsBuffer,
+    indirect: GraphicsBuffer,
+    clear: Color
+): bool {
+    val stride = pipeline.vertexLayout.stride
+    if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
+        !indirect.valid() || !clear.valid() ||
+        pipeline.backend != this.backend || stride <= 0 ||
+        vertices.descriptor.size / stride <= 0 ||
+        indirect.descriptor.size < 16 ||
+        !this.ownsBuffer(vertices) || !this.ownsBuffer(indirect) ||
+        (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
+        (indirect.descriptor.usage & bufferUsageIndirect) == 0) false
+    else if (this.backend == graphicsBackendOpenGl) {
+        this.openGl.presentProgramVertices(
+            pipeline.openGl,
+            vertices.openGl,
+            1,
+            1,
+            pipeline.vertexLayout,
+            clear,
+            pipeline.raster,
+            pipeline.depth,
+            pipeline.binding.openGlKinds,
+            pipeline.binding.openGlBindings,
+            pipeline.binding.openGlResources,
+            pipeline.binding.openGlSamplers,
+            indirect.openGl.handle
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        var ready = this.renderTargetReady(pipeline)
+        var outcome = vulkanPresentOutcome(false, false, -1)
+        if (ready) outcome = this.vulkanDevice.presentRenderOutcome(
+            this.vulkanSwapchain,
+            this.vulkanPixels,
+            pipeline.vulkan,
+            clear,
+            vertices.vulkan.handle,
+            1,
+            0,
+            0,
+            1,
+            pipeline.binding.vulkan.descriptorSet,
+            indirect.vulkan.handle
+        )
+        var presented = vulkanPresentSucceeded(outcome)
+        if (ready && vulkanPresentNeedsRecreation(outcome)) {
+            ready = this.recreateRenderTarget(
+                pipeline,
+                this.window.width,
+                this.window.height
+            )
+            if (ready && !presented) outcome =
+                this.vulkanDevice.presentRenderOutcome(
+                    this.vulkanSwapchain,
+                    this.vulkanPixels,
+                    pipeline.vulkan,
+                    clear,
+                    vertices.vulkan.handle,
+                    1,
+                    0,
+                    0,
+                    1,
+                    pipeline.binding.vulkan.descriptorSet,
+                    indirect.vulkan.handle
+                )
+            presented = presented ||
+                (vulkanPresentSucceeded(outcome) &&
+                 !vulkanPresentNeedsRecreation(outcome))
+        }
+        ready && presented
+    } else false
+}
+
+trusted fun GraphicsApplication.presentRenderIndexedIndirect(
+    var pipeline: GraphicsRenderPipeline,
+    vertices: GraphicsBuffer,
+    indices: GraphicsBuffer,
+    indirect: GraphicsBuffer,
+    clear: Color
+): bool {
+    val stride = pipeline.vertexLayout.stride
+    if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
+        !indices.valid() || !indirect.valid() || !clear.valid() ||
+        pipeline.backend != this.backend || stride <= 0 ||
+        vertices.descriptor.size / stride <= 0 ||
+        indices.descriptor.size / 4 <= 0 || indirect.descriptor.size < 20 ||
+        !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
+        !this.ownsBuffer(indirect) ||
+        (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
+        (indices.descriptor.usage & bufferUsageIndex) == 0 ||
+        (indirect.descriptor.usage & bufferUsageIndirect) == 0) false
+    else if (this.backend == graphicsBackendOpenGl) {
+        this.openGl.presentProgramIndexed(
+            pipeline.openGl,
+            vertices.openGl,
+            indices.openGl,
+            1,
+            1,
+            pipeline.vertexLayout,
+            clear,
+            pipeline.raster,
+            pipeline.depth,
+            pipeline.binding.openGlKinds,
+            pipeline.binding.openGlBindings,
+            pipeline.binding.openGlResources,
+            pipeline.binding.openGlSamplers,
+            indirect.openGl.handle
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        var ready = this.renderTargetReady(pipeline)
+        var outcome = vulkanPresentOutcome(false, false, -1)
+        if (ready) outcome = this.vulkanDevice.presentRenderOutcome(
+            this.vulkanSwapchain,
+            this.vulkanPixels,
+            pipeline.vulkan,
+            clear,
+            vertices.vulkan.handle,
+            1,
+            indices.vulkan.handle,
+            0,
+            1,
+            pipeline.binding.vulkan.descriptorSet,
+            indirect.vulkan.handle,
+            true
+        )
+        var presented = vulkanPresentSucceeded(outcome)
+        if (ready && vulkanPresentNeedsRecreation(outcome)) {
+            ready = this.recreateRenderTarget(
+                pipeline,
+                this.window.width,
+                this.window.height
+            )
+            if (ready && !presented) outcome =
+                this.vulkanDevice.presentRenderOutcome(
+                    this.vulkanSwapchain,
+                    this.vulkanPixels,
+                    pipeline.vulkan,
+                    clear,
+                    vertices.vulkan.handle,
+                    1,
+                    indices.vulkan.handle,
+                    0,
+                    1,
+                    pipeline.binding.vulkan.descriptorSet,
+                    indirect.vulkan.handle,
+                    true
+                )
+            presented = presented ||
+                (vulkanPresentSucceeded(outcome) &&
+                 !vulkanPresentNeedsRecreation(outcome))
+        }
+        ready && presented
+    } else false
+}
