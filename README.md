@@ -79,7 +79,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   group, and GPU-indirect offscreen draws, with optional affine depth-texture
   ownership and depth-tested/written target pipelines, plus two-to-eight affine
   color attachments driven by reflected fragment-output locations, combinable
-  with depth and reusable per-attachment clear passes;
+  with depth and reusable per-attachment clear/load/discard and store/discard
+  passes;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
@@ -151,8 +152,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   frames on both backends;
 - `examples/multiple-render-targets`: one pure-Abla `$glsl` fragment stage
   writes exact red and green results to two affine color attachments over
-  distinct blue/yellow clears with a depth attachment for four allocation-free
-  frames on both backends;
+  a blue attachment loaded from the prior pass and a separately cleared cyan
+  attachment, while also exercising discard operations and depth for four
+  allocation-free frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
   mutation and readback; and

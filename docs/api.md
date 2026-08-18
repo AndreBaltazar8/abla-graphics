@@ -674,6 +674,42 @@ depth presence, and backend once. Reusing that pass performs no general heap
 allocation on either backend. The scalar-clear `renderToTarget` form remains a
 compact shorthand and applies the same color to every color attachment.
 
+Portable attachment operations are immutable pass-creation data. Each color
+and the optional depth attachment selects clear, load, or discard on entry and
+store or discard on exit:
+
+```abla
+val mixedPass = app.renderPass(
+    target,
+    move(mixedClears),
+    RenderPassOperations(
+        color = RenderAttachmentOperations(
+            load = attachmentLoadOperationLoad,
+            store = attachmentStoreOperationStore
+        ),
+        additionalColors = [RenderAttachmentOperations(
+            load = attachmentLoadOperationClear,
+            store = attachmentStoreOperationDiscard
+        )],
+        depth = RenderAttachmentOperations(
+            load = attachmentLoadOperationClear,
+            store = attachmentStoreOperationStore
+        )
+    )
+)
+```
+
+An empty `additionalColors` array applies `color` to every color attachment;
+otherwise it must contain exactly one operation for each additional attachment.
+Vulkan creates an owned render pass compatible with the target framebuffer and
+pipeline, with explicit initial/final layouts. OpenGL performs selective
+`glClearBufferfv` calls and maps discard intent to
+`glInvalidateFramebuffer` before or after the draw. Both mappings are prepared
+once and add no steady-state allocation. OpenGL discard passes require core
+version 4.3 or newer and fail as unsupported on an older context. Invalid
+operation values, attachment counts, and target/pass mismatches are rejected
+before encoding.
+
 The same pass resource drives every buffered command form without rebuilding
 or repacking its attachment clears:
 
@@ -708,8 +744,7 @@ only/depth-state mismatches are rejected. The `render-to-texture` sample
 exercises all four buffered command forms with depth testing/writes before
 sampling the result, with exact center-pixel verification, stable native
 handles, and zero live-byte growth. The same command forms operate on multiple
-color attachments; generalized per-attachment load/store/discard operations
-remain the next render-pass extension.
+color attachments and honor the same per-attachment operations.
 
 Samplers are also driver-backed affine resources:
 

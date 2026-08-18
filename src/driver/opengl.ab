@@ -178,6 +178,11 @@ noescape extern:"c" fun glFramebufferTexture2D(
     level: i32
 ): void
 noescape extern:"c" fun glDrawBuffers(count: i32, buffers: i64*): void
+noescape extern:"c" fun glInvalidateFramebuffer(
+    target: i32,
+    count: i32,
+    attachments: i64*
+): void
 noescape extern:"c" fun glCheckFramebufferStatus(target: i32): i32
 noescape extern:"c" fun glDeleteFramebuffers(
     count: i32,
@@ -1309,6 +1314,28 @@ resource class OpenGlRenderTarget(
     }
 }
 
+fun openGlInvalidateRenderTarget(
+    target: OpenGlRenderTarget,
+    mask: int,
+    var storage: NativeByteBuffer
+): void {
+    var count = 0
+    var colorIndex = 0
+    while (colorIndex < 1 + target.additionalTextures.size) {
+        if ((mask & (1 << colorIndex)) != 0) {
+            openGlStoreI32(storage, count, 36064 + colorIndex)
+            count = count + 1
+        }
+        colorIndex = colorIndex + 1
+    }
+    if (target.depthTexture != 0 && (mask & (1 << 8)) != 0) {
+        openGlStoreI32(storage, count, 36096)
+        count = count + 1
+    }
+    if (count > 0) glInvalidateFramebuffer(36160, count, storage.address)
+    return
+}
+
 trusted fun OpenGlWindowContext.renderTarget(
     texture: OpenGlTexture,
     descriptor: TextureDescriptor,
@@ -1464,7 +1491,10 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     bindingSamplers: array<int>,
     indirectBuffer: int = 0,
     indexedIndirect: bool = false,
-    clearStorage: i64* = nativeNullPointer()
+    clearStorage: i64* = nativeNullPointer(),
+    clearMask: int = -1,
+    discardBeforeMask: int = 0,
+    discardAfterMask: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
@@ -1484,6 +1514,12 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (rendered) {
+        glBindFramebuffer(36160, target.handle)
+        openGlInvalidateRenderTarget(
+            target,
+            discardBeforeMask,
+            this.clearScratch
+        )
         if (pointerIsNull(clearStorage)) openGlStoreClearScalars(
             this.clearScratch,
             clearRed,
@@ -1491,20 +1527,27 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             clearBlue,
             clearAlpha
         )
-        glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
         var colorIndex = 0
         while (colorIndex < 1 + target.additionalTextures.size) {
-            if (!pointerIsNull(clearStorage)) glClearBufferfv(
+            if ((clearMask < 0 ||
+                (clearMask & (1 << colorIndex)) != 0) &&
+                !pointerIsNull(clearStorage)) glClearBufferfv(
                 6144,
                 colorIndex,
                 nativePointerFromAddress(
                     nativePointerAddress(clearStorage) + colorIndex * 16
                 )
-            ) else glClearBufferfv(6144, colorIndex, this.clearScratch.address)
+            ) else if (clearMask < 0 ||
+                (clearMask & (1 << colorIndex)) != 0) glClearBufferfv(
+                    6144,
+                    colorIndex,
+                    this.clearScratch.address
+                )
             colorIndex = colorIndex + 1
         }
-        if (target.depthTexture != 0) {
+        if (target.depthTexture != 0 &&
+            (clearMask < 0 || (clearMask & (1 << 8)) != 0)) {
             if (!pointerIsNull(clearStorage)) glClearBufferfv(
                 6145,
                 0,
@@ -1562,6 +1605,11 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
                 vertexCount,
                 instanceCount
             )
+        if (rendered) openGlInvalidateRenderTarget(
+            target,
+            discardAfterMask,
+            this.clearScratch
+        )
         rendered = rendered && glGetError() == 0
         glBindFramebuffer(36160, 0)
     }
@@ -1954,7 +2002,7 @@ resource class OpenGlWindowContext(
         !pointerIsNull(this.display) &&
         !pointerIsNull(this.surface) &&
         !pointerIsNull(this.context) &&
-        !this.clearScratch.closed && this.clearScratch.capacity >= 16
+        !this.clearScratch.closed && this.clearScratch.capacity >= 40
 
     trusted fun makeCurrent(): bool =
         this.valid() &&
@@ -1968,6 +2016,9 @@ resource class OpenGlWindowContext(
     trusted fun capabilities(): GraphicsCapabilities =
         if (this.makeCurrent()) openGlCurrentCapabilities()
         else GraphicsCapabilities()
+
+    trusted fun framebufferInvalidationSupported(): bool =
+        this.capabilities().version.atLeast(4, 3)
 
     trusted fun presentBlack(): bool {
         var presented = false
@@ -2370,7 +2421,7 @@ trusted fun openGlWindowContext(
         context,
         window.width,
         window.height,
-        nativeByteBuffer(16)
+        nativeByteBuffer(40)
     )
 }
 

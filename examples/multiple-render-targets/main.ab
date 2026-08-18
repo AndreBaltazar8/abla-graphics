@@ -78,8 +78,52 @@ fun main: int {
         0.75
     )
     val pass = app.renderPass(target, move(clearValues))
+    val loadValues = renderPassClearValues(
+        Color(1.0, 0.0, 1.0),
+        [Color(0.0, 1.0, 1.0)],
+        1.0
+    )
+    val loadPass = app.renderPass(
+        target,
+        move(loadValues),
+        RenderPassOperations(
+            color = RenderAttachmentOperations(
+                load = attachmentLoadOperationLoad
+            ),
+            additionalColors = [RenderAttachmentOperations(
+                load = attachmentLoadOperationClear
+            )]
+        )
+    )
+    val discardValues = renderPassClearValues(
+        Color(0.0, 0.0, 0.0),
+        [Color(0.0, 0.0, 0.0)],
+        1.0
+    )
+    val discardPass = app.renderPass(
+        target,
+        move(discardValues),
+        RenderPassOperations(
+            color = RenderAttachmentOperations(
+                load = attachmentLoadOperationDiscard,
+                store = attachmentStoreOperationDiscard
+            ),
+            depth = RenderAttachmentOperations(
+                load = attachmentLoadOperationDiscard,
+                store = attachmentStoreOperationDiscard
+            )
+        )
+    )
     val warmed = app.valid() && target.valid() && pipeline.valid() &&
-        app.renderPassToTarget(target, pipeline, pass)
+        pass.valid() && loadPass.valid() && discardPass.valid() &&
+        app.renderPassToTarget(target, pipeline, pass) &&
+        app.renderPassToTarget(target, pipeline, loadPass)
+    val passHandle = if (app.backend == graphicsBackendVulkan)
+        pass.vulkan.handle else pass.targetHandle
+    val loadPassHandle = if (app.backend == graphicsBackendVulkan)
+        loadPass.vulkan.handle else loadPass.targetHandle
+    val discardPassHandle = if (app.backend == graphicsBackendVulkan)
+        discardPass.vulkan.handle else discardPass.targetHandle
     val liveBefore = runtimeMemoryLiveBytes()
     var rendered = warmed
     var frame = 0
@@ -87,7 +131,15 @@ fun main: int {
         rendered = app.renderPassToTarget(
             target,
             pipeline,
+            discardPass
+        ) && app.renderPassToTarget(
+            target,
+            pipeline,
             pass
+        ) && app.renderPassToTarget(
+            target,
+            pipeline,
+            loadPass
         )
         frame = frame + 1
     }
@@ -97,13 +149,22 @@ fun main: int {
     val firstClearPixel = target.texture.rgba8(0, 0)
     val secondClearPixel = target.additionalTextures[0].rgba8(0, 0)
     val noGrowth = liveAfter == liveBefore
+    val handlesStable = passHandle != 0 && loadPassHandle != 0 &&
+        discardPassHandle != 0 &&
+        (if (app.backend == graphicsBackendVulkan)
+            pass.vulkan.handle == passHandle &&
+                loadPass.vulkan.handle == loadPassHandle &&
+                discardPass.vulkan.handle == discardPassHandle
+         else pass.targetHandle == passHandle &&
+            loadPass.targetHandle == loadPassHandle &&
+            discardPass.targetHandle == discardPassHandle)
     println(
-        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, depth=${target.hasDepth()}, frames=$frame, first=$firstPixel/$firstClearPixel, second=$secondPixel/$secondClearPixel, repeatNoGrowth=$noGrowth, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, depth=${target.hasDepth()}, passes=clear/mixed/discard, frames=$frame, first=$firstPixel/$firstClearPixel, second=$secondPixel/$secondClearPixel, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (rendered && frame == 4 && target.colorCount() == 2 &&
         target.hasDepth() &&
         firstPixel == 4278190335 && secondPixel == 4278255360 &&
         firstClearPixel == 4294901760 &&
-        secondClearPixel == 4278255615 &&
-        noGrowth) 0 else 1
+        secondClearPixel == 4294967040 &&
+        noGrowth && handlesStable) 0 else 1
 }

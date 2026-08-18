@@ -108,7 +108,11 @@ resource class GraphicsRenderPass(
     val stencil: int,
     val clearAddress: i64*,
     val clearCapacity: int,
+    val clearMask: int,
+    val discardBeforeMask: int,
+    val discardAfterMask: int,
     val values: RenderPassClearValues,
+    val vulkan: VulkanCompatibleRenderPass,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.targetHandle != 0 &&
@@ -120,9 +124,15 @@ resource class GraphicsRenderPass(
             this.green,
             this.blue,
             this.alpha
-        ) && this.depth >= 0.0 && this.depth <= 1.0 && this.stencil == 0
+        ) && this.depth >= 0.0 && this.depth <= 1.0 && this.stencil == 0 &&
+        this.clearMask >= 0 && this.clearMask <= 511 &&
+        this.discardBeforeMask >= 0 && this.discardBeforeMask <= 511 &&
+        this.discardAfterMask >= 0 && this.discardAfterMask <= 511 &&
+        ((this.backend == graphicsBackendOpenGl) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
-    fun drop(): void {
+    trusted fun drop(): void {
+        this.vulkan.drop()
         this.values.drop()
         return
     }
@@ -130,16 +140,99 @@ resource class GraphicsRenderPass(
 
 trusted fun GraphicsApplication.renderPass(
     target: GraphicsRenderTarget,
-    own values: RenderPassClearValues
+    own values: RenderPassClearValues,
+    operations: RenderPassOperations = RenderPassOperations()
 ): GraphicsRenderPass {
     var error = GraphicsError()
-    val valid = this.valid() && target.valid() &&
+    var valid = this.valid() && target.valid() &&
         target.backend == this.backend &&
-        values.valid(target.colorCount(), target.hasDepth())
+        values.valid(target.colorCount(), target.hasDepth()) &&
+        operations.valid(target.colorCount(), target.hasDepth())
+    var clearMask = 0
+    var discardBeforeMask = 0
+    var discardAfterMask = 0
+    val colorFormats: array<int> = []
+    val colorFinalLayouts: array<int> = []
+    val colorLoadOperations: array<int> = []
+    val colorStoreOperations: array<int> = []
+    var colorIndex = 0
+    while (valid && colorIndex < target.colorCount()) {
+        val selected = if (colorIndex == 0 ||
+            operations.additionalColors.size == 0) operations.color
+            else operations.additionalColors[colorIndex - 1]
+        val bit = 1 << colorIndex
+        if (selected.load == attachmentLoadOperationClear) {
+            clearMask = clearMask | bit
+        } else if (selected.load == attachmentLoadOperationDiscard) {
+            discardBeforeMask = discardBeforeMask | bit
+        }
+        if (selected.store == attachmentStoreOperationDiscard) {
+            discardAfterMask = discardAfterMask | bit
+        }
+        if (this.backend == graphicsBackendVulkan) {
+            if (colorIndex == 0) {
+                colorFormats.append(vulkanTextureFormat(
+                    target.texture.descriptor.format
+                ))
+                colorFinalLayouts.append(
+                    if ((target.texture.descriptor.usage &
+                        textureUsageSampled) != 0) 5 else 2
+                )
+            } else {
+                colorFormats.append(vulkanTextureFormat(
+                    target.additionalTextures[colorIndex - 1].descriptor.format
+                ))
+                colorFinalLayouts.append(
+                    if ((target.additionalTextures[colorIndex - 1].descriptor.usage &
+                        textureUsageSampled) != 0) 5 else 2
+                )
+            }
+            colorLoadOperations.append(selected.load)
+            colorStoreOperations.append(selected.store)
+        }
+        colorIndex = colorIndex + 1
+    }
+    if (valid && target.hasDepth()) {
+        if (operations.depth.load == attachmentLoadOperationClear) {
+            clearMask = clearMask | (1 << 8)
+        } else if (
+            operations.depth.load == attachmentLoadOperationDiscard
+        ) discardBeforeMask = discardBeforeMask | (1 << 8)
+        if (operations.depth.store == attachmentStoreOperationDiscard) {
+            discardAfterMask = discardAfterMask | (1 << 8)
+        }
+    }
+    var vulkan = VulkanCompatibleRenderPass(nativeNullPointer(), 0)
+    var driverFailed = false
+    var unsupported = false
+    if (valid && this.backend == graphicsBackendOpenGl &&
+        (discardBeforeMask != 0 || discardAfterMask != 0)) {
+        unsupported = !this.openGl.framebufferInvalidationSupported()
+        valid = !unsupported
+    }
+    if (valid && this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.compatibleRenderTargetPass(
+            target.vulkan,
+            colorFormats,
+            colorFinalLayouts,
+            colorLoadOperations,
+            colorStoreOperations,
+            operations.depth.load,
+            operations.depth.store
+        )
+        driverFailed = !vulkan.valid()
+        valid = vulkan.valid()
+    }
     if (!valid) error = GraphicsError(
-        graphicsErrorInvalidConfiguration,
+        if (unsupported) graphicsErrorUnsupportedFeature
+        else if (driverFailed) graphicsErrorDriverFailure
+        else graphicsErrorInvalidConfiguration,
         "GraphicsApplication.renderPass",
-        "render-pass clear values must match the target color/depth attachments"
+        if (unsupported)
+            "OpenGL framebuffer discard requires version 4.3 or newer"
+        else if (driverFailed)
+            "Vulkan compatible render-pass creation failed"
+        else "render-pass clear values and load/store operations must match the target attachments"
     )
     GraphicsRenderPass(
         if (valid) (if (this.backend == graphicsBackendOpenGl)
@@ -157,7 +250,11 @@ trusted fun GraphicsApplication.renderPass(
         values.stencil,
         values.address,
         values.capacity,
+        clearMask,
+        discardBeforeMask,
+        discardAfterMask,
         move(values),
+        move(vulkan),
         error
     )
 }

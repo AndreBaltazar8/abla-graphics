@@ -2721,6 +2721,148 @@ resource class VulkanRenderTarget(
     }
 }
 
+resource class VulkanCompatibleRenderPass(
+    val device: i64*,
+    var handle: int
+) {
+    fun valid(): bool = !pointerIsNull(this.device) && this.handle != 0
+
+    trusted fun drop(): void {
+        if (this.handle != 0 && !pointerIsNull(this.device)) {
+            vkDestroyRenderPass(this.device, this.handle, nativeNullPointer())
+            this.handle = 0
+        }
+        return
+    }
+}
+
+trusted fun VulkanDevice.compatibleRenderTargetPass(
+    target: VulkanRenderTarget,
+    colorFormats: array<int>,
+    colorFinalLayouts: array<int>,
+    colorLoadOperations: array<int>,
+    colorStoreOperations: array<int>,
+    depthLoadOperation: int,
+    depthStoreOperation: int
+): VulkanCompatibleRenderPass {
+    val colorCount = 1 + target.additionalViews.size
+    val hasDepth = target.hasDepth()
+    var handle = 0
+    var succeeded = this.valid() && target.valid() &&
+        target.device == this.handle && colorFormats.size == colorCount &&
+        colorFinalLayouts.size == colorCount &&
+        colorLoadOperations.size == colorCount &&
+        colorStoreOperations.size == colorCount &&
+        (!hasDepth || (
+            depthLoadOperation >= 0 && depthLoadOperation <= 2 &&
+            depthStoreOperation >= 0 && depthStoreOperation <= 1
+        ))
+    var colorIndex = 0
+    while (succeeded && colorIndex < colorCount) {
+        succeeded = colorFormats[colorIndex] != 0 &&
+            (colorFinalLayouts[colorIndex] == 2 ||
+             colorFinalLayouts[colorIndex] == 5) &&
+            colorLoadOperations[colorIndex] >= 0 &&
+            colorLoadOperations[colorIndex] <= 2 &&
+            colorStoreOperations[colorIndex] >= 0 &&
+            colorStoreOperations[colorIndex] <= 1
+        colorIndex = colorIndex + 1
+    }
+    if (succeeded) {
+        val attachmentCount = colorCount + (if (hasDepth) 1 else 0)
+        val attachments = nativeByteBuffer(attachmentCount * 40)
+        colorIndex = 0
+        while (colorIndex < colorCount) {
+            val offset = colorIndex * 36
+            val finalLayout = colorFinalLayouts[colorIndex]
+            val initialLayout = if (
+                colorLoadOperations[colorIndex] == 0
+            ) finalLayout else 0
+            attachments.storeI64(
+                offset,
+                colorFormats[colorIndex] * 4294967296
+            )
+            attachments.storeI64(
+                offset + 8,
+                colorLoadOperations[colorIndex] * 4294967296 + 1
+            )
+            attachments.storeI64(
+                offset + 16,
+                2 * 4294967296 + colorStoreOperations[colorIndex]
+            )
+            attachments.storeI64(
+                offset + 24,
+                initialLayout * 4294967296 + 1
+            )
+            attachments.storeI64(offset + 32, finalLayout)
+            colorIndex = colorIndex + 1
+        }
+        if (hasDepth) {
+            val depthOffset = colorCount * 36
+            val depthInitialLayout = if (depthLoadOperation == 0) 3 else 0
+            attachments.storeI64(
+                depthOffset,
+                target.depthFormat * 4294967296
+            )
+            attachments.storeI64(
+                depthOffset + 8,
+                depthLoadOperation * 4294967296 + 1
+            )
+            attachments.storeI64(
+                depthOffset + 16,
+                2 * 4294967296 + depthStoreOperation
+            )
+            attachments.storeI64(
+                depthOffset + 24,
+                depthInitialLayout * 4294967296 + 1
+            )
+            attachments.storeI64(depthOffset + 32, 3)
+        }
+        val colorReferences = nativeByteBuffer(colorCount * 8)
+        colorIndex = 0
+        while (colorIndex < colorCount) {
+            colorReferences.storeI64(
+                colorIndex * 8,
+                2 * 4294967296 + colorIndex
+            )
+            colorIndex = colorIndex + 1
+        }
+        val depthReference = nativeByteBuffer(8)
+        depthReference.storeI64(0, 3 * 4294967296 + colorCount)
+        val subpass = nativeByteBuffer(72)
+        subpass.storeI64(0, 0)
+        subpass.storeI64(8, 0)
+        subpass.storePointer(16, nativeNullPointer())
+        subpass.storeI64(24, colorCount)
+        subpass.storePointer(32, colorReferences.address)
+        subpass.storePointer(40, nativeNullPointer())
+        subpass.storePointer(
+            48,
+            if (hasDepth) depthReference.address else nativeNullPointer()
+        )
+        subpass.storeI64(56, 0)
+        subpass.storePointer(64, nativeNullPointer())
+        val createInfo = nativeByteBuffer(64)
+        createInfo.storeI64(0, 38)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, attachmentCount * 4294967296)
+        createInfo.storePointer(24, attachments.address)
+        createInfo.storeI64(32, 1)
+        createInfo.storePointer(40, subpass.address)
+        createInfo.storeI64(48, 0)
+        createInfo.storePointer(56, nativeNullPointer())
+        val output = nativeI64Cell(0)
+        succeeded = vkCreateRenderPass(
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess
+        if (succeeded) handle = output.load()
+    }
+    VulkanCompatibleRenderPass(this.handle, handle)
+}
+
 trusted fun VulkanDevice.renderTarget(
     texture: VulkanTexture,
     descriptor: TextureDescriptor,
@@ -3064,10 +3206,13 @@ trusted fun VulkanDevice.renderTargetProgram(
     descriptorSet: int = 0,
     indirectBuffer: int = 0,
     indexedIndirect: bool = false,
-    clearStorage: i64* = nativeNullPointer()
+    clearStorage: i64* = nativeNullPointer(),
+    compatibleRenderPass: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     val colorCount = 1 + target.additionalViews.size
+    val selectedRenderPass = if (compatibleRenderPass != 0)
+        compatibleRenderPass else target.renderPass
     var succeeded = this.transferValid() && target.valid() &&
         pipeline.valid() && graphicsColorScalarsValid(
             clearRed,
@@ -3085,6 +3230,7 @@ trusted fun VulkanDevice.renderTargetProgram(
         (!indexedIndirect || indirectBuffer != 0) &&
         pipeline.requiresBinding == (descriptorSet != 0) &&
         pipeline.renderPass == target.renderPass &&
+        selectedRenderPass != 0 &&
         pipeline.framebuffers.size == 1 &&
         pipeline.framebuffers[0] == target.framebuffer &&
         pipeline.width == target.width && pipeline.height == target.height &&
@@ -3092,7 +3238,7 @@ trusted fun VulkanDevice.renderTargetProgram(
     if (succeeded) {
         this.transferScratch.storeI64(0, 43)
         this.transferScratch.storePointer(8, nativeNullPointer())
-        this.transferScratch.storeI64(16, target.renderPass)
+        this.transferScratch.storeI64(16, selectedRenderPass)
         this.transferScratch.storeI64(24, target.framebuffer)
         this.transferScratch.storeI64(32, 0)
         this.transferScratch.storeI64(

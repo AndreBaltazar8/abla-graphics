@@ -140,6 +140,42 @@ class DepthStencilState(
         (!this.write || this.enabled)
 }
 
+val attachmentLoadOperationLoad = 0
+val attachmentLoadOperationClear = 1
+val attachmentLoadOperationDiscard = 2
+
+val attachmentStoreOperationStore = 0
+val attachmentStoreOperationDiscard = 1
+
+class RenderAttachmentOperations(
+    val load: int = attachmentLoadOperationClear,
+    val store: int = attachmentStoreOperationStore
+) {
+    fun valid(): bool = this.load >= attachmentLoadOperationLoad &&
+        this.load <= attachmentLoadOperationDiscard &&
+        this.store >= attachmentStoreOperationStore &&
+        this.store <= attachmentStoreOperationDiscard
+}
+
+class RenderPassOperations(
+    val color: RenderAttachmentOperations = RenderAttachmentOperations(),
+    val additionalColors: array<RenderAttachmentOperations> = [],
+    val depth: RenderAttachmentOperations = RenderAttachmentOperations()
+) {
+    fun valid(colorCount: int, hasDepth: bool): bool {
+        var valid = colorCount >= 1 && colorCount <= 8 &&
+            (this.additionalColors.size == 0 ||
+             this.additionalColors.size == colorCount - 1) &&
+            this.color.valid() && (!hasDepth || this.depth.valid())
+        var index = 0
+        while (valid && index < this.additionalColors.size) {
+            valid = this.additionalColors[index].valid()
+            index = index + 1
+        }
+        valid
+    }
+}
+
 resource class RenderPassClearValues(
     val color: Color,
     val additionalColors: array<Color>,

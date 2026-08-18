@@ -279,12 +279,16 @@ Updated: 2026-08-18.
   must be contiguous and exactly match the target count. OpenGL configures FBO
   draw buffers; Vulkan generates the complete attachment/reference/view/
   framebuffer and blend-state arrays.
-- Reusable attachment clear passes: `RenderPassClearValues` owns a stable native
-  block containing one color per attachment plus depth/stencil, and
-  `GraphicsRenderPass` validates and binds it to a target once. The MRT sample
-  verifies exact red/green shader output over distinct blue/yellow clears with
-  a depth attachment. Four repeated pass draws preserve handles with zero live-
-  memory growth on both backends.
+- Reusable attachment-operation passes: `RenderPassClearValues` owns a stable
+  native block containing one color per attachment plus depth/stencil, while
+  `RenderPassOperations` selects clear/load/discard and store/discard per color
+  and depth attachment. `GraphicsRenderPass` validates and binds both to a
+  target once. Vulkan owns a compatible specialized render pass; OpenGL maps
+  the operations to selective clears and framebuffer invalidation. The MRT
+  sample proves attachment-zero load preservation (blue), an independent
+  attachment-one clear (cyan), exact red/green shader output, and discard
+  execution with a depth attachment. Four repeated three-pass sequences
+  preserve handles with zero live-memory growth on both backends.
 - Render-to-texture/post-process sample: a 256x256 target receives a procedural
   and buffered scene pass, becomes a sampled-texture bind-group entry, and is
   drawn through a fullscreen surface pass unchanged on OpenGL and Vulkan. The
@@ -387,7 +391,8 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 
-- General Vulkan render-pass descriptors, multi-entry bind groups,
+- General multi-subpass Vulkan render-pass descriptors,
+  attachment resolve/input/preserve lists,
   synchronization2, and dynamic rendering. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
