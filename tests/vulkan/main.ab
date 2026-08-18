@@ -45,6 +45,38 @@ fun main: int {
     }
     val storageCode = storagePackage.spirv(shaderStageCompute)
     val storageShader = device.shaderModule(storageCode.module)
+    val trianglePackage = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val triangleVertexCode = trianglePackage.spirv(shaderStageVertex)
+    val triangleFragmentCode = trianglePackage.spirv(shaderStageFragment)
+    val triangleVertexShader = device.shaderModule(
+        triangleVertexCode.module
+    )
+    val triangleFragmentShader = device.shaderModule(
+        triangleFragmentCode.module
+    )
     val pipeline = device.computePipeline(shader)
     val commandPool = pipeline.commandPool
     val commandBuffer = nativePointerAddress(pipeline.command.load())
@@ -103,6 +135,8 @@ fun main: int {
         computeCode.module.words[18] != 8 ||
         computeCode.module.words[19] != 4 || !shader.valid() ||
         !storageCode.succeeded || !storageShader.valid() ||
+        !triangleVertexCode.succeeded || !triangleFragmentCode.succeeded ||
+        !triangleVertexShader.valid() || !triangleFragmentShader.valid() ||
         !storageBuffer.valid() || !storageCleared ||
         !storagePipeline.valid() || !storageDispatched ||
         !storageDispatchedAgain || storageValue != 18 ||

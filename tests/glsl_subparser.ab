@@ -109,6 +109,41 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value-1u; }"]
     ).spirv(shaderStageCompute)
+    val triangle = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val triangleVertex = triangle.spirv(shaderStageVertex)
+    val triangleVertexAgain = triangle.spirv(shaderStageVertex)
+    val triangleFragment = triangle.spirv(shaderStageFragment)
+    val triangleFragmentAgain = triangle.spirv(shaderStageFragment)
+    val unsupportedTriangle = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main() { gl_Position = vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageVertex)
     if (shader.valid && frozen.valid && frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&
@@ -164,6 +199,22 @@ fun main: int {
         storageMultiply.module.words[85] == 327812 &&
         !unsupportedStorageSubtract.succeeded &&
         unsupportedStorageSubtract.error != "" &&
+        triangle.valid && triangle.locations.size == 1 &&
+        triangleVertex.succeeded && triangleVertex.module.valid() &&
+        triangleVertex.module.words.size == 232 &&
+        triangleVertex.module.bound() == 42 &&
+        spirvWordsEqual(
+            triangleVertex.module,
+            triangleVertexAgain.module
+        ) &&
+        triangleFragment.succeeded && triangleFragment.module.valid() &&
+        triangleFragment.module.words.size == 84 &&
+        triangleFragment.module.bound() == 15 &&
+        spirvWordsEqual(
+            triangleFragment.module,
+            triangleFragmentAgain.module
+        ) &&
+        !unsupportedTriangle.succeeded && unsupportedTriangle.error != "" &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != "") 42 else 1
 }

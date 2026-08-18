@@ -569,9 +569,9 @@ path for external/generated toolchains and the destination for the forthcoming
 complete `$glsl` translator; structural validation does not claim full SPIR-V
 semantic validation.
 
-The executable translator is available as
-`package.spirv(shaderStageCompute)`. It accepts exactly one compute stage with
-one `#version 450` or `460` directive and an explicit local-size layout. The
+The executable translator is available as `package.spirv(stage)`. Its compute
+path accepts exactly one compute stage with one `#version 450` or `460`
+directive and an explicit local-size layout. The
 first form has an empty `main`; the second grammar declares one binding-zero
 `Values` storage block and either stores a parsed unsigned integer literal or
 adds/multiplies the existing member value by a parsed unsigned literal. They
@@ -583,6 +583,17 @@ binding, global, statement, version, or stage returns a checked
 `GlslSpirvResult` failure; nothing unsupported is silently dropped. These
 narrow subsets establish the pure-Abla emitter and execution path, not
 completion of general GLSL-to-SPIR-V compilation.
+
+The first raster path recognizes one exact two-stage triangle package. Its
+vertex stage declares three constant `vec2` positions and selects one with
+`gl_VertexID`; its fragment stage writes the documented constant RGBA color to
+location zero. The Abla emitter maps the OpenGL vertex builtin to Vulkan
+`VertexIndex`, emits deterministic Vulkan 1.0 vertex and fragment modules, and
+rejects any declaration, literal, builtin, or statement outside this subset.
+Repeated emission is word-identical, structural validation passes, and both
+modules create real Lavapipe `VkShaderModule` objects. This is the shader
+foundation for the first common graphics pipeline, not a claim that arbitrary
+raster GLSL is translated.
 
 On the raw Vulkan path, `device.computePipeline(shader)` creates an empty
 `VkPipelineLayout` and a `VkComputePipeline` for entry point `main`.

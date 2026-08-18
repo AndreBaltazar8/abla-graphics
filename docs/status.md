@@ -186,8 +186,10 @@ Updated: 2026-08-18.
 - Pure-Abla SPIR-V/Vulkan shader-module test: immutable copied words validate
   the SPIR-V 1.0-1.6 header, unsigned word domain, and every instruction
   boundary before little-endian packing. A minimal valid compute module creates
-  and affinely destroys a real `VkShaderModule`; a zero-word-count instruction
-  is rejected before reaching the driver.
+  and affinely destroys a real `VkShaderModule`; the strict fixed triangle
+  subset additionally emits deterministic vertex and fragment modules and
+  creates both on Lavapipe. A zero-word-count instruction is rejected before
+  reaching the driver.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
@@ -283,9 +285,9 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   location/set/binding declaration and cross-stage compatibility slice,
   deliberately rejects quoted includes, and does not yet parse block members,
   general declarations, or expressions. SPIR-V emission currently covers the
-  strict no-op and single-member storage-assignment compute subsets described
-  above, not
-  general shaders.
+  strict no-op and single-member storage-assignment compute subsets plus one
+  fixed constant-position/color triangle vertex/fragment subset described
+  above, not general shaders.
 - Generated Khronos ABI bindings and fully classified coverage ledgers. The
   pinned, deterministic inventory ledgers exist, but all rows deliberately
   remain `unclassified` until loader/ABI and positive/negative test evidence is

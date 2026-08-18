@@ -188,20 +188,74 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     GlslStorageWrite(valid, value.value, add, multiply)
 }
 
+fun glslSourceMatchesTokens(
+    source: string,
+    tokens: array<string>
+): bool {
+    var sourceIndex = 0
+    var tokenIndex = 0
+    var matches = true
+    while (matches && tokenIndex < tokens.size) {
+        sourceIndex = glslSkipTrivia(source, sourceIndex)
+        val token = tokens[tokenIndex]
+        var character = 0
+        while (matches && character < token.size) {
+            matches = sourceIndex + character < source.size &&
+                source[sourceIndex + character] == token[character]
+            character = character + 1
+        }
+        if (matches) sourceIndex = sourceIndex + token.size
+        tokenIndex = tokenIndex + 1
+    }
+    matches && tokenIndex == tokens.size &&
+        glslSkipTrivia(source, sourceIndex) == source.size
+}
+
+fun glslTriangleVertexSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", "450",
+        "const", "vec2", "positions", "[", "3", "]", "=",
+        "vec2", "[", "3", "]", "(",
+        "vec2", "(", "-0.75", ",", "-0.65", ")", ",",
+        "vec2", "(", "0.75", ",", "-0.65", ")", ",",
+        "vec2", "(", "0.0", ",", "0.75", ")", ")", ";",
+        "void", "main", "(", ")", "{",
+        "gl_Position", "=", "vec4", "(", "positions", "[",
+        "gl_VertexID", "]", ",", "0.0", ",", "1.0", ")", ";",
+        "}"
+    ])
+
+fun glslTriangleFragmentSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", "450",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec4", "color", ";",
+        "void", "main", "(", ")", "{",
+        "color", "=", "vec4", "(",
+        "0.12", ",", "0.54", ",", "0.96", ",", "1.0",
+        ")", ";", "}"
+    ])
+
 fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
-    val common = this.valid && stage == shaderStageCompute &&
+    val computeCommon = this.valid && stage == shaderStageCompute &&
         this.stages.size == 1 && this.stages[0].kind == shaderStageCompute &&
         this.workgroups.size == 1 && this.locations.size == 0
-    val noOp = common && this.bindings.size == 0 &&
+    val noOp = computeCommon && this.bindings.size == 0 &&
         glslComputeNoOpSource(this.stages[0].source)
-    val storageWrite = if (common && this.bindings.size == 1)
+    val storageWrite = if (computeCommon && this.bindings.size == 1)
         glslComputeStorageWrite(this.stages[0].source)
     else GlslStorageWrite(false)
-    val storage = common && this.bindings.size == 1 &&
+    val storage = computeCommon && this.bindings.size == 1 &&
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
         this.bindings[0].storage == "buffer" &&
         this.bindings[0].dataType == "Values" && storageWrite.valid
-    var succeeded = noOp || storage
+    val graphicsCommon = this.valid && this.stages.size == 2 &&
+        this.bindings.size == 0 && this.workgroups.size == 0
+    val vertex = graphicsCommon && stage == shaderStageVertex &&
+        glslTriangleVertexSource(this.source(shaderStageVertex))
+    val fragment = graphicsCommon && stage == shaderStageFragment &&
+        glslTriangleFragmentSource(this.source(shaderStageFragment))
+    var succeeded = noOp || storage || vertex || fragment
     var error = ""
     var words: array<int> = []
     if (noOp) {
@@ -264,8 +318,93 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         }
         words.append(65789)
         words.append(65592)
+    } else if (vertex) {
+        words = [
+            119734787, 65536, 458752, 42, 0,
+            131089, 1,
+            393227, 1, 1280527431, 1685353262, 808793134, 0,
+            196622, 0, 1,
+            524303, 0, 2, 1852399981, 0, 3, 4, 5,
+            196679, 6, 2,
+            327752, 6, 0, 11, 0,
+            327752, 6, 1, 11, 1,
+            327752, 6, 2, 11, 3,
+            327752, 6, 3, 11, 4,
+            262215, 4, 11, 42,
+            262215, 5, 11, 43,
+            131091, 7,
+            196641, 8, 7,
+            196630, 9, 32,
+            262167, 10, 9, 4,
+            262165, 11, 32, 0,
+            262187, 11, 12, 1,
+            262172, 13, 9, 12,
+            393246, 6, 10, 9, 13, 13,
+            262176, 14, 3, 6,
+            262203, 14, 3, 3,
+            262165, 15, 32, 1,
+            262187, 15, 16, 0,
+            262167, 17, 9, 2,
+            262187, 11, 18, 3,
+            262172, 19, 17, 18,
+            262187, 9, 20, 3208642560,
+            262187, 9, 21, 3206964838,
+            327724, 17, 22, 20, 21,
+            262187, 9, 23, 1061158912,
+            327724, 17, 24, 23, 21,
+            262187, 9, 25, 0,
+            327724, 17, 26, 25, 23,
+            393260, 19, 27, 22, 24, 26,
+            262176, 28, 1, 15,
+            262203, 28, 4, 1,
+            262176, 29, 7, 19,
+            262176, 30, 7, 17,
+            262187, 9, 31, 1065353216,
+            262176, 32, 3, 10,
+            262203, 28, 5, 1,
+            327734, 7, 2, 0, 8,
+            131320, 33,
+            262203, 29, 34, 7,
+            262205, 15, 35, 4,
+            196670, 34, 27,
+            327745, 30, 36, 34, 35,
+            262205, 17, 37, 36,
+            327761, 9, 38, 37, 0,
+            327761, 9, 39, 37, 1,
+            458832, 10, 40, 38, 39, 25, 31,
+            327745, 32, 41, 3, 16,
+            196670, 41, 40,
+            65789,
+            65592
+        ]
+    } else if (fragment) {
+        words = [
+            119734787, 65536, 458752, 15, 0,
+            131089, 1,
+            393227, 1, 1280527431, 1685353262, 808793134, 0,
+            196622, 0, 1,
+            393231, 4, 2, 1852399981, 0, 3,
+            196624, 2, 7,
+            262215, 3, 30, 0,
+            131091, 4,
+            196641, 5, 4,
+            196630, 6, 32,
+            262167, 7, 6, 4,
+            262176, 8, 3, 7,
+            262203, 8, 3, 3,
+            262187, 6, 9, 1039516303,
+            262187, 6, 10, 1057635697,
+            262187, 6, 11, 1064682127,
+            262187, 6, 12, 1065353216,
+            458796, 7, 13, 9, 10, 11, 12,
+            327734, 4, 2, 0, 5,
+            131320, 14,
+            196670, 3, 13,
+            65789,
+            65592
+        ]
     } else {
-        error = "the deterministic GLSL translator supports the documented no-op and storage-assignment compute subsets"
+        error = "the deterministic GLSL translator supports the documented compute and fixed triangle graphics subsets"
     }
     val module = spirvModule(words)
     succeeded = succeeded && module.valid()

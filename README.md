@@ -31,8 +31,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
-  single-member storage arithmetic compute subsets, with unsupported GLSL
-  rejected rather than ignored;
+  single-member storage arithmetic compute subsets plus the first fixed
+  vertex/fragment triangle subset, with unsupported GLSL rejected rather than
+  ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
