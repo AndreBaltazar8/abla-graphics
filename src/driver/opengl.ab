@@ -133,6 +133,12 @@ noescape extern:"c" fun glGetProgramInfoLog(
 noescape extern:"c" fun glDeleteProgram(program: i32): void
 noescape extern:"c" fun glUseProgram(program: i32): void
 noescape extern:"c" fun glDispatchCompute(x: i32, y: i32, z: i32): void
+noescape extern:"c" fun glBindBufferBase(
+    target: i32,
+    index: i32,
+    buffer: i32
+): void
+noescape extern:"c" fun glMemoryBarrier(barriers: i32): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
@@ -853,6 +859,7 @@ resource class OpenGlComputePipeline(
     val display: i64*,
     val surface: i64*,
     val context: i64*,
+    val storageBuffer: int,
     val error: string
 ) {
     fun valid(): bool = this.handle != 0 &&
@@ -868,8 +875,12 @@ resource class OpenGlComputePipeline(
                 this.context
             ) == eglTrue
         if (succeeded) {
+            if (this.storageBuffer != 0) {
+                glBindBufferBase(37074, 0, this.storageBuffer)
+            }
             glUseProgram(this.handle)
             glDispatchCompute(x, y, z)
+            if (this.storageBuffer != 0) glMemoryBarrier(8192)
             succeeded = glGetError() == 0
         }
         succeeded
@@ -893,7 +904,8 @@ resource class OpenGlComputePipeline(
 }
 
 trusted fun OpenGlWindowContext.computePipeline(
-    shader: ShaderPackage
+    shader: ShaderPackage,
+    storageBuffer: int = 0
 ): OpenGlComputePipeline {
     var program = 0
     var error = if (shader.valid) "" else shader.error
@@ -927,6 +939,7 @@ trusted fun OpenGlWindowContext.computePipeline(
         this.display,
         this.surface,
         this.context,
+        storageBuffer,
         error
     )
 }

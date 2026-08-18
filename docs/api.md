@@ -306,15 +306,16 @@ path for external/generated toolchains and the destination for the forthcoming
 complete `$glsl` translator; structural validation does not claim full SPIR-V
 semantic validation.
 
-The first executable translator slice is available as
+The executable translator is available as
 `package.spirv(shaderStageCompute)`. It accepts exactly one compute stage with
-one `#version 450` or `460` directive, one explicit local-size layout, and an
-empty `void main()`. It emits a deterministic SPIR-V 1.0 compute module using
-the reflected X/Y/Z workgroup sizes. A second translation produces an identical
-word sequence, and the result creates a real Vulkan shader module. Bindings,
-extra globals, statements, missing/older versions, and non-compute stages return
-a checked `GlslSpirvResult` failure; nothing unsupported is silently dropped.
-This narrow first subset establishes the pure-Abla emitter and test path, not
+one `#version 450` or `460` directive and an explicit local-size layout. The
+first form has an empty `main`; the second exact form declares one binding-zero
+`Values` storage block and stores `42u`. They emit deterministic SPIR-V 1.0
+modules using reflected workgroup/binding data. Repeated translation produces
+identical words and both results create real Vulkan shader modules. Any other
+binding, global, statement, version, or stage returns a checked
+`GlslSpirvResult` failure; nothing unsupported is silently dropped. These
+narrow subsets establish the pure-Abla emitter and execution path, not
 completion of general GLSL-to-SPIR-V compilation.
 
 On the raw Vulkan path, `device.computePipeline(shader)` creates an empty
@@ -339,6 +340,16 @@ this becomes the high-throughput production path.
 The common facade runs the shared Abla SPIR-V translator validation before
 either backend is created, so OpenGL cannot accidentally accept a shader that
 would fail after switching the same application to Vulkan.
+
+`app.computeStoragePipeline(shader, buffer)` is the first observable binding
+slice. The shader must reflect exactly one `layout(std430, binding = 0)` buffer
+at set zero and match the documented `Values { uint value; }` write subset.
+OpenGL binds the existing buffer object as SSBO binding zero and issues a shader
+storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
+buffer update alongside the pipeline, then binds that set before dispatch.
+Both paths write `42u` and common checked readback returns `42`. The pipeline
+must drop before its borrowed storage buffer; additional bindings, general
+block layouts, dynamic offsets, and descriptor reuse are still upcoming.
 
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the

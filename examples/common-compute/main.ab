@@ -21,15 +21,33 @@ fun main: int {
         }
     }
     val pipeline = app.computePipeline(shader)
+    val storageShader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            void main() { values.value = 42u; }
+        }
+    }
+    val storage = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val storagePipeline = app.computeStoragePipeline(storageShader, storage)
     val passed = app.valid() && pipeline.valid() &&
         pipeline.dispatch(4, 2) && pipeline.dispatch(3, 2) &&
+        storage.writeI64(0) && storagePipeline.valid() &&
+        storagePipeline.dispatch(1) && storage.readI64() == 42 &&
         app.presentClear(Color(
             graphicsScalar(1, 16),
             graphicsScalar(3, 16),
             graphicsScalar(7, 16)
         ))
     println(
-        "Common compute ${graphicsBackendName(app.backend)}: dispatched on ${app.adapterName}"
+        "Common compute ${graphicsBackendName(app.backend)}: storage result=${storage.readI64()} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

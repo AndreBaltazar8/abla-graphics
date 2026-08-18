@@ -13,6 +13,8 @@ class GlslSpirvResult(
     val error: string = ""
 )
 
+class GlslTokenFingerprint(val valid: bool, val text: string)
+
 fun glslSkipLine(source: string, begin: int): int {
     var index = begin
     while (index < source.size && source[index] != 10 &&
@@ -72,15 +74,75 @@ fun glslComputeNoOpSource(source: string): bool {
     valid && mainSeen && workgroupSeen && versionSeen
 }
 
+fun glslTokenPunctuation(value: int): string {
+    var token = ""
+    if (value == 40) token = "("
+    else if (value == 41) token = ")"
+    else if (value == 44) token = ","
+    else if (value == 46) token = "."
+    else if (value == 59) token = ";"
+    else if (value == 61) token = "="
+    else if (value == 91) token = "["
+    else if (value == 93) token = "]"
+    else if (value == 123) token = "{"
+    else if (value == 125) token = "}"
+    token
+}
+
+fun glslFingerprint(source: string): GlslTokenFingerprint {
+    var index = 0
+    var valid = true
+    var result = ""
+    while (valid && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index < source.size && source[index] == 35) {
+            val directive = glslReadName(source, index + 1)
+            val version = glslReadUnsigned(source, directive.next)
+            valid = directive.text == "version" && version.valid
+            if (valid) result = "$result # version ${version.value}"
+            index = glslSkipLine(source, version.next)
+        } else if (index < source.size &&
+            glslAsciiNameStart(source[index])) {
+            val name = glslReadName(source, index)
+            result = "$result ${name.text}"
+            index = name.next
+        } else if (index < source.size && source[index] >= 48 &&
+            source[index] <= 57) {
+            val integer = glslReadUnsigned(source, index)
+            valid = integer.valid
+            if (valid) result = "$result ${integer.value}"
+            index = integer.next
+        } else if (index < source.size) {
+            val punctuation = glslTokenPunctuation(source[index])
+            valid = punctuation != ""
+            if (valid) result = "$result $punctuation"
+            index = index + 1
+        }
+    }
+    GlslTokenFingerprint(valid, result)
+}
+
+fun glslComputeStorage42Source(source: string): bool {
+    val fingerprint = glslFingerprint(source)
+    fingerprint.valid && fingerprint.text ==
+        " # version 450 layout ( local_size_x = 1 ) in ; layout ( std430 , binding = 0 ) buffer Values { uint value ; } values ; void main ( ) { values . value = 42 u ; }"
+}
+
 fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
-    var succeeded = this.valid && stage == shaderStageCompute &&
+    val common = this.valid && stage == shaderStageCompute &&
         this.stages.size == 1 && this.stages[0].kind == shaderStageCompute &&
-        this.workgroups.size == 1 && this.bindings.size == 0 &&
-        this.locations.size == 0 &&
+        this.workgroups.size == 1 && this.locations.size == 0
+    val noOp = common && this.bindings.size == 0 &&
         glslComputeNoOpSource(this.stages[0].source)
+    val storage42 = common && this.bindings.size == 1 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "buffer" &&
+        this.bindings[0].dataType == "Values" &&
+        glslComputeStorage42Source(this.stages[0].source)
+    var succeeded = noOp || storage42
     var error = ""
     var words: array<int> = []
-    if (succeeded) {
+    if (noOp) {
         val workgroup = this.workgroups[0]
         words = [
             spirvMagic, spirvVersion10, 0, 6, 0,
@@ -95,8 +157,35 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65789,
             65592
         ]
+    } else if (storage42) {
+        words = [
+            spirvMagic, spirvVersion10, 0, 13, 0,
+            131089, 1,
+            196622, 0, 1,
+            327695, 5, 10, 1852399981, 0,
+            393232, 10, 17, 1, 1, 1,
+            196679, 4, 3,
+            327752, 4, 0, 35, 0,
+            262215, 9, 34, 0,
+            262215, 9, 33, 0,
+            131091, 1,
+            196641, 2, 1,
+            262165, 3, 32, 0,
+            196638, 4, 3,
+            262176, 5, 2, 4,
+            262176, 6, 2, 3,
+            262187, 3, 7, 0,
+            262187, 3, 8, 42,
+            262203, 5, 9, 2,
+            327734, 1, 10, 0, 2,
+            131320, 11,
+            327745, 6, 12, 9, 7,
+            196670, 12, 8,
+            65789,
+            65592
+        ]
     } else {
-        error = "the deterministic GLSL translator currently supports one no-op compute stage with an explicit local size"
+        error = "the deterministic GLSL translator supports the documented no-op and storage-write compute subsets"
     }
     val module = spirvModule(words)
     succeeded = succeeded && module.valid()

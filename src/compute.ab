@@ -41,6 +41,7 @@ trusted fun GraphicsApplication.computePipeline(
         nativeNullPointer(),
         nativeNullPointer(),
         nativeNullPointer(),
+        0,
         ""
     )
     var vulkan = VulkanComputePipeline(
@@ -50,7 +51,10 @@ trusted fun GraphicsApplication.computePipeline(
         0,
         0,
         0,
-        nativeNullPointer()
+        nativeNullPointer(),
+        0,
+        0,
+        0
     )
     var error = GraphicsError()
     val translatable = glslPackage(
@@ -87,6 +91,64 @@ trusted fun GraphicsApplication.computePipeline(
             graphicsErrorDriverFailure,
             "VulkanDevice.computePipeline",
             "Vulkan compute pipeline creation failed"
+        )
+    }
+    GraphicsComputePipeline(move(openGl), move(vulkan), this.backend, error)
+}
+
+trusted fun GraphicsApplication.computeStoragePipeline(
+    shader: ShaderPackage,
+    storage: GraphicsBuffer
+): GraphicsComputePipeline {
+    var openGl = OpenGlComputePipeline(
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        ""
+    )
+    var vulkan = VulkanComputePipeline(
+        nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
+        nativeNullPointer(), 0, 0, 0
+    )
+    var error = GraphicsError()
+    val translatable = glslPackage(
+        [shaderStageCompute],
+        [shader.source(shaderStageCompute)]
+    )
+    val emitted = translatable.spirv(shaderStageCompute)
+    val bindingValid = shader.bindings.size == 1 &&
+        shader.bindings[0].set == 0 && shader.bindings[0].binding == 0 &&
+        shader.bindings[0].storage == "buffer"
+    if (!this.valid() || !shader.valid || !storage.valid() ||
+        storage.backend != this.backend || !bindingValid) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.computeStoragePipeline",
+            "compute storage requires one valid binding-zero buffer on the selected backend"
+        )
+    } else if (!emitted.succeeded) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "ShaderPackage.spirv",
+            emitted.error
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.computePipeline(shader, storage.openGl.handle)
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "OpenGlWindowContext.computePipeline",
+            openGl.error
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        val module = this.vulkanDevice.shaderModule(emitted.module)
+        if (module.valid()) vulkan =
+            this.vulkanDevice.computeStoragePipeline(module, storage.vulkan)
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.computeStoragePipeline",
+            "Vulkan storage compute pipeline creation failed"
         )
     }
     GraphicsComputePipeline(move(openGl), move(vulkan), this.backend, error)

@@ -81,6 +81,18 @@ fun main: int {
         [shaderStageCompute],
         ["#version 430\nlayout(local_size_x=8) in; void main() {}"]
     ).spirv(shaderStageCompute)
+    val storage = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            void main() { values.value = 42u; }
+        }
+    }
+    val storageSpirv = storage.spirv(shaderStageCompute)
+    val storageSpirvAgain = storage.spirv(shaderStageCompute)
     if (shader.valid && frozen.valid && frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&
@@ -123,6 +135,11 @@ fun main: int {
         spirvWordsEqual(emitted.module, emittedAgain.module) &&
         !unsupportedCompute.succeeded && unsupportedCompute.error != "" &&
         !unsupportedVersion.succeeded && unsupportedVersion.error != "" &&
+        storage.valid && storage.bindings.size == 1 &&
+        storage.bindings[0].storage == "buffer" &&
+        storageSpirv.succeeded && storageSpirv.module.valid() &&
+        storageSpirv.module.words.size == 86 &&
+        spirvWordsEqual(storageSpirv.module, storageSpirvAgain.module) &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != "") 42 else 1
 }

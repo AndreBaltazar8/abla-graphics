@@ -110,6 +110,11 @@ Updated: 2026-08-18.
   OpenGL does not force `glFinish` after dispatch.
   Unsupported compute statements return the same common feature error before
   either OpenGL or Vulkan pipeline creation.
+- Observable storage compute test/sample: a reflected binding-zero `std430`
+  block is emitted as SPIR-V `BufferBlock`/descriptor decorations and a real
+  access-chain/store. OpenGL binds an SSBO; Vulkan creates and binds descriptor
+  layout/pool/set state. Explicit and automatic/fallback paths dispatch the
+  same package and common buffer readback returns exactly `42`.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
@@ -144,8 +149,9 @@ capability lands.
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration and cross-stage compatibility slice,
   deliberately rejects quoted includes, and does not yet parse block members,
-  general declarations, or expressions. SPIR-V emission currently covers only
-  the strict no-op compute subset described above, not general shaders.
+  general declarations, or expressions. SPIR-V emission currently covers the
+  strict no-op and one storage-write compute subsets described above, not
+  general shaders.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
   uploads, device-local suballocation policy, command encoders/render graph,

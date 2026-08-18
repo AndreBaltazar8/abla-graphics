@@ -87,7 +87,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
-  unchanged on explicit OpenGL and Vulkan.
+  unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
+  mutation and readback.
 
 Run the sample smoke matrix with:
 
