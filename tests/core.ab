@@ -130,6 +130,40 @@ fun main: int {
         usage = textureUsageSampled | textureUsageCopyDestination
     )
     val colorView = TextureViewDescriptor()
+    val textureWrite = TextureWriteDescriptor(2, 1, 1)
+    val textureWriteTarget = TextureDescriptor(
+        size = Extent3D(16, 16),
+        mipLevels = 5,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val validTextureWrite = textureWrite.validation(
+        textureWriteTarget,
+        2,
+        2
+    )
+    val invalidTextureWrite = TextureWriteDescriptor(
+        2,
+        3,
+        3
+    ).validation(textureWriteTarget, 2, 2)
+    val missingTextureWriteUsage = TextureWriteDescriptor().validation(
+        TextureDescriptor(
+            size = Extent3D(4, 4),
+            usage = textureUsageSampled
+        ),
+        1,
+        1
+    )
+    val invalidTextureWriteFormat = TextureWriteDescriptor().validation(
+        TextureDescriptor(
+            size = Extent3D(4, 4),
+            format = textureFormatDepth16Unorm,
+            usage = textureUsageCopyDestination
+        ),
+        1,
+        1
+    )
     val invalidMultisample = TextureDescriptor(
         size = Extent3D(1280, 720),
         mipLevels = 2,
@@ -271,6 +305,15 @@ fun main: int {
         colorView.resolvedFormat(colorTexture) == textureFormatRgba8UnormSrgb &&
         colorView.resolvedMipLevelCount(colorTexture) == 11 &&
         colorView.validation(colorTexture).succeeded &&
+        textureMipDimension(16, 0) == 16 &&
+        textureMipDimension(16, 2) == 4 &&
+        textureMipDimension(3, 8) == 1 && validTextureWrite.succeeded &&
+        !invalidTextureWrite.succeeded &&
+        invalidTextureWrite.field == "origin" &&
+        !missingTextureWriteUsage.succeeded &&
+        missingTextureWriteUsage.field == "usage" &&
+        !invalidTextureWriteFormat.succeeded &&
+        invalidTextureWriteFormat.field == "format" &&
         !invalidMultisample.succeeded &&
         invalidMultisample.field == "samples" &&
         !overflowingTexture.succeeded && overflowingTexture.field == "size" &&

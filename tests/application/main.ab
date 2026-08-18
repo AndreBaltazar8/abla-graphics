@@ -97,8 +97,28 @@ fun applicationBackendProbe(
         size = Extent3D(16, 16),
         mipLevels = 4,
         format = textureFormatRgba8Unorm,
-        usage = textureUsageSampled | textureUsageCopyDestination
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
     ))
+    val uploadPixels = pixelBuffer(2, 2)
+    val uploadCleared = uploadPixels.clearRgba8(31, 43, 59, 79)
+    val uploadMarked = uploadPixels.setRgba8(1, 1, 71, 83, 97, 109)
+    val textureUploaded = uploadCleared && uploadMarked &&
+        texture.writePixels(
+            uploadPixels,
+            TextureWriteDescriptor(2, 1, 1)
+        )
+    val uploadedPixel = texture.rgba8(2, 2, 2)
+    val uploadChanged = uploadPixels.setRgba8(0, 0, 5, 7, 11, 13)
+    val textureReuploaded = uploadChanged && texture.writePixels(
+        uploadPixels,
+        TextureWriteDescriptor(2, 1, 1)
+    )
+    val reuploadedPixel = texture.rgba8(1, 1, 2)
+    val invalidUploadRejected = !texture.writePixels(
+        uploadPixels,
+        TextureWriteDescriptor(2, 3, 3)
+    )
     val textureView = texture.view()
     val reinterpretedTextureView = texture.view(TextureViewDescriptor(
         format = textureFormatRgba8UnormSrgb
@@ -106,6 +126,18 @@ fun applicationBackendProbe(
     val invalidTextureView = texture.view(TextureViewDescriptor(
         baseMipLevel = 4
     ))
+    val bgraTexture = app.texture(TextureDescriptor(
+        size = Extent3D(4, 4),
+        format = textureFormatBgra8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    ))
+    val bgraPixels = pixelBuffer(1, 1)
+    val bgraUploaded = bgraPixels.setRgba8(0, 0, 17, 29, 43, 61) &&
+        bgraTexture.writePixels(
+            bgraPixels,
+            TextureWriteDescriptor(0, 2, 3)
+        )
+    val bgraPixel = bgraTexture.rgba8(2, 3)
     val depthTexture = app.texture(TextureDescriptor(
         label = "common-depth",
         size = Extent3D(16, 16),
@@ -265,7 +297,10 @@ fun applicationBackendProbe(
             "GraphicsApplication.buffer.mappedAtCreation" &&
         readbackBuffer.valid() && sampler.valid() &&
         anisotropicSampler.valid() &&
-        texture.valid() && textureView.valid() &&
+        texture.valid() && textureUploaded && textureReuploaded &&
+        uploadedPixel == 1835094855 && invalidUploadRejected &&
+        reuploadedPixel == 218826501 &&
+        textureView.valid() &&
         textureView.descriptor.resolvedFormat(texture.descriptor) ==
             textureFormatRgba8Unorm &&
         (if (app.backend == graphicsBackendOpenGl)
@@ -275,6 +310,8 @@ fun applicationBackendProbe(
          else reinterpretedTextureView.valid()) &&
         !invalidTextureView.valid() &&
         invalidTextureView.error.code == graphicsErrorInvalidConfiguration &&
+        bgraTexture.valid() && bgraUploaded &&
+        bgraPixel == 1026235665 &&
         depthTexture.valid() && depthTextureView.valid() &&
         !unsupportedTexture.valid() &&
         unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&

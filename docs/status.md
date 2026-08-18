@@ -116,7 +116,13 @@ Updated: 2026-08-18.
   Vulkan mutable-format images additionally verify compatible linear-to-sRGB
   views while OpenGL reports that operation as unsupported. Both paths verify
   color/depth aspects, invalid-range diagnostics, multisample feature
-  rejection, and reverse-order affine cleanup. The
+  rejection, and reverse-order affine cleanup. A partial 2x2 RGBA upload into
+  mip two is read back exactly, updated a second time to prove Vulkan's
+  per-mip old-layout tracking, and rejected when its region crosses the mip
+  boundary. A separate BGRA texture round-trips the original logical RGBA value
+  on both drivers. Vulkan reuses a texture-owned coherent staging buffer,
+  command pool, and command buffer for explicit buffer/image copies and layout
+  transitions; OpenGL uses `glTexSubImage2D` and `glGetTexImage`. The
   independently buildable common-texture sample runs this slice under explicit
   OpenGL and Vulkan.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
@@ -231,10 +237,14 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   pinned, deterministic inventory ledgers exist, but all rows deliberately
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
-- Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
-  uploads, device-local suballocation policy, command encoders/render graph,
-  asset formats, or framework-wide performance gates. Common buffers,
-  textures, views, samplers, and immutable structural descriptors are present;
+- General texture uploads/copies/render-pass use, mapped/general buffer ranges,
+  queued uploads, device-local suballocation policy, command encoders/render
+  graph,
+  asset formats, or framework-wide performance gates. Partial RGBA/BGRA
+  `PixelBuffer` uploads and synchronous diagnostic readback are present;
+  general byte layouts, image-to-image copies, and asynchronous streaming are
+  not. Common buffers, textures, views, samplers, and immutable structural
+  descriptors are present;
   the wider resource surface is not yet claimed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 

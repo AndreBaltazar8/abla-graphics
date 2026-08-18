@@ -3,6 +3,7 @@
 import "abla/unsafe/memory"
 import "core.ab"
 import "resources.ab"
+import "pixels.ab"
 import "application.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
@@ -17,6 +18,36 @@ resource class GraphicsTexture(
     fun valid(): bool = !this.error.occurred() && this.descriptor.valid() &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun writePixels(
+        pixels: PixelBuffer,
+        write: TextureWriteDescriptor = TextureWriteDescriptor()
+    ): bool {
+        val validation = write.validation(
+            this.descriptor,
+            pixels.width,
+            pixels.height
+        )
+        if (!this.valid() || !pixels.valid() || !validation.succeeded) false
+        else if (this.backend == graphicsBackendOpenGl) {
+            this.openGl.writePixels(this.descriptor, pixels, write)
+        } else if (this.backend == graphicsBackendVulkan) {
+            this.vulkan.writePixels(this.descriptor, pixels, write)
+        } else false
+    }
+
+    trusted fun rgba8(
+        x: int,
+        y: int,
+        mipLevel: int = 0
+    ): int {
+        if (!this.valid()) -1
+        else if (this.backend == graphicsBackendOpenGl) {
+            this.openGl.rgba8(this.descriptor, x, y, mipLevel)
+        } else if (this.backend == graphicsBackendVulkan) {
+            this.vulkan.rgba8(this.descriptor, x, y, mipLevel)
+        } else -1
+    }
 
     trusted fun drop(): void {
         this.openGl.drop()
@@ -52,7 +83,26 @@ trusted fun GraphicsApplication.texture(
         nativeNullPointer(),
         nativeNullPointer()
     )
-    var vulkan = VulkanTexture(nativeNullPointer(), 0, 0)
+    var vulkan = VulkanTexture(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        -1,
+        0,
+        0,
+        VulkanBuffer(
+            nativeNullPointer(),
+            nativeNullPointer(),
+            nativeNullPointer(),
+            -1,
+            0,
+            0,
+            0
+        ),
+        0,
+        nativeNullPointer(),
+        []
+    )
     var error = GraphicsError()
     val validation = descriptor.validation()
     if (!this.valid()) {

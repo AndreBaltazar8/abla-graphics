@@ -118,6 +118,77 @@ fun textureMaximumMipLevels(size: Extent3D): int {
     levels
 }
 
+fun textureMipDimension(base: int, mipLevel: int): int {
+    var result = base
+    var level = 0
+    while (result > 1 && level < mipLevel) {
+        result = result / 2
+        level = level + 1
+    }
+    result
+}
+
+fun textureFormatAcceptsRgba8Pixels(format: int): bool =
+    format == textureFormatRgba8Unorm ||
+    format == textureFormatRgba8UnormSrgb ||
+    format == textureFormatBgra8Unorm ||
+    format == textureFormatBgra8UnormSrgb
+
+class TextureWriteDescriptor(
+    val mipLevel: int = 0,
+    val x: int = 0,
+    val y: int = 0
+) {
+    fun validation(
+        texture: TextureDescriptor,
+        width: int,
+        height: int,
+        requiredUsage: int = textureUsageCopyDestination
+    ): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (!texture.valid() || width <= 0 || height <= 0) {
+            result = graphicsDescriptorInvalid(
+                "pixels",
+                "texture transfer requires valid non-empty pixel storage"
+            )
+        } else if ((texture.usage & requiredUsage) == 0) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "texture transfer usage is missing from the texture"
+            )
+        } else if (!textureFormatAcceptsRgba8Pixels(texture.format)) {
+            result = graphicsDescriptorInvalid(
+                "format",
+                "RGBA8 pixel transfer requires an RGBA8 or BGRA8 texture"
+            )
+        } else if (this.mipLevel < 0 ||
+            this.mipLevel >= texture.mipLevels) {
+            result = graphicsDescriptorInvalid(
+                "mipLevel",
+                "texture transfer mip level is out of range"
+            )
+        } else {
+            val mipWidth = textureMipDimension(
+                texture.size.width,
+                this.mipLevel
+            )
+            val mipHeight = textureMipDimension(
+                texture.size.height,
+                this.mipLevel
+            )
+            if (this.x < 0 || this.y < 0 || this.x >= mipWidth ||
+                this.y >= mipHeight || width > mipWidth - this.x ||
+                height > mipHeight - this.y) {
+                result = graphicsDescriptorInvalid(
+                    "origin",
+                    "texture transfer region exceeds the selected mip level"
+                )
+            }
+        }
+        result
+    }
+}
+
 class BufferDescriptor(
     val label: string = "",
     val size: int = 0,

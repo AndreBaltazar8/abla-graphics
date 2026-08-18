@@ -184,6 +184,13 @@ noescape extern:"c" fun glTexSubImage2D(
     kind: i32,
     pixels: i64*
 ): void
+noescape extern:"c" fun glGetTexImage(
+    target: i32,
+    level: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
 noescape extern:"c" fun glDeleteTextures(count: i32, textures: i64*): void
 noescape extern:"c" fun glGenBuffers(count: i32, buffers: i64*): void
 noescape extern:"c" fun glBindBuffer(target: i32, buffer: i32): void
@@ -741,6 +748,86 @@ resource class OpenGlTexture(
         }
         return
     }
+}
+
+trusted fun OpenGlTexture.writePixels(
+    texture: TextureDescriptor,
+    pixels: PixelBuffer,
+    write: TextureWriteDescriptor
+): bool {
+    val validation = write.validation(
+        texture,
+        pixels.width,
+        pixels.height
+    )
+    var succeeded = this.valid() && pixels.valid() && validation.succeeded
+    if (succeeded) {
+        succeeded = eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    }
+    if (succeeded) {
+        glBindTexture(3553, this.handle)
+        glTexSubImage2D(
+            3553,
+            write.mipLevel,
+            write.x,
+            write.y,
+            pixels.width,
+            pixels.height,
+            6408,
+            5121,
+            pixels.storage.address
+        )
+        succeeded = glGetError() == 0
+    }
+    succeeded
+}
+
+trusted fun OpenGlTexture.rgba8(
+    texture: TextureDescriptor,
+    x: int,
+    y: int,
+    mipLevel: int = 0
+): int {
+    val read = TextureWriteDescriptor(mipLevel, x, y)
+    val validation = read.validation(
+        texture,
+        1,
+        1,
+        textureUsageCopySource
+    )
+    var result = -1
+    var succeeded = this.valid() && validation.succeeded &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    val width = textureMipDimension(texture.size.width, mipLevel)
+    val height = textureMipDimension(texture.size.height, mipLevel)
+    val storage = nativeByteBuffer(
+        if (succeeded && graphicsSizeProductFits(width, height) &&
+            graphicsSizeProductFits(width * height, 4))
+            width * height * 4
+        else 0
+    )
+    if (succeeded && storage.capacity > 0) {
+        glBindTexture(3553, this.handle)
+        glGetTexImage(3553, mipLevel, 6408, 5121, storage.address)
+        succeeded = glGetError() == 0
+    }
+    if (succeeded) {
+        val offset = (y * width + x) * 4
+        result = storage.load(offset) + storage.load(offset + 1) * 256 +
+            storage.load(offset + 2) * 65536 +
+            storage.load(offset + 3) * 16777216
+    }
+    result
 }
 
 resource class OpenGlTextureView(var handle: int) {

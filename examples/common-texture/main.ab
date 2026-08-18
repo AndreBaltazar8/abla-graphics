@@ -22,8 +22,17 @@ fun main: int {
         size = Extent3D(256, 256),
         mipLevels = 9,
         format = textureFormatRgba8UnormSrgb,
-        usage = textureUsageSampled | textureUsageCopyDestination
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
     ))
+    val pixels = pixelBuffer(2, 2)
+    val pixelsReady = pixels.clearRgba8(23, 47, 89, 131) &&
+        pixels.setRgba8(1, 1, 149, 167, 191, 211)
+    val uploaded = pixelsReady && color.writePixels(
+        pixels,
+        TextureWriteDescriptor(2, 7, 9)
+    )
+    val readback = color.rgba8(8, 10, 2)
     val colorView = color.view()
     val depth = app.texture(TextureDescriptor(
         label = "sample-depth",
@@ -36,6 +45,7 @@ fun main: int {
     ))
     val passed = app.valid() && color.valid() && colorView.valid() &&
         colorView.descriptor.resolvedMipLevelCount(color.descriptor) == 9 &&
+        uploaded && readback == 3552552853 &&
         depth.valid() && depthView.valid() &&
         app.presentClear(Color(
             0.0625,
@@ -43,7 +53,7 @@ fun main: int {
             0.4375
         ))
     println(
-        "Common texture ${graphicsBackendName(app.backend)}: color mips=${color.descriptor.mipLevels}, depth view on ${app.adapterName}"
+        "Common texture ${graphicsBackendName(app.backend)}: color mips=${color.descriptor.mipLevels}, upload=${uploaded}, readback=${readback}, depth view on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

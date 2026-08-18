@@ -201,10 +201,34 @@ reinterpretation uses mutable-format images. OpenGL subresource and
 format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
 texture-view support is negotiated. Width or height above
 `maximumTextureDimension2D` returns `graphicsErrorLimitExceeded` before image
-creation. Multisample/1D/3D creation,
-data uploads, copies, layout transitions, and render-pass attachment use are
-not yet part of this common slice. Views must drop before their parent texture,
-and textures must drop before the application device/context.
+creation.
+
+RGBA8 pixel storage can update a validated region of any mip in an RGBA8/BGRA8
+texture carrying `textureUsageCopyDestination`:
+
+```abla
+val pixels = pixelBuffer(64, 64)
+pixels.clearRgba8(23, 47, 89, 255)
+texture.writePixels(pixels, TextureWriteDescriptor(
+    mipLevel = 2,
+    x = 8,
+    y = 4
+))
+```
+
+`TextureWriteDescriptor` checks mip range, nonnegative origin, overflow-safe
+region bounds, format, and declared copy usage before a driver call.
+`texture.rgba8(x, y, mipLevel)` provides synchronous diagnostic readback when
+`textureUsageCopySource` was declared. OpenGL uses direct subimage upload and
+texture readback. Vulkan owns a reusable coherent staging buffer, command pool,
+and command buffer with the texture, tracks every mip layout independently,
+performs explicit transfer/shader-read transitions, and converts RGBA/BGRA byte
+order. Repeated writes reuse those native resources; synchronization is
+currently queue-idle and therefore intended for asset upload and verification,
+not streaming every frame. Multisample/1D/3D creation, general byte layouts,
+image-to-image copies, asynchronous upload queues, and render-pass attachment
+use are not yet part of this common slice. Views must drop before their parent
+texture, and textures must drop before the application device/context.
 
 Samplers are also driver-backed affine resources:
 
