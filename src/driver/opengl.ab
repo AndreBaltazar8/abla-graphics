@@ -95,6 +95,14 @@ noescape extern:"c" fun glClearBufferfv(
     value: i64*
 ): void
 noescape extern:"c" fun glFinish(): void
+noescape extern:"c" fun glGenQueries(count: i32, queries: i64*): void
+noescape extern:"c" fun glDeleteQueries(count: i32, queries: i64*): void
+noescape extern:"c" fun glQueryCounter(query: i32, target: i32): void
+noescape extern:"c" fun glGetQueryObjectui64v(
+    query: i32,
+    name: i32,
+    value: i64*
+): void
 noescape extern:"c" fun glReadPixels(
     x: i32,
     y: i32,
@@ -600,7 +608,8 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
         )
     }
     var features = graphicsFeatureSampledTextures |
-        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers
+        graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers |
+        graphicsFeatureTimestampQueries
     if (compute) {
         features = features | graphicsFeatureCompute |
             graphicsFeatureStorageBuffers
@@ -762,6 +771,47 @@ resource class OpenGlContext(
         this.context = nativeNullPointer()
         this.surface = nativeNullPointer()
         this.display = nativeNullPointer()
+        return
+    }
+}
+
+resource class OpenGlTimestampQuery(
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*,
+    var handle: int,
+    val result: NativeI64Cell
+) {
+    fun valid(): bool = !pointerIsNull(this.display) &&
+        !pointerIsNull(this.surface) && !pointerIsNull(this.context) &&
+        this.handle != 0 && !this.result.closed
+
+    trusted fun makeCurrent(): bool = this.valid() && eglMakeCurrent(
+        this.display,
+        this.surface,
+        this.surface,
+        this.context
+    ) == eglTrue
+
+    trusted fun sampleTicks(): int {
+        var ticks = -1
+        if (this.makeCurrent() && this.result.store(0)) {
+            glQueryCounter(this.handle, 36392)
+            glGetQueryObjectui64v(this.handle, 34918, this.result.address)
+            if (glGetError() == 0) {
+                ticks = this.result.load() & 9223372036854775807
+            }
+        }
+        ticks
+    }
+
+    trusted fun drop(): void {
+        if (this.handle != 0 && this.makeCurrent()) {
+            val output = nativeI64Cell(this.handle)
+            glDeleteQueries(1, output.address)
+        }
+        this.handle = 0
+        this.result.close()
         return
     }
 }
@@ -2158,6 +2208,23 @@ resource class OpenGlWindowContext(
         val succeeded = this.makeCurrent()
         if (succeeded) glFinish()
         succeeded
+    }
+
+    trusted fun timestampQuery(): OpenGlTimestampQuery {
+        var handle = 0
+        val result = nativeI64Cell(0)
+        if (this.makeCurrent()) {
+            val output = nativeI64Cell(0)
+            glGenQueries(1, output.address)
+            if (glGetError() == 0) handle = output.load() & 4294967295
+        }
+        OpenGlTimestampQuery(
+            this.display,
+            this.surface,
+            this.context,
+            handle,
+            move(result)
+        )
     }
 
     trusted fun framebufferInvalidationSupported(): bool =

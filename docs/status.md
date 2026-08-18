@@ -377,6 +377,13 @@ Updated: 2026-08-18.
   `vkDeviceWaitIdle`. Four repeated waits on both backends preserve runtime
   live bytes; an invalid application rejects the operation before a driver
   call.
+- Portable GPU timestamps: one affine query owns an OpenGL timer-query object
+  or a Vulkan timestamp query pool plus dedicated reusable command state.
+  Vulkan reads the queue-family timestamp width and device period; common
+  elapsed-time conversion handles counter wrap. Four monotonic application
+  samples and the dedicated profiler sample preserve native handles and report
+  zero live-memory growth on both backends. Invalid applications reject query
+  creation and sampling before driver calls.
 - Pure-Abla Khronos inventory generation: exact official Vulkan and OpenGL
   registry commits and SHA-256 digests are pinned in one manifest; the generator
   filters Vulkan SC, OpenGL ES, and compatibility-only requirement branches,
@@ -386,7 +393,7 @@ Updated: 2026-08-18.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 13 Vulkan and 11 OpenGL commands as
+  A strict audit join currently classifies 18 Vulkan and 15 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -445,7 +452,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   subsets described above, not general shaders.
 - Generated Khronos ABI bindings and fully classified coverage ledgers. The
   pinned, deterministic inventory and strict evidence join exist, with the
-  initial 24 exercised common commands classified; all other rows deliberately
+  initial 33 exercised common commands classified; all other rows deliberately
   remain `unclassified` until equivalent evidence is attached.
 - General texture byte uploads/format-converting copies/render-pass use,
   persistent mapped-at-creation

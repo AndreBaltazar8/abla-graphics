@@ -5,7 +5,7 @@
 - Commands: 842
 - Core features: 5
 - Extensions: 473
-- Classified commands: 13/842
+- Classified commands: 18/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -224,7 +224,7 @@
 | `vkCmdResetEvent` | definition | unclassified | - | - | - | - |
 | `vkCmdResetEvent2` | definition | unclassified | - | - | - | - |
 | `vkCmdResetEvent2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdResetQueryPool` | definition | unclassified | - | - | - | - |
+| `vkCmdResetQueryPool` | definition | common | src/driver/vulkan.ab timestamp reset recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated timestamp samples | tests/application/main.ab invalid query rejection |
 | `vkCmdResolveImage` | definition | common | src/driver/vulkan.ab explicit resolve recording | src/driver/vulkan.ab packed resolve ABI | tests/application/main.ab exact multisample resolve | tests/application/main.ab incompatible resolve rejection |
 | `vkCmdResolveImage2` | definition | unclassified | - | - | - | - |
 | `vkCmdResolveImage2KHR` | alias | unclassified | - | - | - | - |
@@ -353,7 +353,7 @@
 | `vkCmdWriteBufferMarkerAMD` | definition | unclassified | - | - | - | - |
 | `vkCmdWriteMarkerToMemoryAMD` | definition | unclassified | - | - | - | - |
 | `vkCmdWriteMicromapsPropertiesEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdWriteTimestamp` | definition | unclassified | - | - | - | - |
+| `vkCmdWriteTimestamp` | definition | common | src/driver/vulkan.ab timestamp recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab monotonic timestamp samples | tests/application/main.ab invalid query rejection |
 | `vkCmdWriteTimestamp2` | definition | unclassified | - | - | - | - |
 | `vkCmdWriteTimestamp2KHR` | alias | unclassified | - | - | - | - |
 | `vkCompileDeferredNV` | definition | unclassified | - | - | - | - |
@@ -421,7 +421,7 @@
 | `vkCreatePipelineLayout` | definition | unclassified | - | - | - | - |
 | `vkCreatePrivateDataSlot` | definition | unclassified | - | - | - | - |
 | `vkCreatePrivateDataSlotEXT` | alias | unclassified | - | - | - | - |
-| `vkCreateQueryPool` | definition | unclassified | - | - | - | - |
+| `vkCreateQueryPool` | definition | common | src/driver/vulkan.ab timestamp query creation | src/driver/vulkan.ab packed query-pool ABI | tests/application/main.ab timestamp query creation | tests/application/main.ab invalid application rejection |
 | `vkCreateRayTracingPipelinesKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateRayTracingPipelinesNV` | definition | unclassified | - | - | - | - |
 | `vkCreateRenderPass` | definition | common | src/driver/vulkan.ab render-pass creation | src/driver/vulkan.ab packed render-pass ABI | tests/application/main.ab native multisample resolve pass | tests/application/main.ab invalid render operation rejection |
@@ -492,7 +492,7 @@
 | `vkDestroyPipelineLayout` | definition | unclassified | - | - | - | - |
 | `vkDestroyPrivateDataSlot` | definition | unclassified | - | - | - | - |
 | `vkDestroyPrivateDataSlotEXT` | alias | unclassified | - | - | - | - |
-| `vkDestroyQueryPool` | definition | unclassified | - | - | - | - |
+| `vkDestroyQueryPool` | definition | common | src/driver/vulkan.ab timestamp query lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
 | `vkDestroyRenderPass` | definition | unclassified | - | - | - | - |
 | `vkDestroySampler` | definition | unclassified | - | - | - | - |
 | `vkDestroySamplerYcbcrConversion` | definition | unclassified | - | - | - | - |
@@ -729,7 +729,7 @@
 | `vkGetPipelinePropertiesEXT` | definition | unclassified | - | - | - | - |
 | `vkGetPrivateData` | definition | unclassified | - | - | - | - |
 | `vkGetPrivateDataEXT` | alias | unclassified | - | - | - | - |
-| `vkGetQueryPoolResults` | definition | unclassified | - | - | - | - |
+| `vkGetQueryPoolResults` | definition | common | src/driver/vulkan.ab timestamp readback | src/driver/vulkan.ab typed extern signature | tests/application/main.ab monotonic timestamp samples | tests/application/main.ab invalid query rejection |
 | `vkGetQueueCheckpointData2NV` | definition | unclassified | - | - | - | - |
 | `vkGetQueueCheckpointDataNV` | definition | unclassified | - | - | - | - |
 | `vkGetRandROutputDisplayEXT` | definition | unclassified | - | - | - | - |

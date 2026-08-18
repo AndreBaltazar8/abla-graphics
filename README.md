@@ -172,7 +172,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
-  mutation and readback; and
+  mutation and readback;
+- `examples/gpu-timestamp`: one affine timestamp query measures four submitted
+  frames on explicit OpenGL and Vulkan, including counter-period conversion,
+  stable native handles, and zero steady-state live-memory growth; and
 - `examples/frame-pacing`: display-free high-resolution pacing with a live-memory
   assertion across the steady-state frame loop.
 

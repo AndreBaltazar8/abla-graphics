@@ -5,7 +5,7 @@
 - Commands: 2892
 - Core features: 19
 - Extensions: 623
-- Classified commands: 11/2892
+- Classified commands: 15/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -426,7 +426,7 @@
 | `glDeleteProgramPipelines` | definition | unclassified | - | - | - | - |
 | `glDeleteProgramsARB` | definition | unclassified | - | - | - | - |
 | `glDeleteProgramsNV` | definition | unclassified | - | - | - | - |
-| `glDeleteQueries` | definition | unclassified | - | - | - | - |
+| `glDeleteQueries` | definition | common | src/driver/opengl.ab timestamp query lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
 | `glDeleteQueriesARB` | definition | unclassified | - | - | - | - |
 | `glDeleteQueryResourceTagNV` | definition | unclassified | - | - | - | - |
 | `glDeleteRenderbuffers` | definition | unclassified | - | - | - | - |
@@ -684,7 +684,7 @@
 | `glGenProgramPipelines` | definition | unclassified | - | - | - | - |
 | `glGenProgramsARB` | definition | unclassified | - | - | - | - |
 | `glGenProgramsNV` | definition | unclassified | - | - | - | - |
-| `glGenQueries` | definition | unclassified | - | - | - | - |
+| `glGenQueries` | definition | common | src/driver/opengl.ab timestamp query creation | src/driver/opengl.ab typed extern signature | tests/application/main.ab timestamp query creation | tests/application/main.ab invalid application rejection |
 | `glGenQueriesARB` | definition | unclassified | - | - | - | - |
 | `glGenQueryResourceTagNV` | definition | unclassified | - | - | - | - |
 | `glGenRenderbuffers` | definition | unclassified | - | - | - | - |
@@ -963,7 +963,7 @@
 | `glGetQueryObjecti64vEXT` | definition | unclassified | - | - | - | - |
 | `glGetQueryObjectiv` | definition | unclassified | - | - | - | - |
 | `glGetQueryObjectivARB` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjectui64v` | definition | unclassified | - | - | - | - |
+| `glGetQueryObjectui64v` | definition | common | src/driver/opengl.ab timestamp readback | src/driver/opengl.ab typed extern signature | tests/application/main.ab monotonic timestamp samples | tests/application/main.ab invalid query rejection |
 | `glGetQueryObjectui64vEXT` | definition | unclassified | - | - | - | - |
 | `glGetQueryObjectuiv` | definition | unclassified | - | - | - | - |
 | `glGetQueryObjectuivARB` | definition | unclassified | - | - | - | - |
@@ -1880,7 +1880,7 @@
 | `glPushGroupMarkerEXT` | definition | unclassified | - | - | - | - |
 | `glPushMatrix` | definition | unclassified | - | - | - | - |
 | `glPushName` | definition | unclassified | - | - | - | - |
-| `glQueryCounter` | definition | unclassified | - | - | - | - |
+| `glQueryCounter` | definition | common | src/driver/opengl.ab timestamp sampling | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated timestamp samples | tests/application/main.ab invalid query rejection |
 | `glQueryMatrixxOES` | definition | unclassified | - | - | - | - |
 | `glQueryObjectParameteruiAMD` | definition | unclassified | - | - | - | - |
 | `glQueryResourceNV` | definition | unclassified | - | - | - | - |

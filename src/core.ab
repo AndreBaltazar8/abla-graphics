@@ -22,7 +22,8 @@ val graphicsFeatureDepthTextures = 8
 val graphicsFeatureComparisonSamplers = 16
 val graphicsFeatureViewFormatReinterpretation = 32
 val graphicsFeatureSamplerAnisotropy = 64
-val graphicsFeatureAll = 127
+val graphicsFeatureTimestampQueries = 128
+val graphicsFeatureAll = 255
 
 val primitiveTopologyPointList = 0
 val primitiveTopologyLineList = 1
@@ -91,6 +92,28 @@ fun graphicsPositiveF32Floor(bits: int): int {
         else result = significand >>> (23 - shift)
     }
     result
+}
+
+fun graphicsPositiveF32Value(bits: int): f64 {
+    val exponent = (bits >>> 23) & 255
+    val fraction = bits & 8388607
+    var value = 0.0
+    if ((bits & 2147483648) == 0 && exponent < 255 &&
+        (exponent > 0 || fraction > 0)) {
+        value = f64FromInt(
+            if (exponent == 0) fraction else 8388608 + fraction
+        )
+        var scale = if (exponent == 0) -149 else exponent - 150
+        while (scale > 0) {
+            value = value * 2.0
+            scale = scale - 1
+        }
+        while (scale < 0) {
+            value = value / 2.0
+            scale = scale + 1
+        }
+    }
+    value
 }
 
 class GraphicsVersion(

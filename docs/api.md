@@ -902,7 +902,8 @@ Selection is performed once and never becomes a silent per-frame fallback.
 `graphicsFeatureSampledTextures`, `graphicsFeatureDepthTextures`,
 `graphicsFeatureComparisonSamplers`, and
 `graphicsFeatureViewFormatReinterpretation`, and
-`graphicsFeatureSamplerAnisotropy`. Creation fails with
+`graphicsFeatureSamplerAnisotropy`, and `graphicsFeatureTimestampQueries`.
+Creation fails with
 `graphicsErrorUnsupportedFeature` when an installed requested backend cannot
 provide every required bit. Automatic selection may skip such a backend and
 select the next capable one.
@@ -953,6 +954,25 @@ textures, views, and samplers are affine resources; remaining resource
 implementations will follow the same ownership rule.
 Borrowing a resource for encoding does not transfer it. Explicit `move` is used
 only when ownership actually changes.
+
+The delivered timestamp-query resource owns all result and command scratch at
+creation. Sampling returns the backend counter without allocating:
+
+```abla
+val query = app.timestampQuery()
+val begin = query.sampleTicks()
+app.presentRender(pipeline, clear)
+val end = query.sampleTicks()
+val gpuNanoseconds = query.elapsedNanoseconds(begin, end)
+```
+
+OpenGL uses core timer-query objects and their nanosecond counter. Vulkan owns a
+query pool and dedicated reusable command pool/buffer, reads the selected queue
+family's timestamp-valid width, and converts ticks using the device's
+`timestampPeriod`. Counter wrap is handled within the usable width (capped at
+63 bits because Abla's public integer is signed).
+Sampling is synchronous in this first profiler slice; render-pass-integrated
+query resolves will make multi-frame profiling asynchronous.
 
 ## Window and events
 

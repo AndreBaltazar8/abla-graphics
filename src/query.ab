@@ -1,0 +1,134 @@
+// Affine, reusable GPU timestamp queries shared by both production backends.
+
+import "abla/float"
+import "abla/unsafe/memory"
+import "core.ab"
+import "application.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+fun graphicsTimestampTickDelta(
+    earlierTicks: int,
+    laterTicks: int,
+    validBits: int
+): int {
+    val mask = if (validBits == 63) 9223372036854775807
+        else if (validBits > 0 && validBits < 63)
+            (1 << validBits) - 1
+        else 0
+    var elapsed = -1
+    if (validBits > 0 && validBits <= 63 && earlierTicks >= 0 &&
+        laterTicks >= 0 && earlierTicks <= mask && laterTicks <= mask) {
+        elapsed = if (laterTicks >= earlierTicks)
+            laterTicks - earlierTicks
+        else (mask - earlierTicks) + laterTicks + 1
+    }
+    elapsed
+}
+
+resource class GraphicsTimestampQuery(
+    val openGl: OpenGlTimestampQuery,
+    val vulkan: VulkanTimestampQuery,
+    val backend: int,
+    val periodNanoseconds: f64,
+    val validBits: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        this.periodNanoseconds > 0.0 && this.validBits > 0 &&
+        this.validBits <= 63 &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun sampleTicks(): int {
+        var ticks = -1
+        if (this.valid() && this.backend == graphicsBackendOpenGl) {
+            ticks = this.openGl.sampleTicks()
+        } else if (this.valid() && this.backend == graphicsBackendVulkan) {
+            ticks = this.vulkan.sampleTicks()
+        }
+        ticks
+    }
+
+    fun elapsedNanoseconds(earlierTicks: int, laterTicks: int): f64 {
+        val elapsed = if (this.valid()) graphicsTimestampTickDelta(
+            earlierTicks,
+            laterTicks,
+            this.validBits
+        ) else -1
+        if (elapsed >= 0)
+            f64FromInt(elapsed) * this.periodNanoseconds
+        else -1.0
+    }
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.timestampQuery(): GraphicsTimestampQuery {
+    var openGl = OpenGlTimestampQuery(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        nativeI64Cell(0)
+    )
+    var vulkan = VulkanTimestampQuery(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        0,
+        nativePointerCell(nativeNullPointer()),
+        nativeByteBuffer(0),
+        nativeI64Cell(0),
+        0,
+        0.0
+    )
+    var error = GraphicsError()
+    var period = 0.0
+    var validBits = 0
+    if (!this.valid()) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.timestampQuery",
+            "timestamp queries require a valid graphics application"
+        )
+    } else if (!this.capabilities.supports(
+        graphicsFeatureTimestampQueries
+    )) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "GraphicsApplication.timestampQuery",
+            "the selected backend does not expose timestamp queries"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.timestampQuery()
+        period = 1.0
+        validBits = 63
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "OpenGlWindowContext.timestampQuery",
+            "OpenGL timestamp query creation failed"
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.timestampQuery()
+        period = vulkan.periodNanoseconds
+        validBits = vulkan.validBits
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.timestampQuery",
+            "Vulkan timestamp query creation failed"
+        )
+    }
+    GraphicsTimestampQuery(
+        move(openGl),
+        move(vulkan),
+        this.backend,
+        period,
+        validBits,
+        error
+    )
+}

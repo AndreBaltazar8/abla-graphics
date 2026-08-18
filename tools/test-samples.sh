@@ -12,7 +12,7 @@ for sample in x11-window vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \
     common-textured indexed-textured-cube render-to-texture \
-    multiple-render-targets common-compute \
+    multiple-render-targets common-compute gpu-timestamp \
     frame-pacing; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
@@ -49,4 +49,6 @@ for backend in opengl vulkan; do
         "$output_directory/multiple-render-targets" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-compute" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/gpu-timestamp" "$backend"
 done

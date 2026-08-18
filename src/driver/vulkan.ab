@@ -246,6 +246,27 @@ noescape extern:"c" fun vkUpdateDescriptorSets(
     descriptorCopyCount: i32,
     descriptorCopies: i64*
 ): void
+noescape extern:"c" fun vkCreateQueryPool(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    queryPool: i64*
+): i32
+noescape extern:"c" fun vkDestroyQueryPool(
+    device: i64*,
+    queryPool: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkGetQueryPoolResults(
+    device: i64*,
+    queryPool: int,
+    firstQuery: i32,
+    queryCount: i32,
+    dataSize: int,
+    data: i64*,
+    stride: int,
+    flags: i32
+): i32
 noescape extern:"c" fun vkCreateImage(
     device: i64*,
     createInfo: i64*,
@@ -419,6 +440,18 @@ noescape extern:"c" fun vkCmdPipelineBarrier(
     bufferMemoryBarriers: i64*,
     imageMemoryBarrierCount: i32,
     imageMemoryBarriers: i64*
+): void
+noescape extern:"c" fun vkCmdResetQueryPool(
+    commandBuffer: i64*,
+    queryPool: int,
+    firstQuery: i32,
+    queryCount: i32
+): void
+noescape extern:"c" fun vkCmdWriteTimestamp(
+    commandBuffer: i64*,
+    pipelineStage: i32,
+    queryPool: int,
+    query: i32
 ): void
 noescape extern:"c" fun vkQueueSubmit(
     queue: i64*,
@@ -981,6 +1014,32 @@ trusted fun VulkanAdapter.queueFamilyFlags(queueFamily: int): int {
     flags
 }
 
+trusted fun VulkanAdapter.queueFamilyTimestampValidBits(
+    queueFamily: int
+): int {
+    val count = nativeI64Cell(0)
+    vkGetPhysicalDeviceQueueFamilyProperties(
+        this.handle,
+        count.address,
+        nativeNullPointer()
+    )
+    var measured = count.load() & 4294967295
+    var bits = 0
+    if (queueFamily >= 0 && queueFamily < measured && measured <= 256) {
+        val properties = nativeByteBuffer(measured * 24)
+        vkGetPhysicalDeviceQueueFamilyProperties(
+            this.handle,
+            count.address,
+            properties.address
+        )
+        measured = count.load() & 4294967295
+        if (queueFamily < measured) {
+            bits = properties.loadI64(queueFamily * 24 + 8) & 4294967295
+        }
+    }
+    bits
+}
+
 trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     val properties = nativeByteBuffer(1024)
     val deviceFeatures = nativeByteBuffer(224)
@@ -988,6 +1047,7 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     vkGetPhysicalDeviceFeatures(this.handle, deviceFeatures.address)
     val queueFamily = this.graphicsQueueFamily()
     val queueFlags = this.queueFamilyFlags(queueFamily)
+    val timestampValidBits = this.queueFamilyTimestampValidBits(queueFamily)
     var features = graphicsFeatureSampledTextures |
         graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers |
         graphicsFeatureViewFormatReinterpretation
@@ -1001,6 +1061,12 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     if (((deviceFeatures.loadI64(72) >>> 32) & 4294967295) != 0 &&
         maximumAnisotropy > 1) {
         features = features | graphicsFeatureSamplerAnisotropy
+    }
+    if (timestampValidBits > 0 &&
+        graphicsPositiveF32Value(
+            properties.loadI64(720) & 4294967295
+        ) > 0.0) {
+        features = features | graphicsFeatureTimestampQueries
     }
     GraphicsCapabilities(
         features,
@@ -1041,6 +1107,118 @@ trusted fun VulkanAdapter.enabledDeviceFeatures(): NativeByteBuffer {
     enabled
 }
 
+resource class VulkanTimestampQuery(
+    val device: i64*,
+    val queue: i64*,
+    var queryPool: int,
+    var commandPool: int,
+    val command: NativePointerCell,
+    val scratch: NativeByteBuffer,
+    val result: NativeI64Cell,
+    val validBits: int,
+    val periodNanoseconds: f64
+) {
+    fun valid(): bool = !pointerIsNull(this.device) &&
+        !pointerIsNull(this.queue) && this.queryPool != 0 &&
+        this.commandPool != 0 && !this.command.closed &&
+        !pointerIsNull(this.command.load()) && !this.scratch.closed &&
+        this.scratch.capacity >= 72 && !this.result.closed &&
+        this.validBits > 0 && this.validBits <= 63 &&
+        this.periodNanoseconds > 0.0
+
+    trusted fun sampleTicks(): int {
+        var succeeded = this.valid() && vkResetCommandPool(
+            this.device,
+            this.commandPool,
+            0
+        ) == vulkanSuccess
+        if (succeeded) {
+            this.scratch.storeI64(0, 42)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 1)
+            this.scratch.storePointer(24, nativeNullPointer())
+            succeeded = vkBeginCommandBuffer(
+                this.command.load(),
+                this.scratch.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            vkCmdResetQueryPool(this.command.load(), this.queryPool, 0, 1)
+            vkCmdWriteTimestamp(
+                this.command.load(),
+                8192,
+                this.queryPool,
+                0
+            )
+            succeeded = vkEndCommandBuffer(this.command.load()) ==
+                vulkanSuccess
+        }
+        if (succeeded) {
+            this.scratch.storeI64(0, 4)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 0)
+            this.scratch.storePointer(24, nativeNullPointer())
+            this.scratch.storePointer(32, nativeNullPointer())
+            this.scratch.storeI64(40, 1)
+            this.scratch.storePointer(48, this.command.address)
+            this.scratch.storeI64(56, 0)
+            this.scratch.storePointer(64, nativeNullPointer())
+            succeeded = vkQueueSubmit(
+                this.queue,
+                1,
+                this.scratch.address,
+                0
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess &&
+                this.result.store(0) && vkGetQueryPoolResults(
+                    this.device,
+                    this.queryPool,
+                    0,
+                    1,
+                    8,
+                    this.result.address,
+                    8,
+                    3
+                ) == vulkanSuccess
+        }
+        var ticks = -1
+        if (succeeded) {
+            val mask = if (this.validBits == 63)
+                9223372036854775807
+            else (1 << this.validBits) - 1
+            ticks = this.result.load() & mask
+        }
+        ticks
+    }
+
+    trusted fun drop(): void {
+        if (!pointerIsNull(this.queue)) vkQueueWaitIdle(this.queue)
+        if (this.queryPool != 0 && !pointerIsNull(this.device)) {
+            vkDestroyQueryPool(
+                this.device,
+                this.queryPool,
+                nativeNullPointer()
+            )
+            this.queryPool = 0
+        }
+        if (this.commandPool != 0 && !pointerIsNull(this.device)) {
+            vkDestroyCommandPool(
+                this.device,
+                this.commandPool,
+                nativeNullPointer()
+            )
+            this.commandPool = 0
+            this.command.store(nativeNullPointer())
+        }
+        this.command.close()
+        this.scratch.close()
+        this.result.close()
+        return
+    }
+}
+
 resource class VulkanDevice(
     var handle: i64*,
     var queue: i64*,
@@ -1056,6 +1234,115 @@ resource class VulkanDevice(
 
     trusted fun waitIdle(): bool =
         this.valid() && vkDeviceWaitIdle(this.handle) == vulkanSuccess
+
+    trusted fun timestampQuery(): VulkanTimestampQuery {
+        var queryPool = 0
+        var commandPool = 0
+        val command = nativePointerCell(nativeNullPointer())
+        val scratch = nativeByteBuffer(72)
+        val result = nativeI64Cell(0)
+        val properties = nativeByteBuffer(1024)
+        val familyCount = nativeI64Cell(0)
+        var validBits = 0
+        var period = 0.0
+        if (this.valid()) {
+            vkGetPhysicalDeviceProperties(
+                this.physicalDevice,
+                properties.address
+            )
+            period = graphicsPositiveF32Value(
+                properties.loadI64(720) & 4294967295
+            )
+            vkGetPhysicalDeviceQueueFamilyProperties(
+                this.physicalDevice,
+                familyCount.address,
+                nativeNullPointer()
+            )
+            var count = familyCount.load() & 4294967295
+            if (count > 0 && count <= 256 && this.queueFamily >= 0 &&
+                this.queueFamily < count) {
+                val families = nativeByteBuffer(count * 24)
+                vkGetPhysicalDeviceQueueFamilyProperties(
+                    this.physicalDevice,
+                    familyCount.address,
+                    families.address
+                )
+                count = familyCount.load() & 4294967295
+                if (this.queueFamily < count) {
+                    validBits = families.loadI64(
+                        this.queueFamily * 24 + 8
+                    ) & 4294967295
+                    if (validBits > 63) validBits = 63
+                }
+            }
+        }
+        var succeeded = this.valid() && validBits > 0 && period > 0.0
+        if (succeeded) {
+            scratch.storeI64(0, 11)
+            scratch.storePointer(8, nativeNullPointer())
+            scratch.storeI64(16, 8589934592)
+            scratch.storeI64(24, 1)
+            succeeded = vkCreateQueryPool(
+                this.handle,
+                scratch.address,
+                nativeNullPointer(),
+                result.address
+            ) == vulkanSuccess
+            if (succeeded) queryPool = result.load()
+        }
+        if (succeeded) {
+            scratch.storeI64(0, 39)
+            scratch.storePointer(8, nativeNullPointer())
+            scratch.storeI64(
+                16,
+                (this.queueFamily & 4294967295) * 4294967296 + 2
+            )
+            succeeded = vkCreateCommandPool(
+                this.handle,
+                scratch.address,
+                nativeNullPointer(),
+                result.address
+            ) == vulkanSuccess
+            if (succeeded) commandPool = result.load()
+        }
+        if (succeeded) {
+            scratch.storeI64(0, 40)
+            scratch.storePointer(8, nativeNullPointer())
+            scratch.storeI64(16, commandPool)
+            scratch.storeI64(24, 4294967296)
+            succeeded = vkAllocateCommandBuffers(
+                this.handle,
+                scratch.address,
+                command.address
+            ) == vulkanSuccess
+        }
+        if (!succeeded) {
+            if (commandPool != 0) vkDestroyCommandPool(
+                this.handle,
+                commandPool,
+                nativeNullPointer()
+            )
+            if (queryPool != 0) vkDestroyQueryPool(
+                this.handle,
+                queryPool,
+                nativeNullPointer()
+            )
+            queryPool = 0
+            commandPool = 0
+            command.store(nativeNullPointer())
+        }
+        VulkanTimestampQuery(
+            this.handle,
+            this.queue,
+            queryPool,
+            commandPool,
+            move(command),
+            move(scratch),
+            move(result),
+            validBits,
+            period
+        )
+    }
 
     trusted fun transferValid(): bool = this.valid() &&
         this.transferPool != 0 &&
