@@ -97,6 +97,11 @@ Updated: 2026-08-18.
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
   result creates a real Lavapipe shader module. Statements and unsupported GLSL
   versions fail explicitly instead of being omitted from the module.
+- Vulkan compute execution test: the Abla-emitted module creates an empty
+  pipeline layout and real compute pipeline, records bind/dispatch into a
+  one-time command buffer, submits two workgroups, waits for completion, and
+  destroys pipeline-before-layout. A zero-group dispatch is rejected before
+  command recording.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.

@@ -28,6 +28,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
 - deterministic pure-Abla SPIR-V emission for the first strict no-op compute
   subset, with unsupported GLSL rejected rather than ignored;
+- real Vulkan compute-pipeline creation and submitted dispatch from that
+  Abla-emitted module;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, owns teardown, exposes copied events, and presents common clear colors;
 - reusable affine RGBA8 pixel storage, a persistent nearest-filtered OpenGL

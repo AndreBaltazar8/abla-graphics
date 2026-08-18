@@ -317,6 +317,15 @@ a checked `GlslSpirvResult` failure; nothing unsupported is silently dropped.
 This narrow first subset establishes the pure-Abla emitter and test path, not
 completion of general GLSL-to-SPIR-V compilation.
 
+On the raw Vulkan path, `device.computePipeline(shader)` creates an empty
+`VkPipelineLayout` and a `VkComputePipeline` for entry point `main`.
+`pipeline.dispatch(x, y, z)` validates positive bounded group counts, records
+and binds the pipeline in a one-time command buffer, submits it, waits for
+completion, and releases the transient command pool. Pipeline then layout are
+destroyed affinely. This is a verified execution foundation; descriptor-set
+layouts, reusable command encoders, asynchronous fences, and the common compute
+pipeline facade remain upcoming.
+
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the
 provided representation.
