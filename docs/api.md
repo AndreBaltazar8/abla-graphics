@@ -311,9 +311,10 @@ The executable translator is available as
 one `#version 450` or `460` directive and an explicit local-size layout. The
 first form has an empty `main`; the second grammar declares one binding-zero
 `Values` storage block and either stores a parsed unsigned integer literal or
-adds one to the existing member value. They emit deterministic SPIR-V 1.0
-modules using reflected workgroup/binding data; the addition form emits a real
-load/add/store chain. Repeated translation produces
+adds/multiplies the existing member value by a parsed unsigned literal. They
+emit deterministic SPIR-V 1.0 modules using reflected workgroup/binding data;
+the arithmetic forms emit real load/operation/store chains. Repeated
+translation produces
 identical words and both results create real Vulkan shader modules. Any other
 binding, global, statement, version, or stage returns a checked
 `GlslSpirvResult` failure; nothing unsupported is silently dropped. These

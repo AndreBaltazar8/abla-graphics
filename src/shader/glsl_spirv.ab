@@ -16,7 +16,8 @@ class GlslSpirvResult(
 class GlslStorageWrite(
     val valid: bool,
     val value: int = 0,
-    val add: bool = false
+    val add: bool = false,
+    val multiply: bool = false
 )
 
 fun glslSkipLine(source: string, begin: int): int {
@@ -156,16 +157,22 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     character = glslExpectCharacter(source, part.next, 61)
     valid = valid && character.valid
     var add = false
+    var multiply = false
     val expression = glslReadName(source, character.next)
     var value = GlslInteger(false, 0, character.next)
     if (expression.text == "values") {
-        add = true
         character = glslExpectCharacter(source, expression.next, 46)
         valid = valid && character.valid
         part = glslReadName(source, character.next)
         valid = valid && part.text == "value"
-        character = glslExpectCharacter(source, part.next, 43)
-        valid = valid && character.valid
+        val operator = glslSkipTrivia(source, part.next)
+        valid = valid && operator < source.size &&
+            (source[operator] == 43 || source[operator] == 42)
+        if (operator < source.size) {
+            add = source[operator] == 43
+            multiply = source[operator] == 42
+        }
+        character = GlslInteger(valid, 0, operator + 1)
         value = glslReadUnsigned(source, character.next)
     } else {
         value = glslReadUnsigned(source, character.next)
@@ -178,7 +185,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     character = glslExpectCharacter(source, character.next, 125)
     valid = valid && character.valid &&
         glslSkipTrivia(source, character.next) == source.size
-    GlslStorageWrite(valid, value.value, add)
+    GlslStorageWrite(valid, value.value, add, multiply)
 }
 
 fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
@@ -215,7 +222,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     } else if (storage) {
         words = [
             spirvMagic, spirvVersion10, 0,
-            if (storageWrite.add) 15 else 13, 0,
+            if (storageWrite.add || storageWrite.multiply) 15 else 13, 0,
             131089, 1,
             196622, 0, 1,
             327695, 5, 10, 1852399981, 0,
@@ -237,12 +244,12 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             131320, 11,
             327745, 6, 12, 9, 7
         ]
-        if (storageWrite.add) {
+        if (storageWrite.add || storageWrite.multiply) {
             words.append(262205)
             words.append(3)
             words.append(13)
             words.append(12)
-            words.append(327808)
+            words.append(if (storageWrite.add) 327808 else 327812)
             words.append(3)
             words.append(14)
             words.append(13)
@@ -258,7 +265,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         words.append(65789)
         words.append(65592)
     } else {
-        error = "the deterministic GLSL translator supports the documented no-op and storage-write compute subsets"
+        error = "the deterministic GLSL translator supports the documented no-op and storage-assignment compute subsets"
     }
     val module = spirvModule(words)
     succeeded = succeeded && module.valid()

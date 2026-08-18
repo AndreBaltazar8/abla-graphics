@@ -26,8 +26,9 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
-- deterministic pure-Abla SPIR-V emission for the first strict no-op compute
-  subset, with unsupported GLSL rejected rather than ignored;
+- deterministic pure-Abla SPIR-V emission for strict no-op and observable
+  single-member storage arithmetic compute subsets, with unsupported GLSL
+  rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL

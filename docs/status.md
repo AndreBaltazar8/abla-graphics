@@ -113,11 +113,12 @@ Updated: 2026-08-18.
 - Observable storage compute test/sample: a reflected binding-zero `std430`
   block is emitted as SPIR-V `BufferBlock`/descriptor decorations and a real
   access-chain/store. The grammar accepts both an unsigned constant assignment
-  and self-plus-unsigned assignment; the latter emits `OpLoad`, `OpIAdd`, and
-  `OpStore`. OpenGL binds an SSBO; Vulkan creates and binds descriptor
+  and self-plus/self-times-unsigned assignments; the latter forms emit
+  `OpLoad`, `OpIAdd` or `OpIMul`, and `OpStore`. OpenGL binds an SSBO; Vulkan
+  creates and binds descriptor
   layout/pool/set state. Explicit and automatic/fallback paths dispatch the
-  same package and common buffer readback returns exactly `42`; the raw Vulkan
-  variant dispatches an increment twice and returns `2`, proving repeated
+  same multiplication package and common buffer readback returns exactly `6`;
+  the raw Vulkan variant multiplies twice and returns `18`, proving repeated
   commands operate on observable persistent storage.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
