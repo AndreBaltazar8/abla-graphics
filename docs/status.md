@@ -14,7 +14,8 @@ Updated: 2026-08-18.
   coordinates, ordered key-then-UTF-8 text events with shifted/caps and Unicode
   KeySym handling, synthetic keyboard/text/pointer/scroll round trips with raw
   diagnostic codes, event poll/decode, initially hidden windows, idempotent
-  show/hide, runtime title changes, fixed-size and undecorated WM hints,
+  show/hide, runtime title changes, ConfigureWindow/ConfigureNotify resize with
+  authoritative owned dimensions, fixed-size and undecorated WM hints,
   fullscreen EWMH state, explicit transparent-window rejection,
   WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
   against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
@@ -39,7 +40,9 @@ Updated: 2026-08-18.
   preference, automatic fallback to OpenGL, and explicit-unavailable rejection;
   successful paths create an affine application, report the selected adapter,
   convert a common fixed-point color to IEEE-754 bits in Abla, and present it
-  under Xvfb/Lavapipe.
+  under Xvfb/Lavapipe. The explicit OpenGL path additionally requests a resize,
+  consumes its copied event, synchronizes viewport dimensions, and presents at
+  the new window size.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a persistent

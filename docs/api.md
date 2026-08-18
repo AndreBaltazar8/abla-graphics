@@ -209,7 +209,12 @@ are not yet claimed.
 
 On the current X11 platform, `visible=false` creates an initially unmapped
 window; `show()`, `hide()`, and `setTitle()` update both the wire-protocol state
-and the Abla-owned state. Fixed-size windows publish `WM_NORMAL_HINTS`,
+and the Abla-owned state. `resize(width, height)` emits a checked
+ConfigureWindow request; the copied ConfigureNotify event is the authoritative
+size update. The common application synchronizes its OpenGL viewport dimensions
+before returning that event. Vulkan resize currently requires the planned
+swapchain-recreation API and may reject presentation as out-of-date. Fixed-size
+windows publish `WM_NORMAL_HINTS`,
 undecorated windows publish `_MOTIF_WM_HINTS`, and fullscreen windows publish
 the EWMH fullscreen state before mapping. Each required write/atom/map is part
 of creation success. Transparent X11 windows are rejected until alpha-visual

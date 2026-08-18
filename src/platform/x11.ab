@@ -527,6 +527,19 @@ fun x11SingleWindowRequest(opcode: int, window: int): string {
     x11Packet(request, 8)
 }
 
+fun x11ResizeWindowRequest(window: int, width: int, height: int): string {
+    val request = nativeByteBuffer(21)
+    request.store(0, 12)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 5)
+    x11StoreU32(request, 4, window)
+    x11StoreU16(request, 8, 12)
+    x11StoreU16(request, 10, 0)
+    x11StoreU32(request, 12, width)
+    x11StoreU32(request, 16, height)
+    x11Packet(request, 20)
+}
+
 fun x11InternAtomRequest(name: string): string {
     var length = name.size
     if (length > 4096) length = 4096
@@ -857,6 +870,13 @@ resource class X11Window(
         if (succeeded) this.title = title
         succeeded
     }
+
+    fun resize(width: int, height: int): bool =
+        this.valid() && width > 0 && width <= 65536 &&
+        height > 0 && height <= 65536 && x11WriteAll(
+            this.descriptor,
+            x11ResizeWindowRequest(this.identifier, width, height)
+        )
 
     fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
         var result = WindowEvent()

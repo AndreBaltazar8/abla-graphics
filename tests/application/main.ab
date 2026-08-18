@@ -42,6 +42,24 @@ fun applicationBackendProbe(
         size = 64,
         usage = bufferUsageMapRead
     ))
+    var resizePassed = true
+    if (requestedBackend == graphicsBackendOpenGl) {
+        resizePassed = app.resize(360, 240)
+        var resizeEvent = WindowEvent()
+        var attempts = 0
+        while (resizePassed && resizeEvent.kind != windowEventResized &&
+            attempts < 32) {
+            resizeEvent = app.pollEvent(50)
+            attempts = attempts + 1
+        }
+        resizePassed = resizeEvent.first == 360 &&
+            resizeEvent.second == 240 && app.openGl.width == 360 &&
+            app.openGl.height == 240 && app.presentClear(Color(
+                graphicsScalar(1, 8),
+                graphicsScalar(1, 4),
+                graphicsScalar(1, 2)
+            ))
+    }
     println(
         "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
@@ -52,7 +70,7 @@ fun applicationBackendProbe(
         !mappedBuffer.valid() &&
         mappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
-        readbackBuffer.valid()
+        readbackBuffer.valid() && resizePassed
 }
 
 fun applicationUnavailableProbe(): bool {
