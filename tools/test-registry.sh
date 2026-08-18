@@ -84,6 +84,19 @@ fi
 rg -q 'unsupported OpenGL constant expression' \
     "$output_directory/opengl-invalid.log"
 
+if "$generator" vulkan \
+    "$project_root/registry/fixtures/vulkan-invalid-constant.xml" \
+    "$project_root/registry/fixtures/audit.tsv" \
+    "$output_directory/vulkan-invalid.md" \
+    "$output_directory/vulkan-invalid.ab" \
+    fixture-revision fixture-sha256 \
+    >"$output_directory/vulkan-invalid.log" 2>&1; then
+    printf '%s\n' 'invalid Vulkan constant unexpectedly passed' >&2
+    exit 1
+fi
+rg -q 'unsupported Vulkan constant expression' \
+    "$output_directory/vulkan-invalid.log"
+
 cd "$compiler_root"
 "$compiler" build "$project_root/tests/raw_registry.ab" \
     -o "$output_directory/raw-registry" --no-cache

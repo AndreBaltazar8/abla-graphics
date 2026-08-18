@@ -5,6 +5,7 @@
 - Commands: 2892
 - Core features: 19
 - Extensions: 623
+- Constants: 6271
 - Classified commands: 15/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623

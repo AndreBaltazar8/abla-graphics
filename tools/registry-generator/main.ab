@@ -31,6 +31,13 @@ class RegistryConstants(
     val error: string
 )
 
+class RegistryConstantExpression(
+    val value: string,
+    val dependency: string,
+    val valid: bool,
+    val error: string
+)
+
 fun registryOpeningTagEnd(source: string, begin: int): int =
     textFindByte(source, 62, begin, source.size)
 
@@ -288,6 +295,314 @@ fun registryConstantValueValid(value: string): bool {
     valid
 }
 
+fun registryDecimalValid(value: string): bool {
+    var valid = value.size > 0
+    var offset = 0
+    while (valid && offset < value.size) {
+        valid = value[offset] >= 48 && value[offset] <= 57
+        offset = offset + 1
+    }
+    valid
+}
+
+fun registryDecimalValue(value: string): int {
+    var result = 0
+    var offset = 0
+    while (offset < value.size) {
+        result = result * 10 + value[offset] - 48
+        offset = offset + 1
+    }
+    result
+}
+
+fun registryIdentifierValid(value: string): bool {
+    var valid = value.size > 0 &&
+        ((value[0] >= 65 && value[0] <= 90) ||
+        (value[0] >= 97 && value[0] <= 122) || value[0] == 95)
+    var offset = 1
+    while (valid && offset < value.size) {
+        val byte = value[offset]
+        valid = (byte >= 65 && byte <= 90) ||
+            (byte >= 97 && byte <= 122) ||
+            (byte >= 48 && byte <= 57) || byte == 95
+        offset = offset + 1
+    }
+    valid
+}
+
+fun registryFloatValue(value: string): string {
+    var result = ""
+    if (value.size > 2 &&
+        (value[value.size - 1] == 70 || value[value.size - 1] == 102)) {
+        val body = value.slice(0, value.size - 1)
+        var valid = true
+        var dots = 0
+        var offset = 0
+        while (valid && offset < body.size) {
+            val byte = body[offset]
+            if (byte == 46) dots = dots + 1
+            else if (byte < 48 || byte > 57) valid = false
+            offset = offset + 1
+        }
+        if (valid && dots == 1) result = body
+    }
+    result
+}
+
+fun registryStringValue(value: string): string {
+    val marker = "&quot;"
+    var result = ""
+    if (value.size >= marker.size * 2 &&
+        value.slice(0, marker.size) == marker &&
+        value.slice(value.size - marker.size, value.size) == marker) {
+        val body = value.slice(marker.size, value.size - marker.size)
+        var valid = body.size > 0
+        var offset = 0
+        while (valid && offset < body.size) {
+            val byte = body[offset]
+            valid = byte >= 32 && byte <= 126 && byte != 34 &&
+                byte != 38 && byte != 92
+            offset = offset + 1
+        }
+        if (valid) result = "\"$body\""
+    }
+    result
+}
+
+fun registryBitValue(bitpos: string): string {
+    var result = ""
+    if (registryDecimalValid(bitpos)) {
+        val bit = registryDecimalValue(bitpos)
+        if (bit <= 63) {
+            val digits = "1248"
+            val digit = bit - bit / 4 * 4
+            result = "0x${digits.slice(digit, digit + 1)}"
+            var zeros = bit / 4
+            while (zeros > 0) {
+                result = "${result}0"
+                zeros = zeros - 1
+            }
+        }
+    }
+    result
+}
+
+fun registryVulkanConstantExpression(
+    opening: string,
+    inheritedExtensionNumber: string
+): RegistryConstantExpression {
+    val name = registryAttribute(opening, "name")
+    val value = registryAttribute(opening, "value")
+    val bitpos = registryAttribute(opening, "bitpos")
+    val offset = registryAttribute(opening, "offset")
+    val alias = registryAttribute(opening, "alias")
+    var forms = 0
+    if (value != "") forms = forms + 1
+    if (bitpos != "") forms = forms + 1
+    if (offset != "") forms = forms + 1
+    if (alias != "") forms = forms + 1
+    var expression = ""
+    var dependency = ""
+    var valid = forms <= 1
+    var error = if (valid) "" else
+        "multiple Vulkan constant expressions: $name"
+    if (valid && value != "") {
+        if (registryConstantValueValid(value)) expression = value
+        else if (value == "(~0U)" || value == "(~0ULL)") expression = "-1"
+        else if (value == "(~1U)") expression = "0xFFFFFFFE"
+        else if (value == "(~2U)") expression = "0xFFFFFFFD"
+        else {
+            expression = registryFloatValue(value)
+            if (expression == "") expression = registryStringValue(value)
+            if (expression == "") {
+                valid = false
+                error = "unsupported Vulkan constant expression: $name=$value"
+            }
+        }
+    } else if (valid && bitpos != "") {
+        expression = registryBitValue(bitpos)
+        if (expression == "") {
+            valid = false
+            error = "unsupported Vulkan bit position: $name=$bitpos"
+        }
+    } else if (valid && offset != "") {
+        var extensionNumber = registryAttribute(opening, "extnumber")
+        if (extensionNumber == "") extensionNumber = inheritedExtensionNumber
+        val direction = registryAttribute(opening, "dir")
+        if (!registryDecimalValid(extensionNumber) ||
+            !registryDecimalValid(offset) ||
+            (direction != "" && direction != "-")) {
+            valid = false
+            error = "unsupported Vulkan extension offset: $name"
+        } else {
+            val number = 1000000000 +
+                (registryDecimalValue(extensionNumber) - 1) * 1000 +
+                registryDecimalValue(offset)
+            expression = if (direction == "-") "-${number}" else "$number"
+        }
+    } else if (valid && alias != "") {
+        if (!registryIdentifierValid(alias) || alias.size < 3 ||
+            alias.slice(0, 3) != "VK_") {
+            valid = false
+            error = "unsupported Vulkan constant alias: $name=$alias"
+        } else {
+            expression = alias
+            dependency = alias
+        }
+    }
+    RegistryConstantExpression(expression, dependency, valid, error)
+}
+
+fun registryAddConstant(
+    name: string,
+    expression: RegistryConstantExpression,
+    var requested: array<string>,
+    var names: array<string>,
+    var values: array<string>
+): string {
+    var error = expression.error
+    if (expression.valid) {
+        if (!registryArrayContains(requested, name)) requested.append(name)
+        if (expression.dependency != "" &&
+            !registryArrayContains(requested, expression.dependency)) {
+            requested.append(expression.dependency)
+        }
+        if (expression.value != "") {
+            val existing = registryArrayIndex(names, name)
+            if (existing < 0) {
+                names.append(name)
+                values.append(expression.value)
+            } else if (values[existing] != expression.value) {
+                error = "conflicting Vulkan constant definition: $name"
+            }
+        }
+    }
+    error
+}
+
+fun registryResolveConstantAliases(
+    names: array<string>,
+    var values: array<string>
+): string {
+    var error = ""
+    var changed = true
+    while (error == "" && changed) {
+        changed = false
+        var index = 0
+        while (error == "" && index < values.size) {
+            val value = values[index]
+            if (value.size > 3 && value.slice(0, 3) == "VK_") {
+                val target = registryArrayIndex(names, value)
+                if (target < 0) {
+                    error = "Vulkan constant alias target has no definition: ${names[index]}=$value"
+                } else {
+                    val resolved = values[target]
+                    if (resolved.size <= 3 || resolved.slice(0, 3) != "VK_") {
+                        values[index] = resolved
+                        changed = true
+                    }
+                }
+            }
+            index = index + 1
+        }
+    }
+    if (error == "") {
+        var index = 0
+        while (error == "" && index < values.size) {
+            if (values[index].size > 3 &&
+                values[index].slice(0, 3) == "VK_") {
+                error = "cyclic Vulkan constant alias: ${names[index]}"
+            }
+            index = index + 1
+        }
+    }
+    error
+}
+
+fun registryAppendRequiredConstants(
+    source: string,
+    begin: int,
+    end: int,
+    inheritedExtensionNumber: string,
+    var requested: array<string>,
+    var names: array<string>,
+    var values: array<string>
+): string {
+    var error = ""
+    var cursor = begin
+    while (error == "") {
+        val requireBegin = textFindSequence(source, "<require", cursor, end)
+        if (requireBegin < 0) break
+        val afterName = requireBegin + 8
+        if (afterName < end && source[afterName] != 62 &&
+            source[afterName] != 32 && source[afterName] != 9 &&
+            source[afterName] != 10 && source[afterName] != 13) {
+            cursor = afterName
+            continue
+        }
+        val openEnd = textFindByte(source, 62, afterName, end)
+        if (openEnd < 0) error = "unterminated Vulkan requirement"
+        else {
+            val opening = source.slice(requireBegin, openEnd + 1)
+            val requireApi = registryAttribute(opening, "api")
+            val selected = requireApi == "" ||
+                registryTokenListContains(requireApi, "vulkan")
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, "</require>", openEnd + 1, end
+                )
+                if (close < 0) error = "unterminated Vulkan requirement"
+                else {
+                    if (selected) {
+                        var enumCursor = openEnd + 1
+                        while (error == "") {
+                            val enumBegin = textFindSequence(
+                                source, "<enum", enumCursor, close
+                            )
+                            if (enumBegin < 0) break
+                            val enumEnd = registryOpeningTagEnd(
+                                source, enumBegin + 5
+                            )
+                            if (enumEnd < 0 || enumEnd >= close) {
+                                error = "unterminated Vulkan enum"
+                            } else {
+                                val enumOpening = source.slice(
+                                    enumBegin, enumEnd + 1
+                                )
+                                val enumApi = registryAttribute(
+                                    enumOpening, "api"
+                                )
+                                val name = registryAttribute(
+                                    enumOpening, "name"
+                                )
+                                val selectedEnum = (enumApi == "" ||
+                                    registryTokenListContains(
+                                        enumApi, "vulkan"
+                                    )) && name.size > 3 &&
+                                    name.slice(0, 3) == "VK_"
+                                if (selectedEnum) error = registryAddConstant(
+                                    name,
+                                    registryVulkanConstantExpression(
+                                        enumOpening,
+                                        inheritedExtensionNumber
+                                    ),
+                                    requested,
+                                    names,
+                                    values
+                                )
+                                enumCursor = enumEnd + 1
+                            }
+                        }
+                    }
+                    cursor = close + 10
+                }
+            }
+        }
+    }
+    error
+}
+
 fun registryParseConstants(source: string, api: string): RegistryConstants {
     val names: array<string> = []
     val values: array<string> = []
@@ -335,6 +650,187 @@ fun registryParseConstants(source: string, api: string): RegistryConstants {
                 }
             }
             cursor = end + 1
+        }
+    }
+    if (valid && api == "vulkan") {
+        val requested: array<string> = []
+        val firstFeature = textFindSequence(source, "<feature")
+        cursor = 0
+        while (valid && cursor < firstFeature) {
+            val begin = textFindSequence(source, "<enum", cursor, firstFeature)
+            if (begin < 0) break
+            cursor = begin + 5
+            if (cursor < source.size && source[cursor] != 62 &&
+                source[cursor] != 32 && source[cursor] != 9 &&
+                source[cursor] != 10 && source[cursor] != 13) continue
+            val end = registryOpeningTagEnd(source, cursor)
+            if (end < 0 || end >= firstFeature) {
+                valid = false
+                error = "unterminated Vulkan base enum"
+            } else {
+                val opening = source.slice(begin, end + 1)
+                val name = registryAttribute(opening, "name")
+                val enumApi = registryAttribute(opening, "api")
+                val selected = name.size > 3 &&
+                    name.slice(0, 3) == "VK_" &&
+                    (enumApi == "" || registryTokenListContains(
+                        enumApi, "vulkan"
+                    ))
+                if (selected) {
+                    error = registryAddConstant(
+                        name,
+                        registryVulkanConstantExpression(opening, ""),
+                        requested,
+                        names,
+                        values
+                    )
+                    if (error != "") valid = false
+                }
+                cursor = end + 1
+            }
+        }
+        cursor = 0
+        while (valid) {
+            val begin = textFindSequence(source, "<feature", cursor, source.size)
+            if (begin < 0) break
+            cursor = begin + 8
+            if (cursor < source.size && source[cursor] != 62 &&
+                source[cursor] != 32 && source[cursor] != 9 &&
+                source[cursor] != 10 && source[cursor] != 13) continue
+            val openEnd = registryOpeningTagEnd(source, cursor)
+            if (openEnd < 0) {
+                valid = false
+                error = "unterminated Vulkan feature"
+            } else {
+                val opening = source.slice(begin, openEnd + 1)
+                val featureApi = registryAttribute(opening, "api")
+                val selected = registryTokenListContains(
+                    featureApi, "vulkan"
+                )
+                if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+                else {
+                    val close = textFindSequence(
+                        source, "</feature>", openEnd + 1, source.size
+                    )
+                    if (close < 0) {
+                        valid = false
+                        error = "unterminated Vulkan feature"
+                    } else {
+                        if (selected) {
+                            error = registryAppendRequiredConstants(
+                                source,
+                                openEnd + 1,
+                                close,
+                                "",
+                                requested,
+                                names,
+                                values
+                            )
+                            if (error != "") valid = false
+                        }
+                        cursor = close + 10
+                    }
+                }
+            }
+        }
+        cursor = 0
+        while (valid) {
+            val begin = textFindSequence(
+                source, "<extension", cursor, source.size
+            )
+            if (begin < 0) break
+            cursor = begin + 10
+            if (cursor < source.size && source[cursor] != 62 &&
+                source[cursor] != 32 && source[cursor] != 9 &&
+                source[cursor] != 10 && source[cursor] != 13) continue
+            val openEnd = registryOpeningTagEnd(source, cursor)
+            if (openEnd < 0) {
+                valid = false
+                error = "unterminated Vulkan extension"
+            } else {
+                val opening = source.slice(begin, openEnd + 1)
+                val supported = registryAttribute(opening, "supported")
+                val selected = registryTokenListContains(
+                    supported, "vulkan"
+                )
+                val extensionNumber = registryAttribute(opening, "number")
+                if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+                else {
+                    val close = textFindSequence(
+                        source, "</extension>", openEnd + 1, source.size
+                    )
+                    if (close < 0) {
+                        valid = false
+                        error = "unterminated Vulkan extension"
+                    } else {
+                        if (selected) {
+                            error = registryAppendRequiredConstants(
+                                source,
+                                openEnd + 1,
+                                close,
+                                extensionNumber,
+                                requested,
+                                names,
+                                values
+                            )
+                            if (error != "") valid = false
+                        }
+                        cursor = close + 12
+                    }
+                }
+            }
+        }
+        var previousRequestedSize = -1
+        while (valid && previousRequestedSize != requested.size) {
+            previousRequestedSize = requested.size
+            cursor = 0
+            while (valid) {
+                val begin = textFindSequence(
+                    source, "<enum", cursor, source.size
+                )
+                if (begin < 0) break
+                cursor = begin + 5
+                if (cursor < source.size && source[cursor] != 62 &&
+                    source[cursor] != 32 && source[cursor] != 9 &&
+                    source[cursor] != 10 && source[cursor] != 13) continue
+                val end = registryOpeningTagEnd(source, cursor)
+                if (end < 0) {
+                    valid = false
+                    error = "unterminated Vulkan enum"
+                } else {
+                    val opening = source.slice(begin, end + 1)
+                    val name = registryAttribute(opening, "name")
+                    val enumApi = registryAttribute(opening, "api")
+                    val selected = registryArrayContains(requested, name) &&
+                        !registryArrayContains(names, name) &&
+                        (enumApi == "" || registryTokenListContains(
+                            enumApi, "vulkan"
+                        ))
+                    if (selected) {
+                        error = registryAddConstant(
+                            name,
+                            registryVulkanConstantExpression(opening, ""),
+                            requested,
+                            names,
+                            values
+                        )
+                        if (error != "") valid = false
+                    }
+                    cursor = end + 1
+                }
+            }
+        }
+        var requestedIndex = 0
+        while (valid && requestedIndex < requested.size) {
+            if (!registryArrayContains(names, requested[requestedIndex])) {
+                valid = false
+                error = "required Vulkan constant has no definition: ${requested[requestedIndex]}"
+            }
+            requestedIndex = requestedIndex + 1
+        }
+        if (valid) {
+            error = registryResolveConstantAliases(names, values)
+            if (error != "") valid = false
         }
     }
     if (valid) registrySortPaired(names, values)
@@ -655,7 +1151,8 @@ fun registryWrite(
     revision: string,
     sha256: string,
     inventory: RegistryInventory,
-    audit: RegistryAudit
+    audit: RegistryAudit,
+    constants: RegistryConstants
 ): bool {
     val title = if (api == "vulkan") "Vulkan" else "OpenGL"
     var success = output.writeText("")
@@ -672,6 +1169,9 @@ fun registryWrite(
     )
     if (success) batch = registryAppend(
         output, batch, "- Extensions: ${inventory.extensions.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "- Constants: ${constants.names.size}"
     )
     var commandAudits = 0
     var featureAudits = 0
@@ -988,7 +1488,7 @@ fun main: int {
                 4
             } else if (!registryWrite(
                 output, api, processArgument(5), processArgument(6), inventory,
-                audit
+                audit, constants
             )) {
                 eprintln("failed to write registry inventory: ${output.text}")
                 5
