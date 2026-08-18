@@ -539,6 +539,165 @@ trusted fun OpenGlWindowContext.sampler(
     OpenGlSampler(handle, this.display, this.surface, this.context)
 }
 
+class OpenGlTextureFormat(
+    val valid: bool,
+    val internalFormat: int,
+    val format: int,
+    val kind: int
+)
+
+fun openGlTextureFormat(format: int): OpenGlTextureFormat {
+    var internalFormat = 0
+    var baseFormat = 6408
+    var kind = 5121
+    if (format == textureFormatR8Unorm) {
+        internalFormat = 33321
+        baseFormat = 6403
+    } else if (format == textureFormatRg8Unorm) {
+        internalFormat = 33323
+        baseFormat = 33319
+    } else if (format == textureFormatRgba8Unorm) internalFormat = 32856
+    else if (format == textureFormatRgba8UnormSrgb) internalFormat = 35907
+    else if (format == textureFormatBgra8Unorm) internalFormat = 32856
+    else if (format == textureFormatBgra8UnormSrgb) internalFormat = 35907
+    else if (format == textureFormatR16Float) {
+        internalFormat = 33325
+        baseFormat = 6403
+        kind = 5131
+    } else if (format == textureFormatRg16Float) {
+        internalFormat = 33327
+        baseFormat = 33319
+        kind = 5131
+    } else if (format == textureFormatRgba16Float) {
+        internalFormat = 34842
+        kind = 5131
+    } else if (format == textureFormatR32Float) {
+        internalFormat = 33326
+        baseFormat = 6403
+        kind = 5126
+    } else if (format == textureFormatRg32Float) {
+        internalFormat = 33328
+        baseFormat = 33319
+        kind = 5126
+    } else if (format == textureFormatRgba32Float) {
+        internalFormat = 34836
+        kind = 5126
+    } else if (format == textureFormatDepth16Unorm) {
+        internalFormat = 33189
+        baseFormat = 6402
+        kind = 5123
+    } else if (format == textureFormatDepth24Stencil8) {
+        internalFormat = 35056
+        baseFormat = 34041
+        kind = 34042
+    } else if (format == textureFormatDepth32Float) {
+        internalFormat = 36012
+        baseFormat = 6402
+        kind = 5126
+    } else if (format == textureFormatDepth32FloatStencil8) {
+        internalFormat = 36013
+        baseFormat = 34041
+        kind = 36269
+    }
+    OpenGlTextureFormat(internalFormat != 0, internalFormat, baseFormat, kind)
+}
+
+resource class OpenGlTexture(
+    var handle: int,
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*
+) {
+    fun valid(): bool = this.handle != 0 &&
+        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+
+    trusted fun drop(): void {
+        if (this.handle != 0) {
+            if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {
+                eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            }
+            val output = nativeI64Cell(this.handle)
+            glDeleteTextures(1, output.address)
+            this.handle = 0
+        }
+        return
+    }
+}
+
+resource class OpenGlTextureView(var handle: int) {
+    fun valid(): bool = this.handle != 0
+
+    fun drop(): void {
+        this.handle = 0
+        return
+    }
+}
+
+trusted fun OpenGlWindowContext.texture(
+    descriptor: TextureDescriptor
+): OpenGlTexture {
+    var handle = 0
+    val selected = openGlTextureFormat(descriptor.format)
+    if (descriptor.valid() && descriptor.dimension == textureDimension2D &&
+        descriptor.samples == 1 && selected.valid && this.makeCurrent()) {
+        val output = nativeI64Cell(0)
+        glGenTextures(1, output.address)
+        handle = output.load()
+        if (handle != 0) {
+            glBindTexture(3553, handle)
+            glTexParameteri(3553, 33084, 0)
+            glTexParameteri(3553, 33085, descriptor.mipLevels - 1)
+            var level = 0
+            var width = descriptor.size.width
+            var height = descriptor.size.height
+            while (level < descriptor.mipLevels) {
+                glTexImage2D(
+                    3553,
+                    level,
+                    selected.internalFormat,
+                    width,
+                    height,
+                    0,
+                    selected.format,
+                    selected.kind,
+                    nativeNullPointer()
+                )
+                if (width > 1) width = width / 2
+                if (height > 1) height = height / 2
+                level = level + 1
+            }
+            if (glGetError() != 0) {
+                glDeleteTextures(1, output.address)
+                handle = 0
+            }
+        }
+    }
+    OpenGlTexture(handle, this.display, this.surface, this.context)
+}
+
+fun OpenGlTexture.view(
+    texture: TextureDescriptor,
+    descriptor: TextureViewDescriptor
+): OpenGlTextureView {
+    val validation = descriptor.validation(texture)
+    val fullView = descriptor.resolvedFormat(texture) == texture.format &&
+        descriptor.dimension == texture.dimension &&
+        descriptor.baseMipLevel == 0 &&
+        descriptor.resolvedMipLevelCount(texture) == texture.mipLevels &&
+        descriptor.baseArrayLayer == 0 &&
+        descriptor.resolvedArrayLayerCount(texture) == 1
+    OpenGlTextureView(
+        if (this.valid() && validation.succeeded && fullView)
+            this.handle
+        else 0
+    )
+}
+
 resource class OpenGlPixelPresenter(
     val program: OpenGlProgram,
     var texture: int,

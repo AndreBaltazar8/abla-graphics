@@ -68,6 +68,16 @@ Updated: 2026-08-18.
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, and comparison state. Anisotropy
   above one is rejected as an unsupported negotiated feature on both paths.
+- Common affine texture/view test: one descriptor creates complete color mip
+  chains and depth images as OpenGL 2D texture objects or bound Vulkan images.
+  Omitted view counts resolve to all remaining subresources; full OpenGL views
+  alias their texture while Vulkan creates and destroys `VkImageView` objects.
+  Vulkan mutable-format images additionally verify compatible linear-to-sRGB
+  views while OpenGL reports that operation as unsupported. Both paths verify
+  color/depth aspects, invalid-range diagnostics, multisample feature
+  rejection, and reverse-order affine cleanup. The
+  independently buildable common-texture sample runs this slice under explicit
+  OpenGL and Vulkan.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and
@@ -100,8 +110,7 @@ capability lands.
 
 - Vulkan frames-in-flight without per-frame queue idle, automatic recovery from
   acquire/present out-of-date results that arrive without a resize event,
-  render pipelines, driver-backed common descriptors/images/views,
-  synchronization2, and dynamic rendering.
+  render pipelines, synchronization2, and dynamic rendering.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
@@ -110,11 +119,11 @@ capability lands.
   location/set/binding declaration slice, deliberately rejects quoted includes,
   and does not yet parse general types, arrays, blocks, or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
-- Driver-backed common textures/views, mapped/general buffer ranges,
-  queued uploads, device-local allocation policy, command encoders/render graph,
-  asset formats, or framework-wide performance gates. Common buffers and
-  immutable structural descriptors are present; the wider resource surface is
-  not yet claimed.
+- Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
+  uploads, device-local suballocation policy, command encoders/render graph,
+  asset formats, or framework-wide performance gates. Common buffers,
+  textures, views, samplers, and immutable structural descriptors are present;
+  the wider resource surface is not yet claimed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not

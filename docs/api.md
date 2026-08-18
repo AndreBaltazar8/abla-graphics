@@ -78,6 +78,8 @@ Sampler checks cover address/filter/LOD/comparison/anisotropy domains. A failed
 `validation()` identifies the precise field and a stable diagnostic message.
 Texture views inherit their source texture format by default; an explicit
 linear/sRGB reinterpretation is accepted only for the matching channel layout.
+Omitted mip-level and array-layer counts select all remaining subresources from
+their base indices.
 
 Buffers are the first driver-backed common resource:
 
@@ -98,6 +100,30 @@ than overflow-prone `offset + length`. The current slice uses host-visible
 storage and exposes checked 64-bit read/write probes; mapped ranges, queued
 uploads, device-local selection, and general byte ranges remain upcoming APIs.
 An application must let child buffers drop before its device/context.
+
+Textures and views use the same backend-neutral ownership rule:
+
+```abla
+val color = app.texture(TextureDescriptor(
+    size = Extent3D(1024, 1024),
+    mipLevels = 11,
+    format = textureFormatRgba8UnormSrgb,
+    usage = textureUsageSampled | textureUsageCopyDestination
+))
+val fullView = color.view()
+```
+
+`GraphicsTexture` owns an allocated OpenGL 2D texture or Vulkan image plus
+bound device memory. `GraphicsTextureView` is a non-owning full-resource alias
+on the current OpenGL path and an owning `VkImageView` on Vulkan. Both paths
+support single-sample 2D color and depth formats, complete mip allocation, and
+validated color/depth/stencil aspect ranges. Vulkan compatible linear/sRGB
+reinterpretation uses mutable-format images. OpenGL subresource and
+format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
+texture-view support is negotiated. Multisample/1D/3D creation,
+data uploads, copies, layout transitions, and render-pass attachment use are
+not yet part of this common slice. Views must drop before their parent texture,
+and textures must drop before the application device/context.
 
 Samplers are also driver-backed affine resources:
 
@@ -190,9 +216,9 @@ The common device creates:
 - command encoders with render/compute/copy/debug operations.
 
 Creation descriptors are immutable values; the initial buffer, texture, view,
-and sampler descriptor slice described above is available now. Common buffers
-and samplers are affine resources; the remaining resource implementations will
-follow the same ownership rule.
+and sampler descriptor slice described above is available now. Common buffers,
+textures, views, and samplers are affine resources; remaining resource
+implementations will follow the same ownership rule.
 Borrowing a resource for encoding does not transfer it. Explicit `move` is used
 only when ownership actually changes.
 

@@ -53,6 +53,34 @@ fun applicationBackendProbe(
     val unsupportedSampler = app.sampler(SamplerDescriptor(
         maximumAnisotropy = 16
     ))
+    val texture = app.texture(TextureDescriptor(
+        label = "common-color",
+        size = Extent3D(16, 16),
+        mipLevels = 4,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    ))
+    val textureView = texture.view()
+    val reinterpretedTextureView = texture.view(TextureViewDescriptor(
+        format = textureFormatRgba8UnormSrgb
+    ))
+    val invalidTextureView = texture.view(TextureViewDescriptor(
+        baseMipLevel = 4
+    ))
+    val depthTexture = app.texture(TextureDescriptor(
+        label = "common-depth",
+        size = Extent3D(16, 16),
+        format = textureFormatDepth16Unorm,
+        usage = textureUsageSampled | textureUsageRenderAttachment
+    ))
+    val depthTextureView = depthTexture.view(TextureViewDescriptor(
+        aspect = textureAspectDepth
+    ))
+    val unsupportedTexture = app.texture(TextureDescriptor(
+        size = Extent3D(16, 16),
+        samples = 4,
+        usage = textureUsageRenderAttachment
+    ))
     var resizePassed = true
     if (requestedBackend == graphicsBackendOpenGl ||
         requestedBackend == graphicsBackendVulkan) {
@@ -95,6 +123,19 @@ fun applicationBackendProbe(
         readbackBuffer.valid() && sampler.valid() &&
         !unsupportedSampler.valid() &&
         unsupportedSampler.error.code == graphicsErrorUnsupportedFeature &&
+        texture.valid() && textureView.valid() &&
+        textureView.descriptor.resolvedFormat(texture.descriptor) ==
+            textureFormatRgba8Unorm &&
+        (if (app.backend == graphicsBackendOpenGl)
+            !reinterpretedTextureView.valid() &&
+                reinterpretedTextureView.error.code ==
+                    graphicsErrorUnsupportedFeature
+         else reinterpretedTextureView.valid()) &&
+        !invalidTextureView.valid() &&
+        invalidTextureView.error.code == graphicsErrorInvalidConfiguration &&
+        depthTexture.valid() && depthTextureView.valid() &&
+        !unsupportedTexture.valid() &&
+        unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&
         resizePassed
 }
 

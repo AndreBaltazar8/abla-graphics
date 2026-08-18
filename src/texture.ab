@@ -1,0 +1,156 @@
+// Affine backend-neutral texture and texture-view ownership.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "resources.ab"
+import "application.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsTexture(
+    val openGl: OpenGlTexture,
+    val vulkan: VulkanTexture,
+    val descriptor: TextureDescriptor,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() && this.descriptor.valid() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+resource class GraphicsTextureView(
+    val openGl: OpenGlTextureView,
+    val vulkan: VulkanTextureView,
+    val descriptor: TextureViewDescriptor,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.texture(
+    descriptor: TextureDescriptor
+): GraphicsTexture {
+    var openGl = OpenGlTexture(
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer()
+    )
+    var vulkan = VulkanTexture(nativeNullPointer(), 0, 0)
+    var error = GraphicsError()
+    val validation = descriptor.validation()
+    if (!this.valid()) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.texture",
+            "the graphics application is invalid"
+        )
+    } else if (!validation.succeeded) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.texture.${validation.field}",
+            validation.message
+        )
+    } else if (descriptor.dimension != textureDimension2D ||
+        descriptor.samples != 1) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "GraphicsApplication.texture",
+            "the portable texture slice currently supports single-sample 2D textures"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.texture(descriptor)
+        if (!openGl.valid()) {
+            error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "OpenGlWindowContext.texture",
+                "OpenGL texture creation failed"
+            )
+        }
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.texture(descriptor)
+        if (!vulkan.valid()) {
+            error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "VulkanDevice.texture",
+                "Vulkan image creation or memory binding failed"
+            )
+        }
+    } else {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "GraphicsApplication.texture",
+            "the selected backend cannot create textures"
+        )
+    }
+    GraphicsTexture(
+        move(openGl),
+        move(vulkan),
+        descriptor,
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsTexture.view(
+    descriptor: TextureViewDescriptor = TextureViewDescriptor()
+): GraphicsTextureView {
+    var openGl = OpenGlTextureView(0)
+    var vulkan = VulkanTextureView(nativeNullPointer(), 0)
+    var error = GraphicsError()
+    val validation = descriptor.validation(this.descriptor)
+    if (!this.valid()) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsTexture.view",
+            "the parent texture is invalid"
+        )
+    } else if (!validation.succeeded) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsTexture.view.${validation.field}",
+            validation.message
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.view(this.descriptor, descriptor)
+        if (!openGl.valid()) {
+            error = GraphicsError(
+                graphicsErrorUnsupportedFeature,
+                "OpenGlTexture.view",
+                "OpenGL subresource or format-reinterpreted views require texture-view support"
+            )
+        }
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkan.view(this.descriptor, descriptor)
+        if (!vulkan.valid()) {
+            error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "VulkanTexture.view",
+                "Vulkan image-view creation failed"
+            )
+        }
+    }
+    GraphicsTextureView(
+        move(openGl),
+        move(vulkan),
+        descriptor,
+        this.backend,
+        error
+    )
+}

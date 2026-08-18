@@ -227,17 +227,29 @@ class TextureViewDescriptor(
     val dimension: int = textureDimension2D,
     val aspect: int = textureAspectAll,
     val baseMipLevel: int = 0,
-    val mipLevelCount: int = 1,
+    val mipLevelCount: int = 0,
     val baseArrayLayer: int = 0,
-    val arrayLayerCount: int = 1
+    val arrayLayerCount: int = 0
 ) {
     fun resolvedFormat(texture: TextureDescriptor): int =
         if (this.format == textureFormatUndefined) texture.format
         else this.format
 
+    fun resolvedMipLevelCount(texture: TextureDescriptor): int =
+        if (this.mipLevelCount == 0)
+            texture.mipLevels - this.baseMipLevel
+        else this.mipLevelCount
+
+    fun resolvedArrayLayerCount(texture: TextureDescriptor): int =
+        if (this.arrayLayerCount == 0)
+            texture.size.depth - this.baseArrayLayer
+        else this.arrayLayerCount
+
     fun validation(texture: TextureDescriptor): GraphicsDescriptorValidation {
         var result = texture.validation()
         val selectedFormat = this.resolvedFormat(texture)
+        val selectedMipLevels = this.resolvedMipLevelCount(texture)
+        val selectedArrayLayers = this.resolvedArrayLayerCount(texture)
         if (result.succeeded && !textureFormatValid(selectedFormat)) {
             result = graphicsDescriptorInvalid("format", "view format is unknown")
         } else if (result.succeeded &&
@@ -256,8 +268,9 @@ class TextureViewDescriptor(
         } else if (result.succeeded &&
             (this.baseMipLevel < 0 ||
              this.baseMipLevel >= texture.mipLevels ||
-             this.mipLevelCount < 1 ||
-             this.mipLevelCount > texture.mipLevels - this.baseMipLevel)) {
+             this.mipLevelCount < 0 ||
+             selectedMipLevels < 1 ||
+             selectedMipLevels > texture.mipLevels - this.baseMipLevel)) {
             result = graphicsDescriptorInvalid(
                 "mipLevelCount",
                 "view mip-level range is outside the texture"
@@ -265,8 +278,9 @@ class TextureViewDescriptor(
         } else if (result.succeeded &&
             (this.baseArrayLayer < 0 ||
              this.baseArrayLayer >= texture.size.depth ||
-             this.arrayLayerCount < 1 ||
-             this.arrayLayerCount > texture.size.depth - this.baseArrayLayer)) {
+             this.arrayLayerCount < 0 ||
+             selectedArrayLayers < 1 ||
+             selectedArrayLayers > texture.size.depth - this.baseArrayLayer)) {
             result = graphicsDescriptorInvalid(
                 "arrayLayerCount",
                 "view array-layer range is outside the texture"
