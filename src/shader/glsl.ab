@@ -2,8 +2,10 @@
 //
 // This first grammar slice owns multi-stage block structure, balanced shader
 // scopes, comments, stage uniqueness, and source-preserving construction. The
-// GLSL declaration/expression grammar and reflection layer extend this module
-// without changing the public ShaderPackage value.
+// Explicit interface declarations additionally feed deterministic reflection
+// and adjacent raster-stage compatibility checks. The remaining general GLSL
+// declaration/expression grammar extends this module without changing the
+// public ShaderPackage value.
 
 import "abla/compiler/parser"
 
@@ -19,14 +21,18 @@ class ShaderStageSource(val kind: string, val source: string)
 class ShaderLocation(
     val stage: string,
     val location: int,
-    val direction: string
+    val direction: string,
+    val dataType: string = "",
+    val name: string = ""
 )
 
 class ShaderBinding(
     val stage: string,
     val set: int,
     val binding: int,
-    val storage: string
+    val storage: string,
+    val dataType: string = "",
+    val name: string = ""
 )
 
 class ShaderPackage(
@@ -67,6 +73,13 @@ class GlslStageReflection(
     val bindings: array<ShaderBinding>,
     val valid: bool,
     val error: string
+)
+
+class GlslDeclaration(
+    val storage: string,
+    val dataType: string,
+    val name: string,
+    val valid: bool
 )
 
 fun glslAsciiWhitespace(value: int): bool =
@@ -186,19 +199,57 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     )
 }
 
-fun glslStorageAfterLayout(source: string, begin: int): GlslName {
+fun glslDeclarationQualifier(name: string): bool =
+    name == "const" || name == "invariant" || name == "precise" ||
+    name == "centroid" || name == "sample" || name == "patch" ||
+    name == "flat" || name == "smooth" || name == "noperspective" ||
+    name == "highp" || name == "mediump" || name == "lowp" ||
+    name == "coherent" || name == "volatile" || name == "restrict" ||
+    name == "readonly" || name == "writeonly"
+
+fun glslDeclarationAfterLayout(
+    source: string,
+    begin: int
+): GlslDeclaration {
     var index = begin
-    var storage = GlslName("", begin)
+    var storage = ""
     var attempts = 0
-    while (storage.text == "" && attempts < 8) {
-        val name = glslReadName(source, index)
-        if (name.text == "in" || name.text == "out" ||
-            name.text == "uniform" || name.text == "buffer") storage = name
-        else if (name.text == "") attempts = 8
-        else index = name.next
+    while (storage == "" && attempts < 16) {
+        val part = glslReadName(source, index)
+        if (part.text == "in" || part.text == "out" ||
+            part.text == "uniform" || part.text == "buffer") {
+            storage = part.text
+        }
+        if (part.text == "") attempts = 16
+        else index = part.next
         attempts = attempts + 1
     }
-    storage
+    var type = GlslName("", index)
+    if (storage != "") {
+        var searching = true
+        attempts = 0
+        while (searching && attempts < 16) {
+            val part = glslReadName(source, index)
+            if (part.text == "") searching = false
+            else if (glslDeclarationQualifier(part.text)) index = part.next
+            else {
+                type = part
+                index = part.next
+                searching = false
+            }
+            attempts = attempts + 1
+        }
+    }
+    val variable = glslReadName(source, index)
+    val afterType = glslSkipTrivia(source, index)
+    val block = afterType < source.size && source[afterType] == 123
+    GlslDeclaration(
+        storage,
+        type.text,
+        variable.text,
+        storage != "" && type.text != "" &&
+            (variable.text != "" || block)
+    )
 }
 
 fun glslReflectStage(stage: string, source: string): GlslStageReflection {
@@ -214,36 +265,68 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
             valid = layout.valid
             if (!valid) error = layout.error
             if (valid) {
-                val storage = glslStorageAfterLayout(source, layout.next)
+                val declaration = glslDeclarationAfterLayout(
+                    source,
+                    layout.next
+                )
                 if (layout.location >= 0 &&
-                    (storage.text == "in" || storage.text == "out")) {
+                    (declaration.storage == "in" ||
+                     declaration.storage == "out")) {
+                    if (!declaration.valid) {
+                        valid = false
+                        error = "malformed GLSL $stage location declaration"
+                    }
                     var duplicate = false
                     var locationIndex = 0
-                    while (!duplicate && locationIndex < locations.size) {
+                    while (valid && !duplicate &&
+                        locationIndex < locations.size) {
                         duplicate =
                             locations[locationIndex].location == layout.location &&
-                            locations[locationIndex].direction == storage.text
+                            locations[locationIndex].direction ==
+                                declaration.storage
                         locationIndex = locationIndex + 1
                     }
-                    if (duplicate) {
+                    if (valid && duplicate) {
                         valid = false
-                        error = "duplicate GLSL $stage ${storage.text} location ${layout.location}"
-                    } else {
+                        error = "duplicate GLSL $stage ${declaration.storage} location ${layout.location}"
+                    } else if (valid) {
                         locations.append(ShaderLocation(
                             stage,
                             layout.location,
-                            storage.text
+                            declaration.storage,
+                            declaration.dataType,
+                            declaration.name
                         ))
                     }
                 }
                 if (valid && layout.binding >= 0 &&
-                    (storage.text == "uniform" || storage.text == "buffer")) {
-                    bindings.append(ShaderBinding(
-                        stage,
-                        layout.set,
-                        layout.binding,
-                        storage.text
-                    ))
+                    (declaration.storage == "uniform" ||
+                     declaration.storage == "buffer")) {
+                    if (!declaration.valid) {
+                        valid = false
+                        error = "malformed GLSL $stage binding declaration"
+                    }
+                    var duplicate = false
+                    var bindingIndex = 0
+                    while (valid && !duplicate &&
+                        bindingIndex < bindings.size) {
+                        duplicate = bindings[bindingIndex].set == layout.set &&
+                            bindings[bindingIndex].binding == layout.binding
+                        bindingIndex = bindingIndex + 1
+                    }
+                    if (valid && duplicate) {
+                        valid = false
+                        error = "duplicate GLSL $stage set ${layout.set} binding ${layout.binding}"
+                    } else if (valid) {
+                        bindings.append(ShaderBinding(
+                            stage,
+                            layout.set,
+                            layout.binding,
+                            declaration.storage,
+                            declaration.dataType,
+                            declaration.name
+                        ))
+                    }
                 }
                 index = layout.next
             }
@@ -260,6 +343,67 @@ fun glslStageNameValid(name: string): bool =
     name == shaderStageGeometry ||
     name == shaderStageTessellationControl ||
     name == shaderStageTessellationEvaluation
+
+fun glslRasterStageOrder(stage: string): int {
+    var order = -1
+    if (stage == shaderStageVertex) order = 0
+    else if (stage == shaderStageTessellationControl) order = 1
+    else if (stage == shaderStageTessellationEvaluation) order = 2
+    else if (stage == shaderStageGeometry) order = 3
+    else if (stage == shaderStageFragment) order = 4
+    order
+}
+
+fun glslPreviousRasterStage(names: array<string>, stage: string): string {
+    val order = glslRasterStageOrder(stage)
+    var previous = ""
+    var previousOrder = -1
+    var index = 0
+    while (index < names.size) {
+        val candidateOrder = glslRasterStageOrder(names[index])
+        if (candidateOrder >= 0 && candidateOrder < order &&
+            candidateOrder > previousOrder) {
+            previous = names[index]
+            previousOrder = candidateOrder
+        }
+        index = index + 1
+    }
+    previous
+}
+
+fun glslRasterInterfacesError(
+    names: array<string>,
+    locations: array<ShaderLocation>
+): string {
+    var error = ""
+    var index = 0
+    while (error == "" && index < locations.size) {
+        val input = locations[index]
+        if (input.direction == "in") {
+            val previous = glslPreviousRasterStage(names, input.stage)
+            if (previous != "") {
+                var outputIndex = 0
+                var matched = false
+                while (!matched && outputIndex < locations.size) {
+                    val output = locations[outputIndex]
+                    if (output.stage == previous && output.direction == "out" &&
+                        output.location == input.location) {
+                        matched = true
+                        if (output.dataType != input.dataType) {
+                            error = "GLSL interface type mismatch at location ${input.location}: ${output.dataType} from $previous, ${input.dataType} in ${input.stage}"
+                        }
+                    }
+                    outputIndex = outputIndex + 1
+                }
+                if (!matched) {
+                    error = "GLSL ${input.stage} input location ${input.location} has no $previous output"
+                }
+            }
+        }
+        index = index + 1
+    }
+    error
+}
 
 fun glslPackage(
     names: array<string>,
@@ -301,7 +445,20 @@ fun glslPackage(
             }
             reflectedIndex = 0
             while (valid && reflectedIndex < reflection.bindings.size) {
-                bindings.append(reflection.bindings[reflectedIndex])
+                val reflected = reflection.bindings[reflectedIndex]
+                var bindingIndex = 0
+                while (valid && bindingIndex < bindings.size) {
+                    val previous = bindings[bindingIndex]
+                    if (previous.set == reflected.set &&
+                        previous.binding == reflected.binding &&
+                        (previous.storage != reflected.storage ||
+                         previous.dataType != reflected.dataType)) {
+                        valid = false
+                        error = "incompatible GLSL set ${reflected.set} binding ${reflected.binding} declarations"
+                    }
+                    bindingIndex = bindingIndex + 1
+                }
+                if (valid) bindings.append(reflected)
                 reflectedIndex = reflectedIndex + 1
             }
         }
@@ -313,6 +470,13 @@ fun glslPackage(
     if (valid && compute && raster) {
         valid = false
         error = "compute and raster GLSL stages cannot share one package"
+    }
+    if (valid && raster) {
+        val interfaceError = glslRasterInterfacesError(names, locations)
+        if (interfaceError != "") {
+            valid = false
+            error = interfaceError
+        }
     }
     ShaderPackage(stages, locations, bindings, valid, error)
 }

@@ -81,8 +81,10 @@ Updated: 2026-08-18.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and
-  binding reflection, duplicate-location rejection, and compile-time rejection
-  of invalid stage names. The surfaced triangle is compiled from this package
+  binding reflection including declaration types/names, duplicate location and
+  binding rejection, cross-stage binding compatibility, adjacent raster-stage
+  missing/type-mismatched interface rejection, and compile-time rejection of
+  invalid stage names. The surfaced triangle is compiled from this package
   rather than opaque strings.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
@@ -116,8 +118,9 @@ capability lands.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
-  location/set/binding declaration slice, deliberately rejects quoted includes,
-  and does not yet parse general types, arrays, blocks, or expressions.
+  location/set/binding declaration and cross-stage compatibility slice,
+  deliberately rejects quoted includes, and does not yet parse array extents,
+  block members, general declarations, or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
   uploads, device-local suballocation policy, command encoders/render graph,

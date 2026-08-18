@@ -6,6 +6,7 @@ fun main: int {
             #version 330 core
             // Nested scopes remain source text.
             layout(location = 0) in vec2 position;
+            layout(location = 1) flat out highp vec3 tint;
             void main() {
                 gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
             }
@@ -13,6 +14,7 @@ fun main: int {
         fragment {
             #version 330 core
             /* Braces in comments do not alter depth: { } */
+            layout(location = 1) flat in highp vec3 interpolatedTint;
             layout(location = 0) out vec4 color;
             layout(set = 1, binding = 2) uniform sampler2D atlas;
             void main() {
@@ -38,20 +40,51 @@ fun main: int {
         [shaderStageVertex],
         ["layout(location = 0 in vec2 broken;"]
     )
+    val duplicateBinding = glslPackage(
+        [shaderStageFragment],
+        ["layout(set=0,binding=1) uniform sampler2D first; layout(set=0,binding=1) uniform sampler2D second;"]
+    )
+    val mismatchedInterface = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(location=2) out vec3 value; void main() {}",
+            "layout(location=2) in vec2 value; void main() {}"
+        ]
+    )
+    val missingInterface = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "void main() {}",
+            "layout(location=4) in vec4 missing; void main() {}"
+        ]
+    )
     if (shader.valid && frozen.valid && frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&
-        shader.locations.size == 2 &&
+        shader.locations.size == 4 &&
         shader.locations[0].stage == shaderStageVertex &&
         shader.locations[0].location == 0 &&
         shader.locations[0].direction == "in" &&
-        shader.locations[1].stage == shaderStageFragment &&
+        shader.locations[0].dataType == "vec2" &&
+        shader.locations[0].name == "position" &&
+        shader.locations[1].stage == shaderStageVertex &&
         shader.locations[1].direction == "out" &&
+        shader.locations[1].dataType == "vec3" &&
+        shader.locations[2].stage == shaderStageFragment &&
+        shader.locations[2].direction == "in" &&
+        shader.locations[2].dataType == "vec3" &&
+        shader.locations[3].stage == shaderStageFragment &&
+        shader.locations[3].direction == "out" &&
         shader.bindings.size == 1 &&
         shader.bindings[0].set == 1 && shader.bindings[0].binding == 2 &&
         shader.bindings[0].storage == "uniform" &&
+        shader.bindings[0].dataType == "sampler2D" &&
+        shader.bindings[0].name == "atlas" &&
         !duplicate.valid && duplicate.error != "" &&
         !malformed.valid && malformed.error != "" &&
+        !duplicateBinding.valid && duplicateBinding.error != "" &&
+        !mismatchedInterface.valid && mismatchedInterface.error != "" &&
+        !missingInterface.valid && missingInterface.error != "" &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != "") 42 else 1
 }
