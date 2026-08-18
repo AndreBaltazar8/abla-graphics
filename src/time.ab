@@ -1,0 +1,152 @@
+// Allocation-free monotonic timing and drift-corrected frame pacing.
+
+import "abla/float"
+import "abla/process/time"
+import "core.ab"
+
+val graphicsNanosecondsPerSecond = 1000000000
+
+fun graphicsMonotonicNanoseconds(): int = monotonicNanoseconds()
+
+fun graphicsMonotonicSeconds(): f64 {
+    val nanoseconds = graphicsMonotonicNanoseconds()
+    if (nanoseconds > 0)
+        f64FromInt(nanoseconds) / 1000000000.0
+    else 0.0
+}
+
+class GraphicsFrameSchedule(
+    val framesPerSecond: int,
+    val basePeriodNanoseconds: int,
+    val remainderNanoseconds: int,
+    var remainderAccumulator: int = 0,
+    var deadlineNanoseconds: int = -1
+) {
+    fun valid(): bool {
+        var valid = this.framesPerSecond >= 1 &&
+            this.framesPerSecond <= 1000 &&
+            this.basePeriodNanoseconds > 0 &&
+            this.remainderNanoseconds >= 0 &&
+            this.remainderNanoseconds < this.framesPerSecond &&
+            this.remainderAccumulator >= 0 &&
+            this.remainderAccumulator < this.framesPerSecond &&
+            graphicsSizeProductFits(
+                this.basePeriodNanoseconds,
+                this.framesPerSecond
+            )
+        if (valid) {
+            val product = this.basePeriodNanoseconds * this.framesPerSecond
+            valid = graphicsAddFits(product, this.remainderNanoseconds) &&
+                product + this.remainderNanoseconds ==
+                    graphicsNanosecondsPerSecond
+        }
+        valid
+    }
+
+    fun resetAt(nowNanoseconds: int): bool {
+        val succeeded = this.valid() && nowNanoseconds >= 0
+        if (succeeded) {
+            this.deadlineNanoseconds = nowNanoseconds
+            this.remainderAccumulator = 0
+        }
+        succeeded
+    }
+
+    fun nextPeriodNanoseconds(): int {
+        var period = 0
+        if (this.valid()) {
+            period = this.basePeriodNanoseconds
+            this.remainderAccumulator = this.remainderAccumulator +
+                this.remainderNanoseconds
+            if (this.remainderAccumulator >= this.framesPerSecond) {
+                period = period + 1
+                this.remainderAccumulator = this.remainderAccumulator -
+                    this.framesPerSecond
+            }
+        }
+        period
+    }
+
+    // Advances one frame deadline and returns the time remaining until it.
+    // A late caller is resynchronized instead of receiving a catch-up burst.
+    fun delayForNextFrame(nowNanoseconds: int): int {
+        var delay = -1
+        if (this.valid() && nowNanoseconds >= 0) {
+            if (this.deadlineNanoseconds < 0) {
+                this.deadlineNanoseconds = nowNanoseconds
+            }
+            val period = this.nextPeriodNanoseconds()
+            if (nowNanoseconds > graphicsMaximumInt - period ||
+                this.deadlineNanoseconds > graphicsMaximumInt - period) {
+                this.deadlineNanoseconds = nowNanoseconds
+                this.remainderAccumulator = 0
+                delay = 0
+            } else {
+                val target = this.deadlineNanoseconds + period
+                if (nowNanoseconds > target) {
+                    this.deadlineNanoseconds = nowNanoseconds
+                    this.remainderAccumulator = 0
+                    delay = 0
+                } else {
+                    this.deadlineNanoseconds = target
+                    delay = target - nowNanoseconds
+                }
+            }
+        }
+        delay
+    }
+}
+
+fun graphicsFrameSchedule(
+    framesPerSecond: int = 60
+): GraphicsFrameSchedule {
+    val valid = framesPerSecond >= 1 && framesPerSecond <= 1000
+    val base = if (valid)
+        graphicsNanosecondsPerSecond / framesPerSecond
+    else 0
+    val remainder = if (valid)
+        graphicsNanosecondsPerSecond - base * framesPerSecond
+    else 0
+    GraphicsFrameSchedule(framesPerSecond, base, remainder)
+}
+
+resource class GraphicsFramePacer(
+    var schedule: GraphicsFrameSchedule,
+    var clock: MonotonicClock
+) {
+    fun valid(): bool = this.schedule.valid() && this.clock.valid()
+
+    fun reset(): bool {
+        val now = this.clock.nanoseconds()
+        now > 0 && this.schedule.resetAt(now)
+    }
+
+    fun wait(): bool {
+        var succeeded = this.valid()
+        if (succeeded) {
+            val now = this.clock.nanoseconds()
+            succeeded = now > 0
+            if (succeeded) {
+                val delay = this.schedule.delayForNextFrame(now)
+                succeeded = delay >= 0 &&
+                    (delay == 0 || this.clock.sleepNanoseconds(delay))
+            }
+        }
+        succeeded
+    }
+
+    fun drop(): void {
+        this.clock.drop()
+        return
+    }
+}
+
+fun graphicsFramePacer(
+    framesPerSecond: int = 60
+): GraphicsFramePacer {
+    val clock = monotonicClock()
+    GraphicsFramePacer(
+        graphicsFrameSchedule(framesPerSecond),
+        move(clock)
+    )
+}

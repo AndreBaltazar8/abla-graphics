@@ -10,7 +10,8 @@ mkdir -p "$output_directory"
 
 for sample in x11-window vulkan-info vulkan-surface headless-opengl \
     common-headless \
-    opengl-window common-clear common-buffer common-texture common-compute; do
+    opengl-window common-clear common-buffer common-texture common-compute \
+    frame-pacing; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
@@ -24,6 +25,7 @@ xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/vulkan-surface"
 LIBGL_ALWAYS_SOFTWARE=1 "$output_directory/headless-opengl"
 env -u DISPLAY "$output_directory/common-headless"
+env -u DISPLAY "$output_directory/frame-pacing"
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/opengl-window"
 xvfb-run -a -s "-screen 0 1024x768x24" \

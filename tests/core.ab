@@ -101,6 +101,37 @@ fun main: int {
     val presentSuboptimal = vulkanPresentStatus(vulkanSuboptimal)
     val presentOutOfDate = vulkanPresentStatus(vulkanErrorOutOfDate)
     val presentDeviceLost = vulkanPresentStatus(-4)
+    val schedule = graphicsFrameSchedule(60)
+    val firstFrameDelay = schedule.delayForNextFrame(1000000)
+    val secondFrameDelay = schedule.delayForNextFrame(
+        1000000 + firstFrameDelay
+    )
+    val thirdFrameDelay = schedule.delayForNextFrame(
+        1000000 + firstFrameDelay + secondFrameDelay
+    )
+    val lateSchedule = graphicsFrameSchedule(60)
+    val lateFirstDelay = lateSchedule.delayForNextFrame(2000000)
+    val lateDelay = lateSchedule.delayForNextFrame(
+        52000000
+    )
+    val exactSchedule = graphicsFrameSchedule(60)
+    var exactNow = 0
+    var exactTotal = 0
+    var exactFrames = 0
+    var exactPassed = true
+    while (exactPassed && exactFrames < 60) {
+        val delay = exactSchedule.delayForNextFrame(exactNow)
+        exactPassed = delay >= 0
+        if (exactPassed) {
+            exactNow = exactNow + delay
+            exactTotal = exactTotal + delay
+        }
+        exactFrames = exactFrames + 1
+    }
+    val overflowSchedule = graphicsFrameSchedule(60)
+    val overflowDelay = overflowSchedule.delayForNextFrame(
+        graphicsMaximumInt
+    )
 
     if (automatic.succeeded &&
         automatic.backend == graphicsBackendVulkan &&
@@ -170,6 +201,22 @@ fun main: int {
         presentOutOfDate.recreateSwapchain &&
         !presentDeviceLost.presented &&
         !presentDeviceLost.recreateSwapchain &&
+        schedule.valid() && firstFrameDelay == 16666666 &&
+        secondFrameDelay == 16666667 && thirdFrameDelay == 16666667 &&
+        firstFrameDelay + secondFrameDelay + thirdFrameDelay == 50000000 &&
+        !graphicsFrameSchedule(0).valid() &&
+        !graphicsFrameSchedule(1001).valid() &&
+        !GraphicsFrameSchedule(
+            1000,
+            graphicsMaximumInt,
+            0
+        ).valid() &&
+        lateFirstDelay == 16666666 && lateDelay == 0 &&
+        lateSchedule.deadlineNanoseconds == 52000000 &&
+        exactPassed && exactFrames == 60 &&
+        exactTotal == graphicsNanosecondsPerSecond &&
+        overflowDelay == 0 && overflowSchedule.deadlineNanoseconds ==
+            graphicsMaximumInt && !overflowSchedule.resetAt(-1) &&
         x11KeyFromKeysym(119) == keyW &&
         x11KeyFromKeysym(65307) == keyEscape &&
         x11KeyFromKeysym(65361) == keyLeft &&

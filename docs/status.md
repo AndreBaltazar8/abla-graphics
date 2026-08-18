@@ -6,7 +6,8 @@ Updated: 2026-08-18.
 
 - Pure core test: backend selection, structured errors, window configuration,
   signed-extreme checked geometry/area/volume, native `f64` vectors/matrix
-  composition/colors, and exact binary32 rounding.
+  composition/colors, exact binary32 rounding, and deterministic nanosecond
+  frame-period distribution, overflow handling, and late-frame resynchronizing.
 - X11 test: AF_UNIX connection, protocol 11 setup, server metadata parsing,
   binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
@@ -141,6 +142,9 @@ Updated: 2026-08-18.
   the raw Vulkan variant multiplies twice and returns `18`, proving repeated
   commands operate on observable persistent storage.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
+- Monotonic frame-pacing sample: a reusable affine clock owns its syscall
+  buffers, four 240 fps waits advance real `CLOCK_MONOTONIC` time, and runtime
+  live-memory accounting is unchanged across the steady-state loop.
 - Pure-Abla Khronos inventory generation: exact official Vulkan and OpenGL
   registry commits and SHA-256 digests are pinned in one manifest; the generator
   filters Vulkan SC, OpenGL ES, and compatibility-only requirement branches,
@@ -173,6 +177,10 @@ public math, color, and DPI surface uses native `f64`; OpenGL/Vulkan ABI fields
 receive deterministic binary32 rounding in pure Abla. Compile-time floating
 evaluation and explicit language-level `f32` conversion remain future toolchain
 work.
+
+Compiler commit `2b376c3` adds the reusable affine nanosecond process clock used
+by the allocation-free frame pacer; its complete 73-test conformance suite and
+byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 

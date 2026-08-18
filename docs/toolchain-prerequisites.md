@@ -19,6 +19,13 @@ pattern. Explicit language-level `f32` conversions and compile-time floating
 evaluation remain toolchain work; neither limitation requires a fixed-point
 public graphics API. Registry constants and bit flags are unaffected.
 
+## High-resolution monotonic time
+
+Compiler commit `2b376c3` provides the affine reusable nanosecond clock and
+checked sleep contract consumed by `GraphicsFramePacer`. The implementation
+uses Abla-owned syscall buffers and the raw Linux `clock_gettime`/`nanosleep`
+boundary; no foreign helper is linked.
+
 ## Manifest-declared system driver libraries
 
 Compiler commit `116090f` provides a bounded `nativeLibraries` string array in

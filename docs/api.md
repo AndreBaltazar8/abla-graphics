@@ -83,6 +83,26 @@ event polling. A successful text request produces another clipboard event whose
 `clipboardText()` contains copied UTF-8. Replies that arrive among unrelated
 input events preserve those events in order for subsequent polls.
 
+High-resolution animation and simulation timing uses the monotonic clock rather
+than wall time:
+
+```abla
+val pacer = graphicsFramePacer(60)
+while (running) {
+    update()
+    render()
+    running = pacer.wait()
+}
+```
+
+`graphicsMonotonicNanoseconds()` exposes the raw monotonic value and
+`graphicsMonotonicSeconds()` provides an `f64` convenience view. A
+`GraphicsFramePacer` owns reusable syscall buffers, accepts 1 through 1,000
+frames per second, and distributes indivisible nanoseconds across deadlines so
+60 consecutive periods do not accumulate integer-division drift. Late frames
+resynchronize instead of triggering a catch-up burst. Once constructed, its
+`wait()` path performs no general heap allocation.
+
 OpenGL applications may also keep one reusable software frame and upload it
 without rebuilding shaders, textures, or general heap values per frame:
 

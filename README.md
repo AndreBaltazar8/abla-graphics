@@ -45,6 +45,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   swapchain recovery for software renderers;
 - direct core-X11 cursor visibility and confined pointer capture without an
   Xlib/XCB/GLFW window-management layer;
+- a nanosecond monotonic clock and configurable drift-corrected frame pacer
+  whose reusable steady-state wait path performs no general allocation;
 - immutable portable buffer/texture/view/sampler descriptors plus affine
   common buffers, textures, views, and samplers that create and drop real
   resources on either OpenGL or Vulkan, with checked buffer writes/readback;
@@ -103,7 +105,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
-  mutation and readback.
+  mutation and readback; and
+- `examples/frame-pacing`: display-free high-resolution pacing with a live-memory
+  assertion across the steady-state frame loop.
 
 Run the sample smoke matrix with:
 
