@@ -40,6 +40,10 @@ val worldPoint = model.transformPoint(Vec3(1.0, 1.0, 1.0))
 `app.primaryMonitor()` reports the X11 setup screen's pixel and physical
 dimensions plus derived DPI/content scale. A server that omits physical size
 uses the portable 96 DPI baseline rather than returning zero or dividing by it.
+`app.setPointerPosition(x, y)` emits a direct core X11 `WarpPointer` request;
+the resulting motion is delivered through the same copied event queue.
+`app.setPointerCaptured(true)` performs an idempotent core pointer grab confined
+to the mapped window; release and application teardown explicitly ungrab it.
 
 OpenGL applications may also keep one reusable software frame and upload it
 without rebuilding shaders, textures, or general heap values per frame:

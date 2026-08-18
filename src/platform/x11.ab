@@ -694,6 +694,46 @@ fun x11SyntheticPointerRequest(
     x11Packet(request, 44)
 }
 
+fun x11WarpPointerRequest(window: int, x: int, y: int): string {
+    val request = nativeByteBuffer(25)
+    request.store(0, 41)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 6)
+    x11StoreU32(request, 4, 0)
+    x11StoreU32(request, 8, window)
+    x11StoreU16(request, 12, 0)
+    x11StoreU16(request, 14, 0)
+    x11StoreU16(request, 16, 0)
+    x11StoreU16(request, 18, 0)
+    x11StoreU16(request, 20, x)
+    x11StoreU16(request, 22, y)
+    x11Packet(request, 24)
+}
+
+fun x11GrabPointerRequest(window: int): string {
+    val request = nativeByteBuffer(25)
+    request.store(0, 26)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 6)
+    x11StoreU32(request, 4, window)
+    x11StoreU16(request, 8, 4 | 8 | 64)
+    request.store(10, 1)
+    request.store(11, 1)
+    x11StoreU32(request, 12, window)
+    x11StoreU32(request, 16, 0)
+    x11StoreU32(request, 20, 0)
+    x11Packet(request, 24)
+}
+
+fun x11UngrabPointerRequest(): string {
+    val request = nativeByteBuffer(9)
+    request.store(0, 27)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 2)
+    x11StoreU32(request, 4, 0)
+    x11Packet(request, 8)
+}
+
 fun x11WindowTitleRequest(window: int, title: string): string {
     var length = title.size
     if (length > 4096) length = 4096
@@ -801,8 +841,11 @@ resource class X11Window(
     var width: int,
     var height: int,
     var visible: bool,
+    var pointerCaptured: bool,
     var title: string,
-    var pendingEvent: WindowEvent
+    var pendingEvent: WindowEvent,
+    var pendingPackets: array<string>,
+    var pendingPacketIndex: int
 ) {
     fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
     fun keyboardMapped(): bool = x11KeyboardMappingAvailable(this.keysyms)
@@ -855,6 +898,46 @@ resource class X11Window(
             x11SyntheticPointerRequest(this.identifier, 6, 0, x, y)
         )
 
+    fun setPointerPosition(x: int, y: int): bool =
+        this.valid() && x >= -32768 && x <= 32767 &&
+        y >= -32768 && y <= 32767 && x11WriteAll(
+            this.descriptor,
+            x11WarpPointerRequest(this.identifier, x, y)
+        )
+
+    fun setPointerCaptured(captured: bool): bool {
+        var succeeded = this.valid()
+        if (succeeded && captured != this.pointerCaptured) {
+            if (captured) {
+                succeeded = this.visible && x11WriteAll(
+                    this.descriptor,
+                    x11GrabPointerRequest(this.identifier)
+                )
+                var reply = ""
+                var queued = 0
+                while (succeeded && reply == "" && queued < 4096) {
+                    val packet = x11ReadExact(this.descriptor, 32)
+                    if (packet.size != 32 || packet[0] == 0) {
+                        succeeded = false
+                    } else if (packet[0] == 1) {
+                        reply = packet
+                    } else {
+                        this.pendingPackets.append(packet)
+                        queued = queued + 1
+                    }
+                }
+                succeeded = reply.size == 32 && reply[0] == 1 && reply[1] == 0
+            } else {
+                succeeded = x11WriteAll(
+                    this.descriptor,
+                    x11UngrabPointerRequest()
+                )
+            }
+            if (succeeded) this.pointerCaptured = captured
+        }
+        succeeded
+    }
+
     fun show(): bool {
         var succeeded = this.valid()
         if (succeeded && !this.visible) {
@@ -869,6 +952,9 @@ resource class X11Window(
 
     fun hide(): bool {
         var succeeded = this.valid()
+        if (succeeded && this.pointerCaptured) {
+            succeeded = this.setPointerCaptured(false)
+        }
         if (succeeded && this.visible) {
             succeeded = x11WriteAll(
                 this.descriptor,
@@ -903,19 +989,31 @@ resource class X11Window(
             this.pendingEvent = WindowEvent()
         } else if (this.valid() && timeoutMilliseconds >= 0 &&
             timeoutMilliseconds <= 600000) {
-            val poll = nativeByteBuffer(8)
-            x11StoreU32(poll, 0, this.descriptor)
-            x11StoreU16(poll, 4, 1)
-            val measured = linuxSyscall3(
-                7,
-                nativePointerAddress(poll.address),
-                1,
-                timeoutMilliseconds
-            )
-            val readable = measured > 0 && poll.load(6) != 0
-            poll.close()
+            var event = ""
+            var readable = false
+            if (this.pendingPacketIndex < this.pendingPackets.size) {
+                event = this.pendingPackets[this.pendingPacketIndex]
+                this.pendingPacketIndex = this.pendingPacketIndex + 1
+                readable = true
+                if (this.pendingPacketIndex == this.pendingPackets.size) {
+                    this.pendingPackets = []
+                    this.pendingPacketIndex = 0
+                }
+            } else {
+                val poll = nativeByteBuffer(8)
+                x11StoreU32(poll, 0, this.descriptor)
+                x11StoreU16(poll, 4, 1)
+                val measured = linuxSyscall3(
+                    7,
+                    nativePointerAddress(poll.address),
+                    1,
+                    timeoutMilliseconds
+                )
+                readable = measured > 0 && poll.load(6) != 0
+                poll.close()
+                if (readable) event = x11ReadExact(this.descriptor, 32)
+            }
             if (readable) {
-                val event = x11ReadExact(this.descriptor, 32)
                 if (event.size == 32) {
                     val kind = event[0] & 127
                     if (kind == 2 || kind == 3) {
@@ -1017,6 +1115,10 @@ resource class X11Window(
         )
 
     fun drop(): void {
+        if (this.valid() && this.pointerCaptured) {
+            x11WriteAll(this.descriptor, x11UngrabPointerRequest())
+            this.pointerCaptured = false
+        }
         if (this.valid()) {
             x11WriteAll(
                 this.descriptor,
@@ -1147,7 +1249,10 @@ fun x11Window(
         config.width,
         config.height,
         config.visible,
+        false,
         config.title,
-        WindowEvent()
+        WindowEvent(),
+        [],
+        0
     )
 }

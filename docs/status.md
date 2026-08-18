@@ -15,8 +15,10 @@ Updated: 2026-08-18.
   coordinates, ordered key-then-UTF-8 text events with shifted/caps and Unicode
   KeySym handling, synthetic keyboard/text/pointer/scroll round trips with raw
   diagnostic codes, event poll/decode, initially hidden windows, idempotent
-  show/hide, runtime title changes, ConfigureWindow/ConfigureNotify resize with
-  authoritative owned dimensions, fixed-size and undecorated WM hints,
+  show/hide, runtime title changes, direct WarpPointer with a MotionNotify round
+  trip, idempotent confined pointer grab/release, ConfigureWindow/ConfigureNotify
+  resize with authoritative owned dimensions, fixed-size and undecorated WM
+  hints,
   fullscreen EWMH state, setup-derived screen pixel/physical dimensions with
   DPI/content scale, explicit transparent-window rejection,
   WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
