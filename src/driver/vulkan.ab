@@ -177,9 +177,39 @@ noescape extern:"c" fun vkCreateComputePipelines(
     allocator: i64*,
     pipelines: i64*
 ): i32
+noescape extern:"c" fun vkCreateGraphicsPipelines(
+    device: i64*,
+    pipelineCache: int,
+    createInfoCount: i32,
+    createInfos: i64*,
+    allocator: i64*,
+    pipelines: i64*
+): i32
 noescape extern:"c" fun vkDestroyPipeline(
     device: i64*,
     pipeline: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkCreateRenderPass(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    renderPass: i64*
+): i32
+noescape extern:"c" fun vkDestroyRenderPass(
+    device: i64*,
+    renderPass: int,
+    allocator: i64*
+): void
+noescape extern:"c" fun vkCreateFramebuffer(
+    device: i64*,
+    createInfo: i64*,
+    allocator: i64*,
+    framebuffer: i64*
+): i32
+noescape extern:"c" fun vkDestroyFramebuffer(
+    device: i64*,
+    framebuffer: int,
     allocator: i64*
 ): void
 noescape extern:"c" fun vkCreateDescriptorSetLayout(
@@ -307,6 +337,31 @@ noescape extern:"c" fun vkCmdDispatch(
     groupCountX: i32,
     groupCountY: i32,
     groupCountZ: i32
+): void
+noescape extern:"c" fun vkCmdBeginRenderPass(
+    commandBuffer: i64*,
+    beginInfo: i64*,
+    contents: i32
+): void
+noescape extern:"c" fun vkCmdEndRenderPass(commandBuffer: i64*): void
+noescape extern:"c" fun vkCmdSetViewport(
+    commandBuffer: i64*,
+    firstViewport: i32,
+    viewportCount: i32,
+    viewports: i64*
+): void
+noescape extern:"c" fun vkCmdSetScissor(
+    commandBuffer: i64*,
+    firstScissor: i32,
+    scissorCount: i32,
+    scissors: i64*
+): void
+noescape extern:"c" fun vkCmdDraw(
+    commandBuffer: i64*,
+    vertexCount: i32,
+    instanceCount: i32,
+    firstVertex: i32,
+    firstInstance: i32
 ): void
 noescape extern:"c" fun vkCmdBindDescriptorSets(
     commandBuffer: i64*,
@@ -3191,6 +3246,318 @@ resource class VulkanSwapchain(
     }
 }
 
+resource class VulkanRenderPipeline(
+    val device: i64*,
+    val queue: i64*,
+    var layout: int,
+    var renderPass: int,
+    var handle: int,
+    val imageViews: array<int>,
+    val framebuffers: array<int>,
+    val format: int,
+    val width: int,
+    val height: int
+) {
+    trusted fun valid(): bool = !pointerIsNull(this.device) &&
+        !pointerIsNull(this.queue) && this.layout != 0 &&
+        this.renderPass != 0 && this.handle != 0 && this.format != 0 &&
+        this.width > 0 && this.height > 0 && this.imageViews.size > 0 &&
+        this.framebuffers.size == this.imageViews.size
+
+    trusted fun drop(): void {
+        if (!pointerIsNull(this.queue)) vkQueueWaitIdle(this.queue)
+        var index = 0
+        while (index < this.framebuffers.size) {
+            if (this.framebuffers[index] != 0 &&
+                !pointerIsNull(this.device)) {
+                vkDestroyFramebuffer(
+                    this.device,
+                    this.framebuffers[index],
+                    nativeNullPointer()
+                )
+                this.framebuffers[index] = 0
+            }
+            index = index + 1
+        }
+        index = 0
+        while (index < this.imageViews.size) {
+            if (this.imageViews[index] != 0 &&
+                !pointerIsNull(this.device)) {
+                vkDestroyImageView(
+                    this.device,
+                    this.imageViews[index],
+                    nativeNullPointer()
+                )
+                this.imageViews[index] = 0
+            }
+            index = index + 1
+        }
+        if (this.handle != 0 && !pointerIsNull(this.device)) {
+            vkDestroyPipeline(this.device, this.handle, nativeNullPointer())
+            this.handle = 0
+        }
+        if (this.layout != 0 && !pointerIsNull(this.device)) {
+            vkDestroyPipelineLayout(
+                this.device,
+                this.layout,
+                nativeNullPointer()
+            )
+            this.layout = 0
+        }
+        if (this.renderPass != 0 && !pointerIsNull(this.device)) {
+            vkDestroyRenderPass(
+                this.device,
+                this.renderPass,
+                nativeNullPointer()
+            )
+            this.renderPass = 0
+        }
+        return
+    }
+}
+
+trusted fun VulkanDevice.renderPipeline(
+    swapchain: VulkanSwapchain,
+    vertex: VulkanShaderModule,
+    fragment: VulkanShaderModule
+): VulkanRenderPipeline {
+    var layout = 0
+    var renderPass = 0
+    var pipeline = 0
+    val imageViews: array<int> = []
+    val framebuffers: array<int> = []
+    var succeeded = this.valid() && swapchain.valid() &&
+        swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
+        vertex.device == this.handle && fragment.device == this.handle
+
+    if (succeeded) {
+        val attachment = nativeByteBuffer(40)
+        attachment.storeI64(0, swapchain.format * 4294967296)
+        attachment.storeI64(8, 4294967296 + 1)
+        attachment.storeI64(16, 2 * 4294967296)
+        attachment.storeI64(24, 1)
+        attachment.storeI64(32, 1000001002)
+        val colorReference = nativeByteBuffer(8)
+        colorReference.storeI64(0, 2 * 4294967296)
+        val subpass = nativeByteBuffer(72)
+        subpass.storeI64(0, 0)
+        subpass.storeI64(8, 0)
+        subpass.storePointer(16, nativeNullPointer())
+        subpass.storeI64(24, 1)
+        subpass.storePointer(32, colorReference.address)
+        subpass.storePointer(40, nativeNullPointer())
+        subpass.storePointer(48, nativeNullPointer())
+        subpass.storeI64(56, 0)
+        subpass.storePointer(64, nativeNullPointer())
+        val createInfo = nativeByteBuffer(64)
+        createInfo.storeI64(0, 38)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, 4294967296)
+        createInfo.storePointer(24, attachment.address)
+        createInfo.storeI64(32, 1)
+        createInfo.storePointer(40, subpass.address)
+        createInfo.storeI64(48, 0)
+        createInfo.storePointer(56, nativeNullPointer())
+        val output = nativeI64Cell(0)
+        succeeded = vkCreateRenderPass(
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess
+        if (succeeded) renderPass = output.load()
+    }
+
+    if (succeeded) {
+        val layoutInfo = nativeByteBuffer(48)
+        layoutInfo.storeI64(0, 30)
+        layoutInfo.storePointer(8, nativeNullPointer())
+        layoutInfo.storeI64(16, 0)
+        layoutInfo.storePointer(24, nativeNullPointer())
+        layoutInfo.storeI64(32, 0)
+        layoutInfo.storePointer(40, nativeNullPointer())
+        val output = nativeI64Cell(0)
+        succeeded = vkCreatePipelineLayout(
+            this.handle,
+            layoutInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess
+        if (succeeded) layout = output.load()
+    }
+
+    var imageIndex = 0
+    while (succeeded && imageIndex < swapchain.images.size) {
+        val viewInfo = nativeByteBuffer(80)
+        viewInfo.storeI64(0, 15)
+        viewInfo.storePointer(8, nativeNullPointer())
+        viewInfo.storeI64(16, 0)
+        viewInfo.storeI64(24, swapchain.images[imageIndex])
+        viewInfo.storeI64(32, swapchain.format * 4294967296 + 1)
+        viewInfo.storeI64(40, 0)
+        viewInfo.storeI64(48, 0)
+        viewInfo.storeI64(56, 1)
+        viewInfo.storeI64(64, 1)
+        viewInfo.storeI64(72, 1)
+        val viewOutput = nativeI64Cell(0)
+        succeeded = vkCreateImageView(
+            this.handle,
+            viewInfo.address,
+            nativeNullPointer(),
+            viewOutput.address
+        ) == vulkanSuccess
+        if (succeeded) imageViews.append(viewOutput.load())
+        imageIndex = imageIndex + 1
+    }
+
+    imageIndex = 0
+    while (succeeded && imageIndex < imageViews.size) {
+        val attachment = nativeI64Cell(imageViews[imageIndex])
+        val framebufferInfo = nativeByteBuffer(64)
+        framebufferInfo.storeI64(0, 37)
+        framebufferInfo.storePointer(8, nativeNullPointer())
+        framebufferInfo.storeI64(16, 0)
+        framebufferInfo.storeI64(24, renderPass)
+        framebufferInfo.storeI64(32, 1)
+        framebufferInfo.storePointer(40, attachment.address)
+        framebufferInfo.storeI64(
+            48,
+            swapchain.height * 4294967296 + swapchain.width
+        )
+        framebufferInfo.storeI64(56, 1)
+        val output = nativeI64Cell(0)
+        succeeded = vkCreateFramebuffer(
+            this.handle,
+            framebufferInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess
+        if (succeeded) framebuffers.append(output.load())
+        imageIndex = imageIndex + 1
+    }
+
+    if (succeeded) {
+        val stages = nativeByteBuffer(96)
+        stages.storeI64(0, 18)
+        stages.storePointer(8, nativeNullPointer())
+        stages.storeI64(16, 4294967296)
+        stages.storeI64(24, vertex.handle)
+        stages.storePointer(
+            32,
+            nativePointerFromAddress(nativeCStringAddress("main"))
+        )
+        stages.storePointer(40, nativeNullPointer())
+        stages.storeI64(48, 18)
+        stages.storePointer(56, nativeNullPointer())
+        stages.storeI64(64, 16 * 4294967296)
+        stages.storeI64(72, fragment.handle)
+        stages.storePointer(
+            80,
+            nativePointerFromAddress(nativeCStringAddress("main"))
+        )
+        stages.storePointer(88, nativeNullPointer())
+
+        val vertexInput = nativeByteBuffer(48)
+        vertexInput.storeI64(0, 19)
+        vertexInput.storePointer(8, nativeNullPointer())
+        vertexInput.storeI64(16, 0)
+        vertexInput.storePointer(24, nativeNullPointer())
+        vertexInput.storeI64(32, 0)
+        vertexInput.storePointer(40, nativeNullPointer())
+        val inputAssembly = nativeByteBuffer(32)
+        inputAssembly.storeI64(0, 20)
+        inputAssembly.storePointer(8, nativeNullPointer())
+        inputAssembly.storeI64(16, 3 * 4294967296)
+        inputAssembly.storeI64(24, 0)
+        val viewport = nativeByteBuffer(48)
+        viewport.storeI64(0, 22)
+        viewport.storePointer(8, nativeNullPointer())
+        viewport.storeI64(16, 4294967296)
+        viewport.storePointer(24, nativeNullPointer())
+        viewport.storeI64(32, 1)
+        viewport.storePointer(40, nativeNullPointer())
+        val rasterization = nativeByteBuffer(64)
+        rasterization.storeI64(0, 23)
+        rasterization.storePointer(8, nativeNullPointer())
+        rasterization.storeI64(16, 0)
+        rasterization.storeI64(24, 0)
+        rasterization.storeI64(32, 4294967296)
+        rasterization.storeI64(40, 0)
+        rasterization.storeI64(48, 0)
+        rasterization.storeI64(56, 1065353216)
+        val multisample = nativeByteBuffer(48)
+        multisample.storeI64(0, 24)
+        multisample.storePointer(8, nativeNullPointer())
+        multisample.storeI64(16, 4294967296)
+        multisample.storeI64(24, 0)
+        multisample.storePointer(32, nativeNullPointer())
+        multisample.storeI64(40, 0)
+        val colorAttachment = nativeByteBuffer(32)
+        colorAttachment.storeI64(0, 0)
+        colorAttachment.storeI64(8, 0)
+        colorAttachment.storeI64(16, 0)
+        colorAttachment.storeI64(24, 15 * 4294967296)
+        val colorBlend = nativeByteBuffer(56)
+        colorBlend.storeI64(0, 26)
+        colorBlend.storePointer(8, nativeNullPointer())
+        colorBlend.storeI64(16, 0)
+        colorBlend.storeI64(24, 4294967296)
+        colorBlend.storePointer(32, colorAttachment.address)
+        colorBlend.storeI64(40, 0)
+        colorBlend.storeI64(48, 0)
+        val states = nativeByteBuffer(8)
+        states.storeI64(0, 4294967296)
+        val dynamic = nativeByteBuffer(32)
+        dynamic.storeI64(0, 27)
+        dynamic.storePointer(8, nativeNullPointer())
+        dynamic.storeI64(16, 2 * 4294967296)
+        dynamic.storePointer(24, states.address)
+
+        val pipelineInfo = nativeByteBuffer(144)
+        pipelineInfo.storeI64(0, 28)
+        pipelineInfo.storePointer(8, nativeNullPointer())
+        pipelineInfo.storeI64(16, 2 * 4294967296)
+        pipelineInfo.storePointer(24, stages.address)
+        pipelineInfo.storePointer(32, vertexInput.address)
+        pipelineInfo.storePointer(40, inputAssembly.address)
+        pipelineInfo.storePointer(48, nativeNullPointer())
+        pipelineInfo.storePointer(56, viewport.address)
+        pipelineInfo.storePointer(64, rasterization.address)
+        pipelineInfo.storePointer(72, multisample.address)
+        pipelineInfo.storePointer(80, nativeNullPointer())
+        pipelineInfo.storePointer(88, colorBlend.address)
+        pipelineInfo.storePointer(96, dynamic.address)
+        pipelineInfo.storeI64(104, layout)
+        pipelineInfo.storeI64(112, renderPass)
+        pipelineInfo.storeI64(120, 0)
+        pipelineInfo.storeI64(128, 0)
+        pipelineInfo.storeI64(136, 4294967295)
+        val output = nativeI64Cell(0)
+        succeeded = vkCreateGraphicsPipelines(
+            this.handle,
+            0,
+            1,
+            pipelineInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess
+        if (succeeded) pipeline = output.load()
+    }
+
+    VulkanRenderPipeline(
+        this.handle,
+        this.queue,
+        layout,
+        renderPass,
+        pipeline,
+        imageViews,
+        framebuffers,
+        swapchain.format,
+        swapchain.width,
+        swapchain.height
+    )
+}
+
 trusted fun VulkanDevice.swapchain(
     adapter: VulkanAdapter,
     surface: VulkanX11Surface
@@ -3847,6 +4214,299 @@ trusted fun VulkanDevice.presentClearFramesOutcome(
         ) 0 else presenter.frameIndex + 1
     }
     outcome
+}
+
+trusted fun VulkanDevice.presentRenderOutcome(
+    swapchain: VulkanSwapchain,
+    var presenter: VulkanPixelPresenter,
+    pipeline: VulkanRenderPipeline,
+    clear: Color
+): int {
+    var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
+        pipeline.valid() && pipeline.device == this.handle &&
+        presenter.width == swapchain.width &&
+        presenter.height == swapchain.height &&
+        presenter.format == swapchain.format &&
+        pipeline.width == swapchain.width &&
+        pipeline.height == swapchain.height &&
+        pipeline.format == swapchain.format &&
+        pipeline.framebuffers.size == swapchain.images.size && clear.valid()
+    var recreateSwapchain = false
+    var status = if (succeeded) vulkanSuccess else -1
+    var submitted = false
+    var frame = if (presenter.frames.size > 0) presenter.frameIndex else 0
+    if (frame < 0 || frame >= presenter.frames.size) succeeded = false
+
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            96,
+            presenter.frames[frame].fence
+        )
+        val fence = nativePointerFromAddress(
+            nativePointerAddress(presenter.frames[frame].scratch.address) + 96
+        )
+        if (presenter.frames[frame].inFlight) {
+            succeeded = vkWaitForFences(
+                this.handle,
+                1,
+                fence,
+                1,
+                18446744073709551615
+            ) == vulkanSuccess
+            if (succeeded) presenter.frames[frame].inFlight = false
+        }
+    }
+
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            72,
+            presenter.frames[frame].acquired
+        )
+        presenter.frames[frame].scratch.storeI64(80, 0)
+        status = vkAcquireNextImageKHR(
+            this.handle,
+            swapchain.handle,
+            9223372036854775807,
+            presenter.frames[frame].acquired,
+            0,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 80
+            )
+        )
+        val outcome = vulkanPresentStatus(status)
+        succeeded = vulkanPresentSucceeded(outcome)
+        recreateSwapchain = vulkanPresentNeedsRecreation(outcome)
+    }
+    val imageIndex = if (succeeded)
+        presenter.frames[frame].scratch.loadI64(80) & 4294967295
+    else -1
+    if (imageIndex < 0 || imageIndex >= swapchain.images.size ||
+        imageIndex >= presenter.rendered.size ||
+        imageIndex >= pipeline.framebuffers.size) succeeded = false
+
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            88,
+            presenter.rendered[imageIndex]
+        )
+        succeeded = vkResetCommandPool(
+            this.handle,
+            presenter.frames[frame].commandPool,
+            0
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(0, 42)
+        presenter.frames[frame].scratch.storePointer(
+            8,
+            nativeNullPointer()
+        )
+        presenter.frames[frame].scratch.storeI64(16, 1)
+        presenter.frames[frame].scratch.storePointer(
+            24,
+            nativeNullPointer()
+        )
+        succeeded = vkBeginCommandBuffer(
+            presenter.frames[frame].command.load(),
+            presenter.frames[frame].scratch.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            120,
+            (graphicsScalarF32Bits(clear.green) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.red) & 4294967295)
+        )
+        presenter.frames[frame].scratch.storeI64(
+            128,
+            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.blue) & 4294967295)
+        )
+        presenter.frames[frame].scratch.storeI64(0, 43)
+        presenter.frames[frame].scratch.storePointer(
+            8,
+            nativeNullPointer()
+        )
+        presenter.frames[frame].scratch.storeI64(16, pipeline.renderPass)
+        presenter.frames[frame].scratch.storeI64(
+            24,
+            pipeline.framebuffers[imageIndex]
+        )
+        presenter.frames[frame].scratch.storeI64(32, 0)
+        presenter.frames[frame].scratch.storeI64(
+            40,
+            swapchain.height * 4294967296 + swapchain.width
+        )
+        presenter.frames[frame].scratch.storeI64(48, 1)
+        presenter.frames[frame].scratch.storePointer(
+            56,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 120
+            )
+        )
+        vkCmdBeginRenderPass(
+            presenter.frames[frame].command.load(),
+            presenter.frames[frame].scratch.address,
+            0
+        )
+        presenter.frames[frame].scratch.storeI64(0, 0)
+        presenter.frames[frame].scratch.storeI64(
+            8,
+            (graphicsUnsignedIntegerF32Bits(swapchain.height) & 4294967295) *
+                4294967296 +
+                (graphicsUnsignedIntegerF32Bits(swapchain.width) & 4294967295)
+        )
+        presenter.frames[frame].scratch.storeI64(
+            16,
+            1065353216 * 4294967296
+        )
+        vkCmdSetViewport(
+            presenter.frames[frame].command.load(),
+            0,
+            1,
+            presenter.frames[frame].scratch.address
+        )
+        presenter.frames[frame].scratch.storeI64(0, 0)
+        presenter.frames[frame].scratch.storeI64(
+            8,
+            swapchain.height * 4294967296 + swapchain.width
+        )
+        vkCmdSetScissor(
+            presenter.frames[frame].command.load(),
+            0,
+            1,
+            presenter.frames[frame].scratch.address
+        )
+        vkCmdBindPipeline(
+            presenter.frames[frame].command.load(),
+            0,
+            pipeline.handle
+        )
+        vkCmdDraw(
+            presenter.frames[frame].command.load(),
+            3,
+            1,
+            0,
+            0
+        )
+        vkCmdEndRenderPass(presenter.frames[frame].command.load())
+        succeeded = vkEndCommandBuffer(
+            presenter.frames[frame].command.load()
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        succeeded = vkResetFences(
+            this.handle,
+            1,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 96
+            )
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(104, 1024)
+        presenter.frames[frame].scratch.storeI64(0, 4)
+        presenter.frames[frame].scratch.storePointer(8, nativeNullPointer())
+        presenter.frames[frame].scratch.storeI64(16, 1)
+        presenter.frames[frame].scratch.storePointer(
+            24,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 72
+            )
+        )
+        presenter.frames[frame].scratch.storePointer(
+            32,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 104
+            )
+        )
+        presenter.frames[frame].scratch.storeI64(40, 1)
+        presenter.frames[frame].scratch.storePointer(
+            48,
+            presenter.frames[frame].command.address
+        )
+        presenter.frames[frame].scratch.storeI64(56, 1)
+        presenter.frames[frame].scratch.storePointer(
+            64,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 88
+            )
+        )
+        succeeded = vkQueueSubmit(
+            this.queue,
+            1,
+            presenter.frames[frame].scratch.address,
+            presenter.frames[frame].fence
+        ) == vulkanSuccess
+        if (succeeded) {
+            presenter.frames[frame].inFlight = true
+            submitted = true
+        }
+    }
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(112, swapchain.handle)
+        presenter.frames[frame].scratch.storeI64(0, 1000001001)
+        presenter.frames[frame].scratch.storePointer(8, nativeNullPointer())
+        presenter.frames[frame].scratch.storeI64(16, 1)
+        presenter.frames[frame].scratch.storePointer(
+            24,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 88
+            )
+        )
+        presenter.frames[frame].scratch.storeI64(32, 1)
+        presenter.frames[frame].scratch.storePointer(
+            40,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 112
+            )
+        )
+        presenter.frames[frame].scratch.storePointer(
+            48,
+            nativePointerFromAddress(
+                nativePointerAddress(
+                    presenter.frames[frame].scratch.address
+                ) + 80
+            )
+        )
+        presenter.frames[frame].scratch.storePointer(56, nativeNullPointer())
+        status = vkQueuePresentKHR(
+            this.queue,
+            presenter.frames[frame].scratch.address
+        )
+        val outcome = vulkanPresentStatus(status)
+        succeeded = vulkanPresentSucceeded(outcome)
+        recreateSwapchain = recreateSwapchain ||
+            vulkanPresentNeedsRecreation(outcome)
+    }
+    if (submitted) {
+        presenter.frameIndex = if (frame + 1 == presenter.frames.size)
+            0 else frame + 1
+    }
+    vulkanPresentOutcome(
+        succeeded,
+        recreateSwapchain,
+        status,
+        submitted
+    )
 }
 
 trusted fun VulkanDevice.presentPixelFrameOutcome(

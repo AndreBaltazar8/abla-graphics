@@ -1,6 +1,8 @@
 import "../../src/platform/x11.ab"
 import "../../src/driver/vulkan.ab"
+import "../../src/shader/glsl_spirv.ab"
 import "abla/io"
+import "abla/runtime/memory"
 
 fun main: int {
     val window = x11Window(WindowConfig(
@@ -30,9 +32,105 @@ fun main: int {
             if (supported) {
                 val device = adapters[index].deviceForSurface(surface)
                 val swapchain = device.swapchain(adapters[index], surface)
+                val triangle = $glsl {
+                    vertex {
+                        #version 450
+                        const vec2 positions[3] = vec2[3](
+                            vec2(-0.75, -0.65),
+                            vec2(0.75, -0.65),
+                            vec2(0.0, 0.75)
+                        );
+                        void main() {
+                            gl_Position = vec4(
+                                positions[gl_VertexID],
+                                0.0,
+                                1.0
+                            );
+                        }
+                    }
+                    fragment {
+                        #version 450
+                        layout(location = 0) out vec4 color;
+                        void main() {
+                            color = vec4(0.12, 0.54, 0.96, 1.0);
+                        }
+                    }
+                }
+                val vertexCode = triangle.spirv(shaderStageVertex)
+                val fragmentCode = triangle.spirv(shaderStageFragment)
+                val vertex = device.shaderModule(vertexCode.module)
+                val fragment = device.shaderModule(fragmentCode.module)
+                val pipeline = device.renderPipeline(
+                    swapchain,
+                    vertex,
+                    fragment
+                )
+                val presenter = device.pixelPresenter(swapchain, 2)
+                val clear = Color(0.02, 0.03, 0.05)
+                val rendered = device.presentRenderOutcome(
+                    swapchain,
+                    presenter,
+                    pipeline,
+                    clear
+                )
+                val pipelineHandle = pipeline.handle
+                val renderPassHandle = pipeline.renderPass
+                val framebuffer0 = if (pipeline.framebuffers.size > 0)
+                    pipeline.framebuffers[0] else 0
+                val framebuffer1 = if (pipeline.framebuffers.size > 1)
+                    pipeline.framebuffers[1] else 0
+                val commandPool0 = if (presenter.frames.size > 0)
+                    presenter.frames[0].commandPool else 0
+                val commandPool1 = if (presenter.frames.size > 1)
+                    presenter.frames[1].commandPool else 0
+                val command0 = if (presenter.frames.size > 0)
+                    nativePointerAddress(presenter.frames[0].command.load())
+                else 0
+                val command1 = if (presenter.frames.size > 1)
+                    nativePointerAddress(presenter.frames[1].command.load())
+                else 0
+                val liveBefore = runtimeMemoryLiveBytes()
+                var repeated = true
+                var drawIndex = 0
+                while (repeated && drawIndex < 4) {
+                    repeated = vulkanPresentSucceeded(
+                        device.presentRenderOutcome(
+                            swapchain,
+                            presenter,
+                            pipeline,
+                            clear
+                        )
+                    )
+                    drawIndex = drawIndex + 1
+                }
+                val liveAfter = runtimeMemoryLiveBytes()
+                val stable = pipeline.handle == pipelineHandle &&
+                    pipeline.renderPass == renderPassHandle &&
+                    (pipeline.framebuffers.size == 0 ||
+                     pipeline.framebuffers[0] == framebuffer0) &&
+                    (pipeline.framebuffers.size <= 1 ||
+                     pipeline.framebuffers[1] == framebuffer1) &&
+                    (presenter.frames.size == 0 ||
+                     presenter.frames[0].commandPool == commandPool0) &&
+                    (presenter.frames.size <= 1 ||
+                     presenter.frames[1].commandPool == commandPool1) &&
+                    (presenter.frames.size == 0 || nativePointerAddress(
+                        presenter.frames[0].command.load()
+                     ) == command0) &&
+                    (presenter.frames.size <= 1 || nativePointerAddress(
+                        presenter.frames[1].command.load()
+                     ) == command1)
                 swapchainValid = device.valid() && swapchain.valid() &&
                     swapchain.images.size >= capabilities.minimumImages &&
-                    device.presentBlue(swapchain)
+                    vertexCode.succeeded && fragmentCode.succeeded &&
+                    vertex.valid() && fragment.valid() && pipeline.valid() &&
+                    presenter.valid() && vulkanPresentSucceeded(rendered) &&
+                    repeated && liveAfter == liveBefore && stable
+                if (!swapchainValid) {
+                    println(
+                        "Vulkan draw failure initial=${vulkanPresentSucceeded(rendered)} repeated=$repeated live=$liveBefore/$liveAfter stable=$stable frame=${presenter.frameIndex}"
+                    )
+                }
             }
         }
         index = index + 1

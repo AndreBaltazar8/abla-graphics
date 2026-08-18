@@ -1,0 +1,86 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else if (requested == "vulkan") graphicsBackendVulkan
+    else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics common triangle",
+            width = 800,
+            height = 600
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val pipeline = app.renderPipeline(shader)
+    val clear = Color(0.02, 0.03, 0.05)
+    val warmed = app.valid() && pipeline.valid() &&
+        app.presentRender(pipeline, clear)
+    val openGlProgram = pipeline.openGl.handle
+    val openGlArray = pipeline.openGl.vertexArray
+    val vulkanPipeline = pipeline.vulkan.handle
+    val vulkanRenderPass = pipeline.vulkan.renderPass
+    val vulkanFramebuffer = if (
+        app.backend == graphicsBackendVulkan &&
+        pipeline.vulkan.framebuffers.size > 0
+    ) pipeline.vulkan.framebuffers[0] else 0
+    val commandPool = if (app.backend == graphicsBackendVulkan)
+        app.vulkanPixels.frames[0].commandPool else 0
+    val command = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanPixels.frames[0].command.load())
+    else 0
+    val liveBefore = runtimeMemoryLiveBytes()
+    var presented = warmed
+    var frame = 0
+    while (presented && frame < 4) {
+        presented = app.presentRender(pipeline, clear)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val noGrowth = liveAfter == liveBefore
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        pipeline.openGl.handle == openGlProgram &&
+            pipeline.openGl.vertexArray == openGlArray
+    else pipeline.vulkan.handle == vulkanPipeline &&
+        pipeline.vulkan.renderPass == vulkanRenderPass &&
+        pipeline.vulkan.framebuffers[0] == vulkanFramebuffer &&
+        app.vulkanPixels.frames[0].commandPool == commandPool &&
+        nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
+            command
+    println(
+        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+    )
+    app.pollEvent(250)
+    if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
+}

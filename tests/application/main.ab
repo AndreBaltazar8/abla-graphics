@@ -529,8 +529,65 @@ fun applicationBackendProbe(
             app.vulkanPixels.width == 400 &&
             app.vulkanPixels.height == 260
     }
+    val triangleShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val renderPipeline = app.renderPipeline(triangleShader)
+    val renderClear = Color(0.02, 0.03, 0.05)
+    val rendered = app.presentRender(renderPipeline, renderClear)
+    val renderOpenGlHandle = renderPipeline.openGl.handle
+    val renderOpenGlArray = renderPipeline.openGl.vertexArray
+    val renderVulkanHandle = renderPipeline.vulkan.handle
+    val renderPassHandle = renderPipeline.vulkan.renderPass
+    val renderFramebuffer0 = if (
+        renderPipeline.vulkan.framebuffers.size > 0
+    ) renderPipeline.vulkan.framebuffers[0] else 0
+    val renderPool0 = if (app.backend == graphicsBackendVulkan)
+        app.vulkanPixels.frames[0].commandPool else 0
+    val renderCommand0 = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanPixels.frames[0].command.load())
+    else 0
+    val renderLiveBefore = runtimeMemoryLiveBytes()
+    var renderRepeated = rendered
+    var renderIndex = 0
+    while (renderRepeated && renderIndex < 4) {
+        renderRepeated = app.presentRender(renderPipeline, renderClear)
+        renderIndex = renderIndex + 1
+    }
+    val renderLiveAfter = runtimeMemoryLiveBytes()
+    val renderNoGrowth = renderLiveAfter == renderLiveBefore
+    val renderHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        renderPipeline.openGl.handle == renderOpenGlHandle &&
+            renderPipeline.openGl.vertexArray == renderOpenGlArray
+    else renderPipeline.vulkan.handle == renderVulkanHandle &&
+        renderPipeline.vulkan.renderPass == renderPassHandle &&
+        renderPipeline.vulkan.framebuffers[0] == renderFramebuffer0 &&
+        app.vulkanPixels.frames[0].commandPool == renderPool0 &&
+        nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
+            renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && pixelNoGrowth &&
         pixelHandlesStable && frameSlotsPassed &&
@@ -604,7 +661,8 @@ fun applicationBackendProbe(
         computeBuffer.valid() && computeBufferCleared &&
         storageCompute.valid() && storageComputed && computeRepeated &&
         computeNoGrowth && computeHandlesStable && computeValue == 486 &&
-        resizePassed
+        resizePassed && renderPipeline.valid() && rendered &&
+        renderRepeated && renderNoGrowth && renderHandlesStable
 }
 
 fun applicationUnavailableProbe(): bool {

@@ -10,7 +10,8 @@ mkdir -p "$output_directory"
 
 for sample in x11-window vulkan-info vulkan-surface headless-opengl \
     common-headless \
-    opengl-window common-clear common-buffer common-texture common-compute \
+    opengl-window common-clear common-triangle common-buffer common-texture \
+    common-compute \
     frame-pacing; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
@@ -31,6 +32,8 @@ LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
 for backend in opengl vulkan; do
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-clear" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/common-triangle" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-buffer" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

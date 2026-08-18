@@ -1,0 +1,127 @@
+// Backend-neutral triangle render pipeline and allocation-free presentation.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "application.ab"
+import "shader/glsl.ab"
+import "shader/glsl_spirv.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsRenderPipeline(
+    val openGl: OpenGlProgram,
+    val vulkan: VulkanRenderPipeline,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.renderPipeline(
+    shader: ShaderPackage
+): GraphicsRenderPipeline {
+    var openGl = OpenGlProgram(0, 0, "")
+    var vulkan = VulkanRenderPipeline(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        0,
+        0,
+        [],
+        [],
+        0,
+        0,
+        0
+    )
+    var error = GraphicsError()
+    val stagesValid = shader.valid && shader.stages.size == 2 &&
+        shader.source(shaderStageVertex) != "" &&
+        shader.source(shaderStageFragment) != ""
+    val translatable = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            shader.source(shaderStageVertex),
+            shader.source(shaderStageFragment)
+        ]
+    )
+    val vertexCode = translatable.spirv(shaderStageVertex)
+    val fragmentCode = translatable.spirv(shaderStageFragment)
+
+    if (!this.valid() || !stagesValid) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.renderPipeline",
+            if (shader.error != "") shader.error else
+                "rendering requires one vertex and one fragment stage"
+        )
+    } else if (!vertexCode.succeeded || !fragmentCode.succeeded) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "ShaderPackage.spirv",
+            if (!vertexCode.succeeded) vertexCode.error else
+                fragmentCode.error
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        if (this.openGl.makeCurrent()) {
+            openGl = openGlProgramFromPackage(shader)
+        }
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "openGlProgramFromPackage",
+            if (openGl.error != "") openGl.error else
+                "OpenGL render pipeline creation failed"
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        val vertex = this.vulkanDevice.shaderModule(vertexCode.module)
+        val fragment = this.vulkanDevice.shaderModule(fragmentCode.module)
+        if (vertex.valid() && fragment.valid()) {
+            vulkan = this.vulkanDevice.renderPipeline(
+                this.vulkanSwapchain,
+                vertex,
+                fragment
+            )
+        }
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.renderPipeline",
+            "Vulkan render pipeline creation failed"
+        )
+    }
+
+    GraphicsRenderPipeline(
+        move(openGl),
+        move(vulkan),
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.presentRender(
+    pipeline: GraphicsRenderPipeline,
+    clear: Color
+): bool {
+    if (!this.valid() || !pipeline.valid() || !clear.valid() ||
+        pipeline.backend != this.backend) false
+    else if (this.backend == graphicsBackendOpenGl) {
+        this.openGl.presentProgram(pipeline.openGl, clear)
+    } else if (this.backend == graphicsBackendVulkan) {
+        val outcome = this.vulkanDevice.presentRenderOutcome(
+            this.vulkanSwapchain,
+            this.vulkanPixels,
+            pipeline.vulkan,
+            clear
+        )
+        // Surface-dependent pipelines deliberately reject a resized swapchain
+        // until the application creates a replacement pipeline.
+        vulkanPresentSucceeded(outcome) &&
+            !vulkanPresentNeedsRecreation(outcome)
+    } else false
+}

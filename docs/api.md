@@ -31,6 +31,42 @@ does not create command pools or synchronization objects per clear. Four
 repeated clears preserve native handles and runtime live bytes on both
 backends.
 
+The first portable raster pipeline uses the same embedded shader package on
+both backends:
+
+```abla
+val shader = $glsl {
+    vertex {
+        #version 450
+        const vec2 positions[3] = vec2[3](
+            vec2(-0.75, -0.65),
+            vec2(0.75, -0.65),
+            vec2(0.0, 0.75)
+        );
+        void main() {
+            gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+        }
+    }
+    fragment {
+        #version 450
+        layout(location = 0) out vec4 color;
+        void main() { color = vec4(0.12, 0.54, 0.96, 1.0); }
+    }
+}
+val pipeline = app.renderPipeline(shader)
+val clear = Color(0.02, 0.03, 0.05)
+app.presentRender(pipeline, clear)
+```
+
+`GraphicsRenderPipeline` is affine. OpenGL owns one linked program and vertex
+array. Vulkan owns the pipeline layout, render pass, graphics pipeline, and one
+image view/framebuffer per swapchain image; shader modules are released after
+pipeline creation. Presentation reuses the application's configured command
+slots, semaphores, fences, command buffers, and native scratch. Repeated calls
+with a reused `Color` perform no general allocation and preserve native
+handles. This initial pipeline is surface-dependent: after a Vulkan swapchain
+resize, create a replacement pipeline before presenting again.
+
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,
 then surface/instance/context, then the direct Abla window. A root application

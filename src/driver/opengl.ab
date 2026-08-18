@@ -1500,6 +1500,43 @@ resource class OpenGlWindowContext(
         pixelValue
     }
 
+    trusted fun presentProgram(
+        program: OpenGlProgram,
+        clear: Color
+    ): bool {
+        var presented = program.valid() && clear.valid() && this.makeCurrent()
+        if (presented) {
+            openGlStoreI32(
+                this.clearScratch,
+                0,
+                graphicsScalarF32Bits(clear.red)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                1,
+                graphicsScalarF32Bits(clear.green)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                2,
+                graphicsScalarF32Bits(clear.blue)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                3,
+                graphicsScalarF32Bits(clear.alpha)
+            )
+            glViewport(0, 0, this.width, this.height)
+            glClearBufferfv(6144, 0, this.clearScratch.address)
+            glUseProgram(program.handle)
+            glBindVertexArray(program.vertexArray)
+            glDrawArrays(4, 0, 3)
+            presented = glGetError() == 0 &&
+                eglSwapBuffers(this.display, this.surface) == eglTrue
+        }
+        presented
+    }
+
     trusted fun drop(): void {
         if (!pointerIsNull(this.display)) {
             eglMakeCurrent(

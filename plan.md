@@ -1,6 +1,6 @@
 # Abla Graphics implementation plan
 
-Status: active implementation contract, 2026-08-17.
+Status: active implementation contract, 2026-08-18.
 
 Abla Graphics is the graphics and windowing framework for the Abla ecosystem.
 It targets OpenGL 4.6 core and Vulkan 1.4, with an idiomatic common API for
@@ -9,6 +9,14 @@ hidden behind a common abstraction.
 
 The plan is ordered. A milestone is complete only when its implementation,
 tests, samples, documentation, and relevant performance/validation gates pass.
+
+Current verified checkpoint: the Abla-only direct X11 foundation, surfaced and
+headless OpenGL/Vulkan selection, common buffers/textures/views/samplers,
+reusable copies/fills/pixel presentation, compute pipelines, strict initial
+`$glsl`-to-SPIR-V subsets, and the first common triangle render pipeline are
+implemented. Repeated clear, pixel, transfer, compute, event-poll, and triangle
+hot paths have stable native handles and zero runtime live-byte growth. The
+remaining milestone work below is intentionally still open.
 
 ## Non-negotiable design rules
 

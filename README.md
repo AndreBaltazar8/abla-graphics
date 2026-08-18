@@ -36,6 +36,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
+- one backend-neutral affine triangle render pipeline: the same `$glsl`
+  package compiles to an OpenGL program or deterministic Abla-emitted SPIR-V,
+  then records and presents a real Vulkan render pass or OpenGL draw without
+  steady-state runtime allocation;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, rejects missing required features, reports the real API version and
   portable device limits, rejects oversized resources/work before driver calls,
@@ -109,6 +113,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
+- `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
+  pipeline rendered unchanged on explicit OpenGL and Vulkan, with repeated
+  no-growth and stable-handle assertions;
 - `examples/common-buffer`: one affine descriptor/resource plus reusable byte
   ranges and GPU copies exercised unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised
