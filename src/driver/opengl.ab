@@ -168,6 +168,20 @@ noescape extern:"c" fun glClearDepth(depth: f64): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
+noescape extern:"c" fun glGenFramebuffers(count: i32, framebuffers: i64*): void
+noescape extern:"c" fun glBindFramebuffer(target: i32, framebuffer: i32): void
+noescape extern:"c" fun glFramebufferTexture2D(
+    target: i32,
+    attachment: i32,
+    textureTarget: i32,
+    texture: i32,
+    level: i32
+): void
+noescape extern:"c" fun glCheckFramebufferStatus(target: i32): i32
+noescape extern:"c" fun glDeleteFramebuffers(
+    count: i32,
+    framebuffers: i64*
+): void
 noescape extern:"c" fun glEnableVertexAttribArray(index: i32): void
 noescape extern:"c" fun glVertexAttribPointer(
     index: i32,
@@ -1245,6 +1259,98 @@ resource class OpenGlTextureView(var handle: int) {
         this.handle = 0
         return
     }
+}
+
+resource class OpenGlRenderTarget(
+    var handle: int,
+    val texture: int,
+    val width: int,
+    val height: int,
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*
+) {
+    fun valid(): bool = this.handle != 0 && this.texture != 0 &&
+        this.width > 0 && this.height > 0 &&
+        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+
+    trusted fun drop(): void {
+        if (this.handle != 0) {
+            if (!pointerIsNull(this.display) &&
+                !pointerIsNull(this.context)) eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            val output = nativeI64Cell(this.handle)
+            glDeleteFramebuffers(1, output.address)
+            this.handle = 0
+        }
+        return
+    }
+}
+
+trusted fun OpenGlWindowContext.renderTarget(
+    texture: OpenGlTexture,
+    descriptor: TextureDescriptor
+): OpenGlRenderTarget {
+    var handle = 0
+    var succeeded = this.valid() && texture.valid() &&
+        texture.display == this.display && texture.context == this.context &&
+        descriptor.valid() && descriptor.dimension == textureDimension2D &&
+        descriptor.samples == 1 && descriptor.mipLevels >= 1 &&
+        !textureFormatHasDepth(descriptor.format) &&
+        (descriptor.usage & textureUsageRenderAttachment) != 0 &&
+        this.makeCurrent()
+    if (succeeded) {
+        val output = nativeI64Cell(0)
+        glGenFramebuffers(1, output.address)
+        handle = output.load() & 4294967295
+        succeeded = handle != 0
+    }
+    if (succeeded) {
+        glBindFramebuffer(36160, handle)
+        glFramebufferTexture2D(36160, 36064, 3553, texture.handle, 0)
+        succeeded = glCheckFramebufferStatus(36160) == 36053 &&
+            glGetError() == 0
+        glBindFramebuffer(36160, 0)
+    }
+    if (!succeeded && handle != 0) {
+        val output = nativeI64Cell(handle)
+        glDeleteFramebuffers(1, output.address)
+        handle = 0
+    }
+    OpenGlRenderTarget(
+        handle,
+        texture.handle,
+        descriptor.size.width,
+        descriptor.size.height,
+        this.display,
+        this.surface,
+        this.context
+    )
+}
+
+trusted fun OpenGlWindowContext.clearRenderTarget(
+    target: OpenGlRenderTarget,
+    clear: Color
+): bool {
+    var succeeded = this.valid() && target.valid() && clear.valid() &&
+        target.display == this.display && target.context == this.context &&
+        this.makeCurrent()
+    if (succeeded) {
+        openGlStoreI32(this.clearScratch, 0, graphicsScalarF32Bits(clear.red))
+        openGlStoreI32(this.clearScratch, 1, graphicsScalarF32Bits(clear.green))
+        openGlStoreI32(this.clearScratch, 2, graphicsScalarF32Bits(clear.blue))
+        openGlStoreI32(this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha))
+        glBindFramebuffer(36160, target.handle)
+        glViewport(0, 0, target.width, target.height)
+        glClearBufferfv(6144, 0, this.clearScratch.address)
+        succeeded = glGetError() == 0
+        glBindFramebuffer(36160, 0)
+    }
+    succeeded
 }
 
 trusted fun OpenGlWindowContext.texture(

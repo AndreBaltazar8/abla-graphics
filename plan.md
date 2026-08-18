@@ -19,7 +19,8 @@ immutable topology, culling, winding, and alpha-blend state plus
 dependency-ordered Vulkan resize recovery and per-swapchain-image depth
 testing/writes plus general sampled-texture/uniform/storage bind groups and an
 allocation-free transform-uniform indexed textured/depth cube sample plus
-GPU-buffer-driven direct and indexed indirect draws are
+GPU-buffer-driven direct/indexed indirect draws and affine color render-target
+attachment ownership with allocation-free clear/readback are
 implemented. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below

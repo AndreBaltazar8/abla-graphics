@@ -588,10 +588,32 @@ and keeps per-mip layout state in initialized native storage. It reuses the
 device transfer pool, command buffer, and scratch block established for buffer
 copies; repeated image copies preserve those handles and general live memory.
 The current operation waits for queue completion. Multisample/1D/3D creation,
-format-converting copies, general byte layouts, asynchronous upload queues, and
-render-pass attachment use are not yet part of this common slice. Views must
+format-converting copies, general byte layouts, and asynchronous upload queues
+are not yet part of this common slice. Views must
 drop before their parent texture, and textures must drop before the application
 device/context.
+
+A single-sample 2D color texture with `textureUsageRenderAttachment` can be
+transferred into an affine render target:
+
+```abla
+val color = app.texture(TextureDescriptor(
+    size = Extent3D(640, 360),
+    usage = textureUsageRenderAttachment |
+        textureUsageSampled | textureUsageCopySource
+))
+val target = app.renderTarget(move(color))
+app.clearRenderTarget(target, Color(0.25, 0.5, 0.75))
+```
+
+The target owns the texture, ensuring the backend attachment dies before its
+image. OpenGL owns and completeness-checks a framebuffer object. Vulkan owns a
+compatible full image view, render pass, and framebuffer, with a sampled target
+ending in shader-read layout. `clearRenderTarget` records a real Vulkan render
+pass through the reusable device transfer command or binds and clears the
+OpenGL FBO. Repeated clears allocate nothing and preserve all attachment and
+command handles. General offscreen pipeline draws and post-processing are the
+next layer over this established ownership boundary.
 
 Samplers are also driver-backed affine resources:
 

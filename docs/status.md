@@ -255,6 +255,13 @@ Updated: 2026-08-18.
   tracking, and the reusable device transfer pool, command buffer, and scratch
   block. Repeated copies preserve the transfer handles and live-memory level;
   Khronos validation is silent on Lavapipe.
+- Common color render targets: `app.renderTarget(move(texture))` takes affine
+  ownership of a single-sample 2D color texture with render-attachment usage.
+  OpenGL owns and completeness-checks an FBO; Vulkan owns a compatible image
+  view, render pass, and framebuffer. A real target clear round-trips the exact
+  RGBA8 result on both drivers. Four repeated clears preserve every target and
+  transfer-command handle with zero live-byte growth under Vulkan validation.
+  General pipeline draws into the target remain the active next slice.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and

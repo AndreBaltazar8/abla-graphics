@@ -1,0 +1,120 @@
+// Affine color render-target attachment ownership shared by both backends.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "resources.ab"
+import "application.ab"
+import "texture.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsRenderTarget(
+    val openGl: OpenGlRenderTarget,
+    val vulkan: VulkanRenderTarget,
+    val texture: GraphicsTexture,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        this.texture.valid() &&
+        (this.texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
+        !textureFormatHasDepth(this.texture.descriptor.format) &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        this.texture.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.renderTarget(
+    own texture: GraphicsTexture
+): GraphicsRenderTarget {
+    var openGl = OpenGlRenderTarget(
+        0,
+        0,
+        0,
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer()
+    )
+    var vulkan = VulkanRenderTarget(
+        nativeNullPointer(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    )
+    var error = GraphicsError()
+    val compatible = this.valid() && texture.valid() &&
+        this.ownsTexture(texture) &&
+        texture.descriptor.dimension == textureDimension2D &&
+        texture.descriptor.samples == 1 &&
+        !textureFormatHasDepth(texture.descriptor.format) &&
+        (texture.descriptor.usage & textureUsageRenderAttachment) != 0
+    if (!compatible) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.renderTarget",
+            "render targets require an owned, single-sample 2D color texture with render-attachment usage"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.renderTarget(texture.openGl, texture.descriptor)
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorAttachmentMismatch,
+            "OpenGlWindowContext.renderTarget",
+            "OpenGL framebuffer creation or completeness validation failed"
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.renderTarget(
+            texture.vulkan,
+            texture.descriptor
+        )
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.renderTarget",
+            "Vulkan render pass, color view, or framebuffer creation failed"
+        )
+    } else error = GraphicsError(
+        graphicsErrorBackendUnavailable,
+        "GraphicsApplication.renderTarget",
+        "the selected backend cannot create a color render target"
+    )
+    GraphicsRenderTarget(
+        move(openGl),
+        move(vulkan),
+        move(texture),
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.clearRenderTarget(
+    var target: GraphicsRenderTarget,
+    clear: Color
+): bool {
+    var succeeded = this.valid() && target.valid() && clear.valid() &&
+        target.backend == this.backend
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = this.openGl.clearRenderTarget(target.openGl, clear)
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.clearRenderTarget(
+            target.vulkan,
+            clear
+        )
+        if (succeeded) target.texture.vulkan.storeLayout(
+            0,
+            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
+                5
+            else 2
+        )
+    } else if (succeeded) succeeded = false
+    succeeded
+}

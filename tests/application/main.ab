@@ -378,6 +378,55 @@ fun applicationBackendProbe(
         ),
         usage = textureUsageSampled
     ))
+    val renderTexture = app.texture(TextureDescriptor(
+        label = "common-render-target",
+        size = Extent3D(32, 24),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageSampled |
+            textureUsageCopySource
+    ))
+    val noAttachmentTexture = app.texture(TextureDescriptor(
+        size = Extent3D(8, 8),
+        usage = textureUsageSampled
+    ))
+    val depthTargetTexture = app.texture(TextureDescriptor(
+        size = Extent3D(8, 8),
+        format = textureFormatDepth16Unorm,
+        usage = textureUsageRenderAttachment
+    ))
+    val renderTarget = app.renderTarget(move(renderTexture))
+    val missingRenderUsageTarget = app.renderTarget(
+        move(noAttachmentTexture)
+    )
+    val depthColorTarget = app.renderTarget(move(depthTargetTexture))
+    val targetClear = Color(0.25, 0.5, 0.75)
+    val renderTargetCleared = app.clearRenderTarget(renderTarget, targetClear)
+    val renderTargetPixel = renderTarget.texture.rgba8(0, 0)
+    val targetOpenGlHandle = renderTarget.openGl.handle
+    val targetVulkanView = renderTarget.vulkan.view
+    val targetVulkanPass = renderTarget.vulkan.renderPass
+    val targetVulkanFramebuffer = renderTarget.vulkan.framebuffer
+    val targetTransferPool = app.vulkanDevice.transferPool
+    val targetTransferCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanDevice.transferCommand.load())
+    else 0
+    val targetLiveBefore = runtimeMemoryLiveBytes()
+    var targetRepeated = renderTargetCleared
+    var targetRepeat = 0
+    while (targetRepeated && targetRepeat < 4) {
+        targetRepeated = app.clearRenderTarget(renderTarget, targetClear)
+        targetRepeat = targetRepeat + 1
+    }
+    val targetLiveAfter = runtimeMemoryLiveBytes()
+    val targetNoGrowth = targetLiveAfter == targetLiveBefore
+    val targetHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        renderTarget.openGl.handle == targetOpenGlHandle
+    else renderTarget.vulkan.view == targetVulkanView &&
+        renderTarget.vulkan.renderPass == targetVulkanPass &&
+        renderTarget.vulkan.framebuffer == targetVulkanFramebuffer &&
+        app.vulkanDevice.transferPool == targetTransferPool &&
+        nativePointerAddress(app.vulkanDevice.transferCommand.load()) ==
+            targetTransferCommand
     val bindUniform = app.buffer(BufferDescriptor(
         label = "bind-uniform",
         size = 64,
@@ -713,6 +762,17 @@ fun applicationBackendProbe(
         unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&
         !oversizedTexture.valid() &&
         oversizedTexture.error.code == graphicsErrorLimitExceeded &&
+        renderTarget.valid() &&
+        renderTarget.texture.descriptor.size.width == 32 &&
+        renderTarget.texture.descriptor.size.height == 24 &&
+        renderTargetCleared && renderTargetPixel == 4290740288 &&
+        targetRepeated && targetRepeat == 4 && targetNoGrowth &&
+        targetHandlesStable &&
+        !missingRenderUsageTarget.valid() &&
+        missingRenderUsageTarget.error.code ==
+            graphicsErrorInvalidConfiguration &&
+        !depthColorTarget.valid() &&
+        depthColorTarget.error.code == graphicsErrorInvalidConfiguration &&
         bindUniform.valid() && sampledEntry.valid() &&
         uniformEntry.valid() && storageEntry.valid() && bindGroup.valid() &&
         bindGroup.entryCount() == 3 && bindGroupMatches &&
