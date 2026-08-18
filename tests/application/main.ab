@@ -338,6 +338,49 @@ fun applicationBackendProbe(
         uploadPixels,
         TextureWriteDescriptor(2, 3, 3)
     )
+    val mipmapTexture = app.texture(TextureDescriptor(
+        label = "generated-mipmaps",
+        size = Extent3D(8, 8),
+        mipLevels = 4,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    ))
+    val mipmapPixels = pixelBuffer(8, 8)
+    val mipmapUploaded = mipmapPixels.clearRgba8(17, 31, 47, 61) &&
+        mipmapTexture.writePixels(mipmapPixels, TextureWriteDescriptor())
+    val mipmapGenerated = mipmapUploaded && mipmapTexture.generateMipmaps()
+    val mipmapFirstPixel = mipmapTexture.rgba8(2, 2, 1)
+    val mipmapLastPixel = mipmapTexture.rgba8(0, 0, 3)
+    val mipmapOpenGlHandle = mipmapTexture.openGl.handle
+    val mipmapVulkanImage = mipmapTexture.vulkan.image
+    val mipmapVulkanPool = mipmapTexture.vulkan.commandPool
+    val mipmapVulkanCommand = if (
+        app.backend == graphicsBackendVulkan &&
+        !mipmapTexture.vulkan.command.closed
+    ) nativePointerAddress(mipmapTexture.vulkan.command.load()) else 0
+    val mipmapLiveBefore = runtimeMemoryLiveBytes()
+    var mipmapRepeated = mipmapGenerated
+    var mipmapRepeat = 0
+    while (mipmapRepeated && mipmapRepeat < 4) {
+        mipmapRepeated = mipmapTexture.generateMipmaps()
+        mipmapRepeat = mipmapRepeat + 1
+    }
+    val mipmapLiveAfter = runtimeMemoryLiveBytes()
+    val mipmapNoGrowth = mipmapLiveAfter == mipmapLiveBefore
+    val mipmapHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        mipmapTexture.openGl.handle == mipmapOpenGlHandle
+    else mipmapTexture.vulkan.image == mipmapVulkanImage &&
+        mipmapTexture.vulkan.commandPool == mipmapVulkanPool &&
+        nativePointerAddress(mipmapTexture.vulkan.command.load()) ==
+            mipmapVulkanCommand
+    val mipmapMissingUsage = app.texture(TextureDescriptor(
+        label = "mipmap-missing-copy-usage",
+        size = Extent3D(4, 4),
+        mipLevels = 3,
+        usage = textureUsageSampled
+    ))
+    val missingMipmapUsageRejected = mipmapMissingUsage.valid() &&
+        !mipmapMissingUsage.generateMipmaps()
     val textureView = texture.view()
     val reinterpretedTextureView = texture.view(TextureViewDescriptor(
         format = textureFormatRgba8UnormSrgb
@@ -1070,6 +1113,10 @@ fun applicationBackendProbe(
         textureCopyLastPixel == 1835094855 &&
         textureTransferStateStable && invalidTextureCopyRejected &&
         sameTextureCopyRejected &&
+        mipmapTexture.valid() && mipmapGenerated && mipmapRepeated &&
+        mipmapRepeat == 4 && mipmapFirstPixel == 1026498321 &&
+        mipmapLastPixel == 1026498321 && mipmapNoGrowth &&
+        mipmapHandlesStable && missingMipmapUsageRejected &&
         textureView.valid() &&
         textureView.descriptor.resolvedFormat(texture.descriptor) ==
             textureFormatRgba8Unorm &&
@@ -1081,7 +1128,7 @@ fun applicationBackendProbe(
         !invalidTextureView.valid() &&
         invalidTextureView.error.code == graphicsErrorInvalidConfiguration &&
         bgraTexture.valid() && bgraUploaded &&
-        bgraPixel == 1026235665 &&
+        bgraPixel == 1026235665 && !bgraTexture.generateMipmaps() &&
         depthTexture.valid() && depthTextureView.valid() &&
         !unsupportedTexture.valid() &&
         unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&

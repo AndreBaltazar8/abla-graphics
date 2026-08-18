@@ -597,6 +597,18 @@ upload queues are not yet part of this common slice. Views must
 drop before their parent texture, and textures must drop before the application
 device/context.
 
+`texture.generateMipmaps()` generates every level after level zero for a
+single-sample 2D RGBA8/BGRA8 texture declaring both copy usages and at least two
+levels. OpenGL calls `glGenerateTextureMipmap`. Vulkan records linear
+`vkCmdBlitImage` operations between adjacent mip levels, transitions every
+subresource explicitly, and restores all levels to the sampled/general resting
+layout in the texture-owned reusable command buffer. Four repeated generations
+preserve image, pool, and command handles with zero live-byte growth; exact
+solid-color readback verifies both the first generated level and the final 1x1
+level. Depth, multisampled, single-level, and missing-usage inputs are rejected
+before a driver call. Like synchronous copies, the Vulkan path currently waits
+for queue completion.
+
 A single-sample 2D color texture with `textureUsageRenderAttachment` can be
 transferred into an affine render target:
 

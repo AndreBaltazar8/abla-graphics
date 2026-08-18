@@ -552,6 +552,16 @@ noescape extern:"c" fun vkCmdCopyImage(
     regionCount: i32,
     regions: i64*
 ): void
+noescape extern:"c" fun vkCmdBlitImage(
+    commandBuffer: i64*,
+    sourceImage: int,
+    sourceImageLayout: i32,
+    destinationImage: int,
+    destinationImageLayout: i32,
+    regionCount: i32,
+    regions: i64*,
+    filter: i32
+): void
 noescape extern:"c" fun vkCmdResolveImage(
     commandBuffer: i64*,
     sourceImage: int,
@@ -2538,7 +2548,7 @@ resource class VulkanTexture(
     trusted fun transferValid(): bool = this.valid() &&
         this.staging.valid() && this.commandPool != 0 &&
         !this.command.closed && !pointerIsNull(this.command.load()) &&
-        !this.scratch.closed && this.scratch.capacity >= 72 &&
+        !this.scratch.closed && this.scratch.capacity >= 80 &&
         !pointerIsNull(this.queue) && this.queueFamily >= 0 &&
         !this.layouts.closed
 
@@ -2639,6 +2649,169 @@ fun vulkanTextureRestingAccess(
         }
     }
     access
+}
+
+trusted fun VulkanTexture.generateMipmaps(
+    texture: TextureDescriptor
+): bool {
+    var succeeded = texture.valid() && this.transferValid() &&
+        texture.dimension == textureDimension2D && texture.samples == 1 &&
+        texture.mipLevels > 1 &&
+        textureFormatAcceptsRgba8Pixels(texture.format) &&
+        (texture.usage & textureUsageCopySource) != 0 &&
+        (texture.usage & textureUsageCopyDestination) != 0 &&
+        texture.mipLevels * 8 <= this.layouts.capacity && this.beginTransfer()
+    val finalLayout = if ((texture.usage & textureUsageSampled) != 0) 5 else 1
+    var destinationLevel = 1
+    while (succeeded && destinationLevel < texture.mipLevels) {
+        val sourceLevel = destinationLevel - 1
+        val sourceOldLayout = if (sourceLevel == 0)
+            this.layouts.loadI64(0) else 7
+        val destinationOldLayout = this.layouts.loadI64(
+            destinationLevel * 8
+        )
+        vulkanStoreImageBarrier(
+            this.scratch.address,
+            this.image,
+            sourceOldLayout,
+            6,
+            if (sourceOldLayout == 0) 0
+            else if (sourceOldLayout == 7) 4096
+            else vulkanTextureRestingAccess(texture, sourceOldLayout),
+            2048,
+            1,
+            sourceLevel
+        )
+        vkCmdPipelineBarrier(
+            this.command.load(),
+            if (sourceOldLayout == 0) 1
+            else if (sourceOldLayout == 7) 4096 else 65536,
+            4096,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            this.scratch.address
+        )
+        vulkanStoreImageBarrier(
+            this.scratch.address,
+            this.image,
+            destinationOldLayout,
+            7,
+            if (destinationOldLayout == 0) 0
+            else vulkanTextureRestingAccess(texture, destinationOldLayout),
+            4096,
+            1,
+            destinationLevel
+        )
+        vkCmdPipelineBarrier(
+            this.command.load(),
+            if (destinationOldLayout == 0) 1 else 65536,
+            4096,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            this.scratch.address
+        )
+        val sourceWidth = textureMipDimension(
+            texture.size.width,
+            sourceLevel
+        )
+        val sourceHeight = textureMipDimension(
+            texture.size.height,
+            sourceLevel
+        )
+        val destinationWidth = textureMipDimension(
+            texture.size.width,
+            destinationLevel
+        )
+        val destinationHeight = textureMipDimension(
+            texture.size.height,
+            destinationLevel
+        )
+        this.scratch.storeI64(0, sourceLevel * 4294967296 + 1)
+        this.scratch.storeI64(8, 4294967296)
+        this.scratch.storeI64(16, 0)
+        this.scratch.storeI64(24, sourceWidth * 4294967296)
+        this.scratch.storeI64(32, sourceHeight)
+        this.scratch.storeI64(40, destinationLevel * 4294967296 + 1)
+        this.scratch.storeI64(48, 4294967296)
+        this.scratch.storeI64(56, 0)
+        this.scratch.storeI64(64, destinationWidth * 4294967296)
+        this.scratch.storeI64(72, destinationHeight)
+        vkCmdBlitImage(
+            this.command.load(),
+            this.image,
+            6,
+            this.image,
+            7,
+            1,
+            this.scratch.address,
+            1
+        )
+        vulkanStoreImageBarrier(
+            this.scratch.address,
+            this.image,
+            6,
+            finalLayout,
+            2048,
+            vulkanTextureRestingAccess(texture, finalLayout),
+            1,
+            sourceLevel
+        )
+        vkCmdPipelineBarrier(
+            this.command.load(),
+            4096,
+            65536,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            this.scratch.address
+        )
+        destinationLevel = destinationLevel + 1
+    }
+    if (succeeded) {
+        val lastLevel = texture.mipLevels - 1
+        vulkanStoreImageBarrier(
+            this.scratch.address,
+            this.image,
+            7,
+            finalLayout,
+            4096,
+            vulkanTextureRestingAccess(texture, finalLayout),
+            1,
+            lastLevel
+        )
+        vkCmdPipelineBarrier(
+            this.command.load(),
+            4096,
+            65536,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            this.scratch.address
+        )
+        succeeded = this.submitTransfer()
+        if (succeeded) {
+            var level = 0
+            while (level < texture.mipLevels) {
+                this.storeLayout(level, finalLayout)
+                level = level + 1
+            }
+        }
+    }
+    succeeded
 }
 
 trusted fun VulkanTexture.writePixels(
@@ -3737,7 +3910,7 @@ trusted fun VulkanDevice.texture(
     )
     var commandPool = 0
     var command = nativePointerCell(nativeNullPointer())
-    var scratch = nativeByteBuffer(72)
+    var scratch = nativeByteBuffer(80)
     var layouts = nativeByteBuffer(descriptor.mipLevels * 8)
     var layoutLevel = 0
     while (layoutLevel < descriptor.mipLevels) {

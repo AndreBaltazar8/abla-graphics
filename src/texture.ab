@@ -48,6 +48,21 @@ resource class GraphicsTexture(
         } else -1
     }
 
+    trusted fun generateMipmaps(): bool {
+        var succeeded = this.valid() &&
+            this.descriptor.dimension == textureDimension2D &&
+            this.descriptor.samples == 1 && this.descriptor.mipLevels > 1 &&
+            textureFormatAcceptsRgba8Pixels(this.descriptor.format) &&
+            (this.descriptor.usage & textureUsageCopySource) != 0 &&
+            (this.descriptor.usage & textureUsageCopyDestination) != 0
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.generateMipmaps(this.descriptor)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.generateMipmaps(this.descriptor)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
     fun sameResource(other: GraphicsTexture): bool =
         this.backend == other.backend &&
         ((this.backend == graphicsBackendOpenGl &&

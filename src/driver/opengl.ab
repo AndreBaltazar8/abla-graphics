@@ -320,6 +320,7 @@ noescape extern:"c" fun glCopyImageSubData(
     height: i32,
     depth: i32
 ): void
+noescape extern:"c" fun glGenerateTextureMipmap(texture: i32): void
 noescape extern:"c" fun glDeleteTextures(count: i32, textures: i64*): void
 noescape extern:"c" fun glGenBuffers(count: i32, buffers: i64*): void
 noescape extern:"c" fun glBindBuffer(target: i32, buffer: i32): void
@@ -1209,6 +1210,28 @@ trusted fun OpenGlTexture.copyTo(
             copy.resolvedHeight(sourceDescriptor),
             1
         )
+        succeeded = glGetError() == 0
+    }
+    succeeded
+}
+
+trusted fun OpenGlTexture.generateMipmaps(
+    descriptor: TextureDescriptor
+): bool {
+    var succeeded = this.valid() && descriptor.valid() &&
+        this.target == 3553 && descriptor.dimension == textureDimension2D &&
+        descriptor.samples == 1 && descriptor.mipLevels > 1 &&
+        textureFormatAcceptsRgba8Pixels(descriptor.format) &&
+        (descriptor.usage & textureUsageCopySource) != 0 &&
+        (descriptor.usage & textureUsageCopyDestination) != 0 &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    if (succeeded) {
+        glGenerateTextureMipmap(this.handle)
         succeeded = glGetError() == 0
     }
     succeeded

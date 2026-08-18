@@ -70,6 +70,45 @@ fun main: int {
          nativePointerAddress(color.vulkan.command.load()) ==
             textureCommandBefore)
     val copiesNoGrowth = liveAfterCopies == liveBeforeCopies
+    val generatedTexture = app.texture(TextureDescriptor(
+        label = "sample-generated-mipmaps",
+        size = Extent3D(8, 8),
+        mipLevels = 4,
+        format = textureFormatBgra8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    ))
+    val generatedPixels = pixelBuffer(8, 8)
+    val generatedUploaded = generatedPixels.clearRgba8(17, 31, 47, 61) &&
+        generatedTexture.writePixels(
+            generatedPixels,
+            TextureWriteDescriptor()
+        )
+    val mipmapsGenerated = generatedUploaded &&
+        generatedTexture.generateMipmaps()
+    val generatedLastPixel = generatedTexture.rgba8(0, 0, 3)
+    val generatedOpenGlHandle = generatedTexture.openGl.handle
+    val generatedVulkanImage = generatedTexture.vulkan.image
+    val generatedVulkanPool = generatedTexture.vulkan.commandPool
+    val generatedVulkanCommand = if (
+        app.backend == graphicsBackendVulkan &&
+        !generatedTexture.vulkan.command.closed
+    ) nativePointerAddress(generatedTexture.vulkan.command.load()) else 0
+    val mipmapLiveBefore = runtimeMemoryLiveBytes()
+    var mipmapsRepeated = mipmapsGenerated
+    var mipmapIndex = 0
+    while (mipmapsRepeated && mipmapIndex < 4) {
+        mipmapsRepeated = generatedTexture.generateMipmaps()
+        mipmapIndex = mipmapIndex + 1
+    }
+    val mipmapLiveAfter = runtimeMemoryLiveBytes()
+    val mipmapsNoGrowth = mipmapLiveAfter == mipmapLiveBefore
+    val mipmapHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        generatedTexture.openGl.handle == generatedOpenGlHandle
+    else generatedTexture.vulkan.image == generatedVulkanImage &&
+        generatedTexture.vulkan.commandPool == generatedVulkanPool &&
+        nativePointerAddress(generatedTexture.vulkan.command.load()) ==
+            generatedVulkanCommand
     val colorView = color.view()
     val depth = app.texture(TextureDescriptor(
         label = "sample-depth",
@@ -86,14 +125,18 @@ fun main: int {
         uploaded && readback == 3552552853 &&
         gpuCopied && copiedReadback == 3552552853 && copiesRepeated &&
         transferStateStable && copiesNoGrowth &&
+        generatedTexture.valid() && mipmapsGenerated && mipmapsRepeated &&
+        mipmapIndex == 4 && generatedLastPixel == 1026498321 &&
+        mipmapsNoGrowth && mipmapHandlesStable &&
         depth.valid() && depthView.valid() &&
+        !depth.generateMipmaps() &&
         app.presentClear(Color(
             0.0625,
             0.1875,
             0.4375
         ))
     println(
-        "Common texture ${graphicsBackendName(app.backend)}: color mips=${color.descriptor.mipLevels}, upload=${uploaded}, readback=${readback}, gpuCopy=${gpuCopied}, copyReadback=${copiedReadback}, repeatNoGrowth=${copiesNoGrowth}, liveDelta=${liveAfterCopies - liveBeforeCopies}, depth view on ${app.adapterName}"
+        "Common texture ${graphicsBackendName(app.backend)}: color mips=${color.descriptor.mipLevels}, upload=${uploaded}, readback=${readback}, gpuCopy=${gpuCopied}, copyReadback=${copiedReadback}, generatedMips=${generatedTexture.descriptor.mipLevels}/$generatedLastPixel, repeatNoGrowth=${copiesNoGrowth && mipmapsNoGrowth}, liveDelta=${liveAfterCopies - liveBeforeCopies}/${mipmapLiveAfter - mipmapLiveBefore}, depth view on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

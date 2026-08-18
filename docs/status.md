@@ -255,6 +255,13 @@ Updated: 2026-08-18.
   tracking, and the reusable device transfer pool, command buffer, and scratch
   block. Repeated copies preserve the transfer handles and live-memory level;
   Khronos validation is silent on Lavapipe.
+- Common mipmap generation: `GraphicsTexture.generateMipmaps` validates a
+  single-sample 2D RGBA8/BGRA8 chain with copy-source/copy-destination usage.
+  OpenGL uses `glGenerateTextureMipmap`; Vulkan records adjacent-level linear
+  `vkCmdBlitImage` operations with explicit per-mip barriers in the texture-
+  owned reusable command buffer. Exact first/final-level readback and four
+  repeats preserve all native handles with zero live-memory growth on both
+  drivers; depth and single-level textures are rejected.
 - Common color render targets: `app.renderTarget(move(texture))` takes affine
   ownership of a 2D color texture with render-attachment usage.
   OpenGL owns and completeness-checks an FBO; Vulkan owns a compatible image
