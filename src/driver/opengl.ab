@@ -1357,10 +1357,31 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     target: OpenGlRenderTarget,
     program: OpenGlProgram,
     clear: Color,
-    raster: RasterPipelineState
+    raster: RasterPipelineState,
+    depth: DepthStencilState,
+    vertexLayout: VertexBufferLayout,
+    vertexBuffer: int,
+    vertexCount: int,
+    indexBuffer: int,
+    indexCount: int,
+    instanceCount: int,
+    bindingKinds: array<int>,
+    bindingNumbers: array<int>,
+    bindingResources: array<int>,
+    bindingSamplers: array<int>,
+    indirectBuffer: int = 0,
+    indexedIndirect: bool = false
 ): bool {
+    val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
-        clear.valid() && raster.valid() &&
+        clear.valid() && raster.valid() && depth.valid() &&
+        vertexLayout.valid() && vertexCount > 0 && indexCount >= 0 &&
+        instanceCount > 0 &&
+        ((vertexLayout.buffered() && vertexBuffer != 0) ||
+         (!vertexLayout.buffered() && vertexBuffer == 0 && !indexed)) &&
+        ((!indexed && indexBuffer == 0) ||
+         (vertexLayout.buffered() && indexed && indexBuffer != 0)) &&
+        (!indexedIndirect || indirectBuffer != 0) &&
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (rendered) {
@@ -1373,12 +1394,45 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         glClearBufferfv(6144, 0, this.clearScratch.address)
         glUseProgram(program.handle)
         glBindVertexArray(program.vertexArray)
-        rendered = openGlApplyRasterState(raster)
-        if (rendered) glDrawArrays(
-            openGlPrimitiveMode(raster.topology),
-            0,
-            3
+        if (vertexLayout.buffered()) {
+            glBindBuffer(34962, vertexBuffer)
+            rendered = openGlConfigureVertexLayout(vertexLayout)
+        }
+        rendered = rendered && openGlApplyBindGroup(
+            bindingKinds,
+            bindingNumbers,
+            bindingResources,
+            bindingSamplers
         )
+        if (indexed) glBindBuffer(34963, indexBuffer)
+        rendered = rendered && openGlApplyDepthState(depth) &&
+            openGlApplyRasterState(raster)
+        if (rendered && indexed && indirectBuffer != 0) {
+            glBindBuffer(36671, indirectBuffer)
+            glDrawElementsIndirect(
+                openGlPrimitiveMode(raster.topology),
+                5125,
+                nativeNullPointer()
+            )
+        } else if (rendered && indexed) glDrawElementsInstanced(
+                openGlPrimitiveMode(raster.topology),
+                indexCount,
+                5125,
+                nativeNullPointer(),
+                instanceCount
+            )
+        else if (rendered && indirectBuffer != 0) {
+            glBindBuffer(36671, indirectBuffer)
+            glDrawArraysIndirect(
+                openGlPrimitiveMode(raster.topology),
+                nativeNullPointer()
+            )
+        } else if (rendered) glDrawArraysInstanced(
+                openGlPrimitiveMode(raster.topology),
+                0,
+                vertexCount,
+                instanceCount
+            )
         rendered = rendered && glGetError() == 0
         glBindFramebuffer(36160, 0)
     }

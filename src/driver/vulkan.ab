@@ -2855,12 +2855,27 @@ trusted fun VulkanDevice.clearRenderTarget(
 trusted fun VulkanDevice.renderTargetProgram(
     target: VulkanRenderTarget,
     pipeline: VulkanRenderPipeline,
-    clear: Color
+    clear: Color,
+    vertexBuffer: int = 0,
+    vertexCount: int = 3,
+    indexBuffer: int = 0,
+    indexCount: int = 0,
+    instanceCount: int = 1,
+    descriptorSet: int = 0,
+    indirectBuffer: int = 0,
+    indexedIndirect: bool = false
 ): bool {
+    val indexed = indexCount > 0 || indexedIndirect
     var succeeded = this.transferValid() && target.valid() &&
         pipeline.valid() && clear.valid() && target.device == this.handle &&
-        pipeline.device == this.handle && pipeline.vertexStride == 0 &&
-        !pipeline.depthEnabled && !pipeline.requiresBinding &&
+        pipeline.device == this.handle && !pipeline.depthEnabled &&
+        vertexCount > 0 && indexCount >= 0 && instanceCount > 0 &&
+        ((pipeline.vertexStride == 0 && vertexBuffer == 0) ||
+         (pipeline.vertexStride > 0 && vertexBuffer != 0)) &&
+        ((!indexed && indexBuffer == 0) ||
+         (pipeline.vertexStride > 0 && indexed && indexBuffer != 0)) &&
+        (!indexedIndirect || indirectBuffer != 0) &&
+        pipeline.requiresBinding == (descriptorSet != 0) &&
         pipeline.renderPass == target.renderPass &&
         pipeline.framebuffers.size == 1 &&
         pipeline.framebuffers[0] == target.framebuffer &&
@@ -2928,7 +2943,66 @@ trusted fun VulkanDevice.renderTargetProgram(
             0,
             pipeline.handle
         )
-        vkCmdDraw(this.transferCommand.load(), 3, 1, 0, 0)
+        if (descriptorSet != 0) {
+            this.transferScratch.storeI64(88, descriptorSet)
+            vkCmdBindDescriptorSets(
+                this.transferCommand.load(),
+                0,
+                pipeline.layout,
+                0,
+                1,
+                this.transferScratch.pointerAt(88),
+                0,
+                nativeNullPointer()
+            )
+        }
+        if (pipeline.vertexStride > 0) {
+            this.transferScratch.storeI64(72, vertexBuffer)
+            this.transferScratch.storeI64(80, 0)
+            vkCmdBindVertexBuffers(
+                this.transferCommand.load(),
+                0,
+                1,
+                this.transferScratch.pointerAt(72),
+                this.transferScratch.pointerAt(80)
+            )
+        }
+        if (indexed) {
+            vkCmdBindIndexBuffer(
+                this.transferCommand.load(),
+                indexBuffer,
+                0,
+                1
+            )
+            if (indirectBuffer != 0) vkCmdDrawIndexedIndirect(
+                    this.transferCommand.load(),
+                    indirectBuffer,
+                    0,
+                    1,
+                    20
+                )
+            else vkCmdDrawIndexed(
+                    this.transferCommand.load(),
+                    indexCount,
+                    instanceCount,
+                    0,
+                    0,
+                    0
+                )
+        } else if (indirectBuffer != 0) vkCmdDrawIndirect(
+                this.transferCommand.load(),
+                indirectBuffer,
+                0,
+                1,
+                16
+            )
+        else vkCmdDraw(
+                this.transferCommand.load(),
+                vertexCount,
+                instanceCount,
+                0,
+                0
+            )
         vkCmdEndRenderPass(this.transferCommand.load())
         succeeded = this.submitTransfer()
     }

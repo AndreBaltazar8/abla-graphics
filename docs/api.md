@@ -614,15 +614,19 @@ pass through the reusable device transfer command or binds and clears the
 OpenGL FBO. Repeated clears allocate nothing and preserve all attachment and
 command handles.
 
-`app.renderTargetPipeline(target, shader)` compiles a procedural raster pipeline
-against the target format, and `app.renderToTarget(target, pipeline, clear)`
-executes it without presenting. Vulkan borrows the target render pass and
-framebuffer through explicit non-owning pipeline flags; OpenGL binds the target
-FBO. A target declaring sampled usage can then feed an ordinary bind group and
-surface pipeline. The `render-to-texture` sample performs this two-pass flow for
-four frames with exact center-pixel verification, stable native handles, and
-zero live-byte growth. Buffered/depth offscreen draws and multiple attachments
-remain subsequent extensions of this path.
+`app.renderTargetPipeline(target, shader, vertexLayout, raster, binding)`
+compiles a raster pipeline against the target format. Procedural pipelines use
+`renderToTarget`; buffered pipelines use `renderVerticesToTarget` or
+`renderIndexedToTarget`. Their `*IndirectToTarget` counterparts consume one
+portable OpenGL/Vulkan indirect command from a buffer, and every direct form
+accepts an instance count. Bind groups are applied exactly as they are for a
+surface pipeline. Vulkan borrows the target render pass and framebuffer through
+explicit non-owning pipeline flags; OpenGL binds the target FBO. A target
+declaring sampled usage can then feed an ordinary bind group and surface
+pipeline. The `render-to-texture` sample exercises all four buffered command
+forms before sampling the result, with exact center-pixel verification, stable
+native handles, and zero live-byte growth. Depth offscreen draws and multiple
+attachments remain subsequent extensions of this path.
 
 Samplers are also driver-backed affine resources:
 

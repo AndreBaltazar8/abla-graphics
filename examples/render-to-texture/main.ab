@@ -21,17 +21,9 @@ fun main: int {
     val sceneShader = $glsl {
         vertex {
             #version 450
-            const vec2 positions[3] = vec2[3](
-                vec2(-0.75, -0.65),
-                vec2(0.75, -0.65),
-                vec2(0.0, 0.75)
-            );
+            layout(location = 0) in vec2 position;
             void main() {
-                gl_Position = vec4(
-                    positions[gl_VertexID],
-                    0.0,
-                    1.0
-                );
+                gl_Position = vec4(position, 0.0, 1.0);
             }
         }
         fragment {
@@ -71,7 +63,62 @@ fun main: int {
             textureUsageCopySource
     ))
     val target = app.renderTarget(move(color))
-    val scenePipeline = app.renderTargetPipeline(target, sceneShader)
+    val sceneLayout = VertexBufferLayout(8, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
+    ])
+    val scenePipeline = app.renderTargetPipeline(
+        target,
+        sceneShader,
+        sceneLayout
+    )
+    val sceneVertexBytes = bufferBytes(24)
+    val sceneVerticesStored =
+        sceneVertexBytes.storeF32(-0.75, 0) &&
+        sceneVertexBytes.storeF32(-0.65, 4) &&
+        sceneVertexBytes.storeF32(0.75, 8) &&
+        sceneVertexBytes.storeF32(-0.65, 12) &&
+        sceneVertexBytes.storeF32(0.0, 16) &&
+        sceneVertexBytes.storeF32(0.75, 20)
+    val sceneVertices = app.buffer(BufferDescriptor(
+        label = "offscreen-scene-vertices",
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val sceneVerticesUploaded = sceneVerticesStored &&
+        sceneVertices.writeAllBytes(sceneVertexBytes)
+    val sceneIndexBytes = bufferBytes(12)
+    val sceneIndicesStored = sceneIndexBytes.storeU32(0, 0) &&
+        sceneIndexBytes.storeU32(1, 4) &&
+        sceneIndexBytes.storeU32(2, 8)
+    val sceneIndices = app.buffer(BufferDescriptor(
+        label = "offscreen-scene-indices",
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    val sceneIndicesUploaded = sceneIndicesStored &&
+        sceneIndices.writeAllBytes(sceneIndexBytes)
+    val sceneDrawBytes = bufferBytes(16)
+    val sceneDrawStored = sceneDrawBytes.storeI64(4294967299, 0) &&
+        sceneDrawBytes.storeI64(0, 8)
+    val sceneDraw = app.buffer(BufferDescriptor(
+        label = "offscreen-scene-draw",
+        size = 16,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    ))
+    val sceneDrawUploaded = sceneDrawStored &&
+        sceneDraw.writeAllBytes(sceneDrawBytes)
+    val sceneIndexedDrawBytes = bufferBytes(24)
+    val sceneIndexedDrawStored =
+        sceneIndexedDrawBytes.storeI64(4294967299, 0) &&
+        sceneIndexedDrawBytes.storeI64(0, 8) &&
+        sceneIndexedDrawBytes.storeI64(0, 16)
+    val sceneIndexedDraw = app.buffer(BufferDescriptor(
+        label = "offscreen-scene-indexed-draw",
+        size = 24,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    ))
+    val sceneIndexedDrawUploaded = sceneIndexedDrawStored &&
+        sceneIndexedDraw.writeAllBytes(sceneIndexedDrawBytes)
     val vertexBytes = bufferBytes(48)
     val verticesStored =
         vertexBytes.storeF32(-1.0, 0) &&
@@ -115,9 +162,35 @@ fun main: int {
     val windowClear = Color(0.0, 0.0, 0.0)
     val warmed = app.valid() && target.valid() && scenePipeline.valid() &&
         postPipeline.valid() && vertices.valid() && sampler.valid() &&
-        verticesUploaded && app.renderToTarget(
+        sceneVertices.valid() && sceneIndices.valid() && sceneDraw.valid() &&
+        sceneIndexedDraw.valid() && verticesUploaded &&
+        sceneVerticesUploaded && sceneIndicesUploaded && sceneDrawUploaded &&
+        sceneIndexedDrawUploaded &&
+        app.renderVerticesToTarget(
             target,
             scenePipeline,
+            sceneVertices,
+            3,
+            sceneClear
+        ) && app.renderVerticesIndirectToTarget(
+            target,
+            scenePipeline,
+            sceneVertices,
+            sceneDraw,
+            sceneClear
+        ) && app.renderIndexedToTarget(
+            target,
+            scenePipeline,
+            sceneVertices,
+            sceneIndices,
+            3,
+            sceneClear
+        ) && app.renderIndexedIndirectToTarget(
+            target,
+            scenePipeline,
+            sceneVertices,
+            sceneIndices,
+            sceneIndexedDraw,
             sceneClear
         ) && app.presentRenderVertices(
             postPipeline,
@@ -133,9 +206,31 @@ fun main: int {
     var presented = warmed
     var frame = 0
     while (presented && frame < 4) {
-        presented = app.renderToTarget(
+        presented = app.renderVerticesToTarget(
             target,
             scenePipeline,
+            sceneVertices,
+            3,
+            sceneClear
+        ) && app.renderVerticesIndirectToTarget(
+            target,
+            scenePipeline,
+            sceneVertices,
+            sceneDraw,
+            sceneClear
+        ) && app.renderIndexedToTarget(
+            target,
+            scenePipeline,
+            sceneVertices,
+            sceneIndices,
+            3,
+            sceneClear
+        ) && app.renderIndexedIndirectToTarget(
+            target,
+            scenePipeline,
+            sceneVertices,
+            sceneIndices,
+            sceneIndexedDraw,
             sceneClear
         ) && app.presentRenderVertices(
             postPipeline,
