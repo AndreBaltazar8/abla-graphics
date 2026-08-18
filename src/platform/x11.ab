@@ -316,7 +316,7 @@ fun x11KeyboardMapping(
 ): array<int> {
     val mapping: array<int> = []
     var index = 0
-    while (index < 256) {
+    while (index < 512) {
         mapping.append(0)
         index = index + 1
     }
@@ -337,16 +337,25 @@ fun x11KeyboardMapping(
                 var keycode = minimumKeycode
                 while (keycode <= maximumKeycode) {
                     var symbolIndex = 0
-                    var symbol = 0
-                    while (symbol == 0 && symbolIndex < symbolsPerKeycode) {
+                    var primary = 0
+                    while (primary == 0 && symbolIndex < symbolsPerKeycode) {
                         val offset = (
                             (keycode - minimumKeycode) * symbolsPerKeycode +
                             symbolIndex
                         ) * 4
-                        symbol = x11U32(body, offset)
+                        primary = x11U32(body, offset)
                         symbolIndex = symbolIndex + 1
                     }
-                    mapping[keycode] = symbol
+                    var shifted = primary
+                    if (symbolsPerKeycode > 1) {
+                        val shiftedOffset = (
+                            (keycode - minimumKeycode) * symbolsPerKeycode + 1
+                        ) * 4
+                        val candidate = x11U32(body, shiftedOffset)
+                        if (candidate != 0) shifted = candidate
+                    }
+                    mapping[keycode * 2] = primary
+                    mapping[keycode * 2 + 1] = shifted
                     keycode = keycode + 1
                 }
             }
@@ -408,6 +417,71 @@ fun x11KeyFromKeysym(symbol: int): int {
     else if (symbol == 65516) key = keyRightSuper
     else if (symbol == 65383) key = keyMenu
     key
+}
+
+fun x11CodepointFromKeysym(symbol: int): int {
+    var codepoint = 0
+    if ((symbol >= 32 && symbol <= 126) ||
+        (symbol >= 160 && symbol <= 255)) codepoint = symbol
+    else if ((symbol & 4278190080) == 16777216) {
+        val unicode = symbol & 16777215
+        if (unicode >= 32 && unicode <= 1114111 &&
+            (unicode < 55296 || unicode > 57343)) codepoint = unicode
+    }
+    codepoint
+}
+
+fun x11Utf8(codepoint: int): string {
+    var result = ""
+    if (codepoint >= 1 && codepoint <= 1114111 &&
+        (codepoint < 55296 || codepoint > 57343)) {
+        val output = nativeByteBuffer(5)
+        var length = 0
+        if (codepoint <= 127) {
+            output.store(0, codepoint)
+            length = 1
+        } else if (codepoint <= 2047) {
+            output.store(0, 192 | (codepoint >>> 6))
+            output.store(1, 128 | (codepoint & 63))
+            length = 2
+        } else if (codepoint <= 65535) {
+            output.store(0, 224 | (codepoint >>> 12))
+            output.store(1, 128 | ((codepoint >>> 6) & 63))
+            output.store(2, 128 | (codepoint & 63))
+            length = 3
+        } else {
+            output.store(0, 240 | (codepoint >>> 18))
+            output.store(1, 128 | ((codepoint >>> 12) & 63))
+            output.store(2, 128 | ((codepoint >>> 6) & 63))
+            output.store(3, 128 | (codepoint & 63))
+            length = 4
+        }
+        result = output.adoptString(length)
+    }
+    result
+}
+
+class X11TextInput(val codepoint: int, val text: string)
+
+fun x11TextInput(
+    keysyms: array<int>,
+    platformCode: int,
+    state: int
+): X11TextInput {
+    var symbol = 0
+    val offset = platformCode * 2
+    if (offset >= 0 && offset + 1 < keysyms.size &&
+        (state & (4 | 8 | 64)) == 0) {
+        val primary = keysyms[offset]
+        val shifted = keysyms[offset + 1]
+        val shift = (state & 1) != 0
+        val caps = (state & 2) != 0 &&
+            primary >= 97 && primary <= 122 &&
+            shifted >= 65 && shifted <= 90
+        if (shift != caps) symbol = shifted else symbol = primary
+    }
+    val codepoint = x11CodepointFromKeysym(symbol)
+    X11TextInput(codepoint, x11Utf8(codepoint))
 }
 
 fun x11PointerButton(platformCode: int): int {
@@ -531,7 +605,8 @@ fun x11CloseClientMessageRequest(
 fun x11SyntheticKeyRequest(
     window: int,
     platformCode: int,
-    pressed: bool
+    pressed: bool,
+    state: int = 0
 ): string {
     val request = nativeByteBuffer(45)
     request.store(0, 25)
@@ -550,7 +625,7 @@ fun x11SyntheticKeyRequest(
     x11StoreU16(request, 34, 0)
     x11StoreU16(request, 36, 0)
     x11StoreU16(request, 38, 0)
-    x11StoreU16(request, 40, 0)
+    x11StoreU16(request, 40, state)
     request.store(42, 1)
     request.store(43, 0)
     x11Packet(request, 44)
@@ -695,26 +770,36 @@ resource class X11Window(
     var width: int,
     var height: int,
     var visible: bool,
-    var title: string
+    var title: string,
+    var pendingEvent: WindowEvent
 ) {
     fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
     fun keyboardMapped(): bool = x11KeyboardMappingAvailable(this.keysyms)
 
     fun platformKeycode(key: int): int {
         var result = 0
-        var index = 0
-        while (result == 0 && index < this.keysyms.size) {
-            if (x11KeyFromKeysym(this.keysyms[index]) == key) result = index
+        var index = 8
+        while (result == 0 && index * 2 < this.keysyms.size) {
+            if (x11KeyFromKeysym(this.keysyms[index * 2]) == key) result = index
             index = index + 1
         }
         result
     }
 
-    fun sendSyntheticKey(platformCode: int, pressed: bool): bool =
+    fun sendSyntheticKey(
+        platformCode: int,
+        pressed: bool,
+        state: int = 0
+    ): bool =
         this.valid() && platformCode >= 8 && platformCode <= 255 &&
         x11WriteAll(
             this.descriptor,
-            x11SyntheticKeyRequest(this.identifier, platformCode, pressed)
+            x11SyntheticKeyRequest(
+                this.identifier,
+                platformCode,
+                pressed,
+                state
+            )
         )
 
     fun sendSyntheticPointerButton(
@@ -775,7 +860,10 @@ resource class X11Window(
 
     fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
         var result = WindowEvent()
-        if (this.valid() && timeoutMilliseconds >= 0 &&
+        if (this.pendingEvent.happened()) {
+            result = this.pendingEvent
+            this.pendingEvent = WindowEvent()
+        } else if (this.valid() && timeoutMilliseconds >= 0 &&
             timeoutMilliseconds <= 600000) {
             val poll = nativeByteBuffer(8)
             x11StoreU32(poll, 0, this.descriptor)
@@ -794,8 +882,9 @@ resource class X11Window(
                     val kind = event[0] & 127
                     if (kind == 2 || kind == 3) {
                         val platformCode = event[1]
-                        val symbol = if (platformCode < this.keysyms.size)
-                            this.keysyms[platformCode]
+                        val offset = platformCode * 2
+                        val symbol = if (offset < this.keysyms.size)
+                            this.keysyms[offset]
                         else 0
                         result = WindowEvent(
                             windowEventKey,
@@ -804,6 +893,22 @@ resource class X11Window(
                             "",
                             platformCode
                         )
+                        if (kind == 2) {
+                            val text = x11TextInput(
+                                this.keysyms,
+                                platformCode,
+                                x11U16(event, 28)
+                            )
+                            if (text.text != "") {
+                                this.pendingEvent = WindowEvent(
+                                    windowEventText,
+                                    text.codepoint,
+                                    0,
+                                    text.text,
+                                    platformCode
+                                )
+                            }
+                        }
                     } else if (kind == 4 || kind == 5) {
                         val platformCode = event[1]
                         if (kind == 4 && platformCode >= 4 &&
@@ -995,6 +1100,7 @@ fun x11Window(
         config.width,
         config.height,
         config.visible,
-        config.title
+        config.title,
+        WindowEvent()
     )
 }

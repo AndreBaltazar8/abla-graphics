@@ -178,6 +178,14 @@ vertical scroll ticks on press, and their matching releases are suppressed.
 Pointer motion sign-extends the protocol's 16-bit coordinates, so motion outside
 the window's top or left edge remains negative instead of wrapping.
 
+Printable key presses enqueue a separate copied `windowEventText` after the key
+event. `event.text` is UTF-8 and `event.codepoint()` exposes the decoded scalar;
+Shift and Caps Lock select the server-provided primary/shifted KeySyms. The
+single pending value avoids callbacks and allocation-heavy general queues while
+preserving key-before-text ordering. Core Latin-1 and direct Unicode KeySyms are
+supported. Compose/dead-key sequences, input methods, and additional XKB groups
+are not yet claimed.
+
 On the current X11 platform, `visible=false` creates an initially unmapped
 window; `show()`, `hide()`, and `setTitle()` update both the wire-protocol state
 and the Abla-owned state. Fixed-size windows publish `WM_NORMAL_HINTS`,

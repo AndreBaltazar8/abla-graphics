@@ -11,12 +11,13 @@ Updated: 2026-08-18.
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
   MapWindow, active keyboard-map retrieval, portable KeySym translation,
   portable pointer buttons, wheel-to-scroll translation, signed pointer
-  coordinates, synthetic keyboard/pointer/scroll round trips with raw diagnostic
-  codes, event poll/decode, initially hidden windows, idempotent show/hide,
-  runtime title changes, fixed-size and undecorated WM hints, fullscreen EWMH
-  state, explicit transparent-window rejection, WM_DELETE_WINDOW client-message
-  round trip, DestroyWindow, and close, running against authenticated Xvfb
-  without an Xlib/XCB/GLFW window-management layer.
+  coordinates, ordered key-then-UTF-8 text events with shifted/caps and Unicode
+  KeySym handling, synthetic keyboard/text/pointer/scroll round trips with raw
+  diagnostic codes, event poll/decode, initially hidden windows, idempotent
+  show/hide, runtime title changes, fixed-size and undecorated WM hints,
+  fullscreen EWMH state, explicit transparent-window rejection,
+  WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
+  against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,
@@ -81,6 +82,7 @@ capability lands.
   render pipelines, driver-backed common descriptors/images/views,
   synchronization2, and dynamic rendering.
 - Wayland, Windows, or macOS platform modules.
+- X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Full GLSL 4.60 grammar validation, reflection, or SPIR-V emission. The
   current subparser owns stage structure/source preservation but deliberately
