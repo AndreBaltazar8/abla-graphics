@@ -13,10 +13,11 @@ tests, samples, documentation, and relevant performance/validation gates pass.
 Current verified checkpoint: the Abla-only direct X11 foundation, surfaced and
 headless OpenGL/Vulkan selection, common buffers/textures/views/samplers,
 reusable copies/fills/pixel presentation, compute pipelines, strict initial
-`$glsl`-to-SPIR-V subsets, and the first common triangle render pipeline are
-implemented. Repeated clear, pixel, transfer, compute, event-poll, and triangle
-hot paths have stable native handles and zero runtime live-byte growth. The
-remaining milestone work below is intentionally still open.
+`$glsl`-to-SPIR-V subsets, and the first procedural and common-vertex-buffer
+triangle render pipelines are implemented. Repeated clear, pixel, transfer,
+compute, event-poll, and triangle hot paths have stable native handles and zero
+runtime live-byte growth. The remaining milestone work below is intentionally
+still open.
 
 ## Non-negotiable design rules
 

@@ -151,6 +151,15 @@ noescape extern:"c" fun glMemoryBarrier(barriers: i32): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
+noescape extern:"c" fun glEnableVertexAttribArray(index: i32): void
+noescape extern:"c" fun glVertexAttribPointer(
+    index: i32,
+    size: i32,
+    dataType: i32,
+    normalized: i32,
+    stride: i32,
+    pointer: i64*
+): void
 noescape extern:"c" fun glDrawArrays(
     mode: i32,
     first: i32,
@@ -1531,6 +1540,58 @@ resource class OpenGlWindowContext(
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
             glDrawArrays(4, 0, 3)
+            presented = glGetError() == 0 &&
+                eglSwapBuffers(this.display, this.surface) == eglTrue
+        }
+        presented
+    }
+
+    trusted fun presentProgramVertices(
+        program: OpenGlProgram,
+        vertices: OpenGlBuffer,
+        vertexCount: int,
+        vertexStride: int,
+        clear: Color
+    ): bool {
+        var presented = program.valid() && vertices.valid() &&
+            vertexCount > 0 && vertexStride >= 8 &&
+            vertexStride <= 2048 && clear.valid() && this.makeCurrent()
+        if (presented) {
+            openGlStoreI32(
+                this.clearScratch,
+                0,
+                graphicsScalarF32Bits(clear.red)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                1,
+                graphicsScalarF32Bits(clear.green)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                2,
+                graphicsScalarF32Bits(clear.blue)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                3,
+                graphicsScalarF32Bits(clear.alpha)
+            )
+            glViewport(0, 0, this.width, this.height)
+            glClearBufferfv(6144, 0, this.clearScratch.address)
+            glUseProgram(program.handle)
+            glBindVertexArray(program.vertexArray)
+            glBindBuffer(34962, vertices.handle)
+            glEnableVertexAttribArray(0)
+            glVertexAttribPointer(
+                0,
+                2,
+                5126,
+                0,
+                vertexStride,
+                nativeNullPointer()
+            )
+            glDrawArrays(4, 0, vertexCount)
             presented = glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }

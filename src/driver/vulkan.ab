@@ -363,6 +363,13 @@ noescape extern:"c" fun vkCmdDraw(
     firstVertex: i32,
     firstInstance: i32
 ): void
+noescape extern:"c" fun vkCmdBindVertexBuffers(
+    commandBuffer: i64*,
+    firstBinding: i32,
+    bindingCount: i32,
+    buffers: i64*,
+    offsets: i64*
+): void
 noescape extern:"c" fun vkCmdBindDescriptorSets(
     commandBuffer: i64*,
     pipelineBindPoint: i32,
@@ -3256,12 +3263,14 @@ resource class VulkanRenderPipeline(
     val framebuffers: array<int>,
     val format: int,
     val width: int,
-    val height: int
+    val height: int,
+    val vertexStride: int
 ) {
     trusted fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.layout != 0 &&
         this.renderPass != 0 && this.handle != 0 && this.format != 0 &&
-        this.width > 0 && this.height > 0 && this.imageViews.size > 0 &&
+        this.width > 0 && this.height > 0 && this.vertexStride >= 0 &&
+        this.imageViews.size > 0 &&
         this.framebuffers.size == this.imageViews.size
 
     trusted fun drop(): void {
@@ -3319,7 +3328,8 @@ resource class VulkanRenderPipeline(
 trusted fun VulkanDevice.renderPipeline(
     swapchain: VulkanSwapchain,
     vertex: VulkanShaderModule,
-    fragment: VulkanShaderModule
+    fragment: VulkanShaderModule,
+    vertexStride: int = 0
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -3328,7 +3338,8 @@ trusted fun VulkanDevice.renderPipeline(
     val framebuffers: array<int> = []
     var succeeded = this.valid() && swapchain.valid() &&
         swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
-        vertex.device == this.handle && fragment.device == this.handle
+        vertex.device == this.handle && fragment.device == this.handle &&
+        vertexStride >= 0 && vertexStride <= 2048
 
     if (succeeded) {
         val attachment = nativeByteBuffer(40)
@@ -3457,13 +3468,28 @@ trusted fun VulkanDevice.renderPipeline(
         )
         stages.storePointer(88, nativeNullPointer())
 
+        val binding = nativeByteBuffer(16)
+        binding.storeI64(0, vertexStride * 4294967296)
+        binding.storeI64(8, 0)
+        val attribute = nativeByteBuffer(16)
+        attribute.storeI64(0, 0)
+        attribute.storeI64(8, 103)
         val vertexInput = nativeByteBuffer(48)
         vertexInput.storeI64(0, 19)
         vertexInput.storePointer(8, nativeNullPointer())
-        vertexInput.storeI64(16, 0)
-        vertexInput.storePointer(24, nativeNullPointer())
-        vertexInput.storeI64(32, 0)
-        vertexInput.storePointer(40, nativeNullPointer())
+        vertexInput.storeI64(
+            16,
+            if (vertexStride > 0) 4294967296 else 0
+        )
+        vertexInput.storePointer(
+            24,
+            if (vertexStride > 0) binding.address else nativeNullPointer()
+        )
+        vertexInput.storeI64(32, if (vertexStride > 0) 1 else 0)
+        vertexInput.storePointer(
+            40,
+            if (vertexStride > 0) attribute.address else nativeNullPointer()
+        )
         val inputAssembly = nativeByteBuffer(32)
         inputAssembly.storeI64(0, 20)
         inputAssembly.storePointer(8, nativeNullPointer())
@@ -3554,7 +3580,8 @@ trusted fun VulkanDevice.renderPipeline(
         framebuffers,
         swapchain.format,
         swapchain.width,
-        swapchain.height
+        swapchain.height,
+        vertexStride
     )
 }
 
@@ -4220,7 +4247,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
     swapchain: VulkanSwapchain,
     var presenter: VulkanPixelPresenter,
     pipeline: VulkanRenderPipeline,
-    clear: Color
+    clear: Color,
+    vertexBuffer: int = 0,
+    vertexCount: int = 3
 ): int {
     var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
         pipeline.valid() && pipeline.device == this.handle &&
@@ -4230,7 +4259,10 @@ trusted fun VulkanDevice.presentRenderOutcome(
         pipeline.width == swapchain.width &&
         pipeline.height == swapchain.height &&
         pipeline.format == swapchain.format &&
-        pipeline.framebuffers.size == swapchain.images.size && clear.valid()
+        pipeline.framebuffers.size == swapchain.images.size && clear.valid() &&
+        vertexCount > 0 &&
+        ((pipeline.vertexStride == 0 && vertexBuffer == 0) ||
+         (pipeline.vertexStride > 0 && vertexBuffer != 0))
     var recreateSwapchain = false
     var status = if (succeeded) vulkanSuccess else -1
     var submitted = false
@@ -4388,9 +4420,28 @@ trusted fun VulkanDevice.presentRenderOutcome(
             0,
             pipeline.handle
         )
+        if (pipeline.vertexStride > 0) {
+            presenter.frames[frame].scratch.storeI64(136, vertexBuffer)
+            presenter.frames[frame].scratch.storeI64(144, 0)
+            vkCmdBindVertexBuffers(
+                presenter.frames[frame].command.load(),
+                0,
+                1,
+                nativePointerFromAddress(
+                    nativePointerAddress(
+                        presenter.frames[frame].scratch.address
+                    ) + 136
+                ),
+                nativePointerFromAddress(
+                    nativePointerAddress(
+                        presenter.frames[frame].scratch.address
+                    ) + 144
+                )
+            )
+        }
         vkCmdDraw(
             presenter.frames[frame].command.load(),
-            3,
+            vertexCount,
             1,
             0,
             0

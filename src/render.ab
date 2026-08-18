@@ -3,18 +3,26 @@
 import "abla/unsafe/memory"
 import "core.ab"
 import "application.ab"
+import "buffer.ab"
 import "shader/glsl.ab"
 import "shader/glsl_spirv.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
 
+class VertexBufferLayout(val stride: int = 0) {
+    fun valid(): bool = this.stride == 0 ||
+        (this.stride >= 8 && this.stride <= 2048)
+    fun buffered(): bool = this.stride > 0
+}
+
 resource class GraphicsRenderPipeline(
     val openGl: OpenGlProgram,
     val vulkan: VulkanRenderPipeline,
     val backend: int,
+    val vertexLayout: VertexBufferLayout,
     val error: GraphicsError
 ) {
-    fun valid(): bool = !this.error.occurred() &&
+    fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -26,7 +34,8 @@ resource class GraphicsRenderPipeline(
 }
 
 trusted fun GraphicsApplication.renderPipeline(
-    shader: ShaderPackage
+    shader: ShaderPackage,
+    vertexLayout: VertexBufferLayout = VertexBufferLayout()
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -39,12 +48,30 @@ trusted fun GraphicsApplication.renderPipeline(
         [],
         0,
         0,
+        0,
         0
     )
     var error = GraphicsError()
     val stagesValid = shader.valid && shader.stages.size == 2 &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != ""
+    var vertexInputCount = 0
+    var vertexInputValid = false
+    var locationIndex = 0
+    while (locationIndex < shader.locations.size) {
+        val location = shader.locations[locationIndex]
+        if (location.stage == shaderStageVertex &&
+            location.direction == "in") {
+            vertexInputCount = vertexInputCount + 1
+            vertexInputValid = location.location == 0 &&
+                location.dataType == "vec2" && location.arraySize == 1
+        }
+        locationIndex = locationIndex + 1
+    }
+    val layoutMatches = vertexLayout.valid() &&
+        ((vertexLayout.buffered() && vertexInputCount == 1 &&
+          vertexInputValid) ||
+         (!vertexLayout.buffered() && vertexInputCount == 0))
     val translatable = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -55,12 +82,12 @@ trusted fun GraphicsApplication.renderPipeline(
     val vertexCode = translatable.spirv(shaderStageVertex)
     val fragmentCode = translatable.spirv(shaderStageFragment)
 
-    if (!this.valid() || !stagesValid) {
+    if (!this.valid() || !stagesValid || !layoutMatches) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.renderPipeline",
             if (shader.error != "") shader.error else
-                "rendering requires one vertex and one fragment stage"
+                "rendering requires matching vertex/fragment stages and vertex layout"
         )
     } else if (!vertexCode.succeeded || !fragmentCode.succeeded) {
         error = GraphicsError(
@@ -86,7 +113,8 @@ trusted fun GraphicsApplication.renderPipeline(
             vulkan = this.vulkanDevice.renderPipeline(
                 this.vulkanSwapchain,
                 vertex,
-                fragment
+                fragment,
+                vertexLayout.stride
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -100,6 +128,7 @@ trusted fun GraphicsApplication.renderPipeline(
         move(openGl),
         move(vulkan),
         this.backend,
+        vertexLayout,
         error
     )
 }
@@ -109,6 +138,7 @@ trusted fun GraphicsApplication.presentRender(
     clear: Color
 ): bool {
     if (!this.valid() || !pipeline.valid() || !clear.valid() ||
+        pipeline.vertexLayout.buffered() ||
         pipeline.backend != this.backend) false
     else if (this.backend == graphicsBackendOpenGl) {
         this.openGl.presentProgram(pipeline.openGl, clear)
@@ -121,6 +151,40 @@ trusted fun GraphicsApplication.presentRender(
         )
         // Surface-dependent pipelines deliberately reject a resized swapchain
         // until the application creates a replacement pipeline.
+        vulkanPresentSucceeded(outcome) &&
+            !vulkanPresentNeedsRecreation(outcome)
+    } else false
+}
+
+trusted fun GraphicsApplication.presentRenderVertices(
+    pipeline: GraphicsRenderPipeline,
+    vertices: GraphicsBuffer,
+    vertexCount: int,
+    clear: Color
+): bool {
+    val stride = pipeline.vertexLayout.stride
+    if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
+        !clear.valid() || pipeline.backend != this.backend || stride <= 0 ||
+        vertexCount <= 0 || vertexCount > vertices.descriptor.size / stride ||
+        !this.ownsBuffer(vertices) ||
+        (vertices.descriptor.usage & bufferUsageVertex) == 0) false
+    else if (this.backend == graphicsBackendOpenGl) {
+        this.openGl.presentProgramVertices(
+            pipeline.openGl,
+            vertices.openGl,
+            vertexCount,
+            stride,
+            clear
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        val outcome = this.vulkanDevice.presentRenderOutcome(
+            this.vulkanSwapchain,
+            this.vulkanPixels,
+            pipeline.vulkan,
+            clear,
+            vertices.vulkan.handle,
+            vertexCount
+        )
         vulkanPresentSucceeded(outcome) &&
             !vulkanPresentNeedsRecreation(outcome)
     } else false

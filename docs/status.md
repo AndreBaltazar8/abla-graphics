@@ -57,6 +57,14 @@ Updated: 2026-08-18.
   fence-guarded application frame slots. Explicit OpenGL and Vulkan each draw
   four warmed frames with stable program/pipeline/framebuffer/command handles
   and zero runtime live-byte growth. Vulkan validation is silent.
+- Common vertex-input triangle: `VertexBufferLayout(8)` matches one reflected
+  location-zero `vec2` input. Reusable `BufferBytes.storeF32` encodes three
+  positions in Abla and uploads them to the existing common affine buffer.
+  OpenGL configures the attribute and draws from that buffer; Vulkan creates
+  matching binding/attribute pipeline state and records
+  `vkCmdBindVertexBuffers`. Explicit OpenGL and Lavapipe Vulkan runs preserve
+  buffer/pipeline/command handles and live bytes across four warmed draws; the
+  Vulkan run is also clean with `VK_LAYER_KHRONOS_validation` forced on.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,

@@ -67,6 +67,33 @@ with a reused `Color` perform no general allocation and preserve native
 handles. This initial pipeline is surface-dependent: after a Vulkan swapchain
 resize, create a replacement pipeline before presenting again.
 
+The first vertex-input slice supports one location-zero `vec2` attribute in an
+interleaved common buffer. `storeF32` performs deterministic IEEE-754
+binary32 encoding from Abla's native `f64` without a foreign helper:
+
+```abla
+val data = bufferBytes(24)
+data.storeF32(-0.75, 0)
+data.storeF32(-0.65, 4)
+// Store the remaining two positions at byte offsets 8 through 23.
+val vertices = app.buffer(BufferDescriptor(
+    size = 24,
+    usage = bufferUsageVertex | bufferUsageCopyDestination
+))
+vertices.writeAllBytes(data)
+
+val pipeline = app.renderPipeline(shader, VertexBufferLayout(stride = 8))
+app.presentRenderVertices(pipeline, vertices, 3, clear)
+```
+
+Pipeline creation rejects a layout whose reflected vertex input does not match
+this supported subset. Presentation checks application ownership, vertex usage,
+positive count, and `count * stride` bounds before dispatch. OpenGL binds the
+buffer and location-zero attribute into the pipeline VAO; Vulkan describes the
+same binding/attribute in pipeline state and records `vkCmdBindVertexBuffers`.
+Repeated draws preserve the vertex buffer and command/pipeline handles with
+zero runtime live-byte growth.
+
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,
 then surface/instance/context, then the direct Abla window. A root application
