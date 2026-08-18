@@ -53,10 +53,13 @@ Updated: 2026-08-18.
   the new window size. The explicit Vulkan path performs the same round trip,
   waits for the queue, drops presenter-before-swapchain, re-queries the surface,
   recreates the swapchain and persistent upload resources at 360x240, and
-  presents again. A second surfaced probe deliberately consumes ConfigureNotify
-  through the raw window instead of the common application, proving that both
-  clear presentation and a correctly resized pixel buffer detect stale Vulkan
-  state, rebuild once, synchronize owned extents, and present successfully.
+  presents again. A second surfaced outcome-handler probe deliberately requests
+  resizes without common application polling, supplies the classified
+  `VK_ERROR_OUT_OF_DATE_KHR` outcome to the same handlers used in production,
+  and proves that both clear and pixel paths rebuild real swapchain resources
+  once, synchronize owned extents, retry, and present successfully. The pure
+  status test separately covers success, suboptimal, out-of-date, and unrelated
+  failure classification.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a persistent

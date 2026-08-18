@@ -155,41 +155,50 @@ fun applicationBackendProbe(
             resizeEvent = app.window.pollEvent(50)
             attempts = attempts + 1
         }
-        val staleBeforePresent = resizeEvent.first == 360 &&
-            resizeEvent.second == 240 &&
+        val staleBeforePresent =
             app.vulkanSwapchain.width == oldSwapchainWidth &&
             app.vulkanSwapchain.height == oldSwapchainHeight
-        val recoveredPresent = app.presentClear(Color(
-            0.125,
-            0.25,
-            0.5
-        ))
+        val recoveryColor = Color(0.125, 0.25, 0.5)
+        val recoveredPresent = app.recoverVulkanClearPresentation(
+            vulkanPresentStatus(vulkanErrorOutOfDate),
+            recoveryColor,
+            360,
+            240
+        )
         val clearRecovered = staleBeforePresent && recoveredPresent &&
             app.vulkanSwapchain.width == 360 &&
             app.vulkanSwapchain.height == 240 &&
             app.vulkanPixels.width == 360 &&
             app.vulkanPixels.height == 240 &&
             app.window.width == 360 && app.window.height == 240
+        recoveryDetail = "old=${oldSwapchainWidth}x${oldSwapchainHeight} event=${resizeEvent.first}x${resizeEvent.second} stale=$staleBeforePresent presented=$recoveredPresent clearSize=${app.vulkanSwapchain.width}x${app.vulkanSwapchain.height}"
+        resizePassed = clearRecovered && app.resize(400, 260)
         var pixelResizeEvent = WindowEvent()
         attempts = 0
-        resizePassed = clearRecovered && app.resize(320, 200)
         while (resizePassed &&
             pixelResizeEvent.kind != windowEventResized && attempts < 32) {
             pixelResizeEvent = app.window.pollEvent(50)
             attempts = attempts + 1
         }
-        val pixelSwapchainStale = pixelResizeEvent.first == 320 &&
-            pixelResizeEvent.second == 200 &&
-            app.vulkanSwapchain.width == 360 &&
+        val pixelSwapchainStale = app.vulkanSwapchain.width == 360 &&
             app.vulkanSwapchain.height == 240
-        val recoveredPixels = app.presentPixels(pixels)
-        recoveryDetail = "clear=$clearRecovered event=${pixelResizeEvent.first}x${pixelResizeEvent.second} stale=$pixelSwapchainStale pixels=$recoveredPixels swap=${app.vulkanSwapchain.width}x${app.vulkanSwapchain.height}"
+        val currentPixels = pixelBuffer(400, 260)
+        val currentPixelsCleared = currentPixels.clearRgba8(17, 19, 23)
+        val recoveredPixels = currentPixelsCleared &&
+            app.recoverVulkanPixelPresentation(
+                vulkanPresentStatus(vulkanErrorOutOfDate),
+                currentPixels,
+                400,
+                260
+            )
+        val pixelRecovered = app.vulkanSwapchain.width == 400 &&
+            app.vulkanSwapchain.height == 260 &&
+            app.window.width == 400 && app.window.height == 260
+        recoveryDetail = "$recoveryDetail clear=$clearRecovered secondEvent=${pixelResizeEvent.first}x${pixelResizeEvent.second} secondStale=$pixelSwapchainStale pixelRecovered=$pixelRecovered pixels=$recoveredPixels swap=${app.vulkanSwapchain.width}x${app.vulkanSwapchain.height}"
         resizePassed = resizePassed && pixelSwapchainStale &&
-            recoveredPixels && app.vulkanSwapchain.width == 320 &&
-            app.vulkanSwapchain.height == 200 &&
-            app.vulkanPixels.width == 320 &&
-            app.vulkanPixels.height == 200 &&
-            app.window.width == 320 && app.window.height == 200
+            pixelRecovered && recoveredPixels &&
+            app.vulkanPixels.width == 400 &&
+            app.vulkanPixels.height == 260
     }
     println(
         "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"

@@ -97,6 +97,56 @@ resource class GraphicsApplication(
         this.window.requestClipboardFormats()
     fun primaryMonitor(): Monitor = this.window.primaryMonitor
 
+    trusted fun recoverVulkanClearPresentation(
+        outcome: VulkanPresentOutcome,
+        color: Color,
+        width: int,
+        height: int
+    ): bool {
+        var presented = outcome.presented
+        if (outcome.recreateSwapchain) {
+            val recovered = this.recreateVulkanSwapchain(width, height)
+            if (!recovered) {
+                presented = false
+            } else if (!outcome.presented) {
+                val retried = this.vulkanDevice.presentClearOutcome(
+                    this.vulkanSwapchain,
+                    color
+                )
+                presented = retried.presented &&
+                    !retried.recreateSwapchain
+            }
+        }
+        presented
+    }
+
+    trusted fun recoverVulkanPixelPresentation(
+        outcome: VulkanPresentOutcome,
+        pixels: PixelBuffer,
+        width: int,
+        height: int
+    ): bool {
+        var presented = outcome.presented
+        if (outcome.recreateSwapchain) {
+            val recovered = this.recreateVulkanSwapchain(width, height)
+            if (!recovered) {
+                presented = false
+            } else if (!outcome.presented) {
+                if (pixels.width == this.vulkanSwapchain.width &&
+                    pixels.height == this.vulkanSwapchain.height) {
+                    val retried = this.vulkanDevice.presentPixelsOutcome(
+                        this.vulkanSwapchain,
+                        this.vulkanPixels,
+                        pixels
+                    )
+                    presented = retried.presented &&
+                        !retried.recreateSwapchain
+                } else presented = false
+            }
+        }
+        presented
+    }
+
     trusted fun presentClear(color: Color): bool {
         var presented = false
         if (this.backend == graphicsBackendOpenGl) {
@@ -106,23 +156,12 @@ resource class GraphicsApplication(
                 this.vulkanSwapchain,
                 color
             )
-            presented = outcome.presented
-            if (outcome.recreateSwapchain) {
-                val recovered = this.recreateVulkanSwapchain(
-                    this.window.width,
-                    this.window.height
-                )
-                if (!recovered) {
-                    presented = false
-                } else if (!outcome.presented) {
-                    outcome = this.vulkanDevice.presentClearOutcome(
-                        this.vulkanSwapchain,
-                        color
-                    )
-                    presented = outcome.presented &&
-                        !outcome.recreateSwapchain
-                }
-            }
+            presented = this.recoverVulkanClearPresentation(
+                outcome,
+                color,
+                this.window.width,
+                this.window.height
+            )
         }
         presented
     }
@@ -149,27 +188,12 @@ resource class GraphicsApplication(
                     this.vulkanPixels,
                     pixels
                 )
-                presented = outcome.presented
-            }
-            if (ready && outcome.recreateSwapchain) {
-                val recovered = this.recreateVulkanSwapchain(
+                presented = this.recoverVulkanPixelPresentation(
+                    outcome,
+                    pixels,
                     this.window.width,
                     this.window.height
                 )
-                if (!recovered) {
-                    presented = false
-                } else if (!outcome.presented) {
-                    if (pixels.width == this.vulkanSwapchain.width &&
-                        pixels.height == this.vulkanSwapchain.height) {
-                        outcome = this.vulkanDevice.presentPixelsOutcome(
-                            this.vulkanSwapchain,
-                            this.vulkanPixels,
-                            pixels
-                        )
-                        presented = outcome.presented &&
-                            !outcome.recreateSwapchain
-                    } else presented = false
-                }
             }
         }
         presented
