@@ -24,6 +24,9 @@ Updated: 2026-08-18.
   transfer between two direct clients, explicit transparent-window rejection,
   WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
   against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
+- Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
+  clears and reads a pbuffer while explicit Vulkan creates a logical device,
+  submits a buffer fill, synchronizes, and reads the result back.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,

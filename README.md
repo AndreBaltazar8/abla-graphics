@@ -35,6 +35,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   Abla-emitted module;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, owns teardown, exposes copied events, and presents common clear colors;
+- a backend-neutral affine headless application that selects a real Vulkan or
+  surfaceless EGL/OpenGL device and probes it without connecting to a display;
 - reusable affine RGBA8 pixel storage, a persistent nearest-filtered OpenGL
   upload path, and a Vulkan staging/copy/present path for software renderers;
 - immutable portable buffer/texture/view/sampler descriptors plus affine

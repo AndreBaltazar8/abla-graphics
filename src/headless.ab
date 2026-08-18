@@ -1,0 +1,120 @@
+// Backend-neutral driver ownership for work that requires no platform window.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "resources.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+resource class GraphicsHeadlessApplication(
+    var openGl: OpenGlContext,
+    var vulkanDevice: VulkanDevice,
+    var vulkanInstance: VulkanInstance,
+    val backend: int,
+    val adapterName: string,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkanInstance.valid() && this.vulkanDevice.valid()))
+
+    trusted fun probe(): bool {
+        var succeeded = false
+        if (this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.clearBlackAndReadRgba8() == 0
+        } else if (this.backend == graphicsBackendVulkan) {
+            val buffer = this.vulkanDevice.buffer(8)
+            succeeded = buffer.valid() && buffer.fill(287454020) &&
+                buffer.readI64() == 1234605615291183940
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        this.vulkanDevice.drop()
+        this.vulkanInstance.drop()
+        this.openGl.drop()
+        return
+    }
+}
+
+trusted fun graphicsHeadlessApplication(
+    config: GraphicsConfig = GraphicsConfig(),
+    width: int = 64,
+    height: int = 64
+): GraphicsHeadlessApplication {
+    var openGl = OpenGlContext(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        0,
+        0
+    )
+    var vulkanDevice = VulkanDevice(
+        nativeNullPointer(),
+        nativeNullPointer(),
+        -1,
+        0,
+        nativeNullPointer()
+    )
+    var vkInstance = VulkanInstance(nativeNullPointer(), 0)
+    var backend = graphicsBackendAuto
+    var adapterName = ""
+    var error = GraphicsError()
+
+    if (!config.valid() || width <= 0 || width > 16384 ||
+        height <= 0 || height > 16384) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "graphicsHeadlessApplication",
+            "headless application configuration is invalid"
+        )
+    }
+
+    val tryVulkan = !error.occurred() &&
+        (config.backend == graphicsBackendAuto ||
+         config.backend == graphicsBackendHeadless ||
+         config.backend == graphicsBackendVulkan)
+    if (tryVulkan) {
+        vkInstance = vulkanInstance("Abla Graphics headless")
+        val adapters = vkInstance.adapters()
+        var index = 0
+        while (!vulkanDevice.valid() && index < adapters.size) {
+            vulkanDevice = adapters[index].device()
+            if (vulkanDevice.valid()) adapterName = adapters[index].name
+            index = index + 1
+        }
+        if (vulkanDevice.valid()) backend = graphicsBackendVulkan
+        else vkInstance.drop()
+    }
+
+    val tryOpenGl = !error.occurred() && backend == graphicsBackendAuto &&
+        (config.backend == graphicsBackendAuto ||
+         config.backend == graphicsBackendHeadless ||
+         config.backend == graphicsBackendOpenGl)
+    if (tryOpenGl) {
+        openGl = openGlHeadlessContext(width, height)
+        if (openGl.valid()) {
+            backend = graphicsBackendOpenGl
+            adapterName = "OpenGL surfaceless context"
+        }
+    }
+
+    if (!error.occurred() && backend == graphicsBackendAuto) {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "graphicsHeadlessApplication",
+            "the requested headless backend is unavailable"
+        )
+    }
+
+    GraphicsHeadlessApplication(
+        move(openGl),
+        move(vulkanDevice),
+        move(vkInstance),
+        backend,
+        adapterName,
+        error
+    )
+}

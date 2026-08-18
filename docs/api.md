@@ -26,6 +26,21 @@ using this surfaced facade currently declares
 `nativeLibraries = ["vulkan", "X11", "EGL", "GL"]` because the application,
 not a dependency package, chooses its installed native loader boundary.
 
+Display-free work uses the same one-time specialization policy:
+
+```abla
+val headless = graphicsHeadlessApplication(
+    GraphicsConfig(backend = graphicsBackendAuto),
+    64,
+    64
+)
+if (headless.valid()) headless.probe()
+```
+
+`graphicsBackendAuto` and `graphicsBackendHeadless` both select the best
+available headless driver, preferring Vulkan; explicit Vulkan/OpenGL requests
+never silently cross over. No X11 connection is opened on this path.
+
 Vectors and matrices use native `f64` values. `Mat4` names elements row-first
 (`m23` is row 2, column 3) and transforms column vectors. Composition is
 explicit: `left.multiplied(right)` applies `right` before `left`.
