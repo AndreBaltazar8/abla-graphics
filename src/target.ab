@@ -733,32 +733,65 @@ trusted fun GraphicsApplication.resolveRenderTarget(
     target: GraphicsRenderTarget,
     destination: GraphicsTexture
 ): bool {
+    target.colorCount() == 1 && this.resolveRenderTargetColor(
+        target,
+        0,
+        destination
+    )
+}
+
+trusted fun GraphicsApplication.resolveRenderTargetColor(
+    target: GraphicsRenderTarget,
+    colorIndex: int,
+    destination: GraphicsTexture
+): bool {
     var succeeded = this.valid() && target.valid() && destination.valid() &&
         target.backend == this.backend && destination.backend == this.backend &&
-        target.colorCount() == 1 &&
-        target.texture.descriptor.samples > 1 &&
-        destination.descriptor.samples == 1 &&
-        target.texture.descriptor.size.width ==
+        colorIndex >= 0 && colorIndex < target.colorCount() &&
+        destination.descriptor.samples == 1 && this.ownsTexture(destination)
+    var sourceDescriptor = target.texture.descriptor
+    var sourceMatchesDestination = false
+    if (succeeded && colorIndex > 0) {
+        sourceDescriptor = target.additionalTextures[
+            colorIndex - 1
+        ].descriptor
+        sourceMatchesDestination = target.additionalTextures[
+            colorIndex - 1
+        ].sameResource(destination)
+    } else if (succeeded) {
+        sourceMatchesDestination = target.texture.sameResource(destination)
+    }
+    succeeded = succeeded && sourceDescriptor.samples > 1 &&
+        sourceDescriptor.size.width ==
             destination.descriptor.size.width &&
-        target.texture.descriptor.size.height ==
+        sourceDescriptor.size.height ==
             destination.descriptor.size.height &&
-        target.texture.descriptor.format == destination.descriptor.format &&
+        sourceDescriptor.format == destination.descriptor.format &&
         !textureFormatHasDepth(destination.descriptor.format) &&
         (destination.descriptor.usage & textureUsageCopyDestination) != 0 &&
-        this.ownsTexture(destination) &&
-        !target.texture.sameResource(destination)
+        !sourceMatchesDestination
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = this.openGl.resolveRenderTarget(
             target.openGl,
+            colorIndex,
             destination.openGl
         )
     } else if (succeeded && this.backend == graphicsBackendVulkan) {
-        succeeded = this.vulkanDevice.resolveTexture(
-            target.texture.vulkan,
-            target.texture.descriptor,
-            destination.vulkan,
-            destination.descriptor
-        )
+        if (colorIndex == 0) {
+            succeeded = this.vulkanDevice.resolveTexture(
+                target.texture.vulkan,
+                sourceDescriptor,
+                destination.vulkan,
+                destination.descriptor
+            )
+        } else {
+            succeeded = this.vulkanDevice.resolveTexture(
+                target.additionalTextures[colorIndex - 1].vulkan,
+                sourceDescriptor,
+                destination.vulkan,
+                destination.descriptor
+            )
+        }
     } else if (succeeded) succeeded = false
     succeeded
 }

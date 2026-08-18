@@ -279,7 +279,8 @@ Updated: 2026-08-18.
   single-sample texture with exact readback, stable native handles, and zero
   live-memory growth on explicit/automatic OpenGL and Vulkan. OpenGL reuses a
   target-owned resolve FBO; Vulkan reuses device transfer state and explicit
-  image barriers. Multisampled sampled usage is rejected; integrated and MRT
+  image barriers. `resolveRenderTargetColor` selects and verifies individual
+  MRT colors. Multisampled sampled usage is rejected; render-pass-integrated
   resolve attachments remain explicitly unclaimed.
 - Multiple color attachments: `renderTargetWithColors` and
   `renderTargetWithColorsAndDepth` take affine ownership of two to eight
@@ -427,7 +428,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  integrated and MRT multisample resolve attachments,
+  render-pass-integrated multisample resolve attachments,
   persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command
   encoders/render

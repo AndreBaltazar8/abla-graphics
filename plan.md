@@ -29,7 +29,8 @@ procedural, direct, indexed, and GPU-indirect encoding plus allocation-free
 exact-output validation and portable per-attachment clear/load/discard and
 store/discard operations plus render-attachment-only multisampled color/depth
 texture and matching pipeline foundations plus allocation-free explicit
-single-color resolve into an owned single-sample texture are
+per-color resolve of single and multiple render targets into owned
+single-sample textures are
 implemented. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below

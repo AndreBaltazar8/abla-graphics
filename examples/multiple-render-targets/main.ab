@@ -21,18 +21,31 @@ fun main: int {
     val first = app.texture(TextureDescriptor(
         label = "mrt-red",
         size = Extent3D(128, 128),
-        usage = textureUsageRenderAttachment | textureUsageCopySource
+        samples = 4,
+        usage = textureUsageRenderAttachment
     ))
     val second = app.texture(TextureDescriptor(
         label = "mrt-green",
         size = Extent3D(128, 128),
-        usage = textureUsageRenderAttachment | textureUsageCopySource
+        samples = 4,
+        usage = textureUsageRenderAttachment
     ))
     val depth = app.texture(TextureDescriptor(
         label = "mrt-depth",
         size = Extent3D(128, 128),
+        samples = 4,
         format = textureFormatDepth32Float,
         usage = textureUsageRenderAttachment
+    ))
+    val firstResolved = app.texture(TextureDescriptor(
+        label = "mrt-red-resolved",
+        size = Extent3D(128, 128),
+        usage = textureUsageCopyDestination | textureUsageCopySource
+    ))
+    val secondResolved = app.texture(TextureDescriptor(
+        label = "mrt-green-resolved",
+        size = Extent3D(128, 128),
+        usage = textureUsageCopyDestination | textureUsageCopySource
     ))
     val target = app.renderTargetWithColorsAndDepth(
         move(first),
@@ -116,8 +129,11 @@ fun main: int {
     )
     val warmed = app.valid() && target.valid() && pipeline.valid() &&
         pass.valid() && loadPass.valid() && discardPass.valid() &&
+        firstResolved.valid() && secondResolved.valid() &&
         app.renderPassToTarget(target, pipeline, pass) &&
-        app.renderPassToTarget(target, pipeline, loadPass)
+        app.renderPassToTarget(target, pipeline, loadPass) &&
+        app.resolveRenderTargetColor(target, 0, firstResolved) &&
+        app.resolveRenderTargetColor(target, 1, secondResolved)
     val passHandle = if (app.backend == graphicsBackendVulkan)
         pass.vulkan.handle else pass.targetHandle
     val loadPassHandle = if (app.backend == graphicsBackendVulkan)
@@ -140,14 +156,22 @@ fun main: int {
             target,
             pipeline,
             loadPass
+        ) && app.resolveRenderTargetColor(
+            target,
+            0,
+            firstResolved
+        ) && app.resolveRenderTargetColor(
+            target,
+            1,
+            secondResolved
         )
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
-    val firstPixel = target.texture.rgba8(64, 64)
-    val secondPixel = target.additionalTextures[0].rgba8(64, 64)
-    val firstClearPixel = target.texture.rgba8(0, 0)
-    val secondClearPixel = target.additionalTextures[0].rgba8(0, 0)
+    val firstPixel = firstResolved.rgba8(64, 64)
+    val secondPixel = secondResolved.rgba8(64, 64)
+    val firstClearPixel = firstResolved.rgba8(0, 0)
+    val secondClearPixel = secondResolved.rgba8(0, 0)
     val noGrowth = liveAfter == liveBefore
     val handlesStable = passHandle != 0 && loadPassHandle != 0 &&
         discardPassHandle != 0 &&
@@ -159,7 +183,7 @@ fun main: int {
             loadPass.targetHandle == loadPassHandle &&
             discardPass.targetHandle == discardPassHandle)
     println(
-        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, depth=${target.hasDepth()}, passes=clear/mixed/discard, frames=$frame, first=$firstPixel/$firstClearPixel, second=$secondPixel/$secondClearPixel, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, samples=${target.texture.descriptor.samples}, depth=${target.hasDepth()}, passes=clear/mixed/discard, resolved=2, frames=$frame, first=$firstPixel/$firstClearPixel, second=$secondPixel/$secondClearPixel, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (rendered && frame == 4 && target.colorCount() == 2 &&
         target.hasDepth() &&

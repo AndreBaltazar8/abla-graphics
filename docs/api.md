@@ -663,7 +663,7 @@ application-owned, same-size, same-format single-sample destination declaring
 `glBlitFramebuffer`; Vulkan reuses the device transfer command state, records
 `vkCmdResolveImage`, and restores tracked image layouts. Repeated render/resolve
 cycles preserve native handles and show zero runtime live-byte growth. General
-MRT resolve attachments and render-pass-integrated resolves remain future work.
+render-pass-integrated resolve attachments remain future work.
 
 Two to eight same-size color attachments use the same affine ownership model.
 Attachment zero remains `target.texture`; subsequent attachments are held in
@@ -681,6 +681,10 @@ val targetWithDepth = app.renderTargetWithColorsAndDepth(
     [move(depthNormal), move(depthMaterial)],
     move(depthAttachment)
 )
+
+// Each multisampled color can resolve independently.
+app.resolveRenderTargetColor(targetWithDepth, 0, resolvedAlbedo)
+app.resolveRenderTargetColor(targetWithDepth, 1, resolvedNormal)
 ```
 
 The fragment shader must declare contiguous outputs beginning at location zero,
@@ -788,7 +792,9 @@ exercises all four buffered command forms against a 4x color/depth target,
 explicitly resolves it, then samples the result, with exact center-pixel
 verification, stable native handles, and zero live-byte growth. The same
 command forms operate on multiple color attachments and honor the same
-per-attachment operations.
+per-attachment operations. `resolveRenderTargetColor` validates an attachment
+index and resolves any color of a multisampled MRT into its matching owned
+single-sample texture; `resolveRenderTarget` is the concise single-color form.
 
 Samplers are also driver-backed affine resources:
 

@@ -82,9 +82,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   color attachments driven by reflected fragment-output locations, combinable
   with depth and reusable per-attachment clear/load/discard and store/discard
   passes; matching-sample multisampled target pipelines render on both drivers,
-  and an explicit allocation-free resolve copies a single-color multisampled
-  target into an application-owned single-sample texture for sampling or
-  readback;
+  and explicit allocation-free per-color resolves copy single- or multiple-
+  color multisampled targets into application-owned single-sample textures for
+  sampling or readback;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
@@ -156,10 +156,11 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   one reusable target-bound pass supplies all four offscreen command forms for
   four allocation-free frames on both backends;
 - `examples/multiple-render-targets`: one pure-Abla `$glsl` fragment stage
-  writes exact red and green results to two affine color attachments over
-  a blue attachment loaded from the prior pass and a separately cleared cyan
-  attachment, while also exercising discard operations and depth for four
-  allocation-free frames on both backends;
+  writes exact red and green results to two 4x multisampled affine color
+  attachments over a blue attachment loaded from the prior pass and a
+  separately cleared cyan attachment, then resolves both colors independently,
+  while also exercising discard operations and depth for four allocation-free
+  frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
   mutation and readback; and
