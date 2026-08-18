@@ -98,13 +98,20 @@ rg -q 'unsupported Vulkan constant expression' \
     "$output_directory/vulkan-invalid.log"
 
 cd "$compiler_root"
-"$compiler" build "$project_root/tests/raw_registry.ab" \
-    -o "$output_directory/raw-registry" --fast --no-cache
-set +e
-"$output_directory/raw-registry"
-status=$?
-set -e
-if [[ $status -ne 42 ]]; then
-    printf 'raw registry test returned %s, expected 42\n' "$status" >&2
-    exit 1
-fi
+for backend in opengl vulkan; do
+    source_file="$project_root/tests/raw_${backend}_registry.ab"
+    if [[ $backend == vulkan ]]; then
+        source_file="$project_root/tests/raw_registry.ab"
+    fi
+    executable="$output_directory/raw-$backend-registry"
+    "$compiler" build "$source_file" -o "$executable" --fast --no-cache
+    set +e
+    "$executable"
+    status=$?
+    set -e
+    if [[ $status -ne 42 ]]; then
+        printf 'raw %s registry test returned %s, expected 42\n' \
+            "$backend" "$status" >&2
+        exit 1
+    fi
+done

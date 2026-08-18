@@ -8,6 +8,8 @@
 - Constants: 5633
 - Types: 2497
 - Command parameters: 2845
+- Aggregates: 1450
+- Aggregate members: 7413
 - Classified commands: 18/842
 - Classified core features: 0/5
 - Classified extensions: 0/473

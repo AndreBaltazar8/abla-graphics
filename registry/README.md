@@ -33,6 +33,12 @@ count. Flat parameter arrays retain the owning command, parameter name, base
 type, ABI pointer depth (including fixed-array decay), and constness for all
 9,526 OpenGL and 2,845 Vulkan ABI parameters; command aliases inherit the
 canonical signature.
+Vulkan aggregate metadata covers 1,450 selected concrete structs/unions and
+7,413 declaration-ordered members. It preserves base type, pointer depth,
+constness, fixed-array dimensions, and bitfield width while selecting Vulkan
+member variants and excluding Vulkan SC alternatives. These are layout inputs,
+not unverified host offsets; emitted Abla layouts still require compiler-backed
+size/alignment gates.
 Explicit desktop OpenGL definitions win over GLES-only collisions. Unknown
 expressions, unresolved or cyclic Vulkan aliases, missing definitions, and
 conflicts stop generation. The modules are compiled by `make test-registry` through the
@@ -43,3 +49,5 @@ The raw metadata verification build uses Abla's semantics-equivalent `--fast`
 pipeline to keep CI practical as the generated modules grow. Release-mode
 whole-module LTO is also exercised whenever a new generated metadata family is
 introduced; it is not required on every deterministic-regeneration check.
+OpenGL and Vulkan facades compile in separate verifier executables so each
+backend remains below the compiler's normal 2 GiB address-space test limit.

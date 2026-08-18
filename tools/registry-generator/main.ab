@@ -59,6 +59,20 @@ class RegistryCommandSignatures(
     val error: string
 )
 
+class RegistryAggregates(
+    val names: array<string>,
+    val kinds: array<string>,
+    val memberOwners: array<string>,
+    val memberNames: array<string>,
+    val memberTypes: array<string>,
+    val memberPointerLevels: array<string>,
+    val memberConstness: array<string>,
+    val memberArrayShapes: array<string>,
+    val memberBitWidths: array<string>,
+    val valid: bool,
+    val error: string
+)
+
 fun registryOpeningTagEnd(source: string, begin: int): int =
     textFindByte(source, 62, begin, source.size)
 
@@ -897,13 +911,29 @@ fun registryTaggedText(
     tag: string
 ): string {
     var result = ""
-    val opening = textFindSequence(source, "<$tag>", begin, end)
-    if (opening >= 0) {
-        val valueBegin = opening + tag.size + 2
-        val close = textFindSequence(
-            source, "</$tag>", valueBegin, end
+    var opening = textFindSequence(source, "<$tag", begin, end)
+    val afterTagOffset = tag.size + 1
+    while (opening >= 0 && opening + afterTagOffset < end &&
+        source[opening + afterTagOffset] != 62 &&
+        source[opening + afterTagOffset] != 32 &&
+        source[opening + afterTagOffset] != 9 &&
+        source[opening + afterTagOffset] != 10 &&
+        source[opening + afterTagOffset] != 13) {
+        opening = textFindSequence(
+            source, "<$tag", opening + afterTagOffset, end
         )
-        if (close >= 0) result = source.slice(valueBegin, close)
+    }
+    if (opening >= 0) {
+        val openingEnd = textFindByte(
+            source, 62, opening + afterTagOffset, end
+        )
+        if (openingEnd >= 0) {
+            val valueBegin = openingEnd + 1
+            val close = textFindSequence(
+                source, "</$tag>", valueBegin, end
+            )
+            if (close >= 0) result = source.slice(valueBegin, close)
+        }
     }
     result
 }
@@ -1170,6 +1200,210 @@ fun registryParseCommandSignatures(
         parameterConstness,
         valid,
         error
+    )
+}
+
+fun registryTrimWhitespace(value: string): string {
+    var begin = 0
+    var end = value.size
+    while (begin < end && (value[begin] == 32 || value[begin] == 9 ||
+        value[begin] == 10 || value[begin] == 13)) begin = begin + 1
+    while (end > begin && (value[end - 1] == 32 || value[end - 1] == 9 ||
+        value[end - 1] == 10 || value[end - 1] == 13)) end = end - 1
+    value.slice(begin, end)
+}
+
+fun registryMemberArrayShape(
+    source: string,
+    begin: int,
+    end: int
+): string {
+    var result = ""
+    val nameClose = textFindSequence(source, "</name>", begin, end)
+    var cursor = if (nameClose >= 0) nameClose + 7 else end
+    while (cursor < end) {
+        val opening = textFindByte(source, 91, cursor, end)
+        if (opening < 0) break
+        val closing = textFindByte(source, 93, opening + 1, end)
+        if (closing < 0) break
+        var dimension = registryTaggedText(
+            source, opening + 1, closing, "enum"
+        )
+        if (dimension == "") dimension = registryTrimWhitespace(
+            source.slice(opening + 1, closing)
+        )
+        if (result == "") result = dimension
+        else result = "$result,$dimension"
+        cursor = closing + 1
+    }
+    result
+}
+
+fun registryMemberBitWidth(
+    source: string,
+    begin: int,
+    end: int
+): string {
+    var result = ""
+    val nameClose = textFindSequence(source, "</name>", begin, end)
+    val colon = if (nameClose >= 0)
+        textFindByte(source, 58, nameClose + 7, end) else -1
+    if (colon >= 0) {
+        var widthEnd = colon + 1
+        while (widthEnd < end && source[widthEnd] >= 48 &&
+            source[widthEnd] <= 57) widthEnd = widthEnd + 1
+        result = source.slice(colon + 1, widthEnd)
+    }
+    result
+}
+
+fun registryParseAggregates(
+    source: string,
+    api: string,
+    types: RegistryTypes
+): RegistryAggregates {
+    val names: array<string> = []
+    val kinds: array<string> = []
+    val memberOwners: array<string> = []
+    val memberNames: array<string> = []
+    val memberTypes: array<string> = []
+    val memberPointerLevels: array<string> = []
+    val memberConstness: array<string> = []
+    val memberArrayShapes: array<string> = []
+    val memberBitWidths: array<string> = []
+    val wantedApi = if (api == "opengl") "gl" else "vulkan"
+    var valid = true
+    var error = ""
+    val typesBegin = textFindSequence(source, "<types")
+    val typesOpenEnd = if (typesBegin >= 0)
+        registryOpeningTagEnd(source, typesBegin + 6) else -1
+    val typesEnd = if (typesOpenEnd >= 0)
+        textFindSequence(source, "</types>", typesOpenEnd + 1, source.size)
+    else -1
+    if (typesBegin < 0 || typesOpenEnd < 0 || typesEnd <= typesOpenEnd) {
+        valid = false
+        error = "registry has no complete aggregate definition section"
+    }
+    var cursor = typesOpenEnd + 1
+    while (valid) {
+        val begin = textFindSequence(source, "<type", cursor, typesEnd)
+        if (begin < 0) break
+        val afterName = begin + 5
+        if (afterName < typesEnd && source[afterName] != 62 &&
+            source[afterName] != 32 && source[afterName] != 9 &&
+            source[afterName] != 10 && source[afterName] != 13) {
+            cursor = afterName
+            continue
+        }
+        val openEnd = textFindByte(source, 62, afterName, typesEnd)
+        if (openEnd < 0) {
+            valid = false
+            error = "unterminated aggregate definition"
+        } else {
+            val opening = source.slice(begin, openEnd + 1)
+            val selfClosing = registryTagSelfClosing(opening)
+            val close = if (selfClosing) openEnd else
+                registryTypeDefinitionEnd(source, openEnd + 1, typesEnd)
+            if (close < 0) {
+                valid = false
+                error = "unterminated aggregate definition"
+            } else {
+                var name = registryAttribute(opening, "name")
+                if (name == "" && !selfClosing) name = registryTypeBodyName(
+                    source, openEnd + 1, close
+                )
+                val category = registryAttribute(opening, "category")
+                val typeApi = registryAttribute(opening, "api")
+                val selectedApi = typeApi == "" ||
+                    registryTokenListContains(typeApi, wantedApi) ||
+                    (api == "opengl" &&
+                    registryTokenListContains(typeApi, "glcore"))
+                val selected = selectedApi && !selfClosing &&
+                    (category == "struct" || category == "union") &&
+                    registryArrayContains(types.names, name)
+                if (selected) {
+                    names.append(name)
+                    kinds.append(category)
+                    var memberCursor = openEnd + 1
+                    while (valid) {
+                        val memberBegin = textFindSequence(
+                            source, "<member", memberCursor, close
+                        )
+                        if (memberBegin < 0) break
+                        val memberAfterName = memberBegin + 7
+                        val memberOpenEnd = textFindByte(
+                            source, 62, memberAfterName, close
+                        )
+                        val memberEnd = if (memberOpenEnd >= 0)
+                            textFindSequence(
+                                source, "</member>", memberOpenEnd + 1, close
+                            )
+                        else -1
+                        if (memberOpenEnd < 0 || memberEnd < 0) {
+                            valid = false
+                            error = "unterminated aggregate member: $name"
+                        } else {
+                            val memberOpening = source.slice(
+                                memberBegin, memberOpenEnd + 1
+                            )
+                            val memberApi = registryAttribute(
+                                memberOpening, "api"
+                            )
+                            val selectedMember = memberApi == "" ||
+                                registryTokenListContains(
+                                    memberApi, wantedApi
+                                )
+                            if (selectedMember) {
+                                val fieldName = registryTaggedText(
+                                    source, memberOpenEnd + 1,
+                                    memberEnd, "name"
+                                )
+                                val fieldType = registryCommandAbiType(
+                                    source, memberOpenEnd + 1, memberEnd
+                                )
+                                if (fieldName == "" || fieldType == "") {
+                                    valid = false
+                                    error = "aggregate has incomplete member: $name"
+                                } else {
+                                    memberOwners.append(name)
+                                    memberNames.append(fieldName)
+                                    memberTypes.append(fieldType)
+                                    memberPointerLevels.append(
+                                        "${registryPointerLevel(source, memberOpenEnd + 1, memberEnd)}"
+                                    )
+                                    memberConstness.append(
+                                        if (textFindSequence(
+                                            source, "const",
+                                            memberOpenEnd + 1,
+                                            memberEnd
+                                        ) >= 0) "true" else "false"
+                                    )
+                                    memberArrayShapes.append(
+                                        registryMemberArrayShape(
+                                            source, memberOpenEnd + 1,
+                                            memberEnd
+                                        )
+                                    )
+                                    memberBitWidths.append(
+                                        registryMemberBitWidth(
+                                            source, memberOpenEnd + 1,
+                                            memberEnd
+                                        )
+                                    )
+                                }
+                            }
+                            memberCursor = memberEnd + 9
+                        }
+                    }
+                }
+                cursor = if (selfClosing) openEnd + 1 else close + 7
+            }
+        }
+    }
+    RegistryAggregates(
+        names, kinds, memberOwners, memberNames, memberTypes,
+        memberPointerLevels, memberConstness, memberArrayShapes,
+        memberBitWidths, valid, error
     )
 }
 
@@ -1808,7 +2042,8 @@ fun registryWrite(
     audit: RegistryAudit,
     constants: RegistryConstants,
     types: RegistryTypes,
-    signatures: RegistryCommandSignatures
+    signatures: RegistryCommandSignatures,
+    aggregates: RegistryAggregates
 ): bool {
     val title = if (api == "vulkan") "Vulkan" else "OpenGL"
     var success = output.writeText("")
@@ -1836,6 +2071,12 @@ fun registryWrite(
         output,
         batch,
         "- Command parameters: ${signatures.parameterNames.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "- Aggregates: ${aggregates.names.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "- Aggregate members: ${aggregates.memberNames.size}"
     )
     var commandAudits = 0
     var featureAudits = 0
@@ -2000,7 +2241,8 @@ fun registryWriteSource(
     audit: RegistryAudit,
     constants: RegistryConstants,
     types: RegistryTypes,
-    signatures: RegistryCommandSignatures
+    signatures: RegistryCommandSignatures,
+    aggregates: RegistryAggregates
 ): bool {
     val prefix = registrySourcePrefix(api)
     val commandStatuses = registryStatuses(
@@ -2100,6 +2342,40 @@ fun registryWriteSource(
         batch,
         "${prefix}TypeDependencies",
         types.dependencies
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}Aggregates", aggregates.names
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateKinds", aggregates.kinds
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberOwners",
+        aggregates.memberOwners
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberNames",
+        aggregates.memberNames
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberTypes",
+        aggregates.memberTypes
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberPointerLevels",
+        aggregates.memberPointerLevels
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberConstness",
+        aggregates.memberConstness
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberArrayShapes",
+        aggregates.memberArrayShapes
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}AggregateMemberBitWidths",
+        aggregates.memberBitWidths
     )
     if (success) batch = registryWriteSourceArray(
         output,
@@ -2215,6 +2491,9 @@ fun main: int {
             val signatures = registryParseCommandSignatures(
                 input.readText(), inventory
             )
+            val aggregates = registryParseAggregates(
+                input.readText(), api, types
+            )
             if (!inventory.valid) {
                 eprintln("registry parse failed: ${inventory.error}")
                 4
@@ -2230,12 +2509,15 @@ fun main: int {
             } else if (!signatures.valid) {
                 eprintln("registry command signatures failed: ${signatures.error}")
                 4
+            } else if (!aggregates.valid) {
+                eprintln("registry aggregates failed: ${aggregates.error}")
+                4
             } else if (registryAuditValidate(audit, inventory) != "") {
                 eprintln("registry audit failed: ${registryAuditValidate(audit, inventory)}")
                 4
             } else if (!registryWrite(
                 output, api, processArgument(5), processArgument(6), inventory,
-                audit, constants, types, signatures
+                audit, constants, types, signatures, aggregates
             )) {
                 eprintln("failed to write registry inventory: ${output.text}")
                 5
@@ -2248,7 +2530,8 @@ fun main: int {
                 audit,
                 constants,
                 types,
-                signatures
+                signatures,
+                aggregates
             )) {
                 eprintln("failed to write raw registry source: ${sourceOutput.text}")
                 5

@@ -6,8 +6,10 @@
 - Core features: 1
 - Extensions: 2
 - Constants: 8
-- Types: 3
+- Types: 4
 - Command parameters: 1
+- Aggregates: 1
+- Aggregate members: 4
 - Classified commands: 1/4
 - Classified core features: 1/1
 - Classified extensions: 2/2
