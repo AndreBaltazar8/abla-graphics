@@ -91,6 +91,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   reusable OpenGL resolve FBO;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
+- an allocation-free portable idle boundary backed directly by `glFinish` or
+  `vkDeviceWaitIdle` for diagnostics and lifecycle synchronization;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits that leave every unaudited row visibly unclassified;

@@ -64,6 +64,11 @@ fun applicationBackendProbe(
         0.45,
         0.85
     ))
+    val waitLiveBefore = runtimeMemoryLiveBytes()
+    val waited = app.waitIdle() && app.waitIdle() && app.waitIdle() &&
+        app.waitIdle()
+    val waitLiveAfter = runtimeMemoryLiveBytes()
+    val waitNoGrowth = waitLiveAfter == waitLiveBefore
     val pixels = pixelBuffer(320, 200)
     pixels.clearRgba8(18, 35, 64)
     pixels.fillRectRgba8(80, 50, 160, 100, 204, 64, 32)
@@ -1078,9 +1083,10 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
-    valid && cursorPassed && presented && pixelsPresented && pixelNoGrowth &&
+    valid && cursorPassed && presented && waited && waitNoGrowth &&
+        pixelsPresented && pixelNoGrowth &&
         pixelHandlesStable && frameSlotsPassed &&
         buffer.valid() && bufferWritten &&
         bufferRead == 1311768465173141112 &&
@@ -1236,7 +1242,7 @@ fun applicationUnavailableProbe(): bool {
         WindowConfig(title = "Unavailable Vulkan", width = 320, height = 200)
     )
     val rejected = !app.valid() &&
-        app.error.code == graphicsErrorBackendUnavailable
+        app.error.code == graphicsErrorBackendUnavailable && !app.waitIdle()
     println("unavailable vulkan: rejected=$rejected")
     rejected
 }

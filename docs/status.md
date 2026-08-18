@@ -372,6 +372,11 @@ Updated: 2026-08-18.
 - Monotonic frame-pacing sample: a reusable affine clock owns its syscall
   buffers, four 240 fps waits advance real `CLOCK_MONOTONIC` time, and runtime
   live-memory accounting is unchanged across the steady-state loop.
+- Portable idle synchronization: `GraphicsApplication.waitIdle()` makes the
+  OpenGL context current and calls `glFinish`, or waits with
+  `vkDeviceWaitIdle`. Four repeated waits on both backends preserve runtime
+  live bytes; an invalid application rejects the operation before a driver
+  call.
 - Pure-Abla Khronos inventory generation: exact official Vulkan and OpenGL
   registry commits and SHA-256 digests are pinned in one manifest; the generator
   filters Vulkan SC, OpenGL ES, and compatibility-only requirement branches,
@@ -381,7 +386,7 @@ Updated: 2026-08-18.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 12 Vulkan and 10 OpenGL commands as
+  A strict audit join currently classifies 13 Vulkan and 11 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -440,7 +445,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   subsets described above, not general shaders.
 - Generated Khronos ABI bindings and fully classified coverage ledgers. The
   pinned, deterministic inventory and strict evidence join exist, with the
-  initial 22 exercised common commands classified; all other rows deliberately
+  initial 24 exercised common commands classified; all other rows deliberately
   remain `unclassified` until equivalent evidence is attached.
 - General texture byte uploads/format-converting copies/render-pass use,
   persistent mapped-at-creation

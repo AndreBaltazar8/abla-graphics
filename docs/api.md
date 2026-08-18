@@ -923,6 +923,20 @@ This is the delivered portable capability subset, not a claim of complete
 extension/feature-chain negotiation. Optional feature preferences and typed
 extension objects remain planned API work.
 
+Applications that need a coarse synchronization boundary can wait for every
+submitted command on the selected backend:
+
+```abla
+if (!app.waitIdle()) {
+    // The application/backend was invalid or the Vulkan driver wait failed.
+}
+```
+
+This makes the OpenGL context current and calls `glFinish`, or calls
+`vkDeviceWaitIdle` for Vulkan. It is intended for diagnostics and lifecycle
+boundaries, not per-frame pacing. Repeated waits allocate no general memory and
+retain all native handles.
+
 ## Resource surface
 
 The common device creates:

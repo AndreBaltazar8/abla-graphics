@@ -5,7 +5,7 @@
 - Commands: 842
 - Core features: 5
 - Extensions: 473
-- Classified commands: 12/842
+- Classified commands: 13/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -508,7 +508,7 @@
 | `vkDestroyValidationCacheEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyVideoSessionKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroyVideoSessionParametersKHR` | definition | unclassified | - | - | - | - |
-| `vkDeviceWaitIdle` | definition | unclassified | - | - | - | - |
+| `vkDeviceWaitIdle` | definition | common | src/driver/vulkan.ab portable idle wait | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
 | `vkDisplayPowerControlEXT` | definition | unclassified | - | - | - | - |
 | `vkEndCommandBuffer` | definition | unclassified | - | - | - | - |
 | `vkEnumerateDeviceExtensionProperties` | definition | unclassified | - | - | - | - |

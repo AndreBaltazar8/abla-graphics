@@ -5,7 +5,7 @@
 - Commands: 2892
 - Core features: 19
 - Extensions: 623
-- Classified commands: 10/2892
+- Classified commands: 11/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -583,7 +583,7 @@
 | `glFeedbackBufferxOES` | definition | unclassified | - | - | - | - |
 | `glFenceSync` | definition | unclassified | - | - | - | - |
 | `glFinalCombinerInputNV` | definition | unclassified | - | - | - | - |
-| `glFinish` | definition | unclassified | - | - | - | - |
+| `glFinish` | definition | common | src/driver/opengl.ab portable idle wait | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
 | `glFinishAsyncSGIX` | definition | unclassified | - | - | - | - |
 | `glFinishFenceAPPLE` | definition | unclassified | - | - | - | - |
 | `glFinishFenceNV` | definition | unclassified | - | - | - | - |
