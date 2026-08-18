@@ -475,10 +475,11 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   strict no-op and single-member storage-assignment compute subsets plus fixed,
   interleaved position/color, and sampled-texture triangle vertex/fragment
   subsets described above, not general shaders.
-- Generated Vulkan constants, Khronos ABI layouts, callable bindings, and fully
+- Callable generated bindings, compiler-verified host offsets, and fully
   classified coverage ledgers. The pinned deterministic inventory, strict
-  evidence join, compiled raw metadata modules, and full OpenGL constant output
-  exist, with the initial 33 exercised common commands classified; all other
+  evidence join, compiled raw metadata modules, complete selected OpenGL and
+  Vulkan constant output, command signatures, and Vulkan aggregate declarations
+  exist, with the initial 39 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

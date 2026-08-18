@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 18/842
+- Classified commands: 24/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -205,7 +205,7 @@
 | `vkCmdFillMemoryKHR` | definition | unclassified | - | - | - | - |
 | `vkCmdInitializeGraphScratchMemoryAMDX` | definition | unclassified | - | - | - | - |
 | `vkCmdInsertDebugUtilsLabelEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdNextSubpass` | definition | unclassified | - | - | - | - |
+| `vkCmdNextSubpass` | definition | common | src/driver/vulkan.ab ordered subpass recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact second-subpass MRT pixels | tests/application/main.ab invalid subpass index rejection |
 | `vkCmdNextSubpass2` | definition | unclassified | - | - | - | - |
 | `vkCmdNextSubpass2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdOpticalFlowExecuteNV` | definition | unclassified | - | - | - | - |
@@ -674,7 +674,7 @@
 | `vkGetPhysicalDeviceExternalSemaphorePropertiesKHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceExternalTensorPropertiesARM` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceFeatures` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceFeatures2` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceFeatures2` | definition | common | src/driver/vulkan.ab promoted feature query | src/driver/vulkan.ab Vulkan 12 and 13 feature-chain ABI | tests/vulkan/main.ab timeline and synchronization2 enablement | src/driver/vulkan.ab core-version gating |
 | `vkGetPhysicalDeviceFeatures2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceFormatProperties` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceFormatProperties2` | definition | unclassified | - | - | - | - |
@@ -748,7 +748,7 @@
 | `vkGetRenderingAreaGranularityKHR` | alias | unclassified | - | - | - | - |
 | `vkGetSamplerOpaqueCaptureDescriptorDataEXT` | definition | unclassified | - | - | - | - |
 | `vkGetScreenBufferPropertiesQNX` | definition | unclassified | - | - | - | - |
-| `vkGetSemaphoreCounterValue` | definition | unclassified | - | - | - | - |
+| `vkGetSemaphoreCounterValue` | definition | common | src/driver/vulkan.ab timeline counter query | src/driver/vulkan.ab typed extern signature | tests/vulkan/main.ab exact repeated timeline counters | tests/vulkan/main.ab invalid timeline rejection |
 | `vkGetSemaphoreCounterValueKHR` | alias | unclassified | - | - | - | - |
 | `vkGetSemaphoreFdKHR` | definition | unclassified | - | - | - | - |
 | `vkGetSemaphoreWin32HandleKHR` | definition | unclassified | - | - | - | - |
@@ -795,7 +795,7 @@
 | `vkQueueSetPerfHintQCOM` | definition | unclassified | - | - | - | - |
 | `vkQueueSetPerformanceConfigurationINTEL` | definition | unclassified | - | - | - | - |
 | `vkQueueSubmit` | definition | unclassified | - | - | - | - |
-| `vkQueueSubmit2` | definition | unclassified | - | - | - | - |
+| `vkQueueSubmit2` | definition | common | src/driver/vulkan.ab synchronization2 transfer submission | src/driver/vulkan.ab packed SubmitInfo2 ABI | tests/vulkan/main.ab GPU fill and readback with synchronization2 | src/driver/vulkan.ab legacy submit fallback |
 | `vkQueueSubmit2KHR` | alias | unclassified | - | - | - | - |
 | `vkQueueWaitIdle` | definition | unclassified | - | - | - | - |
 | `vkRegisterCustomBorderColorEXT` | definition | unclassified | - | - | - | - |
@@ -833,7 +833,7 @@
 | `vkSetPrivateDataEXT` | alias | unclassified | - | - | - | - |
 | `vkSetSwapchainPresentTimingQueueSizeEXT` | definition | unclassified | - | - | - | - |
 | `vkShutdownLatencyDeviceLegacyNV` | definition | unclassified | - | - | - | - |
-| `vkSignalSemaphore` | definition | unclassified | - | - | - | - |
+| `vkSignalSemaphore` | definition | common | src/driver/vulkan.ab timeline host signal | src/driver/vulkan.ab packed semaphore signal ABI | tests/vulkan/main.ab repeated monotonic timeline signals | tests/vulkan/main.ab non-increasing signal rejection |
 | `vkSignalSemaphoreKHR` | alias | unclassified | - | - | - | - |
 | `vkSubmitDebugUtilsMessageEXT` | definition | unclassified | - | - | - | - |
 | `vkTransitionImageLayout` | definition | unclassified | - | - | - | - |
@@ -854,7 +854,7 @@
 | `vkWaitForFences` | definition | unclassified | - | - | - | - |
 | `vkWaitForPresent2KHR` | definition | unclassified | - | - | - | - |
 | `vkWaitForPresentKHR` | definition | unclassified | - | - | - | - |
-| `vkWaitSemaphores` | definition | unclassified | - | - | - | - |
+| `vkWaitSemaphores` | definition | common | src/driver/vulkan.ab timeline host wait | src/driver/vulkan.ab packed semaphore wait ABI | tests/vulkan/main.ab repeated bounded timeline waits | tests/vulkan/main.ab negative value and timeout rejection |
 | `vkWaitSemaphoresKHR` | alias | unclassified | - | - | - | - |
 | `vkWriteAccelerationStructuresPropertiesKHR` | definition | unclassified | - | - | - | - |
 | `vkWriteMicromapsPropertiesEXT` | definition | unclassified | - | - | - | - |
