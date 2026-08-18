@@ -42,7 +42,10 @@ Updated: 2026-08-18.
   convert a common fixed-point color to IEEE-754 bits in Abla, and present it
   under Xvfb/Lavapipe. The explicit OpenGL path additionally requests a resize,
   consumes its copied event, synchronizes viewport dimensions, and presents at
-  the new window size.
+  the new window size. The explicit Vulkan path performs the same round trip,
+  waits for the queue, drops presenter-before-swapchain, re-queries the surface,
+  recreates the swapchain and persistent upload resources at 360x240, and
+  presents again.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a persistent
@@ -89,7 +92,8 @@ capability lands.
 
 ## Not yet claimed
 
-- Vulkan frames-in-flight without per-frame queue idle, swapchain recreation,
+- Vulkan frames-in-flight without per-frame queue idle, automatic recovery from
+  acquire/present out-of-date results that arrive without a resize event,
   render pipelines, driver-backed common descriptors/images/views,
   synchronization2, and dynamic rendering.
 - Wayland, Windows, or macOS platform modules.

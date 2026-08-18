@@ -29,12 +29,48 @@ resource class GraphicsApplication(
           this.vulkanDevice.valid() && this.vulkanSwapchain.valid() &&
           this.vulkanPixels.valid()))
 
-    fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
+    trusted fun recreateVulkanSwapchain(width: int, height: int): bool {
+        var succeeded = this.backend == graphicsBackendVulkan &&
+            this.vulkanDevice.valid() && this.vulkanSurface.valid() &&
+            width > 0 && height > 0 && this.vulkanDevice.waitIdle()
+        if (succeeded) {
+            this.vulkanPixels.drop()
+            this.vulkanSwapchain.drop()
+            this.vulkanSurface.width = width
+            this.vulkanSurface.height = height
+            val adapter = VulkanAdapter(
+                this.vulkanDevice.physicalDevice,
+                this.adapterName,
+                this.vulkanDevice.apiVersion,
+                0,
+                0,
+                0,
+                0
+            )
+            this.vulkanSwapchain = this.vulkanDevice.swapchain(
+                adapter,
+                this.vulkanSurface
+            )
+            if (this.vulkanSwapchain.valid()) {
+                this.vulkanPixels = this.vulkanDevice.pixelPresenter(
+                    this.vulkanSwapchain
+                )
+            }
+            succeeded = this.vulkanSwapchain.valid() &&
+                this.vulkanPixels.valid()
+        }
+        succeeded
+    }
+
+    trusted fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
         val event = this.window.pollEvent(timeoutMilliseconds)
         if (event.kind == windowEventResized &&
             this.backend == graphicsBackendOpenGl) {
             this.openGl.width = event.first
             this.openGl.height = event.second
+        } else if (event.kind == windowEventResized &&
+            this.backend == graphicsBackendVulkan) {
+            this.recreateVulkanSwapchain(event.first, event.second)
         }
         event
     }

@@ -212,9 +212,13 @@ window; `show()`, `hide()`, and `setTitle()` update both the wire-protocol state
 and the Abla-owned state. `resize(width, height)` emits a checked
 ConfigureWindow request; the copied ConfigureNotify event is the authoritative
 size update. The common application synchronizes its OpenGL viewport dimensions
-before returning that event. Vulkan resize currently requires the planned
-swapchain-recreation API and may reject presentation as out-of-date. Fixed-size
-windows publish `WM_NORMAL_HINTS`,
+before returning that event. Vulkan waits for outstanding queue work, destroys
+the persistent pixel presenter before the old swapchain, updates the surface
+extent, re-queries capabilities/format, and recreates both resources before
+returning the event. `recreateVulkanSwapchain()` is also available for an
+explicit retry after a platform out-of-date result. A software renderer must
+provide a `PixelBuffer` matching the new swapchain extent. Fixed-size windows
+publish `WM_NORMAL_HINTS`,
 undecorated windows publish `_MOTIF_WM_HINTS`, and fullscreen windows publish
 the EWMH fullscreen state before mapping. Each required write/atom/map is part
 of creation success. Transparent X11 windows are rejected until alpha-visual
