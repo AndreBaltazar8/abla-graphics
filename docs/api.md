@@ -284,14 +284,17 @@ The available reflection slice recognizes explicit `layout(location = N)`
 input/output declarations and `layout(set = S, binding = B)` uniform/buffer
 declarations while skipping whitespace and comments deterministically.
 `ShaderPackage.locations` and `.bindings` retain stage, direction/storage, and
-numeric coordinates plus the declared data type and identifier. Duplicate
+numeric coordinates plus the declared data type, identifier, and fixed/unsized
+array extent. Duplicate
 input/output locations or descriptor slots in one stage invalidate the package.
 Bindings shared across stages must agree on storage and data type. Each explicit
 input in an adjacent raster stage must have a preceding output at the same
 location and with the same type. Interpolation and precision qualifiers are
-skipped without losing the declaration type. Unknown layout keys such as
-compute workgroup qualifiers remain source-preserved and are not misclassified.
-Array extents, block members, push constants, and workgroup reflection are still
+skipped without losing the declaration type. Other unknown layout keys remain
+source-preserved and are not misclassified. For compute packages,
+`layout(local_size_x/y/z)` produces one checked
+`ShaderWorkgroup`; omitted Y/Z dimensions default to one. Block members, push
+constants, and general workgroup specialization reflection are still
 forthcoming.
 
 Dynamic source is accepted through `ShaderSource`; precompiled SPIR-V and raw

@@ -16,7 +16,7 @@ fun main: int {
             /* Braces in comments do not alter depth: { } */
             layout(location = 1) flat in highp vec3 interpolatedTint;
             layout(location = 0) out vec4 color;
-            layout(set = 1, binding = 2) uniform sampler2D atlas;
+            layout(set = 1, binding = 2) uniform sampler2D atlas[4];
             void main() {
                 color = vec4(0.1, 0.5, 0.9, 1.0);
             }
@@ -58,6 +58,18 @@ fun main: int {
             "layout(location=4) in vec4 missing; void main() {}"
         ]
     )
+    val missingWorkgroupX = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_y=4) in; void main() {}"]
+    )
+    val repeatedWorkgroup = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_x=8) in; layout(local_size_x=4) in; void main() {}"]
+    )
+    val invalidBindingArray = glslPackage(
+        [shaderStageCompute],
+        ["layout(set=0,binding=0) uniform sampler2D images[0]; void main() {}"]
+    )
     if (shader.valid && frozen.valid && frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&
@@ -80,11 +92,19 @@ fun main: int {
         shader.bindings[0].storage == "uniform" &&
         shader.bindings[0].dataType == "sampler2D" &&
         shader.bindings[0].name == "atlas" &&
+        shader.bindings[0].arraySize == 4 &&
+        frozen.workgroups.size == 1 &&
+        frozen.workgroups[0].stage == shaderStageCompute &&
+        frozen.workgroups[0].x == 8 && frozen.workgroups[0].y == 1 &&
+        frozen.workgroups[0].z == 1 &&
         !duplicate.valid && duplicate.error != "" &&
         !malformed.valid && malformed.error != "" &&
         !duplicateBinding.valid && duplicateBinding.error != "" &&
         !mismatchedInterface.valid && mismatchedInterface.error != "" &&
         !missingInterface.valid && missingInterface.error != "" &&
+        !missingWorkgroupX.valid && missingWorkgroupX.error != "" &&
+        !repeatedWorkgroup.valid && repeatedWorkgroup.error != "" &&
+        !invalidBindingArray.valid && invalidBindingArray.error != "" &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != "") 42 else 1
 }

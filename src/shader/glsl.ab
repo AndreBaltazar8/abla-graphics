@@ -23,7 +23,8 @@ class ShaderLocation(
     val location: int,
     val direction: string,
     val dataType: string = "",
-    val name: string = ""
+    val name: string = "",
+    val arraySize: int = 1
 )
 
 class ShaderBinding(
@@ -32,13 +33,22 @@ class ShaderBinding(
     val binding: int,
     val storage: string,
     val dataType: string = "",
-    val name: string = ""
+    val name: string = "",
+    val arraySize: int = 1
+)
+
+class ShaderWorkgroup(
+    val stage: string,
+    val x: int,
+    val y: int,
+    val z: int
 )
 
 class ShaderPackage(
     val stages: array<ShaderStageSource>,
     val locations: array<ShaderLocation>,
     val bindings: array<ShaderBinding>,
+    val workgroups: array<ShaderWorkgroup>,
     val valid: bool,
     val error: string
 ) {
@@ -64,6 +74,9 @@ class GlslLayout(
     val location: int,
     val set: int,
     val binding: int,
+    val localSizeX: int,
+    val localSizeY: int,
+    val localSizeZ: int,
     val next: int,
     val error: string
 )
@@ -71,6 +84,7 @@ class GlslLayout(
 class GlslStageReflection(
     val locations: array<ShaderLocation>,
     val bindings: array<ShaderBinding>,
+    val workgroups: array<ShaderWorkgroup>,
     val valid: bool,
     val error: string
 )
@@ -79,8 +93,11 @@ class GlslDeclaration(
     val storage: string,
     val dataType: string,
     val name: string,
+    val arraySize: int,
     val valid: bool
 )
+
+class GlslArraySize(val valid: bool, val value: int)
 
 fun glslAsciiWhitespace(value: int): bool =
     value == 9 || value == 10 || value == 11 || value == 12 ||
@@ -157,6 +174,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     var location = -1
     var set = 0
     var binding = -1
+    var localSizeX = -1
+    var localSizeY = -1
+    var localSizeZ = -1
     var done = false
     while (valid && !done && index < source.size) {
         index = glslSkipTrivia(source, index)
@@ -173,6 +193,13 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
                     if (name.text == "location") location = integer.value
                     else if (name.text == "set") set = integer.value
                     else if (name.text == "binding") binding = integer.value
+                    else if (name.text == "local_size_x") {
+                        localSizeX = integer.value
+                    } else if (name.text == "local_size_y") {
+                        localSizeY = integer.value
+                    } else if (name.text == "local_size_z") {
+                        localSizeZ = integer.value
+                    }
                     index = integer.next
                 } else {
                     while (index < source.size && source[index] != 44 &&
@@ -188,12 +215,17 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
         }
     }
     valid = valid && done && location <= 65535 && set <= 65535 &&
-        binding <= 65535
+        binding <= 65535 && localSizeX <= 65535 &&
+        localSizeY <= 65535 && localSizeZ <= 65535 &&
+        localSizeX != 0 && localSizeY != 0 && localSizeZ != 0
     GlslLayout(
         valid,
         location,
         set,
         binding,
+        localSizeX,
+        localSizeY,
+        localSizeZ,
         index,
         if (valid) "" else "malformed GLSL layout qualifier"
     )
@@ -206,6 +238,25 @@ fun glslDeclarationQualifier(name: string): bool =
     name == "highp" || name == "mediump" || name == "lowp" ||
     name == "coherent" || name == "volatile" || name == "restrict" ||
     name == "readonly" || name == "writeonly"
+
+fun glslArraySizeAfterName(source: string, begin: int): GlslArraySize {
+    var index = glslSkipTrivia(source, begin)
+    var valid = true
+    var size = 1
+    if (index < source.size && source[index] == 91) {
+        index = glslSkipTrivia(source, index + 1)
+        if (index < source.size && source[index] == 93) {
+            size = 0
+        } else {
+            val integer = glslReadUnsigned(source, index)
+            valid = integer.valid && integer.value > 0
+            size = integer.value
+            index = glslSkipTrivia(source, integer.next)
+            valid = valid && index < source.size && source[index] == 93
+        }
+    }
+    GlslArraySize(valid, size)
+}
 
 fun glslDeclarationAfterLayout(
     source: string,
@@ -243,18 +294,22 @@ fun glslDeclarationAfterLayout(
     val variable = glslReadName(source, index)
     val afterType = glslSkipTrivia(source, index)
     val block = afterType < source.size && source[afterType] == 123
+    val arraySize = if (variable.text == "") GlslArraySize(true, 1)
+        else glslArraySizeAfterName(source, variable.next)
     GlslDeclaration(
         storage,
         type.text,
         variable.text,
+        arraySize.value,
         storage != "" && type.text != "" &&
-            (variable.text != "" || block)
+            (variable.text != "" || block) && arraySize.valid
     )
 }
 
 fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     val locations: array<ShaderLocation> = []
     val bindings: array<ShaderBinding> = []
+    val workgroups: array<ShaderWorkgroup> = []
     var valid = true
     var error = ""
     var index = 0
@@ -295,7 +350,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                             layout.location,
                             declaration.storage,
                             declaration.dataType,
-                            declaration.name
+                            declaration.name,
+                            declaration.arraySize
                         ))
                     }
                 }
@@ -324,7 +380,29 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                             layout.binding,
                             declaration.storage,
                             declaration.dataType,
-                            declaration.name
+                            declaration.name,
+                            declaration.arraySize
+                        ))
+                    }
+                }
+                if (valid && (layout.localSizeX >= 0 ||
+                    layout.localSizeY >= 0 || layout.localSizeZ >= 0)) {
+                    if (stage != shaderStageCompute ||
+                        declaration.storage != "in" ||
+                        layout.localSizeX < 1) {
+                        valid = false
+                        error = "invalid GLSL $stage workgroup layout"
+                    } else if (workgroups.size > 0) {
+                        valid = false
+                        error = "duplicate GLSL compute workgroup layout"
+                    } else {
+                        workgroups.append(ShaderWorkgroup(
+                            stage,
+                            layout.localSizeX,
+                            if (layout.localSizeY < 0) 1
+                                else layout.localSizeY,
+                            if (layout.localSizeZ < 0) 1
+                                else layout.localSizeZ
                         ))
                     }
                 }
@@ -333,7 +411,7 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
         } else if (name.text != "") index = name.next
         else index = glslSkipTrivia(source, index) + 1
     }
-    GlslStageReflection(locations, bindings, valid, error)
+    GlslStageReflection(locations, bindings, workgroups, valid, error)
 }
 
 fun glslStageNameValid(name: string): bool =
@@ -412,6 +490,7 @@ fun glslPackage(
     val stages: array<ShaderStageSource> = []
     val locations: array<ShaderLocation> = []
     val bindings: array<ShaderBinding> = []
+    val workgroups: array<ShaderWorkgroup> = []
     var valid = names.size == sources.size && names.size > 0
     var error = if (valid) "" else "GLSL package has no stages"
     var compute = false
@@ -461,6 +540,11 @@ fun glslPackage(
                 if (valid) bindings.append(reflected)
                 reflectedIndex = reflectedIndex + 1
             }
+            reflectedIndex = 0
+            while (valid && reflectedIndex < reflection.workgroups.size) {
+                workgroups.append(reflection.workgroups[reflectedIndex])
+                reflectedIndex = reflectedIndex + 1
+            }
         }
         if (valid) {
             stages.append(ShaderStageSource(names[index], sources[index]))
@@ -478,7 +562,7 @@ fun glslPackage(
             error = interfaceError
         }
     }
-    ShaderPackage(stages, locations, bindings, valid, error)
+    ShaderPackage(stages, locations, bindings, workgroups, valid, error)
 }
 
 compile fun glslAppend(left: string, right: string): string = "$left$right"

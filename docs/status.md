@@ -83,8 +83,9 @@ Updated: 2026-08-18.
   stage lookup, explicit input/output location reflection, descriptor set and
   binding reflection including declaration types/names, duplicate location and
   binding rejection, cross-stage binding compatibility, adjacent raster-stage
-  missing/type-mismatched interface rejection, and compile-time rejection of
-  invalid stage names. The surfaced triangle is compiled from this package
+  missing/type-mismatched interface rejection, fixed/unsized declaration array
+  extents, checked compute workgroup sizes/defaults, and compile-time rejection
+  of invalid stage names. The surfaced triangle is compiled from this package
   rather than opaque strings.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
@@ -119,8 +120,8 @@ capability lands.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration and cross-stage compatibility slice,
-  deliberately rejects quoted includes, and does not yet parse array extents,
-  block members, general declarations, or expressions.
+  deliberately rejects quoted includes, and does not yet parse block members,
+  general declarations, or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
   uploads, device-local suballocation policy, command encoders/render graph,
