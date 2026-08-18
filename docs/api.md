@@ -527,8 +527,8 @@ support single-sample 2D color and depth formats, complete mip allocation, and
 validated color/depth/stencil aspect ranges. They also create 2x, 4x, 8x, and
 16x multisampled 2D color/depth textures when usage is exactly
 `textureUsageRenderAttachment`; sampled/copy usage remains rejected, so an
-application explicitly resolves into a separate single-sample resource. Vulkan
-compatible linear/sRGB
+application resolves into a separate single-sample resource, either owned by
+the target or supplied explicitly. Vulkan compatible linear/sRGB
 reinterpretation uses mutable-format images. OpenGL subresource and
 format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
 texture-view support is negotiated. Width or height above
@@ -641,29 +641,36 @@ val msaaDepth = app.texture(TextureDescriptor(
     format = textureFormatDepth32Float,
     usage = textureUsageRenderAttachment
 ))
-val msaaTarget = app.renderTargetWithDepth(
-    move(msaaColor),
-    move(msaaDepth)
-)
 val resolved = app.texture(TextureDescriptor(
     size = Extent3D(640, 360),
-    usage = textureUsageCopyDestination |
-        textureUsageCopySource | textureUsageSampled
+    usage = textureUsageRenderAttachment | textureUsageSampled |
+        textureUsageCopyDestination | textureUsageCopySource
 ))
+val msaaTarget = app.renderTargetWithDepth(
+    move(msaaColor),
+    move(msaaDepth),
+    [move(resolved)]
+)
 
 app.renderPassToTarget(msaaTarget, pipeline, pass)
-app.resolveRenderTarget(msaaTarget, resolved)
+val output = msaaTarget.resolveTextures[0]
 ```
 
 OpenGL allocates `GL_TEXTURE_2D_MULTISAMPLE` attachments and Vulkan records the
 same sample count in image, attachment, compatible-pass, and raster pipeline
-state. `resolveRenderTarget` requires a single-color multisampled source and an
+state. The optional final constructor argument transfers affine ownership of
+exactly one matching single-sample resolve texture per color. Each resolve
+texture must declare `textureUsageRenderAttachment` and
+`textureUsageCopyDestination`; every successful target clear or draw updates
+all owned resolves before returning. Explicit
+`resolveRenderTarget` requires a single-color multisampled source and an
 application-owned, same-size, same-format single-sample destination declaring
 `textureUsageCopyDestination`. OpenGL reuses a target-owned resolve FBO and
 `glBlitFramebuffer`; Vulkan reuses the device transfer command state, records
 `vkCmdResolveImage`, and restores tracked image layouts. Repeated render/resolve
 cycles preserve native handles and show zero runtime live-byte growth. General
-render-pass-integrated resolve attachments remain future work.
+Vulkan subpass-native resolve references remain future work; the current Vulkan
+path records reusable resolve commands immediately after the render pass.
 
 Two to eight same-size color attachments use the same affine ownership model.
 Attachment zero remains `target.texture`; subsequent attachments are held in
@@ -679,12 +686,12 @@ val target = app.renderTargetWithColors(
 val targetWithDepth = app.renderTargetWithColorsAndDepth(
     move(depthAlbedo),
     [move(depthNormal), move(depthMaterial)],
-    move(depthAttachment)
+    move(depthAttachment),
+    [move(resolvedAlbedo), move(resolvedNormal), move(resolvedMaterial)]
 )
 
-// Each multisampled color can resolve independently.
-app.resolveRenderTargetColor(targetWithDepth, 0, resolvedAlbedo)
-app.resolveRenderTargetColor(targetWithDepth, 1, resolvedNormal)
+val resolvedAlbedoOutput = targetWithDepth.resolveTextures[0]
+val resolvedNormalOutput = targetWithDepth.resolveTextures[1]
 ```
 
 The fragment shader must declare contiguous outputs beginning at location zero,
@@ -789,12 +796,14 @@ declaring sampled usage can then feed an ordinary bind group and surface
 pipeline. A depth-enabled pipeline must target a depth-attached target; color-
 only/depth-state mismatches are rejected. The `render-to-texture` sample
 exercises all four buffered command forms against a 4x color/depth target,
-explicitly resolves it, then samples the result, with exact center-pixel
+automatically resolves its owned output, then samples it, with exact center-pixel
 verification, stable native handles, and zero live-byte growth. The same
 command forms operate on multiple color attachments and honor the same
 per-attachment operations. `resolveRenderTargetColor` validates an attachment
 index and resolves any color of a multisampled MRT into its matching owned
 single-sample texture; `resolveRenderTarget` is the concise single-color form.
+When `target.resolveTextures` is populated by a target constructor, completion
+performs those resolves automatically.
 
 Samplers are also driver-backed affine resources:
 

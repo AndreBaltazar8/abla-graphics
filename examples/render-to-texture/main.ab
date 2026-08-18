@@ -73,10 +73,14 @@ fun main: int {
         label = "post-process-resolved-color",
         size = Extent3D(256, 256),
         format = textureFormatRgba8Unorm,
-        usage = textureUsageSampled | textureUsageCopyDestination |
-            textureUsageCopySource
+        usage = textureUsageRenderAttachment | textureUsageSampled |
+            textureUsageCopyDestination | textureUsageCopySource
     ))
-    val target = app.renderTargetWithDepth(move(color), move(depth))
+    val target = app.renderTargetWithDepth(
+        move(color),
+        move(depth),
+        [move(resolvedColor)]
+    )
     val sceneLayout = VertexBufferLayout(8, [
         VertexAttribute(0, 0, vertexFormatFloat32x2)
     ])
@@ -164,7 +168,7 @@ fun main: int {
         magFilter = samplerFilterLinear,
         minFilter = samplerFilterLinear
     ))
-    val binding = app.textureBinding(resolvedColor, sampler)
+    val binding = app.textureBinding(target.resolveTextures[0], sampler)
     val bindingHandle = if (app.backend == graphicsBackendOpenGl)
         binding.openGlResources[0]
     else binding.vulkan.descriptorSet
@@ -184,7 +188,7 @@ fun main: int {
     val windowClear = Color(0.0, 0.0, 0.0)
     val warmed = app.valid() && target.valid() && scenePipeline.valid() &&
         scenePass.valid() && postPipeline.valid() && vertices.valid() &&
-        sampler.valid() && resolvedColor.valid() &&
+        sampler.valid() && target.resolveTextures[0].valid() &&
         sceneVertices.valid() && sceneIndices.valid() && sceneDraw.valid() &&
         sceneIndexedDraw.valid() && verticesUploaded &&
         sceneVerticesUploaded && sceneIndicesUploaded && sceneDrawUploaded &&
@@ -215,15 +219,12 @@ fun main: int {
             sceneVertices,
             sceneIndices,
             sceneIndexedDraw
-        ) && app.resolveRenderTarget(
-            target,
-            resolvedColor
         ) && app.presentRenderVertices(
             postPipeline,
             vertices,
             3,
             windowClear
-        ) && resolvedColor.rgba8(128, 128) == 4294281759
+        ) && target.resolveTextures[0].rgba8(128, 128) == 4294281759
     val sceneHandle = if (app.backend == graphicsBackendOpenGl)
         scenePipeline.openGl.handle else scenePipeline.vulkan.handle
     val postHandle = if (app.backend == graphicsBackendOpenGl)
@@ -258,9 +259,6 @@ fun main: int {
             sceneVertices,
             sceneIndices,
             sceneIndexedDraw
-        ) && app.resolveRenderTarget(
-            target,
-            resolvedColor
         ) && app.presentRenderVertices(
             postPipeline,
             vertices,

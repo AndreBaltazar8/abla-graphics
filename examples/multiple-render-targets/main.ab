@@ -40,17 +40,20 @@ fun main: int {
     val firstResolved = app.texture(TextureDescriptor(
         label = "mrt-red-resolved",
         size = Extent3D(128, 128),
-        usage = textureUsageCopyDestination | textureUsageCopySource
+        usage = textureUsageRenderAttachment |
+            textureUsageCopyDestination | textureUsageCopySource
     ))
     val secondResolved = app.texture(TextureDescriptor(
         label = "mrt-green-resolved",
         size = Extent3D(128, 128),
-        usage = textureUsageCopyDestination | textureUsageCopySource
+        usage = textureUsageRenderAttachment |
+            textureUsageCopyDestination | textureUsageCopySource
     ))
     val target = app.renderTargetWithColorsAndDepth(
         move(first),
         [move(second)],
-        move(depth)
+        move(depth),
+        [move(firstResolved), move(secondResolved)]
     )
     val shader = $glsl {
         vertex {
@@ -129,11 +132,10 @@ fun main: int {
     )
     val warmed = app.valid() && target.valid() && pipeline.valid() &&
         pass.valid() && loadPass.valid() && discardPass.valid() &&
-        firstResolved.valid() && secondResolved.valid() &&
+        target.resolveTextures[0].valid() &&
+        target.resolveTextures[1].valid() &&
         app.renderPassToTarget(target, pipeline, pass) &&
-        app.renderPassToTarget(target, pipeline, loadPass) &&
-        app.resolveRenderTargetColor(target, 0, firstResolved) &&
-        app.resolveRenderTargetColor(target, 1, secondResolved)
+        app.renderPassToTarget(target, pipeline, loadPass)
     val passHandle = if (app.backend == graphicsBackendVulkan)
         pass.vulkan.handle else pass.targetHandle
     val loadPassHandle = if (app.backend == graphicsBackendVulkan)
@@ -156,22 +158,14 @@ fun main: int {
             target,
             pipeline,
             loadPass
-        ) && app.resolveRenderTargetColor(
-            target,
-            0,
-            firstResolved
-        ) && app.resolveRenderTargetColor(
-            target,
-            1,
-            secondResolved
         )
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
-    val firstPixel = firstResolved.rgba8(64, 64)
-    val secondPixel = secondResolved.rgba8(64, 64)
-    val firstClearPixel = firstResolved.rgba8(0, 0)
-    val secondClearPixel = secondResolved.rgba8(0, 0)
+    val firstPixel = target.resolveTextures[0].rgba8(64, 64)
+    val secondPixel = target.resolveTextures[1].rgba8(64, 64)
+    val firstClearPixel = target.resolveTextures[0].rgba8(0, 0)
+    val secondClearPixel = target.resolveTextures[1].rgba8(0, 0)
     val noGrowth = liveAfter == liveBefore
     val handlesStable = passHandle != 0 && loadPassHandle != 0 &&
         discardPassHandle != 0 &&

@@ -84,7 +84,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   passes; matching-sample multisampled target pipelines render on both drivers,
   and explicit allocation-free per-color resolves copy single- or multiple-
   color multisampled targets into application-owned single-sample textures for
-  sampling or readback;
+  sampling or readback; target constructors can instead take affine ownership
+  of one resolve texture per color and update them automatically after every
+  clear or draw pass;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
@@ -151,14 +153,16 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   tested cube faces rendered unchanged on explicit OpenGL and Vulkan;
 - `examples/render-to-texture`: direct, indexed, and GPU-indirect vertex-buffer
   scene draws render with depth into a 4x multisampled 256x256 affine
-  color/depth target, explicitly resolve into an application-owned single-
-  sample texture, then a fullscreen textured pass samples it into the window;
+  color/depth target with an owned single-sample resolve texture, then a
+  fullscreen textured pass samples the automatically resolved output into the
+  window;
   one reusable target-bound pass supplies all four offscreen command forms for
   four allocation-free frames on both backends;
 - `examples/multiple-render-targets`: one pure-Abla `$glsl` fragment stage
   writes exact red and green results to two 4x multisampled affine color
   attachments over a blue attachment loaded from the prior pass and a
-  separately cleared cyan attachment, then resolves both colors independently,
+  separately cleared cyan attachment, then automatically resolves both owned
+  colors independently,
   while also exercising discard operations and depth for four allocation-free
   frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched

@@ -447,7 +447,8 @@ fun applicationBackendProbe(
     val multisampleResolve = app.texture(TextureDescriptor(
         label = "multisample-resolve",
         size = Extent3D(24, 24),
-        usage = textureUsageCopyDestination | textureUsageCopySource
+        usage = textureUsageRenderAttachment |
+            textureUsageCopyDestination | textureUsageCopySource
     ))
     val unsupportedMultisampleSampled = app.texture(TextureDescriptor(
         label = "multisample-sampled",
@@ -471,7 +472,8 @@ fun applicationBackendProbe(
     )
     val multisampleTarget = app.renderTargetWithDepth(
         move(multisampleColor),
-        move(multisampleDepth)
+        move(multisampleDepth),
+        [move(multisampleResolve)]
     )
     val missingRenderUsageTarget = app.renderTarget(
         move(noAttachmentTexture)
@@ -824,14 +826,17 @@ fun applicationBackendProbe(
         multisamplePass
     )
     val multisampleResolved = multisampleRendered &&
-        app.resolveRenderTarget(multisampleTarget, multisampleResolve)
+        app.resolveRenderTarget(
+            multisampleTarget,
+            multisampleTarget.resolveTextures[0]
+        )
     val singleSampleResolveRejected = !app.resolveRenderTarget(
         renderTarget,
-        multisampleResolve
+        multisampleTarget.resolveTextures[0]
     )
     val multipleColorResolveRejected = !app.resolveRenderTarget(
         multipleColorTarget,
-        multisampleResolve
+        multisampleTarget.resolveTextures[0]
     )
     val mismatchedResolveRejected = !app.resolveRenderTarget(
         multisampleTarget,
@@ -840,7 +845,7 @@ fun applicationBackendProbe(
     val invalidColorResolveRejected = !app.resolveRenderTargetColor(
         multisampleTarget,
         1,
-        multisampleResolve
+        multisampleTarget.resolveTextures[0]
     )
     val multisamplePipelineHandle = if (
         app.backend == graphicsBackendOpenGl
@@ -853,11 +858,14 @@ fun applicationBackendProbe(
             multisampleTarget,
             multisamplePipeline,
             multisamplePass
-        ) && app.resolveRenderTarget(multisampleTarget, multisampleResolve)
+        ) && app.resolveRenderTarget(
+            multisampleTarget,
+            multisampleTarget.resolveTextures[0]
+        )
         multisampleRepeat = multisampleRepeat + 1
     }
     val multisampleLiveAfter = runtimeMemoryLiveBytes()
-    val multisamplePixel = multisampleResolve.rgba8(12, 12)
+    val multisamplePixel = multisampleTarget.resolveTextures[0].rgba8(12, 12)
     val multisampleNoGrowth =
         multisampleLiveAfter == multisampleLiveBefore
     val multisampleHandlesStable = if (
@@ -1091,6 +1099,8 @@ fun applicationBackendProbe(
         multisampleTarget.valid() && multisampleTarget.hasDepth() &&
         multisampleTarget.texture.descriptor.samples == 4 &&
         multisampleTarget.depthTexture.descriptor.samples == 4 &&
+        multisampleTarget.resolveTextures.size == 1 &&
+        multisampleTarget.resolveTextures[0].descriptor.samples == 1 &&
         multisamplePipeline.valid() && multisamplePass.valid() &&
         multisampleRendered && multisampleResolved &&
         multisamplePixel == 4294281759 && multisampleRepeated &&

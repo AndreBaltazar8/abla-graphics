@@ -13,11 +13,14 @@ resource class GraphicsRenderTarget(
     val vulkan: VulkanRenderTarget,
     val texture: GraphicsTexture,
     val additionalTextures: array<GraphicsTexture>,
+    val resolveTextures: array<GraphicsTexture>,
     val depthTexture: GraphicsTexture,
     val backend: int,
     val error: GraphicsError
 ) {
     fun colorCount(): int = 1 + this.additionalTextures.size
+
+    fun hasResolves(): bool = this.resolveTextures.size > 0
 
     fun additionalColorsValid(): bool {
         var valid = this.additionalTextures.size <= 7
@@ -39,11 +42,38 @@ resource class GraphicsRenderTarget(
         valid
     }
 
+    fun resolvesValid(): bool {
+        var valid = this.resolveTextures.size == 0 || (
+            this.texture.descriptor.samples > 1 &&
+            this.resolveTextures.size == this.colorCount()
+        )
+        var index = 0
+        while (valid && index < this.resolveTextures.size) {
+            val resolve = this.resolveTextures[index]
+            val source = if (index == 0) this.texture.descriptor
+                else this.additionalTextures[index - 1].descriptor
+            valid = resolve.valid() && resolve.backend == this.backend &&
+                resolve.descriptor.samples == 1 &&
+                resolve.descriptor.dimension == textureDimension2D &&
+                !textureFormatHasDepth(resolve.descriptor.format) &&
+                resolve.descriptor.format == source.format &&
+                resolve.descriptor.size.width == source.size.width &&
+                resolve.descriptor.size.height == source.size.height &&
+                (resolve.descriptor.usage &
+                    textureUsageRenderAttachment) != 0 &&
+                (resolve.descriptor.usage &
+                    textureUsageCopyDestination) != 0
+            index = index + 1
+        }
+        valid
+    }
+
     fun valid(): bool = !this.error.occurred() &&
         this.texture.valid() &&
         (this.texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
         !textureFormatHasDepth(this.texture.descriptor.format) &&
         this.additionalColorsValid() &&
+        this.resolvesValid() &&
         (!this.depthTexture.valid() || (
             this.depthTexture.backend == this.backend &&
             textureFormatHasDepth(this.depthTexture.descriptor.format) &&
@@ -66,6 +96,11 @@ resource class GraphicsRenderTarget(
             this.additionalTextures[index].drop()
             index = index + 1
         }
+        index = 0
+        while (index < this.resolveTextures.size) {
+            this.resolveTextures[index].drop()
+            index = index + 1
+        }
         this.depthTexture.drop()
         return
     }
@@ -84,6 +119,15 @@ resource class GraphicsRenderTarget(
             this.additionalTextures[index].vulkan.storeLayout(
                 0,
                 if ((this.additionalTextures[index].descriptor.usage &
+                    textureUsageSampled) != 0) 5 else 2
+            )
+            index = index + 1
+        }
+        index = 0
+        while (index < this.resolveTextures.size) {
+            this.resolveTextures[index].vulkan.storeLayout(
+                0,
+                if ((this.resolveTextures[index].descriptor.usage &
                     textureUsageSampled) != 0) 5 else 2
             )
             index = index + 1
@@ -136,6 +180,42 @@ resource class GraphicsRenderPass(
         this.values.drop()
         return
     }
+}
+
+fun GraphicsApplication.resolveAttachmentsValid(
+    texture: GraphicsTexture,
+    additionalTextures: array<GraphicsTexture>,
+    resolveTextures: array<GraphicsTexture>
+): bool {
+    var valid = resolveTextures.size == 0 || (
+        texture.descriptor.samples > 1 &&
+        resolveTextures.size == 1 + additionalTextures.size
+    )
+    var index = 0
+    while (valid && index < resolveTextures.size) {
+        val resolve = resolveTextures[index]
+        val sourceDescriptor = if (index == 0) texture.descriptor
+            else additionalTextures[index - 1].descriptor
+        valid = resolve.valid() && this.ownsTexture(resolve) &&
+            resolve.descriptor.samples == 1 &&
+            resolve.descriptor.dimension == textureDimension2D &&
+            resolve.descriptor.format == sourceDescriptor.format &&
+            resolve.descriptor.size.width == sourceDescriptor.size.width &&
+            resolve.descriptor.size.height == sourceDescriptor.size.height &&
+            (resolve.descriptor.usage &
+                textureUsageRenderAttachment) != 0 &&
+            (resolve.descriptor.usage &
+                textureUsageCopyDestination) != 0 &&
+            (if (index == 0) !texture.sameResource(resolve)
+             else !additionalTextures[index - 1].sameResource(resolve))
+        var earlier = 0
+        while (valid && earlier < index) {
+            valid = !resolveTextures[earlier].sameResource(resolve)
+            earlier = earlier + 1
+        }
+        index = index + 1
+    }
+    valid
 }
 
 trusted fun GraphicsApplication.renderPass(
@@ -260,7 +340,8 @@ trusted fun GraphicsApplication.renderPass(
 }
 
 trusted fun GraphicsApplication.renderTarget(
-    own texture: GraphicsTexture
+    own texture: GraphicsTexture,
+    own resolveTextures: array<GraphicsTexture> = []
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
         0,
@@ -295,7 +376,8 @@ trusted fun GraphicsApplication.renderTarget(
         this.ownsTexture(texture) &&
         texture.descriptor.dimension == textureDimension2D &&
         !textureFormatHasDepth(texture.descriptor.format) &&
-        (texture.descriptor.usage & textureUsageRenderAttachment) != 0
+        (texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
+        this.resolveAttachmentsValid(texture, [], resolveTextures)
     if (!compatible) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
@@ -329,6 +411,7 @@ trusted fun GraphicsApplication.renderTarget(
         move(vulkan),
         move(texture),
         [],
+        move(resolveTextures),
         emptyGraphicsTexture(),
         this.backend,
         error
@@ -337,7 +420,8 @@ trusted fun GraphicsApplication.renderTarget(
 
 trusted fun GraphicsApplication.renderTargetWithDepth(
     own texture: GraphicsTexture,
-    own depthTexture: GraphicsTexture
+    own depthTexture: GraphicsTexture,
+    own resolveTextures: array<GraphicsTexture> = []
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
         0,
@@ -382,7 +466,8 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
             depthTexture.descriptor.size.height &&
         (texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
         (depthTexture.descriptor.usage &
-            textureUsageRenderAttachment) != 0
+            textureUsageRenderAttachment) != 0 &&
+        this.resolveAttachmentsValid(texture, [], resolveTextures)
     if (!compatible) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
@@ -422,6 +507,7 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
         move(vulkan),
         move(texture),
         [],
+        move(resolveTextures),
         move(depthTexture),
         this.backend,
         error
@@ -430,7 +516,8 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
 
 trusted fun GraphicsApplication.renderTargetWithColors(
     own texture: GraphicsTexture,
-    own additionalTextures: array<GraphicsTexture>
+    own additionalTextures: array<GraphicsTexture>,
+    own resolveTextures: array<GraphicsTexture> = []
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
         0,
@@ -497,6 +584,11 @@ trusted fun GraphicsApplication.renderTargetWithColors(
         }
         index = index + 1
     }
+    compatible = compatible && this.resolveAttachmentsValid(
+        texture,
+        additionalTextures,
+        resolveTextures
+    )
     var error = GraphicsError()
     if (!compatible) error = GraphicsError(
         graphicsErrorInvalidConfiguration,
@@ -539,6 +631,7 @@ trusted fun GraphicsApplication.renderTargetWithColors(
         move(vulkan),
         move(texture),
         move(additionalTextures),
+        move(resolveTextures),
         emptyGraphicsTexture(),
         this.backend,
         error
@@ -548,7 +641,8 @@ trusted fun GraphicsApplication.renderTargetWithColors(
 trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
     own texture: GraphicsTexture,
     own additionalTextures: array<GraphicsTexture>,
-    own depthTexture: GraphicsTexture
+    own depthTexture: GraphicsTexture,
+    own resolveTextures: array<GraphicsTexture> = []
 ): GraphicsRenderTarget {
     var openGl = OpenGlRenderTarget(
         0,
@@ -624,6 +718,11 @@ trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
         }
         index = index + 1
     }
+    compatible = compatible && this.resolveAttachmentsValid(
+        texture,
+        additionalTextures,
+        resolveTextures
+    )
     var error = GraphicsError()
     if (!compatible) error = GraphicsError(
         graphicsErrorInvalidConfiguration,
@@ -666,6 +765,7 @@ trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
         move(vulkan),
         move(texture),
         move(additionalTextures),
+        move(resolveTextures),
         move(depthTexture),
         this.backend,
         error
@@ -694,8 +794,8 @@ trusted fun GraphicsApplication.clearRenderTarget(
             clear.blue,
             clear.alpha
         )
-        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
+    if (succeeded) succeeded = this.finishRenderTarget(target)
     succeeded
 }
 
@@ -724,8 +824,8 @@ trusted fun GraphicsApplication.clearRenderTargetValues(
             values.alpha,
             values.address
         )
-        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
+    if (succeeded) succeeded = this.finishRenderTarget(target)
     succeeded
 }
 
@@ -793,5 +893,25 @@ trusted fun GraphicsApplication.resolveRenderTargetColor(
             )
         }
     } else if (succeeded) succeeded = false
+    succeeded
+}
+
+trusted fun GraphicsApplication.finishRenderTarget(
+    target: GraphicsRenderTarget
+): bool {
+    var succeeded = this.valid() && target.valid() &&
+        target.backend == this.backend
+    if (succeeded && this.backend == graphicsBackendVulkan) {
+        target.storeVulkanLayouts()
+    }
+    var index = 0
+    while (succeeded && index < target.resolveTextures.size) {
+        succeeded = this.resolveRenderTargetColor(
+            target,
+            index,
+            target.resolveTextures[index]
+        )
+        index = index + 1
+    }
     succeeded
 }

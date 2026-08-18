@@ -275,13 +275,15 @@ Updated: 2026-08-18.
 - Multisampled target foundation: render-attachment-only 2x/4x/8x/16x color
   and depth textures allocate `GL_TEXTURE_2D_MULTISAMPLE` objects or Vulkan
   images with matching attachment and pipeline sample state. A real 4x
-  color/depth target renders and explicitly resolves into an application-owned
+  color/depth target renders and automatically resolves into a target-owned
   single-sample texture with exact readback, stable native handles, and zero
   live-memory growth on explicit/automatic OpenGL and Vulkan. OpenGL reuses a
   target-owned resolve FBO; Vulkan reuses device transfer state and explicit
   image barriers. `resolveRenderTargetColor` selects and verifies individual
-  MRT colors. Multisampled sampled usage is rejected; render-pass-integrated
-  resolve attachments remain explicitly unclaimed.
+  MRT colors. Target constructors optionally own exactly one resolve texture
+  per color and automatically update them after every clear or draw, including
+  all MRT command forms. Multisampled sampled usage is rejected; Vulkan native
+  subpass resolve references remain explicitly unclaimed.
 - Multiple color attachments: `renderTargetWithColors` and
   `renderTargetWithColorsAndDepth` take affine ownership of two to eight
   same-size render textures, optionally plus depth, while preserving attachment
@@ -428,7 +430,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  render-pass-integrated multisample resolve attachments,
+  Vulkan subpass-native multisample resolve references,
   persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command
   encoders/render
