@@ -212,7 +212,11 @@ class X11Setup(
     val blackPixel: int,
     val whitePixel: int,
     val minimumKeycode: int,
-    val maximumKeycode: int
+    val maximumKeycode: int,
+    val screenWidth: int,
+    val screenHeight: int,
+    val screenWidthMillimeters: int,
+    val screenHeightMillimeters: int
 )
 
 fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
@@ -263,6 +267,10 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
     var whitePixel = 0
     var minimumKeycode = 0
     var maximumKeycode = 0
+    var screenWidth = 0
+    var screenHeight = 0
+    var screenWidthMillimeters = 0
+    var screenHeightMillimeters = 0
     if (succeeded) {
         resourceBase = x11U32(body, 4)
         resourceMask = x11U32(body, 8)
@@ -278,9 +286,14 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
             root = x11U32(body, screenOffset)
             whitePixel = x11U32(body, screenOffset + 8)
             blackPixel = x11U32(body, screenOffset + 12)
+            screenWidth = x11U16(body, screenOffset + 20)
+            screenHeight = x11U16(body, screenOffset + 22)
+            screenWidthMillimeters = x11U16(body, screenOffset + 24)
+            screenHeightMillimeters = x11U16(body, screenOffset + 26)
             rootVisual = x11U32(body, screenOffset + 32)
             rootDepth = body[screenOffset + 38]
-            succeeded = root != 0 && resourceMask != 0 && rootDepth > 0
+            succeeded = root != 0 && resourceMask != 0 && rootDepth > 0 &&
+                screenWidth > 0 && screenHeight > 0
         }
     }
     X11Setup(
@@ -293,7 +306,11 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
         blackPixel,
         whitePixel,
         minimumKeycode,
-        maximumKeycode
+        maximumKeycode,
+        screenWidth,
+        screenHeight,
+        screenWidthMillimeters,
+        screenHeightMillimeters
     )
 }
 
@@ -780,6 +797,7 @@ resource class X11Window(
     val protocolsAtom: int,
     val deleteAtom: int,
     val keysyms: array<int>,
+    val primaryMonitor: Monitor,
     var width: int,
     var height: int,
     var visible: bool,
@@ -1021,12 +1039,20 @@ fun x11Window(
     var protocolsAtom = 0
     var deleteAtom = 0
     var keysyms: array<int> = []
+    var primaryMonitor = Monitor()
     if (config.valid() && !config.transparent) {
         descriptor = x11ConnectUnix(displayNumber)
     }
     if (descriptor >= 0) {
         val setup = x11Setup(descriptor, x11Authority(displayNumber))
         if (setup.succeeded) {
+            primaryMonitor = Monitor(
+                "X11 screen 0",
+                setup.screenWidth,
+                setup.screenHeight,
+                setup.screenWidthMillimeters,
+                setup.screenHeightMillimeters
+            )
             keysyms = x11KeyboardMapping(
                 descriptor,
                 setup.minimumKeycode,
@@ -1117,6 +1143,7 @@ fun x11Window(
         protocolsAtom,
         deleteAtom,
         keysyms,
+        primaryMonitor,
         config.width,
         config.height,
         config.visible,

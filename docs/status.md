@@ -17,7 +17,8 @@ Updated: 2026-08-18.
   diagnostic codes, event poll/decode, initially hidden windows, idempotent
   show/hide, runtime title changes, ConfigureWindow/ConfigureNotify resize with
   authoritative owned dimensions, fixed-size and undecorated WM hints,
-  fullscreen EWMH state, explicit transparent-window rejection,
+  fullscreen EWMH state, setup-derived screen pixel/physical dimensions with
+  DPI/content scale, explicit transparent-window rejection,
   WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
   against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics
@@ -138,12 +139,13 @@ the common facade and OpenGL/Vulkan software-frame presentation, from clean
 checkouts against the pinned software drivers. Newer commits retain the same
 local full-matrix gate before publication and receive their own hosted run.
 
-Compiler commits `9581d03` and `db72fbf` now provide runtime `f64` literals,
-arithmetic, comparisons, direct/native/export/boxing ABI coverage, and exact
-bit-representation helpers. The public vector and color surface has migrated to
-native `f64`; OpenGL/Vulkan ABI fields receive deterministic binary32 rounding
-in pure Abla. Compile-time floating evaluation and explicit language-level
-`f32` conversion remain future toolchain work.
+Compiler commits `9581d03`, `db72fbf`, and `a38bca7` now provide runtime `f64`
+literals, arithmetic, comparisons, direct/native/export/boxing ABI coverage,
+exact bit-representation helpers, and explicit signed `int` conversion. The
+public math, color, and DPI surface uses native `f64`; OpenGL/Vulkan ABI fields
+receive deterministic binary32 rounding in pure Abla. Compile-time floating
+evaluation and explicit language-level `f32` conversion remain future toolchain
+work.
 
 ## Not yet claimed
 

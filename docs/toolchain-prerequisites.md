@@ -6,11 +6,12 @@ special cases in the framework.
 
 ## Floating-point expressions
 
-Compiler commits `9581d03` and `db72fbf` provide decimal and exponent literals
-defaulting to `f64`, checked runtime `f64` arithmetic and comparisons, direct
-and native ABI lowering, exported/boxed values, arrays, class fields, closures,
-globals, and exact `f64ToBits`/`f64FromBits` representation helpers. The public
-graphics vector and color surface therefore uses native `f64` values.
+Compiler commits `9581d03`, `db72fbf`, and `a38bca7` provide decimal and
+exponent literals defaulting to `f64`, checked runtime `f64` arithmetic and
+comparisons, direct and native ABI lowering, exported/boxed values, arrays,
+class fields, closures, globals, exact `f64ToBits`/`f64FromBits`
+representation helpers, and explicit signed `int` to `f64` conversion. The
+public graphics math, color, and DPI surface therefore uses native `f64` values.
 
 Abla Graphics performs deterministic round-to-nearest-even conversion from
 binary64 to binary32 in pure Abla when OpenGL or Vulkan requires an `f32` bit

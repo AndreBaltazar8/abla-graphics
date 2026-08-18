@@ -13,8 +13,9 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a backend-neutral configuration, error, geometry, and native `f64` math core;
 - an affine pure-Abla X11 window that opens the Unix socket, performs the X11
   authenticated handshake, honors visibility/size/decoration/fullscreen hints,
-  maps portable keyboard/pointer/scroll/UTF-8 text events, and handles the
-  WM_DELETE_WINDOW protocol before destroying it;
+  reports screen dimensions/DPI/content scale, maps portable
+  keyboard/pointer/scroll/UTF-8 text events, and handles the WM_DELETE_WINDOW
+  protocol before destroying it;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,

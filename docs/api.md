@@ -37,6 +37,10 @@ val model = mat4Translation(Vec3(3.0, 5.0, 7.0)).multiplied(
 val worldPoint = model.transformPoint(Vec3(1.0, 1.0, 1.0))
 ```
 
+`app.primaryMonitor()` reports the X11 setup screen's pixel and physical
+dimensions plus derived DPI/content scale. A server that omits physical size
+uses the portable 96 DPI baseline rather than returning zero or dividing by it.
+
 OpenGL applications may also keep one reusable software frame and upload it
 without rebuilding shaders, textures, or general heap values per frame:
 
