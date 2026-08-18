@@ -25,11 +25,13 @@ resource class GraphicsRenderPipeline(
     val targetHeight: int,
     val targetFormat: int,
     val targetColorCount: int,
+    val targetSubpass: int,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
         this.raster.valid() && this.depth.valid() && this.shader.valid &&
         (this.binding.empty() || this.binding.valid()) &&
+        this.targetSubpass >= 0 && this.targetSubpass <= 7 &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -39,6 +41,32 @@ resource class GraphicsRenderPipeline(
         this.binding.drop()
         return
     }
+}
+
+resource class GraphicsSubpassPipelineSequence(
+    var pipelines: array<GraphicsRenderPipeline>,
+    val vulkanHandles: array<int>,
+    val vulkanLayouts: array<int>,
+    val vulkanDepthEnabled: array<bool>,
+    val vulkanRequiresBinding: array<bool>,
+    val vulkanDescriptorSets: array<int>,
+    val backend: int,
+    val targetHandle: int,
+    val renderPassHandle: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() && this.pipelines.size >= 2 &&
+        this.pipelines.size <= 8 &&
+        ((this.backend == graphicsBackendOpenGl &&
+          this.vulkanHandles.size == 0) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.renderPassHandle != 0 &&
+          this.vulkanHandles.size == this.pipelines.size &&
+          this.vulkanLayouts.size == this.pipelines.size &&
+          this.vulkanDepthEnabled.size == this.pipelines.size &&
+          this.vulkanRequiresBinding.size == this.pipelines.size &&
+          this.vulkanDescriptorSets.size == this.pipelines.size))
+
 }
 
 trusted fun GraphicsApplication.renderPipeline(
@@ -55,7 +83,8 @@ trusted fun GraphicsApplication.renderPipeline(
     targetHeight: int = 0,
     targetDepthView: int = 0,
     targetColorCount: int = 1,
-    targetSamples: int = 1
+    targetSamples: int = 1,
+    targetSubpass: int = 0
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -84,10 +113,12 @@ trusted fun GraphicsApplication.renderPipeline(
     val offscreen = targetHandle != 0
     val targetValid = (!offscreen && targetRenderPass == 0 &&
         targetView == 0 && targetFormat == 0 && targetDepthView == 0 &&
-        targetWidth == 0 && targetHeight == 0 && targetSamples == 1) ||
+        targetWidth == 0 && targetHeight == 0 && targetSamples == 1 &&
+        targetSubpass == 0) ||
         (offscreen && targetWidth > 0 && targetHeight > 0 &&
          (targetSamples == 1 || targetSamples == 2 || targetSamples == 4 ||
-          targetSamples == 8 || targetSamples == 16) &&
+         targetSamples == 8 || targetSamples == 16) &&
+         targetSubpass >= 0 && targetSubpass <= 7 &&
          ((this.backend == graphicsBackendOpenGl &&
            targetRenderPass == 0 && targetView == 0) ||
           (this.backend == graphicsBackendVulkan &&
@@ -200,7 +231,8 @@ trusted fun GraphicsApplication.renderPipeline(
                 targetHeight,
                 targetDepthView,
                 targetColorCount,
-                targetSamples
+                targetSamples,
+                targetSubpass
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -224,6 +256,7 @@ trusted fun GraphicsApplication.renderPipeline(
         targetHeight,
         targetFormat,
         targetColorCount,
+        targetSubpass,
         error
     )
 }
@@ -263,6 +296,49 @@ trusted fun GraphicsApplication.renderTargetPipeline(
             target.vulkan.depthView else 0,
         target.colorCount(),
         target.texture.descriptor.samples
+    )
+}
+
+trusted fun GraphicsApplication.renderPassPipeline(
+    target: GraphicsRenderTarget,
+    pass: GraphicsRenderPass,
+    subpassIndex: int,
+    shader: ShaderPackage,
+    vertexLayout: VertexBufferLayout = VertexBufferLayout(),
+    raster: RasterPipelineState = RasterPipelineState(),
+    depth: DepthStencilState = DepthStencilState(),
+    own binding: GraphicsBindGroup = emptyGraphicsBindGroup()
+): GraphicsRenderPipeline {
+    val compatible = target.valid() && pass.valid() &&
+        target.backend == this.backend && pass.backend == this.backend &&
+        pass.targetHandle == (if (this.backend == graphicsBackendOpenGl)
+            target.openGl.handle else target.vulkan.framebuffer) &&
+        subpassIndex >= 0 && subpassIndex < pass.subpassCount
+    if (!compatible) this.renderPipeline(
+        shader,
+        vertexLayout,
+        raster,
+        depth,
+        move(binding),
+        -1
+    ) else this.renderPipeline(
+        shader,
+        vertexLayout,
+        raster,
+        depth,
+        move(binding),
+        if (this.backend == graphicsBackendOpenGl) target.openGl.handle
+        else target.vulkan.framebuffer,
+        if (this.backend == graphicsBackendVulkan) pass.vulkan.handle else 0,
+        if (this.backend == graphicsBackendVulkan) target.vulkan.view else 0,
+        if (this.backend == graphicsBackendVulkan) target.vulkan.format else 0,
+        target.texture.descriptor.size.width,
+        target.texture.descriptor.size.height,
+        if (this.backend == graphicsBackendVulkan)
+            target.vulkan.depthView else 0,
+        target.colorCount(),
+        target.texture.descriptor.samples,
+        subpassIndex
     )
 }
 
@@ -386,11 +462,138 @@ trusted fun GraphicsApplication.renderPassToTarget(
     succeeded
 }
 
+trusted fun GraphicsApplication.renderSubpassesToTarget(
+    var target: GraphicsRenderTarget,
+    sequence: GraphicsSubpassPipelineSequence,
+    pass: GraphicsRenderPass
+): bool {
+    var succeeded = sequence.valid() && pass.valid() &&
+        sequence.backend == this.backend &&
+        sequence.targetHandle == pass.targetHandle &&
+        sequence.pipelines.size == pass.subpassCount &&
+        (this.backend != graphicsBackendVulkan ||
+         sequence.renderPassHandle == pass.vulkan.handle)
+    var pipelineIndex = 0
+    while (succeeded && pipelineIndex < sequence.pipelines.size) {
+        val pipeline = sequence.pipelines[pipelineIndex]
+        succeeded = this.renderPassMatchesTarget(
+            target,
+            pipeline,
+            pass,
+            false,
+            pipelineIndex
+        ) && (this.backend != graphicsBackendVulkan ||
+            pipeline.vulkan.renderPass == pass.vulkan.handle)
+        pipelineIndex = pipelineIndex + 1
+    }
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        pipelineIndex = 0
+        while (succeeded && pipelineIndex < sequence.pipelines.size) {
+            val pipeline = sequence.pipelines[pipelineIndex]
+            succeeded = this.openGl.renderProgramTarget(
+                target.openGl,
+                pipeline.openGl,
+                pass.red,
+                pass.green,
+                pass.blue,
+                pass.alpha,
+                pipeline.raster,
+                pipeline.depth,
+                pipeline.vertexLayout,
+                0,
+                3,
+                0,
+                0,
+                1,
+                pipeline.binding.openGlKinds,
+                pipeline.binding.openGlBindings,
+                pipeline.binding.openGlResources,
+                pipeline.binding.openGlSamplers,
+                0,
+                false,
+                pass.clearAddress,
+                if (pipelineIndex == 0) pass.clearMask else 0,
+                if (pipelineIndex == 0) pass.discardBeforeMask else 0,
+                if (pipelineIndex + 1 == sequence.pipelines.size)
+                    pass.discardAfterMask else 0
+            )
+            pipelineIndex = pipelineIndex + 1
+        }
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.renderTargetSubpasses(
+            target.vulkan,
+            pass.vulkan.handle,
+            sequence.vulkanHandles,
+            sequence.vulkanLayouts,
+            sequence.vulkanDepthEnabled,
+            sequence.vulkanRequiresBinding,
+            sequence.vulkanDescriptorSets,
+            pass.clearAddress
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) succeeded = this.finishRenderTarget(target)
+    succeeded
+}
+
+trusted fun GraphicsApplication.subpassPipelines(
+    target: GraphicsRenderTarget,
+    pass: GraphicsRenderPass,
+    own pipelines: array<GraphicsRenderPipeline>
+): GraphicsSubpassPipelineSequence {
+    val handles: array<int> = []
+    val layouts: array<int> = []
+    val depthEnabled: array<bool> = []
+    val requiresBinding: array<bool> = []
+    val descriptorSets: array<int> = []
+    var valid = this.valid() && target.valid() && pass.valid() &&
+        target.backend == this.backend && pass.backend == this.backend &&
+        pipelines.size == pass.subpassCount && pipelines.size >= 2 &&
+        pipelines.size <= 8
+    var pipelineIndex = 0
+    while (valid && pipelineIndex < pipelines.size) {
+        val pipeline = pipelines[pipelineIndex]
+        valid = this.renderPassMatchesTarget(
+            target,
+            pipeline,
+            pass,
+            false,
+            pipelineIndex
+        ) && (this.backend != graphicsBackendVulkan ||
+            pipeline.vulkan.renderPass == pass.vulkan.handle)
+        if (valid && this.backend == graphicsBackendVulkan) {
+            handles.append(pipeline.vulkan.handle)
+            layouts.append(pipeline.vulkan.layout)
+            depthEnabled.append(pipeline.vulkan.depthEnabled)
+            requiresBinding.append(pipeline.vulkan.requiresBinding)
+            descriptorSets.append(pipeline.binding.vulkan.descriptorSet)
+        }
+        pipelineIndex = pipelineIndex + 1
+    }
+    GraphicsSubpassPipelineSequence(
+        move(pipelines),
+        handles,
+        layouts,
+        depthEnabled,
+        requiresBinding,
+        descriptorSets,
+        this.backend,
+        if (valid) pass.targetHandle else 0,
+        if (valid && this.backend == graphicsBackendVulkan)
+            pass.vulkan.handle else 0,
+        if (valid) GraphicsError() else GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.subpassPipelines",
+            "subpass pipelines must match the target, pass, backend, and order"
+        )
+    )
+}
+
 trusted fun GraphicsApplication.renderPassMatchesTarget(
     target: GraphicsRenderTarget,
     pipeline: GraphicsRenderPipeline,
     pass: GraphicsRenderPass,
-    buffered: bool
+    buffered: bool,
+    subpassIndex: int = 0
 ): bool = this.valid() && target.valid() && pipeline.valid() &&
     pass.valid() && pass.backend == this.backend &&
     target.backend == this.backend && pipeline.backend == this.backend &&
@@ -403,6 +606,7 @@ trusted fun GraphicsApplication.renderPassMatchesTarget(
     pipeline.targetWidth == target.texture.descriptor.size.width &&
     pipeline.targetHeight == target.texture.descriptor.size.height &&
     pipeline.targetColorCount == target.colorCount() &&
+    pipeline.targetSubpass == subpassIndex &&
     pipeline.vertexLayout.buffered() == buffered &&
     pipeline.depth.enabled == target.hasDepth()
 

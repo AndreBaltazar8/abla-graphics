@@ -8,7 +8,8 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
-ABLA_SYSROOT="$compiler_root" "$compiler" \
+ABLA_MAX_MEMORY_MB=${ABLA_APPLICATION_TEST_MEMORY_MB:-4096} \
+    ABLA_SYSROOT="$compiler_root" "$compiler" \
     build --project "$project_root/tests/application" \
     -o "$output_directory/application" --no-cache
 

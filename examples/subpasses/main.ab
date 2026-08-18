@@ -1,0 +1,106 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend),
+        WindowConfig(
+            title = "Abla Graphics subpasses",
+            width = 480,
+            height = 320
+        )
+    )
+    val color = app.texture(TextureDescriptor(
+        label = "subpass-color",
+        size = Extent3D(128, 128),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val depth = app.texture(TextureDescriptor(
+        label = "subpass-depth",
+        size = Extent3D(128, 128),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    ))
+    val target = app.renderTargetWithDepth(move(color), move(depth))
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val pass = app.renderPass(
+        target,
+        renderPassClearValues(Color(0.0, 0.0, 0.0), [], 1.0),
+        RenderPassOperations(),
+        2
+    )
+    val first = app.renderPassPipeline(
+        target,
+        pass,
+        0,
+        shader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionNever
+        )
+    )
+    val second = app.renderPassPipeline(
+        target,
+        pass,
+        1,
+        shader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = false,
+            compare = compareFunctionAlways
+        )
+    )
+    val sequence = app.subpassPipelines(
+        target,
+        pass,
+        [move(first), move(second)]
+    )
+    val liveBefore = runtimeMemoryLiveBytes()
+    var rendered = app.valid() && target.valid() && pass.valid() &&
+        sequence.valid()
+    var frame = 0
+    while (rendered && frame < 5) {
+        rendered = app.renderSubpassesToTarget(target, sequence, pass)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val pixel = target.texture.rgba8(64, 64)
+    val passed = rendered && frame == 5 &&
+        liveAfter == liveBefore && pixel == 4294281759
+    println(
+        "subpasses: backend=${graphicsBackendName(app.backend)} pass=$passed frames=$frame pixel=$pixel liveDelta=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}

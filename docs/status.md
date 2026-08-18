@@ -309,6 +309,15 @@ Updated: 2026-08-18.
   attachment-one clear (cyan), exact red/green shader output, and discard
   execution with a depth attachment. Four repeated three-pass sequences
   preserve handles with zero live-memory growth on both backends.
+- Ordered procedural subpasses: one affine pass owns two through eight native
+  Vulkan subpass descriptions and explicit by-region color-output dependencies;
+  `renderPassPipeline` binds a pipeline to each index and
+  `GraphicsSubpassPipelineSequence` precomputes the handles and descriptor sets
+  used by one allocation-free `vkCmdNextSubpass` command sequence. OpenGL maps
+  the same portable contract to ordered FBO draws with boundary-only attachment
+  operations. Integration and sample tests make the first stage fail depth,
+  prove the second stage's exact pixel output, repeat five times with stable
+  handles and zero live-memory growth, and pass with Vulkan validation enabled.
 - Render-to-texture/post-process sample: a 256x256 target receives a procedural
   and buffered scene pass, becomes a sampled-texture bind-group entry, and is
   drawn through a fullscreen surface pass unchanged on OpenGL and Vulkan. The
@@ -437,9 +446,11 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 
-- General multi-subpass Vulkan render-pass descriptors,
-  input/preserve attachment lists and inter-subpass dependencies,
-  synchronization2, and dynamic rendering. The initial raster pipeline,
+- General render-pass graphs with per-subpass input/preserve attachment lists,
+  arbitrary attachment routing and dependency masks, synchronization2, and
+  dynamic rendering. The implemented portable sequence currently gives every
+  stage the target's complete color/depth/resolve attachment set and inserts
+  fixed color-output dependencies. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;

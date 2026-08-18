@@ -777,6 +777,38 @@ version 4.3 or newer and fail as unsupported on an older context. Invalid
 operation values, attachment counts, and target/pass mismatches are rejected
 before encoding.
 
+An ordered procedural subpass sequence is prepared against one pass and target:
+
+```abla
+val pass = app.renderPass(
+    target,
+    move(clears),
+    RenderPassOperations(),
+    2
+)
+val first = app.renderPassPipeline(target, pass, 0, firstShader)
+val second = app.renderPassPipeline(target, pass, 1, secondShader)
+val sequence = app.subpassPipelines(
+    target,
+    pass,
+    [move(first), move(second)]
+)
+app.renderSubpassesToTarget(target, sequence, pass)
+```
+
+The pass and sequence support two through eight stages. Each stage writes the
+target's complete color set and uses the same optional depth and resolve
+attachments; its pipeline may independently select raster, depth, and bind-group
+state. Vulkan creates one native subpass description per stage, inserts
+by-region color-output dependencies, and records `vkCmdNextSubpass` in one
+render pass. OpenGL preserves the same ordered semantics with successive FBO
+draws, applying load operations only before the first and store/discard
+operations only after the final stage. Pipeline handles and Vulkan binding
+arrays are prepared once, so repeated sequence execution performs no general
+heap allocation. The `subpasses` sample makes its first depth test reject every
+fragment and verifies that the second stage alone produces the exact output on
+both backends.
+
 The same pass resource drives every buffered command form without rebuilding
 or repacking its attachment clears:
 

@@ -364,6 +364,10 @@ noescape extern:"c" fun vkCmdBeginRenderPass(
     beginInfo: i64*,
     contents: i32
 ): void
+noescape extern:"c" fun vkCmdNextSubpass(
+    commandBuffer: i64*,
+    contents: i32
+): void
 noescape extern:"c" fun vkCmdEndRenderPass(commandBuffer: i64*): void
 noescape extern:"c" fun vkCmdSetViewport(
     commandBuffer: i64*,
@@ -3408,7 +3412,8 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
     colorLoadOperations: array<int>,
     colorStoreOperations: array<int>,
     depthLoadOperation: int,
-    depthStoreOperation: int
+    depthStoreOperation: int,
+    subpassCount: int = 1
 ): VulkanCompatibleRenderPass {
     val colorCount = 1 + target.additionalViews.size
     val resolveCount = target.resolveViews.size
@@ -3420,6 +3425,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
         resolveFinalLayouts.size == resolveCount &&
         colorLoadOperations.size == colorCount &&
         colorStoreOperations.size == colorCount &&
+        subpassCount >= 1 && subpassCount <= 8 &&
         (!hasDepth || (
             depthLoadOperation >= 0 && depthLoadOperation <= 2 &&
             depthStoreOperation >= 0 && depthStoreOperation <= 1
@@ -3531,32 +3537,72 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             )
             resolveIndex = resolveIndex + 1
         }
-        val subpass = nativeByteBuffer(72)
-        subpass.storeI64(0, 0)
-        subpass.storeI64(8, 0)
-        subpass.storePointer(16, nativeNullPointer())
-        subpass.storeI64(24, colorCount)
-        subpass.storePointer(32, colorReferences.address)
-        subpass.storePointer(
-            40,
-            if (resolveCount > 0) resolveReferences.address
-            else nativeNullPointer()
+        val subpasses = nativeByteBuffer(subpassCount * 72)
+        var subpassIndex = 0
+        while (subpassIndex < subpassCount) {
+            val subpassOffset = subpassIndex * 72
+            subpasses.storeI64(subpassOffset, 0)
+            subpasses.storeI64(subpassOffset + 8, 0)
+            subpasses.storePointer(
+                subpassOffset + 16,
+                nativeNullPointer()
+            )
+            subpasses.storeI64(subpassOffset + 24, colorCount)
+            subpasses.storePointer(
+                subpassOffset + 32,
+                colorReferences.address
+            )
+            subpasses.storePointer(
+                subpassOffset + 40,
+                if (resolveCount > 0) resolveReferences.address
+                else nativeNullPointer()
+            )
+            subpasses.storePointer(
+                subpassOffset + 48,
+                if (hasDepth) depthReference.address else nativeNullPointer()
+            )
+            subpasses.storeI64(subpassOffset + 56, 0)
+            subpasses.storePointer(
+                subpassOffset + 64,
+                nativeNullPointer()
+            )
+            subpassIndex = subpassIndex + 1
+        }
+        val dependencyCount = subpassCount - 1
+        val dependencies = nativeByteBuffer(
+            if (dependencyCount > 0) dependencyCount * 28 else 28
         )
-        subpass.storePointer(
-            48,
-            if (hasDepth) depthReference.address else nativeNullPointer()
-        )
-        subpass.storeI64(56, 0)
-        subpass.storePointer(64, nativeNullPointer())
+        var dependencyIndex = 0
+        while (dependencyIndex < dependencyCount) {
+            val dependencyOffset = dependencyIndex * 28
+            dependencies.storeI64(
+                dependencyOffset,
+                (dependencyIndex + 1) * 4294967296 + dependencyIndex
+            )
+            dependencies.storeI64(
+                dependencyOffset + 8,
+                1024 * 4294967296 + 1024
+            )
+            dependencies.storeI64(
+                dependencyOffset + 16,
+                384 * 4294967296 + 256
+            )
+            dependencies.storeI64(dependencyOffset + 24, 1)
+            dependencyIndex = dependencyIndex + 1
+        }
         val createInfo = nativeByteBuffer(64)
         createInfo.storeI64(0, 38)
         createInfo.storePointer(8, nativeNullPointer())
         createInfo.storeI64(16, attachmentCount * 4294967296)
         createInfo.storePointer(24, attachments.address)
-        createInfo.storeI64(32, 1)
-        createInfo.storePointer(40, subpass.address)
-        createInfo.storeI64(48, 0)
-        createInfo.storePointer(56, nativeNullPointer())
+        createInfo.storeI64(32, subpassCount)
+        createInfo.storePointer(40, subpasses.address)
+        createInfo.storeI64(48, dependencyCount)
+        createInfo.storePointer(
+            56,
+            if (dependencyCount > 0) dependencies.address
+            else nativeNullPointer()
+        )
         val output = nativeI64Cell(0)
         succeeded = vkCreateRenderPass(
             this.handle,
@@ -4174,6 +4220,115 @@ trusted fun VulkanDevice.renderTargetProgram(
                 0,
                 0
             )
+        vkCmdEndRenderPass(this.transferCommand.load())
+        succeeded = this.submitTransfer()
+    }
+    succeeded
+}
+
+trusted fun VulkanDevice.renderTargetSubpasses(
+    target: VulkanRenderTarget,
+    compatibleRenderPass: int,
+    pipelineHandles: array<int>,
+    pipelineLayouts: array<int>,
+    pipelineDepthEnabled: array<bool>,
+    pipelineRequiresBinding: array<bool>,
+    descriptorSets: array<int>,
+    clearStorage: i64*
+): bool {
+    val colorCount = 1 + target.additionalViews.size
+    var succeeded = this.transferValid() && target.valid() &&
+        target.device == this.handle && compatibleRenderPass != 0 &&
+        !pointerIsNull(clearStorage) && pipelineHandles.size >= 2 &&
+        pipelineHandles.size <= 8 &&
+        pipelineLayouts.size == pipelineHandles.size &&
+        pipelineDepthEnabled.size == pipelineHandles.size &&
+        pipelineRequiresBinding.size == pipelineHandles.size &&
+        descriptorSets.size == pipelineHandles.size
+    var pipelineIndex = 0
+    while (succeeded && pipelineIndex < pipelineHandles.size) {
+        succeeded = pipelineHandles[pipelineIndex] != 0 &&
+            pipelineLayouts[pipelineIndex] != 0 &&
+            pipelineDepthEnabled[pipelineIndex] == target.hasDepth() &&
+            pipelineRequiresBinding[pipelineIndex] ==
+                (descriptorSets[pipelineIndex] != 0)
+        pipelineIndex = pipelineIndex + 1
+    }
+    if (succeeded) succeeded = this.beginTransfer()
+    if (succeeded) {
+        this.transferScratch.storeI64(0, 43)
+        this.transferScratch.storePointer(8, nativeNullPointer())
+        this.transferScratch.storeI64(16, compatibleRenderPass)
+        this.transferScratch.storeI64(24, target.framebuffer)
+        this.transferScratch.storeI64(32, 0)
+        this.transferScratch.storeI64(
+            40,
+            target.height * 4294967296 + target.width
+        )
+        this.transferScratch.storeI64(
+            48,
+            colorCount + (if (target.hasDepth()) 1 else 0)
+        )
+        this.transferScratch.storePointer(56, clearStorage)
+        vkCmdBeginRenderPass(
+            this.transferCommand.load(),
+            this.transferScratch.address,
+            0
+        )
+        this.transferScratch.storeI64(0, 0)
+        this.transferScratch.storeI64(
+            8,
+            (graphicsUnsignedIntegerF32Bits(target.height) & 4294967295) *
+                4294967296 +
+                (graphicsUnsignedIntegerF32Bits(target.width) & 4294967295)
+        )
+        this.transferScratch.storeI64(16, 1065353216 * 4294967296)
+        vkCmdSetViewport(
+            this.transferCommand.load(),
+            0,
+            1,
+            this.transferScratch.address
+        )
+        this.transferScratch.storeI64(0, 0)
+        this.transferScratch.storeI64(
+            8,
+            target.height * 4294967296 + target.width
+        )
+        vkCmdSetScissor(
+            this.transferCommand.load(),
+            0,
+            1,
+            this.transferScratch.address
+        )
+        pipelineIndex = 0
+        while (pipelineIndex < pipelineHandles.size) {
+            vkCmdBindPipeline(
+                this.transferCommand.load(),
+                0,
+                pipelineHandles[pipelineIndex]
+            )
+            if (descriptorSets[pipelineIndex] != 0) {
+                this.transferScratch.storeI64(
+                    88,
+                    descriptorSets[pipelineIndex]
+                )
+                vkCmdBindDescriptorSets(
+                    this.transferCommand.load(),
+                    0,
+                    pipelineLayouts[pipelineIndex],
+                    0,
+                    1,
+                    this.transferScratch.pointerAt(88),
+                    0,
+                    nativeNullPointer()
+                )
+            }
+            vkCmdDraw(this.transferCommand.load(), 3, 1, 0, 0)
+            if (pipelineIndex + 1 < pipelineHandles.size) {
+                vkCmdNextSubpass(this.transferCommand.load(), 0)
+            }
+            pipelineIndex = pipelineIndex + 1
+        }
         vkCmdEndRenderPass(this.transferCommand.load())
         succeeded = this.submitTransfer()
     }
@@ -5256,7 +5411,8 @@ trusted fun VulkanDevice.renderPipeline(
     targetHeight: int = 0,
     targetDepthView: int = 0,
     colorAttachmentCount: int = 1,
-    samples: int = 1
+    samples: int = 1,
+    subpassIndex: int = 0
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -5284,6 +5440,7 @@ trusted fun VulkanDevice.renderPipeline(
         depthCompare >= compareFunctionNever &&
         depthCompare <= compareFunctionAlways &&
         colorAttachmentCount >= 1 && colorAttachmentCount <= 8 &&
+        subpassIndex >= 0 && subpassIndex <= 7 &&
         (offscreen || colorAttachmentCount == 1) &&
         (samples == 1 || samples == 2 || samples == 4 || samples == 8 ||
          samples == 16) && (offscreen || samples == 1) &&
@@ -5628,7 +5785,7 @@ trusted fun VulkanDevice.renderPipeline(
         pipelineInfo.storePointer(96, dynamic.address)
         pipelineInfo.storeI64(104, layout)
         pipelineInfo.storeI64(112, renderPass)
-        pipelineInfo.storeI64(120, 0)
+        pipelineInfo.storeI64(120, subpassIndex)
         pipelineInfo.storeI64(128, 0)
         pipelineInfo.storeI64(136, 4294967295)
         val output = nativeI64Cell(0)

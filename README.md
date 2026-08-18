@@ -88,7 +88,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   sampling or readback; target constructors can instead take affine ownership
   of one resolve texture per color and update them automatically after every
   clear or draw pass through native Vulkan subpass resolve attachments or a
-  reusable OpenGL resolve FBO;
+  reusable OpenGL resolve FBO; prepared two-to-eight-stage procedural subpass
+  sequences bind one affine pipeline per stage, map to native Vulkan subpasses
+  with explicit dependencies, and retain an allocation-free ordered OpenGL
+  fallback;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - an allocation-free portable idle boundary backed directly by `glFinish` or

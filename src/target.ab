@@ -143,6 +143,7 @@ resource class GraphicsRenderPass(
     val height: int,
     val colorCount: int,
     val hasDepth: bool,
+    val subpassCount: int,
     val backend: int,
     val red: f64,
     val green: f64,
@@ -161,7 +162,8 @@ resource class GraphicsRenderPass(
 ) {
     fun valid(): bool = !this.error.occurred() && this.targetHandle != 0 &&
         this.width > 0 && this.height > 0 && this.colorCount >= 1 &&
-        this.colorCount <= 8 && !pointerIsNull(this.clearAddress) &&
+        this.colorCount <= 8 && this.subpassCount >= 1 &&
+        this.subpassCount <= 8 && !pointerIsNull(this.clearAddress) &&
         this.clearCapacity >= this.colorCount * 16 + 8 &&
         graphicsColorScalarsValid(
             this.red,
@@ -245,13 +247,15 @@ fun graphicsTextureDescriptors(
 trusted fun GraphicsApplication.renderPass(
     target: GraphicsRenderTarget,
     own values: RenderPassClearValues,
-    operations: RenderPassOperations = RenderPassOperations()
+    operations: RenderPassOperations = RenderPassOperations(),
+    subpassCount: int = 1
 ): GraphicsRenderPass {
     var error = GraphicsError()
     var valid = this.valid() && target.valid() &&
         target.backend == this.backend &&
         values.valid(target.colorCount(), target.hasDepth()) &&
-        operations.valid(target.colorCount(), target.hasDepth())
+        operations.valid(target.colorCount(), target.hasDepth()) &&
+        subpassCount >= 1 && subpassCount <= 8
     var clearMask = 0
     var discardBeforeMask = 0
     var discardAfterMask = 0
@@ -334,7 +338,8 @@ trusted fun GraphicsApplication.renderPass(
             colorLoadOperations,
             colorStoreOperations,
             operations.depth.load,
-            operations.depth.store
+            operations.depth.store,
+            subpassCount
         )
         driverFailed = !vulkan.valid()
         valid = vulkan.valid()
@@ -357,6 +362,7 @@ trusted fun GraphicsApplication.renderPass(
         target.texture.descriptor.size.height,
         target.colorCount(),
         target.hasDepth(),
+        subpassCount,
         this.backend,
         values.red,
         values.green,

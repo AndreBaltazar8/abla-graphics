@@ -978,6 +978,138 @@ fun applicationBackendProbe(
         multipleColorTarget,
         move(multipleColorPass)
     )
+    val twoSubpassValues = renderPassClearValues(
+        Color(0.0, 0.0, 1.0),
+        [Color(1.0, 1.0, 0.0)],
+        0.75
+    )
+    val twoSubpassPass = app.renderPass(
+        multipleColorTarget,
+        move(twoSubpassValues),
+        RenderPassOperations(),
+        2
+    )
+    val subpassDepth = DepthStencilState(
+        enabled = true,
+        write = true,
+        compare = compareFunctionNever
+    )
+    val firstSubpassPipeline = app.renderPassPipeline(
+        multipleColorTarget,
+        twoSubpassPass,
+        0,
+        multipleColorShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        subpassDepth
+    )
+    val secondSubpassPipeline = app.renderPassPipeline(
+        multipleColorTarget,
+        twoSubpassPass,
+        1,
+        multipleColorShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = false,
+            compare = compareFunctionAlways
+        )
+    )
+    val wrongStandaloneSubpassRejected = !app.renderPassToTarget(
+        multipleColorTarget,
+        secondSubpassPipeline,
+        twoSubpassPass
+    )
+    val invalidSubpassPipeline = app.renderPassPipeline(
+        multipleColorTarget,
+        twoSubpassPass,
+        2,
+        multipleColorShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        subpassDepth
+    )
+    val invalidZeroSubpasses = app.renderPass(
+        multipleColorTarget,
+        renderPassClearValues(
+            Color(0.0, 0.0, 1.0),
+            [Color(1.0, 1.0, 0.0)],
+            0.75
+        ),
+        RenderPassOperations(),
+        0
+    )
+    val invalidNineSubpasses = app.renderPass(
+        multipleColorTarget,
+        renderPassClearValues(
+            Color(0.0, 0.0, 1.0),
+            [Color(1.0, 1.0, 0.0)],
+            0.75
+        ),
+        RenderPassOperations(),
+        9
+    )
+    val subpassCreationPassed = twoSubpassPass.valid() &&
+        twoSubpassPass.subpassCount == 2 &&
+        firstSubpassPipeline.valid() &&
+        firstSubpassPipeline.targetSubpass == 0 &&
+        secondSubpassPipeline.valid() &&
+        secondSubpassPipeline.targetSubpass == 1 &&
+        wrongStandaloneSubpassRejected &&
+        !invalidSubpassPipeline.valid() &&
+        invalidSubpassPipeline.error.code ==
+            graphicsErrorInvalidConfiguration &&
+        !invalidZeroSubpasses.valid() && !invalidNineSubpasses.valid() &&
+        (app.backend == graphicsBackendOpenGl || (
+            twoSubpassPass.vulkan.handle != 0 &&
+            firstSubpassPipeline.vulkan.renderPass ==
+                twoSubpassPass.vulkan.handle &&
+            secondSubpassPipeline.vulkan.renderPass ==
+                twoSubpassPass.vulkan.handle
+        ))
+    val subpassSequence = app.subpassPipelines(
+        multipleColorTarget,
+        twoSubpassPass,
+        [move(firstSubpassPipeline), move(secondSubpassPipeline)]
+    )
+    val subpassFirstHandle = if (app.backend == graphicsBackendOpenGl)
+        subpassSequence.pipelines[0].openGl.handle
+    else subpassSequence.vulkanHandles[0]
+    val subpassSecondHandle = if (app.backend == graphicsBackendOpenGl)
+        subpassSequence.pipelines[1].openGl.handle
+    else subpassSequence.vulkanHandles[1]
+    val subpassLiveBefore = runtimeMemoryLiveBytes()
+    var subpassesRendered = app.renderSubpassesToTarget(
+        multipleColorTarget,
+        subpassSequence,
+        twoSubpassPass
+    )
+    var subpassRepeat = 0
+    while (subpassesRendered && subpassRepeat < 4) {
+        subpassesRendered = app.renderSubpassesToTarget(
+            multipleColorTarget,
+            subpassSequence,
+            twoSubpassPass
+        )
+        subpassRepeat = subpassRepeat + 1
+    }
+    val subpassLiveAfter = runtimeMemoryLiveBytes()
+    val subpassPixelZero = multipleColorTarget.texture.rgba8(8, 8)
+    val subpassPixelOne =
+        multipleColorTarget.additionalTextures[0].rgba8(8, 8)
+    val subpassExecutionPassed = subpassSequence.valid() &&
+        subpassesRendered && subpassRepeat == 4 &&
+        subpassLiveAfter == subpassLiveBefore &&
+        subpassPixelZero == 4278190335 &&
+        subpassPixelOne == 4278255360 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            subpassSequence.pipelines[0].openGl.handle ==
+                subpassFirstHandle &&
+            subpassSequence.pipelines[1].openGl.handle ==
+                subpassSecondHandle
+         else subpassSequence.vulkanHandles[0] == subpassFirstHandle &&
+            subpassSequence.vulkanHandles[1] == subpassSecondHandle)
     val invalidMultipleColorPass = renderPassClearValues(
         Color(0.0, 0.0, 1.0),
         [],
@@ -1112,7 +1244,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && waited && waitNoGrowth &&
         timestampsPassed &&
@@ -1201,6 +1333,7 @@ fun applicationBackendProbe(
         multipleColorTarget.colorCount() == 2 &&
         multipleColorPipeline.valid() && multipleColorRendered &&
         multipleRenderPass.valid() &&
+        subpassCreationPassed && subpassExecutionPassed &&
         multipleRenderPass.clearMask == 259 &&
         multipleRenderPass.discardBeforeMask == 0 &&
         multipleRenderPass.discardAfterMask == 0 &&
