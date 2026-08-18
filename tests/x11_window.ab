@@ -16,9 +16,16 @@ fun main: int {
         height = 64,
         transparent = true
     ))
+    val clipboardPeer = x11Window(WindowConfig(
+        title = "Abla clipboard peer",
+        width = 64,
+        height = 64,
+        visible = false
+    ))
     val monitor = window.primaryMonitor
     var passed = window.valid() &&
         !transparentWindow.valid() &&
+        clipboardPeer.valid() &&
         window.keyboardMapped() &&
         window.width == 320 &&
         window.height == 180 &&
@@ -138,6 +145,28 @@ fun main: int {
     }
     if (passed) passed = event.scrollX() == 0 && event.scrollY() == 1 &&
         event.platformCode == 4
+    if (passed) passed = window.setClipboard("Abla clipboard ✓") &&
+        clipboardPeer.requestClipboardFormats()
+    event = WindowEvent()
+    attempts = 0
+    while (passed && event.kind != windowEventClipboard && attempts < 32) {
+        window.pollEvent(50)
+        event = clipboardPeer.pollEvent(50)
+        attempts = attempts + 1
+    }
+    if (passed) passed = event.clipboardSucceeded() &&
+        event.clipboardTextAvailable()
+    if (passed) passed = clipboardPeer.requestClipboard()
+    event = WindowEvent()
+    attempts = 0
+    while (passed && event.kind != windowEventClipboard && attempts < 32) {
+        window.pollEvent(50)
+        event = clipboardPeer.pollEvent(50)
+        attempts = attempts + 1
+    }
+    if (passed) passed = event.clipboardSucceeded() &&
+        event.clipboardTextAvailable() &&
+        event.clipboardText() == "Abla clipboard ✓"
     if (passed) passed = window.requestClose()
     event = WindowEvent()
     attempts = 0
@@ -149,7 +178,7 @@ fun main: int {
     if (passed) passed = event.kind == windowEventCloseRequested
     if (!passed) {
         println(
-            "X11 event test valid=${window.valid()} keyboard=${window.keyboardMapped()} w=$wKeycode protocols=${window.protocolsAtom} delete=${window.deleteAtom} event=${event.kind}"
+            "X11 event test valid=${window.valid()} keyboard=${window.keyboardMapped()} w=$wKeycode protocols=${window.protocolsAtom} delete=${window.deleteAtom} clipboard=${window.clipboardAtom}/${window.clipboardOwned} peer=${clipboardPeer.valid()} event=${event.kind}/${event.first} text='${event.text}'"
         )
     }
     if (passed) 42 else 1

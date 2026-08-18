@@ -830,12 +830,150 @@ fun x11AtomPropertyRequest(
     x11Packet(request, 28)
 }
 
+fun x11BytePropertyRequest(
+    window: int,
+    propertyAtom: int,
+    typeAtom: int,
+    value: string
+): string {
+    var length = value.size
+    if (length > 1048576) length = 1048576
+    val padded = ((length + 3) / 4) * 4
+    val total = 24 + padded
+    val request = nativeByteBuffer(total + 1)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, total / 4)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, propertyAtom)
+    x11StoreU32(request, 12, typeAtom)
+    request.store(16, 8)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, length)
+    var index = 0
+    while (index < length) {
+        request.store(24 + index, value[index])
+        index = index + 1
+    }
+    while (index < padded) {
+        request.store(24 + index, 0)
+        index = index + 1
+    }
+    x11Packet(request, total)
+}
+
+fun x11TargetsPropertyRequest(
+    window: int,
+    propertyAtom: int,
+    utf8Atom: int,
+    targetsAtom: int
+): string {
+    val request = nativeByteBuffer(33)
+    request.store(0, 18)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 8)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, propertyAtom)
+    x11StoreU32(request, 12, 4)
+    request.store(16, 32)
+    request.store(17, 0)
+    request.store(18, 0)
+    request.store(19, 0)
+    x11StoreU32(request, 20, 2)
+    x11StoreU32(request, 24, utf8Atom)
+    x11StoreU32(request, 28, targetsAtom)
+    x11Packet(request, 32)
+}
+
+fun x11SetSelectionOwnerRequest(owner: int, selectionAtom: int): string {
+    val request = nativeByteBuffer(17)
+    request.store(0, 22)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 4)
+    x11StoreU32(request, 4, owner)
+    x11StoreU32(request, 8, selectionAtom)
+    x11StoreU32(request, 12, 0)
+    x11Packet(request, 16)
+}
+
+fun x11GetSelectionOwnerRequest(selectionAtom: int): string {
+    val request = nativeByteBuffer(9)
+    request.store(0, 23)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 2)
+    x11StoreU32(request, 4, selectionAtom)
+    x11Packet(request, 8)
+}
+
+fun x11ConvertSelectionRequest(
+    requestor: int,
+    selectionAtom: int,
+    targetAtom: int,
+    propertyAtom: int
+): string {
+    val request = nativeByteBuffer(25)
+    request.store(0, 24)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 6)
+    x11StoreU32(request, 4, requestor)
+    x11StoreU32(request, 8, selectionAtom)
+    x11StoreU32(request, 12, targetAtom)
+    x11StoreU32(request, 16, propertyAtom)
+    x11StoreU32(request, 20, 0)
+    x11Packet(request, 24)
+}
+
+fun x11SelectionNotifyRequest(
+    requestor: int,
+    selectionAtom: int,
+    targetAtom: int,
+    propertyAtom: int,
+    time: int
+): string {
+    val request = nativeByteBuffer(45)
+    request.store(0, 25)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 11)
+    x11StoreU32(request, 4, requestor)
+    x11StoreU32(request, 8, 0)
+    request.store(12, 31)
+    request.store(13, 0)
+    x11StoreU16(request, 14, 0)
+    x11StoreU32(request, 16, time)
+    x11StoreU32(request, 20, requestor)
+    x11StoreU32(request, 24, selectionAtom)
+    x11StoreU32(request, 28, targetAtom)
+    x11StoreU32(request, 32, propertyAtom)
+    x11StoreU32(request, 36, 0)
+    x11StoreU32(request, 40, 0)
+    x11Packet(request, 44)
+}
+
+fun x11GetPropertyRequest(window: int, propertyAtom: int): string {
+    val request = nativeByteBuffer(25)
+    request.store(0, 20)
+    request.store(1, 1)
+    x11StoreU16(request, 2, 6)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, propertyAtom)
+    x11StoreU32(request, 12, 0)
+    x11StoreU32(request, 16, 0)
+    x11StoreU32(request, 20, 262144)
+    x11Packet(request, 24)
+}
+
 resource class X11Window(
     var descriptor: int,
     val identifier: int,
     val visual: int,
     val protocolsAtom: int,
     val deleteAtom: int,
+    val clipboardAtom: int,
+    val utf8Atom: int,
+    val targetsAtom: int,
+    val clipboardPropertyAtom: int,
     val keysyms: array<int>,
     val primaryMonitor: Monitor,
     var width: int,
@@ -845,7 +983,9 @@ resource class X11Window(
     var title: string,
     var pendingEvent: WindowEvent,
     var pendingPackets: array<string>,
-    var pendingPacketIndex: int
+    var pendingPacketIndex: int,
+    var clipboardOwned: bool,
+    var clipboard: string
 ) {
     fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
     fun keyboardMapped(): bool = x11KeyboardMappingAvailable(this.keysyms)
@@ -858,6 +998,22 @@ resource class X11Window(
             index = index + 1
         }
         result
+    }
+
+    fun readReplyHeader(): string {
+        var reply = ""
+        var reading = this.valid()
+        var queued = 0
+        while (reading && reply == "" && queued < 4096) {
+            val packet = x11ReadExact(this.descriptor, 32)
+            if (packet.size != 32 || packet[0] == 0) reading = false
+            else if (packet[0] == 1) reply = packet
+            else {
+                this.pendingPackets.append(packet)
+                queued = queued + 1
+            }
+        }
+        reply
     }
 
     fun sendSyntheticKey(
@@ -913,19 +1069,7 @@ resource class X11Window(
                     this.descriptor,
                     x11GrabPointerRequest(this.identifier)
                 )
-                var reply = ""
-                var queued = 0
-                while (succeeded && reply == "" && queued < 4096) {
-                    val packet = x11ReadExact(this.descriptor, 32)
-                    if (packet.size != 32 || packet[0] == 0) {
-                        succeeded = false
-                    } else if (packet[0] == 1) {
-                        reply = packet
-                    } else {
-                        this.pendingPackets.append(packet)
-                        queued = queued + 1
-                    }
-                }
+                val reply = if (succeeded) this.readReplyHeader() else ""
                 succeeded = reply.size == 32 && reply[0] == 1 && reply[1] == 0
             } else {
                 succeeded = x11WriteAll(
@@ -936,6 +1080,136 @@ resource class X11Window(
             if (succeeded) this.pointerCaptured = captured
         }
         succeeded
+    }
+
+    fun setClipboard(value: string): bool {
+        var succeeded = this.valid() && value.size <= 1048576 &&
+            this.clipboardAtom != 0 && x11WriteAll(
+                this.descriptor,
+                x11SetSelectionOwnerRequest(
+                    this.identifier,
+                    this.clipboardAtom
+                )
+            ) && x11WriteAll(
+                this.descriptor,
+                x11GetSelectionOwnerRequest(this.clipboardAtom)
+            )
+        val reply = if (succeeded) this.readReplyHeader() else ""
+        succeeded = reply.size == 32 && x11U32(reply, 8) == this.identifier
+        if (succeeded) {
+            this.clipboardOwned = true
+            this.clipboard = value
+        }
+        succeeded
+    }
+
+    fun requestClipboard(): bool = this.valid() &&
+        this.clipboardAtom != 0 && this.utf8Atom != 0 &&
+        this.clipboardPropertyAtom != 0 && x11WriteAll(
+            this.descriptor,
+            x11ConvertSelectionRequest(
+                this.identifier,
+                this.clipboardAtom,
+                this.utf8Atom,
+                this.clipboardPropertyAtom
+            )
+        )
+
+    fun requestClipboardFormats(): bool = this.valid() &&
+        this.clipboardAtom != 0 && this.targetsAtom != 0 &&
+        this.clipboardPropertyAtom != 0 && x11WriteAll(
+            this.descriptor,
+            x11ConvertSelectionRequest(
+                this.identifier,
+                this.clipboardAtom,
+                this.targetsAtom,
+                this.clipboardPropertyAtom
+            )
+        )
+
+    fun serveClipboardRequest(event: string): bool {
+        val requestor = x11U32(event, 12)
+        val selection = x11U32(event, 16)
+        val target = x11U32(event, 20)
+        var property = x11U32(event, 24)
+        if (property == 0) property = target
+        var succeeded = this.clipboardOwned &&
+            selection == this.clipboardAtom && requestor != 0 && property != 0
+        if (succeeded && (target == this.utf8Atom || target == 31)) {
+            succeeded = x11WriteAll(
+                this.descriptor,
+                x11BytePropertyRequest(
+                    requestor,
+                    property,
+                    target,
+                    this.clipboard
+                )
+            )
+        } else if (succeeded && target == this.targetsAtom) {
+            succeeded = x11WriteAll(
+                this.descriptor,
+                x11TargetsPropertyRequest(
+                    requestor,
+                    property,
+                    this.utf8Atom,
+                    this.targetsAtom
+                )
+            )
+        } else succeeded = false
+        x11WriteAll(
+            this.descriptor,
+            x11SelectionNotifyRequest(
+                requestor,
+                selection,
+                target,
+                if (succeeded) property else 0,
+                x11U32(event, 4)
+            )
+        ) && succeeded
+    }
+
+    fun readClipboardProperty(target: int): WindowEvent {
+        var text = ""
+        var textAvailable = false
+        var succeeded = x11WriteAll(
+            this.descriptor,
+            x11GetPropertyRequest(this.identifier, this.clipboardPropertyAtom)
+        )
+        val reply = if (succeeded) this.readReplyHeader() else ""
+        succeeded = reply.size == 32 && x11U32(reply, 12) == 0 &&
+            x11U32(reply, 16) <= 1048576
+        var body = ""
+        if (reply.size == 32) {
+            val bodyLength = x11U32(reply, 4) * 4
+            if (bodyLength >= 0 && bodyLength <= 4194304) {
+                body = x11ReadExact(this.descriptor, bodyLength)
+            }
+        }
+        val itemCount = if (reply.size == 32) x11U32(reply, 16) else 0
+        if (target == this.utf8Atom) {
+            succeeded = succeeded && reply[1] == 8 &&
+                x11U32(reply, 8) == this.utf8Atom && body.size >= itemCount
+            if (succeeded) {
+                text = body.slice(0, itemCount)
+                textAvailable = true
+            }
+        } else if (target == this.targetsAtom) {
+            succeeded = succeeded && reply[1] == 32 &&
+                x11U32(reply, 8) == 4 && body.size >= itemCount * 4
+            var index = 0
+            while (succeeded && index < itemCount) {
+                if (x11U32(body, index * 4) == this.utf8Atom) {
+                    textAvailable = true
+                }
+                index = index + 1
+            }
+        } else succeeded = false
+        WindowEvent(
+            windowEventClipboard,
+            if (succeeded) 1 else 0,
+            if (textAvailable) 1 else 0,
+            text
+        )
     }
 
     fun show(): bool {
@@ -1084,6 +1358,21 @@ resource class X11Window(
                         )
                     } else if (kind == 17) {
                         result = WindowEvent(windowEventCloseRequested)
+                    } else if (kind == 29 &&
+                        x11U32(event, 12) == this.clipboardAtom) {
+                        this.clipboardOwned = false
+                        this.clipboard = ""
+                    } else if (kind == 30) {
+                        this.serveClipboardRequest(event)
+                    } else if (kind == 31 &&
+                        x11U32(event, 12) == this.clipboardAtom) {
+                        if (x11U32(event, 20) == this.clipboardPropertyAtom) {
+                            result = this.readClipboardProperty(
+                                x11U32(event, 16)
+                            )
+                        } else {
+                            result = WindowEvent(windowEventClipboard)
+                        }
                     } else if (kind == 33 && event[1] == 32 &&
                         x11U32(event, 8) == this.protocolsAtom &&
                         x11U32(event, 12) == this.deleteAtom) {
@@ -1140,6 +1429,10 @@ fun x11Window(
     var visual = 0
     var protocolsAtom = 0
     var deleteAtom = 0
+    var clipboardAtom = 0
+    var utf8Atom = 0
+    var targetsAtom = 0
+    var clipboardPropertyAtom = 0
     var keysyms: array<int> = []
     var primaryMonitor = Monitor()
     if (config.valid() && !config.transparent) {
@@ -1162,6 +1455,13 @@ fun x11Window(
             )
             protocolsAtom = x11InternAtom(descriptor, "WM_PROTOCOLS")
             deleteAtom = x11InternAtom(descriptor, "WM_DELETE_WINDOW")
+            clipboardAtom = x11InternAtom(descriptor, "CLIPBOARD")
+            utf8Atom = x11InternAtom(descriptor, "UTF8_STRING")
+            targetsAtom = x11InternAtom(descriptor, "TARGETS")
+            clipboardPropertyAtom = x11InternAtom(
+                descriptor,
+                "ABLA_CLIPBOARD"
+            )
             visual = setup.rootVisual
             identifier = setup.resourceBase | (1 & setup.resourceMask)
             val created = x11WriteAll(
@@ -1171,7 +1471,10 @@ fun x11Window(
             var ready = false
             if (created) {
                 var configured = x11KeyboardMappingAvailable(keysyms) &&
-                    protocolsAtom != 0 && deleteAtom != 0 && x11WriteAll(
+                    protocolsAtom != 0 && deleteAtom != 0 &&
+                    clipboardAtom != 0 && utf8Atom != 0 &&
+                    targetsAtom != 0 && clipboardPropertyAtom != 0 &&
+                    x11WriteAll(
                     descriptor,
                     x11WindowTitleRequest(identifier, config.title)
                 )
@@ -1244,6 +1547,10 @@ fun x11Window(
         visual,
         protocolsAtom,
         deleteAtom,
+        clipboardAtom,
+        utf8Atom,
+        targetsAtom,
+        clipboardPropertyAtom,
         keysyms,
         primaryMonitor,
         config.width,
@@ -1253,6 +1560,8 @@ fun x11Window(
         config.title,
         WindowEvent(),
         [],
-        0
+        0,
+        false,
+        ""
     )
 }

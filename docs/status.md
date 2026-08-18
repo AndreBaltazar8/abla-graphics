@@ -20,7 +20,8 @@ Updated: 2026-08-18.
   resize with authoritative owned dimensions, fixed-size and undecorated WM
   hints,
   fullscreen EWMH state, setup-derived screen pixel/physical dimensions with
-  DPI/content scale, explicit transparent-window rejection,
+  DPI/content scale, asynchronous UTF8_STRING/TARGETS clipboard ownership and
+  transfer between two direct clients, explicit transparent-window rejection,
   WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
   against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
 - Vulkan test: loader version, instance, physical-adapter properties, graphics

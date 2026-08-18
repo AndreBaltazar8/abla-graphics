@@ -15,7 +15,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   authenticated handshake, honors visibility/size/decoration/fullscreen hints,
   reports screen dimensions/DPI/content scale, maps portable
   keyboard/pointer/scroll/UTF-8 text events, supports direct pointer warping
-  and capture, and handles the WM_DELETE_WINDOW protocol before destroying it;
+  and capture, serves asynchronous UTF-8 clipboard selections, and handles the
+  WM_DELETE_WINDOW protocol before destroying it;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,

@@ -44,6 +44,21 @@ uses the portable 96 DPI baseline rather than returning zero or dividing by it.
 the resulting motion is delivered through the same copied event queue.
 `app.setPointerCaptured(true)` performs an idempotent core pointer grab confined
 to the mapped window; release and application teardown explicitly ungrab it.
+Clipboard reads follow X11's asynchronous ownership model:
+
+```abla
+app.setClipboard("copied from Abla")
+app.requestClipboardFormats()
+val event = app.pollEvent(100)
+if (event.clipboardSucceeded() && event.clipboardTextAvailable()) {
+    app.requestClipboard()
+}
+```
+
+The owning window answers `UTF8_STRING` and `TARGETS` selection requests during
+event polling. A successful text request produces another clipboard event whose
+`clipboardText()` contains copied UTF-8. Replies that arrive among unrelated
+input events preserve those events in order for subsequent polls.
 
 OpenGL applications may also keep one reusable software frame and upload it
 without rebuilding shaders, textures, or general heap values per frame:
