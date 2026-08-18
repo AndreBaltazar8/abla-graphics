@@ -38,6 +38,15 @@ class RegistryConstantExpression(
     val error: string
 )
 
+class RegistryTypes(
+    val names: array<string>,
+    val categories: array<string>,
+    val aliases: array<string>,
+    val dependencies: array<string>,
+    val valid: bool,
+    val error: string
+)
+
 fun registryOpeningTagEnd(source: string, begin: int): int =
     textFindByte(source, 62, begin, source.size)
 
@@ -517,6 +526,356 @@ fun registryResolveConstantAliases(
         }
     }
     error
+}
+
+fun registrySortTypeMetadata(
+    var names: array<string>,
+    var categories: array<string>,
+    var aliases: array<string>,
+    var dependencies: array<string>
+): void {
+    var index = 1
+    while (index < names.size) {
+        val name = names[index]
+        val category = categories[index]
+        val alias = aliases[index]
+        val dependency = dependencies[index]
+        var target = index
+        while (target > 0 && registryStringLess(name, names[target - 1])) {
+            names[target] = names[target - 1]
+            categories[target] = categories[target - 1]
+            aliases[target] = aliases[target - 1]
+            dependencies[target] = dependencies[target - 1]
+            target = target - 1
+        }
+        names[target] = name
+        categories[target] = category
+        aliases[target] = alias
+        dependencies[target] = dependency
+        index = index + 1
+    }
+}
+
+fun registryAppendRequiredTypeNames(
+    source: string,
+    begin: int,
+    end: int,
+    wantedApi: string,
+    excludeCompatibility: bool,
+    var requested: array<string>
+): string {
+    var error = ""
+    var cursor = begin
+    while (error == "") {
+        val requireBegin = textFindSequence(source, "<require", cursor, end)
+        if (requireBegin < 0) break
+        val afterName = requireBegin + 8
+        if (afterName < end && source[afterName] != 62 &&
+            source[afterName] != 32 && source[afterName] != 9 &&
+            source[afterName] != 10 && source[afterName] != 13) {
+            cursor = afterName
+            continue
+        }
+        val openEnd = textFindByte(source, 62, afterName, end)
+        if (openEnd < 0) error = "unterminated type requirement"
+        else {
+            val opening = source.slice(requireBegin, openEnd + 1)
+            val requireApi = registryAttribute(opening, "api")
+            val profile = registryAttribute(opening, "profile")
+            val selectedApi = requireApi == "" ||
+                registryTokenListContains(requireApi, wantedApi)
+            val selectedProfile = !excludeCompatibility ||
+                profile != "compatibility"
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, "</require>", openEnd + 1, end
+                )
+                if (close < 0) error = "unterminated type requirement"
+                else {
+                    if (selectedApi && selectedProfile) {
+                        var typeCursor = openEnd + 1
+                        while (error == "") {
+                            val typeBegin = textFindSequence(
+                                source, "<type", typeCursor, close
+                            )
+                            if (typeBegin < 0) break
+                            val typeAfterName = typeBegin + 5
+                            if (typeAfterName < close &&
+                                source[typeAfterName] != 62 &&
+                                source[typeAfterName] != 32 &&
+                                source[typeAfterName] != 9 &&
+                                source[typeAfterName] != 10 &&
+                                source[typeAfterName] != 13) {
+                                typeCursor = typeAfterName
+                            } else {
+                                val typeEnd = textFindByte(
+                                    source, 62, typeAfterName, close
+                                )
+                                if (typeEnd < 0) {
+                                    error = "unterminated required type"
+                                } else {
+                                    val typeOpening = source.slice(
+                                        typeBegin, typeEnd + 1
+                                    )
+                                    val name = registryAttribute(
+                                        typeOpening, "name"
+                                    )
+                                    if (name != "" &&
+                                        !registryArrayContains(
+                                            requested, name
+                                        )) requested.append(name)
+                                    typeCursor = typeEnd + 1
+                                }
+                            }
+                        }
+                    }
+                    cursor = close + 10
+                }
+            }
+        }
+    }
+    error
+}
+
+fun registryTypeBodyName(source: string, begin: int, end: int): string {
+    var result = ""
+    val nameOpen = textFindSequence(source, "<name>", begin, end)
+    if (nameOpen >= 0) {
+        val nameBegin = nameOpen + 6
+        val nameEnd = textFindSequence(source, "</name>", nameBegin, end)
+        if (nameEnd >= 0) result = source.slice(nameBegin, nameEnd)
+    }
+    result
+}
+
+fun registryTypeDefinitionEnd(source: string, begin: int, end: int): int {
+    var result = -1
+    var depth = 1
+    var cursor = begin
+    while (result < 0 && depth > 0) {
+        var opening = textFindSequence(source, "<type", cursor, end)
+        while (opening >= 0 && opening + 5 < end &&
+            source[opening + 5] != 62 && source[opening + 5] != 32 &&
+            source[opening + 5] != 9 && source[opening + 5] != 10 &&
+            source[opening + 5] != 13) {
+            opening = textFindSequence(source, "<type", opening + 5, end)
+        }
+        val closing = textFindSequence(source, "</type>", cursor, end)
+        if (closing < 0) depth = 0
+        else if (opening >= 0 && opening < closing) {
+            depth = depth + 1
+            cursor = opening + 5
+        } else {
+            depth = depth - 1
+            if (depth == 0) result = closing
+            else cursor = closing + 7
+        }
+    }
+    result
+}
+
+fun registryParseTypes(
+    source: string,
+    api: string,
+    inventory: RegistryInventory
+): RegistryTypes {
+    val requested: array<string> = []
+    val names: array<string> = []
+    val categories: array<string> = []
+    val aliases: array<string> = []
+    val dependencies: array<string> = []
+    val priorities: array<int> = []
+    val wantedApi = if (api == "opengl") "gl" else "vulkan"
+    var valid = api == "vulkan" || api == "opengl"
+    var error = if (valid) "" else "API must be vulkan or opengl"
+    var cursor = 0
+    while (valid) {
+        val begin = textFindSequence(source, "<feature", cursor, source.size)
+        if (begin < 0) break
+        val afterName = begin + 8
+        if (afterName < source.size && source[afterName] != 62 &&
+            source[afterName] != 32 && source[afterName] != 9 &&
+            source[afterName] != 10 && source[afterName] != 13) {
+            cursor = afterName
+            continue
+        }
+        val openEnd = registryOpeningTagEnd(source, afterName)
+        if (openEnd < 0) {
+            valid = false
+            error = "unterminated type feature"
+        } else {
+            val opening = source.slice(begin, openEnd + 1)
+            val featureApi = registryAttribute(opening, "api")
+            val selected = registryTokenListContains(featureApi, wantedApi) &&
+                registryAttribute(opening, "name") != ""
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, "</feature>", openEnd + 1, source.size
+                )
+                if (close < 0) {
+                    valid = false
+                    error = "unterminated type feature"
+                } else {
+                    if (selected) {
+                        error = registryAppendRequiredTypeNames(
+                            source, openEnd + 1, close, wantedApi,
+                            api == "opengl", requested
+                        )
+                        if (error != "") valid = false
+                    }
+                    cursor = close + 10
+                }
+            }
+        }
+    }
+    cursor = 0
+    while (valid) {
+        val begin = textFindSequence(source, "<extension", cursor, source.size)
+        if (begin < 0) break
+        val afterName = begin + 10
+        if (afterName < source.size && source[afterName] != 62 &&
+            source[afterName] != 32 && source[afterName] != 9 &&
+            source[afterName] != 10 && source[afterName] != 13) {
+            cursor = afterName
+            continue
+        }
+        val openEnd = registryOpeningTagEnd(source, afterName)
+        if (openEnd < 0) {
+            valid = false
+            error = "unterminated type extension"
+        } else {
+            val opening = source.slice(begin, openEnd + 1)
+            val selected = registryArrayContains(
+                inventory.extensions,
+                registryAttribute(opening, "name")
+            )
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, "</extension>", openEnd + 1, source.size
+                )
+                if (close < 0) {
+                    valid = false
+                    error = "unterminated type extension"
+                } else {
+                    if (selected) {
+                        error = registryAppendRequiredTypeNames(
+                            source, openEnd + 1, close, wantedApi,
+                            api == "opengl", requested
+                        )
+                        if (error != "") valid = false
+                    }
+                    cursor = close + 12
+                }
+            }
+        }
+    }
+    val typesBegin = textFindSequence(source, "<types")
+    val typesOpenEnd = if (typesBegin >= 0)
+        registryOpeningTagEnd(source, typesBegin + 6) else -1
+    val typesEnd = if (typesOpenEnd >= 0)
+        textFindSequence(source, "</types>", typesOpenEnd + 1, source.size)
+    else -1
+    if (valid && (typesBegin < 0 || typesOpenEnd < 0 ||
+        typesEnd <= typesOpenEnd)) {
+        valid = false
+        error = "registry has no complete types definition section"
+    }
+    var previousRequestedSize = -1
+    while (valid && previousRequestedSize != requested.size) {
+        previousRequestedSize = requested.size
+        cursor = typesOpenEnd + 1
+        while (valid) {
+            val begin = textFindSequence(source, "<type", cursor, typesEnd)
+            if (begin < 0) break
+            val afterName = begin + 5
+            if (afterName < typesEnd && source[afterName] != 62 &&
+                source[afterName] != 32 && source[afterName] != 9 &&
+                source[afterName] != 10 && source[afterName] != 13) {
+                cursor = afterName
+                continue
+            }
+            val openEnd = textFindByte(source, 62, afterName, typesEnd)
+            if (openEnd < 0) {
+                valid = false
+                error = "unterminated type definition"
+            } else {
+                val opening = source.slice(begin, openEnd + 1)
+                val selfClosing = registryTagSelfClosing(opening)
+                val close = if (selfClosing) openEnd else
+                    registryTypeDefinitionEnd(
+                        source, openEnd + 1, typesEnd
+                    )
+                if (close < 0) {
+                    valid = false
+                    error = "unterminated type definition"
+                } else {
+                    var name = registryAttribute(opening, "name")
+                    if (name == "" && !selfClosing) name = registryTypeBodyName(
+                        source, openEnd + 1, close
+                    )
+                    val typeApi = registryAttribute(opening, "api")
+                    val selectedApi = typeApi == "" ||
+                        registryTokenListContains(typeApi, wantedApi) ||
+                        (api == "opengl" &&
+                        registryTokenListContains(typeApi, "glcore"))
+                    if (selectedApi && (api == "opengl" ||
+                        registryArrayContains(requested, name))) {
+                        if (!registryArrayContains(requested, name)) {
+                            requested.append(name)
+                        }
+                        var category = registryAttribute(opening, "category")
+                        if (category == "") category = "declaration"
+                        val alias = registryAttribute(opening, "alias")
+                        val dependency = registryAttribute(opening, "requires")
+                        val priority = if (typeApi == "") 1 else 2
+                        val existing = registryArrayIndex(names, name)
+                        if (existing < 0) {
+                            names.append(name)
+                            categories.append(category)
+                            aliases.append(alias)
+                            dependencies.append(dependency)
+                            priorities.append(priority)
+                        } else if (priority > priorities[existing]) {
+                            categories[existing] = category
+                            aliases[existing] = alias
+                            dependencies[existing] = dependency
+                            priorities[existing] = priority
+                        } else if (priority == priorities[existing] &&
+                            (categories[existing] != category ||
+                            aliases[existing] != alias ||
+                            dependencies[existing] != dependency)) {
+                            valid = false
+                            error = "conflicting registry type definition: $name"
+                        }
+                        if (alias != "" &&
+                            !registryArrayContains(requested, alias)) {
+                            requested.append(alias)
+                        }
+                        if (dependency != "" &&
+                            !registryArrayContains(requested, dependency)) {
+                            requested.append(dependency)
+                        }
+                    }
+                    cursor = if (selfClosing) openEnd + 1 else close + 7
+                }
+            }
+        }
+    }
+    var requestedIndex = 0
+    while (valid && requestedIndex < requested.size) {
+        if (!registryArrayContains(names, requested[requestedIndex])) {
+            valid = false
+            error = "required registry type has no definition: ${requested[requestedIndex]}"
+        }
+        requestedIndex = requestedIndex + 1
+    }
+    if (valid) registrySortTypeMetadata(
+        names, categories, aliases, dependencies
+    )
+    RegistryTypes(names, categories, aliases, dependencies, valid, error)
 }
 
 fun registryAppendRequiredConstants(
@@ -1152,7 +1511,8 @@ fun registryWrite(
     sha256: string,
     inventory: RegistryInventory,
     audit: RegistryAudit,
-    constants: RegistryConstants
+    constants: RegistryConstants,
+    types: RegistryTypes
 ): bool {
     val title = if (api == "vulkan") "Vulkan" else "OpenGL"
     var success = output.writeText("")
@@ -1172,6 +1532,9 @@ fun registryWrite(
     )
     if (success) batch = registryAppend(
         output, batch, "- Constants: ${constants.names.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "- Types: ${types.names.size}"
     )
     var commandAudits = 0
     var featureAudits = 0
@@ -1334,7 +1697,8 @@ fun registryWriteSource(
     sha256: string,
     inventory: RegistryInventory,
     audit: RegistryAudit,
-    constants: RegistryConstants
+    constants: RegistryConstants,
+    types: RegistryTypes
 ): bool {
     val prefix = registrySourcePrefix(api)
     val commandStatuses = registryStatuses(
@@ -1386,6 +1750,11 @@ fun registryWriteSource(
         batch,
         "val ${prefix}ConstantCount = ${constants.names.size}"
     )
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "val ${prefix}TypeCount = ${types.names.size}"
+    )
     if (success && constants.names.size > 0) {
         batch = registryAppend(output, batch, "")
         var constantIndex = 0
@@ -1405,6 +1774,30 @@ fun registryWriteSource(
         batch,
         "${prefix}ConstantNames",
         constants.names
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}Types",
+        types.names
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}TypeCategories",
+        types.categories
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}TypeAliases",
+        types.aliases
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}TypeDependencies",
+        types.dependencies
     )
     if (success) batch = registryWriteSourceArray(
         output,
@@ -1474,6 +1867,7 @@ fun main: int {
             val inventory = registryParse(input.readText(), api)
             val audit = registryParseAudit(auditInput.readText())
             val constants = registryParseConstants(input.readText(), api)
+            val types = registryParseTypes(input.readText(), api, inventory)
             if (!inventory.valid) {
                 eprintln("registry parse failed: ${inventory.error}")
                 4
@@ -1483,12 +1877,15 @@ fun main: int {
             } else if (!constants.valid) {
                 eprintln("registry constants failed: ${constants.error}")
                 4
+            } else if (!types.valid) {
+                eprintln("registry types failed: ${types.error}")
+                4
             } else if (registryAuditValidate(audit, inventory) != "") {
                 eprintln("registry audit failed: ${registryAuditValidate(audit, inventory)}")
                 4
             } else if (!registryWrite(
                 output, api, processArgument(5), processArgument(6), inventory,
-                audit, constants
+                audit, constants, types
             )) {
                 eprintln("failed to write registry inventory: ${output.text}")
                 5
@@ -1499,7 +1896,8 @@ fun main: int {
                 processArgument(6),
                 inventory,
                 audit,
-                constants
+                constants,
+                types
             )) {
                 eprintln("failed to write raw registry source: ${sourceOutput.text}")
                 5

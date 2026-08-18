@@ -24,6 +24,10 @@ base and selected-extension `VK_*` constants, resolving integer and hexadecimal
 literals, fixed all-bits masks, decimal floats, extension-name strings, bit
 positions, inherited extension offsets, and aliases to exact Abla values.
 Disabled-extension reservations and Vulkan SC-only definitions are excluded.
+Both modules also expose aligned, byte-sorted type name, category, alias, and
+declared-dependency arrays: 43 desktop OpenGL types and 2,497 selected Vulkan
+types, including the Vulkan registry's internal base/compute/graphics feature
+layers that compose its five public core versions.
 Explicit desktop OpenGL definitions win over GLES-only collisions. Unknown
 expressions, unresolved or cyclic Vulkan aliases, missing definitions, and
 conflicts stop generation. The modules are compiled by `make test-registry` through the
