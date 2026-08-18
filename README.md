@@ -44,7 +44,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   point/line/triangle topology, culling/front-face state, and standard alpha
   blending plus checked depth testing/writes before presenting a real Vulkan
   render pass or OpenGL draw without steady-state runtime allocation; one
-  affine combined texture/sampler binding feeds strict texture-sampling shaders
+  affine multi-entry bind groups feed sampled textures plus uniform/storage
+  buffers to strict reflected shaders
   and survives ordered Vulkan pipeline/swapchain/depth rebuilding after a
   window resize;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
@@ -66,7 +67,7 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a nanosecond monotonic clock and configurable drift-corrected frame pacer
   whose reusable steady-state wait path performs no general allocation;
 - immutable portable buffer/texture/view/sampler descriptors plus affine
-  common buffers, textures, views, and samplers that create and drop real
+  common buffers, textures, views, samplers, and bind groups that create and drop real
   resources on either OpenGL or Vulkan, including allocation-free repeated
   partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
@@ -129,7 +130,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and
-- `examples/common-textured`: an uploaded 2x2 atlas, affine sampler binding,
+- `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;
 - `examples/indexed-textured-cube`: 24 interleaved position/UV vertices, 36

@@ -105,15 +105,15 @@ Updated: 2026-08-18.
   byte; resize rebuilds the per-image set at 640x480. The complete path is clean
   under `VK_LAYER_KHRONOS_validation` after an explicit 36-byte
   `VkAttachmentDescription` array-stride regression check.
-- Common sampled-texture binding: `GraphicsTextureBinding` validates an
-  application-owned sampled color texture and sampler, then provides OpenGL
-  texture-unit-zero handles or owns a Vulkan full image view, compatible set
-  layout, descriptor pool, and combined-image-sampler set. A strict reflected
-  `sampler2D` fragment shader samples a four-color 2x2 atlas on an indexed
-  triangle. Four warmed frames preserve binding/pipeline handles with zero
-  live-byte growth; resize keeps the descriptor set stable while Vulkan rebuilds
-  the surface-dependent pipeline. Explicit software OpenGL and validation-
-  enabled Lavapipe runs pass, and omitting the reflected binding is rejected.
+- General bind groups: `GraphicsBindGroup` accepts up to 16 unique set-zero
+  entries spanning sampled textures, uniform buffers, and storage buffers with
+  explicit vertex/fragment/compute visibility. Pipeline reflection matches the
+  complete entry shape. OpenGL prepares texture/sampler/UBO/SSBO slot arrays;
+  Vulkan owns per-texture views plus an aggregated descriptor pool, layout, and
+  set. Application tests create a three-entry group on both backends and reject
+  duplicate bindings and usage mismatches before driver work. The strict
+  textured triangle and texture-plus-uniform cube remain allocation-free and
+  preserve descriptor handles through repeated frames and resize recovery.
 - Indexed textured cube sample: one strict `vec3` position/`vec2` UV shader,
   24 interleaved face vertices, 36 reusable `uint32` indices, a four-quadrant
   atlas, a vertex-visible std140 64-byte MVP uniform, and enabled less/depth-

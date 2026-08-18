@@ -1731,17 +1731,36 @@ resource class VulkanSampler(
     }
 }
 
-resource class VulkanTextureBinding(
+class VulkanBindingEntry(
+    val binding: int,
+    val descriptorType: int,
+    val stageFlags: int,
+    val handle: int,
+    val sampler: int,
+    val size: int,
+    val texture: TextureDescriptor = TextureDescriptor()
+) {
+    fun valid(): bool = this.binding >= 0 && this.binding <= 31 &&
+        this.stageFlags > 0 && this.handle != 0 &&
+        ((this.descriptorType == 1 && this.sampler != 0 &&
+          this.size == 0 && this.texture.valid() &&
+          (this.texture.usage & textureUsageSampled) != 0 &&
+          !textureFormatHasDepth(this.texture.format)) ||
+         ((this.descriptorType == 6 || this.descriptorType == 7) &&
+          this.sampler == 0 && this.size > 0))
+}
+
+resource class VulkanBindGroup(
     val device: i64*,
     var descriptorSetLayout: int,
     var descriptorPool: int,
     var descriptorSet: int,
-    val view: VulkanTextureView,
-    val hasUniform: bool
+    val views: array<int>,
+    val bindingCount: int
 ) {
     fun valid(): bool = !pointerIsNull(this.device) &&
         this.descriptorSetLayout != 0 && this.descriptorPool != 0 &&
-        this.descriptorSet != 0 && this.view.valid()
+        this.descriptorSet != 0 && this.bindingCount > 0
 
     trusted fun drop(): void {
         if (this.descriptorPool != 0 && !pointerIsNull(this.device)) {
@@ -1762,7 +1781,18 @@ resource class VulkanTextureBinding(
             )
             this.descriptorSetLayout = 0
         }
-        this.view.drop()
+        var index = 0
+        while (index < this.views.size) {
+            if (this.views[index] != 0 && !pointerIsNull(this.device)) {
+                vkDestroyImageView(
+                    this.device,
+                    this.views[index],
+                    nativeNullPointer()
+                )
+                this.views[index] = 0
+            }
+            index = index + 1
+        }
         return
     }
 }
@@ -2779,19 +2809,22 @@ trusted fun VulkanDevice.texture(
     )
 }
 
-trusted fun VulkanTexture.view(
+trusted fun vulkanTextureViewHandle(
+    device: i64*,
+    image: int,
     texture: TextureDescriptor,
     descriptor: TextureViewDescriptor
-): VulkanTextureView {
+): int {
     var handle = 0
     val validation = descriptor.validation(texture)
     val format = vulkanTextureFormat(descriptor.resolvedFormat(texture))
-    if (this.valid() && validation.succeeded && format != 0) {
+    if (!pointerIsNull(device) && image != 0 &&
+        validation.succeeded && format != 0) {
         val createInfo = nativeByteBuffer(80)
         createInfo.storeI64(0, 15)
         createInfo.storePointer(8, nativeNullPointer())
         createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, this.image)
+        createInfo.storeI64(24, image)
         createInfo.storeI64(
             32,
             format * 4294967296 + (descriptor.dimension - 1)
@@ -2814,54 +2847,106 @@ trusted fun VulkanTexture.view(
         createInfo.storeI64(72, descriptor.resolvedArrayLayerCount(texture))
         val output = nativeI64Cell(0)
         if (vkCreateImageView(
-            this.device,
+            device,
             createInfo.address,
             nativeNullPointer(),
             output.address
         ) == vulkanSuccess) handle = output.load()
     }
+    handle
+}
+
+trusted fun VulkanTexture.view(
+    texture: TextureDescriptor,
+    descriptor: TextureViewDescriptor
+): VulkanTextureView {
+    val handle = if (this.valid()) vulkanTextureViewHandle(
+        this.device,
+        this.image,
+        texture,
+        descriptor
+    ) else 0
     VulkanTextureView(this.device, handle)
 }
 
-trusted fun VulkanDevice.textureBinding(
-    texture: VulkanTexture,
-    textureDescriptor: TextureDescriptor,
-    sampler: VulkanSampler,
-    uniformBuffer: int = 0,
-    uniformSize: int = 0
-): VulkanTextureBinding {
+trusted fun VulkanDevice.bindGroup(
+    entries: array<VulkanBindingEntry>
+): VulkanBindGroup {
     var descriptorSetLayout = 0
     var descriptorPool = 0
     var descriptorSet = 0
-    var view = VulkanTextureView(nativeNullPointer(), 0)
-    val hasUniform = uniformBuffer != 0 && uniformSize >= 64
-    var succeeded = this.valid() && texture.valid() && sampler.valid() &&
-        texture.device == this.handle && sampler.device == this.handle &&
-        textureDescriptor.valid() &&
-        (textureDescriptor.usage & textureUsageSampled) != 0 &&
-        !textureFormatHasDepth(textureDescriptor.format) &&
-        ((uniformBuffer == 0 && uniformSize == 0) || hasUniform)
-    if (succeeded) {
-        view = texture.view(textureDescriptor, TextureViewDescriptor())
-        succeeded = view.valid()
+    val views: array<int> = []
+    var sampledCount = 0
+    var uniformCount = 0
+    var storageCount = 0
+    var succeeded = this.valid() && entries.size > 0 && entries.size <= 16
+    var entryIndex = 0
+    while (succeeded && entryIndex < entries.size) {
+        val entry = entries[entryIndex]
+        succeeded = entry.valid()
+        var earlier = 0
+        while (succeeded && earlier < entryIndex) {
+            succeeded = entries[earlier].binding != entry.binding
+            earlier = earlier + 1
+        }
+        if (entry.descriptorType == 1) sampledCount = sampledCount + 1
+        else if (entry.descriptorType == 6) uniformCount = uniformCount + 1
+        else if (entry.descriptorType == 7) storageCount = storageCount + 1
+        entryIndex = entryIndex + 1
+    }
+    val imageInfos = nativeByteBuffer(sampledCount * 24)
+    val bufferInfos = nativeByteBuffer(
+        (uniformCount + storageCount) * 24
+    )
+    var imageIndex = 0
+    var bufferIndex = 0
+    entryIndex = 0
+    while (succeeded && entryIndex < entries.size) {
+        val entry = entries[entryIndex]
+        if (entry.descriptorType == 1) {
+            val view = vulkanTextureViewHandle(
+                this.handle,
+                entry.handle,
+                entry.texture,
+                TextureViewDescriptor()
+            )
+            succeeded = view != 0
+            if (succeeded) {
+                views.append(view)
+                imageInfos.storeI64(imageIndex * 24, entry.sampler)
+                imageInfos.storeI64(imageIndex * 24 + 8, view)
+                imageInfos.storeI64(imageIndex * 24 + 16, 5)
+                imageIndex = imageIndex + 1
+            }
+        } else {
+            bufferInfos.storeI64(bufferIndex * 24, entry.handle)
+            bufferInfos.storeI64(bufferIndex * 24 + 8, 0)
+            bufferInfos.storeI64(bufferIndex * 24 + 16, entry.size)
+            bufferIndex = bufferIndex + 1
+        }
+        entryIndex = entryIndex + 1
     }
     if (succeeded) {
-        val bindings = nativeByteBuffer(if (hasUniform) 48 else 24)
-        bindings.storeI64(0, 4294967296)
-        bindings.storeI64(8, 16 * 4294967296 + 1)
-        bindings.storePointer(16, nativeNullPointer())
-        if (hasUniform) {
-            bindings.storeI64(24, 6 * 4294967296 + 1)
-            bindings.storeI64(32, 4294967297)
-            bindings.storePointer(40, nativeNullPointer())
+        val bindings = nativeByteBuffer(entries.size * 24)
+        entryIndex = 0
+        while (entryIndex < entries.size) {
+            val entry = entries[entryIndex]
+            val offset = entryIndex * 24
+            bindings.storeI64(
+                offset,
+                entry.descriptorType * 4294967296 + entry.binding
+            )
+            bindings.storeI64(
+                offset + 8,
+                entry.stageFlags * 4294967296 + 1
+            )
+            bindings.storePointer(offset + 16, nativeNullPointer())
+            entryIndex = entryIndex + 1
         }
         val createInfo = nativeByteBuffer(32)
         createInfo.storeI64(0, 32)
         createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(
-            16,
-            (if (hasUniform) 2 else 1) * 4294967296
-        )
+        createInfo.storeI64(16, entries.size * 4294967296)
         createInfo.storePointer(24, bindings.address)
         val output = nativeI64Cell(0)
         succeeded = vkCreateDescriptorSetLayout(
@@ -2873,14 +2958,37 @@ trusted fun VulkanDevice.textureBinding(
         if (succeeded) descriptorSetLayout = output.load()
     }
     if (succeeded) {
-        val poolSizes = nativeByteBuffer(if (hasUniform) 16 else 8)
-        poolSizes.storeI64(0, 4294967297)
-        if (hasUniform) poolSizes.storeI64(8, 4294967302)
+        var poolSizeCount = 0
+        if (sampledCount > 0) poolSizeCount = poolSizeCount + 1
+        if (uniformCount > 0) poolSizeCount = poolSizeCount + 1
+        if (storageCount > 0) poolSizeCount = poolSizeCount + 1
+        val poolSizes = nativeByteBuffer(poolSizeCount * 8)
+        var poolIndex = 0
+        if (sampledCount > 0) {
+            poolSizes.storeI64(
+                poolIndex * 8,
+                sampledCount * 4294967296 + 1
+            )
+            poolIndex = poolIndex + 1
+        }
+        if (uniformCount > 0) {
+            poolSizes.storeI64(
+                poolIndex * 8,
+                uniformCount * 4294967296 + 6
+            )
+            poolIndex = poolIndex + 1
+        }
+        if (storageCount > 0) {
+            poolSizes.storeI64(
+                poolIndex * 8,
+                storageCount * 4294967296 + 7
+            )
+        }
         val poolInfo = nativeByteBuffer(40)
         poolInfo.storeI64(0, 33)
         poolInfo.storePointer(8, nativeNullPointer())
         poolInfo.storeI64(16, 4294967296)
-        poolInfo.storeI64(24, if (hasUniform) 2 else 1)
+        poolInfo.storeI64(24, poolSizeCount)
         poolInfo.storePointer(32, poolSizes.address)
         val output = nativeI64Cell(0)
         succeeded = vkCreateDescriptorPool(
@@ -2908,38 +3016,41 @@ trusted fun VulkanDevice.textureBinding(
         if (succeeded) descriptorSet = output.load()
     }
     if (succeeded) {
-        val imageInfo = nativeByteBuffer(24)
-        imageInfo.storeI64(0, sampler.handle)
-        imageInfo.storeI64(8, view.handle)
-        imageInfo.storeI64(16, 5)
-        val bufferInfo = nativeByteBuffer(24)
-        if (hasUniform) {
-            bufferInfo.storeI64(0, uniformBuffer)
-            bufferInfo.storeI64(8, 0)
-            bufferInfo.storeI64(16, uniformSize)
-        }
-        val writes = nativeByteBuffer(if (hasUniform) 128 else 64)
-        writes.storeI64(0, 35)
-        writes.storePointer(8, nativeNullPointer())
-        writes.storeI64(16, descriptorSet)
-        writes.storeI64(24, 0)
-        writes.storeI64(32, 4294967297)
-        writes.storePointer(40, imageInfo.address)
-        writes.storePointer(48, nativeNullPointer())
-        writes.storePointer(56, nativeNullPointer())
-        if (hasUniform) {
-            writes.storeI64(64, 35)
-            writes.storePointer(72, nativeNullPointer())
-            writes.storeI64(80, descriptorSet)
-            writes.storeI64(88, 1)
-            writes.storeI64(96, 6 * 4294967296 + 1)
-            writes.storePointer(104, nativeNullPointer())
-            writes.storePointer(112, bufferInfo.address)
-            writes.storePointer(120, nativeNullPointer())
+        val writes = nativeByteBuffer(entries.size * 64)
+        imageIndex = 0
+        bufferIndex = 0
+        entryIndex = 0
+        while (entryIndex < entries.size) {
+            val entry = entries[entryIndex]
+            val offset = entryIndex * 64
+            writes.storeI64(offset, 35)
+            writes.storePointer(offset + 8, nativeNullPointer())
+            writes.storeI64(offset + 16, descriptorSet)
+            writes.storeI64(offset + 24, entry.binding)
+            writes.storeI64(
+                offset + 32,
+                entry.descriptorType * 4294967296 + 1
+            )
+            if (entry.descriptorType == 1) {
+                writes.storePointer(
+                    offset + 40,
+                    imageInfos.pointerAt(imageIndex * 24)
+                )
+                imageIndex = imageIndex + 1
+            } else {
+                writes.storePointer(offset + 40, nativeNullPointer())
+                writes.storePointer(
+                    offset + 48,
+                    bufferInfos.pointerAt(bufferIndex * 24)
+                )
+                bufferIndex = bufferIndex + 1
+            }
+            writes.storePointer(offset + 56, nativeNullPointer())
+            entryIndex = entryIndex + 1
         }
         vkUpdateDescriptorSets(
             this.handle,
-            if (hasUniform) 2 else 1,
+            entries.size,
             writes.address,
             0,
             nativeNullPointer()
@@ -2956,18 +3067,27 @@ trusted fun VulkanDevice.textureBinding(
             descriptorSetLayout,
             nativeNullPointer()
         )
-        view.drop()
+        var viewIndex = 0
+        while (viewIndex < views.size) {
+            if (views[viewIndex] != 0) vkDestroyImageView(
+                this.handle,
+                views[viewIndex],
+                nativeNullPointer()
+            )
+            views[viewIndex] = 0
+            viewIndex = viewIndex + 1
+        }
         descriptorSetLayout = 0
         descriptorPool = 0
         descriptorSet = 0
     }
-    VulkanTextureBinding(
+    VulkanBindGroup(
         this.handle,
         descriptorSetLayout,
         descriptorPool,
         descriptorSet,
-        move(view),
-        hasUniform
+        views,
+        entries.size
     )
 }
 

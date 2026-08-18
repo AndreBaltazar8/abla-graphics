@@ -453,18 +453,31 @@ trusted fun openGlConfigureVertexLayout(
     succeeded && glGetError() == 0
 }
 
-trusted fun openGlApplyTextureBinding(
-    texture: int,
-    sampler: int,
-    uniform: int
+trusted fun openGlApplyBindGroup(
+    kinds: array<int>,
+    bindings: array<int>,
+    resources: array<int>,
+    samplers: array<int>
 ): bool {
-    var succeeded = (texture == 0 && sampler == 0) ||
-        (texture != 0 && sampler != 0)
-    if (succeeded) {
-        glActiveTexture(33984)
-        glBindTexture(3553, texture)
-        glBindSampler(0, sampler)
-        glBindBufferBase(35345, 1, uniform)
+    var succeeded = kinds.size == bindings.size &&
+        kinds.size == resources.size && kinds.size == samplers.size
+    var index = 0
+    while (succeeded && index < kinds.size) {
+        val kind = kinds[index]
+        val binding = bindings[index]
+        val handle = resources[index]
+        val sampler = samplers[index]
+        succeeded = binding >= 0 && binding <= 31 && handle != 0
+        if (succeeded && kind == 1 && sampler != 0) {
+            glActiveTexture(33984 + binding)
+            glBindTexture(3553, handle)
+            glBindSampler(binding, sampler)
+        } else if (succeeded && kind == 2 && sampler == 0) {
+            glBindBufferBase(35345, binding, handle)
+        } else if (succeeded && kind == 3 && sampler == 0) {
+            glBindBufferBase(37074, binding, handle)
+        } else succeeded = false
+        index = index + 1
     }
     succeeded && glGetError() == 0
 }
@@ -1702,9 +1715,10 @@ resource class OpenGlWindowContext(
         clear: Color,
         raster: RasterPipelineState,
         depth: DepthStencilState,
-        texture: int,
-        sampler: int,
-        uniform: int
+        bindingKinds: array<int>,
+        bindingNumbers: array<int>,
+        bindingResources: array<int>,
+        bindingSamplers: array<int>
     ): bool {
         var presented = program.valid() && clear.valid() && raster.valid() &&
             depth.valid() && this.makeCurrent()
@@ -1733,10 +1747,11 @@ resource class OpenGlWindowContext(
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
-            presented = openGlApplyTextureBinding(
-                texture,
-                sampler,
-                uniform
+            presented = openGlApplyBindGroup(
+                bindingKinds,
+                bindingNumbers,
+                bindingResources,
+                bindingSamplers
             ) &&
                 openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
@@ -1760,9 +1775,10 @@ resource class OpenGlWindowContext(
         clear: Color,
         raster: RasterPipelineState,
         depth: DepthStencilState,
-        texture: int,
-        sampler: int,
-        uniform: int
+        bindingKinds: array<int>,
+        bindingNumbers: array<int>,
+        bindingResources: array<int>,
+        bindingSamplers: array<int>
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             vertexCount > 0 && instanceCount > 0 &&
@@ -1796,7 +1812,12 @@ resource class OpenGlWindowContext(
             glBindVertexArray(program.vertexArray)
             glBindBuffer(34962, vertices.handle)
             presented = openGlConfigureVertexLayout(vertexLayout) &&
-                openGlApplyTextureBinding(texture, sampler, uniform) &&
+                openGlApplyBindGroup(
+                    bindingKinds,
+                    bindingNumbers,
+                    bindingResources,
+                    bindingSamplers
+                ) &&
                 openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)
             if (presented) glDrawArraysInstanced(
@@ -1821,9 +1842,10 @@ resource class OpenGlWindowContext(
         clear: Color,
         raster: RasterPipelineState,
         depth: DepthStencilState,
-        texture: int,
-        sampler: int,
-        uniform: int
+        bindingKinds: array<int>,
+        bindingNumbers: array<int>,
+        bindingResources: array<int>,
+        bindingSamplers: array<int>
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
@@ -1857,7 +1879,12 @@ resource class OpenGlWindowContext(
             glBindVertexArray(program.vertexArray)
             glBindBuffer(34962, vertices.handle)
             presented = openGlConfigureVertexLayout(vertexLayout) &&
-                openGlApplyTextureBinding(texture, sampler, uniform)
+                openGlApplyBindGroup(
+                    bindingKinds,
+                    bindingNumbers,
+                    bindingResources,
+                    bindingSamplers
+                )
             glBindBuffer(34963, indices.handle)
             presented = presented && openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster)

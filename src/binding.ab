@@ -1,4 +1,4 @@
-// First affine sampled-texture binding shared by OpenGL and Vulkan rendering.
+// Affine backend-neutral bind groups with explicit shader-visible entries.
 
 import "abla/unsafe/memory"
 import "core.ab"
@@ -6,35 +6,144 @@ import "application.ab"
 import "texture.ab"
 import "sampler.ab"
 import "buffer.ab"
+import "shader/glsl.ab"
 import "driver/vulkan.ab"
 
-resource class GraphicsTextureBinding(
-    val openGlTexture: int,
+val graphicsBindingSampledTexture = 1
+val graphicsBindingUniformBuffer = 2
+val graphicsBindingStorageBuffer = 3
+
+val shaderVisibilityVertex = 1
+val shaderVisibilityFragment = 2
+val shaderVisibilityCompute = 4
+val shaderVisibilityAll = 7
+
+fun graphicsBindingVisibilityValid(visibility: int): bool =
+    visibility > 0 && (visibility & shaderVisibilityAll) == visibility
+
+fun graphicsBindingVulkanStageFlags(visibility: int): int {
+    var flags = 0
+    if ((visibility & shaderVisibilityVertex) != 0) flags = flags | 1
+    if ((visibility & shaderVisibilityFragment) != 0) flags = flags | 16
+    if ((visibility & shaderVisibilityCompute) != 0) flags = flags | 32
+    flags
+}
+
+fun graphicsBindingStageVisibility(stage: string): int =
+    if (stage == shaderStageVertex) shaderVisibilityVertex
+    else if (stage == shaderStageFragment) shaderVisibilityFragment
+    else if (stage == shaderStageCompute) shaderVisibilityCompute
+    else 0
+
+class GraphicsBindingEntry(
+    val binding: int,
+    val kind: int,
+    val visibility: int,
+    val openGlResource: int,
     val openGlSampler: int,
-    val openGlUniform: int,
+    val vulkanResource: int,
+    val vulkanSampler: int,
+    val size: int,
+    val texture: TextureDescriptor,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        this.binding >= 0 && this.binding <= 31 &&
+        graphicsBindingVisibilityValid(this.visibility) &&
+        this.kind >= graphicsBindingSampledTexture &&
+        this.kind <= graphicsBindingStorageBuffer &&
+        ((this.backend == graphicsBackendOpenGl &&
+          this.openGlResource != 0 &&
+          ((this.kind == graphicsBindingSampledTexture &&
+            this.openGlSampler != 0 && this.size == 0) ||
+           (this.kind != graphicsBindingSampledTexture &&
+            this.openGlSampler == 0 && this.size > 0))) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkanResource != 0 &&
+          ((this.kind == graphicsBindingSampledTexture &&
+            this.vulkanSampler != 0 && this.size == 0 &&
+            this.texture.valid()) ||
+           (this.kind != graphicsBindingSampledTexture &&
+            this.vulkanSampler == 0 && this.size > 0))))
+
+    fun matches(reflected: ShaderBinding): bool {
+        val stageVisibility = graphicsBindingStageVisibility(reflected.stage)
+        val typeMatches =
+            (this.kind == graphicsBindingSampledTexture &&
+             reflected.storage == "uniform" &&
+             reflected.dataType == "sampler2D") ||
+            (this.kind == graphicsBindingUniformBuffer &&
+             reflected.storage == "uniform" &&
+             reflected.dataType != "sampler2D") ||
+            (this.kind == graphicsBindingStorageBuffer &&
+             reflected.storage == "buffer")
+        reflected.set == 0 && reflected.binding == this.binding &&
+            reflected.arraySize == 1 && stageVisibility != 0 &&
+            (this.visibility & stageVisibility) != 0 && typeMatches
+    }
+}
+
+resource class GraphicsBindGroup(
+    val entries: array<GraphicsBindingEntry>,
+    val openGlKinds: array<int>,
+    val openGlBindings: array<int>,
+    val openGlResources: array<int>,
+    val openGlSamplers: array<int>,
     val openGlDisplay: i64*,
     val openGlContext: i64*,
-    val vulkan: VulkanTextureBinding,
+    val vulkan: VulkanBindGroup,
     val backend: int,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() &&
         ((this.backend == graphicsBackendOpenGl &&
-          this.openGlTexture != 0 && this.openGlSampler != 0 &&
+          this.entries.size > 0 &&
+          this.openGlKinds.size == this.entries.size &&
+          this.openGlBindings.size == this.entries.size &&
+          this.openGlResources.size == this.entries.size &&
+          this.openGlSamplers.size == this.entries.size &&
           !pointerIsNull(this.openGlDisplay) &&
           !pointerIsNull(this.openGlContext)) ||
-         (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
+         (this.backend == graphicsBackendVulkan && this.vulkan.valid() &&
+          this.entries.size == this.vulkan.bindingCount))
 
     fun empty(): bool = this.backend == graphicsBackendAuto &&
-        this.openGlTexture == 0 && this.openGlSampler == 0 &&
-        this.openGlUniform == 0 &&
-        !this.vulkan.valid() && !this.error.occurred()
+        this.entries.size == 0 && !this.vulkan.valid() &&
+        !this.error.occurred()
 
-    fun hasUniform(): bool = if (this.backend == graphicsBackendOpenGl)
-        this.openGlUniform != 0
-    else if (this.backend == graphicsBackendVulkan)
-        this.vulkan.hasUniform
-    else false
+    fun matches(bindings: array<ShaderBinding>): bool {
+        var matched = bindings.size >= this.entryCount()
+        var bindingIndex = 0
+        while (matched && bindingIndex < bindings.size) {
+            var found = false
+            var entryIndex = 0
+            while (!found && entryIndex < this.entryCount()) {
+                found = this.entries[entryIndex].matches(
+                    bindings[bindingIndex]
+                )
+                entryIndex = entryIndex + 1
+            }
+            matched = matched && found
+            bindingIndex = bindingIndex + 1
+        }
+        var entryIndex = 0
+        while (matched && entryIndex < this.entryCount()) {
+            var found = false
+            bindingIndex = 0
+            while (!found && bindingIndex < bindings.size) {
+                found = this.entries[entryIndex].matches(
+                    bindings[bindingIndex]
+                )
+                bindingIndex = bindingIndex + 1
+            }
+            matched = matched && found
+            entryIndex = entryIndex + 1
+        }
+        matched
+    }
+
+    fun entryCount(): int = this.entries.size
 
     trusted fun drop(): void {
         this.vulkan.drop()
@@ -42,162 +151,209 @@ resource class GraphicsTextureBinding(
     }
 }
 
-fun emptyGraphicsTextureBinding(): GraphicsTextureBinding =
-    GraphicsTextureBinding(
-        0,
-        0,
-        0,
-        nativeNullPointer(),
-        nativeNullPointer(),
-        VulkanTextureBinding(
-            nativeNullPointer(),
-            0,
-            0,
-            0,
-            VulkanTextureView(nativeNullPointer(), 0),
-            false
-        ),
-        graphicsBackendAuto,
-        GraphicsError()
-    )
+fun emptyGraphicsBindGroup(): GraphicsBindGroup = GraphicsBindGroup(
+    [],
+    [],
+    [],
+    [],
+    [],
+    nativeNullPointer(),
+    nativeNullPointer(),
+    VulkanBindGroup(nativeNullPointer(), 0, 0, 0, [], 0),
+    graphicsBackendAuto,
+    GraphicsError()
+)
 
-trusted fun GraphicsApplication.textureBinding(
+trusted fun GraphicsApplication.sampledTextureEntry(
+    binding: int,
+    visibility: int,
     texture: GraphicsTexture,
     sampler: GraphicsSampler
-): GraphicsTextureBinding {
-    var openGlTexture = 0
-    var openGlSampler = 0
-    var openGlUniform = 0
-    var openGlDisplay = nativeNullPointer()
-    var openGlContext = nativeNullPointer()
-    var vulkan = VulkanTextureBinding(
-        nativeNullPointer(),
-        0,
-        0,
-        0,
-        VulkanTextureView(nativeNullPointer(), 0),
-        false
-    )
+): GraphicsBindingEntry {
     var error = GraphicsError()
     if (!this.valid() || !texture.valid() || !sampler.valid() ||
-        !this.ownsTexture(texture) || !this.ownsSampler(sampler)) {
-        error = GraphicsError(
-            graphicsErrorInvalidConfiguration,
-            "GraphicsApplication.textureBinding",
-            "sampled texture binding requires application-owned texture and sampler resources"
-        )
-    } else if ((texture.descriptor.usage & textureUsageSampled) == 0 ||
+        !this.ownsTexture(texture) || !this.ownsSampler(sampler) ||
+        binding < 0 || binding > 31 ||
+        !graphicsBindingVisibilityValid(visibility) ||
+        (texture.descriptor.usage & textureUsageSampled) == 0 ||
         textureFormatHasDepth(texture.descriptor.format)) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
-            "GraphicsApplication.textureBinding.texture",
-            "sampled color usage is required by the initial texture binding"
-        )
-    } else if (this.backend == graphicsBackendOpenGl) {
-        openGlTexture = texture.openGl.handle
-        openGlSampler = sampler.openGl.handle
-        openGlDisplay = texture.openGl.display
-        openGlContext = texture.openGl.context
-    } else if (this.backend == graphicsBackendVulkan) {
-        vulkan = this.vulkanDevice.textureBinding(
-            texture.vulkan,
-            texture.descriptor,
-            sampler.vulkan
-        )
-        if (!vulkan.valid()) error = GraphicsError(
-            graphicsErrorDriverFailure,
-            "VulkanDevice.textureBinding",
-            "Vulkan combined image sampler binding creation failed"
-        )
-    } else {
-        error = GraphicsError(
-            graphicsErrorBackendUnavailable,
-            "GraphicsApplication.textureBinding",
-            "the selected backend cannot bind sampled textures"
+            "GraphicsApplication.sampledTextureEntry",
+            "sampled texture entries require owned color resources, a binding from 0 to 31, and valid visibility"
         )
     }
-    GraphicsTextureBinding(
-        openGlTexture,
-        openGlSampler,
-        openGlUniform,
-        openGlDisplay,
-        openGlContext,
+    GraphicsBindingEntry(
+        binding,
+        graphicsBindingSampledTexture,
+        visibility,
+        if (this.backend == graphicsBackendOpenGl) texture.openGl.handle else 0,
+        if (this.backend == graphicsBackendOpenGl) sampler.openGl.handle else 0,
+        if (this.backend == graphicsBackendVulkan) texture.vulkan.image else 0,
+        if (this.backend == graphicsBackendVulkan) sampler.vulkan.handle else 0,
+        0,
+        texture.descriptor,
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.bufferBindingEntry(
+    binding: int,
+    visibility: int,
+    buffer: GraphicsBuffer,
+    kind: int
+): GraphicsBindingEntry {
+    var error = GraphicsError()
+    val requiredUsage = if (kind == graphicsBindingUniformBuffer)
+        bufferUsageUniform
+    else if (kind == graphicsBindingStorageBuffer) bufferUsageStorage
+    else 0
+    if (!this.valid() || !buffer.valid() || !this.ownsBuffer(buffer) ||
+        binding < 0 || binding > 31 ||
+        !graphicsBindingVisibilityValid(visibility) || requiredUsage == 0 ||
+        (buffer.descriptor.usage & requiredUsage) == 0) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.bufferBindingEntry",
+            "buffer entries require an owned resource with matching usage, a binding from 0 to 31, and valid visibility"
+        )
+    }
+    GraphicsBindingEntry(
+        binding,
+        kind,
+        visibility,
+        if (this.backend == graphicsBackendOpenGl) buffer.openGl.handle else 0,
+        0,
+        if (this.backend == graphicsBackendVulkan) buffer.vulkan.handle else 0,
+        0,
+        buffer.descriptor.size,
+        TextureDescriptor(),
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.uniformBufferEntry(
+    binding: int,
+    visibility: int,
+    buffer: GraphicsBuffer
+): GraphicsBindingEntry = this.bufferBindingEntry(
+    binding,
+    visibility,
+    buffer,
+    graphicsBindingUniformBuffer
+)
+
+trusted fun GraphicsApplication.storageBufferEntry(
+    binding: int,
+    visibility: int,
+    buffer: GraphicsBuffer
+): GraphicsBindingEntry = this.bufferBindingEntry(
+    binding,
+    visibility,
+    buffer,
+    graphicsBindingStorageBuffer
+)
+
+trusted fun GraphicsApplication.bindGroup(
+    entries: array<GraphicsBindingEntry>
+): GraphicsBindGroup {
+    var error = GraphicsError()
+    var valid = this.valid() && entries.size > 0 && entries.size <= 16
+    var index = 0
+    while (valid && index < entries.size) {
+        valid = entries[index].valid() && entries[index].backend == this.backend
+        var earlier = 0
+        while (valid && earlier < index) {
+            valid = entries[earlier].binding != entries[index].binding
+            earlier = earlier + 1
+        }
+        index = index + 1
+    }
+    if (!valid) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bindGroup",
+        "bind groups require 1 to 16 valid, application-owned entries with unique binding numbers"
+    )
+    var vulkan = VulkanBindGroup(nativeNullPointer(), 0, 0, 0, [], 0)
+    val openGlKinds: array<int> = []
+    val openGlBindings: array<int> = []
+    val openGlResources: array<int> = []
+    val openGlSamplers: array<int> = []
+    if (valid && this.backend == graphicsBackendOpenGl) {
+        index = 0
+        while (index < entries.size) {
+            openGlKinds.append(entries[index].kind)
+            openGlBindings.append(entries[index].binding)
+            openGlResources.append(entries[index].openGlResource)
+            openGlSamplers.append(entries[index].openGlSampler)
+            index = index + 1
+        }
+    }
+    if (valid && this.backend == graphicsBackendVulkan) {
+        val nativeEntries: array<VulkanBindingEntry> = []
+        index = 0
+        while (index < entries.size) {
+            val entry = entries[index]
+            nativeEntries.append(VulkanBindingEntry(
+                entry.binding,
+                if (entry.kind == graphicsBindingSampledTexture) 1
+                else if (entry.kind == graphicsBindingUniformBuffer) 6
+                else 7,
+                graphicsBindingVulkanStageFlags(entry.visibility),
+                entry.vulkanResource,
+                entry.vulkanSampler,
+                entry.size,
+                entry.texture
+            ))
+            index = index + 1
+        }
+        vulkan = this.vulkanDevice.bindGroup(nativeEntries)
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.bindGroup",
+            "Vulkan bind-group creation failed"
+        )
+    }
+    GraphicsBindGroup(
+        entries,
+        openGlKinds,
+        openGlBindings,
+        openGlResources,
+        openGlSamplers,
+        if (this.backend == graphicsBackendOpenGl) this.openGl.display
+            else nativeNullPointer(),
+        if (this.backend == graphicsBackendOpenGl) this.openGl.context
+            else nativeNullPointer(),
         move(vulkan),
         this.backend,
         error
     )
 }
+
+trusted fun GraphicsApplication.textureBinding(
+    texture: GraphicsTexture,
+    sampler: GraphicsSampler
+): GraphicsBindGroup = this.bindGroup([
+    this.sampledTextureEntry(
+        0,
+        shaderVisibilityFragment,
+        texture,
+        sampler
+    )
+])
 
 trusted fun GraphicsApplication.textureUniformBinding(
     texture: GraphicsTexture,
     sampler: GraphicsSampler,
     uniform: GraphicsBuffer
-): GraphicsTextureBinding {
-    var openGlTexture = 0
-    var openGlSampler = 0
-    var openGlUniform = 0
-    var openGlDisplay = nativeNullPointer()
-    var openGlContext = nativeNullPointer()
-    var vulkan = VulkanTextureBinding(
-        nativeNullPointer(),
+): GraphicsBindGroup = this.bindGroup([
+    this.sampledTextureEntry(
         0,
-        0,
-        0,
-        VulkanTextureView(nativeNullPointer(), 0),
-        false
-    )
-    var error = GraphicsError()
-    if (!this.valid() || !texture.valid() || !sampler.valid() ||
-        !uniform.valid() || !this.ownsTexture(texture) ||
-        !this.ownsSampler(sampler) || !this.ownsBuffer(uniform)) {
-        error = GraphicsError(
-            graphicsErrorInvalidConfiguration,
-            "GraphicsApplication.textureUniformBinding",
-            "texture/uniform binding requires application-owned resources"
-        )
-    } else if ((texture.descriptor.usage & textureUsageSampled) == 0 ||
-        textureFormatHasDepth(texture.descriptor.format) ||
-        (uniform.descriptor.usage & bufferUsageUniform) == 0 ||
-        uniform.descriptor.size < 64) {
-        error = GraphicsError(
-            graphicsErrorInvalidConfiguration,
-            "GraphicsApplication.textureUniformBinding.resources",
-            "sampled color usage and at least 64 uniform bytes are required"
-        )
-    } else if (this.backend == graphicsBackendOpenGl) {
-        openGlTexture = texture.openGl.handle
-        openGlSampler = sampler.openGl.handle
-        openGlUniform = uniform.openGl.handle
-        openGlDisplay = texture.openGl.display
-        openGlContext = texture.openGl.context
-    } else if (this.backend == graphicsBackendVulkan) {
-        vulkan = this.vulkanDevice.textureBinding(
-            texture.vulkan,
-            texture.descriptor,
-            sampler.vulkan,
-            uniform.vulkan.handle,
-            uniform.descriptor.size
-        )
-        if (!vulkan.valid()) error = GraphicsError(
-            graphicsErrorDriverFailure,
-            "VulkanDevice.textureBinding",
-            "Vulkan texture/uniform descriptor binding creation failed"
-        )
-    } else {
-        error = GraphicsError(
-            graphicsErrorBackendUnavailable,
-            "GraphicsApplication.textureUniformBinding",
-            "the selected backend cannot bind texture/uniform resources"
-        )
-    }
-    GraphicsTextureBinding(
-        openGlTexture,
-        openGlSampler,
-        openGlUniform,
-        openGlDisplay,
-        openGlContext,
-        move(vulkan),
-        this.backend,
-        error
-    )
-}
+        shaderVisibilityFragment,
+        texture,
+        sampler
+    ),
+    this.uniformBufferEntry(1, shaderVisibilityVertex, uniform)
+])

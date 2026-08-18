@@ -140,7 +140,8 @@ command's native instance field. Zero instances are rejected before dispatch.
 Vertex/index buffers and backend command state remain stable with zero live-byte
 growth across the repeated sample draw loop.
 
-The first sampled-texture binding is also affine and pipeline-owned:
+Bind groups are affine and pipeline-owned. Entries carry an explicit binding
+number, shader-stage visibility, and resource kind:
 
 ```abla
 val texture = app.texture(TextureDescriptor(
@@ -150,7 +151,14 @@ val texture = app.texture(TextureDescriptor(
 ))
 texture.writePixels(pixels, TextureWriteDescriptor())
 val sampler = app.sampler()
-val binding = app.textureBinding(texture, sampler)
+val binding = app.bindGroup([
+    app.sampledTextureEntry(
+        0,
+        shaderVisibilityFragment,
+        texture,
+        sampler
+    )
+])
 val pipeline = app.renderPipeline(
     shader,
     vertexLayout,
@@ -160,29 +168,35 @@ val pipeline = app.renderPipeline(
 )
 ```
 
-The strict initial shader contract is one fragment-stage
-`layout(binding=0) uniform sampler2D` declaration. Pipeline creation rejects a
-missing, extra, wrong-stage, wrong-set, array, or non-`sampler2D` binding before
-driver work. OpenGL maps it to texture unit zero and reapplies both texture and
-sampler state before each draw. Vulkan owns a full image view, compatible set
-layout, descriptor pool, and combined-image-sampler descriptor set in the
-binding; the pipeline layout consumes the same structural layout and every draw
-records `vkCmdBindDescriptorSets`. The descriptor set survives swapchain and
-graphics-pipeline recreation.
+`sampledTextureEntry`, `uniformBufferEntry`, and `storageBufferEntry` may be
+combined in one group with unique bindings from 0 through 31. Groups currently
+accept up to 16 entries in descriptor set zero and one resource per entry.
+Visibility can combine `shaderVisibilityVertex`, `shaderVisibilityFragment`,
+and `shaderVisibilityCompute`. Pipeline creation structurally matches every
+reflected shader binding before driver work, rejecting missing, extra,
+wrong-stage, wrong-kind, nonzero-set, or array bindings.
+
+OpenGL maps sampled entries to the matching texture/sampler unit and buffer
+entries to the matching UBO or SSBO slot, reapplying the group before each draw.
+Vulkan creates one compatible set layout, aggregated descriptor pool, descriptor
+set, and a full image view for each sampled entry; every draw records
+`vkCmdBindDescriptorSets`. These resources survive swapchain and graphics-
+pipeline recreation. The entry arrays and backend binding arrays are prepared
+once, so drawing does not allocate or rebuild descriptors.
 
 The source texture and sampler are borrowed when the binding is created and
 must outlive the pipeline. Declare them before the binding/pipeline so Abla's
 reverse affine destruction order enforces that lifetime naturally. Repeated
 indexed draws reuse every binding handle with zero live-byte growth.
 
-`app.textureUniformBinding(texture, sampler, uniform)` extends the same group
-with a vertex-visible binding-one uniform buffer. The current strict shader
-form reflects a std140 `Transform` block containing one `mat4 mvp`; OpenGL binds
-the buffer to UBO slot one, while Vulkan adds a uniform-buffer descriptor to the
-same set. The buffer must declare `bufferUsageUniform`, contain at least 64
-bytes, and outlive the pipeline. Updating it with a reused `BufferBytes` and
-`writeAllBytes` uses direct whole-buffer backend paths, avoiding the temporary
-copy descriptor formerly created on each call.
+`app.textureBinding(texture, sampler)` and
+`app.textureUniformBinding(texture, sampler, uniform)` remain concise wrappers
+for the common binding-zero fragment texture and binding-one vertex uniform
+layouts. The indexed cube uses the latter with a std140 `Transform` block
+containing one `mat4 mvp`. Buffers must declare the matching
+`bufferUsageUniform` or `bufferUsageStorage` flag and outlive the pipeline.
+Updating a uniform with reused `BufferBytes` and `writeAllBytes` uses direct
+whole-buffer backend paths, avoiding a temporary copy descriptor per call.
 
 Portable fixed raster state is immutable and supplied when creating the
 pipeline:

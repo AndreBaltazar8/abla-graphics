@@ -378,6 +378,80 @@ fun applicationBackendProbe(
         ),
         usage = textureUsageSampled
     ))
+    val bindUniform = app.buffer(BufferDescriptor(
+        label = "bind-uniform",
+        size = 64,
+        usage = bufferUsageUniform | bufferUsageCopyDestination
+    ))
+    val sampledEntry = app.sampledTextureEntry(
+        3,
+        shaderVisibilityFragment,
+        texture,
+        sampler
+    )
+    val uniformEntry = app.uniformBufferEntry(
+        5,
+        shaderVisibilityVertex | shaderVisibilityFragment,
+        bindUniform
+    )
+    val storageEntry = app.storageBufferEntry(
+        7,
+        shaderVisibilityFragment,
+        buffer
+    )
+    val bindGroup = app.bindGroup([
+        sampledEntry,
+        uniformEntry,
+        storageEntry
+    ])
+    val bindGroupMatches = bindGroup.matches([
+        ShaderBinding(
+            shaderStageFragment,
+            0,
+            3,
+            "uniform",
+            "sampler2D",
+            "atlas"
+        ),
+        ShaderBinding(
+            shaderStageVertex,
+            0,
+            5,
+            "uniform",
+            "Transform",
+            "transform"
+        ),
+        ShaderBinding(
+            shaderStageFragment,
+            0,
+            5,
+            "uniform",
+            "Transform",
+            "transform"
+        ),
+        ShaderBinding(
+            shaderStageFragment,
+            0,
+            7,
+            "buffer",
+            "Values",
+            "values"
+        )
+    ])
+    val duplicateBindGroup = app.bindGroup([
+        sampledEntry,
+        app.uniformBufferEntry(
+            3,
+            shaderVisibilityVertex,
+            bindUniform
+        )
+    ])
+    val wrongUsageEntry = app.uniformBufferEntry(
+        9,
+        shaderVisibilityVertex,
+        usageRestrictedBuffer
+    )
+    val wrongUsageBindGroup = app.bindGroup([wrongUsageEntry])
     val computeShader = $glsl {
         compute {
             #version 450
@@ -639,6 +713,12 @@ fun applicationBackendProbe(
         unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&
         !oversizedTexture.valid() &&
         oversizedTexture.error.code == graphicsErrorLimitExceeded &&
+        bindUniform.valid() && sampledEntry.valid() &&
+        uniformEntry.valid() && storageEntry.valid() && bindGroup.valid() &&
+        bindGroup.entryCount() == 3 && bindGroupMatches &&
+        !duplicateBindGroup.valid() &&
+        duplicateBindGroup.error.code == graphicsErrorInvalidConfiguration &&
+        !wrongUsageEntry.valid() && !wrongUsageBindGroup.valid() &&
         compute.valid() && computed && !compute.dispatch(0) &&
         !compute.dispatch(
             app.capabilities.limits.maximumComputeWorkgroupsX + 1

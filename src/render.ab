@@ -18,7 +18,7 @@ resource class GraphicsRenderPipeline(
     val raster: RasterPipelineState,
     val depth: DepthStencilState,
     val shader: ShaderPackage,
-    val binding: GraphicsTextureBinding,
+    val binding: GraphicsBindGroup,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
@@ -40,7 +40,7 @@ trusted fun GraphicsApplication.renderPipeline(
     vertexLayout: VertexBufferLayout = VertexBufferLayout(),
     raster: RasterPipelineState = RasterPipelineState(),
     depth: DepthStencilState = DepthStencilState(),
-    own binding: GraphicsTextureBinding = emptyGraphicsTextureBinding()
+    own binding: GraphicsBindGroup = emptyGraphicsBindGroup()
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -98,39 +98,9 @@ trusted fun GraphicsApplication.renderPipeline(
           vertexInputCount == vertexLayout.attributeCount() &&
           vertexInputValid) ||
          (!vertexLayout.buffered() && vertexInputCount == 0))
-    var shaderBindingMatches = shader.bindings.size == 0 && binding.empty()
-    if (shader.bindings.size == 1 && binding.valid() &&
-        !binding.hasUniform()) {
-        val reflected = shader.bindings[0]
-        shaderBindingMatches = reflected.stage == shaderStageFragment &&
-            reflected.set == 0 && reflected.binding == 0 &&
-            reflected.storage == "uniform" &&
-            reflected.dataType == "sampler2D" &&
-            reflected.arraySize == 1
-    }
-    if (shader.bindings.size == 2 && binding.valid() &&
-        binding.hasUniform()) {
-        var textureMatched = false
-        var uniformMatched = false
-        var bindingIndex = 0
-        while (bindingIndex < shader.bindings.size) {
-            val reflected = shader.bindings[bindingIndex]
-            textureMatched = textureMatched ||
-                (reflected.stage == shaderStageFragment &&
-                 reflected.set == 0 && reflected.binding == 0 &&
-                 reflected.storage == "uniform" &&
-                 reflected.dataType == "sampler2D" &&
-                 reflected.arraySize == 1)
-            uniformMatched = uniformMatched ||
-                (reflected.stage == shaderStageVertex &&
-                 reflected.set == 0 && reflected.binding == 1 &&
-                 reflected.storage == "uniform" &&
-                 reflected.dataType == "Transform" &&
-                 reflected.arraySize == 1)
-            bindingIndex = bindingIndex + 1
-        }
-        shaderBindingMatches = textureMatched && uniformMatched
-    }
+    val shaderBindingMatches =
+        (shader.bindings.size == 0 && binding.empty()) ||
+        (binding.valid() && binding.matches(shader.bindings))
     val translatable = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -290,9 +260,10 @@ trusted fun GraphicsApplication.presentRender(
             clear,
             pipeline.raster,
             pipeline.depth,
-            pipeline.binding.openGlTexture,
-            pipeline.binding.openGlSampler,
-            pipeline.binding.openGlUniform
+            pipeline.binding.openGlKinds,
+            pipeline.binding.openGlBindings,
+            pipeline.binding.openGlResources,
+            pipeline.binding.openGlSamplers
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -361,9 +332,10 @@ trusted fun GraphicsApplication.presentRenderVertices(
             clear,
             pipeline.raster,
             pipeline.depth,
-            pipeline.binding.openGlTexture,
-            pipeline.binding.openGlSampler,
-            pipeline.binding.openGlUniform
+            pipeline.binding.openGlKinds,
+            pipeline.binding.openGlBindings,
+            pipeline.binding.openGlResources,
+            pipeline.binding.openGlSamplers
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -437,9 +409,10 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             clear,
             pipeline.raster,
             pipeline.depth,
-            pipeline.binding.openGlTexture,
-            pipeline.binding.openGlSampler,
-            pipeline.binding.openGlUniform
+            pipeline.binding.openGlKinds,
+            pipeline.binding.openGlBindings,
+            pipeline.binding.openGlResources,
+            pipeline.binding.openGlSamplers
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
