@@ -173,7 +173,9 @@ storage.writeI64(42)
 and owns either an OpenGL buffer object or a Vulkan buffer/allocation. Creation
 maps portable usage flags to Vulkan usage bits and returns a structured error
 for invalid descriptors or driver failure. Bounds checks use subtraction rather
-than overflow-prone `offset + length`. The current slice uses host-visible
+than overflow-prone `offset + length`. A storage buffer larger than
+`maximumStorageBufferBytes` returns `graphicsErrorLimitExceeded` before a
+driver allocation. The current slice uses host-visible
 storage and exposes checked 64-bit read/write probes; mapped ranges, queued
 uploads, device-local selection, and general byte ranges remain upcoming APIs.
 An application must let child buffers drop before its device/context.
@@ -197,7 +199,9 @@ support single-sample 2D color and depth formats, complete mip allocation, and
 validated color/depth/stencil aspect ranges. Vulkan compatible linear/sRGB
 reinterpretation uses mutable-format images. OpenGL subresource and
 format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
-texture-view support is negotiated. Multisample/1D/3D creation,
+texture-view support is negotiated. Width or height above
+`maximumTextureDimension2D` returns `graphicsErrorLimitExceeded` before image
+creation. Multisample/1D/3D creation,
 data uploads, copies, layout transitions, and render-pass attachment use are
 not yet part of this common slice. Views must drop before their parent texture,
 and textures must drop before the application device/context.
@@ -295,6 +299,7 @@ After successful creation, `app.capabilities` reports the selected driver's
 feature mask, `GraphicsVersion`, maximum 2D texture dimension, maximum storage
 buffer byte range, maximum compute workgroups in X, maximum compute workgroup
 size in X, maximum compute invocations, and maximum integer sampler anisotropy.
+The corresponding Y/Z workgroup-count and local-size limits are also reported.
 These values come from
 `glGet*` on the current OpenGL context or `vkGetPhysicalDeviceProperties` and
 the selected Vulkan queue family. The current OpenGL path deliberately does not
@@ -448,7 +453,11 @@ OpenGL compute program or a Vulkan pipeline created from the Abla-emitted
 SPIR-V, reports structured creation errors, and exposes the same checked
 `dispatch(x, y, z)` call on both backends. Backend choice occurs once during
 creation; dispatch contains no backend probing beyond the selected affine
-resource branch. OpenGL queues work without a forced full-context finish.
+resource branch. Pipeline creation rejects a reflected local size exceeding any
+X/Y/Z limit or the maximum total invocations. Dispatch rejects a group count
+exceeding the selected device's X/Y/Z maximum. These checks return before a
+driver pipeline or command call; creation uses `graphicsErrorLimitExceeded`.
+OpenGL queues work without a forced full-context finish.
 Vulkan currently waits for queue completion before resetting its persistent
 command resources; asynchronous fences and frames-in-flight are required before
 this becomes the high-throughput production path.

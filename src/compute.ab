@@ -12,14 +12,19 @@ resource class GraphicsComputePipeline(
     val openGl: OpenGlComputePipeline,
     val vulkan: VulkanComputePipeline,
     val backend: int,
+    val limits: GraphicsLimits,
     val error: GraphicsError
 ) {
-    fun valid(): bool = !this.error.occurred() &&
+    fun valid(): bool = !this.error.occurred() && this.limits.valid() &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
     trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
-        if (this.backend == graphicsBackendOpenGl) {
+        if (x < 1 || y < 1 || z < 1 ||
+            x > this.limits.maximumComputeWorkgroupsX ||
+            y > this.limits.maximumComputeWorkgroupsY ||
+            z > this.limits.maximumComputeWorkgroupsZ) false
+        else if (this.backend == graphicsBackendOpenGl) {
             this.openGl.dispatch(x, y, z)
         } else if (this.backend == graphicsBackendVulkan) {
             this.vulkan.dispatch(x, y, z)
@@ -31,6 +36,25 @@ resource class GraphicsComputePipeline(
         this.vulkan.drop()
         return
     }
+}
+
+fun graphicsComputeWorkgroupSupported(
+    shader: ShaderPackage,
+    limits: GraphicsLimits
+): bool {
+    var supported = shader.workgroups.size == 1
+    if (supported) {
+        val workgroup = shader.workgroups[0]
+        val xy = graphicsCheckedSizeProduct(workgroup.x, workgroup.y)
+        val xyz = if (xy.succeeded)
+            graphicsCheckedSizeProduct(xy.value, workgroup.z)
+        else GraphicsIntResult(false)
+        supported = workgroup.x <= limits.maximumComputeWorkgroupSizeX &&
+            workgroup.y <= limits.maximumComputeWorkgroupSizeY &&
+            workgroup.z <= limits.maximumComputeWorkgroupSizeZ &&
+            xyz.succeeded && xyz.value <= limits.maximumComputeInvocations
+    }
+    supported
 }
 
 trusted fun GraphicsApplication.computePipeline(
@@ -69,11 +93,26 @@ trusted fun GraphicsApplication.computePipeline(
             if (shader.error != "") shader.error else
                 "the application or shader package is invalid"
         )
+    } else if (!this.capabilities.supports(graphicsFeatureCompute)) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "GraphicsApplication.computePipeline",
+            "compute is unavailable on the selected device"
+        )
     } else if (!emitted.succeeded) {
         error = GraphicsError(
             graphicsErrorUnsupportedFeature,
             "ShaderPackage.spirv",
             emitted.error
+        )
+    } else if (!graphicsComputeWorkgroupSupported(
+            shader,
+            this.capabilities.limits
+        )) {
+        error = GraphicsError(
+            graphicsErrorLimitExceeded,
+            "GraphicsApplication.computePipeline.workgroup",
+            "compute workgroup dimensions exceed the selected device limits"
         )
     } else if (this.backend == graphicsBackendOpenGl) {
         openGl = this.openGl.computePipeline(shader)
@@ -93,7 +132,13 @@ trusted fun GraphicsApplication.computePipeline(
             "Vulkan compute pipeline creation failed"
         )
     }
-    GraphicsComputePipeline(move(openGl), move(vulkan), this.backend, error)
+    GraphicsComputePipeline(
+        move(openGl),
+        move(vulkan),
+        this.backend,
+        this.capabilities.limits,
+        error
+    )
 }
 
 trusted fun GraphicsApplication.computeStoragePipeline(
@@ -128,11 +173,28 @@ trusted fun GraphicsApplication.computeStoragePipeline(
             "GraphicsApplication.computeStoragePipeline",
             "compute storage requires one valid binding-zero buffer on the selected backend"
         )
+    } else if (!this.capabilities.supports(
+            graphicsFeatureCompute | graphicsFeatureStorageBuffers
+        )) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "GraphicsApplication.computeStoragePipeline",
+            "compute storage is unavailable on the selected device"
+        )
     } else if (!emitted.succeeded) {
         error = GraphicsError(
             graphicsErrorUnsupportedFeature,
             "ShaderPackage.spirv",
             emitted.error
+        )
+    } else if (!graphicsComputeWorkgroupSupported(
+            shader,
+            this.capabilities.limits
+        )) {
+        error = GraphicsError(
+            graphicsErrorLimitExceeded,
+            "GraphicsApplication.computeStoragePipeline.workgroup",
+            "compute workgroup dimensions exceed the selected device limits"
         )
     } else if (this.backend == graphicsBackendOpenGl) {
         openGl = this.openGl.computePipeline(shader, storage.openGl.handle)
@@ -151,5 +213,11 @@ trusted fun GraphicsApplication.computeStoragePipeline(
             "Vulkan storage compute pipeline creation failed"
         )
     }
-    GraphicsComputePipeline(move(openGl), move(vulkan), this.backend, error)
+    GraphicsComputePipeline(
+        move(openGl),
+        move(vulkan),
+        this.backend,
+        this.capabilities.limits,
+        error
+    )
 }

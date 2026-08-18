@@ -27,7 +27,9 @@ constant does not count.
 The first implemented portable negotiation slice covers compute, storage
 buffers, sampled textures, depth textures, comparison samplers, and compatible
 view-format reinterpretation, plus queried sampler anisotropy. It reports API
-version plus 2D texture, storage buffer, compute workgroup, and sampler
-anisotropy limits from the active OpenGL context or selected Vulkan physical
-device/queue family. Broader extension and feature-structure negotiation is
-still classified as future work.
+version plus 2D texture, storage buffer, per-axis compute group/local-size,
+total invocation, and sampler anisotropy limits from the active OpenGL context
+or selected Vulkan physical device/queue family. The common resource and
+compute paths enforce these delivered limits before driver work. Broader
+extension and feature-structure negotiation is still classified as future
+work.

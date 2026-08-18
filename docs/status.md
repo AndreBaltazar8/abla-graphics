@@ -60,7 +60,9 @@ Updated: 2026-08-18.
   and explicit unsupported-feature rejection. Every successful path requires
   compute, storage buffers, sampled/depth textures, comparison samplers, and
   sampler anisotropy,
-  then verifies the reported API version and driver limits. Explicit Vulkan
+  then verifies the reported API version and driver limits. It rejects a
+  storage buffer one byte above the reported range and a 2D texture one texel
+  above the reported dimension before allocation. Explicit Vulkan
   additionally requires the implemented view-format reinterpretation feature;
   successful paths create an affine application, report the selected adapter,
   round a common native `f64` color to IEEE-754 binary32 in Abla, and present it
@@ -145,7 +147,10 @@ Updated: 2026-08-18.
 - Common compute test/sample: the same `$glsl` package creates an OpenGL 4.5
   compute program or the Vulkan SPIR-V/module/pipeline chain after one-time
   backend selection. Explicit OpenGL/Vulkan plus automatic/fallback paths
-  dispatch repeatedly; zero-sized dispatch is rejected on both backends.
+  dispatch repeatedly; zero-sized and over-limit X/Y/Z dispatch is rejected on
+  both backends. Pipeline creation rejects local dimensions above the reported
+  X/Y/Z limits and a legal per-axis layout whose product exceeds the maximum
+  invocation count, all before driver calls.
   OpenGL does not force `glFinish` after dispatch.
   Unsupported compute statements return the same common feature error before
   either OpenGL or Vulkan pipeline creation.
@@ -211,10 +216,9 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional
-  feature preferences, per-dimension/per-stage limits, and typed extension
-  objects. The current common capability report covers the initial
-  seven-feature mask and six directly queried limits documented in the API
-  contract.
+  feature preferences, broader per-stage limits, and typed extension objects.
+  The current common capability report covers the initial seven-feature mask
+  and ten directly queried limits documented in the API contract.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration and cross-stage compatibility slice,

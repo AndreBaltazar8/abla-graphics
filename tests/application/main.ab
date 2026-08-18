@@ -68,6 +68,10 @@ fun applicationBackendProbe(
         size = 0,
         usage = bufferUsageStorage
     ))
+    val oversizedBuffer = app.buffer(BufferDescriptor(
+        size = app.capabilities.limits.maximumStorageBufferBytes + 1,
+        usage = bufferUsageStorage
+    ))
     val mappedBuffer = app.buffer(BufferDescriptor(
         size = 64,
         usage = bufferUsageMapWrite | bufferUsageCopySource,
@@ -116,6 +120,13 @@ fun applicationBackendProbe(
         samples = 4,
         usage = textureUsageRenderAttachment
     ))
+    val oversizedTexture = app.texture(TextureDescriptor(
+        size = Extent3D(
+            app.capabilities.limits.maximumTextureDimension2D + 1,
+            1
+        ),
+        usage = textureUsageSampled
+    ))
     val computeShader = $glsl {
         compute {
             #version 450
@@ -130,6 +141,18 @@ fun applicationBackendProbe(
         ["#version 450\nlayout(local_size_x=8) in; void main() { uint value = 1; }"]
     )
     val unsupportedCompute = app.computePipeline(unsupportedComputeShader)
+    val oversizedWorkgroupShader = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=${app.capabilities.limits.maximumComputeWorkgroupSizeX + 1}) in; void main() {}"]
+    )
+    val oversizedWorkgroup = app.computePipeline(oversizedWorkgroupShader)
+    val excessiveInvocationsShader = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=32, local_size_y=33) in; void main() {}"]
+    )
+    val excessiveInvocations = app.computePipeline(
+        excessiveInvocationsShader
+    )
     val storageShader = $glsl {
         compute {
             #version 450
@@ -228,13 +251,15 @@ fun applicationBackendProbe(
             app.vulkanPixels.height == 260
     }
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} workgroups=${app.capabilities.limits.maximumComputeWorkgroupsX} workgroupSize=${app.capabilities.limits.maximumComputeWorkgroupSizeX} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && frameSlotsPassed &&
         buffer.valid() && bufferWritten &&
         bufferRead == 1311768465173141112 &&
         !buffer.writeI64(1, 60) && !invalidBuffer.valid() &&
         invalidBuffer.error.code == graphicsErrorInvalidConfiguration &&
+        !oversizedBuffer.valid() &&
+        oversizedBuffer.error.code == graphicsErrorLimitExceeded &&
         !mappedBuffer.valid() &&
         mappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
@@ -253,9 +278,27 @@ fun applicationBackendProbe(
         depthTexture.valid() && depthTextureView.valid() &&
         !unsupportedTexture.valid() &&
         unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&
+        !oversizedTexture.valid() &&
+        oversizedTexture.error.code == graphicsErrorLimitExceeded &&
         compute.valid() && computed && !compute.dispatch(0) &&
+        !compute.dispatch(
+            app.capabilities.limits.maximumComputeWorkgroupsX + 1
+        ) &&
+        !compute.dispatch(
+            1,
+            app.capabilities.limits.maximumComputeWorkgroupsY + 1
+        ) &&
+        !compute.dispatch(
+            1,
+            1,
+            app.capabilities.limits.maximumComputeWorkgroupsZ + 1
+        ) &&
         !unsupportedCompute.valid() &&
         unsupportedCompute.error.code == graphicsErrorUnsupportedFeature &&
+        !oversizedWorkgroup.valid() &&
+        oversizedWorkgroup.error.code == graphicsErrorLimitExceeded &&
+        !excessiveInvocations.valid() &&
+        excessiveInvocations.error.code == graphicsErrorLimitExceeded &&
         computeBuffer.valid() && computeBufferCleared &&
         storageCompute.valid() && storageComputed && computeValue == 6 &&
         resizePassed
