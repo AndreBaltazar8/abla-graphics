@@ -5,7 +5,7 @@ Updated: 2026-08-18.
 ## Verified now
 
 - Pure core test: backend selection, structured errors, window configuration,
-  geometry, and deterministic fixed-point vectors/colors.
+  geometry, native `f64` vectors/colors, and exact binary32 rounding.
 - X11 test: AF_UNIX connection, protocol 11 setup, server metadata parsing,
   binary Xauthority parsing and MIT-MAGIC-COOKIE-1 authentication, XID
   allocation, atom interning, CreateWindow, title and WM_PROTOCOLS properties,
@@ -39,7 +39,7 @@ Updated: 2026-08-18.
 - Common application test: explicit OpenGL, explicit Vulkan, automatic Vulkan
   preference, automatic fallback to OpenGL, and explicit-unavailable rejection;
   successful paths create an affine application, report the selected adapter,
-  convert a common fixed-point color to IEEE-754 bits in Abla, and present it
+  round a common native `f64` color to IEEE-754 binary32 in Abla, and present it
   under Xvfb/Lavapipe. The explicit OpenGL path additionally requests a resize,
   consumes its copied event, synchronizes viewport dimensions, and presents at
   the new window size. The explicit Vulkan path performs the same round trip,
@@ -137,10 +137,12 @@ the common facade and OpenGL/Vulkan software-frame presentation, from clean
 checkouts against the pinned software drivers. Newer commits retain the same
 local full-matrix gate before publication and receive their own hosted run.
 
-The current compiler also lacks usable source-level floating literals and
-floating arithmetic/ABI conformance. Graphics math is temporarily fixed-point;
-the public 0.1 math and color surface will not freeze until the general compiler
-capability lands.
+Compiler commits `9581d03` and `db72fbf` now provide runtime `f64` literals,
+arithmetic, comparisons, direct/native/export/boxing ABI coverage, and exact
+bit-representation helpers. The public vector and color surface has migrated to
+native `f64`; OpenGL/Vulkan ABI fields receive deterministic binary32 rounding
+in pure Abla. Compile-time floating evaluation and explicit language-level
+`f32` conversion remain future toolchain work.
 
 ## Not yet claimed
 

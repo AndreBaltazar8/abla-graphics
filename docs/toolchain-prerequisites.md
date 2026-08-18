@@ -6,23 +6,17 @@ special cases in the framework.
 
 ## Floating-point expressions
 
-The 2026-08-17 compiler recognizes `f32` and `f64` as primitive type names,
-but decimal literals are parsed as an integer followed by member access and
-floating-point arithmetic does not pass semantic/LLVM validation. The initial
-compiler-checked graphics math values therefore use deterministic millionth
-fixed-point integers through `graphicsScalar`.
+Compiler commits `9581d03` and `db72fbf` provide decimal and exponent literals
+defaulting to `f64`, checked runtime `f64` arithmetic and comparisons, direct
+and native ABI lowering, exported/boxed values, arrays, class fields, closures,
+globals, and exact `f64ToBits`/`f64FromBits` representation helpers. The public
+graphics vector and color surface therefore uses native `f64` values.
 
-Before the public 0.1 vertex, matrix, clear-color, viewport, depth, and shader
-constant API is frozen, `ablac` needs:
-
-- decimal and exponent floating literals with an explicit/default width rule;
-- checked `f32` and `f64` arithmetic/comparisons/conversions;
-- system ABI lowering for floating parameters and results; and
-- evaluator, LLVM, reflection, and export conformance tests.
-
-Once those general capabilities pass the compiler suite, the framework math
-surface will migrate to native floating values before compatibility guarantees
-begin. Registry constants and bit flags are unaffected.
+Abla Graphics performs deterministic round-to-nearest-even conversion from
+binary64 to binary32 in pure Abla when OpenGL or Vulkan requires an `f32` bit
+pattern. Explicit language-level `f32` conversions and compile-time floating
+evaluation remain toolchain work; neither limitation requires a fixed-point
+public graphics API. Registry constants and bit flags are unaffected.
 
 ## Manifest-declared system driver libraries
 

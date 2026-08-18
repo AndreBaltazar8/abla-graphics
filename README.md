@@ -10,7 +10,7 @@ layer.
 The project is under active development. The current vertical slice already
 proves the architecture rather than stopping at placeholder interfaces:
 
-- a backend-neutral configuration, error, geometry, and fixed-point math core;
+- a backend-neutral configuration, error, geometry, and native `f64` math core;
 - an affine pure-Abla X11 window that opens the Unix socket, performs the X11
   authenticated handshake, honors visibility/size/decoration/fullscreen hints,
   maps portable keyboard/pointer/scroll/UTF-8 text events, and handles the
@@ -38,8 +38,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - immutable portable buffer/texture/view/sampler descriptors plus affine
   common buffers, textures, views, and samplers that create and drop real
   resources on either OpenGL or Vulkan, with checked buffer writes/readback;
-- integer-only IEEE-754 color encoding so common colors reach both drivers
-  without a foreign shim or source-level float ABI; and
+- pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
+  both drivers without a foreign shim; and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
 

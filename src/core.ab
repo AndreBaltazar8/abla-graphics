@@ -1,5 +1,7 @@
 // Backend-neutral value types and selection policy.
 
+import "abla/float"
+
 val graphicsBackendAuto = 0
 val graphicsBackendVulkan = 1
 val graphicsBackendOpenGl = 2
@@ -127,38 +129,50 @@ class Rect2D(val offset: Offset2D, val extent: Extent2D) {
         y < this.offset.y + this.extent.height
 }
 
-// The current compiler recognizes f32/f64 type names but does not yet parse or
-// lower floating-point arithmetic. Public coordinates use a deterministic
-// millionth fixed-point scalar until that compiler prerequisite lands.
-val graphicsScalarOne = 1000000
-
-fun graphicsScalar(numerator: int, denominator: int = 1): int =
-    if (denominator == 0) 0 else numerator * graphicsScalarOne / denominator
-
-fun graphicsScalarMultiply(left: int, right: int): int =
-    left * right / graphicsScalarOne
-
-// Convert a clamped millionth fixed-point scalar to an IEEE-754 f32 bit
-// pattern without relying on source-level floating-point expressions.
-fun graphicsScalarF32Bits(value: int): int {
-    var result = 0
-    if (value >= graphicsScalarOne) result = 1065353216
-    else if (value > 0) {
-        var normalized = value
-        var exponent = 0
-        while (normalized < graphicsScalarOne) {
-            normalized = normalized * 2
-            exponent = exponent - 1
+// Deterministically round a native f64 to its IEEE-754 binary32 encoding.
+// Drivers that consume packed ABI structures receive these bits directly;
+// no project-native shim or foreign numerical conversion is involved.
+fun graphicsScalarF32Bits(value: f64): int {
+    val bits = f64ToBits(value)
+    val sign = (bits >>> 63) << 31
+    val exponent64 = (bits >>> 52) & 2047
+    val fraction64 = bits & 4503599627370495
+    var result = sign
+    if (exponent64 == 2047) {
+        var payload = fraction64 >>> 29
+        if (fraction64 != 0 && payload == 0) payload = 1
+        result = sign | 2139095040 | payload
+    } else if (exponent64 != 0) {
+        val exponent = exponent64 - 1023
+        if (exponent > 127) {
+            result = sign | 2139095040
+        } else if (exponent >= -126) {
+            var mantissa = fraction64 >>> 29
+            val remainder = fraction64 & 536870911
+            if (remainder > 268435456 ||
+                (remainder == 268435456 && (mantissa & 1) != 0)) {
+                mantissa = mantissa + 1
+            }
+            var exponent32 = exponent + 127
+            if (mantissa == 8388608) {
+                mantissa = 0
+                exponent32 = exponent32 + 1
+            }
+            if (exponent32 >= 255) result = sign | 2139095040
+            else result = sign | (exponent32 << 23) | mantissa
+        } else if (exponent >= -150) {
+            val significand = 4503599627370496 + fraction64
+            val shift = -exponent - 97
+            val unit = 1 << shift
+            val half = unit >>> 1
+            var mantissa = significand >>> shift
+            val remainder = significand & (unit - 1)
+            if (remainder > half ||
+                (remainder == half && (mantissa & 1) != 0)) {
+                mantissa = mantissa + 1
+            }
+            result = sign | mantissa
         }
-        var mantissa = (
-            (normalized - graphicsScalarOne) * 8388608 +
-            graphicsScalarOne / 2
-        ) / graphicsScalarOne
-        if (mantissa >= 8388608) {
-            mantissa = 0
-            exponent = exponent + 1
-        }
-        result = (127 + exponent) * 8388608 + mantissa
     }
     result
 }
@@ -178,59 +192,53 @@ fun graphicsUnsignedIntegerF32Bits(value: int): int {
     result
 }
 
-class Vec2(val x: int, val y: int) {
+class Vec2(val x: f64, val y: f64) {
     fun plus(other: Vec2): Vec2 = Vec2(
         this.x + other.x,
         this.y + other.y
     )
 
-    fun scaled(amount: int): Vec2 = Vec2(
-        graphicsScalarMultiply(this.x, amount),
-        graphicsScalarMultiply(this.y, amount)
-    )
+    fun scaled(amount: f64): Vec2 = Vec2(this.x * amount, this.y * amount)
 
-    fun dot(other: Vec2): int =
-        graphicsScalarMultiply(this.x, other.x) +
-        graphicsScalarMultiply(this.y, other.y)
+    fun dot(other: Vec2): f64 =
+        this.x * other.x + this.y * other.y
 }
 
-class Vec3(val x: int, val y: int, val z: int) {
+class Vec3(val x: f64, val y: f64, val z: f64) {
     fun plus(other: Vec3): Vec3 = Vec3(
         this.x + other.x,
         this.y + other.y,
         this.z + other.z
     )
 
-    fun scaled(amount: int): Vec3 = Vec3(
-        graphicsScalarMultiply(this.x, amount),
-        graphicsScalarMultiply(this.y, amount),
-        graphicsScalarMultiply(this.z, amount)
+    fun scaled(amount: f64): Vec3 = Vec3(
+        this.x * amount,
+        this.y * amount,
+        this.z * amount
     )
 
-    fun dot(other: Vec3): int =
-        graphicsScalarMultiply(this.x, other.x) +
-        graphicsScalarMultiply(this.y, other.y) +
-        graphicsScalarMultiply(this.z, other.z)
+    fun dot(other: Vec3): f64 =
+        this.x * other.x + this.y * other.y + this.z * other.z
 }
 
-class Vec4(val x: int, val y: int, val z: int, val w: int)
+class Vec4(val x: f64, val y: f64, val z: f64, val w: f64)
 
 class Color(
-    val red: int,
-    val green: int,
-    val blue: int,
-    val alpha: int = graphicsScalarOne
+    val red: f64,
+    val green: f64,
+    val blue: f64,
+    val alpha: f64 = 1.0
 ) {
     fun valid(): bool =
-        this.red >= 0 && this.red <= graphicsScalarOne &&
-        this.green >= 0 && this.green <= graphicsScalarOne &&
-        this.blue >= 0 && this.blue <= graphicsScalarOne &&
-        this.alpha >= 0 && this.alpha <= graphicsScalarOne
+        this.red >= 0.0 && this.red <= 1.0 &&
+        this.green >= 0.0 && this.green <= 1.0 &&
+        this.blue >= 0.0 && this.blue <= 1.0 &&
+        this.alpha >= 0.0 && this.alpha <= 1.0
 
     fun premultiplied(): Color = Color(
-        graphicsScalarMultiply(this.red, this.alpha),
-        graphicsScalarMultiply(this.green, this.alpha),
-        graphicsScalarMultiply(this.blue, this.alpha),
+        this.red * this.alpha,
+        this.green * this.alpha,
+        this.blue * this.alpha,
         this.alpha
     )
 }

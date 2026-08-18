@@ -7,7 +7,7 @@ but the ownership and performance contracts are not optional.
 
 The current compiler-checked facade already performs one-time backend selection,
 owns the platform/backend resources, polls copied events, and presents a common
-fixed-point clear color:
+native `f64` clear color:
 
 ```abla
 val app = graphicsApplication(
@@ -15,11 +15,7 @@ val app = graphicsApplication(
     WindowConfig(title = "Abla clear", width = 1280, height = 720)
 )
 if (app.valid()) {
-    app.presentClear(Color(
-        graphicsScalar(3, 20),
-        graphicsScalar(9, 20),
-        graphicsScalar(17, 20)
-    ))
+    app.presentClear(Color(0.15, 0.45, 0.85))
 }
 ```
 
@@ -138,9 +134,8 @@ val linear = app.sampler(SamplerDescriptor(
 
 The common descriptor maps address, magnification/minification/mipmap filters,
 integer LOD bounds, and optional comparison state to OpenGL sampler objects and
-`VkSampler` values. Abla encodes Vulkan's required nonnegative float fields
-directly as IEEE-754 bits while the compiler's source-level float prerequisite
-is unfinished. Anisotropy above one returns
+`VkSampler` values. Abla rounds the API's native `f64` values to the required
+IEEE-754 binary32 representation in pure Abla. Anisotropy above one returns
 `graphicsErrorUnsupportedFeature` until adapter feature negotiation can enable
 it honestly; the value is not silently ignored.
 
