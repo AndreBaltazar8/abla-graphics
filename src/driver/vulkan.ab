@@ -1635,6 +1635,28 @@ resource class VulkanBuffer(
         succeeded
     }
 
+    trusted fun writeAllBytes(source: BufferBytes): bool {
+        var succeeded = this.valid() && source.valid() &&
+            source.size == this.size
+        if (succeeded) succeeded = vkMapMemory(
+            this.device,
+            this.memory,
+            0,
+            this.size,
+            0,
+            this.mapped.address
+        ) == vulkanSuccess
+        if (succeeded) {
+            ablaUnsafeCopyMemory(
+                this.mapped.load(),
+                source.storage.address,
+                this.size
+            )
+            vkUnmapMemory(this.device, this.memory)
+        }
+        succeeded
+    }
+
     trusted fun readBytes(
         var destination: BufferBytes,
         copy: BufferCopyDescriptor
@@ -1714,7 +1736,8 @@ resource class VulkanTextureBinding(
     var descriptorSetLayout: int,
     var descriptorPool: int,
     var descriptorSet: int,
-    val view: VulkanTextureView
+    val view: VulkanTextureView,
+    val hasUniform: bool
 ) {
     fun valid(): bool = !pointerIsNull(this.device) &&
         this.descriptorSetLayout != 0 && this.descriptorPool != 0 &&
@@ -2803,31 +2826,43 @@ trusted fun VulkanTexture.view(
 trusted fun VulkanDevice.textureBinding(
     texture: VulkanTexture,
     textureDescriptor: TextureDescriptor,
-    sampler: VulkanSampler
+    sampler: VulkanSampler,
+    uniformBuffer: int = 0,
+    uniformSize: int = 0
 ): VulkanTextureBinding {
     var descriptorSetLayout = 0
     var descriptorPool = 0
     var descriptorSet = 0
     var view = VulkanTextureView(nativeNullPointer(), 0)
+    val hasUniform = uniformBuffer != 0 && uniformSize >= 64
     var succeeded = this.valid() && texture.valid() && sampler.valid() &&
         texture.device == this.handle && sampler.device == this.handle &&
         textureDescriptor.valid() &&
         (textureDescriptor.usage & textureUsageSampled) != 0 &&
-        !textureFormatHasDepth(textureDescriptor.format)
+        !textureFormatHasDepth(textureDescriptor.format) &&
+        ((uniformBuffer == 0 && uniformSize == 0) || hasUniform)
     if (succeeded) {
         view = texture.view(textureDescriptor, TextureViewDescriptor())
         succeeded = view.valid()
     }
     if (succeeded) {
-        val binding = nativeByteBuffer(24)
-        binding.storeI64(0, 4294967296)
-        binding.storeI64(8, 16 * 4294967296 + 1)
-        binding.storePointer(16, nativeNullPointer())
+        val bindings = nativeByteBuffer(if (hasUniform) 48 else 24)
+        bindings.storeI64(0, 4294967296)
+        bindings.storeI64(8, 16 * 4294967296 + 1)
+        bindings.storePointer(16, nativeNullPointer())
+        if (hasUniform) {
+            bindings.storeI64(24, 6 * 4294967296 + 1)
+            bindings.storeI64(32, 4294967297)
+            bindings.storePointer(40, nativeNullPointer())
+        }
         val createInfo = nativeByteBuffer(32)
         createInfo.storeI64(0, 32)
         createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 4294967296)
-        createInfo.storePointer(24, binding.address)
+        createInfo.storeI64(
+            16,
+            (if (hasUniform) 2 else 1) * 4294967296
+        )
+        createInfo.storePointer(24, bindings.address)
         val output = nativeI64Cell(0)
         succeeded = vkCreateDescriptorSetLayout(
             this.handle,
@@ -2838,14 +2873,15 @@ trusted fun VulkanDevice.textureBinding(
         if (succeeded) descriptorSetLayout = output.load()
     }
     if (succeeded) {
-        val poolSize = nativeByteBuffer(8)
-        poolSize.storeI64(0, 4294967297)
+        val poolSizes = nativeByteBuffer(if (hasUniform) 16 else 8)
+        poolSizes.storeI64(0, 4294967297)
+        if (hasUniform) poolSizes.storeI64(8, 4294967302)
         val poolInfo = nativeByteBuffer(40)
         poolInfo.storeI64(0, 33)
         poolInfo.storePointer(8, nativeNullPointer())
         poolInfo.storeI64(16, 4294967296)
-        poolInfo.storeI64(24, 1)
-        poolInfo.storePointer(32, poolSize.address)
+        poolInfo.storeI64(24, if (hasUniform) 2 else 1)
+        poolInfo.storePointer(32, poolSizes.address)
         val output = nativeI64Cell(0)
         succeeded = vkCreateDescriptorPool(
             this.handle,
@@ -2876,19 +2912,35 @@ trusted fun VulkanDevice.textureBinding(
         imageInfo.storeI64(0, sampler.handle)
         imageInfo.storeI64(8, view.handle)
         imageInfo.storeI64(16, 5)
-        val write = nativeByteBuffer(64)
-        write.storeI64(0, 35)
-        write.storePointer(8, nativeNullPointer())
-        write.storeI64(16, descriptorSet)
-        write.storeI64(24, 0)
-        write.storeI64(32, 4294967297)
-        write.storePointer(40, imageInfo.address)
-        write.storePointer(48, nativeNullPointer())
-        write.storePointer(56, nativeNullPointer())
+        val bufferInfo = nativeByteBuffer(24)
+        if (hasUniform) {
+            bufferInfo.storeI64(0, uniformBuffer)
+            bufferInfo.storeI64(8, 0)
+            bufferInfo.storeI64(16, uniformSize)
+        }
+        val writes = nativeByteBuffer(if (hasUniform) 128 else 64)
+        writes.storeI64(0, 35)
+        writes.storePointer(8, nativeNullPointer())
+        writes.storeI64(16, descriptorSet)
+        writes.storeI64(24, 0)
+        writes.storeI64(32, 4294967297)
+        writes.storePointer(40, imageInfo.address)
+        writes.storePointer(48, nativeNullPointer())
+        writes.storePointer(56, nativeNullPointer())
+        if (hasUniform) {
+            writes.storeI64(64, 35)
+            writes.storePointer(72, nativeNullPointer())
+            writes.storeI64(80, descriptorSet)
+            writes.storeI64(88, 1)
+            writes.storeI64(96, 6 * 4294967296 + 1)
+            writes.storePointer(104, nativeNullPointer())
+            writes.storePointer(112, bufferInfo.address)
+            writes.storePointer(120, nativeNullPointer())
+        }
         vkUpdateDescriptorSets(
             this.handle,
-            1,
-            write.address,
+            if (hasUniform) 2 else 1,
+            writes.address,
             0,
             nativeNullPointer()
         )
@@ -2914,7 +2966,8 @@ trusted fun VulkanDevice.textureBinding(
         descriptorSetLayout,
         descriptorPool,
         descriptorSet,
-        move(view)
+        move(view),
+        hasUniform
     )
 }
 

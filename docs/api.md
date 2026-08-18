@@ -175,6 +175,15 @@ must outlive the pipeline. Declare them before the binding/pipeline so Abla's
 reverse affine destruction order enforces that lifetime naturally. Repeated
 indexed draws reuse every binding handle with zero live-byte growth.
 
+`app.textureUniformBinding(texture, sampler, uniform)` extends the same group
+with a vertex-visible binding-one uniform buffer. The current strict shader
+form reflects a std140 `Transform` block containing one `mat4 mvp`; OpenGL binds
+the buffer to UBO slot one, while Vulkan adds a uniform-buffer descriptor to the
+same set. The buffer must declare `bufferUsageUniform`, contain at least 64
+bytes, and outlive the pipeline. Updating it with a reused `BufferBytes` and
+`writeAllBytes` uses direct whole-buffer backend paths, avoiding the temporary
+copy descriptor formerly created on each call.
+
 Portable fixed raster state is immutable and supplied when creating the
 pipeline:
 
@@ -795,8 +804,9 @@ position plus a location-one `vec4` tint or `vec2` texture coordinate passed
 through a location-zero varying. The texture form also accepts one binding-zero
 fragment `sampler2D` and emits the corresponding sampled-image operation.
 The indexed-cube form widens position to `vec3` and constructs clip-space
-`vec4(position, 1.0)`, exercising the same texture binding with real depth
-testing across 24 face vertices and 36 indices.
+coordinates with a reflected std140 `mat4` transform, exercising the combined
+texture/uniform binding with real depth testing across 24 face vertices and 36
+indices.
 The Abla emitter maps the OpenGL vertex builtin to Vulkan `VertexIndex`, emits
 deterministic Vulkan 1.0 vertex and fragment modules, and rejects any
 declaration, literal, builtin, or statement outside these subsets.

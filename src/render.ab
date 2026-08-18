@@ -99,13 +99,37 @@ trusted fun GraphicsApplication.renderPipeline(
           vertexInputValid) ||
          (!vertexLayout.buffered() && vertexInputCount == 0))
     var shaderBindingMatches = shader.bindings.size == 0 && binding.empty()
-    if (shader.bindings.size == 1 && binding.valid()) {
+    if (shader.bindings.size == 1 && binding.valid() &&
+        !binding.hasUniform()) {
         val reflected = shader.bindings[0]
         shaderBindingMatches = reflected.stage == shaderStageFragment &&
             reflected.set == 0 && reflected.binding == 0 &&
             reflected.storage == "uniform" &&
             reflected.dataType == "sampler2D" &&
             reflected.arraySize == 1
+    }
+    if (shader.bindings.size == 2 && binding.valid() &&
+        binding.hasUniform()) {
+        var textureMatched = false
+        var uniformMatched = false
+        var bindingIndex = 0
+        while (bindingIndex < shader.bindings.size) {
+            val reflected = shader.bindings[bindingIndex]
+            textureMatched = textureMatched ||
+                (reflected.stage == shaderStageFragment &&
+                 reflected.set == 0 && reflected.binding == 0 &&
+                 reflected.storage == "uniform" &&
+                 reflected.dataType == "sampler2D" &&
+                 reflected.arraySize == 1)
+            uniformMatched = uniformMatched ||
+                (reflected.stage == shaderStageVertex &&
+                 reflected.set == 0 && reflected.binding == 1 &&
+                 reflected.storage == "uniform" &&
+                 reflected.dataType == "Transform" &&
+                 reflected.arraySize == 1)
+            bindingIndex = bindingIndex + 1
+        }
+        shaderBindingMatches = textureMatched && uniformMatched
     }
     val translatable = glslPackage(
         [shaderStageVertex, shaderStageFragment],
@@ -267,7 +291,8 @@ trusted fun GraphicsApplication.presentRender(
             pipeline.raster,
             pipeline.depth,
             pipeline.binding.openGlTexture,
-            pipeline.binding.openGlSampler
+            pipeline.binding.openGlSampler,
+            pipeline.binding.openGlUniform
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -337,7 +362,8 @@ trusted fun GraphicsApplication.presentRenderVertices(
             pipeline.raster,
             pipeline.depth,
             pipeline.binding.openGlTexture,
-            pipeline.binding.openGlSampler
+            pipeline.binding.openGlSampler,
+            pipeline.binding.openGlUniform
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -412,7 +438,8 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             pipeline.raster,
             pipeline.depth,
             pipeline.binding.openGlTexture,
-            pipeline.binding.openGlSampler
+            pipeline.binding.openGlSampler,
+            pipeline.binding.openGlUniform
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)

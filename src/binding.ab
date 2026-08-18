@@ -5,11 +5,13 @@ import "core.ab"
 import "application.ab"
 import "texture.ab"
 import "sampler.ab"
+import "buffer.ab"
 import "driver/vulkan.ab"
 
 resource class GraphicsTextureBinding(
     val openGlTexture: int,
     val openGlSampler: int,
+    val openGlUniform: int,
     val openGlDisplay: i64*,
     val openGlContext: i64*,
     val vulkan: VulkanTextureBinding,
@@ -25,7 +27,14 @@ resource class GraphicsTextureBinding(
 
     fun empty(): bool = this.backend == graphicsBackendAuto &&
         this.openGlTexture == 0 && this.openGlSampler == 0 &&
+        this.openGlUniform == 0 &&
         !this.vulkan.valid() && !this.error.occurred()
+
+    fun hasUniform(): bool = if (this.backend == graphicsBackendOpenGl)
+        this.openGlUniform != 0
+    else if (this.backend == graphicsBackendVulkan)
+        this.vulkan.hasUniform
+    else false
 
     trusted fun drop(): void {
         this.vulkan.drop()
@@ -37,6 +46,7 @@ fun emptyGraphicsTextureBinding(): GraphicsTextureBinding =
     GraphicsTextureBinding(
         0,
         0,
+        0,
         nativeNullPointer(),
         nativeNullPointer(),
         VulkanTextureBinding(
@@ -44,7 +54,8 @@ fun emptyGraphicsTextureBinding(): GraphicsTextureBinding =
             0,
             0,
             0,
-            VulkanTextureView(nativeNullPointer(), 0)
+            VulkanTextureView(nativeNullPointer(), 0),
+            false
         ),
         graphicsBackendAuto,
         GraphicsError()
@@ -56,6 +67,7 @@ trusted fun GraphicsApplication.textureBinding(
 ): GraphicsTextureBinding {
     var openGlTexture = 0
     var openGlSampler = 0
+    var openGlUniform = 0
     var openGlDisplay = nativeNullPointer()
     var openGlContext = nativeNullPointer()
     var vulkan = VulkanTextureBinding(
@@ -63,7 +75,8 @@ trusted fun GraphicsApplication.textureBinding(
         0,
         0,
         0,
-        VulkanTextureView(nativeNullPointer(), 0)
+        VulkanTextureView(nativeNullPointer(), 0),
+        false
     )
     var error = GraphicsError()
     if (!this.valid() || !texture.valid() || !sampler.valid() ||
@@ -106,6 +119,81 @@ trusted fun GraphicsApplication.textureBinding(
     GraphicsTextureBinding(
         openGlTexture,
         openGlSampler,
+        openGlUniform,
+        openGlDisplay,
+        openGlContext,
+        move(vulkan),
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.textureUniformBinding(
+    texture: GraphicsTexture,
+    sampler: GraphicsSampler,
+    uniform: GraphicsBuffer
+): GraphicsTextureBinding {
+    var openGlTexture = 0
+    var openGlSampler = 0
+    var openGlUniform = 0
+    var openGlDisplay = nativeNullPointer()
+    var openGlContext = nativeNullPointer()
+    var vulkan = VulkanTextureBinding(
+        nativeNullPointer(),
+        0,
+        0,
+        0,
+        VulkanTextureView(nativeNullPointer(), 0),
+        false
+    )
+    var error = GraphicsError()
+    if (!this.valid() || !texture.valid() || !sampler.valid() ||
+        !uniform.valid() || !this.ownsTexture(texture) ||
+        !this.ownsSampler(sampler) || !this.ownsBuffer(uniform)) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.textureUniformBinding",
+            "texture/uniform binding requires application-owned resources"
+        )
+    } else if ((texture.descriptor.usage & textureUsageSampled) == 0 ||
+        textureFormatHasDepth(texture.descriptor.format) ||
+        (uniform.descriptor.usage & bufferUsageUniform) == 0 ||
+        uniform.descriptor.size < 64) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.textureUniformBinding.resources",
+            "sampled color usage and at least 64 uniform bytes are required"
+        )
+    } else if (this.backend == graphicsBackendOpenGl) {
+        openGlTexture = texture.openGl.handle
+        openGlSampler = sampler.openGl.handle
+        openGlUniform = uniform.openGl.handle
+        openGlDisplay = texture.openGl.display
+        openGlContext = texture.openGl.context
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.textureBinding(
+            texture.vulkan,
+            texture.descriptor,
+            sampler.vulkan,
+            uniform.vulkan.handle,
+            uniform.descriptor.size
+        )
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.textureBinding",
+            "Vulkan texture/uniform descriptor binding creation failed"
+        )
+    } else {
+        error = GraphicsError(
+            graphicsErrorBackendUnavailable,
+            "GraphicsApplication.textureUniformBinding",
+            "the selected backend cannot bind texture/uniform resources"
+        )
+    }
+    GraphicsTextureBinding(
+        openGlTexture,
+        openGlSampler,
+        openGlUniform,
         openGlDisplay,
         openGlContext,
         move(vulkan),

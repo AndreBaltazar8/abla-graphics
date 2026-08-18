@@ -54,8 +54,17 @@ resource class GraphicsBuffer(
         succeeded
     }
 
-    trusted fun writeAllBytes(source: BufferBytes): bool =
-        this.writeBytes(source, BufferCopyDescriptor())
+    trusted fun writeAllBytes(source: BufferBytes): bool {
+        var succeeded = this.valid() && source.valid() &&
+            source.size == this.descriptor.size &&
+            bufferUsageAllowsCpuWrite(this.descriptor.usage)
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.writeAllBytes(source)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.writeAllBytes(source)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
 
     trusted fun readBytes(
         var destination: BufferBytes,

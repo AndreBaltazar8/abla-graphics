@@ -18,7 +18,8 @@ multi-attribute vertex, `uint32` indexed, and instanced render paths with
 immutable topology, culling, winding, and alpha-blend state plus
 dependency-ordered Vulkan resize recovery and per-swapchain-image depth
 testing/writes plus the first affine sampled-texture/sampler pipeline binding
-and indexed textured/depth cube sample are implemented. Repeated clear,
+and allocation-free transform-uniform indexed textured/depth cube sample are
+implemented. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

@@ -116,9 +116,14 @@ Updated: 2026-08-18.
   enabled Lavapipe runs pass, and omitting the reflected binding is rejected.
 - Indexed textured cube sample: one strict `vec3` position/`vec2` UV shader,
   24 interleaved face vertices, 36 reusable `uint32` indices, a four-quadrant
-  atlas, and enabled less/depth-write state render unchanged through OpenGL and
-  Vulkan. Four warmed frames preserve binding/pipeline handles with zero live-
-  byte growth, and the Lavapipe run is validation-clean.
+  atlas, a vertex-visible std140 64-byte MVP uniform, and enabled less/depth-
+  write state render unchanged through OpenGL and Vulkan. Four warmed frames
+  update and upload the transform while preserving binding/pipeline handles
+  with zero live-byte growth; the Lavapipe run is validation-clean.
+- Whole-buffer update optimization: `GraphicsBuffer.writeAllBytes` dispatches
+  directly to allocation-free OpenGL `glBufferSubData` or mapped Vulkan copy
+  paths instead of constructing a default copy descriptor per update. The cube
+  regression caught and removed a repeatable 128-byte-per-frame live delta.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,

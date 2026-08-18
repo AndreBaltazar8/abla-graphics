@@ -24,8 +24,11 @@ fun main: int {
             layout(location = 0) in vec3 position;
             layout(location = 1) in vec2 uv;
             layout(location = 0) out vec2 texCoord;
+            layout(std140, binding = 1) uniform Transform {
+                mat4 mvp;
+            } transform;
             void main() {
-                gl_Position = vec4(position, 1.0);
+                gl_Position = transform.mvp * vec4(position, 1.0);
                 texCoord = uv;
             }
         }
@@ -122,7 +125,30 @@ fun main: int {
         minFilter = samplerFilterNearest,
         mipmapFilter = samplerFilterNearest
     ))
-    val binding = app.textureBinding(texture, sampler)
+    val transformBytes = bufferBytes(64)
+    val identityValues = [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    ]
+    var transformStored = identityValues.size == 16
+    var transformIndex = 0
+    while (transformStored && transformIndex < identityValues.size) {
+        transformStored = transformBytes.storeF32(
+            identityValues[transformIndex],
+            transformIndex * 4
+        )
+        transformIndex = transformIndex + 1
+    }
+    val transform = app.buffer(BufferDescriptor(
+        label = "cube-transform",
+        size = 64,
+        usage = bufferUsageUniform | bufferUsageCopyDestination
+    ))
+    val transformUploaded = transformStored &&
+        transform.writeAllBytes(transformBytes)
+    val binding = app.textureUniformBinding(texture, sampler, transform)
     val pipeline = app.renderPipeline(
         shader,
         VertexBufferLayout(20, [
@@ -144,7 +170,8 @@ fun main: int {
     val clear = Color(0.012, 0.018, 0.03)
     val warmed = app.valid() && shader.valid && vertices.valid() &&
         indices.valid() && texture.valid() && sampler.valid() &&
-        verticesUploaded && indicesUploaded && textureUploaded &&
+        transform.valid() && verticesUploaded && indicesUploaded &&
+        textureUploaded && transformUploaded &&
         pipeline.valid() &&
         app.presentRenderIndexed(pipeline, vertices, indices, 36, clear)
     val pipelineHandle = if (app.backend == graphicsBackendOpenGl)
@@ -156,13 +183,19 @@ fun main: int {
     var presented = warmed
     var frame = 0
     while (presented && frame < 4) {
-        presented = app.presentRenderIndexed(
+        var offset = 0.0
+        if (frame == 1) offset = 0.01
+        else if (frame == 2) offset = 0.02
+        else if (frame == 3) offset = 0.03
+        presented = transformBytes.storeF32(offset, 48) &&
+            transform.writeAllBytes(transformBytes) &&
+            app.presentRenderIndexed(
             pipeline,
             vertices,
             indices,
             36,
             clear
-        )
+            )
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
@@ -174,7 +207,7 @@ fun main: int {
          else pipeline.vulkan.handle == pipelineHandle &&
                 pipeline.binding.vulkan.descriptorSet == bindingHandle)
     println(
-        "Indexed textured cube ${graphicsBackendName(app.backend)}: vertices=24, indices=36, frames=$frame, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Indexed textured cube ${graphicsBackendName(app.backend)}: vertices=24, indices=36, frames=$frame, uniformBytes=${transform.descriptor.size}, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
 }

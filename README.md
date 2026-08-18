@@ -133,8 +133,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;
 - `examples/indexed-textured-cube`: 24 interleaved position/UV vertices, 36
-  reusable indices, a four-color atlas, and depth-tested cube faces rendered
-  unchanged on explicit OpenGL and Vulkan;
+  reusable indices, a four-color atlas, a 64-byte transform uniform, and depth-
+  tested cube faces rendered unchanged on explicit OpenGL and Vulkan;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
   mutation and readback; and
