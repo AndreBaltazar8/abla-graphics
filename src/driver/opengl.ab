@@ -1406,13 +1406,15 @@ resource class OpenGlWindowContext(
     var surface: i64*,
     var context: i64*,
     var width: int,
-    var height: int
+    var height: int,
+    val clearScratch: NativeByteBuffer
 ) {
     trusted fun valid(): bool =
         !pointerIsNull(this.nativeDisplay) &&
         !pointerIsNull(this.display) &&
         !pointerIsNull(this.surface) &&
-        !pointerIsNull(this.context)
+        !pointerIsNull(this.context) &&
+        !this.clearScratch.closed && this.clearScratch.capacity >= 16
 
     trusted fun makeCurrent(): bool =
         this.valid() &&
@@ -1441,13 +1443,28 @@ resource class OpenGlWindowContext(
     trusted fun presentClear(color: Color): bool {
         var presented = false
         if (color.valid() && this.makeCurrent()) {
-            val values = nativeByteBuffer(16)
-            openGlStoreI32(values, 0, graphicsScalarF32Bits(color.red))
-            openGlStoreI32(values, 1, graphicsScalarF32Bits(color.green))
-            openGlStoreI32(values, 2, graphicsScalarF32Bits(color.blue))
-            openGlStoreI32(values, 3, graphicsScalarF32Bits(color.alpha))
+            openGlStoreI32(
+                this.clearScratch,
+                0,
+                graphicsScalarF32Bits(color.red)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                1,
+                graphicsScalarF32Bits(color.green)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                2,
+                graphicsScalarF32Bits(color.blue)
+            )
+            openGlStoreI32(
+                this.clearScratch,
+                3,
+                graphicsScalarF32Bits(color.alpha)
+            )
             glViewport(0, 0, this.width, this.height)
-            glClearBufferfv(6144, 0, values.address)
+            glClearBufferfv(6144, 0, this.clearScratch.address)
             presented = glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -1506,6 +1523,7 @@ resource class OpenGlWindowContext(
         this.surface = nativeNullPointer()
         this.display = nativeNullPointer()
         this.nativeDisplay = nativeNullPointer()
+        this.clearScratch.close()
         return
     }
 }
@@ -1605,7 +1623,8 @@ trusted fun openGlWindowContext(
         surface,
         context,
         window.width,
-        window.height
+        window.height,
+        nativeByteBuffer(16)
     )
 }
 

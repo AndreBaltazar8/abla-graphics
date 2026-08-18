@@ -78,12 +78,18 @@ Updated: 2026-08-18.
   once, synchronize owned extents, retry, and present successfully. The pure
   status test separately covers success, suboptimal, out-of-date, and unrelated
   failure classification.
+- Reusable common clear test/sample: surfaced OpenGL stores float color ABI data
+  in a context-owned 16-byte block; Vulkan records clear/layout commands in the
+  same configured fence-guarded slots used for pixel presentation instead of
+  constructing pools and semaphores per call. Four explicit OpenGL and Vulkan
+  clears preserve command/context handles and produce zero runtime live-byte
+  growth.
 - Reusable RGBA8 pixel test: bounds-checked pixel/rectangle writes use affine
   native storage; surfaced OpenGL uploads it through one persistent
   nearest-filtered texture/shader program, while Vulkan uses a configured
   three-slot set of coherent staging buffers, swapchain-format channel adaptation,
   image layout barriers, buffer-to-image copy, synchronized presentation,
-  per-slot command pools/pointer cells/128-byte ABI scratch blocks/acquire
+  per-slot command pools/pointer cells/160-byte ABI scratch blocks/acquire
   semaphores/fences, and render-finished semaphores owned per swapchain image.
   Packed scalar outcomes avoid frame-local heap result objects. Four consecutive
   uploads exercise all three slots and fence-guarded reuse without a per-frame
@@ -258,11 +264,11 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 
 ## Not yet claimed
 
-- General Vulkan frames-in-flight for clear and future render-pipeline paths,
-  render pipelines, synchronization2, and dynamic rendering. The reusable
-  pixel-upload path honors the configured one-to-eight fence-guarded slots and
-  has no per-frame queue-wide idle; clear and pixel presentation now recover
-  once from suboptimal or out-of-date swapchains.
+- General Vulkan frames-in-flight for future render-pipeline paths, render
+  pipelines, synchronization2, and dynamic rendering. The reusable clear and
+  pixel-upload paths honor the configured one-to-eight fence-guarded slots and
+  have no per-frame queue-wide idle; both recover once from suboptimal or
+  out-of-date swapchains.
 - Wayland, Windows, or macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.

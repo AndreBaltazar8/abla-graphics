@@ -1,23 +1,65 @@
 import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
 import "../../src/graphics.ab"
 
 fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else if (requested == "vulkan") graphicsBackendVulkan
+    else graphicsBackendAuto
     val app = graphicsApplication(
-        GraphicsConfig(backend = graphicsBackendAuto),
+        GraphicsConfig(backend = backend),
         WindowConfig(
             title = "Abla Graphics common clear",
             width = 800,
             height = 600
         )
     )
-    val presented = app.valid() && app.presentClear(Color(
+    val color = Color(
         0.15,
         0.45,
         0.85
-    ))
+    )
+    val openGlScratchBefore = if (app.backend == graphicsBackendOpenGl)
+        nativePointerAddress(app.openGl.clearScratch.address)
+    else 0
+    val pool0Before = if (app.backend == graphicsBackendVulkan)
+        app.vulkanPixels.frames[0].commandPool
+    else 0
+    val pool1Before = if (app.backend == graphicsBackendVulkan)
+        app.vulkanPixels.frames[1].commandPool
+    else 0
+    val command0Before = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanPixels.frames[0].command.load())
+    else 0
+    val command1Before = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanPixels.frames[1].command.load())
+    else 0
+    val liveBefore = runtimeMemoryLiveBytes()
+    var presented = app.valid()
+    var frame = 0
+    while (presented && frame < 4) {
+        presented = app.presentClear(color)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val noGrowth = liveAfter == liveBefore
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        nativePointerAddress(app.openGl.clearScratch.address) ==
+            openGlScratchBefore
+    else app.vulkanPixels.frames[0].commandPool == pool0Before &&
+        app.vulkanPixels.frames[1].commandPool == pool1Before &&
+        nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
+            command0Before &&
+        nativePointerAddress(app.vulkanPixels.frames[1].command.load()) ==
+            command1Before
     println(
-        "Common ${graphicsBackendName(app.backend)} adapter: ${app.adapterName}"
+        "Common clear ${graphicsBackendName(app.backend)}: repeatNoGrowth=${noGrowth}, handlesStable=${handlesStable}, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     app.pollEvent(250)
-    if (presented) 0 else 1
+    if (presented && noGrowth && handlesStable) 0 else 1
 }

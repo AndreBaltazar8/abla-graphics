@@ -24,6 +24,13 @@ if (app.valid()) {
 }
 ```
 
+OpenGL stores clear-color ABI data in a context-owned 16-byte native block.
+Vulkan clear presentation shares the configured fence-guarded frame slots,
+command pointers, scratch blocks, and semaphores with pixel presentation; it
+does not create command pools or synchronization objects per clear. Four
+repeated clears preserve native handles and runtime live bytes on both
+backends.
+
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,
 then surface/instance/context, then the direct Abla window. A root application
@@ -120,7 +127,7 @@ Its native storage is affine and released deterministically. OpenGL uploads it
 through a persistent nearest-filtered texture. Vulkan keeps a host-visible
 staging buffer, adapts RGBA/BGRA order for the selected swapchain format, and
 copies into the acquired image before presentation. Its command pool, command
-pointer cell, 128-byte native ABI scratch block, and acquire/render semaphores
+pointer cell, 160-byte native ABI scratch block, and acquire/render semaphores
 are created once with the application and reused after each completed
 submission. Presentation outcomes are packed scalar values rather than
 frame-local heap objects. `GraphicsConfig.framesInFlight` selects one through

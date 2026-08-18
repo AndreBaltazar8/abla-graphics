@@ -2701,7 +2701,7 @@ resource class VulkanPixelFrame(
     trusted fun valid(): bool =
         this.staging.valid() && this.commandPool != 0 &&
         !this.command.closed && !pointerIsNull(this.command.load()) &&
-        !this.scratch.closed && this.scratch.capacity >= 128 &&
+        !this.scratch.closed && this.scratch.capacity >= 160 &&
         this.acquired != 0 && this.fence != 0
 
     trusted fun drop(): void {
@@ -2904,7 +2904,7 @@ trusted fun VulkanDevice.pixelFrame(size: int): VulkanPixelFrame {
     var staging = this.buffer(size)
     val pool = nativeI64Cell(0)
     var command = nativePointerCell(nativeNullPointer())
-    var scratch = nativeByteBuffer(128)
+    var scratch = nativeByteBuffer(160)
     val acquired = nativeI64Cell(0)
     val fence = nativeI64Cell(0)
     var succeeded = staging.valid()
@@ -3610,6 +3610,244 @@ trusted fun VulkanDevice.presentBlue(
         0.85
     )
 )
+
+trusted fun VulkanDevice.presentClearFrameOutcome(
+    swapchain: VulkanSwapchain,
+    var frame: VulkanPixelFrame,
+    renderedSemaphores: array<int>,
+    clear: Color
+): int {
+    var succeeded = this.valid() && swapchain.valid() && frame.valid() &&
+        clear.valid()
+    var recreateSwapchain = false
+    var status = if (succeeded) vulkanSuccess else -1
+    var submitted = false
+    frame.scratch.storeI64(96, frame.fence)
+    val fence = nativePointerFromAddress(
+        nativePointerAddress(frame.scratch.address) + 96
+    )
+    if (succeeded && frame.inFlight) {
+        succeeded = vkWaitForFences(
+            this.handle,
+            1,
+            fence,
+            1,
+            18446744073709551615
+        ) == vulkanSuccess
+        if (succeeded) frame.inFlight = false
+    }
+    frame.scratch.storeI64(72, frame.acquired)
+    frame.scratch.storeI64(80, 0)
+    val acquired = nativePointerFromAddress(
+        nativePointerAddress(frame.scratch.address) + 72
+    )
+    val imageIndex = nativePointerFromAddress(
+        nativePointerAddress(frame.scratch.address) + 80
+    )
+    if (succeeded) {
+        status = vkAcquireNextImageKHR(
+            this.handle,
+            swapchain.handle,
+            9223372036854775807,
+            frame.acquired,
+            0,
+            imageIndex
+        )
+        val outcome = vulkanPresentStatus(status)
+        succeeded = vulkanPresentSucceeded(outcome)
+        recreateSwapchain = vulkanPresentNeedsRecreation(outcome)
+    }
+    val selectedIndex = frame.scratch.loadI64(80) & 4294967295
+    if (selectedIndex < 0 || selectedIndex >= swapchain.images.size) {
+        succeeded = false
+    }
+    if (selectedIndex < 0 || selectedIndex >= renderedSemaphores.size) {
+        succeeded = false
+    }
+    frame.scratch.storeI64(
+        88,
+        if (succeeded) renderedSemaphores[selectedIndex] else 0
+    )
+    val rendered = nativePointerFromAddress(
+        nativePointerAddress(frame.scratch.address) + 88
+    )
+    if (succeeded) {
+        succeeded = vkResetCommandPool(
+            this.handle,
+            frame.commandPool,
+            0
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        frame.scratch.storeI64(0, 42)
+        frame.scratch.storePointer(8, nativeNullPointer())
+        frame.scratch.storeI64(16, 1)
+        frame.scratch.storePointer(24, nativeNullPointer())
+        succeeded = vkBeginCommandBuffer(
+            frame.command.load(),
+            frame.scratch.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val image = swapchain.images[selectedIndex]
+        vulkanStoreImageBarrier(
+            frame.scratch.address,
+            image,
+            0,
+            7,
+            0,
+            4096
+        )
+        vkCmdPipelineBarrier(
+            frame.command.load(),
+            1,
+            4096,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            frame.scratch.address
+        )
+        frame.scratch.storeI64(
+            120,
+            (graphicsScalarF32Bits(clear.green) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.red) & 4294967295)
+        )
+        frame.scratch.storeI64(
+            128,
+            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.blue) & 4294967295)
+        )
+        frame.scratch.storeI64(136, 1)
+        frame.scratch.storeI64(144, 1)
+        frame.scratch.storeI64(152, 1)
+        vkCmdClearColorImage(
+            frame.command.load(),
+            image,
+            7,
+            nativePointerFromAddress(
+                nativePointerAddress(frame.scratch.address) + 120
+            ),
+            1,
+            nativePointerFromAddress(
+                nativePointerAddress(frame.scratch.address) + 136
+            )
+        )
+        vulkanStoreImageBarrier(
+            frame.scratch.address,
+            image,
+            7,
+            1000001002,
+            4096,
+            0
+        )
+        vkCmdPipelineBarrier(
+            frame.command.load(),
+            4096,
+            8192,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            frame.scratch.address
+        )
+        succeeded = vkEndCommandBuffer(
+            frame.command.load()
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        succeeded = vkResetFences(
+            this.handle,
+            1,
+            fence
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        frame.scratch.storeI64(104, 4096)
+        frame.scratch.storeI64(0, 4)
+        frame.scratch.storePointer(8, nativeNullPointer())
+        frame.scratch.storeI64(16, 1)
+        frame.scratch.storePointer(24, acquired)
+        frame.scratch.storePointer(
+            32,
+            nativePointerFromAddress(
+                nativePointerAddress(frame.scratch.address) + 104
+            )
+        )
+        frame.scratch.storeI64(40, 1)
+        frame.scratch.storePointer(48, frame.command.address)
+        frame.scratch.storeI64(56, 1)
+        frame.scratch.storePointer(64, rendered)
+        succeeded = vkQueueSubmit(
+            this.queue,
+            1,
+            frame.scratch.address,
+            frame.fence
+        ) == vulkanSuccess
+        if (succeeded) {
+            frame.inFlight = true
+            submitted = true
+        }
+    }
+    if (succeeded) {
+        frame.scratch.storeI64(112, swapchain.handle)
+        frame.scratch.storeI64(0, 1000001001)
+        frame.scratch.storePointer(8, nativeNullPointer())
+        frame.scratch.storeI64(16, 1)
+        frame.scratch.storePointer(24, rendered)
+        frame.scratch.storeI64(32, 1)
+        frame.scratch.storePointer(
+            40,
+            nativePointerFromAddress(
+                nativePointerAddress(frame.scratch.address) + 112
+            )
+        )
+        frame.scratch.storePointer(48, imageIndex)
+        frame.scratch.storePointer(56, nativeNullPointer())
+        status = vkQueuePresentKHR(this.queue, frame.scratch.address)
+        val outcome = vulkanPresentStatus(status)
+        succeeded = vulkanPresentSucceeded(outcome)
+        recreateSwapchain = recreateSwapchain ||
+            vulkanPresentNeedsRecreation(outcome)
+    }
+    vulkanPresentOutcome(
+        succeeded,
+        recreateSwapchain,
+        status,
+        submitted
+    )
+}
+
+trusted fun VulkanDevice.presentClearFramesOutcome(
+    swapchain: VulkanSwapchain,
+    var presenter: VulkanPixelPresenter,
+    clear: Color
+): int {
+    var outcome = vulkanPresentOutcome(false, false, -1)
+    if (this.valid() && swapchain.valid() && presenter.valid() &&
+        presenter.width == swapchain.width &&
+        presenter.height == swapchain.height &&
+        presenter.format == swapchain.format && clear.valid()) {
+        outcome = this.presentClearFrameOutcome(
+            swapchain,
+            presenter.frames[presenter.frameIndex],
+            presenter.rendered,
+            clear
+        )
+    }
+    if (vulkanPresentWasSubmitted(outcome)) {
+        presenter.frameIndex = if (
+            presenter.frameIndex + 1 == presenter.frames.size
+        ) 0 else presenter.frameIndex + 1
+    }
+    outcome
+}
 
 trusted fun VulkanDevice.presentPixelFrameOutcome(
     swapchain: VulkanSwapchain,

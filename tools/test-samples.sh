@@ -28,9 +28,9 @@ env -u DISPLAY "$output_directory/common-headless"
 env -u DISPLAY "$output_directory/frame-pacing"
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/opengl-window"
-xvfb-run -a -s "-screen 0 1024x768x24" \
-    "$output_directory/common-clear"
 for backend in opengl vulkan; do
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/common-clear" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-buffer" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
