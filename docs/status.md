@@ -83,11 +83,13 @@ Updated: 2026-08-18.
   nearest-filtered texture/shader program, while Vulkan uses a configured
   three-slot set of coherent staging buffers, swapchain-format channel adaptation,
   image layout barriers, buffer-to-image copy, synchronized presentation,
-  per-slot command pools/buffers/acquire semaphores/fences, and render-finished
-  semaphores owned per swapchain image. Four consecutive uploads exercise all
-  three slots and fence-guarded reuse without a per-frame queue-wide idle. The
-  public one-to-eight-slot setting survives both clear and pixel swapchain
-  recovery; its default remains two.
+  per-slot command pools/pointer cells/128-byte ABI scratch blocks/acquire
+  semaphores/fences, and render-finished semaphores owned per swapchain image.
+  Packed scalar outcomes avoid frame-local heap result objects. Four consecutive
+  uploads exercise all three slots and fence-guarded reuse without a per-frame
+  queue-wide idle, preserve every OpenGL/Vulkan native handle, and produce zero
+  runtime live-byte growth. The public one-to-eight-slot setting survives both
+  clear and pixel swapchain recovery; its default remains two.
 - Portable descriptor test: immutable buffer, texture, texture-view, and sampler
   descriptors validate usage flags, mapping constraints, dimensions, mip and
   multisample rules, format/view compatibility, subresource ranges, aspects,

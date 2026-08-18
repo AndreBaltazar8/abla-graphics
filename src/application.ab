@@ -105,40 +105,40 @@ resource class GraphicsApplication(
     fun primaryMonitor(): Monitor = this.window.primaryMonitor
 
     trusted fun recoverVulkanClearPresentation(
-        outcome: VulkanPresentOutcome,
+        outcome: int,
         color: Color,
         width: int,
         height: int
     ): bool {
-        var presented = outcome.presented
-        if (outcome.recreateSwapchain) {
+        var presented = vulkanPresentSucceeded(outcome)
+        if (vulkanPresentNeedsRecreation(outcome)) {
             val recovered = this.recreateVulkanSwapchain(width, height)
             if (!recovered) {
                 presented = false
-            } else if (!outcome.presented) {
+            } else if (!vulkanPresentSucceeded(outcome)) {
                 val retried = this.vulkanDevice.presentClearOutcome(
                     this.vulkanSwapchain,
                     color
                 )
-                presented = retried.presented &&
-                    !retried.recreateSwapchain
+                presented = vulkanPresentSucceeded(retried) &&
+                    !vulkanPresentNeedsRecreation(retried)
             }
         }
         presented
     }
 
     trusted fun recoverVulkanPixelPresentation(
-        outcome: VulkanPresentOutcome,
+        outcome: int,
         pixels: PixelBuffer,
         width: int,
         height: int
     ): bool {
-        var presented = outcome.presented
-        if (outcome.recreateSwapchain) {
+        var presented = vulkanPresentSucceeded(outcome)
+        if (vulkanPresentNeedsRecreation(outcome)) {
             val recovered = this.recreateVulkanSwapchain(width, height)
             if (!recovered) {
                 presented = false
-            } else if (!outcome.presented) {
+            } else if (!vulkanPresentSucceeded(outcome)) {
                 if (pixels.width == this.vulkanSwapchain.width &&
                     pixels.height == this.vulkanSwapchain.height) {
                     val retried = this.vulkanDevice.presentPixelsOutcome(
@@ -146,8 +146,8 @@ resource class GraphicsApplication(
                         this.vulkanPixels,
                         pixels
                     )
-                    presented = retried.presented &&
-                        !retried.recreateSwapchain
+                    presented = vulkanPresentSucceeded(retried) &&
+                        !vulkanPresentNeedsRecreation(retried)
                 } else presented = false
             }
         }
@@ -188,7 +188,7 @@ resource class GraphicsApplication(
                     this.window.height
                 )
             }
-            var outcome = VulkanPresentOutcome(false, false, -1)
+            var outcome = vulkanPresentOutcome(false, false, -1)
             if (ready) {
                 outcome = this.vulkanDevice.presentPixelsOutcome(
                     this.vulkanSwapchain,
