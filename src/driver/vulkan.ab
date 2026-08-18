@@ -6,6 +6,7 @@
 
 import "abla/unsafe/memory"
 import "../core.ab"
+import "../resources.ab"
 import "../pixels.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
@@ -719,7 +720,7 @@ resource class VulkanBuffer(
 
     trusted fun readI64(offset: int = 0): int {
         var result = 0
-        if (this.valid() && offset >= 0 && offset + 8 <= this.size) {
+        if (this.valid() && offset >= 0 && offset <= this.size - 8) {
             val mapped = nativePointerCell(nativeNullPointer())
             if (vkMapMemory(
                 this.device,
@@ -738,7 +739,7 @@ resource class VulkanBuffer(
 
     trusted fun writeI64(value: int, offset: int = 0): bool {
         var succeeded = false
-        if (this.valid() && offset >= 0 && offset + 8 <= this.size) {
+        if (this.valid() && offset >= 0 && offset <= this.size - 8) {
             val mapped = nativePointerCell(nativeNullPointer())
             if (vkMapMemory(
                 this.device,
@@ -985,16 +986,36 @@ resource class VulkanPixelPresenter(
     }
 }
 
-trusted fun VulkanDevice.buffer(size: int): VulkanBuffer {
+fun vulkanBufferUsage(usage: int): int {
+    var result = 0
+    if ((usage & bufferUsageMapRead) != 0) result = result | 2
+    if ((usage & bufferUsageMapWrite) != 0) result = result | 1
+    if ((usage & bufferUsageCopySource) != 0) result = result | 1
+    if ((usage & bufferUsageCopyDestination) != 0) result = result | 2
+    if ((usage & bufferUsageUniform) != 0) result = result | 16
+    if ((usage & bufferUsageStorage) != 0) result = result | 32
+    if ((usage & bufferUsageIndex) != 0) result = result | 64
+    if ((usage & bufferUsageVertex) != 0) result = result | 128
+    if ((usage & bufferUsageIndirect) != 0) result = result | 256
+    if ((usage & bufferUsageQueryResolve) != 0) result = result | 2
+    result
+}
+
+trusted fun VulkanDevice.buffer(
+    size: int,
+    usage: int = bufferUsageCopySource |
+        bufferUsageCopyDestination | bufferUsageStorage
+): VulkanBuffer {
     var handle = 0
     var memory = 0
-    if (this.valid() && size > 0 && size <= 1073741824) {
+    val nativeUsage = vulkanBufferUsage(usage)
+    if (this.valid() && size > 0 && size <= 1073741824 && nativeUsage != 0) {
         val createInfo = nativeByteBuffer(56)
         createInfo.storeI64(0, 12)
         createInfo.storePointer(8, nativeNullPointer())
         createInfo.storeI64(16, 0)
         createInfo.storeI64(24, size)
-        createInfo.storeI64(32, 35)
+        createInfo.storeI64(32, nativeUsage)
         createInfo.storeI64(40, 0)
         createInfo.storePointer(48, nativeNullPointer())
         val output = nativeI64Cell(0)

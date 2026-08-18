@@ -50,6 +50,11 @@ Updated: 2026-08-18.
   descriptors validate usage flags, mapping constraints, dimensions, mip and
   multisample rules, format/view compatibility, subresource ranges, aspects,
   filters, comparison, LOD, and anisotropy with field-specific diagnostics.
+- Common affine buffer test: one `BufferDescriptor` creates an OpenGL buffer or
+  Vulkan buffer/allocation after one-time backend selection; both paths pass
+  checked nonzero-offset 64-bit write/read, overflow-safe bounds rejection,
+  invalid-descriptor errors, mapped-at-creation rejection, and deterministic
+  destruction under the surfaced application test.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, and compile-time rejection of invalid stage names. The
@@ -88,9 +93,11 @@ capability lands.
   current subparser owns stage structure/source preservation but deliberately
   rejects quoted includes and does not yet parse declarations or expressions.
 - Generated Khronos registry bindings and complete coverage ledgers.
-- Affine portable GPU resource creation, command encoders/render graph, asset
-  formats, or framework-wide performance gates. Immutable structural
-  descriptors are present, but they are not yet driver-backed common resources.
+- Driver-backed common textures/views/samplers, mapped/general buffer ranges,
+  queued uploads, device-local allocation policy, command encoders/render graph,
+  asset formats, or framework-wide performance gates. Common buffers and
+  immutable structural descriptors are present; the wider resource surface is
+  not yet claimed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not

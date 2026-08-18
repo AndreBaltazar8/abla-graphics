@@ -21,10 +21,38 @@ fun applicationBackendProbe(
     pixels.clearRgba8(18, 35, 64)
     pixels.fillRectRgba8(80, 50, 160, 100, 204, 64, 32)
     val pixelsPresented = app.presentPixels(pixels)
+    val buffer = app.buffer(BufferDescriptor(
+        label = "common-storage",
+        size = 64,
+        usage = bufferUsageCopySource |
+            bufferUsageCopyDestination | bufferUsageStorage
+    ))
+    val bufferWritten = buffer.writeI64(1311768465173141112, 8)
+    val bufferRead = buffer.readI64(8)
+    val invalidBuffer = app.buffer(BufferDescriptor(
+        size = 0,
+        usage = bufferUsageStorage
+    ))
+    val mappedBuffer = app.buffer(BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapWrite | bufferUsageCopySource,
+        mappedAtCreation = true
+    ))
+    val readbackBuffer = app.buffer(BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapRead
+    ))
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid presented=$presented pixels=$pixelsPresented buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
-    valid && presented && pixelsPresented
+    valid && presented && pixelsPresented && buffer.valid() && bufferWritten &&
+        bufferRead == 1311768465173141112 &&
+        !buffer.writeI64(1, 60) && !invalidBuffer.valid() &&
+        invalidBuffer.error.code == graphicsErrorInvalidConfiguration &&
+        !mappedBuffer.valid() &&
+        mappedBuffer.error.operation ==
+            "GraphicsApplication.buffer.mappedAtCreation" &&
+        readbackBuffer.valid()
 }
 
 fun applicationUnavailableProbe(): bool {

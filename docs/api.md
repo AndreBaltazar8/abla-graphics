@@ -79,6 +79,26 @@ Sampler checks cover address/filter/LOD/comparison/anisotropy domains. A failed
 Texture views inherit their source texture format by default; an explicit
 linear/sRGB reinterpretation is accepted only for the matching channel layout.
 
+Buffers are the first driver-backed common resource:
+
+```abla
+val storage = app.buffer(BufferDescriptor(
+    label = "simulation",
+    size = 4096,
+    usage = bufferUsageStorage | bufferUsageCopyDestination
+))
+storage.writeI64(42)
+```
+
+`GraphicsBuffer` is affine, dispatches outside the read/write hot operation,
+and owns either an OpenGL buffer object or a Vulkan buffer/allocation. Creation
+maps portable usage flags to Vulkan usage bits and returns a structured error
+for invalid descriptors or driver failure. Bounds checks use subtraction rather
+than overflow-prone `offset + length`. The current slice uses host-visible
+storage and exposes checked 64-bit read/write probes; mapped ranges, queued
+uploads, device-local selection, and general byte ranges remain upcoming APIs.
+An application must let child buffers drop before its device/context.
+
 ## Small application
 
 The descriptor/encoder form below is the target surface being implemented on
@@ -151,8 +171,9 @@ The common device creates:
 - command encoders with render/compute/copy/debug operations.
 
 Creation descriptors are immutable values; the initial buffer, texture, view,
-and sampler descriptor slice described above is available now. Created objects
-will be affine resources.
+and sampler descriptor slice described above is available now. Common buffers
+are affine resources; the remaining resource implementations will follow the
+same ownership rule.
 Borrowing a resource for encoding does not transfer it. Explicit `move` is used
 only when ownership actually changes.
 

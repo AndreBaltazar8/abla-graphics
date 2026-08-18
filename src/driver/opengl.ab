@@ -169,6 +169,22 @@ noescape extern:"c" fun glTexSubImage2D(
     pixels: i64*
 ): void
 noescape extern:"c" fun glDeleteTextures(count: i32, textures: i64*): void
+noescape extern:"c" fun glGenBuffers(count: i32, buffers: i64*): void
+noescape extern:"c" fun glBindBuffer(target: i32, buffer: i32): void
+noescape extern:"c" fun glBufferData(
+    target: i32,
+    size: i64,
+    data: i64*,
+    usage: i32
+): void
+noescape extern:"c" fun glMapBufferRange(
+    target: i32,
+    offset: i64,
+    length: i64,
+    access: i32
+): i64*
+noescape extern:"c" fun glUnmapBuffer(target: i32): i32
+noescape extern:"c" fun glDeleteBuffers(count: i32, buffers: i64*): void
 
 fun openGlStoreI32(
     var buffer: NativeByteBuffer,
@@ -332,6 +348,87 @@ resource class OpenGlProgram(
         this.vertexArray = 0
         return
     }
+}
+
+resource class OpenGlBuffer(
+    var handle: int,
+    val size: int,
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*
+) {
+    fun valid(): bool = this.handle != 0 && this.size > 0 &&
+        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+
+    trusted fun makeCurrent(): bool = this.valid() && eglMakeCurrent(
+        this.display,
+        this.surface,
+        this.surface,
+        this.context
+    ) == eglTrue
+
+    trusted fun readI64(offset: int = 0): int {
+        var result = 0
+        if (offset >= 0 && offset <= this.size - 8 && this.makeCurrent()) {
+            glBindBuffer(34962, this.handle)
+            val mapped = glMapBufferRange(34962, offset, 8, 1)
+            if (!pointerIsNull(mapped)) {
+                result = ablaUnsafeLoadI64(mapped)
+                glUnmapBuffer(34962)
+            }
+        }
+        result
+    }
+
+    trusted fun writeI64(value: int, offset: int = 0): bool {
+        var succeeded = offset >= 0 && offset <= this.size - 8 &&
+            this.makeCurrent()
+        if (succeeded) {
+            glBindBuffer(34962, this.handle)
+            val mapped = glMapBufferRange(34962, offset, 8, 2)
+            succeeded = !pointerIsNull(mapped)
+            if (succeeded) {
+                ablaUnsafeStoreI64(mapped, value)
+                succeeded = glUnmapBuffer(34962) == 1 && glGetError() == 0
+            }
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        if (this.handle != 0) {
+            if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {
+                eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            }
+            val output = nativeI64Cell(this.handle)
+            glDeleteBuffers(1, output.address)
+            this.handle = 0
+        }
+        return
+    }
+}
+
+trusted fun OpenGlWindowContext.buffer(size: int): OpenGlBuffer {
+    var handle = 0
+    if (size > 0 && size <= 1073741824 && this.makeCurrent()) {
+        val output = nativeI64Cell(0)
+        glGenBuffers(1, output.address)
+        handle = output.load()
+        if (handle != 0) {
+            glBindBuffer(34962, handle)
+            glBufferData(34962, size, nativeNullPointer(), 35048)
+            if (glGetError() != 0) {
+                glDeleteBuffers(1, output.address)
+                handle = 0
+            }
+        }
+    }
+    OpenGlBuffer(handle, size, this.display, this.surface, this.context)
 }
 
 resource class OpenGlPixelPresenter(
