@@ -42,12 +42,17 @@ val completed = timeline.currentValue()
 ```
 
 This is intentionally a Vulkan-specific primitive rather than a false portable
-wrapper. Device creation queries `VkPhysicalDeviceVulkan12Features` through
-`vkGetPhysicalDeviceFeatures2` and enables only `timelineSemaphore` when the
-adapter reports it. `VulkanTimelineSemaphore` owns the native handle and one
+wrapper. Device creation queries `VkPhysicalDeviceVulkan12Features` and
+`VkPhysicalDeviceVulkan13Features` through `vkGetPhysicalDeviceFeatures2`, then
+enables only `timelineSemaphore` and `synchronization2` when the adapter reports
+them. `VulkanTimelineSemaphore` owns the native handle and one
 reusable ABI block; counter queries, strictly monotonic host signals, and waits
 perform no general heap allocation. Negative initial/counter values,
 non-increasing signals, and negative timeouts are rejected before driver calls.
+When synchronization2 is enabled, the device's reusable transfer command path
+encodes `VkCommandBufferSubmitInfo` and `VkSubmitInfo2` into its existing scratch
+block and calls `vkQueueSubmit2`; older devices retain the checked legacy submit
+encoding.
 
 The first portable raster pipeline uses the same embedded shader package on
 both backends:

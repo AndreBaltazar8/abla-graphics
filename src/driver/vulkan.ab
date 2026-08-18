@@ -20,6 +20,7 @@ val vulkanStructureApplicationInfo = 0
 val vulkanStructureInstanceCreateInfo = 1
 val vulkanApiVersion10 = 4194304
 val vulkanApiVersion12 = 4202496
+val vulkanApiVersion13 = 4206592
 val vulkanApiVersion14 = 4210688
 
 fun vulkanPresentOutcome(
@@ -463,6 +464,12 @@ noescape extern:"c" fun vkCmdWriteTimestamp(
     query: i32
 ): void
 noescape extern:"c" fun vkQueueSubmit(
+    queue: i64*,
+    submitCount: i32,
+    submits: i64*,
+    fence: int
+): i32
+noescape extern:"c" fun vkQueueSubmit2(
     queue: i64*,
     submitCount: i32,
     submits: i64*,
@@ -1154,6 +1161,30 @@ trusted fun VulkanAdapter.timelineSemaphoreSupported(): bool {
         (features12.loadI64(164) & 4294967295) != 0
 }
 
+trusted fun VulkanAdapter.synchronization2Supported(): bool {
+    val features13 = nativeByteBuffer(80)
+    val features2 = nativeByteBuffer(240)
+    var index = 0
+    while (index < features13.capacity) {
+        features13.store(index, 0)
+        index = index + 1
+    }
+    index = 0
+    while (index < features2.capacity) {
+        features2.store(index, 0)
+        index = index + 1
+    }
+    features13.storeI64(0, 53)
+    features13.storePointer(8, nativeNullPointer())
+    features2.storeI64(0, 1000059000)
+    features2.storePointer(8, features13.address)
+    if (this.apiVersion >= vulkanApiVersion13) {
+        vkGetPhysicalDeviceFeatures2(this.handle, features2.address)
+    }
+    this.apiVersion >= vulkanApiVersion13 &&
+        (features13.loadI64(52) & 4294967295) != 0
+}
+
 fun vulkanEnabledTimelineSemaphoreFeatures(
     enabled: bool
 ): NativeByteBuffer {
@@ -1166,6 +1197,21 @@ fun vulkanEnabledTimelineSemaphoreFeatures(
     features.storeI64(0, 51)
     features.storePointer(8, nativeNullPointer())
     if (enabled) features.storeI64(164, 1)
+    features
+}
+
+fun vulkanEnabledSynchronization2Features(
+    enabled: bool
+): NativeByteBuffer {
+    val features = nativeByteBuffer(80)
+    var index = 0
+    while (index < features.capacity) {
+        features.store(index, 0)
+        index = index + 1
+    }
+    features.storeI64(0, 53)
+    features.storePointer(8, nativeNullPointer())
+    if (enabled) features.storeI64(52, 1)
     features
 }
 
@@ -1356,6 +1402,7 @@ resource class VulkanDevice(
     val apiVersion: int,
     val physicalDevice: i64*,
     val timelineSemaphores: bool,
+    val synchronization2: bool,
     var transferPool: int,
     val transferCommand: NativePointerCell,
     val transferScratch: NativeByteBuffer
@@ -1574,24 +1621,51 @@ resource class VulkanDevice(
             this.transferCommand.load()
         ) == vulkanSuccess
         if (succeeded) {
-            this.transferScratch.storeI64(0, 4)
-            this.transferScratch.storePointer(8, nativeNullPointer())
-            this.transferScratch.storeI64(16, 0)
-            this.transferScratch.storePointer(24, nativeNullPointer())
-            this.transferScratch.storePointer(32, nativeNullPointer())
-            this.transferScratch.storeI64(40, 1)
-            this.transferScratch.storePointer(
-                48,
-                this.transferCommand.address
-            )
-            this.transferScratch.storeI64(56, 0)
-            this.transferScratch.storePointer(64, nativeNullPointer())
-            succeeded = vkQueueSubmit(
-                this.queue,
-                1,
-                this.transferScratch.address,
-                0
-            ) == vulkanSuccess
+            if (this.synchronization2) {
+                this.transferScratch.storeI64(80, 1000314006)
+                this.transferScratch.storePointer(88, nativeNullPointer())
+                this.transferScratch.storePointer(
+                    96,
+                    this.transferCommand.load()
+                )
+                this.transferScratch.storeI64(104, 0)
+                this.transferScratch.storeI64(0, 1000314004)
+                this.transferScratch.storePointer(8, nativeNullPointer())
+                this.transferScratch.storeI64(16, 0)
+                this.transferScratch.storePointer(24, nativeNullPointer())
+                this.transferScratch.storeI64(32, 1)
+                this.transferScratch.storePointer(
+                    40,
+                    this.transferScratch.pointerAt(80)
+                )
+                this.transferScratch.storeI64(48, 0)
+                this.transferScratch.storePointer(56, nativeNullPointer())
+                succeeded = vkQueueSubmit2(
+                    this.queue,
+                    1,
+                    this.transferScratch.address,
+                    0
+                ) == vulkanSuccess
+            } else {
+                this.transferScratch.storeI64(0, 4)
+                this.transferScratch.storePointer(8, nativeNullPointer())
+                this.transferScratch.storeI64(16, 0)
+                this.transferScratch.storePointer(24, nativeNullPointer())
+                this.transferScratch.storePointer(32, nativeNullPointer())
+                this.transferScratch.storeI64(40, 1)
+                this.transferScratch.storePointer(
+                    48,
+                    this.transferCommand.address
+                )
+                this.transferScratch.storeI64(56, 0)
+                this.transferScratch.storePointer(64, nativeNullPointer())
+                succeeded = vkQueueSubmit(
+                    this.queue,
+                    1,
+                    this.transferScratch.address,
+                    0
+                ) == vulkanSuccess
+            }
         }
         if (succeeded) {
             succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
@@ -2049,11 +2123,23 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
     var handle = nativeNullPointer()
     var queue = nativeNullPointer()
     var timelineSupported = false
+    var synchronization2Supported = false
     if (queueFamily >= 0) {
         val enabledFeatures = this.enabledDeviceFeatures()
         timelineSupported = this.timelineSemaphoreSupported()
         val timelineFeatures = vulkanEnabledTimelineSemaphoreFeatures(
             timelineSupported
+        )
+        synchronization2Supported = this.synchronization2Supported()
+        val synchronization2Features =
+            vulkanEnabledSynchronization2Features(
+                synchronization2Supported
+            )
+        timelineFeatures.storePointer(
+            8,
+            if (synchronization2Supported)
+                synchronization2Features.address
+            else nativeNullPointer()
         )
         val priority = nativeByteBuffer(8)
         priority.storeI64(0, 1065353216)
@@ -2072,6 +2158,8 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         createInfo.storePointer(
             8,
             if (timelineSupported) timelineFeatures.address
+            else if (synchronization2Supported)
+                synchronization2Features.address
             else nativeNullPointer()
         )
         createInfo.storeI64(16, 4294967296)
@@ -2108,6 +2196,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         this.apiVersion,
         this.handle,
         timelineSupported,
+        synchronization2Supported,
         0,
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(216)
@@ -5312,11 +5401,23 @@ trusted fun VulkanAdapter.deviceForSurface(
     var handle = nativeNullPointer()
     var queue = nativeNullPointer()
     var timelineSupported = false
+    var synchronization2Supported = false
     if (queueFamily >= 0 && this.supportsSurface(surface, queueFamily)) {
         val enabledFeatures = this.enabledDeviceFeatures()
         timelineSupported = this.timelineSemaphoreSupported()
         val timelineFeatures = vulkanEnabledTimelineSemaphoreFeatures(
             timelineSupported
+        )
+        synchronization2Supported = this.synchronization2Supported()
+        val synchronization2Features =
+            vulkanEnabledSynchronization2Features(
+                synchronization2Supported
+            )
+        timelineFeatures.storePointer(
+            8,
+            if (synchronization2Supported)
+                synchronization2Features.address
+            else nativeNullPointer()
         )
         val priority = nativeByteBuffer(8)
         priority.storeI64(0, 1065353216)
@@ -5342,6 +5443,8 @@ trusted fun VulkanAdapter.deviceForSurface(
         createInfo.storePointer(
             8,
             if (timelineSupported) timelineFeatures.address
+            else if (synchronization2Supported)
+                synchronization2Features.address
             else nativeNullPointer()
         )
         createInfo.storeI64(16, 4294967296)
@@ -5377,6 +5480,7 @@ trusted fun VulkanAdapter.deviceForSurface(
         this.apiVersion,
         this.handle,
         timelineSupported,
+        synchronization2Supported,
         0,
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(216)

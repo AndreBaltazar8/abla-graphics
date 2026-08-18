@@ -43,13 +43,14 @@ Updated: 2026-08-18.
   queue-family selection, logical device, host-visible coherent allocation,
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,
   queue submission/wait, mapping/readback, queried/enabled Vulkan 1.2 timeline
-  semaphores with allocation-free counter/signal/wait operations, and
+  semaphores with allocation-free counter/signal/wait operations, queried and
+  enabled Vulkan 1.3 synchronization2, real `vkQueueSubmit2` transfer work, and
   reverse-order affine cleanup.
 - Vulkan X11 surface test: required instance extensions, `VkXlibSurfaceKHR`
   creation for the direct Abla window, per-adapter graphics/presentation queue
   checks, surface capabilities/formats, a swapchain-enabled logical device,
-  swapchain creation/image enumeration, surfaced-device timeline enablement,
-  semaphore-synchronized acquisition,
+  swapchain creation/image enumeration, surfaced-device timeline and
+  synchronization2 enablement, semaphore-synchronized acquisition,
   image layout barriers, GPU clear, queue submission/presentation/wait, and
   affine reverse-order teardown.
 - Common triangle render test/sample: one strict `$glsl` vertex/fragment
@@ -450,8 +451,9 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
-  arbitrary attachment routing and dependency masks, synchronization2, and
-  dynamic rendering. The implemented portable sequence currently gives every
+  arbitrary attachment routing and dependency masks, complete synchronization2
+  barrier/event migration, and dynamic rendering. The implemented portable
+  sequence currently gives every
   stage the target's complete color/depth/resolve attachment set and inserts
   fixed color-output dependencies. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
