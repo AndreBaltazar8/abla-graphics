@@ -320,20 +320,22 @@ completion of general GLSL-to-SPIR-V compilation.
 On the raw Vulkan path, `device.computePipeline(shader)` creates an empty
 `VkPipelineLayout` and a `VkComputePipeline` for entry point `main`.
 `pipeline.dispatch(x, y, z)` validates positive bounded group counts, records
-and binds the pipeline in a one-time command buffer, submits it, waits for
-completion, and releases the transient command pool. Pipeline then layout are
-destroyed affinely. This is a verified execution foundation; descriptor-set
-layouts, reusable command encoders, asynchronous fences, and the common compute
-pipeline facade remain upcoming.
+and binds the pipeline in a persistent command buffer, submits it, and waits for
+completion. The command pool/buffer are allocated once with the pipeline and
+reset for reuse; repeated dispatch retains both native handles. Pipeline,
+command pool, then layout are destroyed affinely. This is a verified execution
+foundation; descriptor-set layouts, general reusable command encoders, and
+asynchronous fences remain upcoming.
 
 The first portable compute facade is `app.computePipeline(shader)`. It owns an
 OpenGL compute program or a Vulkan pipeline created from the Abla-emitted
 SPIR-V, reports structured creation errors, and exposes the same checked
 `dispatch(x, y, z)` call on both backends. Backend choice occurs once during
 creation; dispatch contains no backend probing beyond the selected affine
-resource branch. The current implementation finishes/waits each dispatch for
-deterministic validation. Reusable command encoders and asynchronous fences are
-required before this becomes the high-throughput production path.
+resource branch. OpenGL queues work without a forced full-context finish.
+Vulkan currently waits for queue completion before resetting its persistent
+command resources; asynchronous fences and frames-in-flight are required before
+this becomes the high-throughput production path.
 
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the

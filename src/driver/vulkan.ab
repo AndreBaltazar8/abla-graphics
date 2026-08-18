@@ -1160,44 +1160,24 @@ resource class VulkanComputePipeline(
     val queue: i64*,
     val queueFamily: int,
     var layout: int,
-    var handle: int
+    var handle: int,
+    var commandPool: int,
+    var commandBuffer: i64*
 ) {
     fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.queueFamily >= 0 &&
-        this.layout != 0 && this.handle != 0
+        this.layout != 0 && this.handle != 0 && this.commandPool != 0 &&
+        !pointerIsNull(this.commandBuffer)
 
     trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
         var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
             x <= 65535 && y <= 65535 && z <= 65535
-        val pool = nativeI64Cell(0)
-        val command = nativePointerCell(nativeNullPointer())
-        if (succeeded) {
-            val poolInfo = nativeByteBuffer(24)
-            poolInfo.storeI64(0, 39)
-            poolInfo.storePointer(8, nativeNullPointer())
-            poolInfo.storeI64(
-                16,
-                (this.queueFamily & 4294967295) * 4294967296 + 1
-            )
-            succeeded = vkCreateCommandPool(
-                this.device,
-                poolInfo.address,
-                nativeNullPointer(),
-                pool.address
-            ) == vulkanSuccess
-        }
-        if (succeeded) {
-            val allocateInfo = nativeByteBuffer(32)
-            allocateInfo.storeI64(0, 40)
-            allocateInfo.storePointer(8, nativeNullPointer())
-            allocateInfo.storeI64(16, pool.load())
-            allocateInfo.storeI64(24, 4294967296)
-            succeeded = vkAllocateCommandBuffers(
-                this.device,
-                allocateInfo.address,
-                command.address
-            ) == vulkanSuccess
-        }
+        val command = nativePointerCell(this.commandBuffer)
+        if (succeeded) succeeded = vkResetCommandPool(
+            this.device,
+            this.commandPool,
+            0
+        ) == vulkanSuccess
         if (succeeded) {
             val beginInfo = nativeByteBuffer(32)
             beginInfo.storeI64(0, 42)
@@ -1205,14 +1185,14 @@ resource class VulkanComputePipeline(
             beginInfo.storeI64(16, 1)
             beginInfo.storePointer(24, nativeNullPointer())
             succeeded = vkBeginCommandBuffer(
-                command.load(),
+                this.commandBuffer,
                 beginInfo.address
             ) == vulkanSuccess
         }
         if (succeeded) {
-            vkCmdBindPipeline(command.load(), 1, this.handle)
-            vkCmdDispatch(command.load(), x, y, z)
-            succeeded = vkEndCommandBuffer(command.load()) == vulkanSuccess
+            vkCmdBindPipeline(this.commandBuffer, 1, this.handle)
+            vkCmdDispatch(this.commandBuffer, x, y, z)
+            succeeded = vkEndCommandBuffer(this.commandBuffer) == vulkanSuccess
         }
         if (succeeded) {
             val submit = nativeByteBuffer(72)
@@ -1234,19 +1214,6 @@ resource class VulkanComputePipeline(
         }
         if (succeeded) succeeded =
             vkQueueWaitIdle(this.queue) == vulkanSuccess
-        if (!pointerIsNull(command.load())) {
-            vkFreeCommandBuffers(
-                this.device,
-                pool.load(),
-                1,
-                command.address
-            )
-        }
-        if (pool.load() != 0) vkDestroyCommandPool(
-            this.device,
-            pool.load(),
-            nativeNullPointer()
-        )
         succeeded
     }
 
@@ -1254,6 +1221,15 @@ resource class VulkanComputePipeline(
         if (this.handle != 0 && !pointerIsNull(this.device)) {
             vkDestroyPipeline(this.device, this.handle, nativeNullPointer())
             this.handle = 0
+        }
+        if (this.commandPool != 0 && !pointerIsNull(this.device)) {
+            vkDestroyCommandPool(
+                this.device,
+                this.commandPool,
+                nativeNullPointer()
+            )
+            this.commandPool = 0
+            this.commandBuffer = nativeNullPointer()
         }
         if (this.layout != 0 && !pointerIsNull(this.device)) {
             vkDestroyPipelineLayout(
@@ -1272,6 +1248,8 @@ trusted fun VulkanDevice.computePipeline(
 ): VulkanComputePipeline {
     var layout = 0
     var pipeline = 0
+    var commandPool = 0
+    var commandBuffer = nativeNullPointer()
     if (this.valid() && shader.valid() && shader.device == this.handle) {
         val layoutInfo = nativeByteBuffer(48)
         layoutInfo.storeI64(0, 30)
@@ -1319,12 +1297,55 @@ trusted fun VulkanDevice.computePipeline(
         vkDestroyPipelineLayout(this.handle, layout, nativeNullPointer())
         layout = 0
     }
+    if (pipeline != 0) {
+        val poolInfo = nativeByteBuffer(24)
+        poolInfo.storeI64(0, 39)
+        poolInfo.storePointer(8, nativeNullPointer())
+        poolInfo.storeI64(
+            16,
+            (this.queueFamily & 4294967295) * 4294967296 + 1
+        )
+        val output = nativeI64Cell(0)
+        if (vkCreateCommandPool(
+            this.handle,
+            poolInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess) commandPool = output.load()
+    }
+    if (commandPool != 0) {
+        val allocateInfo = nativeByteBuffer(32)
+        allocateInfo.storeI64(0, 40)
+        allocateInfo.storePointer(8, nativeNullPointer())
+        allocateInfo.storeI64(16, commandPool)
+        allocateInfo.storeI64(24, 4294967296)
+        val output = nativePointerCell(nativeNullPointer())
+        if (vkAllocateCommandBuffers(
+            this.handle,
+            allocateInfo.address,
+            output.address
+        ) == vulkanSuccess) commandBuffer = output.load()
+    }
+    if (pointerIsNull(commandBuffer) && pipeline != 0) {
+        vkDestroyPipeline(this.handle, pipeline, nativeNullPointer())
+        if (commandPool != 0) vkDestroyCommandPool(
+            this.handle,
+            commandPool,
+            nativeNullPointer()
+        )
+        vkDestroyPipelineLayout(this.handle, layout, nativeNullPointer())
+        pipeline = 0
+        commandPool = 0
+        layout = 0
+    }
     VulkanComputePipeline(
         this.handle,
         this.queue,
         this.queueFamily,
         layout,
-        pipeline
+        pipeline,
+        commandPool,
+        commandBuffer
     )
 }
 
