@@ -1,0 +1,162 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics render to texture",
+            width = 640,
+            height = 480
+        )
+    )
+    val sceneShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val postShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val color = app.texture(TextureDescriptor(
+        label = "post-process-color",
+        size = Extent3D(256, 256),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageSampled |
+            textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(color))
+    val scenePipeline = app.renderTargetPipeline(target, sceneShader)
+    val vertexBytes = bufferBytes(48)
+    val verticesStored =
+        vertexBytes.storeF32(-1.0, 0) &&
+        vertexBytes.storeF32(-1.0, 4) &&
+        vertexBytes.storeF32(0.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(3.0, 16) &&
+        vertexBytes.storeF32(-1.0, 20) &&
+        vertexBytes.storeF32(2.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(-1.0, 32) &&
+        vertexBytes.storeF32(3.0, 36) &&
+        vertexBytes.storeF32(0.0, 40) &&
+        vertexBytes.storeF32(2.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "post-process-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterLinear,
+        minFilter = samplerFilterLinear
+    ))
+    val binding = app.textureBinding(target.texture, sampler)
+    val bindingHandle = if (app.backend == graphicsBackendOpenGl)
+        binding.openGlResources[0]
+    else binding.vulkan.descriptorSet
+    val postPipeline = app.renderPipeline(
+        postShader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    val sceneClear = Color(0.01, 0.015, 0.025)
+    val windowClear = Color(0.0, 0.0, 0.0)
+    val warmed = app.valid() && target.valid() && scenePipeline.valid() &&
+        postPipeline.valid() && vertices.valid() && sampler.valid() &&
+        verticesUploaded && app.renderToTarget(
+            target,
+            scenePipeline,
+            sceneClear
+        ) && app.presentRenderVertices(
+            postPipeline,
+            vertices,
+            3,
+            windowClear
+        ) && target.texture.rgba8(128, 128) == 4294281759
+    val sceneHandle = if (app.backend == graphicsBackendOpenGl)
+        scenePipeline.openGl.handle else scenePipeline.vulkan.handle
+    val postHandle = if (app.backend == graphicsBackendOpenGl)
+        postPipeline.openGl.handle else postPipeline.vulkan.handle
+    val liveBefore = runtimeMemoryLiveBytes()
+    var presented = warmed
+    var frame = 0
+    while (presented && frame < 4) {
+        presented = app.renderToTarget(
+            target,
+            scenePipeline,
+            sceneClear
+        ) && app.presentRenderVertices(
+            postPipeline,
+            vertices,
+            3,
+            windowClear
+        )
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val noGrowth = liveAfter == liveBefore
+    val handlesStable = bindingHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            scenePipeline.openGl.handle == sceneHandle &&
+                postPipeline.openGl.handle == postHandle &&
+                postPipeline.binding.openGlResources[0] == bindingHandle
+         else scenePipeline.vulkan.handle == sceneHandle &&
+                postPipeline.vulkan.handle == postHandle &&
+                postPipeline.binding.vulkan.descriptorSet == bindingHandle)
+    println(
+        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, sampled=true, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+    )
+    if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
+}

@@ -5,6 +5,7 @@ import "core.ab"
 import "application.ab"
 import "buffer.ab"
 import "binding.ab"
+import "target.ab"
 import "shader/glsl.ab"
 import "shader/glsl_spirv.ab"
 import "driver/opengl.ab"
@@ -19,6 +20,10 @@ resource class GraphicsRenderPipeline(
     val depth: DepthStencilState,
     val shader: ShaderPackage,
     val binding: GraphicsBindGroup,
+    val targetHandle: int,
+    val targetWidth: int,
+    val targetHeight: int,
+    val targetFormat: int,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
@@ -40,7 +45,13 @@ trusted fun GraphicsApplication.renderPipeline(
     vertexLayout: VertexBufferLayout = VertexBufferLayout(),
     raster: RasterPipelineState = RasterPipelineState(),
     depth: DepthStencilState = DepthStencilState(),
-    own binding: GraphicsBindGroup = emptyGraphicsBindGroup()
+    own binding: GraphicsBindGroup = emptyGraphicsBindGroup(),
+    targetHandle: int = 0,
+    targetRenderPass: int = 0,
+    targetView: int = 0,
+    targetFormat: int = 0,
+    targetWidth: int = 0,
+    targetHeight: int = 0
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -58,12 +69,23 @@ trusted fun GraphicsApplication.renderPipeline(
         0,
         0,
         false,
+        false,
+        false,
         false
     )
     var error = GraphicsError()
     val stagesValid = shader.valid && shader.stages.size == 2 &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != ""
+    val offscreen = targetHandle != 0
+    val targetValid = (!offscreen && targetRenderPass == 0 &&
+        targetView == 0 && targetFormat == 0 &&
+        targetWidth == 0 && targetHeight == 0) ||
+        (offscreen && targetWidth > 0 && targetHeight > 0 &&
+         ((this.backend == graphicsBackendOpenGl &&
+           targetRenderPass == 0 && targetView == 0) ||
+          (this.backend == graphicsBackendVulkan &&
+           targetRenderPass != 0 && targetView != 0 && targetFormat != 0)))
     var vertexInputCount = 0
     var vertexInputValid = true
     var locationIndex = 0
@@ -111,7 +133,7 @@ trusted fun GraphicsApplication.renderPipeline(
     val vertexCode = translatable.spirv(shaderStageVertex)
     val fragmentCode = translatable.spirv(shaderStageFragment)
 
-    if (!this.valid() || !stagesValid || !layoutMatches ||
+    if (!this.valid() || !stagesValid || !layoutMatches || !targetValid ||
         !shaderBindingMatches) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
@@ -152,7 +174,13 @@ trusted fun GraphicsApplication.renderPipeline(
                 depth.enabled,
                 depth.write,
                 depth.compare,
-                if (binding.valid()) binding.vulkan.descriptorSetLayout else 0
+                if (binding.valid()) binding.vulkan.descriptorSetLayout else 0,
+                targetRenderPass,
+                targetView,
+                targetHandle,
+                targetFormat,
+                targetWidth,
+                targetHeight
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -171,8 +199,82 @@ trusted fun GraphicsApplication.renderPipeline(
         depth,
         shader,
         move(binding),
+        targetHandle,
+        targetWidth,
+        targetHeight,
+        targetFormat,
         error
     )
+}
+
+trusted fun GraphicsApplication.renderTargetPipeline(
+    target: GraphicsRenderTarget,
+    shader: ShaderPackage,
+    vertexLayout: VertexBufferLayout = VertexBufferLayout(),
+    raster: RasterPipelineState = RasterPipelineState(),
+    own binding: GraphicsBindGroup = emptyGraphicsBindGroup()
+): GraphicsRenderPipeline {
+    if (!target.valid() || target.backend != this.backend) {
+        this.renderPipeline(
+            shader,
+            vertexLayout,
+            raster,
+            DepthStencilState(),
+            move(binding),
+            -1
+        )
+    } else this.renderPipeline(
+        shader,
+        vertexLayout,
+        raster,
+        DepthStencilState(),
+        move(binding),
+        if (this.backend == graphicsBackendOpenGl) target.openGl.handle
+        else target.vulkan.framebuffer,
+        if (this.backend == graphicsBackendVulkan) target.vulkan.renderPass
+        else 0,
+        if (this.backend == graphicsBackendVulkan) target.vulkan.view else 0,
+        if (this.backend == graphicsBackendVulkan) target.vulkan.format else 0,
+        target.texture.descriptor.size.width,
+        target.texture.descriptor.size.height
+    )
+}
+
+trusted fun GraphicsApplication.renderToTarget(
+    var target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    clear: Color
+): bool {
+    var succeeded = this.valid() && target.valid() && pipeline.valid() &&
+        clear.valid() && target.backend == this.backend &&
+        pipeline.backend == this.backend && pipeline.targetHandle != 0 &&
+        pipeline.targetWidth == target.texture.descriptor.size.width &&
+        pipeline.targetHeight == target.texture.descriptor.size.height &&
+        !pipeline.vertexLayout.buffered() && pipeline.binding.empty() &&
+        !pipeline.depth.enabled
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = pipeline.targetHandle == target.openGl.handle &&
+            this.openGl.renderProgramTarget(
+                target.openGl,
+                pipeline.openGl,
+                clear,
+                pipeline.raster
+            )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = pipeline.targetHandle == target.vulkan.framebuffer &&
+            this.vulkanDevice.renderTargetProgram(
+                target.vulkan,
+                pipeline.vulkan,
+                clear
+            )
+        if (succeeded) target.texture.vulkan.storeLayout(
+            0,
+            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
+                5
+            else 2
+        )
+    } else if (succeeded) succeeded = false
+    succeeded
 }
 
 trusted fun GraphicsApplication.recreateRenderTarget(

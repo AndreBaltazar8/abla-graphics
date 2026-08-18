@@ -612,8 +612,17 @@ compatible full image view, render pass, and framebuffer, with a sampled target
 ending in shader-read layout. `clearRenderTarget` records a real Vulkan render
 pass through the reusable device transfer command or binds and clears the
 OpenGL FBO. Repeated clears allocate nothing and preserve all attachment and
-command handles. General offscreen pipeline draws and post-processing are the
-next layer over this established ownership boundary.
+command handles.
+
+`app.renderTargetPipeline(target, shader)` compiles a procedural raster pipeline
+against the target format, and `app.renderToTarget(target, pipeline, clear)`
+executes it without presenting. Vulkan borrows the target render pass and
+framebuffer through explicit non-owning pipeline flags; OpenGL binds the target
+FBO. A target declaring sampled usage can then feed an ordinary bind group and
+surface pipeline. The `render-to-texture` sample performs this two-pass flow for
+four frames with exact center-pixel verification, stable native handles, and
+zero live-byte growth. Buffered/depth offscreen draws and multiple attachments
+remain subsequent extensions of this path.
 
 Samplers are also driver-backed affine resources:
 

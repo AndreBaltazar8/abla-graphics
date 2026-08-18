@@ -1353,6 +1353,38 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
     succeeded
 }
 
+trusted fun OpenGlWindowContext.renderProgramTarget(
+    target: OpenGlRenderTarget,
+    program: OpenGlProgram,
+    clear: Color,
+    raster: RasterPipelineState
+): bool {
+    var rendered = this.valid() && target.valid() && program.valid() &&
+        clear.valid() && raster.valid() &&
+        target.display == this.display && target.context == this.context &&
+        this.makeCurrent()
+    if (rendered) {
+        openGlStoreI32(this.clearScratch, 0, graphicsScalarF32Bits(clear.red))
+        openGlStoreI32(this.clearScratch, 1, graphicsScalarF32Bits(clear.green))
+        openGlStoreI32(this.clearScratch, 2, graphicsScalarF32Bits(clear.blue))
+        openGlStoreI32(this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha))
+        glBindFramebuffer(36160, target.handle)
+        glViewport(0, 0, target.width, target.height)
+        glClearBufferfv(6144, 0, this.clearScratch.address)
+        glUseProgram(program.handle)
+        glBindVertexArray(program.vertexArray)
+        rendered = openGlApplyRasterState(raster)
+        if (rendered) glDrawArrays(
+            openGlPrimitiveMode(raster.topology),
+            0,
+            3
+        )
+        rendered = rendered && glGetError() == 0
+        glBindFramebuffer(36160, 0)
+    }
+    rendered
+}
+
 trusted fun OpenGlWindowContext.texture(
     descriptor: TextureDescriptor
 ): OpenGlTexture {

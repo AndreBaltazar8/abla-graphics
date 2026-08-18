@@ -677,7 +677,49 @@ fun applicationBackendProbe(
         }
     }
     val renderPipeline = app.renderPipeline(triangleShader)
+    val targetPipeline = app.renderTargetPipeline(
+        renderTarget,
+        triangleShader
+    )
+    val targetPipelineCompatible = targetPipeline.valid() &&
+        targetPipeline.targetHandle != 0 &&
+        targetPipeline.targetWidth == 32 && targetPipeline.targetHeight == 24 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            targetPipeline.targetHandle == renderTarget.openGl.handle
+         else targetPipeline.vulkan.renderPass ==
+                renderTarget.vulkan.renderPass &&
+            targetPipeline.vulkan.framebuffers[0] ==
+                renderTarget.vulkan.framebuffer &&
+            !targetPipeline.vulkan.ownsAttachments &&
+            !targetPipeline.vulkan.ownsRenderPass)
     val renderClear = Color(0.02, 0.03, 0.05)
+    val targetRendered = app.renderToTarget(
+        renderTarget,
+        targetPipeline,
+        Color(0.01, 0.02, 0.03)
+    )
+    val targetRenderedPixel = renderTarget.texture.rgba8(16, 12)
+    val targetPipelineOpenGl = targetPipeline.openGl.handle
+    val targetPipelineVulkan = targetPipeline.vulkan.handle
+    val targetDrawLiveBefore = runtimeMemoryLiveBytes()
+    var targetDrawRepeated = targetRendered
+    var targetDrawRepeat = 0
+    while (targetDrawRepeated && targetDrawRepeat < 4) {
+        targetDrawRepeated = app.renderToTarget(
+            renderTarget,
+            targetPipeline,
+            renderClear
+        )
+        targetDrawRepeat = targetDrawRepeat + 1
+    }
+    val targetDrawLiveAfter = runtimeMemoryLiveBytes()
+    val targetDrawNoGrowth = targetDrawLiveAfter == targetDrawLiveBefore
+    val targetPipelineStable = if (app.backend == graphicsBackendOpenGl)
+        targetPipeline.openGl.handle == targetPipelineOpenGl
+    else targetPipeline.vulkan.handle == targetPipelineVulkan &&
+        targetPipeline.vulkan.renderPass == renderTarget.vulkan.renderPass &&
+        targetPipeline.vulkan.framebuffers[0] ==
+            renderTarget.vulkan.framebuffer
     val rendered = app.presentRender(renderPipeline, renderClear)
     val renderOpenGlHandle = renderPipeline.openGl.handle
     val renderOpenGlArray = renderPipeline.openGl.vertexArray
@@ -801,7 +843,10 @@ fun applicationBackendProbe(
         computeBuffer.valid() && computeBufferCleared &&
         storageCompute.valid() && storageComputed && computeRepeated &&
         computeNoGrowth && computeHandlesStable && computeValue == 486 &&
-        resizePassed && renderPipeline.valid() && rendered &&
+        resizePassed && renderPipeline.valid() && targetPipelineCompatible &&
+        targetRendered && targetRenderedPixel == 4294281759 &&
+        targetDrawRepeated && targetDrawRepeat == 4 && targetDrawNoGrowth &&
+        targetPipelineStable && rendered &&
         renderRepeated && renderNoGrowth && renderHandlesStable
 }
 

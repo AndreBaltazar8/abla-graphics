@@ -140,6 +140,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/indexed-textured-cube`: 24 interleaved position/UV vertices, 36
   reusable indices, a four-color atlas, a 64-byte transform uniform, and depth-
   tested cube faces rendered unchanged on explicit OpenGL and Vulkan;
+- `examples/render-to-texture`: a procedural scene pass renders into a 256x256
+  affine color target, then a fullscreen textured pass samples it into the
+  window for four allocation-free frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
   mutation and readback; and

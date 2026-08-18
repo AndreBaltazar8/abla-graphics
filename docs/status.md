@@ -261,7 +261,13 @@ Updated: 2026-08-18.
   view, render pass, and framebuffer. A real target clear round-trips the exact
   RGBA8 result on both drivers. Four repeated clears preserve every target and
   transfer-command handle with zero live-byte growth under Vulkan validation.
-  General pipeline draws into the target remain the active next slice.
+  A compatible procedural pipeline then renders an exact shader color into the
+  target without taking ownership of its attachments.
+- Render-to-texture/post-process sample: a 256x256 target receives a procedural
+  scene pass, becomes a sampled-texture bind-group entry, and is drawn through
+  a fullscreen surface pass unchanged on OpenGL and Vulkan. Exact center-pixel
+  readback verifies the offscreen result; four two-pass frames preserve target,
+  pipeline, descriptor, and transfer-command handles with zero live growth.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, explicit input/output location reflection, descriptor set and

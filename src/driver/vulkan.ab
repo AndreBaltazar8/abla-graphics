@@ -2852,6 +2852,89 @@ trusted fun VulkanDevice.clearRenderTarget(
     succeeded
 }
 
+trusted fun VulkanDevice.renderTargetProgram(
+    target: VulkanRenderTarget,
+    pipeline: VulkanRenderPipeline,
+    clear: Color
+): bool {
+    var succeeded = this.transferValid() && target.valid() &&
+        pipeline.valid() && clear.valid() && target.device == this.handle &&
+        pipeline.device == this.handle && pipeline.vertexStride == 0 &&
+        !pipeline.depthEnabled && !pipeline.requiresBinding &&
+        pipeline.renderPass == target.renderPass &&
+        pipeline.framebuffers.size == 1 &&
+        pipeline.framebuffers[0] == target.framebuffer &&
+        pipeline.width == target.width && pipeline.height == target.height &&
+        this.beginTransfer()
+    if (succeeded) {
+        this.transferScratch.storeI64(0, 43)
+        this.transferScratch.storePointer(8, nativeNullPointer())
+        this.transferScratch.storeI64(16, target.renderPass)
+        this.transferScratch.storeI64(24, target.framebuffer)
+        this.transferScratch.storeI64(32, 0)
+        this.transferScratch.storeI64(
+            40,
+            target.height * 4294967296 + target.width
+        )
+        this.transferScratch.storeI64(48, 1)
+        this.transferScratch.storePointer(
+            56,
+            this.transferScratch.pointerAt(72)
+        )
+        this.transferScratch.storeI64(
+            72,
+            (graphicsScalarF32Bits(clear.green) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.red) & 4294967295)
+        )
+        this.transferScratch.storeI64(
+            80,
+            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.blue) & 4294967295)
+        )
+        vkCmdBeginRenderPass(
+            this.transferCommand.load(),
+            this.transferScratch.address,
+            0
+        )
+        this.transferScratch.storeI64(0, 0)
+        this.transferScratch.storeI64(
+            8,
+            (graphicsUnsignedIntegerF32Bits(target.height) & 4294967295) *
+                4294967296 +
+                (graphicsUnsignedIntegerF32Bits(target.width) & 4294967295)
+        )
+        this.transferScratch.storeI64(16, 1065353216 * 4294967296)
+        vkCmdSetViewport(
+            this.transferCommand.load(),
+            0,
+            1,
+            this.transferScratch.address
+        )
+        this.transferScratch.storeI64(0, 0)
+        this.transferScratch.storeI64(
+            8,
+            target.height * 4294967296 + target.width
+        )
+        vkCmdSetScissor(
+            this.transferCommand.load(),
+            0,
+            1,
+            this.transferScratch.address
+        )
+        vkCmdBindPipeline(
+            this.transferCommand.load(),
+            0,
+            pipeline.handle
+        )
+        vkCmdDraw(this.transferCommand.load(), 3, 1, 0, 0)
+        vkCmdEndRenderPass(this.transferCommand.load())
+        succeeded = this.submitTransfer()
+    }
+    succeeded
+}
+
 trusted fun VulkanDevice.texture(
     descriptor: TextureDescriptor
 ): VulkanTexture {
@@ -3822,6 +3905,8 @@ resource class VulkanRenderPipeline(
     val height: int,
     val vertexStride: int,
     val depthEnabled: bool,
+    val ownsAttachments: bool,
+    val ownsRenderPass: bool,
     val requiresBinding: bool
 ) {
     trusted fun valid(): bool = !pointerIsNull(this.device) &&
@@ -3839,7 +3924,7 @@ resource class VulkanRenderPipeline(
     trusted fun drop(): void {
         if (!pointerIsNull(this.queue)) vkQueueWaitIdle(this.queue)
         var index = 0
-        while (index < this.framebuffers.size) {
+        while (this.ownsAttachments && index < this.framebuffers.size) {
             if (this.framebuffers[index] != 0 &&
                 !pointerIsNull(this.device)) {
                 vkDestroyFramebuffer(
@@ -3852,7 +3937,7 @@ resource class VulkanRenderPipeline(
             index = index + 1
         }
         index = 0
-        while (index < this.imageViews.size) {
+        while (this.ownsAttachments && index < this.imageViews.size) {
             if (this.imageViews[index] != 0 &&
                 !pointerIsNull(this.device)) {
                 vkDestroyImageView(
@@ -3886,7 +3971,8 @@ resource class VulkanRenderPipeline(
             )
             this.layout = 0
         }
-        if (this.renderPass != 0 && !pointerIsNull(this.device)) {
+        if (this.ownsRenderPass && this.renderPass != 0 &&
+            !pointerIsNull(this.device)) {
             vkDestroyRenderPass(
                 this.device,
                 this.renderPass,
@@ -3910,7 +3996,13 @@ trusted fun VulkanDevice.renderPipeline(
     depthEnabled: bool = false,
     depthWrite: bool = false,
     depthCompare: int = compareFunctionLess,
-    descriptorSetLayout: int = 0
+    descriptorSetLayout: int = 0,
+    targetRenderPass: int = 0,
+    targetView: int = 0,
+    targetFramebuffer: int = 0,
+    targetFormat: int = 0,
+    targetWidth: int = 0,
+    targetHeight: int = 0
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -3920,6 +4012,12 @@ trusted fun VulkanDevice.renderPipeline(
     val depthTextures: array<VulkanTexture> = []
     val depthViews: array<VulkanTextureView> = []
     val vertexStride = vertexLayout.stride
+    val offscreen = targetRenderPass != 0 && targetView != 0 &&
+        targetFramebuffer != 0 && targetFormat != 0 &&
+        targetWidth > 0 && targetHeight > 0
+    val format = if (offscreen) targetFormat else swapchain.format
+    val width = if (offscreen) targetWidth else swapchain.width
+    val height = if (offscreen) targetHeight else swapchain.height
     var succeeded = this.valid() && swapchain.valid() &&
         swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
         vertex.device == this.handle && fragment.device == this.handle &&
@@ -3931,9 +4029,10 @@ trusted fun VulkanDevice.renderPipeline(
          front == frontFaceCounterClockwise) &&
         depthCompare >= compareFunctionNever &&
         depthCompare <= compareFunctionAlways &&
-        (!depthWrite || depthEnabled)
+        (!depthWrite || depthEnabled) && (!offscreen || !depthEnabled)
 
-    if (succeeded) {
+    if (succeeded && offscreen) renderPass = targetRenderPass
+    if (succeeded && !offscreen) {
         val attachments = nativeByteBuffer(if (depthEnabled) 80 else 40)
         attachments.storeI64(0, swapchain.format * 4294967296)
         attachments.storeI64(8, 4294967296 + 1)
@@ -4015,7 +4114,7 @@ trusted fun VulkanDevice.renderPipeline(
     }
 
     var imageIndex = 0
-    while (succeeded && imageIndex < swapchain.images.size) {
+    while (succeeded && !offscreen && imageIndex < swapchain.images.size) {
         val viewInfo = nativeByteBuffer(80)
         viewInfo.storeI64(0, 15)
         viewInfo.storePointer(8, nativeNullPointer())
@@ -4040,7 +4139,7 @@ trusted fun VulkanDevice.renderPipeline(
 
     imageIndex = 0
     while (succeeded && depthEnabled &&
-        imageIndex < swapchain.images.size) {
+        !offscreen && imageIndex < swapchain.images.size) {
         val depthTexture = this.texture(TextureDescriptor(
             label = "render-depth",
             size = Extent3D(swapchain.width, swapchain.height),
@@ -4065,7 +4164,7 @@ trusted fun VulkanDevice.renderPipeline(
     }
 
     imageIndex = 0
-    while (succeeded && imageIndex < imageViews.size) {
+    while (succeeded && !offscreen && imageIndex < imageViews.size) {
         val framebufferAttachments = nativeByteBuffer(16)
         framebufferAttachments.storeI64(0, imageViews[imageIndex])
         if (depthEnabled) framebufferAttachments.storeI64(
@@ -4093,6 +4192,10 @@ trusted fun VulkanDevice.renderPipeline(
         ) == vulkanSuccess
         if (succeeded) framebuffers.append(output.load())
         imageIndex = imageIndex + 1
+    }
+    if (succeeded && offscreen) {
+        imageViews.append(targetView)
+        framebuffers.append(targetFramebuffer)
     }
 
     if (succeeded) {
@@ -4280,11 +4383,13 @@ trusted fun VulkanDevice.renderPipeline(
         framebuffers,
         move(depthTextures),
         move(depthViews),
-        swapchain.format,
-        swapchain.width,
-        swapchain.height,
+        format,
+        width,
+        height,
         vertexStride,
         depthEnabled,
+        !offscreen,
+        !offscreen,
         descriptorSetLayout != 0
     )
 }

@@ -11,7 +11,7 @@ mkdir -p "$output_directory"
 for sample in x11-window vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \
-    common-textured indexed-textured-cube common-compute \
+    common-textured indexed-textured-cube render-to-texture common-compute \
     frame-pacing; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
@@ -42,6 +42,8 @@ for backend in opengl vulkan; do
         "$output_directory/common-textured" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/indexed-textured-cube" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/render-to-texture" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-compute" "$backend"
 done
