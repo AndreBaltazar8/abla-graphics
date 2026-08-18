@@ -13,7 +13,7 @@ class GlslSpirvResult(
     val error: string = ""
 )
 
-class GlslTokenFingerprint(val valid: bool, val text: string)
+class GlslStorageWrite(val valid: bool, val value: int = 0)
 
 fun glslSkipLine(source: string, begin: int): int {
     var index = begin
@@ -74,58 +74,93 @@ fun glslComputeNoOpSource(source: string): bool {
     valid && mainSeen && workgroupSeen && versionSeen
 }
 
-fun glslTokenPunctuation(value: int): string {
-    var token = ""
-    if (value == 40) token = "("
-    else if (value == 41) token = ")"
-    else if (value == 44) token = ","
-    else if (value == 46) token = "."
-    else if (value == 59) token = ";"
-    else if (value == 61) token = "="
-    else if (value == 91) token = "["
-    else if (value == 93) token = "]"
-    else if (value == 123) token = "{"
-    else if (value == 125) token = "}"
-    token
+fun glslExpectCharacter(
+    source: string,
+    begin: int,
+    character: int
+): GlslInteger {
+    val index = glslSkipTrivia(source, begin)
+    GlslInteger(
+        index < source.size && source[index] == character,
+        character,
+        if (index < source.size && source[index] == character)
+            index + 1 else index
+    )
 }
 
-fun glslFingerprint(source: string): GlslTokenFingerprint {
-    var index = 0
-    var valid = true
-    var result = ""
-    while (valid && index < source.size) {
-        index = glslSkipTrivia(source, index)
-        if (index < source.size && source[index] == 35) {
-            val directive = glslReadName(source, index + 1)
-            val version = glslReadUnsigned(source, directive.next)
-            valid = directive.text == "version" && version.valid
-            if (valid) result = "$result # version ${version.value}"
-            index = glslSkipLine(source, version.next)
-        } else if (index < source.size &&
-            glslAsciiNameStart(source[index])) {
-            val name = glslReadName(source, index)
-            result = "$result ${name.text}"
-            index = name.next
-        } else if (index < source.size && source[index] >= 48 &&
-            source[index] <= 57) {
-            val integer = glslReadUnsigned(source, index)
-            valid = integer.valid
-            if (valid) result = "$result ${integer.value}"
-            index = integer.next
-        } else if (index < source.size) {
-            val punctuation = glslTokenPunctuation(source[index])
-            valid = punctuation != ""
-            if (valid) result = "$result $punctuation"
-            index = index + 1
-        }
-    }
-    GlslTokenFingerprint(valid, result)
-}
+fun glslComputeStorageWrite(source: string): GlslStorageWrite {
+    var index = glslSkipTrivia(source, 0)
+    var valid = index < source.size && source[index] == 35
+    var part = glslReadName(source, index + 1)
+    valid = valid && part.text == "version"
+    val version = glslReadUnsigned(source, part.next)
+    valid = valid && version.valid && version.value == 450
+    index = glslSkipLine(source, version.next)
 
-fun glslComputeStorage42Source(source: string): bool {
-    val fingerprint = glslFingerprint(source)
-    fingerprint.valid && fingerprint.text ==
-        " # version 450 layout ( local_size_x = 1 ) in ; layout ( std430 , binding = 0 ) buffer Values { uint value ; } values ; void main ( ) { values . value = 42 u ; }"
+    part = glslReadName(source, index)
+    valid = valid && part.text == "layout"
+    val workgroup = glslParseLayout(source, part.next)
+    valid = valid && workgroup.valid && workgroup.localSizeX == 1 &&
+        (workgroup.localSizeY < 0 || workgroup.localSizeY == 1) &&
+        (workgroup.localSizeZ < 0 || workgroup.localSizeZ == 1)
+    part = glslReadName(source, workgroup.next)
+    valid = valid && part.text == "in"
+    var character = glslExpectCharacter(source, part.next, 59)
+    valid = valid && character.valid
+    index = character.next
+
+    part = glslReadName(source, index)
+    valid = valid && part.text == "layout"
+    val binding = glslParseLayout(source, part.next)
+    valid = valid && binding.valid && binding.set == 0 &&
+        binding.binding == 0
+    part = glslReadName(source, binding.next)
+    valid = valid && part.text == "buffer"
+    part = glslReadName(source, part.next)
+    valid = valid && part.text == "Values"
+    character = glslExpectCharacter(source, part.next, 123)
+    valid = valid && character.valid
+    part = glslReadName(source, character.next)
+    valid = valid && part.text == "uint"
+    part = glslReadName(source, part.next)
+    valid = valid && part.text == "value"
+    character = glslExpectCharacter(source, part.next, 59)
+    valid = valid && character.valid
+    character = glslExpectCharacter(source, character.next, 125)
+    valid = valid && character.valid
+    part = glslReadName(source, character.next)
+    valid = valid && part.text == "values"
+    character = glslExpectCharacter(source, part.next, 59)
+    valid = valid && character.valid
+
+    part = glslReadName(source, character.next)
+    valid = valid && part.text == "void"
+    part = glslReadName(source, part.next)
+    valid = valid && part.text == "main"
+    character = glslExpectCharacter(source, part.next, 40)
+    valid = valid && character.valid
+    character = glslExpectCharacter(source, character.next, 41)
+    valid = valid && character.valid
+    character = glslExpectCharacter(source, character.next, 123)
+    valid = valid && character.valid
+    part = glslReadName(source, character.next)
+    valid = valid && part.text == "values"
+    character = glslExpectCharacter(source, part.next, 46)
+    valid = valid && character.valid
+    part = glslReadName(source, character.next)
+    valid = valid && part.text == "value"
+    character = glslExpectCharacter(source, part.next, 61)
+    valid = valid && character.valid
+    val value = glslReadUnsigned(source, character.next)
+    valid = valid && value.valid
+    part = glslReadName(source, value.next)
+    valid = valid && part.text == "u"
+    character = glslExpectCharacter(source, part.next, 59)
+    valid = valid && character.valid
+    character = glslExpectCharacter(source, character.next, 125)
+    valid = valid && character.valid &&
+        glslSkipTrivia(source, character.next) == source.size
+    GlslStorageWrite(valid, value.value)
 }
 
 fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
@@ -134,12 +169,14 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.workgroups.size == 1 && this.locations.size == 0
     val noOp = common && this.bindings.size == 0 &&
         glslComputeNoOpSource(this.stages[0].source)
-    val storage42 = common && this.bindings.size == 1 &&
+    val storageWrite = if (common && this.bindings.size == 1)
+        glslComputeStorageWrite(this.stages[0].source)
+    else GlslStorageWrite(false)
+    val storage = common && this.bindings.size == 1 &&
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
         this.bindings[0].storage == "buffer" &&
-        this.bindings[0].dataType == "Values" &&
-        glslComputeStorage42Source(this.stages[0].source)
-    var succeeded = noOp || storage42
+        this.bindings[0].dataType == "Values" && storageWrite.valid
+    var succeeded = noOp || storage
     var error = ""
     var words: array<int> = []
     if (noOp) {
@@ -157,7 +194,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65789,
             65592
         ]
-    } else if (storage42) {
+    } else if (storage) {
         words = [
             spirvMagic, spirvVersion10, 0, 13, 0,
             131089, 1,
@@ -175,7 +212,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             262176, 5, 2, 4,
             262176, 6, 2, 3,
             262187, 3, 7, 0,
-            262187, 3, 8, 42,
+            262187, 3, 8, storageWrite.value,
             262203, 5, 9, 2,
             327734, 1, 10, 0, 2,
             131320, 11,

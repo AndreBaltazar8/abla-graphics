@@ -309,8 +309,8 @@ semantic validation.
 The executable translator is available as
 `package.spirv(shaderStageCompute)`. It accepts exactly one compute stage with
 one `#version 450` or `460` directive and an explicit local-size layout. The
-first form has an empty `main`; the second exact form declares one binding-zero
-`Values` storage block and stores `42u`. They emit deterministic SPIR-V 1.0
+first form has an empty `main`; the second grammar declares one binding-zero
+`Values` storage block and stores a parsed unsigned integer literal. They emit deterministic SPIR-V 1.0
 modules using reflected workgroup/binding data. Repeated translation produces
 identical words and both results create real Vulkan shader modules. Any other
 binding, global, statement, version, or stage returns a checked
@@ -347,7 +347,7 @@ at set zero and match the documented `Values { uint value; }` write subset.
 OpenGL binds the existing buffer object as SSBO binding zero and issues a shader
 storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
-Both paths write `42u` and common checked readback returns `42`. The pipeline
+Both paths write the parsed literal and common checked readback returns it. The pipeline
 must drop before its borrowed storage buffer; additional bindings, general
 block layouts, dynamic offsets, and descriptor reuse are still upcoming.
 

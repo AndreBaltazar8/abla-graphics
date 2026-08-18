@@ -114,7 +114,8 @@ Updated: 2026-08-18.
   block is emitted as SPIR-V `BufferBlock`/descriptor decorations and a real
   access-chain/store. OpenGL binds an SSBO; Vulkan creates and binds descriptor
   layout/pool/set state. Explicit and automatic/fallback paths dispatch the
-  same package and common buffer readback returns exactly `42`.
+  same package and common buffer readback returns exactly `42`; the raw Vulkan
+  variant parses and returns `77`, proving the constant is source-derived.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
