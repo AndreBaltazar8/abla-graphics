@@ -794,6 +794,9 @@ one location-zero `vec2` position or an interleaved location-zero `vec2`
 position plus a location-one `vec4` tint or `vec2` texture coordinate passed
 through a location-zero varying. The texture form also accepts one binding-zero
 fragment `sampler2D` and emits the corresponding sampled-image operation.
+The indexed-cube form widens position to `vec3` and constructs clip-space
+`vec4(position, 1.0)`, exercising the same texture binding with real depth
+testing across 24 face vertices and 36 indices.
 The Abla emitter maps the OpenGL vertex builtin to Vulkan `VertexIndex`, emits
 deterministic Vulkan 1.0 vertex and fragment modules, and rejects any
 declaration, literal, builtin, or statement outside these subsets.

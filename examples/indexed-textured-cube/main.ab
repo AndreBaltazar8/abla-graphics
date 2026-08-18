@@ -1,0 +1,180 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 3),
+        WindowConfig(
+            title = "Abla Graphics indexed textured cube",
+            width = 720,
+            height = 540
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val vertexValues = [
+        -0.6, -0.55, 0.2, 0.0, 0.0,
+         0.6, -0.55, 0.2, 1.0, 0.0,
+         0.6,  0.55, 0.2, 1.0, 1.0,
+        -0.6,  0.55, 0.2, 0.0, 1.0,
+         0.45, -0.3, 0.7, 0.0, 0.0,
+        -0.35, -0.3, 0.7, 1.0, 0.0,
+        -0.35,  0.4, 0.7, 1.0, 1.0,
+         0.45,  0.4, 0.7, 0.0, 1.0,
+        -0.35, -0.3, 0.7, 0.0, 0.0,
+        -0.6, -0.55, 0.2, 1.0, 0.0,
+        -0.6,  0.55, 0.2, 1.0, 1.0,
+        -0.35,  0.4, 0.7, 0.0, 1.0,
+         0.6, -0.55, 0.2, 0.0, 0.0,
+         0.45, -0.3, 0.7, 1.0, 0.0,
+         0.45,  0.4, 0.7, 1.0, 1.0,
+         0.6,  0.55, 0.2, 0.0, 1.0,
+        -0.6,  0.55, 0.2, 0.0, 0.0,
+         0.6,  0.55, 0.2, 1.0, 0.0,
+         0.45,  0.4, 0.7, 1.0, 1.0,
+        -0.35,  0.4, 0.7, 0.0, 1.0,
+        -0.35, -0.3, 0.7, 0.0, 0.0,
+         0.45, -0.3, 0.7, 1.0, 0.0,
+         0.6, -0.55, 0.2, 1.0, 1.0,
+        -0.6, -0.55, 0.2, 0.0, 1.0
+    ]
+    val vertexBytes = bufferBytes(480)
+    var verticesStored = vertexValues.size == 120
+    var valueIndex = 0
+    while (verticesStored && valueIndex < vertexValues.size) {
+        verticesStored = vertexBytes.storeF32(
+            vertexValues[valueIndex],
+            valueIndex * 4
+        )
+        valueIndex = valueIndex + 1
+    }
+    val vertices = app.buffer(BufferDescriptor(
+        label = "cube-vertices",
+        size = 480,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val faceIndices = [0, 1, 2, 2, 3, 0]
+    val indexBytes = bufferBytes(144)
+    var indicesStored = true
+    var face = 0
+    while (indicesStored && face < 6) {
+        var corner = 0
+        while (indicesStored && corner < faceIndices.size) {
+            indicesStored = indexBytes.storeU32(
+                face * 4 + faceIndices[corner],
+                (face * 6 + corner) * 4
+            )
+            corner = corner + 1
+        }
+        face = face + 1
+    }
+    val indices = app.buffer(BufferDescriptor(
+        label = "cube-indices",
+        size = 144,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    val indicesUploaded = indicesStored && indices.writeAllBytes(indexBytes)
+    val pixels = pixelBuffer(4, 4)
+    val pixelsReady = pixels.clearRgba8(235, 225, 195) &&
+        pixels.fillRectRgba8(0, 0, 2, 2, 210, 45, 65) &&
+        pixels.fillRectRgba8(2, 0, 2, 2, 45, 185, 100) &&
+        pixels.fillRectRgba8(0, 2, 2, 2, 45, 95, 225) &&
+        pixels.fillRectRgba8(2, 2, 2, 2, 235, 180, 35)
+    val texture = app.texture(TextureDescriptor(
+        label = "cube-atlas",
+        size = Extent3D(4, 4),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    ))
+    val textureUploaded = pixelsReady &&
+        texture.writePixels(pixels, TextureWriteDescriptor())
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val binding = app.textureBinding(texture, sampler)
+    val pipeline = app.renderPipeline(
+        shader,
+        VertexBufferLayout(20, [
+            VertexAttribute(0, 0, vertexFormatFloat32x3),
+            VertexAttribute(1, 12, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(
+            topology = primitiveTopologyTriangleList,
+            cullMode = cullModeNone,
+            frontFace = frontFaceCounterClockwise
+        ),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        ),
+        move(binding)
+    )
+    val clear = Color(0.012, 0.018, 0.03)
+    val warmed = app.valid() && shader.valid && vertices.valid() &&
+        indices.valid() && texture.valid() && sampler.valid() &&
+        verticesUploaded && indicesUploaded && textureUploaded &&
+        pipeline.valid() &&
+        app.presentRenderIndexed(pipeline, vertices, indices, 36, clear)
+    val pipelineHandle = if (app.backend == graphicsBackendOpenGl)
+        pipeline.openGl.handle else pipeline.vulkan.handle
+    val bindingHandle = if (app.backend == graphicsBackendOpenGl)
+        pipeline.binding.openGlTexture
+    else pipeline.binding.vulkan.descriptorSet
+    val liveBefore = runtimeMemoryLiveBytes()
+    var presented = warmed
+    var frame = 0
+    while (presented && frame < 4) {
+        presented = app.presentRenderIndexed(
+            pipeline,
+            vertices,
+            indices,
+            36,
+            clear
+        )
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val noGrowth = liveBefore == liveAfter
+    val handlesStable = pipelineHandle != 0 && bindingHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            pipeline.openGl.handle == pipelineHandle &&
+                pipeline.binding.openGlTexture == bindingHandle
+         else pipeline.vulkan.handle == pipelineHandle &&
+                pipeline.binding.vulkan.descriptorSet == bindingHandle)
+    println(
+        "Indexed textured cube ${graphicsBackendName(app.backend)}: vertices=24, indices=36, frames=$frame, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+    )
+    if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
+}
