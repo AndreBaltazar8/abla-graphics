@@ -41,9 +41,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   accepts procedural vertices or one interleaved `vec2` common vertex buffer
   with optional `uint32` common indices and instanced submission, then records
   point/line/triangle topology, culling/front-face state, and standard alpha
-  blending before presenting a real Vulkan render pass or OpenGL draw without
-  steady-state runtime allocation, including ordered Vulkan pipeline/swapchain
-  rebuilding after a window resize;
+  blending plus checked depth testing/writes before presenting a real Vulkan
+  render pass or OpenGL draw without steady-state runtime allocation, including
+  ordered Vulkan pipeline/swapchain/depth rebuilding after a window resize;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, rejects missing required features, reports the real API version and
   portable device limits, rejects oversized resources/work before driver calls,

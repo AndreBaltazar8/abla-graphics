@@ -153,17 +153,38 @@ pipeline. Invalid enum values are rejected before backend driver creation.
 The sample creates and presents both a blended triangle-list pipeline and an
 alternate line-strip/front-cull/clockwise pipeline on both backends.
 
+Depth is an independent immutable pipeline component:
+
+```abla
+val depth = DepthStencilState(
+    enabled = true,
+    write = true,
+    compare = compareFunctionLess
+)
+val pipeline = app.renderPipeline(shader, layout, raster, depth)
+```
+
+Depth writes require depth testing, and the compare operation must be one of
+never, less, equal, less-equal, greater, not-equal, greater-equal, or always.
+The surfaced EGL configuration requests a real 24-bit default depth buffer;
+OpenGL reapplies enable/write/compare state and clears depth to one before the
+draw. Vulkan bakes matching test/write/compare state, adds a D32 attachment to
+the render pass, and owns one allocated depth image/view per swapchain image so
+frames in flight never race on depth storage. Depth clear values reuse the
+existing frame scratch. Repeated draws preserve every depth image/view handle
+and runtime live bytes.
+
 `GraphicsRenderPipeline` retains its immutable shader, vertex layout, and
 raster recipe. A copied Vulkan resize event updates the desired surface extent
 but deliberately defers swapchain recreation until presentation, when the
-pipeline can first release every framebuffer and image view that references
-the old swapchain. `presentRender`, `presentRenderVertices`, and
+pipeline can first release every framebuffer, color view, and depth image/view
+that belongs to the old extent. `presentRender`, `presentRenderVertices`, and
 `presentRenderIndexed` detect an extent/format mismatch or classified
 suboptimal/out-of-date result, rebuild in dependency order, and retry a failed
 presentation once. The common-triangle sample resizes from 800x600 to 640x480
-and requires the rebuilt swapchain, pipeline extent, and framebuffer count to
-match before succeeding. OpenGL keeps the same pipeline and updates its viewport
-from the copied resize event.
+and requires the rebuilt swapchain, pipeline extent, framebuffer count, and
+per-image depth resources to match before succeeding. OpenGL keeps the same
+pipeline and updates its viewport from the copied resize event.
 
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,

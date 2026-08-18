@@ -162,6 +162,9 @@ noescape extern:"c" fun glBlendEquationSeparate(
     rgb: i32,
     alpha: i32
 ): void
+noescape extern:"c" fun glDepthFunc(operation: i32): void
+noescape extern:"c" fun glDepthMask(enabled: i32): void
+noescape extern:"c" fun glClearDepth(depth: f64): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
@@ -359,6 +362,36 @@ trusted fun openGlApplyRasterState(state: RasterPipelineState): bool {
     succeeded
 }
 
+fun openGlCompareOperation(compare: int): int {
+    var operation = 513
+    if (compare == compareFunctionNever) operation = 512
+    else if (compare == compareFunctionEqual) operation = 514
+    else if (compare == compareFunctionLessEqual) operation = 515
+    else if (compare == compareFunctionGreater) operation = 516
+    else if (compare == compareFunctionNotEqual) operation = 517
+    else if (compare == compareFunctionGreaterEqual) operation = 518
+    else if (compare == compareFunctionAlways) operation = 519
+    operation
+}
+
+trusted fun openGlApplyDepthState(state: DepthStencilState): bool {
+    var succeeded = state.valid()
+    if (succeeded) {
+        if (state.enabled) {
+            glEnable(2929)
+            glDepthFunc(openGlCompareOperation(state.compare))
+            glDepthMask(if (state.write) 1 else 0)
+            glClearDepth(1.0)
+            glClear(256)
+        } else {
+            glDisable(2929)
+            glDepthMask(0)
+        }
+        succeeded = glGetError() == 0
+    }
+    succeeded
+}
+
 trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     val major = nativeI64Cell(0)
     val minor = nativeI64Cell(0)
@@ -452,12 +485,14 @@ fun openGlConfigAttributes(): NativeByteBuffer {
     openGlStoreI32(values, 9, 8)
     openGlStoreI32(values, 10, 12321)
     openGlStoreI32(values, 11, 8)
-    openGlStoreI32(values, 12, eglNone)
+    openGlStoreI32(values, 12, 12325)
+    openGlStoreI32(values, 13, 24)
+    openGlStoreI32(values, 14, eglNone)
     values
 }
 
 fun openGlWindowConfigAttributes(visual: int): NativeByteBuffer {
-    val values = nativeByteBuffer(72)
+    val values = nativeByteBuffer(80)
     openGlStoreI32(values, 0, 12339)
     openGlStoreI32(values, 1, 4)
     openGlStoreI32(values, 2, 12352)
@@ -472,7 +507,9 @@ fun openGlWindowConfigAttributes(visual: int): NativeByteBuffer {
     openGlStoreI32(values, 11, 8)
     openGlStoreI32(values, 12, 12321)
     openGlStoreI32(values, 13, 8)
-    openGlStoreI32(values, 14, eglNone)
+    openGlStoreI32(values, 14, 12325)
+    openGlStoreI32(values, 15, 24)
+    openGlStoreI32(values, 16, eglNone)
     values
 }
 
@@ -1575,10 +1612,11 @@ resource class OpenGlWindowContext(
     trusted fun presentProgram(
         program: OpenGlProgram,
         clear: Color,
-        raster: RasterPipelineState
+        raster: RasterPipelineState,
+        depth: DepthStencilState
     ): bool {
         var presented = program.valid() && clear.valid() && raster.valid() &&
-            this.makeCurrent()
+            depth.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -1604,7 +1642,8 @@ resource class OpenGlWindowContext(
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
-            presented = openGlApplyRasterState(raster)
+            presented = openGlApplyDepthState(depth) &&
+                openGlApplyRasterState(raster)
             if (presented) glDrawArrays(
                 openGlPrimitiveMode(raster.topology),
                 0,
@@ -1623,12 +1662,13 @@ resource class OpenGlWindowContext(
         instanceCount: int,
         vertexStride: int,
         clear: Color,
-        raster: RasterPipelineState
+        raster: RasterPipelineState,
+        depth: DepthStencilState
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             vertexCount > 0 && instanceCount > 0 && vertexStride >= 8 &&
             vertexStride <= 2048 && clear.valid() && raster.valid() &&
-            this.makeCurrent()
+            depth.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -1664,7 +1704,8 @@ resource class OpenGlWindowContext(
                 vertexStride,
                 nativeNullPointer()
             )
-            presented = openGlApplyRasterState(raster)
+            presented = openGlApplyDepthState(depth) &&
+                openGlApplyRasterState(raster)
             if (presented) glDrawArraysInstanced(
                 openGlPrimitiveMode(raster.topology),
                 0,
@@ -1685,13 +1726,14 @@ resource class OpenGlWindowContext(
         instanceCount: int,
         vertexStride: int,
         clear: Color,
-        raster: RasterPipelineState
+        raster: RasterPipelineState,
+        depth: DepthStencilState
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
             vertexStride >= 8 &&
             vertexStride <= 2048 && clear.valid() && raster.valid() &&
-            this.makeCurrent()
+            depth.valid() && this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -1728,7 +1770,8 @@ resource class OpenGlWindowContext(
                 nativeNullPointer()
             )
             glBindBuffer(34963, indices.handle)
-            presented = openGlApplyRasterState(raster)
+            presented = openGlApplyDepthState(depth) &&
+                openGlApplyRasterState(raster)
             if (presented) glDrawElementsInstanced(
                     openGlPrimitiveMode(raster.topology),
                     indexCount,

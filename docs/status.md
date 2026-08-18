@@ -93,6 +93,16 @@ Updated: 2026-08-18.
   The common sample resizes 800x600 to 640x480 and presents again with matching
   swapchain/pipeline/framebuffer state under validation. OpenGL updates its
   viewport while retaining the original program and VAO.
+- Common depth testing/writes: `DepthStencilState` validates enable/write and
+  all eight portable compare operations. EGL requests a real 24-bit default
+  depth buffer and OpenGL reapplies depth enable, mask, function, and clear.
+  Vulkan creates a D32 image, device memory allocation, and depth view for each
+  swapchain image, packs a two-attachment render pass/framebuffer, configures
+  depth test/write/compare state, and records a depth clear in reusable frame
+  scratch. Four instanced indexed frames preserve every depth handle and live
+  byte; resize rebuilds the per-image set at 640x480. The complete path is clean
+  under `VK_LAYER_KHRONOS_validation` after an explicit 36-byte
+  `VkAttachmentDescription` array-stride regression check.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,

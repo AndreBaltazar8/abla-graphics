@@ -65,15 +65,27 @@ fun main: int {
         frontFace = frontFaceCounterClockwise,
         alphaBlend = true
     )
+    val depth = DepthStencilState(
+        enabled = true,
+        write = true,
+        compare = compareFunctionLess
+    )
     val pipeline = app.renderPipeline(
         shader,
         VertexBufferLayout(8),
-        raster
+        raster,
+        depth
     )
     val invalidPipeline = app.renderPipeline(
         shader,
         VertexBufferLayout(8),
         RasterPipelineState(topology = 99)
+    )
+    val invalidDepthPipeline = app.renderPipeline(
+        shader,
+        VertexBufferLayout(8),
+        raster,
+        DepthStencilState(write = true)
     )
     val clear = Color(0.02, 0.03, 0.05)
     val alternatePipeline = app.renderPipeline(
@@ -83,7 +95,8 @@ fun main: int {
             topology = primitiveTopologyLineStrip,
             cullMode = cullModeFront,
             frontFace = frontFaceClockwise
-        )
+        ),
+        depth
     )
     val alternatePresented = app.presentRenderIndexed(
         alternatePipeline,
@@ -111,10 +124,14 @@ fun main: int {
         alternatePipeline.valid() && alternatePresented &&
         !invalidPipeline.valid() &&
         invalidPipeline.error.code == graphicsErrorInvalidConfiguration &&
+        !invalidDepthPipeline.valid() &&
+        invalidDepthPipeline.error.code ==
+            graphicsErrorInvalidConfiguration &&
         vertices.valid() &&
         indices.valid() && verticesUploaded && indicesUploaded &&
         invalidCountRejected && invalidInstancesRejected &&
         app.presentRenderIndexed(pipeline, vertices, indices, 3, clear, 2)
+    alternatePipeline.drop()
     val openGlProgram = pipeline.openGl.handle
     val openGlArray = pipeline.openGl.vertexArray
     val openGlVertexBuffer = vertices.openGl.handle
@@ -123,6 +140,14 @@ fun main: int {
     val vulkanRenderPass = pipeline.vulkan.renderPass
     val vulkanVertexBuffer = vertices.vulkan.handle
     val vulkanIndexBuffer = indices.vulkan.handle
+    val vulkanDepthImage = if (
+        app.backend == graphicsBackendVulkan &&
+        pipeline.vulkan.depthTextures.size > 0
+    ) pipeline.vulkan.depthTextures[0].image else 0
+    val vulkanDepthView = if (
+        app.backend == graphicsBackendVulkan &&
+        pipeline.vulkan.depthViews.size > 0
+    ) pipeline.vulkan.depthViews[0].handle else 0
     val vulkanFramebuffer = if (
         app.backend == graphicsBackendVulkan &&
         pipeline.vulkan.framebuffers.size > 0
@@ -157,6 +182,8 @@ fun main: int {
         pipeline.vulkan.renderPass == vulkanRenderPass &&
         vertices.vulkan.handle == vulkanVertexBuffer &&
         indices.vulkan.handle == vulkanIndexBuffer &&
+        pipeline.vulkan.depthTextures[0].image == vulkanDepthImage &&
+        pipeline.vulkan.depthViews[0].handle == vulkanDepthView &&
         pipeline.vulkan.framebuffers[0] == vulkanFramebuffer &&
         app.vulkanPixels.frames[0].commandPool == commandPool &&
             nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
@@ -185,9 +212,13 @@ fun main: int {
           app.vulkanSwapchain.height == 480 &&
           pipeline.vulkan.width == 640 && pipeline.vulkan.height == 480 &&
           pipeline.vulkan.framebuffers.size ==
+            app.vulkanSwapchain.images.size &&
+          pipeline.vulkan.depthTextures.size ==
+            app.vulkanSwapchain.images.size &&
+          pipeline.vulkan.depthViews.size ==
             app.vulkanSwapchain.images.size))
     println(
-        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, instances=2, alphaBlend=${pipeline.raster.alphaBlend}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, resized=$targetResized, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Common triangle ${graphicsBackendName(app.backend)}: frames=$frame, instances=2, alphaBlend=${pipeline.raster.alphaBlend}, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, resized=$targetResized, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (presented && frame == 4 && noGrowth && handlesStable &&
         targetResized) 0 else 1

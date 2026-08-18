@@ -21,11 +21,12 @@ resource class GraphicsRenderPipeline(
     val backend: int,
     val vertexLayout: VertexBufferLayout,
     val raster: RasterPipelineState,
+    val depth: DepthStencilState,
     val shader: ShaderPackage,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
-        this.raster.valid() && this.shader.valid &&
+        this.raster.valid() && this.depth.valid() && this.shader.valid &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -39,7 +40,8 @@ resource class GraphicsRenderPipeline(
 trusted fun GraphicsApplication.renderPipeline(
     shader: ShaderPackage,
     vertexLayout: VertexBufferLayout = VertexBufferLayout(),
-    raster: RasterPipelineState = RasterPipelineState()
+    raster: RasterPipelineState = RasterPipelineState(),
+    depth: DepthStencilState = DepthStencilState()
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -50,10 +52,13 @@ trusted fun GraphicsApplication.renderPipeline(
         0,
         [],
         [],
+        [],
+        [],
         0,
         0,
         0,
-        0
+        0,
+        false
     )
     var error = GraphicsError()
     val stagesValid = shader.valid && shader.stages.size == 2 &&
@@ -73,6 +78,7 @@ trusted fun GraphicsApplication.renderPipeline(
         locationIndex = locationIndex + 1
     }
     val layoutMatches = vertexLayout.valid() && raster.valid() &&
+        depth.valid() &&
         ((vertexLayout.buffered() && vertexInputCount == 1 &&
           vertexInputValid) ||
          (!vertexLayout.buffered() && vertexInputCount == 0))
@@ -122,7 +128,10 @@ trusted fun GraphicsApplication.renderPipeline(
                 raster.topology,
                 raster.cullMode,
                 raster.frontFace,
-                raster.alphaBlend
+                raster.alphaBlend,
+                depth.enabled,
+                depth.write,
+                depth.compare
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -138,6 +147,7 @@ trusted fun GraphicsApplication.renderPipeline(
         this.backend,
         vertexLayout,
         raster,
+        depth,
         shader,
         error
     )
@@ -151,7 +161,8 @@ trusted fun GraphicsApplication.recreateRenderTarget(
     var succeeded = this.backend == graphicsBackendVulkan &&
         pipeline.backend == graphicsBackendVulkan &&
         pipeline.shader.valid && pipeline.vertexLayout.valid() &&
-        pipeline.raster.valid() && width > 0 && height > 0
+        pipeline.raster.valid() && pipeline.depth.valid() &&
+        width > 0 && height > 0
     if (succeeded) {
         pipeline.vulkan.drop()
         succeeded = this.recreateVulkanSwapchain(width, height)
@@ -179,7 +190,10 @@ trusted fun GraphicsApplication.recreateRenderTarget(
                     pipeline.raster.topology,
                     pipeline.raster.cullMode,
                     pipeline.raster.frontFace,
-                    pipeline.raster.alphaBlend
+                    pipeline.raster.alphaBlend,
+                    pipeline.depth.enabled,
+                    pipeline.depth.write,
+                    pipeline.depth.compare
                 )
             }
             succeeded = pipeline.vulkan.valid()
@@ -219,7 +233,8 @@ trusted fun GraphicsApplication.presentRender(
         this.openGl.presentProgram(
             pipeline.openGl,
             clear,
-            pipeline.raster
+            pipeline.raster,
+            pipeline.depth
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -274,7 +289,8 @@ trusted fun GraphicsApplication.presentRenderVertices(
             instanceCount,
             stride,
             clear,
-            pipeline.raster
+            pipeline.raster,
+            pipeline.depth
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -344,7 +360,8 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             instanceCount,
             stride,
             clear,
-            pipeline.raster
+            pipeline.raster,
+            pipeline.depth
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)

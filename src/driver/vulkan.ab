@@ -3275,17 +3275,25 @@ resource class VulkanRenderPipeline(
     var handle: int,
     val imageViews: array<int>,
     val framebuffers: array<int>,
+    val depthTextures: array<VulkanTexture>,
+    val depthViews: array<VulkanTextureView>,
     val format: int,
     val width: int,
     val height: int,
-    val vertexStride: int
+    val vertexStride: int,
+    val depthEnabled: bool
 ) {
     trusted fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.layout != 0 &&
         this.renderPass != 0 && this.handle != 0 && this.format != 0 &&
         this.width > 0 && this.height > 0 && this.vertexStride >= 0 &&
         this.imageViews.size > 0 &&
-        this.framebuffers.size == this.imageViews.size
+        this.framebuffers.size == this.imageViews.size &&
+        ((!this.depthEnabled && this.depthTextures.size == 0 &&
+          this.depthViews.size == 0) ||
+         (this.depthEnabled &&
+          this.depthTextures.size == this.imageViews.size &&
+          this.depthViews.size == this.imageViews.size))
 
     trusted fun drop(): void {
         if (!pointerIsNull(this.queue)) vkQueueWaitIdle(this.queue)
@@ -3313,6 +3321,16 @@ resource class VulkanRenderPipeline(
                 )
                 this.imageViews[index] = 0
             }
+            index = index + 1
+        }
+        index = 0
+        while (index < this.depthViews.size) {
+            this.depthViews[index].drop()
+            index = index + 1
+        }
+        index = 0
+        while (index < this.depthTextures.size) {
+            this.depthTextures[index].drop()
             index = index + 1
         }
         if (this.handle != 0 && !pointerIsNull(this.device)) {
@@ -3347,13 +3365,18 @@ trusted fun VulkanDevice.renderPipeline(
     topology: int = primitiveTopologyTriangleList,
     cull: int = cullModeNone,
     front: int = frontFaceCounterClockwise,
-    alphaBlend: bool = false
+    alphaBlend: bool = false,
+    depthEnabled: bool = false,
+    depthWrite: bool = false,
+    depthCompare: int = compareFunctionLess
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
     var pipeline = 0
     val imageViews: array<int> = []
     val framebuffers: array<int> = []
+    val depthTextures: array<VulkanTexture> = []
+    val depthViews: array<VulkanTextureView> = []
     var succeeded = this.valid() && swapchain.valid() &&
         swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
         vertex.device == this.handle && fragment.device == this.handle &&
@@ -3362,17 +3385,31 @@ trusted fun VulkanDevice.renderPipeline(
         topology <= primitiveTopologyTriangleStrip &&
         cull >= cullModeNone && cull <= cullModeBack &&
         (front == frontFaceClockwise ||
-         front == frontFaceCounterClockwise)
+         front == frontFaceCounterClockwise) &&
+        depthCompare >= compareFunctionNever &&
+        depthCompare <= compareFunctionAlways &&
+        (!depthWrite || depthEnabled)
 
     if (succeeded) {
-        val attachment = nativeByteBuffer(40)
-        attachment.storeI64(0, swapchain.format * 4294967296)
-        attachment.storeI64(8, 4294967296 + 1)
-        attachment.storeI64(16, 2 * 4294967296)
-        attachment.storeI64(24, 1)
-        attachment.storeI64(32, 1000001002)
+        val attachments = nativeByteBuffer(if (depthEnabled) 80 else 40)
+        attachments.storeI64(0, swapchain.format * 4294967296)
+        attachments.storeI64(8, 4294967296 + 1)
+        attachments.storeI64(16, 2 * 4294967296)
+        attachments.storeI64(24, 1)
+        attachments.storeI64(32, 1000001002)
+        if (depthEnabled) {
+            // VkAttachmentDescription is nine consecutive 32-bit fields,
+            // hence a 36-byte array stride on the supported ABI.
+            attachments.storeI64(36, 126 * 4294967296)
+            attachments.storeI64(44, 4294967296 + 1)
+            attachments.storeI64(52, 4294967296 + 1)
+            attachments.storeI64(60, 1)
+            attachments.storeI64(68, 3)
+        }
         val colorReference = nativeByteBuffer(8)
         colorReference.storeI64(0, 2 * 4294967296)
+        val depthReference = nativeByteBuffer(8)
+        depthReference.storeI64(0, 3 * 4294967296 + 1)
         val subpass = nativeByteBuffer(72)
         subpass.storeI64(0, 0)
         subpass.storeI64(8, 0)
@@ -3380,14 +3417,20 @@ trusted fun VulkanDevice.renderPipeline(
         subpass.storeI64(24, 1)
         subpass.storePointer(32, colorReference.address)
         subpass.storePointer(40, nativeNullPointer())
-        subpass.storePointer(48, nativeNullPointer())
+        subpass.storePointer(
+            48,
+            if (depthEnabled) depthReference.address else nativeNullPointer()
+        )
         subpass.storeI64(56, 0)
         subpass.storePointer(64, nativeNullPointer())
         val createInfo = nativeByteBuffer(64)
         createInfo.storeI64(0, 38)
         createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 4294967296)
-        createInfo.storePointer(24, attachment.address)
+        createInfo.storeI64(
+            16,
+            (if (depthEnabled) 2 else 1) * 4294967296
+        )
+        createInfo.storePointer(24, attachments.address)
         createInfo.storeI64(32, 1)
         createInfo.storePointer(40, subpass.address)
         createInfo.storeI64(48, 0)
@@ -3445,15 +3488,46 @@ trusted fun VulkanDevice.renderPipeline(
     }
 
     imageIndex = 0
+    while (succeeded && depthEnabled &&
+        imageIndex < swapchain.images.size) {
+        val depthTexture = this.texture(TextureDescriptor(
+            label = "render-depth",
+            size = Extent3D(swapchain.width, swapchain.height),
+            format = textureFormatDepth32Float,
+            usage = textureUsageRenderAttachment
+        ))
+        val depthView = depthTexture.view(
+            TextureDescriptor(
+                label = "render-depth",
+                size = Extent3D(swapchain.width, swapchain.height),
+                format = textureFormatDepth32Float,
+                usage = textureUsageRenderAttachment
+            ),
+            TextureViewDescriptor(aspect = textureAspectDepth)
+        )
+        succeeded = depthTexture.valid() && depthView.valid()
+        if (succeeded) {
+            depthTextures.append(move(depthTexture))
+            depthViews.append(move(depthView))
+        }
+        imageIndex = imageIndex + 1
+    }
+
+    imageIndex = 0
     while (succeeded && imageIndex < imageViews.size) {
-        val attachment = nativeI64Cell(imageViews[imageIndex])
+        val framebufferAttachments = nativeByteBuffer(16)
+        framebufferAttachments.storeI64(0, imageViews[imageIndex])
+        if (depthEnabled) framebufferAttachments.storeI64(
+            8,
+            depthViews[imageIndex].handle
+        )
         val framebufferInfo = nativeByteBuffer(64)
         framebufferInfo.storeI64(0, 37)
         framebufferInfo.storePointer(8, nativeNullPointer())
         framebufferInfo.storeI64(16, 0)
         framebufferInfo.storeI64(24, renderPass)
-        framebufferInfo.storeI64(32, 1)
-        framebufferInfo.storePointer(40, attachment.address)
+        framebufferInfo.storeI64(32, if (depthEnabled) 2 else 1)
+        framebufferInfo.storePointer(40, framebufferAttachments.address)
         framebufferInfo.storeI64(
             48,
             swapchain.height * 4294967296 + swapchain.width
@@ -3541,6 +3615,27 @@ trusted fun VulkanDevice.renderPipeline(
         multisample.storeI64(24, 0)
         multisample.storePointer(32, nativeNullPointer())
         multisample.storeI64(40, 0)
+        val depthStencil = nativeByteBuffer(104)
+        depthStencil.storeI64(0, 25)
+        depthStencil.storePointer(8, nativeNullPointer())
+        depthStencil.storeI64(
+            16,
+            (if (depthEnabled) 1 else 0) * 4294967296
+        )
+        depthStencil.storeI64(
+            24,
+            (depthCompare - 1) * 4294967296 +
+                (if (depthWrite) 1 else 0)
+        )
+        depthStencil.storeI64(32, 0)
+        depthStencil.storeI64(40, 0)
+        depthStencil.storeI64(48, 0)
+        depthStencil.storeI64(56, 0)
+        depthStencil.storeI64(64, 0)
+        depthStencil.storeI64(72, 0)
+        depthStencil.storeI64(80, 0)
+        depthStencil.storeI64(88, 0)
+        depthStencil.storeI64(96, 1065353216 * 4294967296)
         val colorAttachment = nativeByteBuffer(32)
         colorAttachment.storeI64(
             0,
@@ -3579,7 +3674,10 @@ trusted fun VulkanDevice.renderPipeline(
         pipelineInfo.storePointer(56, viewport.address)
         pipelineInfo.storePointer(64, rasterization.address)
         pipelineInfo.storePointer(72, multisample.address)
-        pipelineInfo.storePointer(80, nativeNullPointer())
+        pipelineInfo.storePointer(
+            80,
+            if (depthEnabled) depthStencil.address else nativeNullPointer()
+        )
         pipelineInfo.storePointer(88, colorBlend.address)
         pipelineInfo.storePointer(96, dynamic.address)
         pipelineInfo.storeI64(104, layout)
@@ -3607,10 +3705,13 @@ trusted fun VulkanDevice.renderPipeline(
         pipeline,
         imageViews,
         framebuffers,
+        move(depthTextures),
+        move(depthViews),
         swapchain.format,
         swapchain.width,
         swapchain.height,
-        vertexStride
+        vertexStride,
+        depthEnabled
     )
 }
 
@@ -4392,6 +4493,10 @@ trusted fun VulkanDevice.presentRenderOutcome(
                 4294967296 +
                 (graphicsScalarF32Bits(clear.blue) & 4294967295)
         )
+        if (pipeline.depthEnabled) {
+            presenter.frames[frame].scratch.storeI64(136, 1065353216)
+            presenter.frames[frame].scratch.storeI64(144, 0)
+        }
         presenter.frames[frame].scratch.storeI64(0, 43)
         presenter.frames[frame].scratch.storePointer(
             8,
@@ -4407,7 +4512,10 @@ trusted fun VulkanDevice.presentRenderOutcome(
             40,
             swapchain.height * 4294967296 + swapchain.width
         )
-        presenter.frames[frame].scratch.storeI64(48, 1)
+        presenter.frames[frame].scratch.storeI64(
+            48,
+            if (pipeline.depthEnabled) 2 else 1
+        )
         presenter.frames[frame].scratch.storePointer(
             56,
             nativePointerFromAddress(
