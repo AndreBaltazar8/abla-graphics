@@ -367,9 +367,9 @@ fun applicationBackendProbe(
         aspect = textureAspectDepth
     ))
     val unsupportedTexture = app.texture(TextureDescriptor(
-        size = Extent3D(16, 16),
-        samples = 4,
-        usage = textureUsageRenderAttachment
+        size = Extent3D(16, 1),
+        dimension = textureDimension1D,
+        usage = textureUsageSampled
     ))
     val oversizedTexture = app.texture(TextureDescriptor(
         size = Extent3D(
@@ -431,6 +431,25 @@ fun applicationBackendProbe(
         format = textureFormatDepth32Float,
         usage = textureUsageRenderAttachment
     ))
+    val multisampleColor = app.texture(TextureDescriptor(
+        label = "multisample-color",
+        size = Extent3D(24, 24),
+        samples = 4,
+        usage = textureUsageRenderAttachment
+    ))
+    val multisampleDepth = app.texture(TextureDescriptor(
+        label = "multisample-depth",
+        size = Extent3D(24, 24),
+        samples = 4,
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    ))
+    val unsupportedMultisampleSampled = app.texture(TextureDescriptor(
+        label = "multisample-sampled",
+        size = Extent3D(24, 24),
+        samples = 4,
+        usage = textureUsageRenderAttachment | textureUsageSampled
+    ))
     val renderTarget = app.renderTarget(move(renderTexture))
     val depthRenderTarget = app.renderTargetWithDepth(
         move(depthRenderColor),
@@ -444,6 +463,10 @@ fun applicationBackendProbe(
         move(multipleColorZero),
         [move(multipleColorOne)],
         move(multipleColorDepth)
+    )
+    val multisampleTarget = app.renderTargetWithDepth(
+        move(multisampleColor),
+        move(multisampleDepth)
     )
     val missingRenderUsageTarget = app.renderTarget(
         move(noAttachmentTexture)
@@ -770,6 +793,54 @@ fun applicationBackendProbe(
         Color(0.01, 0.02, 0.03)
     )
     val depthTargetPixel = depthRenderTarget.texture.rgba8(16, 12)
+    val multisamplePipeline = app.renderTargetPipeline(
+        multisampleTarget,
+        triangleShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        )
+    )
+    val multisampleClearValues = renderPassClearValues(
+        Color(0.02, 0.03, 0.04),
+        [],
+        1.0
+    )
+    val multisamplePass = app.renderPass(
+        multisampleTarget,
+        move(multisampleClearValues)
+    )
+    val multisampleRendered = app.renderPassToTarget(
+        multisampleTarget,
+        multisamplePipeline,
+        multisamplePass
+    )
+    val multisamplePipelineHandle = if (
+        app.backend == graphicsBackendOpenGl
+    ) multisamplePipeline.openGl.handle else multisamplePipeline.vulkan.handle
+    val multisampleLiveBefore = runtimeMemoryLiveBytes()
+    var multisampleRepeated = multisampleRendered
+    var multisampleRepeat = 0
+    while (multisampleRepeated && multisampleRepeat < 4) {
+        multisampleRepeated = app.renderPassToTarget(
+            multisampleTarget,
+            multisamplePipeline,
+            multisamplePass
+        )
+        multisampleRepeat = multisampleRepeat + 1
+    }
+    val multisampleLiveAfter = runtimeMemoryLiveBytes()
+    val multisampleNoGrowth =
+        multisampleLiveAfter == multisampleLiveBefore
+    val multisampleHandlesStable = if (
+        app.backend == graphicsBackendOpenGl
+    ) multisamplePipeline.openGl.handle == multisamplePipelineHandle &&
+        multisampleTarget.openGl.samples == 4
+    else multisamplePipeline.vulkan.handle == multisamplePipelineHandle &&
+        multisampleTarget.vulkan.samples == 4
     val multipleColorPipeline = app.renderTargetPipeline(
         multipleColorTarget,
         multipleColorShader,
@@ -928,7 +999,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleRepeated/$multisampleRepeat/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && pixelNoGrowth &&
         pixelHandlesStable && frameSlotsPassed &&
@@ -992,6 +1063,16 @@ fun applicationBackendProbe(
         targetHandlesStable &&
         depthTargetPipeline.valid() && depthTargetRendered &&
         depthTargetPixel == 4294281759 &&
+        multisampleTarget.valid() && multisampleTarget.hasDepth() &&
+        multisampleTarget.texture.descriptor.samples == 4 &&
+        multisampleTarget.depthTexture.descriptor.samples == 4 &&
+        multisamplePipeline.valid() && multisamplePass.valid() &&
+        multisampleRendered && multisampleRepeated &&
+        multisampleRepeat == 4 && multisampleNoGrowth &&
+        multisampleHandlesStable &&
+        !unsupportedMultisampleSampled.valid() &&
+        unsupportedMultisampleSampled.error.code ==
+            graphicsErrorUnsupportedFeature &&
         multipleColorTarget.valid() &&
         multipleColorTarget.colorCount() == 2 &&
         multipleColorPipeline.valid() && multipleColorRendered &&

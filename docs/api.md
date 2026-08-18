@@ -524,7 +524,10 @@ val fullView = color.view()
 bound device memory. `GraphicsTextureView` is a non-owning full-resource alias
 on the current OpenGL path and an owning `VkImageView` on Vulkan. Both paths
 support single-sample 2D color and depth formats, complete mip allocation, and
-validated color/depth/stencil aspect ranges. Vulkan compatible linear/sRGB
+validated color/depth/stencil aspect ranges. They also create 2x, 4x, 8x, and
+16x multisampled 2D color/depth textures when usage is exactly
+`textureUsageRenderAttachment`; sampled/copy usage remains rejected until the
+common resolve-attachment API is present. Vulkan compatible linear/sRGB
 reinterpretation uses mutable-format images. OpenGL subresource and
 format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
 texture-view support is negotiated. Width or height above
@@ -621,6 +624,33 @@ val depth = app.texture(TextureDescriptor(
 ))
 val depthTarget = app.renderTargetWithDepth(move(depthColor), move(depth))
 ```
+
+Color and depth sample counts must match. A render-attachment-only multisampled
+target uses the same ownership and pipeline API:
+
+```abla
+val msaaColor = app.texture(TextureDescriptor(
+    size = Extent3D(640, 360),
+    samples = 4,
+    usage = textureUsageRenderAttachment
+))
+val msaaDepth = app.texture(TextureDescriptor(
+    size = Extent3D(640, 360),
+    samples = 4,
+    format = textureFormatDepth32Float,
+    usage = textureUsageRenderAttachment
+))
+val msaaTarget = app.renderTargetWithDepth(
+    move(msaaColor),
+    move(msaaDepth)
+)
+```
+
+OpenGL allocates `GL_TEXTURE_2D_MULTISAMPLE` attachments and Vulkan records the
+same sample count in image, attachment, compatible-pass, and raster pipeline
+state. The current foundation renders and clears these targets but deliberately
+does not expose their contents without a future owned single-sample resolve
+attachment.
 
 Two to eight same-size color attachments use the same affine ownership model.
 Attachment zero remains `target.texture`; subsequent attachments are held in

@@ -232,8 +232,8 @@ Updated: 2026-08-18.
   alias their texture while Vulkan creates and destroys `VkImageView` objects.
   Vulkan mutable-format images additionally verify compatible linear-to-sRGB
   views while OpenGL reports that operation as unsupported. Both paths verify
-  color/depth aspects, invalid-range diagnostics, multisample feature
-  rejection, and reverse-order affine cleanup. A partial 2x2 RGBA upload into
+  color/depth aspects, invalid-range diagnostics, rejection of multisampled
+  sampled/copy usage, and reverse-order affine cleanup. A partial 2x2 RGBA upload into
   mip two is read back exactly, updated a second time to prove Vulkan's
   per-mip old-layout tracking, and rejected when its region crosses the mip
   boundary. A separate BGRA texture round-trips the original logical RGBA value
@@ -256,7 +256,7 @@ Updated: 2026-08-18.
   block. Repeated copies preserve the transfer handles and live-memory level;
   Khronos validation is silent on Lavapipe.
 - Common color render targets: `app.renderTarget(move(texture))` takes affine
-  ownership of a single-sample 2D color texture with render-attachment usage.
+  ownership of a 2D color texture with render-attachment usage.
   OpenGL owns and completeness-checks an FBO; Vulkan owns a compatible image
   view, render pass, and framebuffer. A real target clear round-trips the exact
   RGBA8 result on both drivers. Four repeated clears preserve every target and
@@ -266,12 +266,19 @@ Updated: 2026-08-18.
   GPU-indirect commands share the surface-rendering validation and encoding
   model.
 - Owned target depth: `app.renderTargetWithDepth(move(color), move(depth))`
-  validates same-size, single-sample color/depth attachments and owns both
+  validates same-size, matching-sample color/depth attachments and owns both
   textures. OpenGL attaches and clears the depth texture in the FBO. Vulkan
   owns the compatible depth view and two-attachment render pass/framebuffer,
   records depth clears, and tracks the depth-optimal layout. Depth-enabled
   target pipelines borrow those attachments; mismatched depth state is
   rejected.
+- Multisampled target foundation: render-attachment-only 2x/4x/8x/16x color
+  and depth textures allocate `GL_TEXTURE_2D_MULTISAMPLE` objects or Vulkan
+  images with matching attachment and pipeline sample state. A real 4x
+  color/depth target renders four repeated procedural passes with stable native
+  handles and zero live-memory growth on explicit/automatic OpenGL and Vulkan;
+  multisampled sampled usage is rejected. Resolve attachments and resolved
+  readback/sampling remain explicitly unclaimed.
 - Multiple color attachments: `renderTargetWithColors` and
   `renderTargetWithColorsAndDepth` take affine ownership of two to eight
   same-size render textures, optionally plus depth, while preserving attachment
@@ -418,6 +425,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   remain `unclassified` until loader/ABI and positive/negative test evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
+  multisample resolve attachments,
   persistent mapped-at-creation
   buffer ranges, queued uploads, device-local suballocation policy, command
   encoders/render

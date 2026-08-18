@@ -72,7 +72,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   drop real resources on either OpenGL or Vulkan, including allocation-free
   repeated partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
-  GPU buffer/texture copies, plus allocation-free repeated compute dispatch;
+  GPU buffer/texture copies, render-attachment-only 2x/4x/8x/16x multisampled
+  color/depth textures, plus allocation-free repeated compute dispatch;
 - affine color render targets that own completeness-checked OpenGL FBOs or
   Vulkan image views/render passes/framebuffers and support allocation-free
   validated clear/readback plus procedural, direct, indexed, instanced, bind-
@@ -80,7 +81,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   ownership and depth-tested/written target pipelines, plus two-to-eight affine
   color attachments driven by reflected fragment-output locations, combinable
   with depth and reusable per-attachment clear/load/discard and store/discard
-  passes;
+  passes; matching-sample multisampled target pipelines render on both drivers,
+  with explicit resolve ownership still pending;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
   both drivers without a foreign shim;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and

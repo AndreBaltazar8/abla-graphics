@@ -2664,12 +2664,15 @@ resource class VulkanRenderTarget(
     val format: int,
     val depthFormat: int,
     val width: int,
-    val height: int
+    val height: int,
+    val samples: int
 ) {
     fun valid(): bool = !pointerIsNull(this.device) && this.view != 0 &&
         this.additionalViews.size <= 7 && this.renderPass != 0 &&
         this.framebuffer != 0 && this.image != 0 &&
         this.format != 0 && this.width > 0 && this.height > 0 &&
+        (this.samples == 1 || this.samples == 2 || this.samples == 4 ||
+         this.samples == 8 || this.samples == 16) &&
         ((this.depthView == 0 && this.depthImage == 0 &&
           this.depthFormat == 0) ||
          (this.depthView != 0 && this.depthImage != 0 &&
@@ -2784,7 +2787,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             )
             attachments.storeI64(
                 offset + 8,
-                colorLoadOperations[colorIndex] * 4294967296 + 1
+                colorLoadOperations[colorIndex] * 4294967296 + target.samples
             )
             attachments.storeI64(
                 offset + 16,
@@ -2806,7 +2809,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             )
             attachments.storeI64(
                 depthOffset + 8,
-                depthLoadOperation * 4294967296 + 1
+                depthLoadOperation * 4294967296 + target.samples
             )
             attachments.storeI64(
                 depthOffset + 16,
@@ -2884,14 +2887,14 @@ trusted fun VulkanDevice.renderTarget(
     var succeeded = this.valid() && texture.valid() &&
         texture.device == this.handle && descriptor.valid() &&
         descriptor.dimension == textureDimension2D &&
-        descriptor.samples == 1 && !textureFormatHasDepth(descriptor.format) &&
+        !textureFormatHasDepth(descriptor.format) &&
         (descriptor.usage & textureUsageRenderAttachment) != 0 && format != 0 &&
         additionalImages.size == additionalDescriptors.size &&
         additionalImages.size <= 7 &&
         (!hasDepth || (
             depthDescriptor.valid() &&
             depthDescriptor.dimension == textureDimension2D &&
-            depthDescriptor.samples == 1 &&
+            depthDescriptor.samples == descriptor.samples &&
             depthDescriptor.size.width == descriptor.size.width &&
             depthDescriptor.size.height == descriptor.size.height &&
             textureFormatHasDepth(depthDescriptor.format) &&
@@ -2902,7 +2905,8 @@ trusted fun VulkanDevice.renderTarget(
     while (succeeded && additionalIndex < additionalImages.size) {
         val color = additionalDescriptors[additionalIndex]
         succeeded = additionalImages[additionalIndex] != 0 && color.valid() &&
-            color.dimension == textureDimension2D && color.samples == 1 &&
+            color.dimension == textureDimension2D &&
+            color.samples == descriptor.samples &&
             color.size.width == descriptor.size.width &&
             color.size.height == descriptor.size.height &&
             !textureFormatHasDepth(color.format) &&
@@ -2953,7 +2957,10 @@ trusted fun VulkanDevice.renderTarget(
                 colorOffset,
                 vulkanTextureFormat(color.format) * 4294967296
             )
-            attachments.storeI64(colorOffset + 8, 4294967296 + 1)
+            attachments.storeI64(
+                colorOffset + 8,
+                4294967296 + descriptor.samples
+            )
             attachments.storeI64(colorOffset + 16, 2 * 4294967296)
             attachments.storeI64(colorOffset + 24, 1)
             attachments.storeI64(
@@ -2965,7 +2972,10 @@ trusted fun VulkanDevice.renderTarget(
         if (hasDepth) {
             val depthOffset = colorCount * 36
             attachments.storeI64(depthOffset, depthFormat * 4294967296)
-            attachments.storeI64(depthOffset + 8, 4294967296 + 1)
+            attachments.storeI64(
+                depthOffset + 8,
+                4294967296 + descriptor.samples
+            )
             attachments.storeI64(depthOffset + 16, 4294967296 + 1)
             attachments.storeI64(depthOffset + 24, 1)
             attachments.storeI64(depthOffset + 32, 3)
@@ -3101,7 +3111,8 @@ trusted fun VulkanDevice.renderTarget(
         format,
         depthFormat,
         descriptor.size.width,
-        descriptor.size.height
+        descriptor.size.height,
+        descriptor.samples
     )
 }
 
@@ -4446,7 +4457,8 @@ trusted fun VulkanDevice.renderPipeline(
     targetWidth: int = 0,
     targetHeight: int = 0,
     targetDepthView: int = 0,
-    colorAttachmentCount: int = 1
+    colorAttachmentCount: int = 1,
+    samples: int = 1
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -4475,6 +4487,8 @@ trusted fun VulkanDevice.renderPipeline(
         depthCompare <= compareFunctionAlways &&
         colorAttachmentCount >= 1 && colorAttachmentCount <= 8 &&
         (offscreen || colorAttachmentCount == 1) &&
+        (samples == 1 || samples == 2 || samples == 4 || samples == 8 ||
+         samples == 16) && (offscreen || samples == 1) &&
         (!depthWrite || depthEnabled) &&
         (!offscreen || depthEnabled == (targetDepthView != 0))
 
@@ -4734,7 +4748,7 @@ trusted fun VulkanDevice.renderPipeline(
         val multisample = nativeByteBuffer(48)
         multisample.storeI64(0, 24)
         multisample.storePointer(8, nativeNullPointer())
-        multisample.storeI64(16, 4294967296)
+        multisample.storeI64(16, samples * 4294967296)
         multisample.storeI64(24, 0)
         multisample.storePointer(32, nativeNullPointer())
         multisample.storeI64(40, 0)

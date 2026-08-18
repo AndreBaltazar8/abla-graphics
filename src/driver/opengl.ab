@@ -257,6 +257,14 @@ noescape extern:"c" fun glTexImage2D(
     kind: i32,
     pixels: i64*
 ): void
+noescape extern:"c" fun glTexImage2DMultisample(
+    target: i32,
+    samples: i32,
+    internalFormat: i32,
+    width: i32,
+    height: i32,
+    fixedSampleLocations: i32
+): void
 noescape extern:"c" fun glTexSubImage2D(
     target: i32,
     level: i32,
@@ -1124,12 +1132,14 @@ fun openGlTextureFormat(format: int): OpenGlTextureFormat {
 
 resource class OpenGlTexture(
     var handle: int,
+    val target: int,
     val display: i64*,
     val surface: i64*,
     val context: i64*,
     val readback: NativeByteBuffer
 ) {
     fun valid(): bool = this.handle != 0 &&
+        (this.target == 3553 || this.target == 37120) &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
         !this.readback.closed && this.readback.capacity >= 8
 
@@ -1171,13 +1181,13 @@ trusted fun OpenGlTexture.copyTo(
     if (succeeded) {
         glCopyImageSubData(
             this.handle,
-            3553,
+            this.target,
             copy.sourceMipLevel,
             copy.sourceX,
             copy.sourceY,
             0,
             destination.handle,
-            3553,
+            destination.target,
             copy.destinationMipLevel,
             copy.destinationX,
             copy.destinationY,
@@ -1210,9 +1220,9 @@ trusted fun OpenGlTexture.writePixels(
         ) == eglTrue
     }
     if (succeeded) {
-        glBindTexture(3553, this.handle)
+        glBindTexture(this.target, this.handle)
         glTexSubImage2D(
-            3553,
+            this.target,
             write.mipLevel,
             write.x,
             write.y,
@@ -1288,6 +1298,7 @@ resource class OpenGlRenderTarget(
     val depthTexture: int,
     val width: int,
     val height: int,
+    val samples: int,
     val display: i64*,
     val surface: i64*,
     val context: i64*
@@ -1295,6 +1306,8 @@ resource class OpenGlRenderTarget(
     fun valid(): bool = this.handle != 0 && this.texture != 0 &&
         this.additionalTextures.size <= 7 &&
         this.width > 0 && this.height > 0 &&
+        (this.samples == 1 || this.samples == 2 || this.samples == 4 ||
+         this.samples == 8 || this.samples == 16) &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context)
 
     trusted fun drop(): void {
@@ -1346,7 +1359,7 @@ trusted fun OpenGlWindowContext.renderTarget(
     var succeeded = this.valid() && texture.valid() &&
         texture.display == this.display && texture.context == this.context &&
         descriptor.valid() && descriptor.dimension == textureDimension2D &&
-        descriptor.samples == 1 && descriptor.mipLevels >= 1 &&
+        descriptor.mipLevels >= 1 &&
         !textureFormatHasDepth(descriptor.format) &&
         (descriptor.usage & textureUsageRenderAttachment) != 0 &&
         additionalTextures.size <= 7 &&
@@ -1359,13 +1372,19 @@ trusted fun OpenGlWindowContext.renderTarget(
     }
     if (succeeded) {
         glBindFramebuffer(36160, handle)
-        glFramebufferTexture2D(36160, 36064, 3553, texture.handle, 0)
+        glFramebufferTexture2D(
+            36160,
+            36064,
+            texture.target,
+            texture.handle,
+            0
+        )
         var colorIndex = 0
         while (colorIndex < additionalTextures.size) {
             glFramebufferTexture2D(
                 36160,
                 36065 + colorIndex,
-                3553,
+                texture.target,
                 additionalTextures[colorIndex],
                 0
             )
@@ -1383,7 +1402,7 @@ trusted fun OpenGlWindowContext.renderTarget(
         if (depthTexture != 0) glFramebufferTexture2D(
             36160,
             36096,
-            3553,
+            texture.target,
             depthTexture,
             0
         )
@@ -1403,6 +1422,7 @@ trusted fun OpenGlWindowContext.renderTarget(
         depthTexture,
         descriptor.size.width,
         descriptor.size.height,
+        descriptor.samples,
         this.display,
         this.surface,
         this.context
@@ -1620,34 +1640,44 @@ trusted fun OpenGlWindowContext.texture(
     descriptor: TextureDescriptor
 ): OpenGlTexture {
     var handle = 0
+    val target = if (descriptor.samples > 1) 37120 else 3553
     val selected = openGlTextureFormat(descriptor.format)
     if (descriptor.valid() && descriptor.dimension == textureDimension2D &&
-        descriptor.samples == 1 && selected.valid && this.makeCurrent()) {
+        selected.valid && this.makeCurrent()) {
         val output = nativeI64Cell(0)
         glGenTextures(1, output.address)
         handle = output.load()
         if (handle != 0) {
-            glBindTexture(3553, handle)
-            glTexParameteri(3553, 33084, 0)
-            glTexParameteri(3553, 33085, descriptor.mipLevels - 1)
-            var level = 0
-            var width = descriptor.size.width
-            var height = descriptor.size.height
-            while (level < descriptor.mipLevels) {
-                glTexImage2D(
-                    3553,
-                    level,
-                    selected.internalFormat,
-                    width,
-                    height,
-                    0,
-                    selected.format,
-                    selected.kind,
-                    nativeNullPointer()
-                )
-                if (width > 1) width = width / 2
-                if (height > 1) height = height / 2
-                level = level + 1
+            glBindTexture(target, handle)
+            if (descriptor.samples > 1) glTexImage2DMultisample(
+                target,
+                descriptor.samples,
+                selected.internalFormat,
+                descriptor.size.width,
+                descriptor.size.height,
+                1
+            ) else {
+                glTexParameteri(target, 33084, 0)
+                glTexParameteri(target, 33085, descriptor.mipLevels - 1)
+                var level = 0
+                var width = descriptor.size.width
+                var height = descriptor.size.height
+                while (level < descriptor.mipLevels) {
+                    glTexImage2D(
+                        target,
+                        level,
+                        selected.internalFormat,
+                        width,
+                        height,
+                        0,
+                        selected.format,
+                        selected.kind,
+                        nativeNullPointer()
+                    )
+                    if (width > 1) width = width / 2
+                    if (height > 1) height = height / 2
+                    level = level + 1
+                }
             }
             if (glGetError() != 0) {
                 glDeleteTextures(1, output.address)
@@ -1657,6 +1687,7 @@ trusted fun OpenGlWindowContext.texture(
     }
     OpenGlTexture(
         handle,
+        target,
         this.display,
         this.surface,
         this.context,
