@@ -16,8 +16,23 @@ val shaderStageTessellationEvaluation = "tessellationEvaluation"
 
 class ShaderStageSource(val kind: string, val source: string)
 
+class ShaderLocation(
+    val stage: string,
+    val location: int,
+    val direction: string
+)
+
+class ShaderBinding(
+    val stage: string,
+    val set: int,
+    val binding: int,
+    val storage: string
+)
+
 class ShaderPackage(
     val stages: array<ShaderStageSource>,
+    val locations: array<ShaderLocation>,
+    val bindings: array<ShaderBinding>,
     val valid: bool,
     val error: string
 ) {
@@ -34,6 +49,210 @@ class ShaderPackage(
     }
 }
 
+class GlslName(val text: string, val next: int)
+
+class GlslInteger(val valid: bool, val value: int, val next: int)
+
+class GlslLayout(
+    val valid: bool,
+    val location: int,
+    val set: int,
+    val binding: int,
+    val next: int,
+    val error: string
+)
+
+class GlslStageReflection(
+    val locations: array<ShaderLocation>,
+    val bindings: array<ShaderBinding>,
+    val valid: bool,
+    val error: string
+)
+
+fun glslAsciiWhitespace(value: int): bool =
+    value == 9 || value == 10 || value == 11 || value == 12 ||
+    value == 13 || value == 32
+
+fun glslAsciiNameStart(value: int): bool =
+    (value >= 65 && value <= 90) ||
+    (value >= 97 && value <= 122) || value == 95
+
+fun glslAsciiNameContinue(value: int): bool =
+    glslAsciiNameStart(value) || (value >= 48 && value <= 57)
+
+fun glslSkipTrivia(source: string, begin: int): int {
+    var index = begin
+    var skipping = true
+    while (skipping && index < source.size) {
+        if (glslAsciiWhitespace(source[index])) index = index + 1
+        else if (index + 1 < source.size && source[index] == 47 &&
+            source[index + 1] == 47) {
+            index = index + 2
+            while (index < source.size && source[index] != 10 &&
+                source[index] != 13) index = index + 1
+        } else if (index + 1 < source.size && source[index] == 47 &&
+            source[index + 1] == 42) {
+            index = index + 2
+            var closed = false
+            while (!closed && index + 1 < source.size) {
+                if (source[index] == 42 && source[index + 1] == 47) {
+                    index = index + 2
+                    closed = true
+                } else index = index + 1
+            }
+            if (!closed) index = source.size
+        } else skipping = false
+    }
+    index
+}
+
+fun glslReadName(source: string, begin: int): GlslName {
+    val start = glslSkipTrivia(source, begin)
+    var end = start
+    if (end < source.size && glslAsciiNameStart(source[end])) {
+        end = end + 1
+        while (end < source.size && glslAsciiNameContinue(source[end])) {
+            end = end + 1
+        }
+    }
+    GlslName(
+        if (end > start) source.slice(start, end) else "",
+        end
+    )
+}
+
+fun glslReadUnsigned(source: string, begin: int): GlslInteger {
+    val start = glslSkipTrivia(source, begin)
+    var index = start
+    var value = 0
+    var valid = false
+    while (index < source.size && source[index] >= 48 &&
+        source[index] <= 57) {
+        val digit = source[index] - 48
+        if (value <= 214748364) value = value * 10 + digit
+        else value = 2147483647
+        valid = true
+        index = index + 1
+    }
+    GlslInteger(valid, value, index)
+}
+
+fun glslParseLayout(source: string, begin: int): GlslLayout {
+    var index = glslSkipTrivia(source, begin)
+    var valid = index < source.size && source[index] == 40
+    if (valid) index = index + 1
+    var location = -1
+    var set = 0
+    var binding = -1
+    var done = false
+    while (valid && !done && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index < source.size && source[index] == 41) {
+            index = index + 1
+            done = true
+        } else {
+            val name = glslReadName(source, index)
+            valid = name.text != ""
+            index = glslSkipTrivia(source, name.next)
+            if (valid && index < source.size && source[index] == 61) {
+                val integer = glslReadUnsigned(source, index + 1)
+                if (integer.valid) {
+                    if (name.text == "location") location = integer.value
+                    else if (name.text == "set") set = integer.value
+                    else if (name.text == "binding") binding = integer.value
+                    index = integer.next
+                } else {
+                    while (index < source.size && source[index] != 44 &&
+                        source[index] != 41) index = index + 1
+                }
+            }
+            index = glslSkipTrivia(source, index)
+            if (index < source.size && source[index] == 44) index = index + 1
+            else if (index < source.size && source[index] == 41) {
+                index = index + 1
+                done = true
+            } else valid = false
+        }
+    }
+    valid = valid && done && location <= 65535 && set <= 65535 &&
+        binding <= 65535
+    GlslLayout(
+        valid,
+        location,
+        set,
+        binding,
+        index,
+        if (valid) "" else "malformed GLSL layout qualifier"
+    )
+}
+
+fun glslStorageAfterLayout(source: string, begin: int): GlslName {
+    var index = begin
+    var storage = GlslName("", begin)
+    var attempts = 0
+    while (storage.text == "" && attempts < 8) {
+        val name = glslReadName(source, index)
+        if (name.text == "in" || name.text == "out" ||
+            name.text == "uniform" || name.text == "buffer") storage = name
+        else if (name.text == "") attempts = 8
+        else index = name.next
+        attempts = attempts + 1
+    }
+    storage
+}
+
+fun glslReflectStage(stage: string, source: string): GlslStageReflection {
+    val locations: array<ShaderLocation> = []
+    val bindings: array<ShaderBinding> = []
+    var valid = true
+    var error = ""
+    var index = 0
+    while (valid && index < source.size) {
+        val name = glslReadName(source, index)
+        if (name.text == "layout") {
+            val layout = glslParseLayout(source, name.next)
+            valid = layout.valid
+            if (!valid) error = layout.error
+            if (valid) {
+                val storage = glslStorageAfterLayout(source, layout.next)
+                if (layout.location >= 0 &&
+                    (storage.text == "in" || storage.text == "out")) {
+                    var duplicate = false
+                    var locationIndex = 0
+                    while (!duplicate && locationIndex < locations.size) {
+                        duplicate =
+                            locations[locationIndex].location == layout.location &&
+                            locations[locationIndex].direction == storage.text
+                        locationIndex = locationIndex + 1
+                    }
+                    if (duplicate) {
+                        valid = false
+                        error = "duplicate GLSL $stage ${storage.text} location ${layout.location}"
+                    } else {
+                        locations.append(ShaderLocation(
+                            stage,
+                            layout.location,
+                            storage.text
+                        ))
+                    }
+                }
+                if (valid && layout.binding >= 0 &&
+                    (storage.text == "uniform" || storage.text == "buffer")) {
+                    bindings.append(ShaderBinding(
+                        stage,
+                        layout.set,
+                        layout.binding,
+                        storage.text
+                    ))
+                }
+                index = layout.next
+            }
+        } else if (name.text != "") index = name.next
+        else index = glslSkipTrivia(source, index) + 1
+    }
+    GlslStageReflection(locations, bindings, valid, error)
+}
+
 fun glslStageNameValid(name: string): bool =
     name == shaderStageVertex ||
     name == shaderStageFragment ||
@@ -47,6 +266,8 @@ fun glslPackage(
     sources: array<string>
 ): ShaderPackage {
     val stages: array<ShaderStageSource> = []
+    val locations: array<ShaderLocation> = []
+    val bindings: array<ShaderBinding> = []
     var valid = names.size == sources.size && names.size > 0
     var error = if (valid) "" else "GLSL package has no stages"
     var compute = false
@@ -68,6 +289,23 @@ fun glslPackage(
         if (valid) {
             compute = compute || names[index] == shaderStageCompute
             raster = raster || names[index] != shaderStageCompute
+            val reflection = glslReflectStage(names[index], sources[index])
+            if (!reflection.valid) {
+                valid = false
+                error = reflection.error
+            }
+            var reflectedIndex = 0
+            while (valid && reflectedIndex < reflection.locations.size) {
+                locations.append(reflection.locations[reflectedIndex])
+                reflectedIndex = reflectedIndex + 1
+            }
+            reflectedIndex = 0
+            while (valid && reflectedIndex < reflection.bindings.size) {
+                bindings.append(reflection.bindings[reflectedIndex])
+                reflectedIndex = reflectedIndex + 1
+            }
+        }
+        if (valid) {
             stages.append(ShaderStageSource(names[index], sources[index]))
         }
         index = index + 1
@@ -76,7 +314,7 @@ fun glslPackage(
         valid = false
         error = "compute and raster GLSL stages cannot share one package"
     }
-    ShaderPackage(stages, valid, error)
+    ShaderPackage(stages, locations, bindings, valid, error)
 }
 
 compile fun glslAppend(left: string, right: string): string = "$left$right"

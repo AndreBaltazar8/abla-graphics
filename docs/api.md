@@ -235,6 +235,16 @@ stage structure, retains source spans, reflects interfaces, and produces a
 backend-neutral shader package. `#$glsl` additionally freezes compilation when
 all inputs are static.
 
+The available reflection slice recognizes explicit `layout(location = N)`
+input/output declarations and `layout(set = S, binding = B)` uniform/buffer
+declarations while skipping whitespace and comments deterministically.
+`ShaderPackage.locations` and `.bindings` retain stage, direction/storage, and
+numeric coordinates. Duplicate input/output locations in one stage invalidate
+the package with a precise diagnostic. Unknown layout keys such as compute
+workgroup qualifiers remain source-preserved and are not misclassified. Type,
+array, interpolation, block-member, push-constant, and workgroup reflection are
+still forthcoming.
+
 Dynamic source is accepted through `ShaderSource`; precompiled SPIR-V and raw
 OpenGL source remain supported. Pipeline creation always validates that the
 selected backend can consume the provided representation.
