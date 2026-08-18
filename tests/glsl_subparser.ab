@@ -1,4 +1,5 @@
 import "../src/shader/glsl.ab"
+import "../src/shader/glsl_spirv.ab"
 
 fun main: int {
     val shader = $glsl {
@@ -24,7 +25,7 @@ fun main: int {
     }
     val frozen = #$glsl {
         compute {
-            #version 430 core
+            #version 450 core
             layout(local_size_x = 8) in;
             void main() {}
         }
@@ -70,6 +71,16 @@ fun main: int {
         [shaderStageCompute],
         ["layout(set=0,binding=0) uniform sampler2D images[0]; void main() {}"]
     )
+    val emitted = frozen.spirv(shaderStageCompute)
+    val emittedAgain = frozen.spirv(shaderStageCompute)
+    val unsupportedCompute = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=8) in; void main() { uint value = 1; }"]
+    ).spirv(shaderStageCompute)
+    val unsupportedVersion = glslPackage(
+        [shaderStageCompute],
+        ["#version 430\nlayout(local_size_x=8) in; void main() {}"]
+    ).spirv(shaderStageCompute)
     if (shader.valid && frozen.valid && frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&
@@ -105,6 +116,13 @@ fun main: int {
         !missingWorkgroupX.valid && missingWorkgroupX.error != "" &&
         !repeatedWorkgroup.valid && repeatedWorkgroup.error != "" &&
         !invalidBindingArray.valid && invalidBindingArray.error != "" &&
+        emitted.succeeded && emitted.module.valid() &&
+        emitted.module.words.size == 35 &&
+        emitted.module.words[18] == 8 && emitted.module.words[19] == 1 &&
+        emitted.module.words[20] == 1 &&
+        spirvWordsEqual(emitted.module, emittedAgain.module) &&
+        !unsupportedCompute.succeeded && unsupportedCompute.error != "" &&
+        !unsupportedVersion.succeeded && unsupportedVersion.error != "" &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != "") 42 else 1
 }

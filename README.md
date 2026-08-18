@@ -25,7 +25,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   readback;
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
-- an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle; and
+- an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
+- deterministic pure-Abla SPIR-V emission for the first strict no-op compute
+  subset, with unsupported GLSL rejected rather than ignored;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, owns teardown, exposes copied events, and presents common clear colors;
 - reusable affine RGBA8 pixel storage, a persistent nearest-filtered OpenGL

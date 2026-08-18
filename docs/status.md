@@ -92,6 +92,11 @@ Updated: 2026-08-18.
   boundary before little-endian packing. A minimal valid compute module creates
   and affinely destroys a real `VkShaderModule`; a zero-word-count instruction
   is rejected before reaching the driver.
+- Deterministic `$glsl` emission test: a strictly parsed compute shader with a
+  Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
+  emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
+  result creates a real Lavapipe shader module. Statements and unsupported GLSL
+  versions fail explicitly instead of being omitted from the module.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
@@ -126,7 +131,8 @@ capability lands.
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration and cross-stage compatibility slice,
   deliberately rejects quoted includes, and does not yet parse block members,
-  general declarations, or expressions.
+  general declarations, or expressions. SPIR-V emission currently covers only
+  the strict no-op compute subset described above, not general shaders.
 - Generated Khronos registry bindings and complete coverage ledgers.
 - Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
   uploads, device-local suballocation policy, command encoders/render graph,

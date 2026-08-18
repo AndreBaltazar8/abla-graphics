@@ -303,8 +303,19 @@ instruction word-count boundary are checked before a driver call.
 `VulkanDevice.shaderModule(module)` packs those words little-endian in Abla,
 creates a real `VkShaderModule`, and destroys it affinely. This is the raw input
 path for external/generated toolchains and the destination for the forthcoming
-deterministic `$glsl` translator; structural validation does not claim full
-SPIR-V semantic validation.
+complete `$glsl` translator; structural validation does not claim full SPIR-V
+semantic validation.
+
+The first executable translator slice is available as
+`package.spirv(shaderStageCompute)`. It accepts exactly one compute stage with
+one `#version 450` or `460` directive, one explicit local-size layout, and an
+empty `void main()`. It emits a deterministic SPIR-V 1.0 compute module using
+the reflected X/Y/Z workgroup sizes. A second translation produces an identical
+word sequence, and the result creates a real Vulkan shader module. Bindings,
+extra globals, statements, missing/older versions, and non-compute stages return
+a checked `GlslSpirvResult` failure; nothing unsupported is silently dropped.
+This narrow first subset establishes the pure-Abla emitter and test path, not
+completion of general GLSL-to-SPIR-V compilation.
 
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the

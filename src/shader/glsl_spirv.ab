@@ -1,0 +1,115 @@
+// Deterministic GLSL-to-SPIR-V translation implemented in Abla.
+//
+// The first executable subset is intentionally strict: a compute package may
+// contain a version directive, one local-size layout, and an empty main. Any
+// declaration or statement outside that subset is rejected rather than lost.
+
+import "glsl.ab"
+import "spirv.ab"
+
+class GlslSpirvResult(
+    val module: SpirvModule,
+    val succeeded: bool,
+    val error: string = ""
+)
+
+fun glslSkipLine(source: string, begin: int): int {
+    var index = begin
+    while (index < source.size && source[index] != 10 &&
+        source[index] != 13) index = index + 1
+    index
+}
+
+fun glslComputeNoOpSource(source: string): bool {
+    var index = 0
+    var valid = true
+    var mainSeen = false
+    var workgroupSeen = false
+    var versionSeen = false
+    while (valid && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index >= source.size) {
+            index = source.size
+        } else if (source[index] == 35) {
+            val directive = glslReadName(source, index + 1)
+            val version = glslReadUnsigned(source, directive.next)
+            valid = directive.text == "version" && !mainSeen &&
+                !versionSeen && version.valid &&
+                (version.value == 450 || version.value == 460)
+            if (valid) versionSeen = true
+            index = glslSkipLine(source, version.next)
+        } else {
+            val name = glslReadName(source, index)
+            if (name.text == "layout" && !mainSeen && !workgroupSeen) {
+                val layout = glslParseLayout(source, name.next)
+                val storage = glslReadName(source, layout.next)
+                index = glslSkipTrivia(source, storage.next)
+                valid = layout.valid && layout.localSizeX > 0 &&
+                    storage.text == "in" && index < source.size &&
+                    source[index] == 59
+                if (valid) {
+                    workgroupSeen = true
+                    index = index + 1
+                }
+            } else if (name.text == "void" && !mainSeen) {
+                val main = glslReadName(source, name.next)
+                index = glslSkipTrivia(source, main.next)
+                valid = main.text == "main" && index < source.size &&
+                    source[index] == 40
+                if (valid) index = glslSkipTrivia(source, index + 1)
+                valid = valid && index < source.size && source[index] == 41
+                if (valid) index = glslSkipTrivia(source, index + 1)
+                valid = valid && index < source.size && source[index] == 123
+                if (valid) index = glslSkipTrivia(source, index + 1)
+                valid = valid && index < source.size && source[index] == 125
+                if (valid) {
+                    mainSeen = true
+                    index = index + 1
+                }
+            } else valid = false
+        }
+    }
+    valid && mainSeen && workgroupSeen && versionSeen
+}
+
+fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
+    var succeeded = this.valid && stage == shaderStageCompute &&
+        this.stages.size == 1 && this.stages[0].kind == shaderStageCompute &&
+        this.workgroups.size == 1 && this.bindings.size == 0 &&
+        this.locations.size == 0 &&
+        glslComputeNoOpSource(this.stages[0].source)
+    var error = ""
+    var words: array<int> = []
+    if (succeeded) {
+        val workgroup = this.workgroups[0]
+        words = [
+            spirvMagic, spirvVersion10, 0, 6, 0,
+            131089, 1,
+            196622, 0, 1,
+            327695, 5, 4, 1852399981, 0,
+            393232, 4, 17, workgroup.x, workgroup.y, workgroup.z,
+            131091, 1,
+            196641, 2, 1,
+            327734, 1, 4, 0, 2,
+            131320, 5,
+            65789,
+            65592
+        ]
+    } else {
+        error = "the deterministic GLSL translator currently supports one no-op compute stage with an explicit local size"
+    }
+    val module = spirvModule(words)
+    succeeded = succeeded && module.valid()
+    if (!succeeded && error == "") error = module.validation.error
+    GlslSpirvResult(module, succeeded, error)
+}
+
+fun spirvWordsEqual(left: SpirvModule, right: SpirvModule): bool {
+    var equal = left.words.size == right.words.size
+    var index = 0
+    while (equal && index < left.words.size) {
+        equal = left.words[index] == right.words[index]
+        index = index + 1
+    }
+    equal
+}

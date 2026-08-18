@@ -1,4 +1,5 @@
 import "../../src/driver/vulkan.ab"
+import "../../src/shader/glsl_spirv.ab"
 
 fun main: int {
     val loader = vulkanLoaderVersion()
@@ -16,20 +17,15 @@ fun main: int {
         0,
         nativeNullPointer()
     )
-    val computeCode = spirvModule([
-        119734787, 65536, 0, 6, 0,
-        131089, 1,
-        196622, 0, 1,
-        327695, 5, 4, 1852399981, 0,
-        393232, 4, 17, 1, 1, 1,
-        131091, 1,
-        196641, 2, 1,
-        327734, 1, 4, 0, 2,
-        131320, 5,
-        65789,
-        65592
-    ])
-    val shader = device.shaderModule(computeCode)
+    val computePackage = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 8, local_size_y = 4) in;
+            void main() {}
+        }
+    }
+    val computeCode = computePackage.spirv(shaderStageCompute)
+    val shader = device.shaderModule(computeCode.module)
     val buffer = device.buffer(64)
     val filled = buffer.fill(305419896)
     val first = buffer.readI64()
@@ -42,7 +38,9 @@ fun main: int {
     else if (adapters[0].name.size == 0) result = 6
     else if (adapters[0].graphicsQueueFamily() < 0) result = 7
     else if (!device.valid()) result = 8
-    else if (!computeCode.valid() || !shader.valid()) result = 9
+    else if (!computeCode.succeeded || !computeCode.module.valid() ||
+        computeCode.module.words[18] != 8 ||
+        computeCode.module.words[19] != 4 || !shader.valid()) result = 9
     else if (!buffer.valid()) result = 10
     else if (!filled) result = 11
     else if (first != 1311768465173141112) result = 12
