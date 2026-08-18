@@ -12,8 +12,9 @@ proves the architecture rather than stopping at placeholder interfaces:
 
 - a backend-neutral configuration, error, geometry, and fixed-point math core;
 - an affine pure-Abla X11 window that opens the Unix socket, performs the X11
-  authenticated handshake, creates/titles/maps a window, decodes events, and
-  handles the WM_DELETE_WINDOW protocol before destroying it;
+  authenticated handshake, honors visibility/size/decoration/fullscreen hints,
+  maps portable keyboard/pointer/scroll/UTF-8 text events, and handles the
+  WM_DELETE_WINDOW protocol before destroying it;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a Vulkan X11 surface with presentation support, capability/format queries,
   swapchain image enumeration, synchronized GPU clear, and queue presentation;
@@ -28,6 +29,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   once, owns teardown, exposes copied events, and presents common clear colors;
 - reusable affine RGBA8 pixel storage, a persistent nearest-filtered OpenGL
   upload path, and a Vulkan staging/copy/present path for software renderers;
+- immutable portable buffer/texture/view/sampler descriptors plus an affine
+  common buffer that creates, writes, reads, and drops real resources on either
+  OpenGL or Vulkan;
 - integer-only IEEE-754 color encoding so common colors reach both drivers
   without a foreign shim or source-level float ABI; and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
@@ -71,8 +75,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/vulkan-info`: loader and physical-adapter report;
 - `examples/vulkan-surface`: X11 WSI adapter/capability selection;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
-- `examples/opengl-window`: surfaced shader-backed triangle.
-- `examples/common-clear`: backend-neutral automatic selection and clear/present.
+- `examples/opengl-window`: surfaced shader-backed triangle;
+- `examples/common-clear`: backend-neutral automatic selection and clear/present;
+- `examples/common-buffer`: one affine descriptor/resource exercised unchanged
+  on explicit OpenGL and Vulkan.
 
 Run the sample smoke matrix with:
 
@@ -91,6 +97,11 @@ GPU/window resources are affine Abla `resource class` values. Frame command
 data will use reusable arenas and backend selection is kept out of inner draw
 loops. `$glsl` will be an Abla-defined compile-time subparser with source-span
 diagnostics and deterministic OpenGL GLSL/Vulkan SPIR-V output.
+
+The companion [Abla Doom](https://github.com/AndreBaltazar8/abla-doom) project
+is a complete all-Abla 2.5D raycasting homage built on this common pixel/input
+API. Its repository contains the clean real-window screenshot, explicit
+OpenGL/Vulkan smoke tests, and reproducible software-renderer frame benchmark.
 
 See [the implementation plan](plan.md), [architecture](docs/architecture.md),
 [current status](docs/status.md), and [toolchain prerequisites](docs/toolchain-prerequisites.md).

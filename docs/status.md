@@ -55,6 +55,9 @@ Updated: 2026-08-18.
   checked nonzero-offset 64-bit write/read, overflow-safe bounds rejection,
   invalid-descriptor errors, mapped-at-creation rejection, and deterministic
   destruction under the surfaced application test.
+- Common buffer sample: one independently buildable Abla source creates and
+  verifies the same 256-byte storage buffer under explicit OpenGL and Vulkan in
+  the software-driver sample matrix.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, and compile-time rejection of invalid stage names. The

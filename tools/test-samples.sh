@@ -9,7 +9,7 @@ output_directory="$project_root/build/samples"
 mkdir -p "$output_directory"
 
 for sample in x11-window vulkan-info vulkan-surface headless-opengl \
-    opengl-window common-clear; do
+    opengl-window common-clear common-buffer; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
@@ -26,3 +26,7 @@ LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/opengl-window"
 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/common-clear"
+for backend in opengl vulkan; do
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/common-buffer" "$backend"
+done

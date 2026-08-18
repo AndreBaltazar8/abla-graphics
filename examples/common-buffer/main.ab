@@ -1,0 +1,37 @@
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend),
+        WindowConfig(
+            title = "Abla Graphics common buffer",
+            width = 480,
+            height = 270
+        )
+    )
+    val buffer = app.buffer(BufferDescriptor(
+        label = "sample-storage",
+        size = 256,
+        usage = bufferUsageStorage | bufferUsageCopyDestination
+    ))
+    val expected = 1311768465173141112
+    val passed = app.valid() && buffer.valid() &&
+        buffer.writeI64(expected, 24) && buffer.readI64(24) == expected &&
+        app.presentClear(Color(
+            graphicsScalar(1, 16),
+            graphicsScalar(3, 16),
+            graphicsScalar(7, 16)
+        ))
+    println(
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes on ${app.adapterName}"
+    )
+    if (passed) 0 else 1
+}
