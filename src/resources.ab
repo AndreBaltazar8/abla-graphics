@@ -1,5 +1,6 @@
 // Immutable backend-neutral GPU resource descriptors.
 
+import "abla/unsafe/memory"
 import "core.ab"
 
 val bufferUsageMapRead = 1
@@ -137,6 +138,90 @@ class DepthStencilState(
     fun valid(): bool = this.compare >= compareFunctionNever &&
         this.compare <= compareFunctionAlways &&
         (!this.write || this.enabled)
+}
+
+resource class RenderPassClearValues(
+    val color: Color,
+    val additionalColors: array<Color>,
+    val colorCount: int,
+    val red: f64,
+    val green: f64,
+    val blue: f64,
+    val alpha: f64,
+    val depth: f64,
+    val stencil: int,
+    val colorsValid: bool,
+    val address: i64*,
+    val capacity: int,
+    val storage: NativeByteBuffer
+) {
+    fun valid(colorCount: int, hasDepth: bool): bool {
+        val valid = colorCount >= 1 && colorCount <= 8 &&
+            this.colorCount == colorCount &&
+            this.colorsValid && graphicsColorScalarsValid(
+                this.red,
+                this.green,
+                this.blue,
+                this.alpha
+            ) && this.depth >= 0.0 && this.depth <= 1.0 &&
+            this.stencil == 0 && !pointerIsNull(this.address) &&
+            this.capacity >= colorCount * 16 + 8
+        valid && (hasDepth || (this.depth == 1.0 && this.stencil == 0))
+    }
+
+    fun drop(): void {
+        this.storage.close()
+        return
+    }
+}
+
+trusted fun renderPassClearValues(
+    color: Color = Color(0.0, 0.0, 0.0),
+    additionalColors: array<Color> = [],
+    depth: f64 = 1.0,
+    stencil: int = 0
+): RenderPassClearValues {
+    val storage = nativeByteBuffer((1 + additionalColors.size) * 16 + 8)
+    var colorsValid = color.valid()
+    var index = 0
+    while (index < 1 + additionalColors.size) {
+        val selected = if (index == 0) color else additionalColors[index - 1]
+        colorsValid = colorsValid && selected.valid()
+        val offset = index * 16
+        storage.storeI64(
+            offset,
+            (graphicsScalarF32Bits(selected.green) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(selected.red) & 4294967295)
+        )
+        storage.storeI64(
+            offset + 8,
+            (graphicsScalarF32Bits(selected.alpha) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(selected.blue) & 4294967295)
+        )
+        index = index + 1
+    }
+    storage.storeI64(
+        (1 + additionalColors.size) * 16,
+        stencil * 4294967296 +
+            (graphicsScalarF32Bits(depth) & 4294967295)
+    )
+    RenderPassClearValues(
+        Color(color.red, color.green, color.blue, color.alpha),
+        additionalColors,
+        1 + additionalColors.size,
+        color.red,
+        color.green,
+        color.blue,
+        color.alpha,
+        depth,
+        stencil,
+        colorsValid,
+        storage.address,
+        storage.capacity,
+        move(storage)
+    )
 }
 
 class GraphicsDescriptorValidation(

@@ -2963,12 +2963,43 @@ trusted fun VulkanDevice.renderTarget(
     )
 }
 
+fun vulkanStoreClearScalars(
+    var storage: NativeByteBuffer,
+    offset: int,
+    red: f64,
+    green: f64,
+    blue: f64,
+    alpha: f64
+): void {
+    storage.storeI64(
+        offset,
+        (graphicsScalarF32Bits(green) & 4294967295) * 4294967296 +
+            (graphicsScalarF32Bits(red) & 4294967295)
+    )
+    storage.storeI64(
+        offset + 8,
+        (graphicsScalarF32Bits(alpha) & 4294967295) * 4294967296 +
+            (graphicsScalarF32Bits(blue) & 4294967295)
+    )
+    return
+}
+
 trusted fun VulkanDevice.clearRenderTarget(
     target: VulkanRenderTarget,
-    clear: Color
+    clearRed: f64,
+    clearGreen: f64,
+    clearBlue: f64,
+    clearAlpha: f64,
+    clearStorage: i64* = nativeNullPointer()
 ): bool {
     val colorCount = 1 + target.additionalViews.size
-    var succeeded = this.transferValid() && target.valid() && clear.valid() &&
+    var succeeded = this.transferValid() && target.valid() &&
+        graphicsColorScalarsValid(
+            clearRed,
+            clearGreen,
+            clearBlue,
+            clearAlpha
+        ) &&
         target.device == this.handle && this.beginTransfer()
     if (succeeded) {
         this.transferScratch.storeI64(0, 43)
@@ -2986,26 +3017,24 @@ trusted fun VulkanDevice.clearRenderTarget(
         )
         this.transferScratch.storePointer(
             56,
-            this.transferScratch.pointerAt(72)
+            if (!pointerIsNull(clearStorage)) clearStorage
+            else this.transferScratch.pointerAt(72)
         )
         var colorIndex = 0
-        while (colorIndex < colorCount) {
+        while (pointerIsNull(clearStorage) && colorIndex < colorCount) {
             val clearOffset = 72 + colorIndex * 16
-            this.transferScratch.storeI64(
+            vulkanStoreClearScalars(
+                this.transferScratch,
                 clearOffset,
-                (graphicsScalarF32Bits(clear.green) & 4294967295) *
-                    4294967296 +
-                    (graphicsScalarF32Bits(clear.red) & 4294967295)
-            )
-            this.transferScratch.storeI64(
-                clearOffset + 8,
-                (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
-                    4294967296 +
-                    (graphicsScalarF32Bits(clear.blue) & 4294967295)
+                clearRed,
+                clearGreen,
+                clearBlue,
+                clearAlpha
             )
             colorIndex = colorIndex + 1
         }
-        if (target.hasDepth()) this.transferScratch.storeI64(
+        if (pointerIsNull(clearStorage) && target.hasDepth())
+          this.transferScratch.storeI64(
             72 + colorCount * 16,
             1065353216
         )
@@ -3023,7 +3052,10 @@ trusted fun VulkanDevice.clearRenderTarget(
 trusted fun VulkanDevice.renderTargetProgram(
     target: VulkanRenderTarget,
     pipeline: VulkanRenderPipeline,
-    clear: Color,
+    clearRed: f64,
+    clearGreen: f64,
+    clearBlue: f64,
+    clearAlpha: f64,
     vertexBuffer: int = 0,
     vertexCount: int = 3,
     indexBuffer: int = 0,
@@ -3031,12 +3063,18 @@ trusted fun VulkanDevice.renderTargetProgram(
     instanceCount: int = 1,
     descriptorSet: int = 0,
     indirectBuffer: int = 0,
-    indexedIndirect: bool = false
+    indexedIndirect: bool = false,
+    clearStorage: i64* = nativeNullPointer()
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     val colorCount = 1 + target.additionalViews.size
     var succeeded = this.transferValid() && target.valid() &&
-        pipeline.valid() && clear.valid() && target.device == this.handle &&
+        pipeline.valid() && graphicsColorScalarsValid(
+            clearRed,
+            clearGreen,
+            clearBlue,
+            clearAlpha
+        ) && target.device == this.handle &&
         pipeline.device == this.handle &&
         pipeline.depthEnabled == target.hasDepth() &&
         vertexCount > 0 && indexCount >= 0 && instanceCount > 0 &&
@@ -3067,26 +3105,24 @@ trusted fun VulkanDevice.renderTargetProgram(
         )
         this.transferScratch.storePointer(
             56,
-            this.transferScratch.pointerAt(72)
+            if (!pointerIsNull(clearStorage)) clearStorage
+            else this.transferScratch.pointerAt(72)
         )
         var colorIndex = 0
-        while (colorIndex < colorCount) {
+        while (pointerIsNull(clearStorage) && colorIndex < colorCount) {
             val clearOffset = 72 + colorIndex * 16
-            this.transferScratch.storeI64(
+            vulkanStoreClearScalars(
+                this.transferScratch,
                 clearOffset,
-                (graphicsScalarF32Bits(clear.green) & 4294967295) *
-                    4294967296 +
-                    (graphicsScalarF32Bits(clear.red) & 4294967295)
-            )
-            this.transferScratch.storeI64(
-                clearOffset + 8,
-                (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
-                    4294967296 +
-                    (graphicsScalarF32Bits(clear.blue) & 4294967295)
+                clearRed,
+                clearGreen,
+                clearBlue,
+                clearAlpha
             )
             colorIndex = colorIndex + 1
         }
-        if (target.hasDepth()) this.transferScratch.storeI64(
+        if (pointerIsNull(clearStorage) && target.hasDepth())
+          this.transferScratch.storeI64(
             72 + colorCount * 16,
             1065353216
         )

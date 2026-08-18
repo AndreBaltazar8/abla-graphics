@@ -28,9 +28,16 @@ fun main: int {
         size = Extent3D(128, 128),
         usage = textureUsageRenderAttachment | textureUsageCopySource
     ))
-    val target = app.renderTargetWithColors(
+    val depth = app.texture(TextureDescriptor(
+        label = "mrt-depth",
+        size = Extent3D(128, 128),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    ))
+    val target = app.renderTargetWithColorsAndDepth(
         move(first),
-        [move(second)]
+        [move(second)],
+        move(depth)
     )
     val shader = $glsl {
         vertex {
@@ -54,29 +61,49 @@ fun main: int {
             }
         }
     }
-    val pipeline = app.renderTargetPipeline(target, shader)
-    val clear = Color(0.01, 0.02, 0.03)
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        )
+    )
+    val clearValues = renderPassClearValues(
+        Color(0.0, 0.0, 1.0),
+        [Color(1.0, 1.0, 0.0)],
+        0.75
+    )
+    val pass = app.renderPass(target, move(clearValues))
     val warmed = app.valid() && target.valid() && pipeline.valid() &&
-        app.renderToTarget(target, pipeline, clear)
+        app.renderPassToTarget(target, pipeline, pass)
     val liveBefore = runtimeMemoryLiveBytes()
     var rendered = warmed
     var frame = 0
     while (rendered && frame < 4) {
-        rendered = app.renderToTarget(
+        rendered = app.renderPassToTarget(
             target,
             pipeline,
-            clear
+            pass
         )
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
     val firstPixel = target.texture.rgba8(64, 64)
     val secondPixel = target.additionalTextures[0].rgba8(64, 64)
+    val firstClearPixel = target.texture.rgba8(0, 0)
+    val secondClearPixel = target.additionalTextures[0].rgba8(0, 0)
     val noGrowth = liveAfter == liveBefore
     println(
-        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, frames=$frame, first=$firstPixel, second=$secondPixel, repeatNoGrowth=$noGrowth, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, depth=${target.hasDepth()}, frames=$frame, first=$firstPixel/$firstClearPixel, second=$secondPixel/$secondClearPixel, repeatNoGrowth=$noGrowth, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (rendered && frame == 4 && target.colorCount() == 2 &&
+        target.hasDepth() &&
         firstPixel == 4278190335 && secondPixel == 4278255360 &&
+        firstClearPixel == 4294901760 &&
+        secondClearPixel == 4278255615 &&
         noGrowth) 0 else 1
 }

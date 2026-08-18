@@ -93,6 +93,75 @@ resource class GraphicsRenderTarget(
     }
 }
 
+resource class GraphicsRenderPass(
+    val targetHandle: int,
+    val width: int,
+    val height: int,
+    val colorCount: int,
+    val hasDepth: bool,
+    val backend: int,
+    val red: f64,
+    val green: f64,
+    val blue: f64,
+    val alpha: f64,
+    val depth: f64,
+    val stencil: int,
+    val clearAddress: i64*,
+    val clearCapacity: int,
+    val values: RenderPassClearValues,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() && this.targetHandle != 0 &&
+        this.width > 0 && this.height > 0 && this.colorCount >= 1 &&
+        this.colorCount <= 8 && !pointerIsNull(this.clearAddress) &&
+        this.clearCapacity >= this.colorCount * 16 + 8 &&
+        graphicsColorScalarsValid(
+            this.red,
+            this.green,
+            this.blue,
+            this.alpha
+        ) && this.depth >= 0.0 && this.depth <= 1.0 && this.stencil == 0
+
+    fun drop(): void {
+        this.values.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.renderPass(
+    target: GraphicsRenderTarget,
+    own values: RenderPassClearValues
+): GraphicsRenderPass {
+    var error = GraphicsError()
+    val valid = this.valid() && target.valid() &&
+        target.backend == this.backend &&
+        values.valid(target.colorCount(), target.hasDepth())
+    if (!valid) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.renderPass",
+        "render-pass clear values must match the target color/depth attachments"
+    )
+    GraphicsRenderPass(
+        if (valid) (if (this.backend == graphicsBackendOpenGl)
+            target.openGl.handle else target.vulkan.framebuffer) else 0,
+        target.texture.descriptor.size.width,
+        target.texture.descriptor.size.height,
+        target.colorCount(),
+        target.hasDepth(),
+        this.backend,
+        values.red,
+        values.green,
+        values.blue,
+        values.alpha,
+        values.depth,
+        values.stencil,
+        values.address,
+        values.capacity,
+        move(values),
+        error
+    )
+}
+
 trusted fun GraphicsApplication.renderTarget(
     own texture: GraphicsTexture
 ): GraphicsRenderTarget {
@@ -373,6 +442,131 @@ trusted fun GraphicsApplication.renderTargetWithColors(
     )
 }
 
+trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
+    own texture: GraphicsTexture,
+    own additionalTextures: array<GraphicsTexture>,
+    own depthTexture: GraphicsTexture
+): GraphicsRenderTarget {
+    var openGl = OpenGlRenderTarget(
+        0,
+        0,
+        [],
+        0,
+        0,
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer()
+    )
+    var vulkan = VulkanRenderTarget(
+        nativeNullPointer(),
+        0,
+        [],
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    )
+    val openGlHandles: array<int> = []
+    val vulkanImages: array<int> = []
+    val descriptors: array<TextureDescriptor> = []
+    var compatible = this.valid() && texture.valid() &&
+        depthTexture.valid() && this.ownsTexture(texture) &&
+        this.ownsTexture(depthTexture) && additionalTextures.size > 0 &&
+        additionalTextures.size <= 7 &&
+        texture.descriptor.dimension == textureDimension2D &&
+        depthTexture.descriptor.dimension == textureDimension2D &&
+        texture.descriptor.samples == 1 &&
+        depthTexture.descriptor.samples == 1 &&
+        !textureFormatHasDepth(texture.descriptor.format) &&
+        textureFormatHasDepth(depthTexture.descriptor.format) &&
+        depthTexture.descriptor.size.width == texture.descriptor.size.width &&
+        depthTexture.descriptor.size.height ==
+            texture.descriptor.size.height &&
+        (texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
+        (depthTexture.descriptor.usage &
+            textureUsageRenderAttachment) != 0
+    var index = 0
+    while (compatible && index < additionalTextures.size) {
+        val color = additionalTextures[index]
+        compatible = color.valid() && this.ownsTexture(color) &&
+            color.descriptor.dimension == textureDimension2D &&
+            color.descriptor.samples == 1 &&
+            !textureFormatHasDepth(color.descriptor.format) &&
+            color.descriptor.size.width == texture.descriptor.size.width &&
+            color.descriptor.size.height == texture.descriptor.size.height &&
+            (color.descriptor.usage & textureUsageRenderAttachment) != 0
+        if (compatible) {
+            openGlHandles.append(color.openGl.handle)
+            vulkanImages.append(color.vulkan.image)
+            descriptors.append(TextureDescriptor(
+                size = Extent3D(
+                    color.descriptor.size.width,
+                    color.descriptor.size.height,
+                    color.descriptor.size.depth
+                ),
+                mipLevels = color.descriptor.mipLevels,
+                samples = color.descriptor.samples,
+                dimension = color.descriptor.dimension,
+                format = color.descriptor.format,
+                usage = color.descriptor.usage
+            ))
+        }
+        index = index + 1
+    }
+    var error = GraphicsError()
+    if (!compatible) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.renderTargetWithColorsAndDepth",
+        "color/depth multiple render targets require two to eight owned, same-size, single-sample color textures and one depth texture with render-attachment usage"
+    )
+    else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.renderTarget(
+            texture.openGl,
+            texture.descriptor,
+            depthTexture.openGl.handle,
+            openGlHandles
+        )
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorAttachmentMismatch,
+            "OpenGlWindowContext.renderTarget",
+            "OpenGL multiple-color/depth framebuffer creation or completeness validation failed"
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.renderTarget(
+            texture.vulkan,
+            texture.descriptor,
+            depthTexture.vulkan.image,
+            depthTexture.descriptor,
+            vulkanImages,
+            descriptors
+        )
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.renderTarget",
+            "Vulkan multiple-color/depth render pass, views, or framebuffer creation failed"
+        )
+    } else error = GraphicsError(
+        graphicsErrorBackendUnavailable,
+        "GraphicsApplication.renderTargetWithColorsAndDepth",
+        "the selected backend cannot create a multiple-color/depth render target"
+    )
+    GraphicsRenderTarget(
+        move(openGl),
+        move(vulkan),
+        move(texture),
+        move(additionalTextures),
+        move(depthTexture),
+        this.backend,
+        error
+    )
+}
+
 trusted fun GraphicsApplication.clearRenderTarget(
     var target: GraphicsRenderTarget,
     clear: Color
@@ -380,11 +574,50 @@ trusted fun GraphicsApplication.clearRenderTarget(
     var succeeded = this.valid() && target.valid() && clear.valid() &&
         target.backend == this.backend
     if (succeeded && this.backend == graphicsBackendOpenGl) {
-        succeeded = this.openGl.clearRenderTarget(target.openGl, clear)
+        succeeded = this.openGl.clearRenderTarget(
+            target.openGl,
+            clear.red,
+            clear.green,
+            clear.blue,
+            clear.alpha
+        )
     } else if (succeeded && this.backend == graphicsBackendVulkan) {
         succeeded = this.vulkanDevice.clearRenderTarget(
             target.vulkan,
-            clear
+            clear.red,
+            clear.green,
+            clear.blue,
+            clear.alpha
+        )
+        if (succeeded) target.storeVulkanLayouts()
+    } else if (succeeded) succeeded = false
+    succeeded
+}
+
+trusted fun GraphicsApplication.clearRenderTargetValues(
+    var target: GraphicsRenderTarget,
+    values: RenderPassClearValues
+): bool {
+    var succeeded = this.valid() && target.valid() &&
+        values.valid(target.colorCount(), target.hasDepth()) &&
+        target.backend == this.backend
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = this.openGl.clearRenderTarget(
+            target.openGl,
+            values.red,
+            values.green,
+            values.blue,
+            values.alpha,
+            values.address
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.clearRenderTarget(
+            target.vulkan,
+            values.red,
+            values.green,
+            values.blue,
+            values.alpha,
+            values.address
         )
         if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false

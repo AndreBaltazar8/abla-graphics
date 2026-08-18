@@ -631,6 +631,13 @@ val target = app.renderTargetWithColors(
     move(albedo),
     [move(normal), move(material)]
 )
+
+// Alternative when the target also needs a depth attachment:
+val targetWithDepth = app.renderTargetWithColorsAndDepth(
+    move(depthAlbedo),
+    [move(depthNormal), move(depthMaterial)],
+    move(depthAttachment)
+)
 ```
 
 The fragment shader must declare contiguous outputs beginning at location zero,
@@ -648,6 +655,25 @@ pass through the reusable device transfer command or binds and clears the
 OpenGL FBO. Repeated clears allocate nothing and preserve all attachment and
 command handles.
 
+Distinct attachment clears are prepared once as an affine resource and bound
+to the exact target shape through an affine render pass:
+
+```abla
+val clears = renderPassClearValues(
+    Color(0.0, 0.0, 1.0, 1.0),
+    [Color(1.0, 1.0, 0.0, 1.0)],
+    0.75
+)
+val pass = app.renderPass(target, move(clears))
+app.renderPassToTarget(target, pipeline, pass)
+```
+
+`RenderPassClearValues` owns a stable native clear-value block, and
+`GraphicsRenderPass` validates the target identity, dimensions, color count,
+depth presence, and backend once. Reusing that pass performs no general heap
+allocation on either backend. The scalar-clear `renderToTarget` form remains a
+compact shorthand and applies the same color to every color attachment.
+
 `app.renderTargetPipeline(target, shader, vertexLayout, raster, depth, binding)`
 compiles a raster pipeline against the target format. Procedural pipelines use
 `renderToTarget`; buffered pipelines use `renderVerticesToTarget` or
@@ -662,7 +688,7 @@ only/depth-state mismatches are rejected. The `render-to-texture` sample
 exercises all four buffered command forms with depth testing/writes before
 sampling the result, with exact center-pixel verification, stable native
 handles, and zero live-byte growth. The same command forms operate on multiple
-color attachments; generalized per-attachment load/store and clear operations
+color attachments; generalized per-attachment load/store/discard operations
 remain the next render-pass extension.
 
 Samplers are also driver-backed affine resources:

@@ -365,6 +365,20 @@ fun openGlStoreI32(
     return
 }
 
+fun openGlStoreClearScalars(
+    var storage: NativeByteBuffer,
+    red: f64,
+    green: f64,
+    blue: f64,
+    alpha: f64
+): void {
+    openGlStoreI32(storage, 0, graphicsScalarF32Bits(red))
+    openGlStoreI32(storage, 1, graphicsScalarF32Bits(green))
+    openGlStoreI32(storage, 2, graphicsScalarF32Bits(blue))
+    openGlStoreI32(storage, 3, graphicsScalarF32Bits(alpha))
+    return
+}
+
 fun openGlPrimitiveMode(topology: int): int {
     var mode = 4
     if (topology == primitiveTopologyPointList) mode = 0
@@ -1370,26 +1384,58 @@ trusted fun OpenGlWindowContext.renderTarget(
 
 trusted fun OpenGlWindowContext.clearRenderTarget(
     target: OpenGlRenderTarget,
-    clear: Color
+    clearRed: f64,
+    clearGreen: f64,
+    clearBlue: f64,
+    clearAlpha: f64,
+    clearStorage: i64* = nativeNullPointer()
 ): bool {
-    var succeeded = this.valid() && target.valid() && clear.valid() &&
+    var succeeded = this.valid() && target.valid() &&
+        graphicsColorScalarsValid(
+            clearRed,
+            clearGreen,
+            clearBlue,
+            clearAlpha
+        ) &&
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (succeeded) {
-        openGlStoreI32(this.clearScratch, 0, graphicsScalarF32Bits(clear.red))
-        openGlStoreI32(this.clearScratch, 1, graphicsScalarF32Bits(clear.green))
-        openGlStoreI32(this.clearScratch, 2, graphicsScalarF32Bits(clear.blue))
-        openGlStoreI32(this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha))
+        if (pointerIsNull(clearStorage)) openGlStoreClearScalars(
+            this.clearScratch,
+            clearRed,
+            clearGreen,
+            clearBlue,
+            clearAlpha
+        )
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
         var colorIndex = 0
         while (colorIndex < 1 + target.additionalTextures.size) {
-            glClearBufferfv(6144, colorIndex, this.clearScratch.address)
+            if (!pointerIsNull(clearStorage)) glClearBufferfv(
+                6144,
+                colorIndex,
+                nativePointerFromAddress(
+                    nativePointerAddress(clearStorage) + colorIndex * 16
+                )
+            ) else glClearBufferfv(6144, colorIndex, this.clearScratch.address)
             colorIndex = colorIndex + 1
         }
         if (target.depthTexture != 0) {
-            openGlStoreI32(this.clearScratch, 0, 1065353216)
-            glClearBufferfv(6145, 0, this.clearScratch.address)
+            if (!pointerIsNull(clearStorage)) glClearBufferfv(
+                6145,
+                0,
+                nativePointerFromAddress(
+                    nativePointerAddress(clearStorage) +
+                        (1 + target.additionalTextures.size) * 16
+                )
+            ) else {
+                openGlStoreI32(
+                    this.clearScratch,
+                    0,
+                    1065353216
+                )
+                glClearBufferfv(6145, 0, this.clearScratch.address)
+            }
         }
         succeeded = glGetError() == 0
         glBindFramebuffer(36160, 0)
@@ -1400,7 +1446,10 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
 trusted fun OpenGlWindowContext.renderProgramTarget(
     target: OpenGlRenderTarget,
     program: OpenGlProgram,
-    clear: Color,
+    clearRed: f64,
+    clearGreen: f64,
+    clearBlue: f64,
+    clearAlpha: f64,
     raster: RasterPipelineState,
     depth: DepthStencilState,
     vertexLayout: VertexBufferLayout,
@@ -1414,11 +1463,17 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     bindingResources: array<int>,
     bindingSamplers: array<int>,
     indirectBuffer: int = 0,
-    indexedIndirect: bool = false
+    indexedIndirect: bool = false,
+    clearStorage: i64* = nativeNullPointer()
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
-        clear.valid() && raster.valid() && depth.valid() &&
+        graphicsColorScalarsValid(
+            clearRed,
+            clearGreen,
+            clearBlue,
+            clearAlpha
+        ) && raster.valid() && depth.valid() &&
         vertexLayout.valid() && vertexCount > 0 && indexCount >= 0 &&
         instanceCount > 0 &&
         ((vertexLayout.buffered() && vertexBuffer != 0) ||
@@ -1429,20 +1484,42 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (rendered) {
-        openGlStoreI32(this.clearScratch, 0, graphicsScalarF32Bits(clear.red))
-        openGlStoreI32(this.clearScratch, 1, graphicsScalarF32Bits(clear.green))
-        openGlStoreI32(this.clearScratch, 2, graphicsScalarF32Bits(clear.blue))
-        openGlStoreI32(this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha))
+        if (pointerIsNull(clearStorage)) openGlStoreClearScalars(
+            this.clearScratch,
+            clearRed,
+            clearGreen,
+            clearBlue,
+            clearAlpha
+        )
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
         var colorIndex = 0
         while (colorIndex < 1 + target.additionalTextures.size) {
-            glClearBufferfv(6144, colorIndex, this.clearScratch.address)
+            if (!pointerIsNull(clearStorage)) glClearBufferfv(
+                6144,
+                colorIndex,
+                nativePointerFromAddress(
+                    nativePointerAddress(clearStorage) + colorIndex * 16
+                )
+            ) else glClearBufferfv(6144, colorIndex, this.clearScratch.address)
             colorIndex = colorIndex + 1
         }
         if (target.depthTexture != 0) {
-            openGlStoreI32(this.clearScratch, 0, 1065353216)
-            glClearBufferfv(6145, 0, this.clearScratch.address)
+            if (!pointerIsNull(clearStorage)) glClearBufferfv(
+                6145,
+                0,
+                nativePointerFromAddress(
+                    nativePointerAddress(clearStorage) +
+                        (1 + target.additionalTextures.size) * 16
+                )
+            ) else {
+                openGlStoreI32(
+                    this.clearScratch,
+                    0,
+                    1065353216
+                )
+                glClearBufferfv(6145, 0, this.clearScratch.address)
+            }
         }
         glUseProgram(program.handle)
         glBindVertexArray(program.vertexArray)
