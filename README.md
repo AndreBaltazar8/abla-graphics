@@ -38,9 +38,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`
   package compiles to an OpenGL program or deterministic Abla-emitted SPIR-V,
-  accepts procedural vertices or one interleaved `vec2` common vertex buffer,
-  then records and presents a real Vulkan render pass or OpenGL draw without
-  steady-state runtime allocation;
+  accepts procedural vertices or one interleaved `vec2` common vertex buffer
+  with optional `uint32` common indices, then records and presents a real
+  Vulkan render pass or OpenGL draw without steady-state runtime allocation;
 - a backend-neutral affine `GraphicsApplication` that selects Vulkan/OpenGL
   once, rejects missing required features, reports the real API version and
   portable device limits, rejects oversized resources/work before driver calls,
@@ -115,8 +115,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
-  pipeline plus a common uploaded vertex buffer rendered unchanged on explicit
-  OpenGL and Vulkan, with repeated no-growth and stable-handle assertions;
+  pipeline plus common uploaded vertex/index buffers rendered unchanged on
+  explicit OpenGL and Vulkan, with repeated no-growth and stable-handle
+  assertions;
 - `examples/common-buffer`: one affine descriptor/resource plus reusable byte
   ranges and GPU copies exercised unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised

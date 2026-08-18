@@ -65,6 +65,12 @@ Updated: 2026-08-18.
   `vkCmdBindVertexBuffers`. Explicit OpenGL and Lavapipe Vulkan runs preserve
   buffer/pipeline/command handles and live bytes across four warmed draws; the
   Vulkan run is also clean with `VK_LAYER_KHRONOS_validation` forced on.
+- Common indexed triangle: checked `BufferBytes.storeU32` creates a reusable
+  three-element index buffer with common index/copy-destination usage. The same
+  application call dispatches `glDrawElements` or Vulkan index binding plus
+  `vkCmdDrawIndexed`; a count exceeding the buffer is rejected before either
+  driver. Explicit software OpenGL and validation-enabled Lavapipe runs keep
+  vertex/index/pipeline/command handles and live bytes stable across four draws.
 - OpenGL test: EGL surfaceless display initialization, config/pbuffer/context
   creation with 4.6/4.5/3.3 negotiation, core version plus legal version-gated
   2D texture/storage/compute limit queries and portable feature mask,

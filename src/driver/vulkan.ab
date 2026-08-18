@@ -370,6 +370,20 @@ noescape extern:"c" fun vkCmdBindVertexBuffers(
     buffers: i64*,
     offsets: i64*
 ): void
+noescape extern:"c" fun vkCmdBindIndexBuffer(
+    commandBuffer: i64*,
+    buffer: int,
+    offset: int,
+    indexType: i32
+): void
+noescape extern:"c" fun vkCmdDrawIndexed(
+    commandBuffer: i64*,
+    indexCount: i32,
+    instanceCount: i32,
+    firstIndex: i32,
+    vertexOffset: i32,
+    firstInstance: i32
+): void
 noescape extern:"c" fun vkCmdBindDescriptorSets(
     commandBuffer: i64*,
     pipelineBindPoint: i32,
@@ -4249,7 +4263,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
     pipeline: VulkanRenderPipeline,
     clear: Color,
     vertexBuffer: int = 0,
-    vertexCount: int = 3
+    vertexCount: int = 3,
+    indexBuffer: int = 0,
+    indexCount: int = 0
 ): int {
     var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
         pipeline.valid() && pipeline.device == this.handle &&
@@ -4260,9 +4276,11 @@ trusted fun VulkanDevice.presentRenderOutcome(
         pipeline.height == swapchain.height &&
         pipeline.format == swapchain.format &&
         pipeline.framebuffers.size == swapchain.images.size && clear.valid() &&
-        vertexCount > 0 &&
+        vertexCount > 0 && indexCount >= 0 &&
         ((pipeline.vertexStride == 0 && vertexBuffer == 0) ||
-         (pipeline.vertexStride > 0 && vertexBuffer != 0))
+         (pipeline.vertexStride > 0 && vertexBuffer != 0)) &&
+        ((indexCount == 0 && indexBuffer == 0) ||
+         (pipeline.vertexStride > 0 && indexCount > 0 && indexBuffer != 0))
     var recreateSwapchain = false
     var status = if (succeeded) vulkanSuccess else -1
     var submitted = false
@@ -4439,13 +4457,30 @@ trusted fun VulkanDevice.presentRenderOutcome(
                 )
             )
         }
-        vkCmdDraw(
-            presenter.frames[frame].command.load(),
-            vertexCount,
-            1,
-            0,
-            0
-        )
+        if (indexCount > 0) {
+            vkCmdBindIndexBuffer(
+                presenter.frames[frame].command.load(),
+                indexBuffer,
+                0,
+                1
+            )
+            vkCmdDrawIndexed(
+                presenter.frames[frame].command.load(),
+                indexCount,
+                1,
+                0,
+                0,
+                0
+            )
+        } else {
+            vkCmdDraw(
+                presenter.frames[frame].command.load(),
+                vertexCount,
+                1,
+                0,
+                0
+            )
+        }
         vkCmdEndRenderPass(presenter.frames[frame].command.load())
         succeeded = vkEndCommandBuffer(
             presenter.frames[frame].command.load()

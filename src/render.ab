@@ -189,3 +189,44 @@ trusted fun GraphicsApplication.presentRenderVertices(
             !vulkanPresentNeedsRecreation(outcome)
     } else false
 }
+
+trusted fun GraphicsApplication.presentRenderIndexed(
+    pipeline: GraphicsRenderPipeline,
+    vertices: GraphicsBuffer,
+    indices: GraphicsBuffer,
+    indexCount: int,
+    clear: Color
+): bool {
+    val stride = pipeline.vertexLayout.stride
+    if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
+        !indices.valid() || !clear.valid() ||
+        pipeline.backend != this.backend || stride <= 0 ||
+        vertices.descriptor.size / stride <= 0 || indexCount <= 0 ||
+        indexCount > indices.descriptor.size / 4 ||
+        !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
+        (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
+        (indices.descriptor.usage & bufferUsageIndex) == 0) false
+    else if (this.backend == graphicsBackendOpenGl) {
+        this.openGl.presentProgramIndexed(
+            pipeline.openGl,
+            vertices.openGl,
+            indices.openGl,
+            indexCount,
+            stride,
+            clear
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        val outcome = this.vulkanDevice.presentRenderOutcome(
+            this.vulkanSwapchain,
+            this.vulkanPixels,
+            pipeline.vulkan,
+            clear,
+            vertices.vulkan.handle,
+            vertices.descriptor.size / stride,
+            indices.vulkan.handle,
+            indexCount
+        )
+        vulkanPresentSucceeded(outcome) &&
+            !vulkanPresentNeedsRecreation(outcome)
+    } else false
+}

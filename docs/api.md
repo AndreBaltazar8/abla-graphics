@@ -94,6 +94,27 @@ same binding/attribute in pipeline state and records `vkCmdBindVertexBuffers`.
 Repeated draws preserve the vertex buffer and command/pipeline handles with
 zero runtime live-byte growth.
 
+Reusable `uint32` indices use the same common buffer path:
+
+```abla
+val indexData = bufferBytes(12)
+indexData.storeU32(0, 0)
+indexData.storeU32(1, 4)
+indexData.storeU32(2, 8)
+val indices = app.buffer(BufferDescriptor(
+    size = 12,
+    usage = bufferUsageIndex | bufferUsageCopyDestination
+))
+indices.writeAllBytes(indexData)
+app.presentRenderIndexed(pipeline, vertices, indices, 3, clear)
+```
+
+The indexed path validates ownership, usage, positive count, and available
+four-byte index storage before dispatch. It maps to `glDrawElements` with
+`GL_UNSIGNED_INT` and Vulkan `vkCmdBindIndexBuffer`/`vkCmdDrawIndexed`.
+Vertex/index buffers and backend command state remain stable with zero live-byte
+growth across the repeated sample draw loop.
+
 The owning `GraphicsApplication` is affine and specializes to Vulkan or OpenGL
 before frame work. Its destructor waits/destroys swapchain and device resources,
 then surface/instance/context, then the direct Abla window. A root application

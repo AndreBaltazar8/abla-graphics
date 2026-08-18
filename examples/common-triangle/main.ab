@@ -50,17 +50,36 @@ fun main: int {
     ))
     val verticesUploaded = verticesStored &&
         vertices.writeAllBytes(vertexBytes)
+    val indexBytes = bufferBytes(12)
+    val indicesStored = indexBytes.storeU32(0, 0) &&
+        indexBytes.storeU32(1, 4) && indexBytes.storeU32(2, 8)
+    val indices = app.buffer(BufferDescriptor(
+        label = "triangle-indices",
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    val indicesUploaded = indicesStored && indices.writeAllBytes(indexBytes)
     val pipeline = app.renderPipeline(shader, VertexBufferLayout(8))
     val clear = Color(0.02, 0.03, 0.05)
+    val invalidCountRejected = !app.presentRenderIndexed(
+        pipeline,
+        vertices,
+        indices,
+        4,
+        clear
+    )
     val warmed = app.valid() && pipeline.valid() && vertices.valid() &&
-        verticesUploaded &&
-        app.presentRenderVertices(pipeline, vertices, 3, clear)
+        indices.valid() && verticesUploaded && indicesUploaded &&
+        invalidCountRejected &&
+        app.presentRenderIndexed(pipeline, vertices, indices, 3, clear)
     val openGlProgram = pipeline.openGl.handle
     val openGlArray = pipeline.openGl.vertexArray
     val openGlVertexBuffer = vertices.openGl.handle
+    val openGlIndexBuffer = indices.openGl.handle
     val vulkanPipeline = pipeline.vulkan.handle
     val vulkanRenderPass = pipeline.vulkan.renderPass
     val vulkanVertexBuffer = vertices.vulkan.handle
+    val vulkanIndexBuffer = indices.vulkan.handle
     val vulkanFramebuffer = if (
         app.backend == graphicsBackendVulkan &&
         pipeline.vulkan.framebuffers.size > 0
@@ -74,9 +93,10 @@ fun main: int {
     var presented = warmed
     var frame = 0
     while (presented && frame < 4) {
-        presented = app.presentRenderVertices(
+        presented = app.presentRenderIndexed(
             pipeline,
             vertices,
+            indices,
             3,
             clear
         )
@@ -87,10 +107,12 @@ fun main: int {
     val handlesStable = if (app.backend == graphicsBackendOpenGl)
         pipeline.openGl.handle == openGlProgram &&
             pipeline.openGl.vertexArray == openGlArray &&
-            vertices.openGl.handle == openGlVertexBuffer
+            vertices.openGl.handle == openGlVertexBuffer &&
+            indices.openGl.handle == openGlIndexBuffer
     else pipeline.vulkan.handle == vulkanPipeline &&
         pipeline.vulkan.renderPass == vulkanRenderPass &&
         vertices.vulkan.handle == vulkanVertexBuffer &&
+        indices.vulkan.handle == vulkanIndexBuffer &&
         pipeline.vulkan.framebuffers[0] == vulkanFramebuffer &&
         app.vulkanPixels.frames[0].commandPool == commandPool &&
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
