@@ -129,6 +129,15 @@ Updated: 2026-08-18.
   the raw Vulkan variant multiplies twice and returns `18`, proving repeated
   commands operate on observable persistent storage.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
+- Pure-Abla Khronos inventory generation: exact official Vulkan and OpenGL
+  registry commits and SHA-256 digests are pinned in one manifest; the generator
+  filters Vulkan SC, OpenGL ES, and compatibility-only requirement branches,
+  resolves selected command references against definitions, merges API
+  variants, byte-sorts output, and produces committed coverage ledgers for 608
+  Vulkan commands/5 core versions/473 extensions and 2,892 OpenGL commands/19
+  core versions/623 extensions. Offline fixtures prove API filtering, aliases,
+  exact output, and repeated-run determinism. Every row remains explicitly
+  `unclassified`, so inventory presence is not represented as backend support.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
 - GitHub CI bootstraps `ablac` from its pinned seed and runs the complete
@@ -169,7 +178,10 @@ work.
   strict no-op and single-member storage-assignment compute subsets described
   above, not
   general shaders.
-- Generated Khronos registry bindings and complete coverage ledgers.
+- Generated Khronos ABI bindings and fully classified coverage ledgers. The
+  pinned, deterministic inventory ledgers exist, but all rows deliberately
+  remain `unclassified` until loader/ABI and positive/negative test evidence is
+  attached.
 - Texture uploads/copies/render-pass use, mapped/general buffer ranges, queued
   uploads, device-local suballocation policy, command encoders/render graph,
   asset formats, or framework-wide performance gates. Common buffers,

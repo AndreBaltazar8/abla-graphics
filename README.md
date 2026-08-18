@@ -44,7 +44,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   common buffers, textures, views, and samplers that create and drop real
   resources on either OpenGL or Vulkan, with checked buffer writes/readback;
 - pure-Abla IEEE-754 binary64-to-binary32 rounding so native `f64` colors reach
-  both drivers without a foreign shim; and
+  both drivers without a foreign shim;
+- a pure-Abla, deterministic Khronos XML inventory generator with pinned and
+  hash-verified Vulkan/OpenGL inputs plus honest unclassified coverage ledgers;
+  and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
 
@@ -59,6 +62,7 @@ The framework is developed alongside `../ablac`. On NixOS:
 ```sh
 nix-shell --run 'make test'
 nix-shell --run 'make test-toolchain'
+nix-shell --run 'make test-registry'
 ```
 
 Applications that open a portable surface declare the installed loader boundary

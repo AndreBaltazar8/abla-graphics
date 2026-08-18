@@ -8,8 +8,11 @@ The framework initially targets:
 
 The Vulkan generator consumes the canonical `vk.xml` registry. The OpenGL
 generator consumes the canonical OpenGL registry. Exact upstream commits and
-content hashes will live in `registry/manifest.toml`; updating them is a normal
-reviewed change with regenerated coverage reports and conformance tests.
+content hashes live in `registry/manifest.toml`; updating them is a normal
+reviewed change with regenerated coverage reports and conformance tests. The
+[importer contract](registry-importer.md) defines deterministic generation and
+the fail-closed boundary between the delivered inventory stage and future ABI
+binding generation.
 
 Specification breadth is split intentionally:
 
