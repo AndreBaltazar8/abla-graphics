@@ -21,6 +21,8 @@ Updated: 2026-08-18.
   show/hide, runtime title changes, direct WarpPointer with a MotionNotify round
   trip, an Abla-created transparent core cursor with synchronized idempotent
   visibility changes and teardown, idempotent confined pointer grab/release,
+  eight idle zero-timeout polls reusing one native poll block and canonical
+  immutable no-event value with zero runtime live-byte growth,
   ConfigureWindow/ConfigureNotify
   resize with authoritative owned dimensions, fixed-size and undecorated WM
   hints,

@@ -1106,9 +1106,11 @@ resource class X11Window(
     var pendingPackets: array<string>,
     var pendingPacketIndex: int,
     var clipboardOwned: bool,
-    var clipboard: string
+    var clipboard: string,
+    val pollScratch: NativeByteBuffer
 ) {
-    fun valid(): bool = this.descriptor >= 0 && this.identifier != 0
+    fun valid(): bool = this.descriptor >= 0 && this.identifier != 0 &&
+        !this.pollScratch.closed && this.pollScratch.capacity >= 8
     fun keyboardMapped(): bool = x11KeyboardMappingAvailable(this.keysyms)
 
     fun platformKeycode(key: int): int {
@@ -1398,10 +1400,10 @@ resource class X11Window(
         )
 
     fun pollEvent(timeoutMilliseconds: int = 0): WindowEvent {
-        var result = WindowEvent()
+        var result = windowEventEmpty
         if (this.pendingEvent.happened()) {
             result = this.pendingEvent
-            this.pendingEvent = WindowEvent()
+            this.pendingEvent = windowEventEmpty
         } else if (this.valid() && timeoutMilliseconds >= 0 &&
             timeoutMilliseconds <= 600000) {
             var event = ""
@@ -1415,17 +1417,16 @@ resource class X11Window(
                     this.pendingPacketIndex = 0
                 }
             } else {
-                val poll = nativeByteBuffer(8)
-                x11StoreU32(poll, 0, this.descriptor)
-                x11StoreU16(poll, 4, 1)
+                x11StoreU32(this.pollScratch, 0, this.descriptor)
+                x11StoreU16(this.pollScratch, 4, 1)
+                x11StoreU16(this.pollScratch, 6, 0)
                 val measured = linuxSyscall3(
                     7,
-                    nativePointerAddress(poll.address),
+                    nativePointerAddress(this.pollScratch.address),
                     1,
                     timeoutMilliseconds
                 )
-                readable = measured > 0 && poll.load(6) != 0
-                poll.close()
+                readable = measured > 0 && this.pollScratch.load(6) != 0
                 if (readable) event = x11ReadExact(this.descriptor, 32)
             }
             if (readable) {
@@ -1563,6 +1564,7 @@ resource class X11Window(
         }
         if (this.descriptor >= 0) linuxSyscall1(3, this.descriptor)
         this.descriptor = -1
+        this.pollScratch.close()
         return
     }
 }
@@ -1724,10 +1726,11 @@ fun x11Window(
         invisibleCursor,
         config.cursorVisible,
         config.title,
-        WindowEvent(),
+        windowEventEmpty,
         [],
         0,
         false,
-        ""
+        "",
+        nativeByteBuffer(8)
     )
 }

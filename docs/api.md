@@ -477,6 +477,12 @@ value events for close, logical/framebuffer resize, focus, key, text, pointer,
 scroll, file drop, and monitor changes. Applications may poll or wait with a
 timeout.
 
+The delivered surfaced facade uses `app.pollEvent(timeoutMilliseconds)`. Real
+events remain copied immutable values. The frequent no-event result is one
+canonical immutable value, and X11 reuses a window-owned 8-byte native poll
+descriptor, so idle `pollEvent(0)` performs no general allocation and does not
+grow runtime live memory.
+
 Key events expose stable `keyA` through `keyZ`, printable, navigation, function,
 keypad, and modifier constants rather than server-specific numbers.
 `event.key()` and `event.keyPressed()` are the portable path;

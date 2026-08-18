@@ -1,5 +1,6 @@
 import "../src/graphics.ab"
 import "abla/io"
+import "abla/runtime/memory"
 
 fun main: int {
     val window = x11Window(WindowConfig(
@@ -184,6 +185,17 @@ fun main: int {
         attempts = attempts + 1
     }
     if (passed) passed = event.kind == windowEventCloseRequested
+    val pollScratchBefore = nativePointerAddress(window.pollScratch.address)
+    val idleLiveBefore = runtimeMemoryLiveBytes()
+    var idlePolls = passed
+    var idleIndex = 0
+    while (idlePolls && idleIndex < 8) {
+        idlePolls = !window.pollEvent(0).happened()
+        idleIndex = idleIndex + 1
+    }
+    val idleLiveAfter = runtimeMemoryLiveBytes()
+    if (passed) passed = idlePolls && idleLiveAfter == idleLiveBefore &&
+        nativePointerAddress(window.pollScratch.address) == pollScratchBefore
     if (!passed) {
         println(
             "X11 event test valid=${window.valid()} keyboard=${window.keyboardMapped()} w=$wKeycode protocols=${window.protocolsAtom} delete=${window.deleteAtom} clipboard=${window.clipboardAtom}/${window.clipboardOwned} peer=${clipboardPeer.valid()} event=${event.kind}/${event.first} text='${event.text}'"
