@@ -16,7 +16,9 @@ Updated: 2026-08-18.
   KeySym handling, synthetic keyboard/text/pointer/scroll round trips with raw
   diagnostic codes, event poll/decode, initially hidden windows, idempotent
   show/hide, runtime title changes, direct WarpPointer with a MotionNotify round
-  trip, idempotent confined pointer grab/release, ConfigureWindow/ConfigureNotify
+  trip, an Abla-created transparent core cursor with synchronized idempotent
+  visibility changes and teardown, idempotent confined pointer grab/release,
+  ConfigureWindow/ConfigureNotify
   resize with authoritative owned dimensions, fixed-size and undecorated WM
   hints,
   fullscreen EWMH state, setup-derived screen pixel/physical dimensions with

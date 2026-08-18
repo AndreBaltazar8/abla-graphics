@@ -43,6 +43,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   staging/copy/present path with per-image
   presentation semaphores, fence-guarded slot reuse, and bounded automatic
   swapchain recovery for software renderers;
+- direct core-X11 cursor visibility and confined pointer capture without an
+  Xlib/XCB/GLFW window-management layer;
 - immutable portable buffer/texture/view/sampler descriptors plus affine
   common buffers, textures, views, and samplers that create and drop real
   resources on either OpenGL or Vulkan, with checked buffer writes/readback;

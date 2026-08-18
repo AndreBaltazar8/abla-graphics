@@ -964,6 +964,125 @@ fun x11GetPropertyRequest(window: int, propertyAtom: int): string {
     x11Packet(request, 24)
 }
 
+fun x11CreatePixmapRequest(
+    identifier: int,
+    drawable: int,
+    width: int,
+    height: int
+): string {
+    val request = nativeByteBuffer(17)
+    request.store(0, 53)
+    request.store(1, 1)
+    x11StoreU16(request, 2, 4)
+    x11StoreU32(request, 4, identifier)
+    x11StoreU32(request, 8, drawable)
+    x11StoreU16(request, 12, width)
+    x11StoreU16(request, 14, height)
+    x11Packet(request, 16)
+}
+
+fun x11CreateZeroForegroundGcRequest(
+    identifier: int,
+    drawable: int
+): string {
+    val request = nativeByteBuffer(21)
+    request.store(0, 55)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 5)
+    x11StoreU32(request, 4, identifier)
+    x11StoreU32(request, 8, drawable)
+    x11StoreU32(request, 12, 4)
+    x11StoreU32(request, 16, 0)
+    x11Packet(request, 20)
+}
+
+fun x11FillUnitRectangleRequest(drawable: int, gc: int): string {
+    val request = nativeByteBuffer(21)
+    request.store(0, 70)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 5)
+    x11StoreU32(request, 4, drawable)
+    x11StoreU32(request, 8, gc)
+    x11StoreU16(request, 12, 0)
+    x11StoreU16(request, 14, 0)
+    x11StoreU16(request, 16, 1)
+    x11StoreU16(request, 18, 1)
+    x11Packet(request, 20)
+}
+
+fun x11CreateInvisibleCursorRequest(
+    identifier: int,
+    pixmap: int
+): string {
+    val request = nativeByteBuffer(33)
+    request.store(0, 93)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 8)
+    x11StoreU32(request, 4, identifier)
+    x11StoreU32(request, 8, pixmap)
+    x11StoreU32(request, 12, pixmap)
+    var offset = 16
+    while (offset < 32) {
+        request.store(offset, 0)
+        offset = offset + 1
+    }
+    x11Packet(request, 32)
+}
+
+fun x11FreeResourceRequest(opcode: int, identifier: int): string {
+    val request = nativeByteBuffer(9)
+    request.store(0, opcode)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 2)
+    x11StoreU32(request, 4, identifier)
+    x11Packet(request, 8)
+}
+
+fun x11WindowCursorRequest(window: int, cursor: int): string {
+    val request = nativeByteBuffer(17)
+    request.store(0, 2)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 4)
+    x11StoreU32(request, 4, window)
+    x11StoreU32(request, 8, 16384)
+    x11StoreU32(request, 12, cursor)
+    x11Packet(request, 16)
+}
+
+fun x11GetInputFocusRequest(): string {
+    val request = nativeByteBuffer(5)
+    request.store(0, 43)
+    request.store(1, 0)
+    x11StoreU16(request, 2, 1)
+    x11Packet(request, 4)
+}
+
+fun x11CreateInvisibleCursor(
+    descriptor: int,
+    window: int,
+    cursor: int,
+    pixmap: int,
+    gc: int
+): bool = x11WriteAll(
+    descriptor,
+    x11CreatePixmapRequest(pixmap, window, 1, 1)
+) && x11WriteAll(
+    descriptor,
+    x11CreateZeroForegroundGcRequest(gc, pixmap)
+) && x11WriteAll(
+    descriptor,
+    x11FillUnitRectangleRequest(pixmap, gc)
+) && x11WriteAll(
+    descriptor,
+    x11CreateInvisibleCursorRequest(cursor, pixmap)
+) && x11WriteAll(
+    descriptor,
+    x11FreeResourceRequest(60, gc)
+) && x11WriteAll(
+    descriptor,
+    x11FreeResourceRequest(54, pixmap)
+)
+
 resource class X11Window(
     var descriptor: int,
     val identifier: int,
@@ -980,6 +1099,8 @@ resource class X11Window(
     var height: int,
     var visible: bool,
     var pointerCaptured: bool,
+    val invisibleCursor: int,
+    var cursorVisible: bool,
     var title: string,
     var pendingEvent: WindowEvent,
     var pendingPackets: array<string>,
@@ -1078,6 +1199,26 @@ resource class X11Window(
                 )
             }
             if (succeeded) this.pointerCaptured = captured
+        }
+        succeeded
+    }
+
+    fun setCursorVisible(visible: bool): bool {
+        var succeeded = this.valid() && this.invisibleCursor != 0
+        if (succeeded && visible != this.cursorVisible) {
+            succeeded = x11WriteAll(
+                this.descriptor,
+                x11WindowCursorRequest(
+                    this.identifier,
+                    if (visible) 0 else this.invisibleCursor
+                )
+            ) && x11WriteAll(
+                this.descriptor,
+                x11GetInputFocusRequest()
+            )
+            val reply = if (succeeded) this.readReplyHeader() else ""
+            succeeded = reply.size == 32 && reply[0] == 1
+            if (succeeded) this.cursorVisible = visible
         }
         succeeded
     }
@@ -1409,6 +1550,12 @@ resource class X11Window(
             this.pointerCaptured = false
         }
         if (this.valid()) {
+            if (this.invisibleCursor != 0) {
+                x11WriteAll(
+                    this.descriptor,
+                    x11FreeResourceRequest(95, this.invisibleCursor)
+                )
+            }
             x11WriteAll(
                 this.descriptor,
                 x11SingleWindowRequest(4, this.identifier)
@@ -1433,6 +1580,7 @@ fun x11Window(
     var utf8Atom = 0
     var targetsAtom = 0
     var clipboardPropertyAtom = 0
+    var invisibleCursor = 0
     var keysyms: array<int> = []
     var primaryMonitor = Monitor()
     if (config.valid() && !config.transparent) {
@@ -1464,6 +1612,9 @@ fun x11Window(
             )
             visual = setup.rootVisual
             identifier = setup.resourceBase | (1 & setup.resourceMask)
+            invisibleCursor = setup.resourceBase | (2 & setup.resourceMask)
+            val cursorPixmap = setup.resourceBase | (3 & setup.resourceMask)
+            val cursorGc = setup.resourceBase | (4 & setup.resourceMask)
             val created = x11WriteAll(
                 descriptor,
                 x11CreateRequest(setup, identifier, config)
@@ -1474,6 +1625,13 @@ fun x11Window(
                     protocolsAtom != 0 && deleteAtom != 0 &&
                     clipboardAtom != 0 && utf8Atom != 0 &&
                     targetsAtom != 0 && clipboardPropertyAtom != 0 &&
+                    invisibleCursor != 0 && x11CreateInvisibleCursor(
+                        descriptor,
+                        identifier,
+                        invisibleCursor,
+                        cursorPixmap,
+                        cursorGc
+                    ) &&
                     x11WriteAll(
                     descriptor,
                     x11WindowTitleRequest(identifier, config.title)
@@ -1529,6 +1687,12 @@ fun x11Window(
                         )
                     }
                 }
+                if (configured && !config.cursorVisible) {
+                    configured = x11WriteAll(
+                        descriptor,
+                        x11WindowCursorRequest(identifier, invisibleCursor)
+                    )
+                }
                 ready = configured && (!config.visible || x11WriteAll(
                         descriptor,
                         x11SingleWindowRequest(8, identifier)
@@ -1557,6 +1721,8 @@ fun x11Window(
         config.height,
         config.visible,
         false,
+        invisibleCursor,
+        config.cursorVisible,
         config.title,
         WindowEvent(),
         [],

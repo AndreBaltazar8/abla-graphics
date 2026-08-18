@@ -278,11 +278,12 @@ only when ownership actually changes.
 
 ## Window and events
 
-`WindowConfig` controls title, logical size, resizability, visibility,
-decorations, transparency, fullscreen/monitor selection, DPI behavior, and
-graphics surface needs. `Window.pollEvents()` returns bounded value events for
-close, logical/framebuffer resize, focus, key, text, pointer, scroll, file drop,
-and monitor changes. Applications may poll or wait with a timeout.
+`WindowConfig` controls title, logical size, resizability, visibility, initial
+cursor visibility, decorations, transparency, fullscreen/monitor selection,
+DPI behavior, and graphics surface needs. `Window.pollEvents()` returns bounded
+value events for close, logical/framebuffer resize, focus, key, text, pointer,
+scroll, file drop, and monitor changes. Applications may poll or wait with a
+timeout.
 
 Key events expose stable `keyA` through `keyZ`, printable, navigation, function,
 keypad, and modifier constants rather than server-specific numbers.
@@ -308,10 +309,15 @@ are not yet claimed.
 
 On the current X11 platform, `visible=false` creates an initially unmapped
 window; `show()`, `hide()`, and `setTitle()` update both the wire-protocol state
-and the Abla-owned state. `resize(width, height)` emits a checked
-ConfigureWindow request; the copied ConfigureNotify event is the authoritative
-size update. The common application synchronizes its OpenGL viewport dimensions
-before returning that event. Vulkan waits for outstanding queue work, destroys
+and the Abla-owned state. `setCursorVisible(false)` creates and selects a
+one-pixel transparent core-protocol cursor; showing the cursor restores the
+parent cursor. Both changes synchronize with the server before updating owned
+state, and cursor resources are released before the window. This composes with
+the existing confined `setPointerCaptured` mode. `resize(width, height)` emits
+a checked ConfigureWindow request; the copied ConfigureNotify event is the
+authoritative size update. The common application synchronizes its OpenGL
+viewport dimensions before returning that event. Vulkan waits for outstanding
+queue work, destroys
 the persistent pixel presenter before the old swapchain, updates the surface
 extent, re-queries capabilities/format, and recreates both resources before
 returning the event. `presentClear()` and `presentPixels()` also classify
