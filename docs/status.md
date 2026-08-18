@@ -108,6 +108,8 @@ Updated: 2026-08-18.
   backend selection. Explicit OpenGL/Vulkan plus automatic/fallback paths
   dispatch repeatedly; zero-sized dispatch is rejected on both backends.
   OpenGL does not force `glFinish` after dispatch.
+  Unsupported compute statements return the same common feature error before
+  either OpenGL or Vulkan pipeline creation.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.

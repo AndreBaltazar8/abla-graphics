@@ -336,6 +336,9 @@ resource branch. OpenGL queues work without a forced full-context finish.
 Vulkan currently waits for queue completion before resetting its persistent
 command resources; asynchronous fences and frames-in-flight are required before
 this becomes the high-throughput production path.
+The common facade runs the shared Abla SPIR-V translator validation before
+either backend is created, so OpenGL cannot accidentally accept a shader that
+would fail after switching the same application to Vulkan.
 
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the

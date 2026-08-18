@@ -53,12 +53,23 @@ trusted fun GraphicsApplication.computePipeline(
         nativeNullPointer()
     )
     var error = GraphicsError()
+    val translatable = glslPackage(
+        [shaderStageCompute],
+        [shader.source(shaderStageCompute)]
+    )
+    val emitted = translatable.spirv(shaderStageCompute)
     if (!this.valid() || !shader.valid) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.computePipeline",
             if (shader.error != "") shader.error else
                 "the application or shader package is invalid"
+        )
+    } else if (!emitted.succeeded) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "ShaderPackage.spirv",
+            emitted.error
         )
     } else if (this.backend == graphicsBackendOpenGl) {
         openGl = this.openGl.computePipeline(shader)
@@ -68,28 +79,15 @@ trusted fun GraphicsApplication.computePipeline(
             openGl.error
         )
     } else if (this.backend == graphicsBackendVulkan) {
-        val translatable = glslPackage(
-            [shaderStageCompute],
-            [shader.source(shaderStageCompute)]
-        )
-        val emitted = translatable.spirv(shaderStageCompute)
-        if (!emitted.succeeded) {
-            error = GraphicsError(
-                graphicsErrorUnsupportedFeature,
-                "ShaderPackage.spirv",
-                emitted.error
-            )
-        } else {
-            val module = this.vulkanDevice.shaderModule(emitted.module)
-            if (module.valid()) {
-                vulkan = this.vulkanDevice.computePipeline(module)
-            }
-            if (!vulkan.valid()) error = GraphicsError(
-                graphicsErrorDriverFailure,
-                "VulkanDevice.computePipeline",
-                "Vulkan compute pipeline creation failed"
-            )
+        val module = this.vulkanDevice.shaderModule(emitted.module)
+        if (module.valid()) {
+            vulkan = this.vulkanDevice.computePipeline(module)
         }
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.computePipeline",
+            "Vulkan compute pipeline creation failed"
+        )
     }
     GraphicsComputePipeline(move(openGl), move(vulkan), this.backend, error)
 }
