@@ -415,6 +415,16 @@ fun applicationBackendProbe(
         format = textureFormatDepth32Float,
         usage = textureUsageRenderAttachment
     ))
+    val multipleColorZero = app.texture(TextureDescriptor(
+        label = "multiple-color-zero",
+        size = Extent3D(16, 16),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val multipleColorOne = app.texture(TextureDescriptor(
+        label = "multiple-color-one",
+        size = Extent3D(16, 16),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
     val renderTarget = app.renderTarget(move(renderTexture))
     val depthRenderTarget = app.renderTargetWithDepth(
         move(depthRenderColor),
@@ -423,6 +433,10 @@ fun applicationBackendProbe(
     val mismatchedDepthTarget = app.renderTargetWithDepth(
         move(mismatchedDepthColor),
         move(mismatchedDepth)
+    )
+    val multipleColorTarget = app.renderTargetWithColors(
+        move(multipleColorZero),
+        [move(multipleColorOne)]
     )
     val missingRenderUsageTarget = app.renderTarget(
         move(noAttachmentTexture)
@@ -705,6 +719,28 @@ fun applicationBackendProbe(
             }
         }
     }
+    val multipleColorShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 firstColor;
+            layout(location = 1) out vec4 secondColor;
+            void main() {
+                firstColor = vec4(1.0, 0.0, 0.0, 1.0);
+                secondColor = vec4(0.0, 1.0, 0.0, 1.0);
+            }
+        }
+    }
     val renderPipeline = app.renderPipeline(triangleShader)
     val targetPipeline = app.renderTargetPipeline(
         renderTarget,
@@ -727,6 +763,53 @@ fun applicationBackendProbe(
         Color(0.01, 0.02, 0.03)
     )
     val depthTargetPixel = depthRenderTarget.texture.rgba8(16, 12)
+    val multipleColorPipeline = app.renderTargetPipeline(
+        multipleColorTarget,
+        multipleColorShader
+    )
+    val mismatchedColorOutputPipeline = app.renderTargetPipeline(
+        multipleColorTarget,
+        triangleShader
+    )
+    val multipleColorClear = Color(0.01, 0.02, 0.03)
+    val multipleColorRendered = app.renderToTarget(
+        multipleColorTarget,
+        multipleColorPipeline,
+        multipleColorClear
+    )
+    val multipleColorPixelZero = multipleColorTarget.texture.rgba8(8, 8)
+    val multipleColorPixelOne =
+        multipleColorTarget.additionalTextures[0].rgba8(8, 8)
+    val multipleColorPipelineHandle = if (
+        app.backend == graphicsBackendOpenGl
+    ) multipleColorPipeline.openGl.handle else
+        multipleColorPipeline.vulkan.handle
+    val multipleColorAttachmentHandle = if (
+        app.backend == graphicsBackendOpenGl
+    ) multipleColorTarget.openGl.additionalTextures[0] else
+        multipleColorTarget.vulkan.additionalViews[0]
+    val multipleColorLiveBefore = runtimeMemoryLiveBytes()
+    var multipleColorRepeated = multipleColorRendered
+    var multipleColorRepeat = 0
+    while (multipleColorRepeated && multipleColorRepeat < 4) {
+        multipleColorRepeated = app.renderToTarget(
+            multipleColorTarget,
+            multipleColorPipeline,
+            multipleColorClear
+        )
+        multipleColorRepeat = multipleColorRepeat + 1
+    }
+    val multipleColorLiveAfter = runtimeMemoryLiveBytes()
+    val multipleColorNoGrowth =
+        multipleColorLiveAfter == multipleColorLiveBefore
+    val multipleColorHandlesStable = if (
+        app.backend == graphicsBackendOpenGl
+    ) multipleColorPipeline.openGl.handle == multipleColorPipelineHandle &&
+        multipleColorTarget.openGl.additionalTextures[0] ==
+            multipleColorAttachmentHandle
+    else multipleColorPipeline.vulkan.handle == multipleColorPipelineHandle &&
+        multipleColorTarget.vulkan.additionalViews[0] ==
+            multipleColorAttachmentHandle
     val targetPipelineCompatible = targetPipeline.valid() &&
         targetPipeline.targetHandle != 0 &&
         targetPipeline.targetWidth == 32 && targetPipeline.targetHeight == 24 &&
@@ -802,7 +885,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && pixelsPresented && pixelNoGrowth &&
         pixelHandlesStable && frameSlotsPassed &&
@@ -866,6 +949,16 @@ fun applicationBackendProbe(
         targetHandlesStable &&
         depthTargetPipeline.valid() && depthTargetRendered &&
         depthTargetPixel == 4294281759 &&
+        multipleColorTarget.valid() &&
+        multipleColorTarget.colorCount() == 2 &&
+        multipleColorPipeline.valid() && multipleColorRendered &&
+        !mismatchedColorOutputPipeline.valid() &&
+        mismatchedColorOutputPipeline.error.code ==
+            graphicsErrorInvalidConfiguration &&
+        multipleColorPixelZero == 4278190335 &&
+        multipleColorPixelOne == 4278255360 &&
+        multipleColorRepeated && multipleColorRepeat == 4 &&
+        multipleColorNoGrowth && multipleColorHandlesStable &&
         !mismatchedDepthTarget.valid() &&
         mismatchedDepthTarget.error.code ==
             graphicsErrorInvalidConfiguration &&

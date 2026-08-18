@@ -177,6 +177,7 @@ noescape extern:"c" fun glFramebufferTexture2D(
     texture: i32,
     level: i32
 ): void
+noescape extern:"c" fun glDrawBuffers(count: i32, buffers: i64*): void
 noescape extern:"c" fun glCheckFramebufferStatus(target: i32): i32
 noescape extern:"c" fun glDeleteFramebuffers(
     count: i32,
@@ -1264,6 +1265,7 @@ resource class OpenGlTextureView(var handle: int) {
 resource class OpenGlRenderTarget(
     var handle: int,
     val texture: int,
+    val additionalTextures: array<int>,
     val depthTexture: int,
     val width: int,
     val height: int,
@@ -1272,6 +1274,7 @@ resource class OpenGlRenderTarget(
     val context: i64*
 ) {
     fun valid(): bool = this.handle != 0 && this.texture != 0 &&
+        this.additionalTextures.size <= 7 &&
         this.width > 0 && this.height > 0 &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context)
 
@@ -1295,7 +1298,8 @@ resource class OpenGlRenderTarget(
 trusted fun OpenGlWindowContext.renderTarget(
     texture: OpenGlTexture,
     descriptor: TextureDescriptor,
-    depthTexture: int = 0
+    depthTexture: int = 0,
+    additionalTextures: array<int> = []
 ): OpenGlRenderTarget {
     var handle = 0
     var succeeded = this.valid() && texture.valid() &&
@@ -1304,6 +1308,7 @@ trusted fun OpenGlWindowContext.renderTarget(
         descriptor.samples == 1 && descriptor.mipLevels >= 1 &&
         !textureFormatHasDepth(descriptor.format) &&
         (descriptor.usage & textureUsageRenderAttachment) != 0 &&
+        additionalTextures.size <= 7 &&
         this.makeCurrent()
     if (succeeded) {
         val output = nativeI64Cell(0)
@@ -1314,6 +1319,26 @@ trusted fun OpenGlWindowContext.renderTarget(
     if (succeeded) {
         glBindFramebuffer(36160, handle)
         glFramebufferTexture2D(36160, 36064, 3553, texture.handle, 0)
+        var colorIndex = 0
+        while (colorIndex < additionalTextures.size) {
+            glFramebufferTexture2D(
+                36160,
+                36065 + colorIndex,
+                3553,
+                additionalTextures[colorIndex],
+                0
+            )
+            colorIndex = colorIndex + 1
+        }
+        val drawBuffers = nativeByteBuffer(
+            (1 + additionalTextures.size) * 4
+        )
+        colorIndex = 0
+        while (colorIndex < 1 + additionalTextures.size) {
+            openGlStoreI32(drawBuffers, colorIndex, 36064 + colorIndex)
+            colorIndex = colorIndex + 1
+        }
+        glDrawBuffers(1 + additionalTextures.size, drawBuffers.address)
         if (depthTexture != 0) glFramebufferTexture2D(
             36160,
             36096,
@@ -1333,6 +1358,7 @@ trusted fun OpenGlWindowContext.renderTarget(
     OpenGlRenderTarget(
         handle,
         texture.handle,
+        additionalTextures,
         depthTexture,
         descriptor.size.width,
         descriptor.size.height,
@@ -1356,7 +1382,11 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
         openGlStoreI32(this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha))
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
-        glClearBufferfv(6144, 0, this.clearScratch.address)
+        var colorIndex = 0
+        while (colorIndex < 1 + target.additionalTextures.size) {
+            glClearBufferfv(6144, colorIndex, this.clearScratch.address)
+            colorIndex = colorIndex + 1
+        }
         if (target.depthTexture != 0) {
             openGlStoreI32(this.clearScratch, 0, 1065353216)
             glClearBufferfv(6145, 0, this.clearScratch.address)
@@ -1405,7 +1435,11 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         openGlStoreI32(this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha))
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
-        glClearBufferfv(6144, 0, this.clearScratch.address)
+        var colorIndex = 0
+        while (colorIndex < 1 + target.additionalTextures.size) {
+            glClearBufferfv(6144, colorIndex, this.clearScratch.address)
+            colorIndex = colorIndex + 1
+        }
         if (target.depthTexture != 0) {
             openGlStoreI32(this.clearScratch, 0, 1065353216)
             glClearBufferfv(6145, 0, this.clearScratch.address)

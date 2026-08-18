@@ -1,0 +1,82 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend),
+        WindowConfig(
+            title = "Abla Graphics multiple render targets",
+            width = 480,
+            height = 320
+        )
+    )
+    val first = app.texture(TextureDescriptor(
+        label = "mrt-red",
+        size = Extent3D(128, 128),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val second = app.texture(TextureDescriptor(
+        label = "mrt-green",
+        size = Extent3D(128, 128),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTargetWithColors(
+        move(first),
+        [move(second)]
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 firstColor;
+            layout(location = 1) out vec4 secondColor;
+            void main() {
+                firstColor = vec4(1.0, 0.0, 0.0, 1.0);
+                secondColor = vec4(0.0, 1.0, 0.0, 1.0);
+            }
+        }
+    }
+    val pipeline = app.renderTargetPipeline(target, shader)
+    val clear = Color(0.01, 0.02, 0.03)
+    val warmed = app.valid() && target.valid() && pipeline.valid() &&
+        app.renderToTarget(target, pipeline, clear)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var rendered = warmed
+    var frame = 0
+    while (rendered && frame < 4) {
+        rendered = app.renderToTarget(
+            target,
+            pipeline,
+            clear
+        )
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val firstPixel = target.texture.rgba8(64, 64)
+    val secondPixel = target.additionalTextures[0].rgba8(64, 64)
+    val noGrowth = liveAfter == liveBefore
+    println(
+        "Multiple render targets ${graphicsBackendName(app.backend)}: colors=${target.colorCount()}, frames=$frame, first=$firstPixel, second=$secondPixel, repeatNoGrowth=$noGrowth, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+    )
+    if (rendered && frame == 4 && target.colorCount() == 2 &&
+        firstPixel == 4278190335 && secondPixel == 4278255360 &&
+        noGrowth) 0 else 1
+}

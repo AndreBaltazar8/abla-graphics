@@ -137,6 +137,31 @@ fun main: int {
     val triangleVertexAgain = triangle.spirv(shaderStageVertex)
     val triangleFragment = triangle.spirv(shaderStageFragment)
     val triangleFragmentAgain = triangle.spirv(shaderStageFragment)
+    val multipleColor = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 firstColor;
+            layout(location = 1) out vec4 secondColor;
+            void main() {
+                firstColor = vec4(1.0, 0.0, 0.0, 1.0);
+                secondColor = vec4(0.0, 1.0, 0.0, 1.0);
+            }
+        }
+    }
+    val multipleColorFragment = multipleColor.spirv(shaderStageFragment)
+    val multipleColorFragmentAgain =
+        multipleColor.spirv(shaderStageFragment)
     val vertexBufferTriangle = $glsl {
         vertex {
             #version 450
@@ -330,6 +355,15 @@ fun main: int {
         spirvWordsEqual(
             triangleFragment.module,
             triangleFragmentAgain.module
+        ) &&
+        multipleColor.valid && multipleColor.locations.size == 2 &&
+        multipleColorFragment.succeeded &&
+        multipleColorFragment.module.valid() &&
+        multipleColorFragment.module.words.size == 95 &&
+        multipleColorFragment.module.bound() == 15 &&
+        spirvWordsEqual(
+            multipleColorFragment.module,
+            multipleColorFragmentAgain.module
         ) &&
         vertexBufferTriangle.valid &&
         vertexBufferTriangle.locations.size == 2 &&

@@ -24,6 +24,7 @@ resource class GraphicsRenderPipeline(
     val targetWidth: int,
     val targetHeight: int,
     val targetFormat: int,
+    val targetColorCount: int,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.vertexLayout.valid() &&
@@ -52,7 +53,8 @@ trusted fun GraphicsApplication.renderPipeline(
     targetFormat: int = 0,
     targetWidth: int = 0,
     targetHeight: int = 0,
-    targetDepthView: int = 0
+    targetDepthView: int = 0,
+    targetColorCount: int = 1
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -88,6 +90,8 @@ trusted fun GraphicsApplication.renderPipeline(
           (this.backend == graphicsBackendVulkan &&
            targetRenderPass != 0 && targetView != 0 && targetFormat != 0)))
     var vertexInputCount = 0
+    var fragmentOutputCount = 0
+    var fragmentOutputsContiguous = true
     var vertexInputValid = true
     var locationIndex = 0
     while (locationIndex < shader.locations.size) {
@@ -112,11 +116,20 @@ trusted fun GraphicsApplication.renderPipeline(
             }
             vertexInputValid = vertexInputValid && matched &&
                 location.arraySize == 1
+        } else if (location.stage == shaderStageFragment &&
+            location.direction == "out") {
+            fragmentOutputsContiguous = fragmentOutputsContiguous &&
+                location.location == fragmentOutputCount &&
+                location.arraySize == 1
+            fragmentOutputCount = fragmentOutputCount + 1
         }
         locationIndex = locationIndex + 1
     }
     val layoutMatches = vertexLayout.valid() && raster.valid() &&
         depth.valid() &&
+        targetColorCount >= 1 && targetColorCount <= 8 &&
+        fragmentOutputCount == targetColorCount &&
+        fragmentOutputsContiguous &&
         ((vertexLayout.buffered() &&
           vertexInputCount == vertexLayout.attributeCount() &&
           vertexInputValid) ||
@@ -182,7 +195,8 @@ trusted fun GraphicsApplication.renderPipeline(
                 targetFormat,
                 targetWidth,
                 targetHeight,
-                targetDepthView
+                targetDepthView,
+                targetColorCount
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -205,6 +219,7 @@ trusted fun GraphicsApplication.renderPipeline(
         targetWidth,
         targetHeight,
         targetFormat,
+        targetColorCount,
         error
     )
 }
@@ -241,7 +256,8 @@ trusted fun GraphicsApplication.renderTargetPipeline(
         target.texture.descriptor.size.width,
         target.texture.descriptor.size.height,
         if (this.backend == graphicsBackendVulkan)
-            target.vulkan.depthView else 0
+            target.vulkan.depthView else 0,
+        target.colorCount()
     )
 }
 
@@ -255,6 +271,7 @@ trusted fun GraphicsApplication.renderToTarget(
         pipeline.backend == this.backend && pipeline.targetHandle != 0 &&
         pipeline.targetWidth == target.texture.descriptor.size.width &&
         pipeline.targetHeight == target.texture.descriptor.size.height &&
+        pipeline.targetColorCount == target.colorCount() &&
         !pipeline.vertexLayout.buffered() &&
         pipeline.depth.enabled == target.hasDepth()
     if (succeeded && this.backend == graphicsBackendOpenGl) {
@@ -289,15 +306,7 @@ trusted fun GraphicsApplication.renderToTarget(
                 1,
                 pipeline.binding.vulkan.descriptorSet
             )
-        if (succeeded) target.texture.vulkan.storeLayout(
-            0,
-            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
-                5
-            else 2
-        )
-        if (succeeded && target.hasDepth()) {
-            target.depthTexture.vulkan.storeLayout(0, 3)
-        }
+        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -316,6 +325,7 @@ trusted fun GraphicsApplication.renderVerticesToTarget(
         pipeline.backend == this.backend && pipeline.targetHandle != 0 &&
         pipeline.targetWidth == target.texture.descriptor.size.width &&
         pipeline.targetHeight == target.texture.descriptor.size.height &&
+        pipeline.targetColorCount == target.colorCount() &&
         stride > 0 && vertexCount > 0 && instanceCount > 0 &&
         vertexCount <= vertices.descriptor.size / stride &&
         this.ownsBuffer(vertices) &&
@@ -353,15 +363,7 @@ trusted fun GraphicsApplication.renderVerticesToTarget(
                 instanceCount,
                 pipeline.binding.vulkan.descriptorSet
             )
-        if (succeeded) target.texture.vulkan.storeLayout(
-            0,
-            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
-                5
-            else 2
-        )
-        if (succeeded && target.hasDepth()) {
-            target.depthTexture.vulkan.storeLayout(0, 3)
-        }
+        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -382,6 +384,7 @@ trusted fun GraphicsApplication.renderIndexedToTarget(
         pipeline.targetHandle != 0 &&
         pipeline.targetWidth == target.texture.descriptor.size.width &&
         pipeline.targetHeight == target.texture.descriptor.size.height &&
+        pipeline.targetColorCount == target.colorCount() &&
         stride > 0 && vertices.descriptor.size / stride > 0 &&
         indexCount > 0 && instanceCount > 0 &&
         indexCount <= indices.descriptor.size / 4 &&
@@ -421,15 +424,7 @@ trusted fun GraphicsApplication.renderIndexedToTarget(
                 instanceCount,
                 pipeline.binding.vulkan.descriptorSet
             )
-        if (succeeded) target.texture.vulkan.storeLayout(
-            0,
-            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
-                5
-            else 2
-        )
-        if (succeeded && target.hasDepth()) {
-            target.depthTexture.vulkan.storeLayout(0, 3)
-        }
+        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -448,6 +443,7 @@ trusted fun GraphicsApplication.renderVerticesIndirectToTarget(
         pipeline.targetHandle != 0 &&
         pipeline.targetWidth == target.texture.descriptor.size.width &&
         pipeline.targetHeight == target.texture.descriptor.size.height &&
+        pipeline.targetColorCount == target.colorCount() &&
         stride > 0 && vertices.descriptor.size / stride > 0 &&
         indirect.descriptor.size >= 16 &&
         this.ownsBuffer(vertices) && this.ownsBuffer(indirect) &&
@@ -488,15 +484,7 @@ trusted fun GraphicsApplication.renderVerticesIndirectToTarget(
                 pipeline.binding.vulkan.descriptorSet,
                 indirect.vulkan.handle
             )
-        if (succeeded) target.texture.vulkan.storeLayout(
-            0,
-            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
-                5
-            else 2
-        )
-        if (succeeded && target.hasDepth()) {
-            target.depthTexture.vulkan.storeLayout(0, 3)
-        }
+        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
     succeeded
 }
@@ -516,6 +504,7 @@ trusted fun GraphicsApplication.renderIndexedIndirectToTarget(
         pipeline.backend == this.backend && pipeline.targetHandle != 0 &&
         pipeline.targetWidth == target.texture.descriptor.size.width &&
         pipeline.targetHeight == target.texture.descriptor.size.height &&
+        pipeline.targetColorCount == target.colorCount() &&
         stride > 0 && vertices.descriptor.size / stride > 0 &&
         indices.descriptor.size / 4 > 0 && indirect.descriptor.size >= 20 &&
         this.ownsBuffer(vertices) && this.ownsBuffer(indices) &&
@@ -560,15 +549,7 @@ trusted fun GraphicsApplication.renderIndexedIndirectToTarget(
                 indirect.vulkan.handle,
                 true
             )
-        if (succeeded) target.texture.vulkan.storeLayout(
-            0,
-            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
-                5
-            else 2
-        )
-        if (succeeded && target.hasDepth()) {
-            target.depthTexture.vulkan.storeLayout(0, 3)
-        }
+        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
     succeeded
 }

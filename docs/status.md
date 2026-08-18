@@ -272,6 +272,13 @@ Updated: 2026-08-18.
   records depth clears, and tracks the depth-optimal layout. Depth-enabled
   target pipelines borrow those attachments; mismatched depth state is
   rejected.
+- Multiple color attachments: `renderTargetWithColors` takes affine ownership
+  of two to eight same-size render textures while preserving attachment zero as
+  the compatibility-facing `target.texture`. Reflected fragment outputs must be
+  contiguous and exactly match the target count. OpenGL configures FBO draw
+  buffers; Vulkan generates the complete attachment/reference/view/framebuffer
+  and blend-state arrays. Exact red/green readback passes on both backends, and
+  four repeated MRT draws preserve handles with zero live-memory growth.
 - Render-to-texture/post-process sample: a 256x256 target receives a procedural
   and buffered scene pass, becomes a sampled-texture bind-group entry, and is
   drawn through a fullscreen surface pass unchanged on OpenGL and Vulkan. The

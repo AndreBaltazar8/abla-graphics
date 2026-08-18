@@ -12,14 +12,38 @@ resource class GraphicsRenderTarget(
     val openGl: OpenGlRenderTarget,
     val vulkan: VulkanRenderTarget,
     val texture: GraphicsTexture,
+    val additionalTextures: array<GraphicsTexture>,
     val depthTexture: GraphicsTexture,
     val backend: int,
     val error: GraphicsError
 ) {
+    fun colorCount(): int = 1 + this.additionalTextures.size
+
+    fun additionalColorsValid(): bool {
+        var valid = this.additionalTextures.size <= 7
+        var index = 0
+        while (valid && index < this.additionalTextures.size) {
+            val color = this.additionalTextures[index]
+            valid = color.valid() && color.backend == this.backend &&
+                !textureFormatHasDepth(color.descriptor.format) &&
+                color.descriptor.dimension == textureDimension2D &&
+                color.descriptor.samples == 1 &&
+                color.descriptor.size.width ==
+                    this.texture.descriptor.size.width &&
+                color.descriptor.size.height ==
+                    this.texture.descriptor.size.height &&
+                (color.descriptor.usage &
+                    textureUsageRenderAttachment) != 0
+            index = index + 1
+        }
+        valid
+    }
+
     fun valid(): bool = !this.error.occurred() &&
         this.texture.valid() &&
         (this.texture.descriptor.usage & textureUsageRenderAttachment) != 0 &&
         !textureFormatHasDepth(this.texture.descriptor.format) &&
+        this.additionalColorsValid() &&
         (!this.depthTexture.valid() || (
             this.depthTexture.backend == this.backend &&
             textureFormatHasDepth(this.depthTexture.descriptor.format) &&
@@ -37,11 +61,36 @@ resource class GraphicsRenderTarget(
         this.openGl.drop()
         this.vulkan.drop()
         this.texture.drop()
+        var index = 0
+        while (index < this.additionalTextures.size) {
+            this.additionalTextures[index].drop()
+            index = index + 1
+        }
         this.depthTexture.drop()
         return
     }
 
     fun hasDepth(): bool = this.depthTexture.valid()
+
+    trusted fun storeVulkanLayouts(): void {
+        this.texture.vulkan.storeLayout(
+            0,
+            if ((this.texture.descriptor.usage & textureUsageSampled) != 0)
+                5
+            else 2
+        )
+        var index = 0
+        while (index < this.additionalTextures.size) {
+            this.additionalTextures[index].vulkan.storeLayout(
+                0,
+                if ((this.additionalTextures[index].descriptor.usage &
+                    textureUsageSampled) != 0) 5 else 2
+            )
+            index = index + 1
+        }
+        if (this.hasDepth()) this.depthTexture.vulkan.storeLayout(0, 3)
+        return
+    }
 }
 
 trusted fun GraphicsApplication.renderTarget(
@@ -50,6 +99,7 @@ trusted fun GraphicsApplication.renderTarget(
     var openGl = OpenGlRenderTarget(
         0,
         0,
+        [],
         0,
         0,
         0,
@@ -60,6 +110,7 @@ trusted fun GraphicsApplication.renderTarget(
     var vulkan = VulkanRenderTarget(
         nativeNullPointer(),
         0,
+        [],
         0,
         0,
         0,
@@ -109,6 +160,7 @@ trusted fun GraphicsApplication.renderTarget(
         move(openGl),
         move(vulkan),
         move(texture),
+        [],
         emptyGraphicsTexture(),
         this.backend,
         error
@@ -122,6 +174,7 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
     var openGl = OpenGlRenderTarget(
         0,
         0,
+        [],
         0,
         0,
         0,
@@ -132,6 +185,7 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
     var vulkan = VulkanRenderTarget(
         nativeNullPointer(),
         0,
+        [],
         0,
         0,
         0,
@@ -197,7 +251,123 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
         move(openGl),
         move(vulkan),
         move(texture),
+        [],
         move(depthTexture),
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.renderTargetWithColors(
+    own texture: GraphicsTexture,
+    own additionalTextures: array<GraphicsTexture>
+): GraphicsRenderTarget {
+    var openGl = OpenGlRenderTarget(
+        0,
+        0,
+        [],
+        0,
+        0,
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer()
+    )
+    var vulkan = VulkanRenderTarget(
+        nativeNullPointer(),
+        0,
+        [],
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    )
+    val openGlHandles: array<int> = []
+    val vulkanImages: array<int> = []
+    val descriptors: array<TextureDescriptor> = []
+    var compatible = this.valid() && texture.valid() &&
+        this.ownsTexture(texture) && additionalTextures.size > 0 &&
+        additionalTextures.size <= 7 &&
+        texture.descriptor.dimension == textureDimension2D &&
+        texture.descriptor.samples == 1 &&
+        !textureFormatHasDepth(texture.descriptor.format) &&
+        (texture.descriptor.usage & textureUsageRenderAttachment) != 0
+    var index = 0
+    while (compatible && index < additionalTextures.size) {
+        val color = additionalTextures[index]
+        compatible = color.valid() && this.ownsTexture(color) &&
+            color.descriptor.dimension == textureDimension2D &&
+            color.descriptor.samples == 1 &&
+            !textureFormatHasDepth(color.descriptor.format) &&
+            color.descriptor.size.width == texture.descriptor.size.width &&
+            color.descriptor.size.height == texture.descriptor.size.height &&
+            (color.descriptor.usage & textureUsageRenderAttachment) != 0
+        if (compatible) {
+            openGlHandles.append(color.openGl.handle)
+            vulkanImages.append(color.vulkan.image)
+            descriptors.append(TextureDescriptor(
+                size = Extent3D(
+                    color.descriptor.size.width,
+                    color.descriptor.size.height,
+                    color.descriptor.size.depth
+                ),
+                mipLevels = color.descriptor.mipLevels,
+                samples = color.descriptor.samples,
+                dimension = color.descriptor.dimension,
+                format = color.descriptor.format,
+                usage = color.descriptor.usage
+            ))
+        }
+        index = index + 1
+    }
+    var error = GraphicsError()
+    if (!compatible) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.renderTargetWithColors",
+        "multiple render targets require two to eight owned, same-size, single-sample 2D color textures with render-attachment usage"
+    )
+    else if (this.backend == graphicsBackendOpenGl) {
+        openGl = this.openGl.renderTarget(
+            texture.openGl,
+            texture.descriptor,
+            0,
+            openGlHandles
+        )
+        if (!openGl.valid()) error = GraphicsError(
+            graphicsErrorAttachmentMismatch,
+            "OpenGlWindowContext.renderTarget",
+            "OpenGL multiple-color framebuffer creation or completeness validation failed"
+        )
+    } else if (this.backend == graphicsBackendVulkan) {
+        vulkan = this.vulkanDevice.renderTarget(
+            texture.vulkan,
+            texture.descriptor,
+            0,
+            TextureDescriptor(),
+            vulkanImages,
+            descriptors
+        )
+        if (!vulkan.valid()) error = GraphicsError(
+            graphicsErrorDriverFailure,
+            "VulkanDevice.renderTarget",
+            "Vulkan multiple-color render pass, views, or framebuffer creation failed"
+        )
+    } else error = GraphicsError(
+        graphicsErrorBackendUnavailable,
+        "GraphicsApplication.renderTargetWithColors",
+        "the selected backend cannot create a multiple-color render target"
+    )
+    GraphicsRenderTarget(
+        move(openGl),
+        move(vulkan),
+        move(texture),
+        move(additionalTextures),
+        emptyGraphicsTexture(),
         this.backend,
         error
     )
@@ -216,15 +386,7 @@ trusted fun GraphicsApplication.clearRenderTarget(
             target.vulkan,
             clear
         )
-        if (succeeded) target.texture.vulkan.storeLayout(
-            0,
-            if ((target.texture.descriptor.usage & textureUsageSampled) != 0)
-                5
-            else 2
-        )
-        if (succeeded && target.hasDepth()) {
-            target.depthTexture.vulkan.storeLayout(0, 3)
-        }
+        if (succeeded) target.storeVulkanLayouts()
     } else if (succeeded) succeeded = false
     succeeded
 }

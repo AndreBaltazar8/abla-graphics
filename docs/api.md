@@ -622,6 +622,24 @@ val depth = app.texture(TextureDescriptor(
 val depthTarget = app.renderTargetWithDepth(move(depthColor), move(depth))
 ```
 
+Two to eight same-size color attachments use the same affine ownership model.
+Attachment zero remains `target.texture`; subsequent attachments are held in
+`target.additionalTextures`:
+
+```abla
+val target = app.renderTargetWithColors(
+    move(albedo),
+    [move(normal), move(material)]
+)
+```
+
+The fragment shader must declare contiguous outputs beginning at location zero,
+with exactly `target.colorCount()` outputs. OpenGL attaches each texture and
+selects all draw buffers. Vulkan creates matching attachment descriptions,
+references, image views, framebuffer entries, clear values, and pipeline blend
+states. The common API rejects mismatched shader-output counts before native
+pipeline creation.
+
 The target owns the texture, ensuring the backend attachment dies before its
 image. OpenGL owns and completeness-checks a framebuffer object. Vulkan owns a
 compatible full image view, render pass, and framebuffer, with a sampled target
@@ -643,8 +661,9 @@ pipeline. A depth-enabled pipeline must target a depth-attached target; color-
 only/depth-state mismatches are rejected. The `render-to-texture` sample
 exercises all four buffered command forms with depth testing/writes before
 sampling the result, with exact center-pixel verification, stable native
-handles, and zero live-byte growth. Multiple color attachments remain the next
-extension of this path.
+handles, and zero live-byte growth. The same command forms operate on multiple
+color attachments; generalized per-attachment load/store and clear operations
+remain the next render-pass extension.
 
 Samplers are also driver-backed affine resources:
 
