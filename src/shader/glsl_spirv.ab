@@ -25,7 +25,8 @@ class GlslStorageToken(
     val kind: int,
     val value: int = 0,
     val opcode: int = 0,
-    val specializationId: int = -1
+    val specializationId: int = -1,
+    val arity: int = 2
 )
 
 class GlslStorageExpression(
@@ -978,6 +979,62 @@ fun glslStoragePrimary(
     GlslStorageExpression(valid && tokens.size > 0, tokens, index)
 }
 
+fun glslStorageUnary(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val index = glslSkipTrivia(source, begin)
+    if (index < source.size &&
+        (source[index] == 43 || source[index] == 45 ||
+         source[index] == 126)) {
+        var numeric = false
+        if ((source[index] == 43 || source[index] == 45) &&
+            index + 1 < source.size) {
+            numeric = source[index + 1] >= 48 && source[index + 1] <= 57
+        }
+        if (!numeric) {
+            val repeated = (source[index] == 43 || source[index] == 45) &&
+                index + 1 < source.size &&
+                source[index + 1] == source[index]
+            val operand = glslStorageUnary(
+                source,
+                index + 1,
+                signed,
+                specializationName,
+                specializationDefault,
+                specializationId
+            )
+            val tokens = glslStorageTokensCopy(operand.tokens)
+            var valid = !repeated && operand.valid &&
+                (source[index] != 45 || signed)
+            if (valid && source[index] != 43) {
+                tokens.append(GlslStorageToken(
+                    glslStorageTokenOperation,
+                    opcode = if (source[index] == 45) 262270 else 262344,
+                    arity = 1
+                ))
+            }
+            return GlslStorageExpression(
+                valid && tokens.size < 128,
+                tokens,
+                operand.next
+            )
+        }
+    }
+    glslStoragePrimary(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+}
+
 fun glslStorageMultiplicative(
     source: string,
     begin: int,
@@ -986,7 +1043,7 @@ fun glslStorageMultiplicative(
     specializationDefault: int,
     specializationId: int
 ): GlslStorageExpression {
-    val first = glslStoragePrimary(
+    val first = glslStorageUnary(
         source,
         begin,
         signed,
@@ -1011,7 +1068,7 @@ fun glslStorageMultiplicative(
         if (operator < source.size &&
             (source[operator] == 42 || source[operator] == 47 ||
              source[operator] == 37)) {
-            val right = glslStoragePrimary(
+            val right = glslStorageUnary(
                 source,
                 operator + 1,
                 signed,
@@ -1491,16 +1548,19 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
             body.append(resultId)
             body.append(pointerId)
         } else if (token.kind == glslStorageTokenOperation) {
-            valid = stackSize >= 2 && token.opcode != 0
+            valid = (token.arity == 1 || token.arity == 2) &&
+                stackSize >= token.arity && token.opcode != 0
             if (valid) {
                 resultId = nextId
                 nextId = nextId + 1
                 body.append(token.opcode)
                 body.append(3)
                 body.append(resultId)
-                body.append(stack[stackSize - 2])
-                body.append(stack[stackSize - 1])
-                stackSize = stackSize - 2
+                if (token.arity == 2) {
+                    body.append(stack[stackSize - 2])
+                    body.append(stack[stackSize - 1])
+                } else body.append(stack[stackSize - 1])
+                stackSize = stackSize - token.arity
             }
         }
         if (valid) {

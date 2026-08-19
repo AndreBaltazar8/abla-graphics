@@ -19,6 +19,16 @@ fun spirvWordsOrdered(
     firstIndex >= 0 && secondIndex > firstIndex
 }
 
+fun spirvContainsWord(module: SpirvModule, word: int): bool {
+    var found = false
+    var index = 0
+    while (!found && index < module.words.size) {
+        found = module.words[index] == word
+        index = index + 1
+    }
+    found
+}
+
 fun main: int {
     val interpolatedSize = 6
     val interpolatedScale = 5
@@ -524,6 +534,30 @@ fun main: int {
     val unsupportedStorageLogical = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value&&1u; }"]
+    ).spirv(shaderStageCompute)
+    val storageUnaryNot = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=~values.value; }"]
+    ).spirv(shaderStageCompute)
+    val storageUnaryNegate = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=-values.value; }"]
+    ).spirv(shaderStageCompute)
+    val storageUnaryGrouped = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=-(values.value+2); }"]
+    ).spirv(shaderStageCompute)
+    val storageUnaryPlus = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=+values.value; }"]
+    ).spirv(shaderStageCompute)
+    val unsupportedUnsignedNegate = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=-values.value; }"]
+    ).spirv(shaderStageCompute)
+    val malformedStorageDecrement = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=--values.value; }"]
     ).spirv(shaderStageCompute)
     val storagePrecedence = glslPackage(
         [shaderStageCompute],
@@ -1126,6 +1160,17 @@ fun main: int {
         storageSignedShift.module.words[85] == 327875 &&
         !unsupportedStorageLogical.succeeded &&
         unsupportedStorageLogical.error != "" &&
+        storageUnaryNot.succeeded && storageUnaryNot.module.valid() &&
+        spirvContainsWord(storageUnaryNot.module, 262344) &&
+        storageUnaryNegate.succeeded && storageUnaryNegate.module.valid() &&
+        spirvContainsWord(storageUnaryNegate.module, 262270) &&
+        storageUnaryGrouped.succeeded && storageUnaryGrouped.module.valid() &&
+        spirvWordsOrdered(storageUnaryGrouped.module, 327808, 262270) &&
+        storageUnaryPlus.succeeded && storageUnaryPlus.module.valid() &&
+        !unsupportedUnsignedNegate.succeeded &&
+        unsupportedUnsignedNegate.error != "" &&
+        !malformedStorageDecrement.succeeded &&
+        malformedStorageDecrement.error != "" &&
         storagePrecedence.succeeded && storagePrecedence.module.valid() &&
         spirvWordsOrdered(storagePrecedence.module, 327812, 327808) &&
         spirvWordsEqual(

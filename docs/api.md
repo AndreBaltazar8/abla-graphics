@@ -1420,9 +1420,12 @@ one matching scalar specialization constant, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, `&`, `^`, and `|`.
 Precedence follows GLSL: multiplicative, additive, shift, bitwise AND, XOR, then
 OR. Signed right shift emits arithmetic shift while unsigned right shift emits
-logical shift. The parser emits a bounded postfix program of fewer than 128
-tokens, and the Abla emitter deterministically assigns one SSA result per load
-and operation. Comparison, Boolean/logical, unary-symbolic, and function-call
+logical shift. Unary `+`, signed symbolic `-`, and integer `~` bind at the
+primary-expression level; negative numeric literals preserve their direct
+constant representation, while unsigned symbolic negation and `++`/`--` are
+rejected. The parser emits a bounded postfix program of fewer than 128 tokens,
+and the Abla emitter deterministically assigns one SSA result per load and
+unary/binary operation. Comparison, Boolean/logical, and function-call
 expressions remain explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also

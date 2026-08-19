@@ -371,10 +371,12 @@ Updated: 2026-08-19.
   creates and dispatches on both drivers. A reflected signed or unsigned integer
   constant can additionally feed a precedence-parsed executable storage
   expression with repeated member loads, typed literals, nested parentheses,
-  arithmetic, shifts, and bitwise AND/XOR/OR. Tests prove the GLSL precedence
-  order and signed-arithmetic versus unsigned-logical right-shift opcodes. The
-  bounded postfix form emits deterministic SSA operations; a live override in
-  a parenthesized arithmetic/XOR chain produces checked buffer output on OpenGL
+  arithmetic, shifts, bitwise AND/XOR/OR, unary plus, signed negation, and
+  integer complement. Tests prove the GLSL precedence order,
+  signed-arithmetic versus unsigned-logical right shift, direct negative-literal
+  constants, unary arity, and increment/decrement rejection. The bounded
+  postfix form emits deterministic SSA operations; a live override in a nested
+  complement/arithmetic/XOR/AND chain produces checked buffer output on OpenGL
   and Vulkan rather than merely proving pipeline creation.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
