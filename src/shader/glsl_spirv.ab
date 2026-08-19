@@ -836,7 +836,6 @@ fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
         storageWrite.specialized && this.workgroups.size == 1 &&
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
         this.bindings[0].storage == "buffer" &&
-        this.bindings[0].dataType == "Values" &&
         this.specializationConstants.size == 1
     var words: array<int> = []
     if (specializedNoOp) {
@@ -920,7 +919,9 @@ fun glslStoragePrimary(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val tokens: array<GlslStorageToken> = []
     var index = glslSkipTrivia(source, begin)
@@ -932,7 +933,9 @@ fun glslStoragePrimary(
             signed,
             specializationName,
             specializationDefault,
-            specializationId
+            specializationId,
+            storageInstance,
+            storageMember
         )
         val close = glslExpectCharacter(source, nested.next, 41)
         valid = nested.valid && close.valid
@@ -947,10 +950,10 @@ fun glslStoragePrimary(
         index = close.next
     } else {
         val name = glslReadName(source, index)
-        if (name.text == "values") {
+        if (name.text == storageInstance) {
             val dot = glslExpectCharacter(source, name.next, 46)
             val member = glslReadName(source, dot.next)
-            valid = dot.valid && member.text == "value"
+            valid = dot.valid && member.text == storageMember
             if (valid) tokens.append(GlslStorageToken(
                 glslStorageTokenLoad
             ))
@@ -987,7 +990,9 @@ fun glslStorageUnary(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val index = glslSkipTrivia(source, begin)
     if (index < source.size &&
@@ -1008,7 +1013,9 @@ fun glslStorageUnary(
                 signed,
                 specializationName,
                 specializationDefault,
-                specializationId
+                specializationId,
+                storageInstance,
+                storageMember
             )
             val tokens = glslStorageTokensCopy(operand.tokens)
             var valid = !repeated && operand.valid &&
@@ -1033,7 +1040,9 @@ fun glslStorageUnary(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
 }
 
@@ -1043,7 +1052,9 @@ fun glslStorageMultiplicative(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val first = glslStorageUnary(
         source,
@@ -1051,7 +1062,9 @@ fun glslStorageMultiplicative(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
     val tokens: array<GlslStorageToken> = []
     if (first.valid) {
@@ -1076,7 +1089,9 @@ fun glslStorageMultiplicative(
                 signed,
                 specializationName,
                 specializationDefault,
-                specializationId
+                specializationId,
+                storageInstance,
+                storageMember
             )
             valid = right.valid
             if (valid) {
@@ -1103,7 +1118,9 @@ fun glslStorageAdditive(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val first = glslStorageMultiplicative(
         source,
@@ -1111,7 +1128,9 @@ fun glslStorageAdditive(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
     val tokens: array<GlslStorageToken> = []
     if (first.valid) {
@@ -1138,7 +1157,9 @@ fun glslStorageAdditive(
                     signed,
                     specializationName,
                     specializationDefault,
-                    specializationId
+                    specializationId,
+                    storageInstance,
+                    storageMember
                 )
                 valid = right.valid
                 if (valid) {
@@ -1169,7 +1190,9 @@ fun glslStorageShift(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val first = glslStorageAdditive(
         source,
@@ -1177,7 +1200,9 @@ fun glslStorageShift(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
     val tokens = glslStorageTokensCopy(first.tokens)
     var valid = first.valid
@@ -1197,7 +1222,9 @@ fun glslStorageShift(
                     signed,
                     specializationName,
                     specializationDefault,
-                    specializationId
+                    specializationId,
+                    storageInstance,
+                    storageMember
                 )
                 valid = right.valid
                 if (valid) {
@@ -1229,7 +1256,9 @@ fun glslStorageBitwiseAnd(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val first = glslStorageShift(
         source,
@@ -1237,7 +1266,9 @@ fun glslStorageBitwiseAnd(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
     val tokens = glslStorageTokensCopy(first.tokens)
     var valid = first.valid
@@ -1254,7 +1285,9 @@ fun glslStorageBitwiseAnd(
                     signed,
                     specializationName,
                     specializationDefault,
-                    specializationId
+                    specializationId,
+                    storageInstance,
+                    storageMember
                 )
                 valid = right.valid
                 if (valid) {
@@ -1282,7 +1315,9 @@ fun glslStorageBitwiseXor(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val first = glslStorageBitwiseAnd(
         source,
@@ -1290,7 +1325,9 @@ fun glslStorageBitwiseXor(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
     val tokens = glslStorageTokensCopy(first.tokens)
     var valid = first.valid
@@ -1307,7 +1344,9 @@ fun glslStorageBitwiseXor(
                     signed,
                     specializationName,
                     specializationDefault,
-                    specializationId
+                    specializationId,
+                    storageInstance,
+                    storageMember
                 )
                 valid = right.valid
                 if (valid) {
@@ -1335,7 +1374,9 @@ fun glslStorageBitwiseOr(
     signed: bool,
     specializationName: string,
     specializationDefault: int,
-    specializationId: int
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
 ): GlslStorageExpression {
     val first = glslStorageBitwiseXor(
         source,
@@ -1343,7 +1384,9 @@ fun glslStorageBitwiseOr(
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        storageInstance,
+        storageMember
     )
     val tokens = glslStorageTokensCopy(first.tokens)
     var valid = first.valid
@@ -1361,7 +1404,9 @@ fun glslStorageBitwiseOr(
                     signed,
                     specializationName,
                     specializationDefault,
-                    specializationId
+                    specializationId,
+                    storageInstance,
+                    storageMember
                 )
                 valid = right.valid
                 if (valid) {
@@ -1441,11 +1486,11 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     part = glslReadName(source, binding.next)
     valid = valid && part.text == "buffer"
     part = glslReadName(source, part.next)
-    valid = valid && part.text == "Values"
+    valid = valid && part.text != ""
     character = glslExpectCharacter(source, part.next, 123)
     valid = valid && character.valid
     var memberCount = 0
-    var memberIndex = -1
+    val memberNames: array<string> = []
     var signed = false
     var blockClosed = false
     index = character.next
@@ -1464,21 +1509,19 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             else if (valid) valid = signed == memberSigned
             val member = glslReadName(source, memberType.next)
             valid = valid && member.text != ""
-            if (valid && member.text == "value") {
-                valid = memberIndex < 0
-                if (valid) memberIndex = memberCount
-            }
+            if (valid) memberNames.append(member.text)
             character = glslExpectCharacter(source, member.next, 59)
             valid = valid && character.valid
             index = character.next
             memberCount = memberCount + 1
         }
     }
-    valid = valid && blockClosed && memberCount > 0 && memberIndex >= 0 &&
+    valid = valid && blockClosed && memberCount > 0 &&
         (specializationType == "" ||
          specializationType == (if (signed) "int" else "uint"))
     part = glslReadName(source, index)
-    valid = valid && part.text == "values"
+    val instanceName = part.text
+    valid = valid && instanceName != ""
     character = glslExpectCharacter(source, part.next, 59)
     valid = valid && character.valid
 
@@ -1493,11 +1536,20 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     character = glslExpectCharacter(source, character.next, 123)
     valid = valid && character.valid
     part = glslReadName(source, character.next)
-    valid = valid && part.text == "values"
+    valid = valid && part.text == instanceName
     character = glslExpectCharacter(source, part.next, 46)
     valid = valid && character.valid
     part = glslReadName(source, character.next)
-    valid = valid && part.text == "value"
+    val memberName = part.text
+    var memberIndex = -1
+    var reflectedMember = 0
+    while (memberIndex < 0 && reflectedMember < memberNames.size) {
+        if (memberNames[reflectedMember] == memberName) {
+            memberIndex = reflectedMember
+        }
+        reflectedMember = reflectedMember + 1
+    }
+    valid = valid && memberIndex >= 0
     character = glslExpectCharacter(source, part.next, 61)
     valid = valid && character.valid
     val expression = glslStorageBitwiseOr(
@@ -1506,7 +1558,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         signed,
         specializationName,
         specializationDefault,
-        specializationId
+        specializationId,
+        instanceName,
+        memberName
     )
     valid = valid && expression.valid
     character = glslExpectCharacter(source, expression.next, 59)
@@ -1901,7 +1955,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.bindings.size == 1 &&
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
         this.bindings[0].storage == "buffer" &&
-        this.bindings[0].dataType == "Values" && storageWrite.valid
+        storageWrite.valid
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val vertex = graphicsCommon && stage == shaderStageVertex &&

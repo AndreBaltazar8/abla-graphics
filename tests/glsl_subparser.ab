@@ -591,6 +591,18 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint second; } values; void main(){ values.value=2u; }"]
     ).spirv(shaderStageCompute)
+    val namedStorageBlock = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint padding; uint result; } counters; void main(){ counters.result=counters.result+2u; }"]
+    ).spirv(shaderStageCompute)
+    val mismatchedStorageReadMember = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint padding; uint result; } counters; void main(){ counters.result=counters.padding+2u; }"]
+    ).spirv(shaderStageCompute)
+    val mismatchedStorageInstance = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint result; } counters; void main(){ other.result=2u; }"]
+    ).spirv(shaderStageCompute)
     val storagePrecedence = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value+2u*3u; }"]
@@ -1221,6 +1233,15 @@ fun main: int {
         mixedStorageMemberTypes.error != "" &&
         !missingStorageValueMember.succeeded &&
         missingStorageValueMember.error != "" &&
+        namedStorageBlock.succeeded && namedStorageBlock.module.valid() &&
+        spirvContainsWords(
+            namedStorageBlock.module,
+            [262187, 3, 7, 1]
+        ) &&
+        !mismatchedStorageReadMember.succeeded &&
+        mismatchedStorageReadMember.error != "" &&
+        !mismatchedStorageInstance.succeeded &&
+        mismatchedStorageInstance.error != "" &&
         storagePrecedence.succeeded && storagePrecedence.module.valid() &&
         spirvWordsOrdered(storagePrecedence.module, 327812, 327808) &&
         spirvWordsEqual(

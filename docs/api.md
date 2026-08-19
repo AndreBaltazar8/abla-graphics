@@ -1411,16 +1411,17 @@ compute package on both real backends.
 
 `app.computeStoragePipeline(shader, buffer)` is the first observable binding
 slice. The shader must reflect exactly one `layout(std430, binding = 0)` buffer
-at set zero and match the documented `Values` write subset. The block accepts
-one to 64 homogeneous scalar `int` or `uint` members and must contain exactly
-one member named `value`. The emitter creates the variable-length SPIR-V struct,
-assigns consecutive four-byte `std430` offsets, and indexes that member in the
-access chain. Mixed signedness, arrays, qualified members, or a missing target
-remain explicit subset failures.
+at set zero and match the documented scalar-block write subset. Block, instance,
+and target-member identifiers are parsed from the declaration and assignment;
+there are no required names. The block accepts one to 64 homogeneous scalar
+`int` or `uint` members. The emitter creates the variable-length SPIR-V struct,
+assigns consecutive four-byte `std430` offsets, and indexes the LHS member in
+the access chain. Mixed signedness, arrays, qualified members, or an unknown
+target remain explicit subset failures.
 OpenGL binds the existing buffer object as SSBO binding zero and issues a shader
 storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
-The assignment expression reads and writes that selected storage member and
+The assignment expression reads and writes that same selected storage member and
 accepts typed integer literals,
 one matching scalar specialization constant, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, `&`, `^`, and `|`.

@@ -379,10 +379,12 @@ Updated: 2026-08-19.
   complement/arithmetic/XOR/AND chain produces checked buffer output on OpenGL
   and Vulkan rather than merely proving pipeline creation.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
-  members. Its selected `value` member receives a deterministic four-byte
-  `std430` offset and access-chain index; real-driver tests update the middle
-  member while preserving adjacent fields. Mixed member types and missing
-  targets are rejected.
+  members. Block, instance, and target-member names come from the parsed source
+  rather than a naming convention. The selected LHS member receives a
+  deterministic four-byte `std430` offset and access-chain index; real-driver
+  tests update the third member while preserving the initialized prefix. Mixed
+  member types, unknown targets, mismatched instances, and reads from a different
+  member are rejected.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
