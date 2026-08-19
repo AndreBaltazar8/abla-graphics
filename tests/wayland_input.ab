@@ -9,12 +9,14 @@ trusted fun main: int {
         400
     )
     var succeeded = window.valid() &&
+        window.enableOutputs() &&
         window.createSharedBuffers(600, 400, 2) &&
         window.clearSharedPixels(14, 22, 40) &&
         window.fillSharedRect(100, 100, 400, 200, 44, 202, 224) &&
         window.presentSharedPixels() && window.waitFrame() &&
         window.enableInput()
     var sawFocus = false
+    var sawMonitor = false
     var sawMotion = false
     var sawButtonPress = false
     var sawButtonRelease = false
@@ -28,9 +30,13 @@ trusted fun main: int {
     while (succeeded && attempts < 100 &&
         !(window.keyboardMapped() && sawFocus && sawMotion &&
           sawWPress && sawWRelease && sawWRepeat && sawWText &&
-          sawUpperWText)) {
+          sawUpperWText && sawMonitor)) {
         val event = window.pollInputEvent(50)
-        if (event.kind == windowEventFocused && event.first != 0) {
+        if (event.kind == windowEventMonitorChanged &&
+            event.monitorWidth() == 800 && event.monitorHeight() == 600 &&
+            event.monitorName() != "") {
+            sawMonitor = true
+        } else if (event.kind == windowEventFocused && event.first != 0) {
             sawFocus = true
         } else if (event.kind == windowEventPointerMoved) {
             sawMotion = true
@@ -86,11 +92,15 @@ trusted fun main: int {
         window.pointerIdentifier >= 2 && window.keyboardIdentifier >= 2 &&
         window.keyboardMapped() && window.keyboardTextMapped() &&
         window.keymap.size > 100 && window.parsedKeymap.parsedKeys > 50 &&
+        window.outputs.size == 1 && window.outputsReady() &&
+        window.primaryMonitor().width == 800 &&
+        window.primaryMonitor().height == 600 &&
+        window.primaryOutputScale() == 1 && sawMonitor &&
         sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
         sawWPress && sawWRelease && sawWRepeat && sawWText && sawUpperWText &&
         window.repeatDeadlineNanoseconds < 0
     println(
-        "wayland-input-test: succeeded=$succeeded seat=${window.seatName} caps=${window.seatCapabilities} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
+        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
     )
     if (succeeded) 42 else 1
 }

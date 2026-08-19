@@ -520,6 +520,140 @@ class WaylandBinding(
     val version: int = 0
 )
 
+class WaylandOutputGeometry(
+    val valid: bool = false,
+    val x: int = 0,
+    val y: int = 0,
+    val physicalWidth: int = 0,
+    val physicalHeight: int = 0,
+    val subpixel: int = 0,
+    val make: string = "",
+    val model: string = "",
+    val transform: int = 0
+)
+
+class WaylandOutputMode(
+    val valid: bool = false,
+    val current: bool = false,
+    val preferred: bool = false,
+    val width: int = 0,
+    val height: int = 0,
+    val refreshMillihertz: int = 0
+)
+
+class WaylandOutput(
+    val identifier: int = 0,
+    val globalName: int = 0,
+    val version: int = 0,
+    val geometry: WaylandOutputGeometry = WaylandOutputGeometry(),
+    val mode: WaylandOutputMode = WaylandOutputMode(),
+    val scale: int = 1,
+    val name: string = "",
+    val description: string = "",
+    val done: bool = false
+) {
+    fun valid(): bool = this.identifier >= 2 && this.globalName > 0 &&
+        this.version >= 2 && this.geometry.valid && this.mode.valid &&
+        this.mode.width > 0 && this.mode.height > 0 &&
+        this.scale >= 1
+
+    fun displayName(): string {
+        var result = this.name
+        if (result == "") result = this.description
+        if (result == "" && this.geometry.make != "" &&
+            this.geometry.model != "") {
+            result = "${this.geometry.make} ${this.geometry.model}"
+        } else if (result == "" && this.geometry.model != "") {
+            result = this.geometry.model
+        } else if (result == "" && this.geometry.make != "") {
+            result = this.geometry.make
+        }
+        result
+    }
+
+    fun monitor(): Monitor = Monitor(
+        this.displayName(),
+        this.mode.width,
+        this.mode.height,
+        this.geometry.physicalWidth,
+        this.geometry.physicalHeight
+    )
+
+    fun withGeometry(geometry: WaylandOutputGeometry): WaylandOutput =
+        WaylandOutput(
+            this.identifier,
+            this.globalName,
+            this.version,
+            geometry,
+            this.mode,
+            this.scale,
+            this.name,
+            this.description,
+            false
+        )
+
+    fun withMode(mode: WaylandOutputMode): WaylandOutput = WaylandOutput(
+        this.identifier,
+        this.globalName,
+        this.version,
+        this.geometry,
+        if (mode.current || (!this.mode.valid && mode.preferred))
+            mode else this.mode,
+        this.scale,
+        this.name,
+        this.description,
+        false
+    )
+
+    fun withScale(scale: int): WaylandOutput = WaylandOutput(
+        this.identifier,
+        this.globalName,
+        this.version,
+        this.geometry,
+        this.mode,
+        scale,
+        this.name,
+        this.description,
+        false
+    )
+
+    fun withName(name: string): WaylandOutput = WaylandOutput(
+        this.identifier,
+        this.globalName,
+        this.version,
+        this.geometry,
+        this.mode,
+        this.scale,
+        name,
+        this.description,
+        false
+    )
+
+    fun withDescription(description: string): WaylandOutput = WaylandOutput(
+        this.identifier,
+        this.globalName,
+        this.version,
+        this.geometry,
+        this.mode,
+        this.scale,
+        this.name,
+        description,
+        false
+    )
+
+    fun finished(): WaylandOutput = WaylandOutput(
+        this.identifier,
+        this.globalName,
+        this.version,
+        this.geometry,
+        this.mode,
+        this.scale,
+        this.name,
+        this.description,
+        true
+    )
+}
+
 class WaylandToplevelConfigure(
     val valid: bool = false,
     val width: int = 0,
@@ -530,6 +664,51 @@ class WaylandToplevelConfigure(
 fun waylandI32(value: string, offset: int): int {
     val encoded = waylandU32(value, offset)
     if (encoded <= 2147483647) encoded else encoded - 4294967296
+}
+
+fun waylandOutputGeometry(payload: string): WaylandOutputGeometry {
+    var valid = payload.size >= 32
+    val physicalWidth = if (valid) waylandI32(payload, 8) else -1
+    val physicalHeight = if (valid) waylandI32(payload, 12) else -1
+    val subpixel = if (valid) waylandI32(payload, 16) else -1
+    val make = if (valid) waylandString(payload, 20) else WaylandString(false)
+    val model = if (make.valid)
+        waylandString(payload, make.next)
+    else WaylandString(false)
+    val transform = if (model.valid && model.next + 4 == payload.size)
+        waylandI32(payload, model.next)
+    else -1
+    valid = valid && physicalWidth >= 0 && physicalHeight >= 0 &&
+        subpixel >= 0 && subpixel <= 5 && make.valid && model.valid &&
+        model.next + 4 == payload.size && transform >= 0 && transform <= 7
+    WaylandOutputGeometry(
+        valid,
+        if (valid) waylandI32(payload, 0) else 0,
+        if (valid) waylandI32(payload, 4) else 0,
+        if (valid) physicalWidth else 0,
+        if (valid) physicalHeight else 0,
+        if (valid) subpixel else 0,
+        if (valid) make.text else "",
+        if (valid) model.text else "",
+        if (valid) transform else 0
+    )
+}
+
+fun waylandOutputMode(payload: string): WaylandOutputMode {
+    val flags = if (payload.size == 16) waylandU32(payload, 0) else 0
+    val width = if (payload.size == 16) waylandI32(payload, 4) else 0
+    val height = if (payload.size == 16) waylandI32(payload, 8) else 0
+    val refresh = if (payload.size == 16) waylandI32(payload, 12) else -1
+    val valid = payload.size == 16 && (flags & ~3) == 0 &&
+        width > 0 && height > 0 && refresh >= 0
+    WaylandOutputMode(
+        valid,
+        valid && (flags & 1) != 0,
+        valid && (flags & 2) != 0,
+        if (valid) width else 0,
+        if (valid) height else 0,
+        if (valid) refresh else 0
+    )
 }
 
 fun waylandToplevelConfigure(payload: string): WaylandToplevelConfigure {
@@ -870,6 +1049,9 @@ resource class WaylandXdgWindow(
     var receivedDescriptor: int,
     var pendingInputEvents: array<WindowEvent>,
     var pendingInputIndex: int,
+    var outputs: array<WaylandOutput>,
+    var surfaceOutputIdentifiers: array<int>,
+    var primaryOutputIdentifier: int,
     var shmIdentifier: int,
     var bufferIdentifiers: array<int>,
     var bufferBusy: array<bool>,
@@ -1235,6 +1417,180 @@ resource class WaylandXdgWindow(
         succeeded
     }
 
+    fun outputIndex(identifier: int): int {
+        var result = -1
+        var index = 0
+        while (result < 0 && index < this.outputs.size) {
+            if (this.outputs[index].identifier == identifier) result = index
+            index = index + 1
+        }
+        result
+    }
+
+    fun outputsReady(): bool {
+        var ready = this.outputs.size > 0
+        var index = 0
+        while (ready && index < this.outputs.size) {
+            ready = this.outputs[index].done && this.outputs[index].valid()
+            index = index + 1
+        }
+        ready
+    }
+
+    fun primaryMonitor(): Monitor {
+        var index = this.outputIndex(this.primaryOutputIdentifier)
+        if (index < 0 && this.outputs.size > 0) index = 0
+        if (index >= 0 && this.outputs[index].valid())
+            this.outputs[index].monitor()
+        else Monitor()
+    }
+
+    fun primaryOutputScale(): int {
+        val index = this.outputIndex(this.primaryOutputIdentifier)
+        if (index >= 0 && this.outputs[index].valid())
+            this.outputs[index].scale
+        else 1
+    }
+
+    fun enqueueMonitorChanged(): bool {
+        val monitor = this.primaryMonitor()
+        this.enqueueInputEvent(WindowEvent(
+            windowEventMonitorChanged,
+            monitor.width,
+            monitor.height,
+            monitor.name,
+            this.primaryOutputIdentifier
+        ))
+    }
+
+    fun surfaceOutputActive(identifier: int): bool {
+        var active = false
+        var index = 0
+        while (!active && index < this.surfaceOutputIdentifiers.size) {
+            active = this.surfaceOutputIdentifiers[index] == identifier
+            index = index + 1
+        }
+        active
+    }
+
+    fun dispatchSurfaceOutput(opcode: int, identifier: int): bool {
+        val outputKnown = this.outputIndex(identifier) >= 0
+        var succeeded = (opcode == 0 || opcode == 1) &&
+            (this.outputs.size == 0 || outputKnown)
+        if (succeeded && outputKnown && opcode == 0 &&
+            !this.surfaceOutputActive(identifier)) {
+            succeeded = this.surfaceOutputIdentifiers.size < 64
+            if (succeeded) {
+                this.surfaceOutputIdentifiers.append(identifier)
+                this.primaryOutputIdentifier = identifier
+                succeeded = this.enqueueMonitorChanged()
+            }
+        } else if (succeeded && outputKnown && opcode == 1 &&
+            this.surfaceOutputActive(identifier)) {
+            val retained: array<int> = []
+            var index = 0
+            while (index < this.surfaceOutputIdentifiers.size) {
+                if (this.surfaceOutputIdentifiers[index] != identifier) {
+                    retained.append(this.surfaceOutputIdentifiers[index])
+                }
+                index = index + 1
+            }
+            this.surfaceOutputIdentifiers = retained
+            if (this.primaryOutputIdentifier == identifier) {
+                this.primaryOutputIdentifier = if (retained.size > 0)
+                    retained[retained.size - 1]
+                else 0
+                succeeded = this.enqueueMonitorChanged()
+            }
+        }
+        succeeded
+    }
+
+    fun dispatchOutput(message: WaylandMessage): int {
+        val index = this.outputIndex(message.objectIdentifier)
+        var result = 0
+        if (index >= 0) {
+            val output = this.outputs[index]
+            if (message.opcode == 0) {
+                val geometry = waylandOutputGeometry(message.payload)
+                result = if (geometry.valid) 1 else -1
+                if (result > 0) this.outputs[index] =
+                    output.withGeometry(geometry)
+            } else if (message.opcode == 1) {
+                val mode = waylandOutputMode(message.payload)
+                result = if (mode.valid) 1 else -1
+                if (result > 0) this.outputs[index] = output.withMode(mode)
+            } else if (message.opcode == 2) {
+                result = if (message.payload.size == 0) 1 else -1
+                if (result > 0) {
+                    this.outputs[index] = output.finished()
+                    if (output.identifier == this.primaryOutputIdentifier) {
+                        if (!this.enqueueMonitorChanged()) result = -1
+                    }
+                }
+            } else if (message.opcode == 3) {
+                val scale = if (message.payload.size == 4)
+                    waylandI32(message.payload, 0)
+                else 0
+                result = if (scale >= 1 && scale <= 16) 1 else -1
+                if (result > 0) {
+                    this.outputs[index] = output.withScale(scale)
+                }
+            } else if (message.opcode == 4 && output.version >= 4) {
+                val name = waylandString(message.payload, 0)
+                result = if (name.valid && name.next == message.payload.size)
+                    1 else -1
+                if (result > 0) {
+                    this.outputs[index] = output.withName(name.text)
+                }
+            } else if (message.opcode == 5 && output.version >= 4) {
+                val description = waylandString(message.payload, 0)
+                result = if (description.valid &&
+                    description.next == message.payload.size) 1 else -1
+                if (result > 0) {
+                    this.outputs[index] = output.withDescription(
+                        description.text
+                    )
+                }
+            } else result = -1
+        }
+        result
+    }
+
+    trusted fun enableOutputs(): bool {
+        var succeeded = this.valid() && this.outputs.size == 0
+        var index = 0
+        while (succeeded && index < this.connection.globals.size) {
+            val global = this.connection.globals[index]
+            if (global.valid && global.interfaceName == "wl_output" &&
+                global.version >= 2 && this.outputs.size < 64) {
+                val version = if (global.version < 4) global.version else 4
+                val identifier = this.connection.allocateIdentifier()
+                succeeded = identifier >= 2 && this.connection.send(
+                    waylandRegistryBindRequest(
+                        this.connection.registryIdentifier,
+                        global,
+                        version,
+                        identifier
+                    )
+                )
+                if (succeeded) this.outputs.append(WaylandOutput(
+                    identifier,
+                    global.name,
+                    version
+                ))
+            }
+            index = index + 1
+        }
+        succeeded = succeeded && this.outputs.size > 0
+        var messages = 0
+        while (succeeded && !this.outputsReady() && messages < 16384) {
+            succeeded = this.dispatchNative()
+            messages = messages + 1
+        }
+        succeeded && this.outputsReady()
+    }
+
     trusted fun receiveKeyboardKeymap(format: int, size: int): bool {
         val descriptor = this.receivedDescriptor
         var succeeded = descriptor >= 0 &&
@@ -1536,6 +1892,8 @@ resource class WaylandXdgWindow(
             result = this.dispatchPointerInput(message)
         } else if (message.objectIdentifier == this.keyboardIdentifier) {
             result = this.dispatchKeyboardInput(message)
+        } else if (this.outputIndex(message.objectIdentifier) >= 0) {
+            result = this.dispatchOutput(message)
         }
         result
     }
@@ -1948,7 +2306,11 @@ resource class WaylandXdgWindow(
             handled = true
         } else if (succeeded && objectIdentifier == this.surfaceIdentifier &&
             (opcode == 0 || opcode == 1) && length == 12) {
-            handled = true
+            succeeded = this.dispatchSurfaceOutput(
+                opcode,
+                waylandNativeU32(this.wireScratch, 8)
+            )
+            handled = succeeded
         } else if (succeeded && objectIdentifier == this.wmBaseIdentifier &&
             opcode == 0 && length == 12) {
             val serial = waylandNativeU32(this.wireScratch, 8)
@@ -2049,7 +2411,11 @@ resource class WaylandXdgWindow(
         } else if (core == 0 && message.objectIdentifier ==
             this.surfaceIdentifier &&
             (message.opcode == 0 || message.opcode == 1)) {
-            succeeded = message.payload.size == 4
+            succeeded = message.payload.size == 4 &&
+                this.dispatchSurfaceOutput(
+                    message.opcode,
+                    waylandU32(message.payload, 0)
+                )
         } else if (core == 0 && message.objectIdentifier ==
             this.frameCallbackIdentifier && message.opcode == 0) {
             succeeded = message.payload.size == 4
@@ -2084,6 +2450,17 @@ resource class WaylandXdgWindow(
 
     fun drop(): void {
         if (this.connection.descriptor >= 0) {
+            var outputIndex = 0
+            while (outputIndex < this.outputs.size) {
+                val output = this.outputs[outputIndex]
+                if (output.identifier >= 2 && output.version >= 3) {
+                    waylandWriteAll(
+                        this.connection.descriptor,
+                        waylandPacket(output.identifier, 0)
+                    )
+                }
+                outputIndex = outputIndex + 1
+            }
             if (this.keyboardIdentifier >= 2) waylandWriteAll(
                 this.connection.descriptor,
                 waylandPacket(this.keyboardIdentifier, 0)
@@ -2225,6 +2602,9 @@ fun waylandXdgWindow(
         0,
         nativeByteBuffer(0),
         -1,
+        [],
+        0,
+        [],
         [],
         0,
         0,

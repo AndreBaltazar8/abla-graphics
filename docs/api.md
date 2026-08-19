@@ -1228,6 +1228,20 @@ repeat. Release, keyboard focus loss, or keyboard capability removal cancels
 the deadline. A late caller emits one repeat and resynchronizes to the current
 time instead of receiving an unbounded catch-up burst.
 
+`enableOutputs()` binds every initial `wl_output` global at version two through
+four and waits for each atomic `done`. `outputs` retains immutable snapshots of
+signed compositor position, physical millimeters, subpixel order, transform,
+current/preferred pixel mode, refresh in millihertz, integer scale, stable name,
+and description. `primaryMonitor()` returns the most recently entered output,
+falling back to the first valid output before the surface is mapped, while
+`primaryOutputScale()` returns its integer scale. Real `wl_surface.enter` and
+`leave` traffic maintains the active-output set and enqueues
+`windowEventMonitorChanged`; its monitor width, height, and name are available
+through typed event accessors. Version-three/four output objects are released
+during ordered teardown. Dynamic output-global hotplug, xdg-output logical
+geometry, fractional scale, and automatic buffer-scale changes remain future
+work.
+
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,
 DPI behavior, and graphics surface needs. `Window.pollEvents()` returns bounded

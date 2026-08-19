@@ -73,6 +73,14 @@ Updated: 2026-08-19.
   socket-poll deadline with allocation-free monotonic timing, emits a typed
   repeat plus text, and cancels on release/focus/capability loss. There is no
   libxkbcommon dependency.
+- Direct Wayland output discovery binds all initial `wl_output` version two
+  through four globals and tracks signed position, physical size, transform,
+  current/preferred mode, millihertz refresh, integer scale, stable name, and
+  description in immutable values marked coherent by `done`. Surface
+  enter/leave selects the primary output and emits copied monitor-change
+  values. The nested Weston gate validates the real `screen0` output at 800x600
+  scale one and observes its enter event; teardown uses the versioned output
+  release request.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
@@ -804,7 +812,8 @@ validity gate unchanged.
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
 - Wayland higher XKB groups/levels, dead-key compose, and input methods,
-  clipboard, output, fractional scaling, and Vulkan/EGL presentation
+  clipboard, dynamic output hotplug, xdg-output logical geometry, fractional
+  scaling, and Vulkan/EGL presentation
   integration. The current stable xdg-shell slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,
   allocation-stable hot-path wire I/O, continuous callback-driven frames, and

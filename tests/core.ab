@@ -402,6 +402,29 @@ fun main: int {
 
     val xkbFixture = "xkb_keymap {\nxkb_keycodes test { <AD02> = 25; <AE01> = 10; <I18N> = 40; };\nxkb_types test { };\nxkb_symbols test {\nkey <AD02> { type= \"ALPHABETIC\", symbols[Group1]= [ w, W ] };\nkey <AE01> { [ 1, exclam ] };\nkey <I18N> { [ U00e9, U00c9 ] };\n};\n};"
     val xkb = xkbParseKeymap(xkbFixture)
+    val outputGeometryFixed = waylandU32ArrayPayload([
+        4294967286,
+        20,
+        600,
+        340,
+        2
+    ])
+    val outputMake = waylandStringPayload("Abla")
+    val outputModel = waylandStringPayload("Display")
+    val outputTransform = waylandU32Payload(1)
+    val outputGeometryPayload =
+        "$outputGeometryFixed$outputMake$outputModel$outputTransform"
+    val outputGeometry = waylandOutputGeometry(outputGeometryPayload)
+    val outputMode = waylandOutputMode(
+        waylandU32ArrayPayload([3, 2560, 1440, 144000])
+    )
+    val monitorEvent = WindowEvent(
+        windowEventMonitorChanged,
+        2560,
+        1440,
+        "WL-1",
+        42
+    )
     if (automatic.succeeded &&
         graph.valid() && graph.order.size == 4 &&
         graph.order[0] == 10 && graph.order[1] == 20 &&
@@ -717,6 +740,17 @@ fun main: int {
         waylandRepeatPollTimeout(100, 1000000000, 1000000000) == 0 &&
         WindowEvent(windowEventKey, keyW, 2).keyRepeated() &&
         !WindowEvent(windowEventKey, keyW, 1).keyRepeated() &&
+        outputGeometry.valid && outputGeometry.x == -10 &&
+        outputGeometry.y == 20 && outputGeometry.physicalWidth == 600 &&
+        outputGeometry.physicalHeight == 340 && outputGeometry.subpixel == 2 &&
+        outputGeometry.make == "Abla" && outputGeometry.model == "Display" &&
+        outputGeometry.transform == 1 && outputMode.valid &&
+        outputMode.current && outputMode.preferred && outputMode.width == 2560 &&
+        outputMode.height == 1440 && outputMode.refreshMillihertz == 144000 &&
+        !waylandOutputMode(waylandU32ArrayPayload([4, 1, 1, 1])).valid &&
+        monitorEvent.monitorWidth() == 2560 &&
+        monitorEvent.monitorHeight() == 1440 &&
+        monitorEvent.monitorName() == "WL-1" &&
         xkb.valid && xkb.parsedKeys == 3 &&
         xkb.codepoint(17) == 119 && xkb.codepoint(17, 1) == 87 &&
         xkb.codepoint(17, 0, 0, 2) == 87 &&

@@ -49,6 +49,13 @@ groups/compose, and driver presentation build on this object foundation in
 later slices. No `libwayland-client` or `libxkbcommon` ABI participates in this
 path.
 
+Initial output discovery binds every `wl_output` v2-v4 global. Geometry, modes,
+scale, and v4 identity strings replace immutable Abla snapshots until the
+protocol's atomic `done`; surface enter/leave keeps a bounded active-output set
+and emits the portable monitor-change value. The current direct layer exposes
+hardware-pixel/physical metadata and integer scale without pretending that
+deprecated core-output coordinates are xdg-output logical geometry.
+
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,
 pointer storage, feature negotiation, object ownership, and command policy on
