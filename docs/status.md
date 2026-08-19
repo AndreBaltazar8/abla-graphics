@@ -949,8 +949,11 @@ validity gate unchanged.
   General uniform/storage host-structure offsets remain unverified. Reflected
   compute push constants are wired to native Vulkan pipeline ranges and command
   recording plus persistent OpenGL UBO emulation for the strict observable
-  storage-add shader slice; general compute expressions and raster-stage push
-  commands remain upcoming.
+  storage-add shader slice. Raster fragment `vec4` push color is wired through
+  procedural, vertex, indexed, vertex-indirect, and indexed-indirect offscreen
+  and presented commands on both backends with exact pixels, stable handles,
+  and zero-growth repeated values. General compute/raster expressions and
+  push-aware render-pass operation overloads remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

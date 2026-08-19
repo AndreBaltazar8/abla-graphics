@@ -37,6 +37,25 @@ fun main: int {
             }
         }
     }
+    val bufferedShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec4 tint;
+            } draw;
+            void main() {
+                color = draw.tint;
+            }
+        }
+    }
     val texture = app.texture(TextureDescriptor(
         label = "push-color-proof",
         size = Extent3D(64, 64),
@@ -45,26 +64,122 @@ fun main: int {
     val target = app.renderTarget(move(texture))
     val targetPipeline = app.renderTargetPipeline(target, shader)
     val windowPipeline = app.renderPipeline(shader)
+    val vertexLayout = VertexBufferLayout(8, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
+    ])
+    val targetBufferedPipeline = app.renderTargetPipeline(
+        target,
+        bufferedShader,
+        vertexLayout
+    )
+    val windowBufferedPipeline = app.renderPipeline(
+        bufferedShader,
+        vertexLayout
+    )
+    val vertexBytes = bufferBytes(24)
+    val verticesStored = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "push-color-vertices",
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val indexBytes = bufferBytes(12)
+    val indicesStored = indexBytes.storeU32(0, 0) &&
+        indexBytes.storeU32(1, 4) && indexBytes.storeU32(2, 8)
+    val indices = app.buffer(BufferDescriptor(
+        label = "push-color-indices",
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    val indicesUploaded = indicesStored && indices.writeAllBytes(indexBytes)
+    val directBytes = bufferBytes(16)
+    val directStored = directBytes.storeI64(4294967299, 0) &&
+        directBytes.storeI64(0, 8)
+    val direct = app.buffer(BufferDescriptor(
+        label = "push-color-direct-indirect",
+        size = 16,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    ))
+    val directUploaded = directStored && direct.writeAllBytes(directBytes)
+    val indexedBytes = bufferBytes(24)
+    val indexedStored = indexedBytes.storeI64(4294967299, 0) &&
+        indexedBytes.storeI64(0, 8) && indexedBytes.storeI64(0, 16)
+    val indexed = app.buffer(BufferDescriptor(
+        label = "push-color-indexed-indirect",
+        size = 24,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    ))
+    val indexedUploaded = indexedStored &&
+        indexed.writeAllBytes(indexedBytes)
     val values = shader.pushConstants()
     val clear = Color(0.01, 0.02, 0.03)
     val stored = values.storeF32(1.0, 0) &&
         values.storeF32(0.0, 4) && values.storeF32(0.0, 8) &&
         values.storeF32(1.0, 12)
+    val missingBufferedRejected = !app.renderVerticesToTarget(
+        target,
+        targetBufferedPipeline,
+        vertices,
+        3,
+        clear
+    ) && !app.presentRenderVertices(
+        windowBufferedPipeline,
+        vertices,
+        3,
+        clear
+    )
     val warmed = app.valid() && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() && values.valid() &&
+        targetBufferedPipeline.valid() && windowBufferedPipeline.valid() &&
+        vertices.valid() && indices.valid() && direct.valid() &&
+        indexed.valid() && verticesUploaded && indicesUploaded &&
+        directUploaded && indexedUploaded && missingBufferedRejected &&
         stored && app.renderPushToTarget(
             target,
             targetPipeline,
             values,
             clear
         ) && target.texture.rgba8(32, 32) == 4278190335 &&
-        app.presentPushRender(windowPipeline, values, clear)
+        app.renderPushVerticesToTarget(
+            target, targetBufferedPipeline, values, vertices, 3, clear
+        ) && app.renderPushIndexedToTarget(
+            target, targetBufferedPipeline, values, vertices, indices, 3,
+            clear
+        ) && app.renderPushVerticesIndirectToTarget(
+            target, targetBufferedPipeline, values, vertices, direct, clear
+        ) && app.renderPushIndexedIndirectToTarget(
+            target, targetBufferedPipeline, values, vertices, indices,
+            indexed, clear
+        ) && target.texture.rgba8(32, 32) == 4278190335 &&
+        app.presentPushRender(windowPipeline, values, clear) &&
+        app.presentPushRenderVertices(
+            windowBufferedPipeline, values, vertices, 3, clear
+        ) && app.presentPushRenderIndexed(
+            windowBufferedPipeline, values, vertices, indices, 3, clear
+        ) && app.presentPushRenderVerticesIndirect(
+            windowBufferedPipeline, values, vertices, direct, clear
+        ) && app.presentPushRenderIndexedIndirect(
+            windowBufferedPipeline, values, vertices, indices, indexed, clear
+        )
     val targetHandle = if (app.backend == graphicsBackendOpenGl)
         targetPipeline.openGl.pushConstantBuffer
     else targetPipeline.vulkan.handle
     val windowHandle = if (app.backend == graphicsBackendOpenGl)
         windowPipeline.openGl.pushConstantBuffer
     else windowPipeline.vulkan.handle
+    val targetBufferedHandle = if (app.backend == graphicsBackendOpenGl)
+        targetBufferedPipeline.openGl.pushConstantBuffer
+    else targetBufferedPipeline.vulkan.handle
+    val windowBufferedHandle = if (app.backend == graphicsBackendOpenGl)
+        windowBufferedPipeline.openGl.pushConstantBuffer
+    else windowBufferedPipeline.vulkan.handle
     val liveBefore = runtimeMemoryLiveBytes()
     var repeated = warmed
     var frame = 0
@@ -73,7 +188,28 @@ fun main: int {
         repeated = values.storeF32(if (even) 0.0 else 1.0, 0) &&
             values.storeF32(if (even) 1.0 else 0.0, 4) &&
             app.renderPushToTarget(target, targetPipeline, values, clear) &&
-            app.presentPushRender(windowPipeline, values, clear)
+            app.renderPushVerticesToTarget(
+                target, targetBufferedPipeline, values, vertices, 3, clear
+            ) && app.renderPushIndexedToTarget(
+                target, targetBufferedPipeline, values, vertices, indices, 3,
+                clear
+            ) && app.renderPushVerticesIndirectToTarget(
+                target, targetBufferedPipeline, values, vertices, direct,
+                clear
+            ) && app.renderPushIndexedIndirectToTarget(
+                target, targetBufferedPipeline, values, vertices, indices,
+                indexed, clear
+            ) && app.presentPushRender(windowPipeline, values, clear) &&
+            app.presentPushRenderVertices(
+                windowBufferedPipeline, values, vertices, 3, clear
+            ) && app.presentPushRenderIndexed(
+                windowBufferedPipeline, values, vertices, indices, 3, clear
+            ) && app.presentPushRenderVerticesIndirect(
+                windowBufferedPipeline, values, vertices, direct, clear
+            ) && app.presentPushRenderIndexedIndirect(
+                windowBufferedPipeline, values, vertices, indices, indexed,
+                clear
+            )
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
@@ -81,13 +217,22 @@ fun main: int {
     val handlesStable = if (app.backend == graphicsBackendOpenGl)
         targetPipeline.openGl.pushConstantBuffer == targetHandle &&
             windowPipeline.openGl.pushConstantBuffer == windowHandle &&
-            targetHandle != 0 && windowHandle != 0
+            targetBufferedPipeline.openGl.pushConstantBuffer ==
+                targetBufferedHandle &&
+            windowBufferedPipeline.openGl.pushConstantBuffer ==
+                windowBufferedHandle &&
+            targetHandle != 0 && windowHandle != 0 &&
+            targetBufferedHandle != 0 && windowBufferedHandle != 0
     else targetPipeline.vulkan.handle == targetHandle &&
         windowPipeline.vulkan.handle == windowHandle &&
+        targetBufferedPipeline.vulkan.handle == targetBufferedHandle &&
+        windowBufferedPipeline.vulkan.handle == windowBufferedHandle &&
         targetPipeline.vulkan.pushConstantSize == 16 &&
-        windowPipeline.vulkan.pushConstantSize == 16
+        windowPipeline.vulkan.pushConstantSize == 16 &&
+        targetBufferedPipeline.vulkan.pushConstantSize == 16 &&
+        windowBufferedPipeline.vulkan.pushConstantSize == 16
     println(
-        "push-color backend=${graphicsBackendName(app.backend)} pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+        "push-color backend=${graphicsBackendName(app.backend)} forms=10 pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
     )
     if (repeated && frame == 4 && finalPixel == 4278190335 &&
         liveAfter == liveBefore && handlesStable) 0 else 1

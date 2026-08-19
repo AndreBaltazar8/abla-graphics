@@ -41,7 +41,10 @@ enabled Vulkan 1.3 synchronization2 with real `vkQueueSubmit2` transfer
 submission and device-owned timeline completion instead of queue-wide transfer
 idle plus zero-allocation `vkCmdPipelineBarrier2` memory and image transitions
 on that reusable path, plus feature-gated surfaced dynamic rendering without
-render-pass/framebuffer objects and with a legacy fallback. Repeated clear,
+render-pass/framebuffer objects and with a legacy fallback, plus reusable
+reflected push values wired to strict compute storage mutation and raster
+procedural/vertex/indexed/direct-indirect/indexed-indirect offscreen and
+presented commands on both backends. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

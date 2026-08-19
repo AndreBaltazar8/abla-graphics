@@ -1732,9 +1732,23 @@ places the same range in the graphics pipeline layout and records
 binding-15 UBO owned by the linked program. Both command forms accept changing
 values without allocation, and Vulkan swapchain recreation preserves the
 reflected range. Integration tests prove the exact center pixel on both real
-drivers and reject missing, wrong-stage, and wrong-size value blocks. General
-raster push-constant expressions and push-aware vertex/index command overloads
-remain future slices.
+drivers and reject missing, wrong-stage, and wrong-size value blocks.
+
+The push-aware buffered family mirrors the ordinary direct and GPU-indirect
+surface exactly:
+`renderPushVerticesToTarget`, `renderPushIndexedToTarget`,
+`renderPushVerticesIndirectToTarget`,
+`renderPushIndexedIndirectToTarget`, `presentPushRenderVertices`,
+`presentPushRenderIndexed`, `presentPushRenderVerticesIndirect`, and
+`presentPushRenderIndexedIndirect`. These methods retain the same checked
+vertex/index/indirect usage, byte-size, count, ownership, target, depth, and
+swapchain-recovery rules while additionally requiring an exact reflected value
+layout. OpenGL reuses the program-owned UBO for every draw form; Vulkan records
+the range before direct or indirect drawing. The `push-color` sample executes
+all eight buffered forms plus both procedural forms for changing values across
+four allocation-free frames on each backend. General raster push-constant
+expressions and push-aware render-pass clear/load/store overloads remain future
+slices.
 
 The overload
 `app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,
