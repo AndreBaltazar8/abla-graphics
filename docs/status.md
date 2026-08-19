@@ -579,11 +579,15 @@ three rejection paths are executable tests.
 
 ## Not yet claimed
 
-- General render-pass graphs with per-subpass input/preserve attachment lists,
+- Render-graph execution with per-subpass input/preserve attachment lists,
   arbitrary attachment routing and dependency masks, complete synchronization2
-  barrier/event migration, and offscreen/MRT dynamic rendering. Surfaced
-  pipelines already use feature-gated dynamic rendering while the portable
-  sequence currently gives every stage the target's complete
+  barrier/event migration, and offscreen/MRT dynamic rendering. The delivered
+  pure-Abla graph planner validates stable explicit dependencies, derives
+  declaration-order read/write hazards, rejects cycles, computes scheduled
+  lifetimes, and aliases compatible non-overlapping transient allocations; it
+  does not yet record backend commands or materialize those barriers/pools.
+  Surfaced pipelines already use feature-gated dynamic rendering while the
+  portable sequence currently gives every stage the target's complete
   color/depth/resolve attachment set and inserts
   fixed color-output dependencies. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight

@@ -349,8 +349,60 @@ fun main: int {
     val scalarSpecialization = ShaderSpecialization([
         shaderSpecializationFloat(5, 0.5)
     ])
+    val graphResources = [
+        GraphicsGraphResource(0, "gbuffer", true, 64, 1),
+        GraphicsGraphResource(1, "post", true, 128, 1),
+        GraphicsGraphResource(2, "output", false, 0, 2)
+    ]
+    val graph = graphicsRenderGraph(graphResources, [
+        GraphicsGraphPass(10, "geometry", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "lighting", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "post", [
+            GraphicsGraphUse(2, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "present", [
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ])
+    val cyclicGraph = graphicsRenderGraph([
+        GraphicsGraphResource(0, "value", true, 4, 0)
+    ], [
+        GraphicsGraphPass(1, "write", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ], [2]),
+        GraphicsGraphPass(2, "read", [
+            GraphicsGraphUse(0, graphAccessRead)
+        ])
+    ])
+    val invalidGraphUse = graphicsRenderGraph(graphResources, [
+        GraphicsGraphPass(1, "duplicate", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(0, graphAccessWrite)
+        ])
+    ])
 
     if (automatic.succeeded &&
+        graph.valid() && graph.order.size == 4 &&
+        graph.order[0] == 10 && graph.order[1] == 20 &&
+        graph.order[2] == 30 && graph.order[3] == 40 &&
+        graph.lifetimes.size == 3 &&
+        graph.lifetimes[0].firstPass == 0 &&
+        graph.lifetimes[0].lastPass == 1 &&
+        graph.lifetimes[0].allocationSlot == 0 &&
+        graph.lifetimes[1].firstPass == 2 &&
+        graph.lifetimes[1].lastPass == 3 &&
+        graph.lifetimes[1].allocationSlot == 0 &&
+        graph.lifetimes[2].allocationSlot == -1 &&
+        graph.allocations.size == 1 &&
+        graph.allocations[0].capacity == 128 &&
+        !cyclicGraph.valid() && cyclicGraph.error.message != "" &&
+        !invalidGraphUse.valid() && invalidGraphUse.error.message != "" &&
         automatic.backend == graphicsBackendVulkan &&
         fallback.succeeded &&
         fallback.backend == graphicsBackendHeadless &&

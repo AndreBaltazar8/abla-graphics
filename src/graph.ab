@@ -1,0 +1,313 @@
+// Deterministic backend-neutral render-graph dependency and lifetime planner.
+
+import "core.ab"
+
+val graphAccessRead = 1
+val graphAccessWrite = 2
+val graphAccessReadWrite = 3
+
+class GraphicsGraphResource(
+    val id: int,
+    val name: string,
+    val transient: bool,
+    val size: int,
+    val compatibility: int
+) {
+    fun valid(): bool = this.id >= 0 && this.name != "" &&
+        this.size >= 0 && this.compatibility >= 0 &&
+        (!this.transient || this.size > 0)
+}
+
+class GraphicsGraphUse(val resourceId: int, val access: int) {
+    fun valid(): bool = this.resourceId >= 0 &&
+        this.access >= graphAccessRead && this.access <= graphAccessReadWrite
+    fun writes(): bool = (this.access & graphAccessWrite) != 0
+}
+
+class GraphicsGraphPass(
+    val id: int,
+    val name: string,
+    val uses: array<GraphicsGraphUse>,
+    val after: array<int> = []
+)
+
+class GraphicsGraphLifetime(
+    val resourceId: int,
+    val firstPass: int,
+    val lastPass: int,
+    val allocationSlot: int
+)
+
+class GraphicsGraphAllocation(
+    val slot: int,
+    val compatibility: int,
+    val capacity: int
+)
+
+class GraphicsRenderGraphPlan(
+    val order: array<int>,
+    val lifetimes: array<GraphicsGraphLifetime>,
+    val allocations: array<GraphicsGraphAllocation>,
+    val error: GraphicsError = GraphicsError()
+) {
+    fun valid(): bool = !this.error.occurred() && this.order.size > 0
+}
+
+fun graphicsGraphResourceIndex(
+    resources: array<GraphicsGraphResource>,
+    id: int
+): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < resources.size) {
+        if (resources[index].id == id) result = index
+        index = index + 1
+    }
+    result
+}
+
+fun graphicsGraphPassIndex(
+    passes: array<GraphicsGraphPass>,
+    id: int
+): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < passes.size) {
+        if (passes[index].id == id) result = index
+        index = index + 1
+    }
+    result
+}
+
+fun graphicsGraphHazard(
+    first: GraphicsGraphPass,
+    second: GraphicsGraphPass
+): bool {
+    var hazard = false
+    var firstIndex = 0
+    while (!hazard && firstIndex < first.uses.size) {
+        var secondIndex = 0
+        while (!hazard && secondIndex < second.uses.size) {
+            val left = first.uses[firstIndex]
+            val right = second.uses[secondIndex]
+            hazard = left.resourceId == right.resourceId &&
+                (left.writes() || right.writes())
+            secondIndex = secondIndex + 1
+        }
+        firstIndex = firstIndex + 1
+    }
+    hazard
+}
+
+fun graphicsRenderGraph(
+    resources: array<GraphicsGraphResource>,
+    passes: array<GraphicsGraphPass>
+): GraphicsRenderGraphPlan {
+    var valid = resources.size > 0 && passes.size > 0 && passes.size <= 256
+    var error = if (valid) "" else "render graph requires resources and passes"
+    var index = 0
+    while (valid && index < resources.size) {
+        valid = resources[index].valid()
+        var earlier = 0
+        while (valid && earlier < index) {
+            valid = resources[earlier].id != resources[index].id &&
+                resources[earlier].name != resources[index].name
+            earlier = earlier + 1
+        }
+        if (!valid) error = "render graph resources must be valid and unique"
+        index = index + 1
+    }
+    index = 0
+    while (valid && index < passes.size) {
+        val pass = passes[index]
+        valid = pass.id >= 0 && pass.name != "" && pass.uses.size > 0
+        var earlier = 0
+        while (valid && earlier < index) {
+            valid = passes[earlier].id != pass.id &&
+                passes[earlier].name != pass.name
+            earlier = earlier + 1
+        }
+        var useIndex = 0
+        while (valid && useIndex < pass.uses.size) {
+            val use = pass.uses[useIndex]
+            valid = use.valid() &&
+                graphicsGraphResourceIndex(resources, use.resourceId) >= 0
+            var previousUse = 0
+            while (valid && previousUse < useIndex) {
+                valid = pass.uses[previousUse].resourceId != use.resourceId
+                previousUse = previousUse + 1
+            }
+            useIndex = useIndex + 1
+        }
+        if (!valid) error = "render graph passes and uses must be valid and unique"
+        index = index + 1
+    }
+
+    val edges: array<int> = []
+    index = 0
+    while (index < passes.size * passes.size) {
+        edges.append(0)
+        index = index + 1
+    }
+    index = 0
+    while (valid && index < passes.size) {
+        var dependencyIndex = 0
+        while (valid && dependencyIndex < passes[index].after.size) {
+            val dependency = graphicsGraphPassIndex(
+                passes,
+                passes[index].after[dependencyIndex]
+            )
+            valid = dependency >= 0 && dependency != index
+            if (valid) edges[dependency * passes.size + index] = 1
+            dependencyIndex = dependencyIndex + 1
+        }
+        if (!valid) error = "render graph contains an unknown pass dependency"
+        index = index + 1
+    }
+    var first = 0
+    while (valid && first < passes.size) {
+        var second = first + 1
+        while (second < passes.size) {
+            if (graphicsGraphHazard(passes[first], passes[second])) {
+                edges[first * passes.size + second] = 1
+            }
+            second = second + 1
+        }
+        first = first + 1
+    }
+
+    val orderIndices: array<int> = []
+    val emitted: array<bool> = []
+    index = 0
+    while (index < passes.size) {
+        emitted.append(false)
+        index = index + 1
+    }
+    while (valid && orderIndices.size < passes.size) {
+        var selected = -1
+        var candidate = 0
+        while (selected < 0 && candidate < passes.size) {
+            var ready = !emitted[candidate]
+            var dependency = 0
+            while (ready && dependency < passes.size) {
+                ready = edges[dependency * passes.size + candidate] == 0 ||
+                    emitted[dependency]
+                dependency = dependency + 1
+            }
+            if (ready) selected = candidate
+            candidate = candidate + 1
+        }
+        if (selected < 0) {
+            valid = false
+            error = "render graph dependencies contain a cycle"
+        } else {
+            emitted[selected] = true
+            orderIndices.append(selected)
+        }
+    }
+
+    val order: array<int> = []
+    index = 0
+    while (valid && index < orderIndices.size) {
+        order.append(passes[orderIndices[index]].id)
+        index = index + 1
+    }
+    val lifetimes: array<GraphicsGraphLifetime> = []
+    var resourceIndex = 0
+    while (valid && resourceIndex < resources.size) {
+        var firstPass = -1
+        var lastPass = -1
+        var position = 0
+        while (position < orderIndices.size) {
+            val pass = passes[orderIndices[position]]
+            var useIndex = 0
+            var used = false
+            while (!used && useIndex < pass.uses.size) {
+                used = pass.uses[useIndex].resourceId ==
+                    resources[resourceIndex].id
+                useIndex = useIndex + 1
+            }
+            if (used) {
+                if (firstPass < 0) firstPass = position
+                lastPass = position
+            }
+            position = position + 1
+        }
+        if (firstPass >= 0) lifetimes.append(GraphicsGraphLifetime(
+            resources[resourceIndex].id,
+            firstPass,
+            lastPass,
+            -1
+        ))
+        resourceIndex = resourceIndex + 1
+    }
+
+    val slotCompatibility: array<int> = []
+    val slotCapacity: array<int> = []
+    val slotLastPass: array<int> = []
+    var position = 0
+    while (valid && position < orderIndices.size) {
+        var lifetimeIndex = 0
+        while (lifetimeIndex < lifetimes.size) {
+            val lifetime = lifetimes[lifetimeIndex]
+            val currentResource = graphicsGraphResourceIndex(
+                resources,
+                lifetime.resourceId
+            )
+            if (lifetime.firstPass == position &&
+                resources[currentResource].transient) {
+                var slot = -1
+                var slotIndex = 0
+                while (slot < 0 && slotIndex < slotCapacity.size) {
+                    if (slotCompatibility[slotIndex] ==
+                        resources[currentResource].compatibility &&
+                        slotLastPass[slotIndex] < lifetime.firstPass) {
+                        slot = slotIndex
+                    }
+                    slotIndex = slotIndex + 1
+                }
+                if (slot < 0) {
+                    slot = slotCapacity.size
+                    slotCompatibility.append(
+                        resources[currentResource].compatibility
+                    )
+                    slotCapacity.append(resources[currentResource].size)
+                    slotLastPass.append(lifetime.lastPass)
+                } else {
+                    if (resources[currentResource].size > slotCapacity[slot]) {
+                        slotCapacity[slot] = resources[currentResource].size
+                    }
+                    slotLastPass[slot] = lifetime.lastPass
+                }
+                lifetimes[lifetimeIndex] = GraphicsGraphLifetime(
+                    lifetime.resourceId,
+                    lifetime.firstPass,
+                    lifetime.lastPass,
+                    slot
+                )
+            }
+            lifetimeIndex = lifetimeIndex + 1
+        }
+        position = position + 1
+    }
+    val allocations: array<GraphicsGraphAllocation> = []
+    index = 0
+    while (index < slotCapacity.size) {
+        allocations.append(GraphicsGraphAllocation(
+            index,
+            slotCompatibility[index],
+            slotCapacity[index]
+        ))
+        index = index + 1
+    }
+    GraphicsRenderGraphPlan(
+        order,
+        lifetimes,
+        allocations,
+        if (valid) GraphicsError() else GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "graphicsRenderGraph",
+            error
+        )
+    )
+}

@@ -30,6 +30,9 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
+- a deterministic pure-Abla render-graph planner with explicit dependencies,
+  read/write hazard ordering, transient lifetimes, cycle rejection, and
+  compatible allocation-slot aliasing;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets, with

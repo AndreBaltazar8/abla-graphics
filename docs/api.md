@@ -1081,6 +1081,22 @@ implementations will follow the same ownership rule.
 Borrowing a resource for encoding does not transfer it. Explicit `move` is used
 only when ownership actually changes.
 
+`graphicsRenderGraph(resources, passes)` builds a deterministic common planning
+value before any backend command is recorded. Resources have stable IDs,
+transient/imported ownership, byte sizes, and an application-defined
+compatibility class. Passes declare one read, write, or read/write use per
+resource plus optional `after` dependencies by pass ID. The planner adds
+declaration-order edges for read/write hazards, performs a stable topological
+sort, rejects unknown dependencies and cycles, and reports every used
+resource's first and last scheduled pass.
+
+Transient resources with disjoint lifetimes and the same compatibility class
+share the lowest available `GraphicsGraphAllocation` slot. Slot capacity grows
+to the largest aliased resource, while overlapping or incompatible lifetimes
+remain separate. Imported resources receive no allocation slot. This is the
+render-graph planning layer; command-encoder execution, backend barrier
+materialization, and real transient resource pools are not yet claimed.
+
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:
 
