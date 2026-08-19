@@ -466,6 +466,11 @@ regressions, 73-test conformance suites, compact value-ABI checks, and
 byte-identical pure-Abla self-rebuilds passed before the Vulkan debug callback
 was enabled.
 
+Compiler commit `fd1c74e` isolates those new intrinsics in the optional
+`abla/unsafe/native` module so the prior `v0.2.4` release can still bootstrap a
+clean current checkout. The exact old-seed build, 73-test suite, compact ABI
+check, and byte-identical self-rebuild pass with that boundary.
+
 The optional Vulkan debug-utils module discovers `VK_EXT_debug_utils`, while
 common headless and X11 configuration controls whether instances enable it.
 Importing `driver/vulkan_debug.ab` adds the process callback, resolves
