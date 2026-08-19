@@ -1,0 +1,464 @@
+// Wayland wire-protocol foundation implemented entirely in Abla.
+//
+// This module connects to the compositor's AF_UNIX stream directly. It does
+// not use libwayland-client, GLFW, SDL, or a project native shim.
+
+import "abla/sys/linux"
+import "abla/sys/linux/fs"
+import "abla/sys/linux/process"
+import "abla/unsafe/memory"
+
+val waylandDisplayIdentifier = 1
+val waylandMaximumMessageBytes = 65532
+val waylandMaximumGlobals = 4096
+
+fun waylandU32(value: string, offset: int): int =
+    value[offset] + value[offset + 1] * 256 +
+    value[offset + 2] * 65536 + value[offset + 3] * 16777216
+
+fun waylandStoreU32(
+    var buffer: NativeByteBuffer,
+    offset: int,
+    value: int
+): void {
+    buffer.store(offset, value & 255)
+    buffer.store(offset + 1, (value >>> 8) & 255)
+    buffer.store(offset + 2, (value >>> 16) & 255)
+    buffer.store(offset + 3, (value >>> 24) & 255)
+    return
+}
+
+fun waylandAligned(length: int): int = ((length + 3) / 4) * 4
+
+fun waylandWriteAll(descriptor: int, value: string): bool {
+    var offset = 0
+    var succeeded = descriptor >= 0
+    while (succeeded && offset < value.size) {
+        val written = linuxWrite(
+            descriptor,
+            value.slice(offset, value.size)
+        )
+        if (written <= 0) succeeded = false
+        else offset = offset + written
+    }
+    succeeded
+}
+
+fun waylandReadExact(descriptor: int, length: int): string {
+    var result = ""
+    var reading = descriptor >= 0 && length >= 0 &&
+        length <= waylandMaximumMessageBytes
+    while (reading && result.size < length) {
+        val part = LinuxFileDescriptor(descriptor).read(length - result.size)
+        if (part.size == 0) reading = false
+        else result = "$result$part"
+    }
+    if (result.size == length) result else ""
+}
+
+fun waylandPacket(
+    objectIdentifier: int,
+    opcode: int,
+    payload: string = ""
+): string {
+    val length = 8 + payload.size
+    var result = ""
+    if (objectIdentifier > 0 && opcode >= 0 && opcode <= 65535 &&
+        length >= 8 && length <= waylandMaximumMessageBytes &&
+        (length / 4) * 4 == length) {
+        val packet = nativeByteBuffer(length + 1)
+        waylandStoreU32(packet, 0, objectIdentifier)
+        waylandStoreU32(packet, 4, (length << 16) | opcode)
+        var index = 0
+        while (index < payload.size) {
+            packet.store(8 + index, payload[index])
+            index = index + 1
+        }
+        result = packet.adoptString(length)
+    }
+    result
+}
+
+fun waylandU32Payload(value: int): string {
+    val payload = nativeByteBuffer(5)
+    waylandStoreU32(payload, 0, value)
+    payload.adoptString(4)
+}
+
+fun waylandNewIdentifierRequest(
+    objectIdentifier: int,
+    opcode: int,
+    newIdentifier: int
+): string = waylandPacket(
+    objectIdentifier,
+    opcode,
+    waylandU32Payload(newIdentifier)
+)
+
+class WaylandString(
+    val valid: bool,
+    val text: string = "",
+    val next: int = 0
+)
+
+fun waylandString(value: string, offset: int): WaylandString {
+    var valid = offset >= 0 && offset + 4 <= value.size
+    val length = if (valid) waylandU32(value, offset) else 0
+    val padded = if (length >= 0) waylandAligned(length) else 0
+    valid = valid && length > 0 && length <= 4097 &&
+        padded >= length && offset + 4 + padded <= value.size &&
+        value[offset + 4 + length - 1] == 0
+    var index = 0
+    while (valid && index + 1 < length) {
+        valid = value[offset + 4 + index] != 0
+        index = index + 1
+    }
+    val text = if (valid)
+        value.slice(offset + 4, offset + 4 + length - 1)
+    else ""
+    WaylandString(valid, text, if (valid) offset + 4 + padded else offset)
+}
+
+class WaylandMessage(
+    val valid: bool,
+    val objectIdentifier: int = 0,
+    val opcode: int = 0,
+    val payload: string = ""
+)
+
+fun waylandDecodeMessage(value: string): WaylandMessage {
+    var valid = value.size >= 8 && value.size <= waylandMaximumMessageBytes &&
+        (value.size / 4) * 4 == value.size
+    val objectIdentifier = if (valid) waylandU32(value, 0) else 0
+    val descriptor = if (valid) waylandU32(value, 4) else 0
+    val length = (descriptor >>> 16) & 65535
+    val opcode = descriptor & 65535
+    valid = valid && objectIdentifier > 0 && length == value.size
+    WaylandMessage(
+        valid,
+        objectIdentifier,
+        opcode,
+        if (valid) value.slice(8, value.size) else ""
+    )
+}
+
+fun waylandReadMessage(descriptor: int): WaylandMessage {
+    val header = waylandReadExact(descriptor, 8)
+    var valid = header.size == 8
+    val messageWord = if (valid) waylandU32(header, 4) else 0
+    val length = (messageWord >>> 16) & 65535
+    valid = valid && length >= 8 && length <= waylandMaximumMessageBytes &&
+        (length / 4) * 4 == length
+    val payload = if (valid)
+        waylandReadExact(descriptor, length - 8)
+    else ""
+    valid = valid && payload.size == length - 8
+    waylandDecodeMessage(if (valid) "$header$payload" else "")
+}
+
+class WaylandGlobal(
+    val valid: bool = false,
+    val name: int = 0,
+    val interfaceName: string = "",
+    val version: int = 0
+)
+
+fun waylandRegistryGlobal(payload: string): WaylandGlobal {
+    val hasName = payload.size >= 4
+    val name = if (hasName) waylandU32(payload, 0) else 0
+    val parsedInterface = waylandString(payload, 4)
+    val valid = hasName && name > 0 && parsedInterface.valid &&
+        parsedInterface.next + 4 == payload.size
+    val version = if (valid) waylandU32(payload, parsedInterface.next) else 0
+    WaylandGlobal(
+        valid && parsedInterface.text != "" && version > 0,
+        name,
+        parsedInterface.text,
+        version
+    )
+}
+
+class WaylandBinding(
+    val valid: bool = false,
+    val identifier: int = 0,
+    val name: int = 0,
+    val interfaceName: string = "",
+    val version: int = 0
+)
+
+fun waylandRegistryBindRequest(
+    registryIdentifier: int,
+    global: WaylandGlobal,
+    version: int,
+    newIdentifier: int
+): string {
+    var result = ""
+    val stringLength = global.interfaceName.size + 1
+    val stringPadded = waylandAligned(stringLength)
+    val payloadLength = 4 + 4 + stringPadded + 4 + 4
+    if (registryIdentifier > 0 && global.valid && version > 0 &&
+        version <= global.version && global.interfaceName.size <= 4096 &&
+        newIdentifier >= 2 &&
+        payloadLength + 8 <= waylandMaximumMessageBytes) {
+        val payload = nativeByteBuffer(payloadLength + 1)
+        waylandStoreU32(payload, 0, global.name)
+        waylandStoreU32(payload, 4, stringLength)
+        var index = 0
+        while (index < global.interfaceName.size) {
+            payload.store(8 + index, global.interfaceName[index])
+            index = index + 1
+        }
+        payload.store(8 + global.interfaceName.size, 0)
+        waylandStoreU32(payload, 8 + stringPadded, version)
+        waylandStoreU32(payload, 12 + stringPadded, newIdentifier)
+        result = waylandPacket(
+            registryIdentifier,
+            0,
+            payload.adoptString(payloadLength)
+        )
+    }
+    result
+}
+
+fun waylandDisplayPath(): string {
+    val configured = linuxEnvironment("WAYLAND_DISPLAY")
+    val display = if (configured.found && configured.value != "")
+        configured.value
+    else "wayland-0"
+    val absolute = display.size > 0 && display[0] == 47
+    var result = if (absolute) display else ""
+    if (!absolute) {
+        val runtime = linuxEnvironment("XDG_RUNTIME_DIR")
+        if (runtime.found && runtime.value != "") {
+            result = "${runtime.value}/$display"
+        }
+    }
+    result
+}
+
+fun waylandDescriptor(value: string): int {
+    var result = -1
+    var parsed = 0
+    var valid = value != "" && value.size <= 10
+    var index = 0
+    while (valid && index < value.size) {
+        val digit = value[index] - 48
+        valid = digit >= 0 && digit <= 9 &&
+            parsed <= (2147483647 - digit) / 10
+        if (valid) parsed = parsed * 10 + digit
+        index = index + 1
+    }
+    if (valid) result = parsed
+    result
+}
+
+fun waylandInheritedDescriptor(): int {
+    val configured = linuxEnvironment("WAYLAND_SOCKET")
+    if (configured.found) waylandDescriptor(configured.value) else -1
+}
+
+fun waylandConnectUnix(path: string): int {
+    var descriptor = -1
+    if (path != "" && path.size <= 107) {
+        descriptor = linuxSyscall3(41, 1, 524289, 0)
+    }
+    if (descriptor >= 0) {
+        val address = nativeByteBuffer(110)
+        address.store(0, 1)
+        address.store(1, 0)
+        var index = 0
+        while (index < path.size) {
+            address.store(2 + index, path[index])
+            index = index + 1
+        }
+        address.store(2 + path.size, 0)
+        val connected = linuxSyscall3(
+            42,
+            descriptor,
+            nativePointerAddress(address.address),
+            3 + path.size
+        )
+        address.close()
+        if (connected != 0) {
+            linuxSyscall1(3, descriptor)
+            descriptor = -1
+        }
+    }
+    descriptor
+}
+
+resource class WaylandConnection(
+    var descriptor: int,
+    val registryIdentifier: int,
+    var nextIdentifier: int,
+    var globals: array<WaylandGlobal>,
+    var failed: bool = false,
+    var error: string = ""
+) {
+    fun valid(): bool = this.descriptor >= 0 &&
+        this.registryIdentifier >= 2 && !this.failed
+
+    fun allocateIdentifier(): int {
+        var result = -1
+        if (this.valid() && this.nextIdentifier >= 2 &&
+            this.nextIdentifier < 4278190079) {
+            result = this.nextIdentifier
+            this.nextIdentifier = this.nextIdentifier + 1
+        }
+        result
+    }
+
+    fun fail(message: string): void {
+        this.failed = true
+        this.error = message
+        return
+    }
+
+    fun global(interfaceName: string): WaylandGlobal {
+        var result = WaylandGlobal()
+        var index = 0
+        while (index < this.globals.size) {
+            val candidate = this.globals[index]
+            if (candidate.valid && candidate.interfaceName == interfaceName &&
+                (!result.valid || candidate.version > result.version)) {
+                result = candidate
+            }
+            index = index + 1
+        }
+        result
+    }
+
+    fun removeGlobal(name: int): void {
+        val retained: array<WaylandGlobal> = []
+        var index = 0
+        while (index < this.globals.size) {
+            if (this.globals[index].name != name) {
+                retained.append(this.globals[index])
+            }
+            index = index + 1
+        }
+        this.globals = retained
+        return
+    }
+
+    fun roundtrip(): bool {
+        val callbackIdentifier = this.allocateIdentifier()
+        var succeeded = callbackIdentifier >= 2 && waylandWriteAll(
+            this.descriptor,
+            waylandNewIdentifierRequest(
+                waylandDisplayIdentifier,
+                0,
+                callbackIdentifier
+            )
+        )
+        var complete = false
+        var messages = 0
+        while (succeeded && !complete && messages < 16384) {
+            val message = waylandReadMessage(this.descriptor)
+            succeeded = message.valid
+            if (succeeded && message.objectIdentifier ==
+                this.registryIdentifier && message.opcode == 0) {
+                val global = waylandRegistryGlobal(message.payload)
+                succeeded = global.valid &&
+                    this.globals.size < waylandMaximumGlobals
+                if (succeeded) this.globals.append(global)
+            } else if (succeeded && message.objectIdentifier ==
+                this.registryIdentifier && message.opcode == 1) {
+                succeeded = message.payload.size == 4
+                if (succeeded) this.removeGlobal(
+                    waylandU32(message.payload, 0)
+                )
+            } else if (succeeded && message.objectIdentifier ==
+                callbackIdentifier && message.opcode == 0) {
+                succeeded = message.payload.size == 4
+                complete = succeeded
+            } else if (succeeded && message.objectIdentifier ==
+                waylandDisplayIdentifier && message.opcode == 0) {
+                succeeded = false
+                var detail = "Wayland compositor protocol error"
+                if (message.payload.size >= 12) {
+                    val parsed = waylandString(message.payload, 8)
+                    if (parsed.valid) detail = parsed.text
+                }
+                this.fail(detail)
+            } else if (succeeded && message.objectIdentifier ==
+                waylandDisplayIdentifier && message.opcode == 1) {
+                succeeded = message.payload.size == 4
+            } else if (succeeded &&
+                (message.objectIdentifier == this.registryIdentifier ||
+                 message.objectIdentifier == callbackIdentifier ||
+                 message.objectIdentifier == waylandDisplayIdentifier)) {
+                succeeded = false
+            }
+            messages = messages + 1
+        }
+        succeeded = succeeded && complete
+        if (!succeeded && !this.failed) this.fail(
+            "Wayland roundtrip failed"
+        )
+        succeeded
+    }
+
+    fun bind(interfaceName: string, maximumVersion: int): WaylandBinding {
+        val global = this.global(interfaceName)
+        val version = if (global.valid && maximumVersion > 0 &&
+            maximumVersion < global.version) maximumVersion
+        else global.version
+        val identifier = if (global.valid && version > 0)
+            this.allocateIdentifier()
+        else -1
+        val request = if (identifier >= 2) waylandRegistryBindRequest(
+            this.registryIdentifier,
+            global,
+            version,
+            identifier
+        ) else ""
+        val succeeded = request != "" &&
+            waylandWriteAll(this.descriptor, request)
+        if (!succeeded && global.valid) this.fail(
+            "Wayland global bind failed"
+        )
+        WaylandBinding(
+            succeeded,
+            if (succeeded) identifier else 0,
+            if (succeeded) global.name else 0,
+            if (succeeded) global.interfaceName else "",
+            if (succeeded) version else 0
+        )
+    }
+
+    fun drop(): void {
+        if (this.descriptor >= 0) linuxSyscall1(3, this.descriptor)
+        this.descriptor = -1
+        return
+    }
+}
+
+fun waylandConnection(): WaylandConnection {
+    val configuredSocket = linuxEnvironment("WAYLAND_SOCKET")
+    val inherited = if (configuredSocket.found)
+        waylandDescriptor(configuredSocket.value) else -1
+    val descriptor = if (configuredSocket.found)
+        inherited else waylandConnectUnix(waylandDisplayPath())
+    val connection = WaylandConnection(
+        descriptor,
+        2,
+        3,
+        [],
+        descriptor < 0,
+        if (descriptor < 0) "Unable to connect to Wayland compositor" else ""
+    )
+    if (descriptor >= 0) {
+        val requested = waylandWriteAll(
+            descriptor,
+            waylandNewIdentifierRequest(
+                waylandDisplayIdentifier,
+                1,
+                connection.registryIdentifier
+            )
+        )
+        if (!requested) connection.fail("Wayland registry request failed")
+        else connection.roundtrip()
+    }
+    connection
+}

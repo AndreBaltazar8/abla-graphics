@@ -5,10 +5,22 @@ project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 compiler_root=$(cd -- "$project_root/../ablac" && pwd)
 compiler="$compiler_root/build/ablac"
 output_directory="$project_root/build/samples"
+wayland_runtime=$(mktemp -d)
+weston_pid=''
+
+cleanup() {
+    if [[ -n $weston_pid ]]; then
+        kill "$weston_pid" 2>/dev/null || true
+        wait "$weston_pid" 2>/dev/null || true
+    fi
+    rm -rf -- "$wayland_runtime"
+}
+trap cleanup EXIT
 
 mkdir -p "$output_directory"
+chmod 700 "$wayland_runtime"
 
-for sample in x11-window vulkan-info vulkan-surface headless-opengl \
+for sample in x11-window wayland-info vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \
     common-textured indexed-textured-cube render-to-texture \
@@ -19,6 +31,21 @@ for sample in x11-window vulkan-info vulkan-surface headless-opengl \
         build "$project_root/examples/$sample/main.ab" \
         -o "$output_directory/$sample" --no-cache
 done
+
+XDG_RUNTIME_DIR="$wayland_runtime" weston \
+    --backend=headless-backend.so \
+    --socket=wayland-abla-samples \
+    --idle-time=0 \
+    --log="$output_directory/weston-samples.log" &
+weston_pid=$!
+for _ in $(seq 1 100); do
+    [[ -S "$wayland_runtime/wayland-abla-samples" ]] && break
+    kill -0 "$weston_pid" 2>/dev/null || exit 1
+    sleep 0.05
+done
+[[ -S "$wayland_runtime/wayland-abla-samples" ]]
+XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
+    "$output_directory/wayland-info"
 
 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/x11-window"

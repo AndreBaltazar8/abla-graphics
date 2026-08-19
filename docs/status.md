@@ -31,6 +31,16 @@ Updated: 2026-08-19.
   transfer between two direct clients, explicit transparent-window rejection,
   WM_DELETE_WINDOW client-message round trip, DestroyWindow, and close, running
   against authenticated Xvfb without an Xlib/XCB/GLFW window-management layer.
+- Wayland foundation test: direct AF_UNIX connection through the configured
+  runtime/display path, optional inherited `WAYLAND_SOCKET` parsing, native
+  two-word header and aligned string/new-id encoding, bounded message decode,
+  dense client object allocation, `wl_display.get_registry`, registry
+  global/global-remove discovery, fatal display/delete-id handling,
+  synchronization callbacks, and version-capped `wl_registry.bind`. Synthetic
+  malformed length/string cases fail deterministically. A live headless Weston
+  probe discovers `wl_compositor`, `wl_shm`, and `xdg_wm_base`, binds the
+  compositor at version four, and completes a second roundtrip without
+  libwayland, GLFW, or SDL.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
@@ -761,7 +771,8 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland, Windows, or macOS platform modules.
+- Wayland surface/xdg-shell window, shared-buffer, input, clipboard, output,
+  and Vulkan/EGL presentation integration; Windows and macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional

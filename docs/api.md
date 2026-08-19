@@ -1125,6 +1125,24 @@ query resolves will make multi-frame profiling asynchronous.
 
 ## Window and events
 
+The first direct Wayland layer is available through `waylandConnection()`. It
+connects to an inherited `WAYLAND_SOCKET`, an absolute `WAYLAND_DISPLAY`, or
+`$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` (defaulting to `wayland-0`) using an Abla
+AF_UNIX syscall path. `WaylandConnection` owns the descriptor, dense client
+object IDs, the singleton display/registry bootstrap, and copied
+`WaylandGlobal` values. `roundtrip()` emits `wl_display.sync` and consumes
+registry global/global-remove, callback, delete-id, and fatal display events;
+`bind(interfaceName, maximumVersion)` clamps the requested version to the
+advertised global and emits the untyped registry bind signature directly.
+
+The wire codec uses native-order 32-bit words, validates the two-word header,
+message byte bounds/alignment, null-terminated padded strings, and complete
+registry payloads. The live gate discovers `wl_compositor`, `wl_shm`, and
+`xdg_wm_base` from headless Weston, binds the compositor, and completes another
+roundtrip without linking `libwayland-client`. This is the transport/registry
+foundation, not yet a claim of Wayland surfaces, xdg-shell windows, input,
+clipboard, or Vulkan/EGL Wayland presentation.
+
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,
 DPI behavior, and graphics surface needs. `Window.pollEvents()` returns bounded

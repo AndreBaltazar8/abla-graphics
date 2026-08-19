@@ -1,0 +1,67 @@
+import "../src/platform/wayland.ab"
+import "abla/unsafe/memory"
+
+fun waylandTestGlobalPayload(
+    name: int,
+    interfaceName: string,
+    version: int
+): string {
+    val length = interfaceName.size + 1
+    val padded = waylandAligned(length)
+    val payload = nativeByteBuffer(13 + padded)
+    waylandStoreU32(payload, 0, name)
+    waylandStoreU32(payload, 4, length)
+    var index = 0
+    while (index < interfaceName.size) {
+        payload.store(8 + index, interfaceName[index])
+        index = index + 1
+    }
+    payload.store(8 + interfaceName.size, 0)
+    waylandStoreU32(payload, 8 + padded, version)
+    payload.adoptString(12 + padded)
+}
+
+fun main: int {
+    val getRegistry = waylandNewIdentifierRequest(1, 1, 2)
+    val getRegistryMessage = waylandDecodeMessage(getRegistry)
+    val global = waylandRegistryGlobal(
+        waylandTestGlobalPayload(17, "wl_compositor", 6)
+    )
+    val bind = waylandRegistryBindRequest(2, global, 4, 3)
+    val bindMessage = waylandDecodeMessage(bind)
+    val bindInterface = waylandString(bindMessage.payload, 4)
+    val bindVersion = if (bindInterface.valid)
+        waylandU32(bindMessage.payload, bindInterface.next)
+    else 0
+    val bindIdentifier = if (bindInterface.valid)
+        waylandU32(bindMessage.payload, bindInterface.next + 4)
+    else 0
+    val malformedLength = waylandDecodeMessage(
+        "\u{1}\u{0}\u{0}\u{0}\u{0}\u{0}\u{12}\u{0}"
+    )
+    val malformedString = waylandRegistryGlobal(
+        "\u{1}\u{0}\u{0}\u{0}\u{2}\u{0}\u{0}\u{0}x\u{1}\u{0}\u{0}\u{1}\u{0}\u{0}\u{0}"
+    )
+    val interiorNullString = waylandRegistryGlobal(
+        "\u{1}\u{0}\u{0}\u{0}\u{3}\u{0}\u{0}\u{0}x\u{0}\u{0}\u{0}\u{1}\u{0}\u{0}\u{0}"
+    )
+    if (getRegistry.size == 12 && getRegistryMessage.valid &&
+        getRegistryMessage.objectIdentifier == 1 &&
+        getRegistryMessage.opcode == 1 &&
+        getRegistryMessage.payload.size == 4 &&
+        waylandU32(getRegistryMessage.payload, 0) == 2 &&
+        global.valid && global.name == 17 &&
+        global.interfaceName == "wl_compositor" && global.version == 6 &&
+        bindMessage.valid && bindMessage.objectIdentifier == 2 &&
+        bindMessage.opcode == 0 &&
+        waylandU32(bindMessage.payload, 0) == 17 &&
+        bindInterface.valid && bindInterface.text == "wl_compositor" &&
+        bindVersion == 4 && bindIdentifier == 3 &&
+        !malformedLength.valid && !malformedString.valid &&
+        !interiorNullString.valid &&
+        waylandDescriptor("0") == 0 && waylandDescriptor("17") == 17 &&
+        waylandDescriptor("2147483647") == 2147483647 &&
+        waylandDescriptor("") < 0 && waylandDescriptor("-1") < 0 &&
+        waylandDescriptor("2147483648") < 0 &&
+        waylandDisplayIdentifier == 1) 42 else 1
+}

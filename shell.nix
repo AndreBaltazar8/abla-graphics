@@ -18,6 +18,7 @@ pkgs.mkShell {
     vulkan-loader
     vulkan-tools
     vulkan-validation-layers
+    weston
     xorg.xauth
     xorg.libX11
     xorg.xorgserver

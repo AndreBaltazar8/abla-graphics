@@ -19,6 +19,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   and capture, serves asynchronous UTF-8 clipboard selections, and handles the
   WM_DELETE_WINDOW protocol before destroying it; idle event polling reuses a
   window-owned native descriptor and canonical immutable no-event value;
+- a direct pure-Abla Wayland transport that resolves the configured compositor
+  socket, encodes/decodes aligned wire messages, discovers registry globals,
+  performs synchronization barriers, and binds version-capped globals without
+  `libwayland-client`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,
@@ -156,6 +160,8 @@ This runs:
 
 - pure Abla core behavior;
 - the direct X11 protocol test under Xvfb;
+- deterministic Wayland wire tests and a live direct-client registry/bind probe
+  against headless Weston;
 - a real Vulkan 1.4 instance/device/GPU-command/readback test;
 - headless and surfaced EGL/OpenGL draw/readback tests; and
 - runtime/frozen GLSL subparser structure and invalid-stage diagnostics.
@@ -167,6 +173,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 ## Samples
 
 - `examples/x11-window`: direct X11 window/event loop;
+- `examples/wayland-info`: direct Wayland socket, registry, and global report;
 - `examples/vulkan-info`: loader and physical-adapter report;
 - `examples/vulkan-surface`: X11 WSI adapter/capability selection;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and

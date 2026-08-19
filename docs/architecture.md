@@ -22,6 +22,10 @@ The repository contains no C, C++, Rust, GLFW, or SDL implementation layer.
 Window systems are implemented in Abla at their operating-system protocol
 boundary: Linux uses Abla syscall/socket modules for X11 and Wayland, while the
 Windows and macOS ports use direct platform ABI modules written in Abla.
+The current Wayland layer owns the AF_UNIX transport, core wire codec, display
+registry bootstrap, synchronization, and global binding directly; surface,
+xdg-shell, input, and presentation objects build on that foundation in later
+slices. No `libwayland-client` ABI participates in this path.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,
