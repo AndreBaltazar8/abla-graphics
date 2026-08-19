@@ -1306,8 +1306,9 @@ rejects them. Scalar constants and specialized workgroup axes may coexist in
 one package; the emitter assigns disjoint SPIR-V IDs and preserves every
 reflected `SpecId` on both backend forms. The
 second grammar declares one binding-zero `Values` storage block and either
-stores a parsed unsigned integer literal or adds/multiplies the existing member
-value by a parsed unsigned literal. It also accepts one reflected `uint`
+stores a parsed unsigned integer literal or applies `+`, `-`, `*`, `/`, or `%`
+to the existing member and a parsed unsigned literal. It also accepts one
+reflected `uint`
 specialization constant as the stored value or arithmetic operand, emits its
 `OpSpecConstant` and `SpecId`, and routes that ID through the real
 load/operation/store chain. A common storage pipeline overriding `3u` with

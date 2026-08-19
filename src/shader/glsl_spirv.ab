@@ -22,8 +22,24 @@ class GlslStorageWrite(
     val add: bool = false,
     val multiply: bool = false,
     val specialized: bool = false,
-    val specializationId: int = -1
-)
+    val specializationId: int = -1,
+    val subtract: bool = false,
+    val divide: bool = false,
+    val modulo: bool = false
+) {
+    fun arithmetic(): bool = this.add || this.subtract || this.multiply ||
+        this.divide || this.modulo
+
+    fun opcode(): int {
+        var opcode = 0
+        if (this.add) opcode = 327808
+        else if (this.subtract) opcode = 327810
+        else if (this.multiply) opcode = 327812
+        else if (this.divide) opcode = 327814
+        else if (this.modulo) opcode = 327817
+        opcode
+    }
+}
 
 class GlslSpirvDefault(
     val valid: bool,
@@ -940,6 +956,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && character.valid
     var add = false
     var multiply = false
+    var subtract = false
+    var divide = false
+    var modulo = false
     val expression = glslReadName(source, character.next)
     var operandBegin = character.next
     if (expression.text == "values") {
@@ -949,10 +968,15 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         valid = valid && part.text == "value"
         val operator = glslSkipTrivia(source, part.next)
         valid = valid && operator < source.size &&
-            (source[operator] == 43 || source[operator] == 42)
+            (source[operator] == 43 || source[operator] == 45 ||
+             source[operator] == 42 || source[operator] == 47 ||
+             source[operator] == 37)
         if (operator < source.size) {
             add = source[operator] == 43
+            subtract = source[operator] == 45
             multiply = source[operator] == 42
+            divide = source[operator] == 47
+            modulo = source[operator] == 37
         }
         operandBegin = operator + 1
     }
@@ -983,7 +1007,10 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         add,
         multiply,
         specialized,
-        if (specialized) specializationId else -1
+        if (specialized) specializationId else -1,
+        subtract,
+        divide,
+        modulo
     )
 }
 
@@ -1240,7 +1267,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     } else if (storage) {
         words = [
             spirvMagic, spirvVersion10, 0,
-            if (storageWrite.add || storageWrite.multiply) 15 else 13, 0,
+            if (storageWrite.arithmetic()) 15 else 13, 0,
             131089, 1,
             196622, 0, 1,
             327695, 5, 10, 1852399981, 0,
@@ -1276,12 +1303,12 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             words.append(storageDeclarations[storageWord])
             storageWord = storageWord + 1
         }
-        if (storageWrite.add || storageWrite.multiply) {
+        if (storageWrite.arithmetic()) {
             words.append(262205)
             words.append(3)
             words.append(13)
             words.append(12)
-            words.append(if (storageWrite.add) 327808 else 327812)
+            words.append(storageWrite.opcode())
             words.append(3)
             words.append(14)
             words.append(13)

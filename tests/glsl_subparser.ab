@@ -382,9 +382,21 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(constant_id=6) const int factor=3; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value*factor; }"]
     ).spirv(shaderStageCompute)
-    val unsupportedStorageSubtract = glslPackage(
+    val storageSubtract = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value-1u; }"]
+    ).spirv(shaderStageCompute)
+    val storageDivide = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value/2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageModulo = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value%5u; }"]
+    ).spirv(shaderStageCompute)
+    val unsupportedStorageBitwise = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value&1u; }"]
     ).spirv(shaderStageCompute)
     val triangle = $glsl {
         vertex {
@@ -859,8 +871,14 @@ fun main: int {
             specializedStorageOpenGlSpirv.module
         ) &&
         !mismatchedSpecializedStorage.succeeded &&
-        !unsupportedStorageSubtract.succeeded &&
-        unsupportedStorageSubtract.error != "" &&
+        storageSubtract.succeeded && storageSubtract.module.valid() &&
+        storageSubtract.module.words[85] == 327810 &&
+        storageDivide.succeeded && storageDivide.module.valid() &&
+        storageDivide.module.words[85] == 327814 &&
+        storageModulo.succeeded && storageModulo.module.valid() &&
+        storageModulo.module.words[85] == 327817 &&
+        !unsupportedStorageBitwise.succeeded &&
+        unsupportedStorageBitwise.error != "" &&
         triangle.valid && triangle.locations.size == 1 &&
         triangleVertex.succeeded && triangleVertex.module.valid() &&
         triangleVertex.module.words.size == 232 &&
