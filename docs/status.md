@@ -547,6 +547,13 @@ their complete reflection. Missing and duplicate modules, empty identities,
 cycles, and recursion beyond 64 modules are checked failures; nested positive
 coverage leaves no unresolved `ShaderInclude` entries.
 
+Embedded stage values now retain their canonical Abla source identity and
+exact body byte range through `$glsl`, `#$glsl`, and hermetic module expansion.
+Runtime-created packages deliberately report no source span. The compiler's
+raw cursor API and `source[subparser]` diagnostic location are covered by its
+generated-subparser suite, all 73 compiler tests, and a byte-identical pure
+self-rebuild.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,

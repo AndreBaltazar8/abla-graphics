@@ -16,7 +16,13 @@ val shaderStageGeometry = "geometry"
 val shaderStageTessellationControl = "tessellationControl"
 val shaderStageTessellationEvaluation = "tessellationEvaluation"
 
-class ShaderStageSource(val kind: string, val source: string)
+class ShaderStageSource(
+    val kind: string,
+    val source: string,
+    val sourceIdentity: string = "",
+    val begin: int = -1,
+    val end: int = -1
+)
 
 class ShaderLocation(
     val stage: string,
@@ -1329,6 +1335,40 @@ fun glslPackage(
     )
 }
 
+fun glslPackageSpanned(
+    names: array<string>,
+    sources: array<string>,
+    identities: array<string>,
+    begins: array<int>,
+    ends: array<int>
+): ShaderPackage {
+    var result = glslPackage(names, sources)
+    var spansValid = identities.size == names.size &&
+        begins.size == names.size && ends.size == names.size
+    var index = 0
+    while (spansValid && index < names.size) {
+        spansValid = identities[index] != "" && begins[index] >= 0 &&
+            ends[index] >= begins[index]
+        index = index + 1
+    }
+    if (!spansValid) {
+        result = glslInvalidPackage("GLSL stage spans are inconsistent")
+    } else if (result.valid) {
+        index = 0
+        while (index < result.stages.size) {
+            result.stages[index] = ShaderStageSource(
+                result.stages[index].kind,
+                result.stages[index].source,
+                identities[index],
+                begins[index],
+                ends[index]
+            )
+            index = index + 1
+        }
+    }
+    result
+}
+
 fun glslInvalidPackage(error: string): ShaderPackage = ShaderPackage(
     [],
     [],
@@ -1441,6 +1481,10 @@ fun ShaderPackage.resolveIncludes(
     }
     val names: array<string> = []
     val sources: array<string> = []
+    val identities: array<string> = []
+    val begins: array<int> = []
+    val ends: array<int> = []
+    var spanned = true
     var stageIndex = 0
     while (valid && stageIndex < this.stages.size) {
         val stage = this.stages[stageIndex]
@@ -1451,10 +1495,23 @@ fun ShaderPackage.resolveIncludes(
         } else {
             names.append(stage.kind)
             sources.append(resolved.source)
+            identities.append(stage.sourceIdentity)
+            begins.append(stage.begin)
+            ends.append(stage.end)
+            spanned = spanned && stage.sourceIdentity != "" &&
+                stage.begin >= 0 && stage.end >= stage.begin
         }
         stageIndex = stageIndex + 1
     }
-    if (valid) glslPackage(names, sources) else glslInvalidPackage(error)
+    if (!valid) glslInvalidPackage(error)
+    else if (spanned) glslPackageSpanned(
+        names,
+        sources,
+        identities,
+        begins,
+        ends
+    )
+    else glslPackage(names, sources)
 }
 
 compile fun glslAppend(left: string, right: string): string = "$left$right"
@@ -1545,7 +1602,11 @@ compile fun glslParsePackage(cursor: ParserCursor): SyntaxExpression {
     parserRawExpect(cursor, "{")
     val names: array<SyntaxExpression> = []
     val sources: array<SyntaxExpression> = []
+    val identities: array<SyntaxExpression> = []
+    val begins: array<SyntaxExpression> = []
+    val ends: array<SyntaxExpression> = []
     val measuredNames: array<string> = []
+    val sourceIdentity = parserSourceIdentity(cursor)
     var done = false
     while (!done && !parserRawEnd(cursor)) {
         parserRawSkipWhitespace(cursor)
@@ -1566,15 +1627,24 @@ compile fun glslParsePackage(cursor: ParserCursor): SyntaxExpression {
             measuredNames.append(name)
             parserRawSkipWhitespace(cursor)
             parserRawExpect(cursor, "{")
+            val begin = parserRawPosition(cursor)
+            val source = glslReadStageBody(cursor)
+            val end = parserRawPosition(cursor) - 1
             names.append(syntaxString(name))
-            sources.append(syntaxString(glslReadStageBody(cursor)))
+            sources.append(syntaxString(source))
+            identities.append(syntaxString(sourceIdentity))
+            begins.append(syntaxInteger(begin))
+            ends.append(syntaxInteger(end))
         }
     }
     if (!done) parserFail(cursor, "unterminated GLSL package")
     val arguments: array<SyntaxExpression> = []
     arguments.append(syntaxArray(names))
     arguments.append(syntaxArray(sources))
-    syntaxCall("glslPackage", arguments)
+    arguments.append(syntaxArray(identities))
+    arguments.append(syntaxArray(begins))
+    arguments.append(syntaxArray(ends))
+    syntaxCall("glslPackageSpanned", arguments)
 }
 
 #compilerRegisterSubparser("glsl", glslParsePackage)

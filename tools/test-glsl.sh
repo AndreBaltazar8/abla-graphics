@@ -36,3 +36,5 @@ if "$compiler" build "$project_root/tests/glsl_invalid_quote.ab" \
 fi
 rg -q 'unterminated GLSL quoted text' \
     "$output_directory/glsl-invalid-quote.log"
+rg -q 'source\[subparser\]:' \
+    "$output_directory/glsl-invalid-quote.log"

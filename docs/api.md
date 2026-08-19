@@ -1173,14 +1173,18 @@ serialization, and failure behavior explicit.
 `$glsl` is preferred for source embedded in Abla. It validates grammar and
 stage structure, retains source spans, reflects interfaces, and produces a
 backend-neutral shader package. `#$glsl` additionally freezes compilation when
-all inputs are static.
+all inputs are static. Every embedded `ShaderStageSource` carries its canonical
+Abla module identity plus exact body `begin`/`end` byte offsets; runtime-created
+packages use an empty identity and `-1` offsets. Hermetic include expansion
+retains the root stage span while replacing only its resolved source text.
 
 Quoted and angle-bracket `#include` directives are source-preserved and
 reflected as ordered, stage-tagged `ShaderInclude` values with their path and
 system/local form and source byte range. Empty or malformed directives
 invalidate runtime-created packages, while an unterminated quoted directive in
 `$glsl` reports the exact
-subparser failure with its original Abla extension span.
+subparser failure with both its exact raw cursor location and original Abla
+extension span.
 `package.resolveIncludes(modules)` resolves those dependencies recursively from
 an explicit array of pure-Abla `GlslModule` values. It rejects empty/duplicate
 module identities, missing local or system modules, include cycles, and depths
