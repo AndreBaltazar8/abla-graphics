@@ -1437,10 +1437,13 @@ The assignment expression reads and writes that same selected storage member and
 accepts typed integer literals,
 one matching scalar specialization constant, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, `&`, `^`, and `|`.
-The deterministic postfix/SSA lowering consumes the shared `GlslToken` stream;
-comments and whitespace cannot change its parse, and longest-match operator
-tokens keep unsupported logical or assignment operators from being mistaken
-for supported bitwise operations.
+The strict compute declaration grammar and deterministic postfix/SSA lowering
+consume the shared `GlslToken` stream end to end. Version, layout, specialization,
+block/member, entry-point, assignment, and expression tokens are advanced by
+immutable parse results carrying their next index, which fits Abla's ownership
+model without a mutable borrowed cursor. Comments and whitespace cannot change
+the parse, and longest-match operator tokens keep unsupported logical or
+assignment operators from being mistaken for supported bitwise operations.
 Precedence follows GLSL: multiplicative, additive, shift, bitwise AND, XOR, then
 OR. Signed right shift emits arithmetic shift while unsigned right shift emits
 logical shift. Unary `+`, signed symbolic `-`, and integer `~` bind at the

@@ -865,20 +865,6 @@ fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
     )
 }
 
-fun glslExpectCharacter(
-    source: string,
-    begin: int,
-    character: int
-): GlslInteger {
-    val index = glslSkipTrivia(source, begin)
-    GlslInteger(
-        index < source.size && source[index] == character,
-        character,
-        if (index < source.size && source[index] == character)
-            index + 1 else index
-    )
-}
-
 fun glslStorageTokensCopy(
     source: array<GlslStorageToken>
 ): array<GlslStorageToken> {
@@ -901,17 +887,6 @@ fun glslStorageExpressionSpecialized(
         index = index + 1
     }
     specialized
-}
-
-fun glslStorageTokenIndexAtOrAfter(
-    tokens: array<GlslToken>,
-    begin: int
-): int {
-    var index = 0
-    while (index < tokens.size && tokens[index].begin < begin) {
-        index = index + 1
-    }
-    index
 }
 
 fun glslStorageTokenBinaryPrecedence(text: string): int {
@@ -1168,120 +1143,453 @@ fun glslStorageTokenUnary(
     )
 }
 
+class GlslStorageTokenMatch(val valid: bool, val next: int)
+
+fun glslStorageTokenTake(
+    tokens: array<GlslToken>,
+    begin: int,
+    kind: int,
+    text: string = ""
+): GlslStorageTokenMatch {
+    val valid = begin < tokens.size && tokens[begin].is(kind, text)
+    GlslStorageTokenMatch(valid, if (valid) begin + 1 else begin)
+}
+
+fun glslStorageTokenTextCopy(token: GlslToken): string =
+    token.text.slice(0, token.text.size)
+
+class GlslStorageTokenLayout(
+    val valid: bool,
+    val constantId: int = -1,
+    val localSizeX: int = -1,
+    val localSizeY: int = -1,
+    val localSizeZ: int = -1,
+    val set: int = 0,
+    val setSpecified: bool = false,
+    val binding: int = -1,
+    val std430: bool = false,
+    val next: int = 0
+)
+
+fun glslStorageTokenUnsigned(text: string): GlslInteger {
+    var value = 0
+    var index = 0
+    var valid = text.size > 0
+    while (valid && index < text.size) {
+        val digit = text[index] - 48
+        valid = digit >= 0 && digit <= 9 &&
+            value <= (2147483647 - digit) / 10
+        if (valid) value = value * 10 + digit
+        index = index + 1
+    }
+    GlslInteger(valid && index == text.size, value, index)
+}
+
+fun glslStorageTokenLayout(
+    tokens: array<GlslToken>,
+    begin: int
+): GlslStorageTokenLayout {
+    var index = begin
+    var matched = glslStorageTokenTake(
+        tokens,
+        index,
+        glslTokenIdentifier,
+        "layout"
+    )
+    var valid = matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        tokens,
+        index,
+        glslTokenPunctuation,
+        "("
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    var constantId = -1
+    var localSizeX = -1
+    var localSizeY = -1
+    var localSizeZ = -1
+    var set = 0
+    var setSpecified = false
+    var binding = -1
+    var std430 = false
+    var entries = 0
+    var done = false
+    while (valid && !done && entries < 16 && index < tokens.size) {
+        if (tokens[index].is(glslTokenPunctuation, ")")) {
+            index = index + 1
+            done = true
+        } else if (tokens[index].kind == glslTokenIdentifier) {
+            val name = tokens[index].text
+            index = index + 1
+            if (name == "std430") {
+                valid = !std430
+                std430 = true
+            } else {
+                matched = glslStorageTokenTake(
+                    tokens,
+                    index,
+                    glslTokenOperator,
+                    "="
+                )
+                valid = matched.valid && matched.next < tokens.size &&
+                    tokens[matched.next].kind == glslTokenInteger
+                index = matched.next
+                var integer = GlslInteger(false, 0, 0)
+                if (valid) {
+                    integer = glslStorageTokenUnsigned(tokens[index].text)
+                    valid = integer.valid && integer.value <= 65535
+                    index = index + 1
+                }
+                if (valid && name == "constant_id") {
+                    valid = constantId < 0
+                    constantId = integer.value
+                } else if (valid && name == "local_size_x") {
+                    valid = localSizeX < 0 && integer.value > 0
+                    localSizeX = integer.value
+                } else if (valid && name == "local_size_y") {
+                    valid = localSizeY < 0 && integer.value > 0
+                    localSizeY = integer.value
+                } else if (valid && name == "local_size_z") {
+                    valid = localSizeZ < 0 && integer.value > 0
+                    localSizeZ = integer.value
+                } else if (valid && name == "set") {
+                    valid = !setSpecified
+                    set = integer.value
+                    setSpecified = true
+                } else if (valid && name == "binding") {
+                    valid = binding < 0
+                    binding = integer.value
+                } else valid = false
+            }
+            entries = entries + 1
+            if (valid && index < tokens.size &&
+                tokens[index].is(glslTokenPunctuation, ",")) {
+                index = index + 1
+                valid = index < tokens.size &&
+                    !tokens[index].is(glslTokenPunctuation, ")")
+            } else if (valid && index < tokens.size &&
+                tokens[index].is(glslTokenPunctuation, ")")) {
+                index = index + 1
+                done = true
+            } else valid = false
+        } else valid = false
+    }
+    GlslStorageTokenLayout(
+        valid && done && entries > 0,
+        constantId,
+        localSizeX,
+        localSizeY,
+        localSizeZ,
+        set,
+        setSpecified,
+        binding,
+        std430,
+        index
+    )
+}
+class GlslStorageTokenParsedDefault(
+    val valid: bool,
+    val bits: int = 0,
+    val next: int = 0
+)
+
+fun glslStorageTokenDefault(
+    source: string,
+    tokens: array<GlslToken>,
+    begin: int,
+    signed: bool
+): GlslStorageTokenParsedDefault {
+    var index = begin
+    if (index < tokens.size && tokens[index].kind == glslTokenOperator &&
+        (tokens[index].text == "+" || tokens[index].text == "-")) {
+        index = index + 1
+    }
+    val valid = index < tokens.size &&
+        tokens[index].kind == glslTokenInteger
+    if (valid) {
+        val parsed = glslIntegerDefault(
+            source.slice(tokens[begin].begin, tokens[index].end),
+            signed
+        )
+        GlslStorageTokenParsedDefault(
+            parsed.valid,
+            parsed.bits,
+            index + 1
+        )
+    } else GlslStorageTokenParsedDefault(false, next = index)
+}
+
 fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     val lexical = glslLex(source)
-    var index = glslSkipTrivia(source, 0)
-    var valid = lexical.valid && index < source.size && source[index] == 35
-    var part = glslReadName(source, index + 1)
-    valid = valid && part.text == "version"
-    val version = glslReadUnsigned(source, part.next)
-    valid = valid && version.valid && version.value == 450
-    index = glslSkipLine(source, version.next)
+    val sourceTokens = lexical.tokens
+    var index = 0
+    var matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPreprocessor,
+        "#"
+    )
+    var valid = lexical.valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenIdentifier,
+        "version"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    var versionLine = -1
+    if (valid && index < sourceTokens.size &&
+        sourceTokens[index].is(glslTokenInteger, "450")) {
+        versionLine = sourceTokens[index].line
+        index = index + 1
+    } else valid = false
+    valid = valid && index < sourceTokens.size &&
+        sourceTokens[index].line > versionLine
 
     var specializationName = ""
     var specializationId = -1
     var specializationDefault = 0
     var specializationType = ""
-    part = glslReadName(source, index)
-    if (part.text == "layout") {
-        val specializationLayout = glslParseLayout(source, part.next)
-        if (specializationLayout.valid &&
-            specializationLayout.constantId >= 0) {
-            val specialization = glslParseSpecializationDeclaration(
-                source,
-                specializationLayout.next
+    val firstLayout = glslStorageTokenLayout(sourceTokens, index)
+    index = firstLayout.next
+    var workgroup = firstLayout
+    if (firstLayout.constantId >= 0) {
+        valid = valid && firstLayout.valid &&
+            firstLayout.localSizeX < 0 &&
+            firstLayout.localSizeY < 0 &&
+            firstLayout.localSizeZ < 0 &&
+            !firstLayout.setSpecified && firstLayout.binding < 0 &&
+            !firstLayout.std430
+        matched = glslStorageTokenTake(
+            sourceTokens,
+            index,
+            glslTokenIdentifier,
+            "const"
+        )
+        valid = valid && matched.valid
+        index = matched.next
+        if (valid && index < sourceTokens.size &&
+            sourceTokens[index].kind == glslTokenIdentifier) {
+            specializationType = glslStorageTokenTextCopy(
+                sourceTokens[index]
             )
-            val default = if (specialization.dataType == "uint" ||
-                specialization.dataType == "int") glslIntegerDefault(
-                    specialization.defaultValue,
-                    specialization.dataType == "int"
-                )
-                else GlslSpirvDefault(false)
-            valid = valid && specialization.valid && default.valid
-            if (valid) {
-                specializationName = specialization.name
-                specializationId = specializationLayout.constantId
-                specializationDefault = default.bits
-                specializationType = specialization.dataType
-                index = specialization.next
-                part = glslReadName(source, index)
-            }
+            valid = specializationType == "int" ||
+                specializationType == "uint"
+            index = index + 1
+        } else valid = false
+        if (valid && index < sourceTokens.size &&
+            sourceTokens[index].kind == glslTokenIdentifier) {
+            specializationName = glslStorageTokenTextCopy(
+                sourceTokens[index]
+            )
+            index = index + 1
+        } else valid = false
+        matched = glslStorageTokenTake(
+            sourceTokens,
+            index,
+            glslTokenOperator,
+            "="
+        )
+        valid = valid && matched.valid
+        index = matched.next
+        val default = glslStorageTokenDefault(
+            source,
+            sourceTokens,
+            index,
+            specializationType == "int"
+        )
+        valid = valid && default.valid
+        index = default.next
+        matched = glslStorageTokenTake(
+            sourceTokens,
+            index,
+            glslTokenPunctuation,
+            ";"
+        )
+        valid = valid && matched.valid
+        index = matched.next
+        if (valid) {
+            specializationId = firstLayout.constantId
+            specializationDefault = default.bits
         }
+        workgroup = glslStorageTokenLayout(sourceTokens, index)
+        index = workgroup.next
     }
-    valid = valid && part.text == "layout"
-    val workgroup = glslParseLayout(source, part.next)
-    valid = valid && workgroup.valid && workgroup.localSizeX == 1 &&
+    valid = valid && workgroup.valid &&
+        workgroup.constantId < 0 &&
+        workgroup.localSizeX == 1 &&
         (workgroup.localSizeY < 0 || workgroup.localSizeY == 1) &&
-        (workgroup.localSizeZ < 0 || workgroup.localSizeZ == 1)
-    part = glslReadName(source, workgroup.next)
-    valid = valid && part.text == "in"
-    var character = glslExpectCharacter(source, part.next, 59)
-    valid = valid && character.valid
-    index = character.next
+        (workgroup.localSizeZ < 0 || workgroup.localSizeZ == 1) &&
+        !workgroup.setSpecified && workgroup.binding < 0 &&
+        !workgroup.std430
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenIdentifier,
+        "in"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        ";"
+    )
+    valid = valid && matched.valid
+    index = matched.next
 
-    part = glslReadName(source, index)
-    valid = valid && part.text == "layout"
-    val binding = glslParseLayout(source, part.next)
-    valid = valid && binding.valid && binding.set == 0 &&
+    val binding = glslStorageTokenLayout(sourceTokens, index)
+    valid = valid && binding.valid && binding.constantId < 0 &&
+        binding.localSizeX < 0 && binding.localSizeY < 0 &&
+        binding.localSizeZ < 0 && binding.set == 0 &&
         binding.binding == 0
-    part = glslReadName(source, binding.next)
-    valid = valid && part.text == "buffer"
-    part = glslReadName(source, part.next)
-    valid = valid && part.text != ""
-    character = glslExpectCharacter(source, part.next, 123)
-    valid = valid && character.valid
+    index = binding.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenIdentifier,
+        "buffer"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    if (valid && index < sourceTokens.size &&
+        sourceTokens[index].kind == glslTokenIdentifier) {
+        index = index + 1
+    } else valid = false
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        "{"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+
     var memberCount = 0
     val memberNames: array<string> = []
     var signed = false
     var blockClosed = false
-    index = character.next
     while (valid && !blockClosed && memberCount <= 64) {
-        index = glslSkipTrivia(source, index)
-        if (index < source.size && source[index] == 125) {
-            blockClosed = true
+        if (index < sourceTokens.size &&
+            sourceTokens[index].is(glslTokenPunctuation, "}")) {
             index = index + 1
+            blockClosed = true
         } else {
-            valid = memberCount < 64
-            val memberType = glslReadName(source, index)
-            val memberSigned = memberType.text == "int"
-            valid = valid &&
-                (memberSigned || memberType.text == "uint")
+            valid = memberCount < 64 && index < sourceTokens.size &&
+                sourceTokens[index].kind == glslTokenIdentifier
+            var memberSigned = false
+            if (valid) {
+                val memberType = sourceTokens[index].text
+                memberSigned = memberType == "int"
+                valid = memberSigned || memberType == "uint"
+                index = index + 1
+            }
             if (valid && memberCount == 0) signed = memberSigned
             else if (valid) valid = signed == memberSigned
-            val member = glslReadName(source, memberType.next)
-            valid = valid && member.text != ""
-            if (valid) memberNames.append(member.text)
-            character = glslExpectCharacter(source, member.next, 59)
-            valid = valid && character.valid
-            index = character.next
+            if (valid && index < sourceTokens.size &&
+                sourceTokens[index].kind == glslTokenIdentifier) {
+                memberNames.append(glslStorageTokenTextCopy(
+                    sourceTokens[index]
+                ))
+                index = index + 1
+            } else valid = false
+            matched = glslStorageTokenTake(
+                sourceTokens,
+                index,
+                glslTokenPunctuation,
+                ";"
+            )
+            valid = valid && matched.valid
+            index = matched.next
             memberCount = memberCount + 1
         }
     }
     valid = valid && blockClosed && memberCount > 0 &&
         (specializationType == "" ||
          specializationType == (if (signed) "int" else "uint"))
-    part = glslReadName(source, index)
-    val instanceName = part.text
-    valid = valid && instanceName != ""
-    character = glslExpectCharacter(source, part.next, 59)
-    valid = valid && character.valid
 
-    part = glslReadName(source, character.next)
-    valid = valid && part.text == "void"
-    part = glslReadName(source, part.next)
-    valid = valid && part.text == "main"
-    character = glslExpectCharacter(source, part.next, 40)
-    valid = valid && character.valid
-    character = glslExpectCharacter(source, character.next, 41)
-    valid = valid && character.valid
-    character = glslExpectCharacter(source, character.next, 123)
-    valid = valid && character.valid
-    part = glslReadName(source, character.next)
-    valid = valid && part.text == instanceName
-    character = glslExpectCharacter(source, part.next, 46)
-    valid = valid && character.valid
-    part = glslReadName(source, character.next)
-    val memberName = part.text
+    var instanceName = ""
+    if (valid && index < sourceTokens.size &&
+        sourceTokens[index].kind == glslTokenIdentifier) {
+        instanceName = glslStorageTokenTextCopy(sourceTokens[index])
+        index = index + 1
+    } else valid = false
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        ";"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenIdentifier,
+        "void"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenIdentifier,
+        "main"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        "("
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        ")"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        "{"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenIdentifier,
+        instanceName
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        "."
+    )
+    valid = valid && matched.valid
+    index = matched.next
+
+    var memberName = ""
+    if (valid && index < sourceTokens.size &&
+        sourceTokens[index].kind == glslTokenIdentifier) {
+        memberName = glslStorageTokenTextCopy(sourceTokens[index])
+        index = index + 1
+    } else valid = false
     var memberIndex = -1
     var reflectedMember = 0
     while (memberIndex < 0 && reflectedMember < memberNames.size) {
@@ -1291,16 +1599,21 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         reflectedMember = reflectedMember + 1
     }
     valid = valid && memberIndex >= 0
-    character = glslExpectCharacter(source, part.next, 61)
-    valid = valid && character.valid
-    val expressionBegin = glslStorageTokenIndexAtOrAfter(
-        lexical.tokens,
-        character.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenOperator,
+        "="
     )
-    val expression = glslStorageTokenExpression(
+    valid = valid && matched.valid
+    index = matched.next
+
+    val empty: array<GlslStorageToken> = []
+    var expression = GlslStorageExpression(false, empty, index)
+    if (valid) expression = glslStorageTokenExpression(
         source,
-        lexical.tokens,
-        expressionBegin,
+        sourceTokens,
+        index,
         1,
         signed,
         specializationName,
@@ -1311,15 +1624,25 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         0
     )
     valid = valid && expression.valid
-    var expressionEnd = expression.next
-    valid = valid && expressionEnd < lexical.tokens.size &&
-        lexical.tokens[expressionEnd].is(glslTokenPunctuation, ";")
-    if (valid) expressionEnd = expressionEnd + 1
-    valid = valid && expressionEnd < lexical.tokens.size &&
-        lexical.tokens[expressionEnd].is(glslTokenPunctuation, "}")
-    if (valid) expressionEnd = expressionEnd + 1
-    valid = valid && expressionEnd < lexical.tokens.size &&
-        lexical.tokens[expressionEnd].kind == glslTokenEnd
+    index = expression.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        ";"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    matched = glslStorageTokenTake(
+        sourceTokens,
+        index,
+        glslTokenPunctuation,
+        "}"
+    )
+    valid = valid && matched.valid
+    index = matched.next
+    valid = valid && index < sourceTokens.size &&
+        sourceTokens[index].kind == glslTokenEnd
     GlslStorageWrite(
         valid,
         signed,
@@ -1331,7 +1654,6 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         memberIndex
     )
 }
-
 fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     val tokenIds: array<int> = []
     var tokenIndex = 0
