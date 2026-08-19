@@ -55,7 +55,8 @@ writes for ordinary and subpass values, and a typed bounded fragment
 push/input loads and literals, location-based fragment interfaces, and
 precedence-ordered equal-type or vector-times-scalar floating operations plus
 exact vector/scalar division, including input-free/push-free constant fragments,
-and typed unary signs without fixed SPIR-V templates. Repeated clear,
+typed unary signs, and deduplicated scalar-splat `vec4` constructors without
+fixed SPIR-V templates. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

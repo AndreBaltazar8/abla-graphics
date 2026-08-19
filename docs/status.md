@@ -989,6 +989,10 @@ validity gate unchanged.
   IR identity while minus emits typed `OpFNegate`. Precedence, nested scalar
   negation, identity byte equality, malformed-operand rejection, and exact
   negative-vector real-driver output are verified.
+  One-argument scalar `vec4` splats now share a single generated float constant
+  across all four lanes. Signed splat equivalence to the explicit constructor,
+  deterministic 70-word output, malformed-arity rejection, and exact white
+  real-driver pixels with stable zero-growth frames are verified.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

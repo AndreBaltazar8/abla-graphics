@@ -1125,13 +1125,27 @@ fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(-0.25,0.5,0.75,1.0); }"
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(-0.25); }"
         ]
     )
     val rasterLiteralProgram = rasterLiteral.rasterFragmentProgram()
     val rasterLiteralFragment = rasterLiteral.spirv(shaderStageFragment)
     val rasterLiteralFragmentAgain =
         rasterLiteral.spirv(shaderStageFragment)
+    val rasterExplicitSplat = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(-0.25,-0.25,-0.25,-0.25); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMalformedSplat = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.5,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val pushColorTriangle = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2276,10 +2290,17 @@ fun main: int {
             glslRasterTokenVectorLiteral &&
         rasterLiteralFragment.succeeded &&
         rasterLiteralFragment.module.valid() &&
+        rasterLiteralFragment.module.words.size == 70 &&
+        rasterLiteralFragment.module.bound() == 16 &&
         spirvWordsEqual(
             rasterLiteralFragment.module,
             rasterLiteralFragmentAgain.module
-        ) &&
+        ) && rasterExplicitSplat.succeeded &&
+        spirvWordsEqual(
+            rasterLiteralFragment.module,
+            rasterExplicitSplat.module
+        ) && !rasterMalformedSplat.succeeded &&
+        rasterMalformedSplat.error != "" &&
         pushColorTriangle.valid &&
         pushColorTriangle.pushConstants.size == 1 &&
         pushColorFragment.succeeded && pushColorFragment.module.valid() &&

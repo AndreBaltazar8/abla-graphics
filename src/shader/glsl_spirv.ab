@@ -226,23 +226,28 @@ fun glslRasterPrimary(
         if (valid) index = index + 1
         val first = glslRasterFloat(sourceTokens, index)
         index = first.next
-        valid = valid && first.valid && index < sourceTokens.size &&
-            sourceTokens[index].text == ","
-        if (valid) index = index + 1
-        val second = glslRasterFloat(sourceTokens, index)
-        index = second.next
-        valid = valid && second.valid && index < sourceTokens.size &&
-            sourceTokens[index].text == ","
-        if (valid) index = index + 1
-        val third = glslRasterFloat(sourceTokens, index)
-        index = third.next
-        valid = valid && third.valid && index < sourceTokens.size &&
-            sourceTokens[index].text == ","
-        if (valid) index = index + 1
-        val fourth = glslRasterFloat(sourceTokens, index)
-        index = fourth.next
-        valid = valid && fourth.valid && index < sourceTokens.size &&
-            sourceTokens[index].text == ")"
+        valid = valid && first.valid && index < sourceTokens.size
+        var second = first
+        var third = first
+        var fourth = first
+        if (valid && sourceTokens[index].text != ")") {
+            valid = sourceTokens[index].text == ","
+            if (valid) index = index + 1
+            second = glslRasterFloat(sourceTokens, index)
+            index = second.next
+            valid = valid && second.valid && index < sourceTokens.size &&
+                sourceTokens[index].text == ","
+            if (valid) index = index + 1
+            third = glslRasterFloat(sourceTokens, index)
+            index = third.next
+            valid = valid && third.valid && index < sourceTokens.size &&
+                sourceTokens[index].text == ","
+            if (valid) index = index + 1
+            fourth = glslRasterFloat(sourceTokens, index)
+            index = fourth.next
+            valid = valid && fourth.valid && index < sourceTokens.size
+        }
+        valid = valid && sourceTokens[index].text == ")"
         if (valid) {
             tokens.append(GlslRasterToken(
                 glslRasterTokenVectorLiteral,
@@ -715,28 +720,49 @@ fun glslRasterFragmentSpirv(
         var valueId = 0
         var valueType = glslRasterTypeInvalid
         if (token.kind == glslRasterTokenVectorLiteral) {
-            val first = nextId
-            val second = nextId + 1
-            val third = nextId + 2
-            val fourth = nextId + 3
-            valueId = nextId + 4
-            val bits = [token.first, token.second, token.third, token.fourth]
-            var component = 0
-            while (component < 4) {
+            val equalComponents = token.first == token.second &&
+                token.first == token.third && token.first == token.fourth
+            if (equalComponents) {
+                val component = nextId
+                valueId = nextId + 1
                 words.append(262187)
                 words.append(floatType)
-                words.append(nextId + component)
-                words.append(bits[component])
-                component = component + 1
+                words.append(component)
+                words.append(token.first)
+                words.append(458796)
+                words.append(vectorType)
+                words.append(valueId)
+                words.append(component)
+                words.append(component)
+                words.append(component)
+                words.append(component)
+                nextId = nextId + 2
+            } else {
+                val first = nextId
+                val second = nextId + 1
+                val third = nextId + 2
+                val fourth = nextId + 3
+                valueId = nextId + 4
+                val bits = [
+                    token.first, token.second, token.third, token.fourth
+                ]
+                var component = 0
+                while (component < 4) {
+                    words.append(262187)
+                    words.append(floatType)
+                    words.append(nextId + component)
+                    words.append(bits[component])
+                    component = component + 1
+                }
+                words.append(458796)
+                words.append(vectorType)
+                words.append(valueId)
+                words.append(first)
+                words.append(second)
+                words.append(third)
+                words.append(fourth)
+                nextId = nextId + 5
             }
-            words.append(458796)
-            words.append(vectorType)
-            words.append(valueId)
-            words.append(first)
-            words.append(second)
-            words.append(third)
-            words.append(fourth)
-            nextId = nextId + 5
             valueType = glslRasterTypeVector
         } else if (token.kind == glslRasterTokenScalarLiteral) {
             valueId = nextId
