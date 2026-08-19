@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-18.
+Updated: 2026-08-19.
 
 ## Verified now
 
@@ -340,9 +340,10 @@ Updated: 2026-08-18.
   binding reflection including declaration types/names, duplicate location and
   binding rejection, cross-stage binding compatibility, adjacent raster-stage
   missing/type-mismatched interface rejection, fixed/unsized declaration array
-  extents, checked compute workgroup sizes/defaults, and compile-time rejection
-  of invalid stage names. The surfaced triangle is compiled from this package
-  rather than opaque strings.
+  extents, ordered interface-block members, checked push-constant blocks,
+  typed scalar specialization constants, checked compute workgroup
+  sizes/defaults, and compile-time rejection of invalid stage names. The
+  surfaced triangle is compiled from this package rather than opaque strings.
 - Pure-Abla SPIR-V/Vulkan shader-module test: immutable copied words validate
   the SPIR-V 1.0-1.6 header, unsigned word domain, and every instruction
   boundary before little-endian packing. A minimal valid compute module creates
@@ -512,6 +513,15 @@ duplicate-name member declarations and compares the complete ordered member
 structure when a descriptor slot is shared across stages. Positive and
 negative subparser cases preserve deterministic existing SPIR-V output.
 
+GLSL reflection now also owns explicit `layout(push_constant)` uniform blocks
+and scalar `layout(constant_id=N) const` declarations. Push constants retain
+stage, block/instance names, and ordered member structure; each stage permits
+one block and shared blocks must agree structurally. Specialization constants
+retain stage, ID, scalar type, name, and exact default literal across bool,
+signed/unsigned integer, float, and double forms. Duplicate IDs, repeated
+recognized layout keys, incompatible qualifier combinations, malformed typed
+literals, and cross-stage push-block mismatches are regression-tested failures.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
@@ -535,9 +545,12 @@ negative subparser cases preserve deterministic existing SPIR-V output.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration, interface-block member subset, and
-  cross-stage compatibility slice. It deliberately rejects quoted includes and
-  does not yet parse nested/member-layout structures, general declarations, or
-  expressions. SPIR-V emission currently covers the
+  cross-stage compatibility slice, push-constant reflection, and scalar
+  specialization-constant reflection. It deliberately rejects quoted includes
+  and does not yet parse nested/member-layout structures, general declarations,
+  composite constants, specialized workgroup dimensions, or expressions.
+  Reflected push/specialization constants are not yet wired into backend
+  pipeline creation. SPIR-V emission currently covers the
   strict no-op and single-member storage-assignment compute subsets plus fixed,
   interleaved position/color, and sampled-texture triangle vertex/fragment
   subsets described above, not general shaders.

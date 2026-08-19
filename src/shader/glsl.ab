@@ -44,6 +44,21 @@ class ShaderBinding(
     val members: array<ShaderBlockMember> = []
 )
 
+class ShaderPushConstant(
+    val stage: string,
+    val dataType: string,
+    val name: string,
+    val members: array<ShaderBlockMember>
+)
+
+class ShaderSpecializationConstant(
+    val stage: string,
+    val id: int,
+    val dataType: string,
+    val name: string,
+    val defaultValue: string
+)
+
 class ShaderWorkgroup(
     val stage: string,
     val x: int,
@@ -56,6 +71,8 @@ class ShaderPackage(
     val locations: array<ShaderLocation>,
     val bindings: array<ShaderBinding>,
     val workgroups: array<ShaderWorkgroup>,
+    val pushConstants: array<ShaderPushConstant>,
+    val specializationConstants: array<ShaderSpecializationConstant>,
     val valid: bool,
     val error: string
 ) {
@@ -84,6 +101,9 @@ class GlslLayout(
     val localSizeX: int,
     val localSizeY: int,
     val localSizeZ: int,
+    val setSpecified: bool,
+    val pushConstant: bool,
+    val constantId: int,
     val next: int,
     val error: string
 )
@@ -92,6 +112,8 @@ class GlslStageReflection(
     val locations: array<ShaderLocation>,
     val bindings: array<ShaderBinding>,
     val workgroups: array<ShaderWorkgroup>,
+    val pushConstants: array<ShaderPushConstant>,
+    val specializationConstants: array<ShaderSpecializationConstant>,
     val valid: bool,
     val error: string
 )
@@ -112,6 +134,14 @@ class GlslBlock(
     val name: string,
     val arraySize: int,
     val members: array<ShaderBlockMember>,
+    val next: int
+)
+
+class GlslSpecializationDeclaration(
+    val valid: bool,
+    val dataType: string,
+    val name: string,
+    val defaultValue: string,
     val next: int
 )
 
@@ -193,6 +223,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     var localSizeX = -1
     var localSizeY = -1
     var localSizeZ = -1
+    var setSpecified = false
+    var pushConstant = false
+    var constantId = -1
     var done = false
     while (valid && !done && index < source.size) {
         index = glslSkipTrivia(source, index)
@@ -205,22 +238,57 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
             index = glslSkipTrivia(source, name.next)
             if (valid && index < source.size && source[index] == 61) {
                 val integer = glslReadUnsigned(source, index + 1)
+                val numeric = name.text == "location" ||
+                    name.text == "set" || name.text == "binding" ||
+                    name.text == "local_size_x" ||
+                    name.text == "local_size_y" ||
+                    name.text == "local_size_z" ||
+                    name.text == "constant_id"
                 if (integer.valid) {
-                    if (name.text == "location") location = integer.value
-                    else if (name.text == "set") set = integer.value
-                    else if (name.text == "binding") binding = integer.value
-                    else if (name.text == "local_size_x") {
-                        localSizeX = integer.value
-                    } else if (name.text == "local_size_y") {
-                        localSizeY = integer.value
-                    } else if (name.text == "local_size_z") {
-                        localSizeZ = integer.value
+                    if (name.text == "location") {
+                        if (location >= 0) valid = false
+                        else location = integer.value
                     }
+                    else if (name.text == "set") {
+                        if (setSpecified) valid = false
+                        else {
+                            set = integer.value
+                            setSpecified = true
+                        }
+                    }
+                    else if (name.text == "binding") {
+                        if (binding >= 0) valid = false
+                        else binding = integer.value
+                    }
+                    else if (name.text == "local_size_x") {
+                        if (localSizeX >= 0) valid = false
+                        else localSizeX = integer.value
+                    } else if (name.text == "local_size_y") {
+                        if (localSizeY >= 0) valid = false
+                        else localSizeY = integer.value
+                    } else if (name.text == "local_size_z") {
+                        if (localSizeZ >= 0) valid = false
+                        else localSizeZ = integer.value
+                    } else if (name.text == "constant_id") {
+                        if (constantId >= 0) valid = false
+                        else constantId = integer.value
+                    } else if (name.text == "push_constant") valid = false
                     index = integer.next
                 } else {
+                    if (numeric || name.text == "push_constant") valid = false
                     while (index < source.size && source[index] != 44 &&
                         source[index] != 41) index = index + 1
                 }
+            } else if (valid && name.text == "push_constant") {
+                if (pushConstant) valid = false
+                else pushConstant = true
+            } else if (valid &&
+                (name.text == "location" || name.text == "set" ||
+                 name.text == "binding" || name.text == "local_size_x" ||
+                 name.text == "local_size_y" ||
+                 name.text == "local_size_z" ||
+                 name.text == "constant_id")) {
+                valid = false
             }
             index = glslSkipTrivia(source, index)
             if (index < source.size && source[index] == 44) index = index + 1
@@ -242,8 +310,118 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
         localSizeX,
         localSizeY,
         localSizeZ,
+        setSpecified,
+        pushConstant,
+        constantId,
         index,
         if (valid) "" else "malformed GLSL layout qualifier"
+    )
+}
+
+fun glslNumericLiteral(
+    source: string,
+    begin: int,
+    dataType: string
+): GlslName {
+    val start = glslSkipTrivia(source, begin)
+    var index = start
+    var negative = false
+    if (index < source.size &&
+        (source[index] == 43 || source[index] == 45)) {
+        negative = source[index] == 45
+        index = index + 1
+    }
+    var digits = 0
+    while (index < source.size && source[index] >= 48 &&
+        source[index] <= 57) {
+        digits = digits + 1
+        index = index + 1
+    }
+    var fractional = false
+    if (index < source.size && source[index] == 46) {
+        fractional = true
+        index = index + 1
+        while (index < source.size && source[index] >= 48 &&
+            source[index] <= 57) {
+            digits = digits + 1
+            index = index + 1
+        }
+    }
+    var exponent = false
+    var exponentDigits = 0
+    if (index < source.size &&
+        (source[index] == 69 || source[index] == 101)) {
+        exponent = true
+        index = index + 1
+        if (index < source.size &&
+            (source[index] == 43 || source[index] == 45)) index = index + 1
+        while (index < source.size && source[index] >= 48 &&
+            source[index] <= 57) {
+            exponentDigits = exponentDigits + 1
+            index = index + 1
+        }
+    }
+    var suffix = ""
+    if (index < source.size &&
+        (source[index] == 85 || source[index] == 117 ||
+         source[index] == 70 || source[index] == 102)) {
+        suffix = source.slice(index, index + 1)
+        index = index + 1
+    } else if (index + 1 < source.size &&
+        (source[index] == 76 || source[index] == 108) &&
+        (source[index + 1] == 70 || source[index + 1] == 102)) {
+        suffix = source.slice(index, index + 2)
+        index = index + 2
+    }
+    var valid = digits > 0 && (!exponent || exponentDigits > 0)
+    if (dataType == "int") {
+        valid = valid && !fractional && !exponent && suffix == ""
+    } else if (dataType == "uint") {
+        valid = valid && !negative && !fractional && !exponent &&
+            (suffix == "u" || suffix == "U")
+    } else if (dataType == "float") {
+        valid = valid && (fractional || exponent) &&
+            (suffix == "" || suffix == "f" || suffix == "F")
+    } else if (dataType == "double") {
+        valid = valid && (fractional || exponent) &&
+            (suffix == "" || suffix == "lf" || suffix == "LF" ||
+             suffix == "Lf" || suffix == "lF")
+    } else valid = false
+    GlslName(if (valid) source.slice(start, index) else "", index)
+}
+
+fun glslParseSpecializationDeclaration(
+    source: string,
+    begin: int
+): GlslSpecializationDeclaration {
+    var part = glslReadName(source, begin)
+    var valid = part.text == "const"
+    val dataType = glslReadName(source, part.next)
+    val name = glslReadName(source, dataType.next)
+    var index = glslSkipTrivia(source, name.next)
+    valid = valid &&
+        (dataType.text == "bool" || dataType.text == "int" ||
+         dataType.text == "uint" || dataType.text == "float" ||
+         dataType.text == "double") &&
+        name.text != "" && index < source.size && source[index] == 61
+    if (valid) index = index + 1
+    var literal = GlslName("", index)
+    if (valid && dataType.text == "bool") {
+        part = glslReadName(source, index)
+        valid = part.text == "true" || part.text == "false"
+        if (valid) literal = GlslName(part.text, part.next)
+    } else if (valid) {
+        literal = glslNumericLiteral(source, index, dataType.text)
+        valid = literal.text != ""
+    }
+    index = glslSkipTrivia(source, literal.next)
+    valid = valid && index < source.size && source[index] == 59
+    GlslSpecializationDeclaration(
+        valid,
+        dataType.text,
+        name.text,
+        literal.text,
+        if (index < source.size && source[index] == 59) index + 1 else index
     )
 }
 
@@ -397,6 +575,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     val locations: array<ShaderLocation> = []
     val bindings: array<ShaderBinding> = []
     val workgroups: array<ShaderWorkgroup> = []
+    val pushConstants: array<ShaderPushConstant> = []
+    val specializationConstants: array<ShaderSpecializationConstant> = []
     var valid = true
     var error = ""
     var index = 0
@@ -411,7 +591,72 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                     source,
                     layout.next
                 )
-                if (layout.location >= 0 &&
+                if (layout.pushConstant &&
+                    (layout.location >= 0 || layout.setSpecified ||
+                     layout.binding >= 0 || layout.localSizeX >= 0 ||
+                     layout.localSizeY >= 0 || layout.localSizeZ >= 0 ||
+                     layout.constantId >= 0)) {
+                    valid = false
+                    error = "GLSL $stage push constant has incompatible layout qualifiers"
+                }
+                if (valid && layout.constantId >= 0 &&
+                    (layout.location >= 0 || layout.setSpecified ||
+                     layout.binding >= 0 || layout.localSizeX >= 0 ||
+                     layout.localSizeY >= 0 || layout.localSizeZ >= 0)) {
+                    valid = false
+                    error = "GLSL $stage specialization constant has incompatible layout qualifiers"
+                }
+                if (valid && layout.pushConstant) {
+                    if (!declaration.valid ||
+                        declaration.storage != "uniform" ||
+                        declaration.members.size == 0 ||
+                        declaration.arraySize != 1) {
+                        valid = false
+                        error = "malformed GLSL $stage push constant block"
+                    } else if (pushConstants.size > 0) {
+                        valid = false
+                        error = "duplicate GLSL $stage push constant block"
+                    } else {
+                        pushConstants.append(ShaderPushConstant(
+                            stage,
+                            declaration.dataType,
+                            declaration.name,
+                            declaration.members
+                        ))
+                    }
+                }
+                if (valid && layout.constantId >= 0) {
+                    val specialization =
+                        glslParseSpecializationDeclaration(source, layout.next)
+                    if (!specialization.valid) {
+                        valid = false
+                        error = "malformed GLSL $stage specialization constant"
+                    }
+                    var duplicate = false
+                    var specializationIndex = 0
+                    while (valid && !duplicate && specializationIndex <
+                        specializationConstants.size) {
+                        duplicate = specializationConstants[
+                            specializationIndex
+                        ].id == layout.constantId
+                        specializationIndex = specializationIndex + 1
+                    }
+                    if (valid && duplicate) {
+                        valid = false
+                        error = "duplicate GLSL $stage specialization constant id ${layout.constantId}"
+                    } else if (valid) {
+                        specializationConstants.append(
+                            ShaderSpecializationConstant(
+                                stage,
+                                layout.constantId,
+                                specialization.dataType,
+                                specialization.name,
+                                specialization.defaultValue
+                            )
+                        )
+                    }
+                }
+                if (valid && layout.location >= 0 &&
                     (declaration.storage == "in" ||
                      declaration.storage == "out")) {
                     if (!declaration.valid) {
@@ -442,7 +687,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                         ))
                     }
                 }
-                if (valid && layout.binding >= 0 &&
+                if (valid && !layout.pushConstant &&
+                    layout.binding >= 0 &&
                     (declaration.storage == "uniform" ||
                      declaration.storage == "buffer")) {
                     if (!declaration.valid) {
@@ -499,7 +745,15 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
         } else if (name.text != "") index = name.next
         else index = glslSkipTrivia(source, index) + 1
     }
-    GlslStageReflection(locations, bindings, workgroups, valid, error)
+    GlslStageReflection(
+        locations,
+        bindings,
+        workgroups,
+        pushConstants,
+        specializationConstants,
+        valid,
+        error
+    )
 }
 
 fun glslBlockMembersEqual(
@@ -594,6 +848,8 @@ fun glslPackage(
     val locations: array<ShaderLocation> = []
     val bindings: array<ShaderBinding> = []
     val workgroups: array<ShaderWorkgroup> = []
+    val pushConstants: array<ShaderPushConstant> = []
+    val specializationConstants: array<ShaderSpecializationConstant> = []
     var valid = names.size == sources.size && names.size > 0
     var error = if (valid) "" else "GLSL package has no stages"
     var compute = false
@@ -653,6 +909,33 @@ fun glslPackage(
                 workgroups.append(reflection.workgroups[reflectedIndex])
                 reflectedIndex = reflectedIndex + 1
             }
+            reflectedIndex = 0
+            while (valid && reflectedIndex < reflection.pushConstants.size) {
+                val reflected = reflection.pushConstants[reflectedIndex]
+                var pushIndex = 0
+                while (valid && pushIndex < pushConstants.size) {
+                    val previous = pushConstants[pushIndex]
+                    if (previous.dataType != reflected.dataType ||
+                        !glslBlockMembersEqual(
+                            previous.members,
+                            reflected.members
+                        )) {
+                        valid = false
+                        error = "incompatible GLSL push constant block declarations"
+                    }
+                    pushIndex = pushIndex + 1
+                }
+                if (valid) pushConstants.append(reflected)
+                reflectedIndex = reflectedIndex + 1
+            }
+            reflectedIndex = 0
+            while (valid && reflectedIndex <
+                reflection.specializationConstants.size) {
+                specializationConstants.append(
+                    reflection.specializationConstants[reflectedIndex]
+                )
+                reflectedIndex = reflectedIndex + 1
+            }
         }
         if (valid) {
             stages.append(ShaderStageSource(names[index], sources[index]))
@@ -670,7 +953,16 @@ fun glslPackage(
             error = interfaceError
         }
     }
-    ShaderPackage(stages, locations, bindings, workgroups, valid, error)
+    ShaderPackage(
+        stages,
+        locations,
+        bindings,
+        workgroups,
+        pushConstants,
+        specializationConstants,
+        valid,
+        error
+    )
 }
 
 compile fun glslAppend(left: string, right: string): string = "$left$right"

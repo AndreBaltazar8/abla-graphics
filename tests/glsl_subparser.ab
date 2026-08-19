@@ -93,6 +93,48 @@ fun main: int {
         [shaderStageVertex],
         ["layout(binding=0) uniform Camera { mat4 value } camera; void main() {}"]
     )
+    val reflectedPushConstants = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(push_constant) uniform Draw { mat4 transform; vec4 tint; } draw; void main() {}",
+            "layout(push_constant) uniform Draw { mat4 transform; vec4 tint; } draw; void main() {}"
+        ]
+    )
+    val mismatchedPushConstants = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(push_constant) uniform Draw { mat4 transform; vec4 tint; } draw; void main() {}",
+            "layout(push_constant) uniform Draw { mat4 transform; vec3 tint; } draw; void main() {}"
+        ]
+    )
+    val duplicatePushConstants = glslPackage(
+        [shaderStageVertex],
+        ["layout(push_constant) uniform First { vec4 value; } first; layout(push_constant) uniform Second { vec4 value; } second; void main() {}"]
+    )
+    val boundPushConstant = glslPackage(
+        [shaderStageVertex],
+        ["layout(push_constant,binding=0) uniform Draw { vec4 value; } draw; void main() {}"]
+    )
+    val reflectedSpecialization = glslPackage(
+        [shaderStageCompute],
+        ["layout(constant_id=0) const uint passCount = 4u; layout(constant_id=3) const bool enabled = true; layout(constant_id=4) const int offset = -2; layout(constant_id=6) const double threshold = 2.5LF; layout(constant_id=7) const float scale = -1.25f; layout(local_size_x=1) in; void main() {}"]
+    )
+    val duplicateSpecialization = glslPackage(
+        [shaderStageCompute],
+        ["layout(constant_id=2) const int first = 1; layout(constant_id=2) const bool second = true; layout(local_size_x=1) in; void main() {}"]
+    )
+    val malformedSpecialization = glslPackage(
+        [shaderStageCompute],
+        ["layout(constant_id=3) const uint count = -2u; layout(local_size_x=1) in; void main() {}"]
+    )
+    val malformedSpecializationId = glslPackage(
+        [shaderStageCompute],
+        ["layout(constant_id=value) const uint count = 2u; layout(local_size_x=1) in; void main() {}"]
+    )
+    val duplicateLayoutKey = glslPackage(
+        [shaderStageVertex],
+        ["layout(location=0,location=1) in vec2 position; void main() {}"]
+    )
     val emitted = frozen.spirv(shaderStageCompute)
     val emittedAgain = frozen.spirv(shaderStageCompute)
     val unsupportedCompute = glslPackage(
@@ -356,6 +398,55 @@ fun main: int {
         !mismatchedBlock.valid && mismatchedBlock.error != "" &&
         !duplicateBlockMember.valid && duplicateBlockMember.error != "" &&
         !malformedBlockMember.valid && malformedBlockMember.error != "" &&
+        reflectedPushConstants.valid &&
+        reflectedPushConstants.pushConstants.size == 2 &&
+        reflectedPushConstants.pushConstants[0].stage == shaderStageVertex &&
+        reflectedPushConstants.pushConstants[0].dataType == "Draw" &&
+        reflectedPushConstants.pushConstants[0].name == "draw" &&
+        reflectedPushConstants.pushConstants[0].members.size == 2 &&
+        reflectedPushConstants.pushConstants[0].members[0].dataType ==
+            "mat4" &&
+        reflectedPushConstants.pushConstants[0].members[1].name == "tint" &&
+        !mismatchedPushConstants.valid &&
+        mismatchedPushConstants.error != "" &&
+        !duplicatePushConstants.valid && duplicatePushConstants.error != "" &&
+        !boundPushConstant.valid && boundPushConstant.error != "" &&
+        reflectedSpecialization.valid &&
+        reflectedSpecialization.specializationConstants.size == 5 &&
+        reflectedSpecialization.specializationConstants[0].id == 0 &&
+        reflectedSpecialization.specializationConstants[0].dataType ==
+            "uint" &&
+        reflectedSpecialization.specializationConstants[0].name ==
+            "passCount" &&
+        reflectedSpecialization.specializationConstants[0].defaultValue ==
+            "4u" &&
+        reflectedSpecialization.specializationConstants[1].id == 3 &&
+        reflectedSpecialization.specializationConstants[1].dataType ==
+            "bool" &&
+        reflectedSpecialization.specializationConstants[1].defaultValue ==
+            "true" &&
+        reflectedSpecialization.specializationConstants[2].id == 4 &&
+        reflectedSpecialization.specializationConstants[2].dataType ==
+            "int" &&
+        reflectedSpecialization.specializationConstants[2].defaultValue ==
+            "-2" &&
+        reflectedSpecialization.specializationConstants[3].id == 6 &&
+        reflectedSpecialization.specializationConstants[3].dataType ==
+            "double" &&
+        reflectedSpecialization.specializationConstants[3].defaultValue ==
+            "2.5LF" &&
+        reflectedSpecialization.specializationConstants[4].id == 7 &&
+        reflectedSpecialization.specializationConstants[4].dataType ==
+            "float" &&
+        reflectedSpecialization.specializationConstants[4].defaultValue ==
+            "-1.25f" &&
+        !duplicateSpecialization.valid &&
+        duplicateSpecialization.error != "" &&
+        !malformedSpecialization.valid &&
+        malformedSpecialization.error != "" &&
+        !malformedSpecializationId.valid &&
+        malformedSpecializationId.error != "" &&
+        !duplicateLayoutKey.valid && duplicateLayoutKey.error != "" &&
         emitted.succeeded && emitted.module.valid() &&
         emitted.module.words.size == 35 &&
         emitted.module.words[18] == 8 && emitted.module.words[19] == 1 &&

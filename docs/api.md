@@ -1184,7 +1184,16 @@ array extent. Uniform and storage interface blocks additionally expose ordered
 `ShaderBlockMember` values with each member's type, name, and array extent, plus
 the block instance name and array extent. Precision and memory qualifiers are
 accepted on members. Empty, malformed, and duplicate-name member lists are
-rejected. Duplicate
+rejected. `layout(push_constant)` uniform blocks are reflected separately as
+stage-tagged `ShaderPushConstant` values. One block is accepted per stage;
+incompatible member structures across stages, descriptor coordinates on a push
+constant, and arrayed block instances are rejected. Scalar
+`layout(constant_id = N) const` declarations produce stage-tagged
+`ShaderSpecializationConstant` values containing the ID, type, name, and exact
+default literal. The initial typed literal grammar covers `bool`, `int`,
+`uint`, `float`, and `double`; duplicate IDs in one stage and type-incompatible
+literals are rejected. Duplicate recognized keys inside one layout qualifier
+are also errors. Duplicate
 input/output locations or descriptor slots in one stage invalidate the package.
 Bindings shared across stages must agree on storage, data type, array extent,
 and complete ordered member structure. Each explicit
@@ -1194,8 +1203,9 @@ skipped without losing the declaration type. Other unknown layout keys remain
 source-preserved and are not misclassified. For compute packages,
 `layout(local_size_x/y/z)` produces one checked
 `ShaderWorkgroup`; omitted Y/Z dimensions default to one. Nested structures,
-explicit member layout qualifiers, push constants, and general workgroup
-specialization reflection are still forthcoming.
+explicit member layout qualifiers, composite specialization constants,
+specialized workgroup dimensions, and backend pipeline specialization wiring
+are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every
