@@ -47,7 +47,8 @@ procedural/vertex/indexed/direct-indirect/indexed-indirect offscreen and
 presented commands plus matching reusable render-pass attachment operations on
 both backends, including affine reflected per-pipeline values across native
 Vulkan or ordered OpenGL procedural subpass sequences and a vertex-visible
-push-offset transform with exact shifted-position proof. Repeated clear,
+push-offset transform plus a shared vertex/fragment offset-and-tint block with
+exact shifted-position and color proof. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

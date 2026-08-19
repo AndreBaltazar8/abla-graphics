@@ -256,6 +256,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   procedural triangle, proving exact centered and shifted-off-center pixels,
   missing-value rejection, persistent native handles, and zero-growth repeated
   frames on both backends;
+- `examples/push-draw`: one shared 32-byte vertex/fragment push block controls
+  procedural geometry and tint together, proving combined stage masks, exact
+  shifted and recolored pixels, stable handles, and zero-growth repeated frames
+  on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted
   frames on explicit OpenGL and Vulkan, including counter-period conversion,
   stable native handles, and zero steady-state live-memory growth; and

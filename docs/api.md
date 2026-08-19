@@ -1743,6 +1743,15 @@ centered and shifted-off-center positions, verifies both exact target pixels,
 rejects missing values, and proves stable native handles with zero steady-state
 allocation growth on OpenGL and Vulkan.
 
+The strict combined-stage subset declares the same
+`Draw { vec4 offset; vec4 tint; }` block in vertex and fragment stages. Its
+reflected 32-byte layout has `offset` at byte 0, `tint` at byte 16, and the
+combined vertex/fragment stage mask. The vertex stage adds `draw.offset.xy` to
+the procedural position while the fragment stage returns `draw.tint`.
+`push-draw` proves that one reusable value block independently changes geometry
+and color, with exact pixels, missing-value rejection, stable handles, and zero
+steady-state allocation growth on both backends.
+
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:
 `renderPushVerticesToTarget`, `renderPushIndexedToTarget`,

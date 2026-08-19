@@ -1155,6 +1155,28 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.12,0.54,0.96,1.0); }"
         ]
     ).spirv(shaderStageVertex)
+    val pushDrawShader = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); layout(push_constant) uniform Draw { vec4 offset; vec4 tint; } draw; void main(){ gl_Position=vec4(positions[gl_VertexID]+draw.offset.xy,0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 offset; vec4 tint; } draw; void main(){ color=draw.tint; }"
+        ]
+    )
+    val pushDrawVertex = pushDrawShader.spirv(shaderStageVertex)
+    val pushDrawVertexAgain = pushDrawShader.spirv(shaderStageVertex)
+    val pushDrawFragment = pushDrawShader.spirv(shaderStageFragment)
+    val pushDrawFragmentAgain = pushDrawShader.spirv(shaderStageFragment)
+    val pushDrawLayout = pushDrawShader.pushConstantLayout()
+    val pushDrawVertexOpenGl = pushDrawShader.openGlSource(shaderStageVertex)
+    val pushDrawFragmentOpenGl =
+        pushDrawShader.openGlSource(shaderStageFragment)
+    val unsupportedPushDraw = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); layout(push_constant) uniform Draw { vec4 offset; vec4 tint; } draw; void main(){ gl_Position=vec4(positions[gl_VertexID]-draw.offset.xy,0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 offset; vec4 tint; } draw; void main(){ color=draw.tint; }"
+        ]
+    ).spirv(shaderStageVertex)
     val triangle460 = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2136,6 +2158,34 @@ fun main: int {
         !glslContainsText(pushTransformOpenGlSource, "push_constant") &&
         !unsupportedPushTransform.succeeded &&
         unsupportedPushTransform.error != "" &&
+        pushDrawShader.valid && pushDrawShader.pushConstants.size == 2 &&
+        pushDrawVertex.succeeded && pushDrawVertex.module.valid() &&
+        pushDrawVertex.module.words.size == 273 &&
+        pushDrawVertex.module.bound() == 49 &&
+        spirvContainsWord(pushDrawVertex.module, 327809) &&
+        spirvWordsEqual(pushDrawVertex.module, pushDrawVertexAgain.module) &&
+        pushDrawFragment.succeeded && pushDrawFragment.module.valid() &&
+        pushDrawFragment.module.words.size == 107 &&
+        pushDrawFragment.module.bound() == 18 &&
+        spirvWordsEqual(
+            pushDrawFragment.module,
+            pushDrawFragmentAgain.module
+        ) && pushDrawLayout.valid && pushDrawLayout.size == 32 &&
+        pushDrawLayout.stageMask ==
+            (shaderStageMaskVertex | shaderStageMaskFragment) &&
+        pushDrawLayout.members.size == 2 &&
+        pushDrawLayout.members[0].name == "offset" &&
+        pushDrawLayout.members[0].offset == 0 &&
+        pushDrawLayout.members[1].name == "tint" &&
+        pushDrawLayout.members[1].offset == 16 &&
+        glslContainsText(
+            pushDrawVertexOpenGl,
+            "layout(std140, binding = 15)"
+        ) && glslContainsText(
+            pushDrawFragmentOpenGl,
+            "layout(std140, binding = 15)"
+        ) && !unsupportedPushDraw.succeeded &&
+        unsupportedPushDraw.error != "" &&
         triangle460.valid && triangle460Vertex.succeeded &&
         triangle460Fragment.succeeded &&
         spirvWordsEqual(triangleVertex.module, triangle460Vertex.module) &&

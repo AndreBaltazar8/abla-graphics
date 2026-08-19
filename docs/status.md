@@ -959,7 +959,10 @@ validity gate unchanged.
   handles, and zero-growth repeated values are verified on both backends.
   A vertex-only `vec4` offset subset additionally performs real position
   addition, with exact centered/shifted pixels and the same allocation and
-  handle proofs. General compute/raster expressions remain upcoming.
+  handle proofs. A shared 32-byte vertex/fragment block combines that offset
+  with a fragment tint under stage mask 17, proving independent exact geometry
+  and color updates from one value block on both drivers. General
+  compute/raster expressions remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
