@@ -152,14 +152,15 @@ fun glslRasterFloat(
 }
 
 fun glslRasterBinaryPrecedence(text: string): int {
-    if (text == "*") 12
+    if (text == "*" || text == "/") 12
     else if (text == "+" || text == "-") 11 else 0
 }
 
 fun glslRasterBinaryOpcode(text: string): int {
     if (text == "+") 327809
     else if (text == "-") 327811
-    else if (text == "*") 327813 else 0
+    else if (text == "*") 327813
+    else if (text == "/") 327816 else 0
 }
 
 fun glslRasterPrimary(
@@ -638,7 +639,8 @@ fun glslRasterFragmentSpirv(
             }
         } else if (token.kind == glslRasterTokenOperation) {
             valid = stackSize >= 2 && (token.opcode == 327809 ||
-                token.opcode == 327811 || token.opcode == 327813)
+                token.opcode == 327811 || token.opcode == 327813 ||
+                token.opcode == 327816)
             if (valid) {
                 var right = stack[stackSize - 1]
                 var left = stack[stackSize - 2]
@@ -658,6 +660,23 @@ fun glslRasterFragmentSpirv(
                         val scalar = left
                         left = right
                         right = scalar
+                    }
+                } else if (operation == 327816 &&
+                    leftType != rightType) {
+                    valid = leftType == glslRasterTypeVector &&
+                        rightType == glslRasterTypeScalar
+                    resultType = glslRasterTypeVector
+                    if (valid) {
+                        val splat = nextId
+                        nextId = nextId + 1
+                        words.append(458832)
+                        words.append(vectorType)
+                        words.append(splat)
+                        words.append(right)
+                        words.append(right)
+                        words.append(right)
+                        words.append(right)
+                        right = splat
                     }
                 } else valid = leftType == rightType &&
                     leftType != glslRasterTypeInvalid

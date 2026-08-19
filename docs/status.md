@@ -967,13 +967,16 @@ validity gate unchanged.
   with a fragment tint under stage mask 17, proving independent exact geometry
   and color updates from one value block on both drivers. A bounded typed
   raster postfix IR now emits fragment `vec4`/`float` push-member and literal
-  expressions with parenthesized multiplication, addition, and subtraction
-  directly to deterministic SPIR-V, including mixed-type push structures,
-  scalar/vector loads, and both operand orders of `OpVectorTimesScalar`; fixed
-  fragment push word tables have been removed. Typed mismatch/array rejection,
-  48-byte reflected offsets, precedence, repeat-emission, exact real-driver
-  pixels, stable handles, and zero-growth frames are verified. Division,
-  interface inputs, functions, and control flow remain upcoming.
+  expressions with parenthesized multiplication, division, addition, and
+  subtraction directly to deterministic SPIR-V, including mixed-type push
+  structures, scalar/vector loads, both operand orders of
+  `OpVectorTimesScalar`, equal-type
+  division, and exact `vec4 / float` lowering through a runtime splat plus
+  vector `OpFDiv`; fixed fragment push word tables have been removed. Typed
+  mismatch/array and `float / vec4` rejection, 48-byte reflected offsets,
+  precedence, repeat-emission, exact real-driver pixels, stable handles, and
+  zero-growth frames are verified. Interface inputs, functions, and control
+  flow remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
