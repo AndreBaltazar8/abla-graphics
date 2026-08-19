@@ -1445,6 +1445,11 @@ right-associative integer `condition ? whenTrue : whenFalse` form. Integer
 targets also accept `+=`, `-=`, `*=`, `/=`, `%=`, `<<=`, `>>=`, `&=`, `^=`,
 and `|=`; each lowers to the byte-identical load/binary/store program produced
 by its expanded assignment.
+`main` may contain up to 64 ordered assignments to members of that block. Each
+statement emits its store before the next statement's loads, so later
+expressions observe earlier writes. The flattened program is capped below 8,192
+tokens; empty bodies, foreign instances, and non-assignment statements remain
+explicit failures in this executable subset.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

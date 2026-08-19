@@ -391,6 +391,13 @@ Updated: 2026-08-19.
   token program. Tests prove `value += 2u` is byte-identical to its expanded
   form and cover shift/bitwise compound opcodes; increment/decrement and logical
   assignment remain rejected.
+  A storage `main` now accepts a bounded sequence of up to 64 member assignments.
+  Store tokens consume each typed postfix result before the next statement,
+  retaining byte-identical output for every previous one-statement module. A
+  three-statement unit shader emits three ordered stores. The live shader writes
+  `tail = 6`, reads it in the following conditional, writes `output = 7`, and
+  returns the exact packed high/low pair on both real drivers while preserving
+  the separate initialized prefix.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
