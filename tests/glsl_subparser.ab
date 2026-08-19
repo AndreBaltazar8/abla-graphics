@@ -1272,6 +1272,14 @@ fun main: int {
     }
     val transformCubeVertex = transformCube.spirv(shaderStageVertex)
     val transformCubeVertexAgain = transformCube.spirv(shaderStageVertex)
+    val pushStorage = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; layout(push_constant) uniform Push { uint addend; } push; void main(){ values.value=values.value+push.addend; }"]
+    )
+    val pushStorageSpirv = pushStorage.spirv(shaderStageCompute)
+    val pushStorageSpirvAgain = pushStorage.spirv(shaderStageCompute)
+    val pushStorageOpenGlSource =
+        pushStorage.openGlSource(shaderStageCompute)
     val unsupportedTriangle = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -1640,7 +1648,7 @@ fun main: int {
         reflectedPushConstantLayout.members[1].offset == 64 &&
         reflectedPushConstantLayout.members[1].size == 16 &&
         explicitPushConstantLayout.valid &&
-        explicitPushConstantLayout.size == 80 &&
+        explicitPushConstantLayout.size == 64 &&
         explicitPushConstantLayout.stageMask == shaderStageMaskCompute &&
         explicitPushConstantLayout.members.size == 3 &&
         explicitPushConstantLayout.members[0].offset == 0 &&
@@ -2137,6 +2145,16 @@ fun main: int {
             transformCubeVertex.module,
             transformCubeVertexAgain.module
         ) &&
+        pushStorage.valid && pushStorage.pushConstants.size == 1 &&
+        pushStorageSpirv.succeeded && pushStorageSpirv.module.valid() &&
+        pushStorageSpirv.module.bound() == 26 &&
+        spirvWordsEqual(pushStorageSpirv.module, pushStorageSpirvAgain.module) &&
+        spirvInstructionOperand(pushStorageSpirv.module, 32, 2, 9) &&
+        glslContainsText(
+            pushStorageOpenGlSource,
+            "layout(std140, binding = 15)"
+        ) &&
+        !glslContainsText(pushStorageOpenGlSource, "push_constant") &&
         !unsupportedTriangle.succeeded && unsupportedTriangle.error != "" &&
         shader.source(shaderStageVertex) != "" &&
         shader.source(shaderStageFragment) != "") 42 else 1

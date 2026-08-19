@@ -82,6 +82,7 @@ val shaderStageMaskTessellationEvaluation = 4
 val shaderStageMaskGeometry = 8
 val shaderStageMaskFragment = 16
 val shaderStageMaskCompute = 32
+val openGlPushConstantBinding = 15
 
 class ShaderPushConstantMemberLayout(
     val dataType: string,
@@ -101,7 +102,58 @@ class ShaderPushConstantLayout(
     val stageMask: int,
     val members: array<ShaderPushConstantMemberLayout>,
     val error: string
-)
+) {
+    fun openGlCompatible(): bool {
+        var compatible = this.valid
+        var index = 0
+        while (compatible && index < this.members.size) {
+            val member = this.members[index]
+            compatible = (member.arrayStride == 0 ||
+                member.alignment >= 16) &&
+                (member.matrixStride == 0 || member.matrixStride >= 16)
+            index = index + 1
+        }
+        compatible
+    }
+
+    fun matches(other: ShaderPushConstantLayout): bool {
+        var matches = this.valid && other.valid &&
+            this.size == other.size && this.stageMask == other.stageMask &&
+            this.members.size == other.members.size
+        var index = 0
+        while (matches && index < this.members.size) {
+            val left = this.members[index]
+            val right = other.members[index]
+            matches = left.dataType == right.dataType &&
+                left.name == right.name && left.arraySize == right.arraySize &&
+                left.offset == right.offset && left.size == right.size &&
+                left.alignment == right.alignment &&
+                left.arrayStride == right.arrayStride &&
+                left.matrixStride == right.matrixStride &&
+                left.rowMajor == right.rowMajor
+            index = index + 1
+        }
+        matches
+    }
+}
+
+fun ShaderPackage.openGlSource(stage: string): string {
+    val source = this.source(stage)
+    val lexical = glslLex(source)
+    var result = ""
+    var cursor = 0
+    var index = 0
+    while (lexical.valid && index < lexical.tokens.size) {
+        val token = lexical.tokens[index]
+        if (token.kind == glslTokenIdentifier &&
+            token.text == "push_constant") {
+            result = "$result${source.slice(cursor, token.begin)}std140, binding = $openGlPushConstantBinding"
+            cursor = token.end
+        }
+        index = index + 1
+    }
+    if (cursor > 0) "$result${source.slice(cursor, source.size)}" else source
+}
 
 class ShaderSpecializationConstant(
     val stage: string,

@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 32/842
+- Classified commands: 33/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -214,7 +214,7 @@
 | `vkCmdPipelineBarrier2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdPreprocessGeneratedCommandsEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdPreprocessGeneratedCommandsNV` | definition | unclassified | - | - | - | - |
-| `vkCmdPushConstants` | definition | unclassified | - | - | - | - |
+| `vkCmdPushConstants` | definition | common | src/driver/vulkan.ab reflected compute push recording | src/driver/vulkan.ab typed extern and packed PushConstantRange ABI | tests/application/main.ab exact cross-backend push storage output | tests/application/main.ab wrong stage and byte-size rejection |
 | `vkCmdPushConstants2` | definition | unclassified | - | - | - | - |
 | `vkCmdPushConstants2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdPushDataEXT` | definition | unclassified | - | - | - | - |

@@ -41,10 +41,36 @@ fun main: int {
             bufferUsageCopyDestination
     ))
     val storagePipeline = app.computeStoragePipeline(storageShader, storage)
+    val pushShader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            layout(push_constant) uniform Push {
+                uint addend;
+            } push;
+            void main() {
+                values.value = values.value + push.addend;
+            }
+        }
+    }
+    val pushStorage = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val pushPipeline = app.computeStoragePipeline(pushShader, pushStorage)
+    val pushValues = pushShader.pushConstants()
     val initialized = app.valid() && pipeline.valid() &&
         pipeline.dispatch(4, 2) && pipeline.dispatch(3, 2) &&
         storage.writeI64(2) && storagePipeline.valid() &&
-        storagePipeline.dispatch(1) && storage.readI64() == 6
+        storagePipeline.dispatch(1) && storage.readI64() == 6 &&
+        pushStorage.writeI64(2) && pushPipeline.valid() &&
+        pushValues.storeU32(40) &&
+        pushPipeline.dispatchPush(pushValues, 1) &&
+        pushStorage.readI64() == 42 && pushValues.storeU32(1)
     val computePoolBefore = pipeline.vulkan.commandPool
     val computeCommandBefore = if (
         app.backend == graphicsBackendVulkan &&
@@ -57,35 +83,47 @@ fun main: int {
     ) nativePointerAddress(storagePipeline.vulkan.command.load()) else 0
     val openGlHandleBefore = pipeline.openGl.handle
     val openGlStorageHandleBefore = storagePipeline.openGl.handle
+    val pushPoolBefore = pushPipeline.vulkan.commandPool
+    val pushCommandBefore = if (
+        app.backend == graphicsBackendVulkan &&
+        !pushPipeline.vulkan.command.closed
+    ) nativePointerAddress(pushPipeline.vulkan.command.load()) else 0
+    val openGlPushHandleBefore = pushPipeline.openGl.handle
     val liveBeforeDispatches = runtimeMemoryLiveBytes()
     var repeated = initialized
     var dispatchIndex = 0
     while (repeated && dispatchIndex < 4) {
         repeated = pipeline.dispatch(4, 2) &&
-            storagePipeline.dispatch(1)
+            storagePipeline.dispatch(1) &&
+            pushPipeline.dispatchPush(pushValues, 1)
         dispatchIndex = dispatchIndex + 1
     }
     val liveAfterDispatches = runtimeMemoryLiveBytes()
     val dispatchesNoGrowth = liveAfterDispatches == liveBeforeDispatches
     val handlesStable = if (app.backend == graphicsBackendOpenGl)
         pipeline.openGl.handle == openGlHandleBefore &&
-            storagePipeline.openGl.handle == openGlStorageHandleBefore
+            storagePipeline.openGl.handle == openGlStorageHandleBefore &&
+            pushPipeline.openGl.handle == openGlPushHandleBefore
     else pipeline.vulkan.commandPool == computePoolBefore &&
         nativePointerAddress(pipeline.vulkan.command.load()) ==
             computeCommandBefore &&
         storagePipeline.vulkan.commandPool == storagePoolBefore &&
         nativePointerAddress(storagePipeline.vulkan.command.load()) ==
-            storageCommandBefore
+            storageCommandBefore &&
+        pushPipeline.vulkan.commandPool == pushPoolBefore &&
+        nativePointerAddress(pushPipeline.vulkan.command.load()) ==
+            pushCommandBefore
     val storageResult = storage.readI64()
+    val pushResult = pushStorage.readI64()
     val passed = initialized && repeated && dispatchesNoGrowth &&
-        handlesStable && storageResult == 161 &&
+        handlesStable && storageResult == 161 && pushResult == 46 &&
         app.presentClear(Color(
             0.0625,
             0.1875,
             0.4375
         ))
     println(
-        "Common compute ${graphicsBackendName(app.backend)}: storage result=${storageResult}, repeatNoGrowth=${dispatchesNoGrowth}, handlesStable=${handlesStable}, liveDelta=${liveAfterDispatches - liveBeforeDispatches} on ${app.adapterName}"
+        "Common compute ${graphicsBackendName(app.backend)}: storage result=${storageResult}, push result=${pushResult}, repeatNoGrowth=${dispatchesNoGrowth}, handlesStable=${handlesStable}, liveDelta=${liveAfterDispatches - liveBeforeDispatches} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

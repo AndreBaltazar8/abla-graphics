@@ -947,8 +947,10 @@ validity gate unchanged.
   A reusable affine `GraphicsPushConstants` value provides exact member writes
   plus checked byte-offset and scalar hot paths without per-frame allocation.
   General uniform/storage host-structure offsets remain unverified. Reflected
-  push constants are not yet wired into backend pipeline creation or command
-  recording.
+  compute push constants are wired to native Vulkan pipeline ranges and command
+  recording plus persistent OpenGL UBO emulation for the strict observable
+  storage-add shader slice; general compute expressions and raster-stage push
+  commands remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

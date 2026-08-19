@@ -369,6 +369,14 @@ noescape extern:"c" fun vkCmdBindPipeline(
     pipelineBindPoint: i32,
     pipeline: int
 ): void
+noescape extern:"c" fun vkCmdPushConstants(
+    commandBuffer: i64*,
+    layout: int,
+    stageFlags: i32,
+    offset: i32,
+    size: i32,
+    values: i64*
+): void
 noescape extern:"c" fun vkCmdDispatch(
     commandBuffer: i64*,
     groupCountX: i32,
@@ -2945,17 +2953,33 @@ resource class VulkanComputePipeline(
     val scratch: NativeByteBuffer,
     var descriptorSetLayout: int,
     var descriptorPool: int,
-    var descriptorSet: int
+    var descriptorSet: int,
+    val pushConstantSize: int,
+    val pushConstantStageMask: int
 ) {
     fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.queueFamily >= 0 &&
         this.layout != 0 && this.handle != 0 && this.commandPool != 0 &&
         !this.command.closed && !pointerIsNull(this.command.load()) &&
-        !this.scratch.closed && this.scratch.capacity >= 72
+        !this.scratch.closed && this.scratch.capacity >= 72 &&
+        this.pushConstantSize >= 0 && this.pushConstantSize <= 128 &&
+        ((this.pushConstantSize == 0 && this.pushConstantStageMask == 0) ||
+         (this.pushConstantSize > 0 && this.pushConstantStageMask != 0))
 
-    trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
+    trusted fun dispatch(
+        x: int,
+        y: int = 1,
+        z: int = 1,
+        pushConstantData: i64* = nativeNullPointer(),
+        pushConstantSize: int = 0
+    ): bool {
         var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
-            x <= 65535 && y <= 65535 && z <= 65535
+            x <= 65535 && y <= 65535 && z <= 65535 &&
+            ((this.pushConstantSize == 0 && pushConstantSize == 0 &&
+              pointerIsNull(pushConstantData)) ||
+             (this.pushConstantSize > 0 &&
+              pushConstantSize == this.pushConstantSize &&
+              !pointerIsNull(pushConstantData)))
         if (succeeded) succeeded = vkResetCommandPool(
             this.device,
             this.commandPool,
@@ -2973,6 +2997,14 @@ resource class VulkanComputePipeline(
         }
         if (succeeded) {
             vkCmdBindPipeline(this.command.load(), 1, this.handle)
+            if (this.pushConstantSize > 0) vkCmdPushConstants(
+                this.command.load(),
+                this.layout,
+                this.pushConstantStageMask,
+                0,
+                this.pushConstantSize,
+                pushConstantData
+            )
             if (this.descriptorSet != 0) {
                 this.scratch.storeI64(0, this.descriptorSet)
                 vkCmdBindDescriptorSets(
@@ -3063,7 +3095,9 @@ trusted fun VulkanDevice.computePipelineNative(
     shader: VulkanShaderModule,
     storageHandle: int = 0,
     storageSize: int = 0,
-    specialization: ShaderSpecialization = ShaderSpecialization()
+    specialization: ShaderSpecialization = ShaderSpecialization(),
+    pushConstantSize: int = 0,
+    pushConstantStageMask: int = 0
 ): VulkanComputePipeline {
     var layout = 0
     var pipeline = 0
@@ -3092,7 +3126,12 @@ trusted fun VulkanDevice.computePipelineNative(
             output.address
         ) == vulkanSuccess) descriptorSetLayout = output.load()
     }
-    if (this.valid() && shader.valid() && shader.device == this.handle) {
+    val pushConstantsValid =
+        (pushConstantSize == 0 && pushConstantStageMask == 0) ||
+        (pushConstantSize > 0 && pushConstantSize <= 128 &&
+         pushConstantStageMask != 0)
+    if (this.valid() && shader.valid() && shader.device == this.handle &&
+        pushConstantsValid) {
         val layoutInfo = nativeByteBuffer(48)
         layoutInfo.storeI64(0, 30)
         layoutInfo.storePointer(8, nativeNullPointer())
@@ -3106,8 +3145,15 @@ trusted fun VulkanDevice.computePipelineNative(
             if (descriptorSetLayout != 0) setLayout.address
             else nativeNullPointer()
         )
-        layoutInfo.storeI64(32, 0)
-        layoutInfo.storePointer(40, nativeNullPointer())
+        val pushRange = nativeByteBuffer(16)
+        pushRange.storeI64(0, pushConstantStageMask)
+        pushRange.storeI64(8, pushConstantSize)
+        layoutInfo.storeI64(32, if (pushConstantSize > 0) 1 else 0)
+        layoutInfo.storePointer(
+            40,
+            if (pushConstantSize > 0) pushRange.address
+            else nativeNullPointer()
+        )
         val output = nativeI64Cell(0)
         if (vkCreatePipelineLayout(
             this.handle,
@@ -3285,7 +3331,9 @@ trusted fun VulkanDevice.computePipelineNative(
         move(scratch),
         descriptorSetLayout,
         descriptorPool,
-        descriptorSet
+        descriptorSet,
+        pushConstantSize,
+        pushConstantStageMask
     )
 }
 
@@ -3300,17 +3348,22 @@ trusted fun VulkanDevice.computePipeline(
 trusted fun VulkanDevice.computeStoragePipeline(
     shader: VulkanShaderModule,
     storage: VulkanBuffer,
-    specialization: ShaderSpecialization = ShaderSpecialization()
+    specialization: ShaderSpecialization = ShaderSpecialization(),
+    pushConstantSize: int = 0,
+    pushConstantStageMask: int = 0
 ): VulkanComputePipeline = if (storage.valid() && storage.device == this.handle)
     this.computePipelineNative(
         shader,
         storage.handle,
         storage.size,
-        specialization
+        specialization,
+        pushConstantSize,
+        pushConstantStageMask
     )
 else VulkanComputePipeline(
     nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
-    nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0
+    nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0,
+    0, 0
 )
 
 fun vulkanTextureFormat(format: int): int {

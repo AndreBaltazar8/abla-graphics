@@ -2125,6 +2125,8 @@ trusted fun OpenGlWindowContext.computeSpirvPipeline(
         this.surface,
         this.context,
         storageBuffer,
+        0,
+        0,
         error
     )
 }
@@ -2184,14 +2186,30 @@ resource class OpenGlComputePipeline(
     val surface: i64*,
     val context: i64*,
     val storageBuffer: int,
+    var pushConstantBuffer: int,
+    val pushConstantSize: int,
     val error: string
 ) {
     fun valid(): bool = this.handle != 0 &&
-        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+        !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
+        this.pushConstantSize >= 0 && this.pushConstantSize <= 128 &&
+        ((this.pushConstantSize == 0 && this.pushConstantBuffer == 0) ||
+         (this.pushConstantSize > 0 && this.pushConstantBuffer != 0))
 
-    trusted fun dispatch(x: int, y: int = 1, z: int = 1): bool {
+    trusted fun dispatch(
+        x: int,
+        y: int = 1,
+        z: int = 1,
+        pushConstantData: i64* = nativeNullPointer(),
+        pushConstantSize: int = 0
+    ): bool {
         var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
             x <= 65535 && y <= 65535 && z <= 65535 &&
+            ((this.pushConstantSize == 0 && pushConstantSize == 0 &&
+              pointerIsNull(pushConstantData)) ||
+             (this.pushConstantSize > 0 &&
+              pushConstantSize == this.pushConstantSize &&
+              !pointerIsNull(pushConstantData))) &&
             eglMakeCurrent(
                 this.display,
                 this.surface,
@@ -2199,6 +2217,20 @@ resource class OpenGlComputePipeline(
                 this.context
             ) == eglTrue
         if (succeeded) {
+            if (this.pushConstantSize > 0) {
+                glBindBuffer(35345, this.pushConstantBuffer)
+                glBufferSubData(
+                    35345,
+                    0,
+                    this.pushConstantSize,
+                    pushConstantData
+                )
+                glBindBufferBase(
+                    35345,
+                    openGlPushConstantBinding,
+                    this.pushConstantBuffer
+                )
+            }
             if (this.storageBuffer != 0) {
                 glBindBufferBase(37074, 0, this.storageBuffer)
             }
@@ -2211,6 +2243,19 @@ resource class OpenGlComputePipeline(
     }
 
     trusted fun drop(): void {
+        if (this.pushConstantBuffer != 0) {
+            if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {
+                eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            }
+            val output = nativeI64Cell(this.pushConstantBuffer)
+            glDeleteBuffers(1, output.address)
+            this.pushConstantBuffer = 0
+        }
         if (this.handle != 0) {
             if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {
                 eglMakeCurrent(
@@ -2228,16 +2273,29 @@ resource class OpenGlComputePipeline(
 }
 
 trusted fun OpenGlWindowContext.computePipeline(
-    shader: ShaderPackage,
+    var shader: ShaderPackage,
     storageBuffer: int = 0
 ): OpenGlComputePipeline {
     var program = 0
+    var pushConstantBuffer = 0
     var error = if (shader.valid) "" else shader.error
-    if (shader.valid && shader.stages.size == 1 &&
-        shader.stages[0].kind == shaderStageCompute && this.makeCurrent()) {
+    var pushBindingAvailable = true
+    var bindingIndex = 0
+    while (pushBindingAvailable && bindingIndex < shader.bindings.size) {
+        pushBindingAvailable = shader.bindings[bindingIndex].binding !=
+            openGlPushConstantBinding
+        bindingIndex = bindingIndex + 1
+    }
+    val computeStageValid = shader.valid && shader.stages.size == 1 &&
+        shader.stages[0].kind == shaderStageCompute
+    val computeSource = shader.openGlSource(shaderStageCompute)
+    val pushLayout = shader.pushConstantLayout()
+    if (computeStageValid && pushLayout.valid &&
+        pushLayout.openGlCompatible() &&
+        pushBindingAvailable && this.makeCurrent()) {
         val compute = openGlCompileShader(
             37305,
-            shader.source(shaderStageCompute)
+            computeSource
         )
         error = compute.error
         if (compute.handle != 0) {
@@ -2255,8 +2313,36 @@ trusted fun OpenGlWindowContext.computePipeline(
             }
             glDeleteShader(compute.handle)
         }
+        if (program != 0 && pushLayout.size > 0) {
+            val output = nativeI64Cell(0)
+            glGenBuffers(1, output.address)
+            pushConstantBuffer = output.load() & 4294967295
+            if (pushConstantBuffer != 0) {
+                glBindBuffer(35345, pushConstantBuffer)
+                glBufferData(
+                    35345,
+                    pushLayout.size,
+                    nativeNullPointer(),
+                    35048
+                )
+                if (glGetError() != 0) {
+                    glDeleteBuffers(1, output.address)
+                    pushConstantBuffer = 0
+                }
+            }
+            if (pushConstantBuffer == 0) {
+                glDeleteProgram(program)
+                program = 0
+                error = "OpenGL push-constant buffer creation failed"
+            }
+        }
     } else if (error == "") {
-        error = "OpenGL compute requires one valid compute stage and context"
+        error = if (!pushLayout.valid) pushLayout.error
+            else if (!pushLayout.openGlCompatible())
+                "OpenGL push-constant emulation requires std140-compatible member strides"
+            else if (!pushBindingAvailable)
+                "OpenGL push-constant binding collides with binding 15"
+            else "OpenGL compute requires one valid compute stage and context"
     }
     OpenGlComputePipeline(
         program,
@@ -2264,6 +2350,8 @@ trusted fun OpenGlWindowContext.computePipeline(
         this.surface,
         this.context,
         storageBuffer,
+        pushConstantBuffer,
+        pushLayout.size,
         error
     )
 }

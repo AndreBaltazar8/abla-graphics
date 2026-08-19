@@ -763,6 +763,60 @@ fun applicationBackendProbe(
         computeBuffer
     )
     val storageComputed = storageCompute.dispatch(1)
+    val pushStorageShader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            layout(push_constant) uniform Push {
+                uint addend;
+            } push;
+            void main() {
+                values.value = values.value + push.addend;
+            }
+        }
+    }
+    val pushStorageBuffer = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val pushStorageCleared = pushStorageBuffer.writeI64(10)
+    val pushStorageCompute = app.computeStoragePipeline(
+        pushStorageShader,
+        pushStorageBuffer
+    )
+    val pushValues = pushStorageShader.pushConstants()
+    val wrongStagePushValues = glslPackage(
+        [shaderStageFragment],
+        ["layout(push_constant) uniform Push { uint addend; } push; void main() {}"]
+    ).pushConstants()
+    val pushStored = pushValues.storeU32(7) &&
+        !pushValues.storeU32(1, 2)
+    val pushMissingRejected = !pushStorageCompute.dispatch(1)
+    val pushWrongStageRejected =
+        !pushStorageCompute.dispatchPush(wrongStagePushValues, 1)
+    val pushWrongSizeRejected = if (app.backend == graphicsBackendOpenGl)
+        !pushStorageCompute.openGl.dispatch(
+            1, 1, 1, pushValues.bytes.storage.address, 2
+        )
+    else !pushStorageCompute.vulkan.dispatch(
+        1, 1, 1, pushValues.bytes.storage.address, 2
+    )
+    val pushDispatched = pushStorageCompute.dispatchPush(pushValues, 1)
+    val pushFirstValue = pushStorageBuffer.readI64()
+    val pushUpdated = pushValues.storeU32(5)
+    val pushLiveBefore = runtimeMemoryLiveBytes()
+    var pushRepeated = pushUpdated
+    var pushRepeat = 0
+    while (pushRepeated && pushRepeat < 4) {
+        pushRepeated = pushStorageCompute.dispatchPush(pushValues, 1)
+        pushRepeat = pushRepeat + 1
+    }
+    val pushLiveAfter = runtimeMemoryLiveBytes()
+    val pushValue = pushStorageBuffer.readI64()
     val specializedStorageShader = $glsl {
         compute {
             #version 450
@@ -1386,7 +1440,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable computeSpecialized=${specializedCompute.valid()}/$specializedComputed scalarSpecialized=${scalarSpecializedCompute.valid()}/$scalarSpecializedComputed/'${scalarSpecializedCompute.error.message}' depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable computeSpecialized=${specializedCompute.valid()}/$specializedComputed scalarSpecialized=${scalarSpecializedCompute.valid()}/$scalarSpecializedComputed/'${scalarSpecializedCompute.error.message}' push=${pushStorageCompute.valid()}/$pushDispatched/$pushFirstValue/$pushValue/${pushLiveAfter - pushLiveBefore} depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && waited && waitNoGrowth &&
         timestampsPassed &&
@@ -1545,6 +1599,12 @@ fun applicationBackendProbe(
         storageCompute.valid() && storageComputed && computeRepeated &&
         computeNoGrowth && computeHandlesStable && computeValue == 1 &&
         computePrefix == 0 &&
+        pushStorageBuffer.valid() && pushStorageCleared &&
+        pushStorageCompute.valid() && pushStored && pushDispatched &&
+        pushMissingRejected && pushWrongStageRejected &&
+        pushWrongSizeRejected &&
+        pushFirstValue == 17 && pushRepeated && pushRepeat == 4 &&
+        pushLiveAfter == pushLiveBefore && pushValue == 37 &&
         specializedStorageBuffer.valid() && specializedStorageCleared &&
         specializedStorageCompute.valid() && specializedStorageComputed &&
         specializedStorageValue == 34359738375 &&

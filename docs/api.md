@@ -1707,6 +1707,23 @@ The common facade runs the shared Abla SPIR-V translator validation before
 either backend is created, so OpenGL cannot accidentally accept a shader that
 would fail after switching the same application to Vulkan.
 
+The first executable push-constant slice combines the reflected value API with
+storage compute. `shader.pushConstants()` creates a reusable value block,
+`pipeline.dispatchPush(values, x, y, z)` requires its complete layout and stage
+mask to match the pipeline, and plain `dispatch()` is rejected for a pipeline
+that requires values. Vulkan places the reflected range in
+`VkPipelineLayout` and records `vkCmdPushConstants` before dispatch. OpenGL
+rewrites only the `push_constant` layout token to a reserved binding-15 std140
+uniform block, owns one persistent UBO, and uploads the same Abla byte block
+before dispatch. Binding 15 collisions and layouts whose std430 array or matrix
+strides differ from std140 are rejected. The initial pure-Abla SPIR-V lowering
+accepts the documented binding-zero `uint value` plus compute-visible
+`uint addend` block and `value = value + addend` program. Integration tests run
+that exact program on both real drivers, reject wrong stages and byte sizes,
+verify repeated value updates, and assert zero steady-state allocation growth.
+General push-constant expressions and raster-stage command wiring remain
+future slices.
+
 The overload
 `app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,
 typed specialization values. Constructors are

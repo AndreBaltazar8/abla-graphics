@@ -3744,6 +3744,47 @@ fun glslTriangleFragmentSource(source: string): bool =
         ")", ";", "}"
     ])
 
+fun glslPushStorageComputeSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "std430", ",", "binding", "=", "0", ")",
+        "buffer", "Values", "{", "uint", "value", ";", "}",
+        "values", ";",
+        "layout", "(", "push_constant", ")", "uniform", "Push", "{",
+        "uint", "addend", ";", "}", "push", ";",
+        "void", "main", "(", ")", "{",
+        "values", ".", "value", "=", "values", ".", "value", "+",
+        "push", ".", "addend", ";", "}"
+    ])
+
+fun glslPushStorageComputeSpirv(): array<int> = [
+    119734787, 65536, 524299, 26, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    327695, 5, 4, 1852399981, 0, 393232, 4, 17,
+    1, 1, 1, 196611, 2, 450, 262149, 4,
+    1852399981, 0, 262149, 7, 1970037078, 29541, 327686, 7,
+    0, 1970037110, 101, 262149, 9, 1970037110, 29541, 262149,
+    15, 1752397136, 0, 327686, 15, 0, 1701078113, 25710,
+    262149, 17, 1752397168, 0, 196679, 7, 3, 327752,
+    7, 0, 35, 0, 262215, 9, 33, 0,
+    262215, 9, 34, 0, 196679, 15, 2, 327752,
+    15, 0, 35, 0, 262215, 25, 11, 25,
+    131091, 2, 196641, 3, 2, 262165, 6, 32,
+    0, 196638, 7, 6, 262176, 8, 2, 7,
+    262203, 8, 9, 2, 262165, 10, 32, 1,
+    262187, 10, 11, 0, 262176, 12, 2, 6,
+    196638, 15, 6, 262176, 16, 9, 15, 262203,
+    16, 17, 9, 262176, 18, 9, 6, 262167,
+    23, 6, 3, 262187, 6, 24, 1, 393260,
+    23, 25, 24, 24, 24, 327734, 2, 4,
+    0, 3, 131320, 5, 327745, 12, 13, 9,
+    11, 262205, 6, 14, 13, 327745, 18, 19,
+    17, 11, 262205, 6, 20, 19, 327808, 6,
+    21, 14, 20, 327745, 12, 22, 9, 11,
+    196670, 22, 21, 65789, 65592
+]
+
 fun glslMultipleColorFragmentSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
@@ -3788,6 +3829,13 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
         this.bindings[0].storage == "buffer" &&
         storageWrite.valid
+    val pushStorage = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 1 && this.bindings[0].set == 0 &&
+        this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "buffer" &&
+        this.pushConstants.size == 1 &&
+        this.specializationConstants.size == 0 &&
+        glslPushStorageComputeSource(this.stages[0].source)
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val vertex = graphicsCommon && stage == shaderStageVertex &&
@@ -3814,14 +3862,16 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val storageEmission = if (storage) glslStorageSpirv(storageWrite)
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
-        combinedSpecializedNoOp || storage || vertex ||
+        combinedSpecializedNoOp || storage || pushStorage || vertex ||
         vertexBuffer || fragment ||
         multipleColorFragment ||
         coloredVertex || coloredFragment || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
-    if (specializedNoOp) {
+    if (pushStorage) {
+        words = glslPushStorageComputeSpirv()
+    } else if (specializedNoOp) {
         words = glslSpecializedWorkgroupSpirv(this.workgroups[0])
     } else if (scalarSpecializedNoOp) {
         words = glslScalarSpecializationSpirv(

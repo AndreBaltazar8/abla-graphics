@@ -6,6 +6,7 @@ import "application.ab"
 import "shader/glsl.ab"
 import "shader/specialization.ab"
 import "shader/glsl_spirv.ab"
+import "push_constants.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
 
@@ -14,9 +15,11 @@ resource class GraphicsComputePipeline(
     val vulkan: VulkanComputePipeline,
     val backend: int,
     val limits: GraphicsLimits,
+    val pushConstantLayout: ShaderPushConstantLayout,
     val error: GraphicsError
 ) {
     fun valid(): bool = !this.error.occurred() && this.limits.valid() &&
+        this.pushConstantLayout.valid &&
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
@@ -29,6 +32,31 @@ resource class GraphicsComputePipeline(
             this.openGl.dispatch(x, y, z)
         } else if (this.backend == graphicsBackendVulkan) {
             this.vulkan.dispatch(x, y, z)
+        } else false
+    }
+
+    trusted fun dispatchPush(
+        constants: GraphicsPushConstants,
+        x: int,
+        y: int = 1,
+        z: int = 1
+    ): bool {
+        if (!constants.valid() ||
+            !constants.layout.matches(this.pushConstantLayout) ||
+            x < 1 || y < 1 || z < 1 ||
+            x > this.limits.maximumComputeWorkgroupsX ||
+            y > this.limits.maximumComputeWorkgroupsY ||
+            z > this.limits.maximumComputeWorkgroupsZ) false
+        else if (this.backend == graphicsBackendOpenGl) {
+            this.openGl.dispatch(
+                x, y, z, constants.bytes.storage.address,
+                constants.layout.size
+            )
+        } else if (this.backend == graphicsBackendVulkan) {
+            this.vulkan.dispatch(
+                x, y, z, constants.bytes.storage.address,
+                constants.layout.size
+            )
         } else false
     }
 
@@ -71,7 +99,7 @@ fun graphicsComputeWorkgroupSupported(
 }
 
 trusted fun GraphicsApplication.computePipeline(
-    shader: ShaderPackage,
+    var shader: ShaderPackage,
     specialization: ShaderSpecialization = ShaderSpecialization()
 ): GraphicsComputePipeline {
     var openGl = OpenGlComputePipeline(
@@ -79,6 +107,8 @@ trusted fun GraphicsApplication.computePipeline(
         nativeNullPointer(),
         nativeNullPointer(),
         nativeNullPointer(),
+        0,
+        0,
         0,
         ""
     )
@@ -93,9 +123,12 @@ trusted fun GraphicsApplication.computePipeline(
         nativeByteBuffer(0),
         0,
         0,
+        0,
+        0,
         0
     )
     var error = GraphicsError()
+    var pushLayout = ShaderPushConstantLayout(true, 0, 0, [], "")
     val translatable = glslPackage(
         [shaderStageCompute],
         [shader.source(shaderStageCompute)]
@@ -152,10 +185,17 @@ trusted fun GraphicsApplication.computePipeline(
             "OpenGlWindowContext.computePipeline",
             openGl.error
         )
+        pushLayout = shader.pushConstantLayout()
     } else if (this.backend == graphicsBackendVulkan) {
+        pushLayout = shader.pushConstantLayout()
         val module = this.vulkanDevice.shaderModule(emitted.module)
-        if (module.valid()) {
-            vulkan = this.vulkanDevice.computePipeline(module, specialization)
+        if (module.valid() && pushLayout.valid) {
+            vulkan = this.vulkanDevice.computePipelineNative(
+                module,
+                specialization = specialization,
+                pushConstantSize = pushLayout.size,
+                pushConstantStageMask = pushLayout.stageMask
+            )
         }
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -168,12 +208,13 @@ trusted fun GraphicsApplication.computePipeline(
         move(vulkan),
         this.backend,
         this.capabilities.limits,
+        pushLayout,
         error
     )
 }
 
 trusted fun GraphicsApplication.computeStoragePipeline(
-    shader: ShaderPackage,
+    var shader: ShaderPackage,
     storage: GraphicsBuffer,
     specialization: ShaderSpecialization = ShaderSpecialization()
 ): GraphicsComputePipeline {
@@ -183,13 +224,17 @@ trusted fun GraphicsApplication.computeStoragePipeline(
         nativeNullPointer(),
         nativeNullPointer(),
         0,
+        0,
+        0,
         ""
     )
     var vulkan = VulkanComputePipeline(
         nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
-        nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0
+        nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0,
+        0, 0
     )
     var error = GraphicsError()
+    var pushLayout = ShaderPushConstantLayout(true, 0, 0, [], "")
     val translatable = glslPackage(
         [shaderStageCompute],
         [shader.source(shaderStageCompute)]
@@ -253,13 +298,17 @@ trusted fun GraphicsApplication.computeStoragePipeline(
             "OpenGlWindowContext.computePipeline",
             openGl.error
         )
+        pushLayout = shader.pushConstantLayout()
     } else if (this.backend == graphicsBackendVulkan) {
+        pushLayout = shader.pushConstantLayout()
         val module = this.vulkanDevice.shaderModule(emitted.module)
-        if (module.valid()) vulkan =
+        if (module.valid() && pushLayout.valid) vulkan =
             this.vulkanDevice.computeStoragePipeline(
                 module,
                 storage.vulkan,
-                specialization
+                specialization,
+                pushLayout.size,
+                pushLayout.stageMask
             )
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -272,6 +321,7 @@ trusted fun GraphicsApplication.computeStoragePipeline(
         move(vulkan),
         this.backend,
         this.capabilities.limits,
+        pushLayout,
         error
     )
 }
