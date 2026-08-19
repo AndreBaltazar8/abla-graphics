@@ -378,6 +378,11 @@ Updated: 2026-08-19.
   postfix form emits deterministic SSA operations; a live override in a nested
   complement/arithmetic/XOR/AND chain produces checked buffer output on OpenGL
   and Vulkan rather than merely proving pipeline creation.
+  The storage block may contain up to 64 homogeneous signed or unsigned scalar
+  members. Its selected `value` member receives a deterministic four-byte
+  `std430` offset and access-chain index; real-driver tests update the middle
+  member while preserving adjacent fields. Mixed member types and missing
+  targets are rejected.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
@@ -639,8 +644,8 @@ three rejection paths are executable tests.
   Reflected push constants are not yet wired into backend pipeline creation.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
-  currently covers the strict no-op and precedence-parsed single-member integer
-  storage-expression compute subsets plus fixed, interleaved position/color,
+  currently covers the strict no-op and precedence-parsed homogeneous scalar
+  storage-block expression compute subsets plus fixed, interleaved position/color,
   and sampled-texture triangle vertex/fragment subsets described above, not
   general shaders.
 - Callable generated bindings, compiler-verified host offsets, and fully

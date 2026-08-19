@@ -741,17 +741,21 @@ fun applicationBackendProbe(
             #version 450
             layout(local_size_x = 1) in;
             layout(std430, binding = 0) buffer Values {
+                int padding0;
+                int padding1;
                 int value;
+                int tail;
             } values;
             void main() { values.value = (values.value + 7) % 3; }
         }
     }
     val computeBuffer = app.buffer(BufferDescriptor(
-        size = 8,
+        size = 16,
         usage = bufferUsageStorage | bufferUsageCopySource |
             bufferUsageCopyDestination
     ))
-    val computeBufferCleared = computeBuffer.writeI64(2)
+    val computeBufferCleared = computeBuffer.writeI64(0, 0) &&
+        computeBuffer.writeI64(2, 8)
     val storageCompute = app.computeStoragePipeline(
         storageShader,
         computeBuffer
@@ -763,7 +767,10 @@ fun applicationBackendProbe(
             layout(constant_id = 6) const uint factor = 3u;
             layout(local_size_x = 1) in;
             layout(std430, binding = 0) buffer Values {
+                uint padding0;
+                uint padding1;
                 uint value;
+                uint tail;
             } values;
             void main() {
                 values.value = (~((values.value * factor + 1u) ^ 3u)) & 15u;
@@ -771,18 +778,21 @@ fun applicationBackendProbe(
         }
     }
     val specializedStorageBuffer = app.buffer(BufferDescriptor(
-        size = 8,
+        size = 16,
         usage = bufferUsageStorage | bufferUsageCopySource |
             bufferUsageCopyDestination
     ))
-    val specializedStorageCleared = specializedStorageBuffer.writeI64(2)
+    val specializedStorageCleared =
+        specializedStorageBuffer.writeI64(0, 0) &&
+        specializedStorageBuffer.writeI64(2, 8)
     val specializedStorageCompute = app.computeStoragePipeline(
         specializedStorageShader,
         specializedStorageBuffer,
         ShaderSpecialization([shaderSpecializationUint(6, 5)])
     )
     val specializedStorageComputed = specializedStorageCompute.dispatch(1)
-    val specializedStorageValue = specializedStorageBuffer.readI64()
+    val specializedStorageValue = specializedStorageBuffer.readI64(8)
+    val specializedStoragePrefix = specializedStorageBuffer.readI64(0)
     val computeCommandPool = compute.vulkan.commandPool
     val computeCommand = if (app.backend == graphicsBackendVulkan)
         nativePointerAddress(compute.vulkan.command.load())
@@ -811,7 +821,8 @@ fun applicationBackendProbe(
         storageCompute.vulkan.commandPool == storageCommandPool &&
         nativePointerAddress(storageCompute.vulkan.command.load()) ==
             storageCommand
-    val computeValue = computeBuffer.readI64()
+    val computeValue = computeBuffer.readI64(8)
+    val computePrefix = computeBuffer.readI64(0)
     var resizePassed = true
     var recoveryDetail = ""
     if (requestedBackend == graphicsBackendOpenGl) {
@@ -1484,9 +1495,10 @@ fun applicationBackendProbe(
         computeBuffer.valid() && computeBufferCleared &&
         storageCompute.valid() && storageComputed && computeRepeated &&
         computeNoGrowth && computeHandlesStable && computeValue == 1 &&
+        computePrefix == 0 &&
         specializedStorageBuffer.valid() && specializedStorageCleared &&
         specializedStorageCompute.valid() && specializedStorageComputed &&
-        specializedStorageValue == 7 &&
+        specializedStorageValue == 7 && specializedStoragePrefix == 0 &&
         resizePassed && renderPipeline.valid() && targetPipelineCompatible &&
         (app.backend != graphicsBackendVulkan ||
          (app.vulkanDevice.dynamicRendering &&

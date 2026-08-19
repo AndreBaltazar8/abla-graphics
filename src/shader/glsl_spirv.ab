@@ -39,7 +39,9 @@ class GlslStorageWrite(
     val valid: bool,
     val signed: bool = false,
     val tokens: array<GlslStorageToken> = [],
-    val specialized: bool = false
+    val specialized: bool = false,
+    val memberCount: int = 1,
+    val memberIndex: int = 0
 ) {
     fun arithmetic(): bool {
         var result = false
@@ -1442,18 +1444,40 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && part.text == "Values"
     character = glslExpectCharacter(source, part.next, 123)
     valid = valid && character.valid
-    part = glslReadName(source, character.next)
-    val signed = part.text == "int"
-    valid = valid && (signed || part.text == "uint") &&
+    var memberCount = 0
+    var memberIndex = -1
+    var signed = false
+    var blockClosed = false
+    index = character.next
+    while (valid && !blockClosed && memberCount <= 64) {
+        index = glslSkipTrivia(source, index)
+        if (index < source.size && source[index] == 125) {
+            blockClosed = true
+            index = index + 1
+        } else {
+            valid = memberCount < 64
+            val memberType = glslReadName(source, index)
+            val memberSigned = memberType.text == "int"
+            valid = valid &&
+                (memberSigned || memberType.text == "uint")
+            if (valid && memberCount == 0) signed = memberSigned
+            else if (valid) valid = signed == memberSigned
+            val member = glslReadName(source, memberType.next)
+            valid = valid && member.text != ""
+            if (valid && member.text == "value") {
+                valid = memberIndex < 0
+                if (valid) memberIndex = memberCount
+            }
+            character = glslExpectCharacter(source, member.next, 59)
+            valid = valid && character.valid
+            index = character.next
+            memberCount = memberCount + 1
+        }
+    }
+    valid = valid && blockClosed && memberCount > 0 && memberIndex >= 0 &&
         (specializationType == "" ||
          specializationType == (if (signed) "int" else "uint"))
-    part = glslReadName(source, part.next)
-    valid = valid && part.text == "value"
-    character = glslExpectCharacter(source, part.next, 59)
-    valid = valid && character.valid
-    character = glslExpectCharacter(source, character.next, 125)
-    valid = valid && character.valid
-    part = glslReadName(source, character.next)
+    part = glslReadName(source, index)
     valid = valid && part.text == "values"
     character = glslExpectCharacter(source, part.next, 59)
     valid = valid && character.valid
@@ -1496,7 +1520,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         expression.tokens,
         specializationName != "" && glslStorageExpressionSpecialized(
             expression.tokens
-        )
+        ),
+        memberCount,
+        memberIndex
     )
 }
 
@@ -1581,11 +1607,25 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
         196622, 0, 1,
         327695, 5, mainId, 1852399981, 0,
         393232, mainId, 17, 1, 1, 1,
-        196679, 4, 3,
-        327752, 4, 0, 35, 0,
-        262215, variableId, 34, 0,
-        262215, variableId, 33, 0
+        196679, 4, 3
     ]
+    var memberDecoration = 0
+    while (memberDecoration < write.memberCount) {
+        words.append(327752)
+        words.append(4)
+        words.append(memberDecoration)
+        words.append(35)
+        words.append(memberDecoration * 4)
+        memberDecoration = memberDecoration + 1
+    }
+    words.append(262215)
+    words.append(variableId)
+    words.append(34)
+    words.append(0)
+    words.append(262215)
+    words.append(variableId)
+    words.append(33)
+    words.append(0)
     if (specializationResultId >= 0) {
         var specializationId = -1
         tokenIndex = 0
@@ -1604,15 +1644,28 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     val declarations: array<int> = [
         131091, 1,
         196641, 2, 1,
-        262165, 3, 32, if (write.signed) 1 else 0,
-        196638, 4, 3,
-        262176, 5, 2, 4,
-        262176, 6, 2, 3,
-        262187, 3, 7, 0
+        262165, 3, 32, if (write.signed) 1 else 0
     ]
     var wordIndex = 0
     while (wordIndex < declarations.size) {
         words.append(declarations[wordIndex])
+        wordIndex = wordIndex + 1
+    }
+    words.append((write.memberCount + 2) * 65536 + 30)
+    words.append(4)
+    var memberType = 0
+    while (memberType < write.memberCount) {
+        words.append(3)
+        memberType = memberType + 1
+    }
+    val storageDeclarations: array<int> = [
+        262176, 5, 2, 4,
+        262176, 6, 2, 3,
+        262187, 3, 7, write.memberIndex
+    ]
+    wordIndex = 0
+    while (wordIndex < storageDeclarations.size) {
+        words.append(storageDeclarations[wordIndex])
         wordIndex = wordIndex + 1
     }
     var specializationDeclared = false

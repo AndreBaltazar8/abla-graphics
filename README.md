@@ -39,7 +39,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   position/color, and sampled-texture vertex/fragment triangle subsets, with
   composable typed scalar/workgroup specialization constants, observable
   precedence-parsed signed/unsigned arithmetic, shift, bitwise, and unary
-  storage expressions, and unsupported GLSL rejected rather than ignored;
+  expressions over checked multi-member storage blocks, with unsupported GLSL
+  rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`

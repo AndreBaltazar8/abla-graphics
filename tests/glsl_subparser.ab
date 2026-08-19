@@ -29,6 +29,26 @@ fun spirvContainsWord(module: SpirvModule, word: int): bool {
     found
 }
 
+fun spirvContainsWords(
+    module: SpirvModule,
+    wanted: array<int>
+): bool {
+    var found = false
+    var begin = 0
+    while (!found && wanted.size > 0 &&
+        begin <= module.words.size - wanted.size) {
+        var matches = true
+        var index = 0
+        while (matches && index < wanted.size) {
+            matches = module.words[begin + index] == wanted[index]
+            index = index + 1
+        }
+        found = matches
+        begin = begin + 1
+    }
+    found
+}
+
 fun main: int {
     val interpolatedSize = 6
     val interpolatedScale = 5
@@ -558,6 +578,18 @@ fun main: int {
     val malformedStorageDecrement = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=--values.value; }"]
+    ).spirv(shaderStageCompute)
+    val multipleStorageMembers = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint padding; uint value; uint tail; } values; void main(){ values.value=values.value+2u; }"]
+    ).spirv(shaderStageCompute)
+    val mixedStorageMemberTypes = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint padding; int value; } values; void main(){ values.value=values.value+2; }"]
+    ).spirv(shaderStageCompute)
+    val missingStorageValueMember = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint second; } values; void main(){ values.value=2u; }"]
     ).spirv(shaderStageCompute)
     val storagePrecedence = glslPackage(
         [shaderStageCompute],
@@ -1171,6 +1203,24 @@ fun main: int {
         unsupportedUnsignedNegate.error != "" &&
         !malformedStorageDecrement.succeeded &&
         malformedStorageDecrement.error != "" &&
+        multipleStorageMembers.succeeded &&
+        multipleStorageMembers.module.valid() &&
+        spirvContainsWords(
+            multipleStorageMembers.module,
+            [327752, 4, 1, 35, 4]
+        ) &&
+        spirvContainsWords(
+            multipleStorageMembers.module,
+            [327710, 4, 3, 3, 3]
+        ) &&
+        spirvContainsWords(
+            multipleStorageMembers.module,
+            [262187, 3, 7, 1]
+        ) &&
+        !mixedStorageMemberTypes.succeeded &&
+        mixedStorageMemberTypes.error != "" &&
+        !missingStorageValueMember.succeeded &&
+        missingStorageValueMember.error != "" &&
         storagePrecedence.succeeded && storagePrecedence.module.valid() &&
         spirvWordsOrdered(storagePrecedence.module, 327812, 327808) &&
         spirvWordsEqual(
