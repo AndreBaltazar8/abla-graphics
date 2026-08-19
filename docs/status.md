@@ -382,6 +382,11 @@ Updated: 2026-08-19.
   buffer output on OpenGL and Vulkan rather than merely proving pipeline
   creation. Integer conditions, Boolean branches, raw Boolean assignment, and
   mismatched logical operands are checked failures.
+  Literal `true`/`false` and a single reflected Boolean specialization constant
+  are first-class condition values. Deterministic modules use typed Boolean
+  constant/spec-constant instructions; a default-false specialization overridden
+  to true selects the checked result `7` after real OpenGL and Vulkan dispatch.
+  Boolean arithmetic remains a checked type failure.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a

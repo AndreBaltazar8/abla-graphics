@@ -579,6 +579,22 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value==0u?1u:values.value==1u?2u:3u; }"]
     ).spirv(shaderStageCompute)
+    val storageBooleanLiteral = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value<10u&&true)?1u:2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageBooleanSpecialization = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=9) const bool enabled=true; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=enabled?values.value+1u:values.value; }"]
+    )
+    val storageBooleanSpecializationSpirv =
+        storageBooleanSpecialization.spirv(shaderStageCompute)
+    val storageBooleanSpecializationOpenGlSpirv =
+        storageBooleanSpecialization.spirvOpenGl(shaderStageCompute)
+    val invalidBooleanArithmetic = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=9) const bool enabled=true; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=enabled+1u; }"]
+    ).spirv(shaderStageCompute)
     val invalidConditionalCondition = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value?1u:2u; }"]
@@ -1259,6 +1275,15 @@ fun main: int {
         spirvContainsWord(storageLogicalXor.module, 327845) &&
         storageNestedConditional.succeeded &&
         storageNestedConditional.module.valid() &&
+        storageBooleanLiteral.succeeded &&
+        storageBooleanLiteral.module.valid() &&
+        spirvContainsWord(storageBooleanLiteral.module, 196649) &&
+        storageBooleanSpecializationSpirv.succeeded &&
+        storageBooleanSpecializationSpirv.module.valid() &&
+        storageBooleanSpecializationOpenGlSpirv.succeeded &&
+        storageBooleanSpecializationOpenGlSpirv.module.valid() &&
+        spirvContainsWord(storageBooleanSpecializationSpirv.module, 196656) &&
+        !invalidBooleanArithmetic.succeeded &&
         !invalidConditionalCondition.succeeded &&
         !invalidConditionalBranch.succeeded &&
         !invalidBooleanAssignment.succeeded &&

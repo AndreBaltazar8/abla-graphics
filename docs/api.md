@@ -1435,7 +1435,8 @@ storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
 The assignment expression reads and writes that same selected storage member and
 accepts typed integer literals,
-one matching scalar specialization constant, nested parentheses, and
+one matching integer specialization constant, Boolean literals or one Boolean
+specialization constant in condition expressions, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, relational/equality,
 bitwise, and `&&`/`^^`/`||` operators. A Boolean condition may feed the
 right-associative integer `condition ? whenTrue : whenFalse` form.
@@ -1454,6 +1455,9 @@ while unsigned symbolic negation and `++`/`--` are rejected. The parser emits a
 bounded postfix program of fewer than 128 tokens. The Abla emitter tracks integer
 and Boolean stack types, emits `OpTypeBool`, typed comparison/logical SSA values,
 and `OpSelect`, and requires the final stored value to remain an integer.
+Boolean literals use `OpConstantTrue`/`OpConstantFalse`; Boolean specialization
+defaults use their `OpSpecConstantTrue`/`OpSpecConstantFalse` forms and the same
+typed common override API as other reflected constants.
 Integer logical operands, Boolean select branches, a non-Boolean condition, raw
 Boolean assignment, and function-call expressions are explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
