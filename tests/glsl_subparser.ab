@@ -1181,9 +1181,11 @@ fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first*0.5+draw.second; }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=draw.first*draw.gain+draw.second; }"
         ]
     )
+    val rasterExpressionLayout =
+        rasterExpressionShader.pushConstantLayout()
     val rasterExpressionProgram =
         rasterExpressionShader.rasterFragmentProgram()
     val rasterExpressionFragment =
@@ -1223,6 +1225,13 @@ fun main: int {
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=0.5*0.5; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarArrayRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gains[2]; vec4 first; } draw; void main(){ color=draw.first*draw.gains[0]; }"
         ]
     ).spirv(shaderStageFragment)
     val rasterUnknownRejected = glslPackage(
@@ -2241,7 +2250,14 @@ fun main: int {
             "layout(std140, binding = 15)"
         ) && !unsupportedPushDraw.succeeded &&
         unsupportedPushDraw.error != "" &&
-        rasterExpressionShader.valid && rasterExpressionProgram.valid &&
+        rasterExpressionShader.valid && rasterExpressionLayout.valid &&
+        rasterExpressionLayout.size == 48 &&
+        rasterExpressionLayout.members.size == 3 &&
+        rasterExpressionLayout.members[0].dataType == "float" &&
+        rasterExpressionLayout.members[0].offset == 0 &&
+        rasterExpressionLayout.members[1].offset == 16 &&
+        rasterExpressionLayout.members[2].offset == 32 &&
+        rasterExpressionProgram.valid &&
         rasterExpressionProgram.expression.tokens.size == 5 &&
         rasterExpressionFragment.succeeded &&
         rasterExpressionFragment.module.valid() &&
@@ -2261,6 +2277,8 @@ fun main: int {
         !rasterScalarRejected.succeeded && rasterScalarRejected.error != "" &&
         !rasterScalarOutputRejected.succeeded &&
         rasterScalarOutputRejected.error != "" &&
+        !rasterScalarArrayRejected.succeeded &&
+        rasterScalarArrayRejected.error != "" &&
         !rasterUnknownRejected.succeeded &&
         rasterUnknownRejected.error != "" &&
         triangle460.valid && triangle460Vertex.succeeded &&

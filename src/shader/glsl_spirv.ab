@@ -234,7 +234,8 @@ fun glslRasterPrimary(
         var candidate = 0
         while (memberIndex < 0 && candidate < push.members.size) {
             if (push.members[candidate].name == memberName &&
-                push.members[candidate].dataType == "vec4" &&
+                (push.members[candidate].dataType == "vec4" ||
+                 push.members[candidate].dataType == "float") &&
                 push.members[candidate].arraySize == 1) {
                 memberIndex = candidate
             }
@@ -376,8 +377,10 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
     var memberIndex = 0
     while (valid && memberIndex < push.members.size) {
         val member = push.members[memberIndex]
-        valid = member.dataType == "vec4" && member.arraySize == 1 &&
-            glslRasterTokenText(lexical.tokens, index, "vec4") &&
+        valid = (member.dataType == "vec4" ||
+                 member.dataType == "float") &&
+            member.arraySize == 1 &&
+            glslRasterTokenText(lexical.tokens, index, member.dataType) &&
             glslRasterTokenText(lexical.tokens, index + 1, member.name) &&
             glslRasterTokenText(lexical.tokens, index + 2, ";")
         if (valid) index = index + 3
@@ -430,10 +433,13 @@ fun glslRasterFragmentSpirv(
     var valid = program.valid && layout.valid &&
         layout.members.size == program.memberCount &&
         program.memberCount > 0 && program.memberCount <= 8
+    var hasScalarMember = false
     var memberIndex = 0
     while (valid && memberIndex < layout.members.size) {
-        valid = layout.members[memberIndex].dataType == "vec4" &&
+        val dataType = layout.members[memberIndex].dataType
+        valid = (dataType == "vec4" || dataType == "float") &&
             layout.members[memberIndex].arraySize == 1
+        if (dataType == "float") hasScalarMember = true
         memberIndex = memberIndex + 1
     }
     val voidType = 1
@@ -508,7 +514,8 @@ fun glslRasterFragmentSpirv(
         words.append(pushStructure)
         memberIndex = 0
         while (memberIndex < program.memberCount) {
-            words.append(vectorType)
+            words.append(if (layout.members[memberIndex].dataType == "float")
+                floatType else vectorType)
             memberIndex = memberIndex + 1
         }
         words.append(262176)
@@ -523,6 +530,15 @@ fun glslRasterFragmentSpirv(
         words.append(pushVectorPointerType)
         words.append(9)
         words.append(vectorType)
+    }
+    var pushScalarPointerType = 0
+    if (valid && hasScalarMember) {
+        pushScalarPointerType = nextId
+        nextId = nextId + 1
+        words.append(262176)
+        words.append(pushScalarPointerType)
+        words.append(9)
+        words.append(floatType)
     }
     val memberConstants: array<int> = []
     memberIndex = 0
@@ -601,19 +617,24 @@ fun glslRasterFragmentSpirv(
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < memberConstants.size
             if (valid) {
+                val scalarMember = layout.members[
+                    token.memberIndex
+                ].dataType == "float"
                 val pointer = nextId
                 valueId = nextId + 1
                 nextId = nextId + 2
                 words.append(327745)
-                words.append(pushVectorPointerType)
+                words.append(if (scalarMember) pushScalarPointerType
+                    else pushVectorPointerType)
                 words.append(pointer)
                 words.append(pushVariable)
                 words.append(memberConstants[token.memberIndex])
                 words.append(262205)
-                words.append(vectorType)
+                words.append(if (scalarMember) floatType else vectorType)
                 words.append(valueId)
                 words.append(pointer)
-                tokenTypes[tokenIndex] = glslRasterTypeVector
+                tokenTypes[tokenIndex] = if (scalarMember)
+                    glslRasterTypeScalar else glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenOperation) {
             valid = stackSize >= 2 && (token.opcode == 327809 ||

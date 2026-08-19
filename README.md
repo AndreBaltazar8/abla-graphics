@@ -261,7 +261,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   shifted and recolored pixels, stable handles, and zero-growth repeated frames
   on both backends;
 - `examples/push-expression`: a typed fragment expression combines two
-  reflected `vec4` push members with a scalar literal and
+  reflected `vec4` push members with a reflected scalar gain and
   precedence-ordered vector-times-scalar multiplication plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;

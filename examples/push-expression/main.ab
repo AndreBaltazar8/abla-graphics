@@ -6,7 +6,8 @@ import "../../src/graphics.ab"
 trusted fun storeColorTerms(
     var values: GraphicsPushConstants,
     green: bool
-): bool = values.storeMemberF32("first", if (green) 0.0 else 2.0) &&
+): bool = values.storeMemberF32("gain", 0.5) &&
+    values.storeMemberF32("first", if (green) 0.0 else 2.0) &&
     values.storeMemberF32("first", 0.0, 1) &&
     values.storeMemberF32("first", 0.0, 2) &&
     values.storeMemberF32("first", if (green) 0.0 else 2.0, 3) &&
@@ -46,11 +47,12 @@ fun main: int {
             #version 450
             layout(location = 0) out vec4 color;
             layout(push_constant) uniform Draw {
+                float gain;
                 vec4 first;
                 vec4 second;
             } draw;
             void main() {
-                color = draw.first * 0.5 + draw.second;
+                color = draw.first * draw.gain + draw.second;
             }
         }
     }
@@ -64,10 +66,11 @@ fun main: int {
     val windowPipeline = app.renderPipeline(shader)
     val values = shader.pushConstants()
     val clear = Color(0.0, 0.0, 1.0)
-    val initialized = values.valid() && values.layout.size == 32 &&
+    val initialized = values.valid() && values.layout.size == 48 &&
         values.layout.stageMask == shaderStageMaskFragment &&
-        values.memberOffset("first") == 0 &&
-        values.memberOffset("second") == 16 && storeColorTerms(values, false)
+        values.memberOffset("gain") == 0 &&
+        values.memberOffset("first") == 16 &&
+        values.memberOffset("second") == 32 && storeColorTerms(values, false)
     val missingRejected = !app.renderToTarget(
         target,
         targetPipeline,
@@ -107,8 +110,8 @@ fun main: int {
             targetHandle != 0 && windowHandle != 0
     else targetPipeline.vulkan.handle == targetHandle &&
         windowPipeline.vulkan.handle == windowHandle &&
-        targetPipeline.vulkan.pushConstantSize == 32 &&
-        windowPipeline.vulkan.pushConstantSize == 32 &&
+        targetPipeline.vulkan.pushConstantSize == 48 &&
+        windowPipeline.vulkan.pushConstantSize == 48 &&
         targetPipeline.vulkan.pushConstantStageMask == shaderStageMaskFragment &&
         windowPipeline.vulkan.pushConstantStageMask == shaderStageMaskFragment
     println(
