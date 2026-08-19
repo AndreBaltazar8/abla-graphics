@@ -1207,9 +1207,11 @@ source-preserved and are not misclassified. For compute packages,
 `layout(local_size_x/y/z)` produces one checked
 `ShaderWorkgroup`; omitted Y/Z dimensions default to one. Vulkan-style
 `local_size_x/y/z_id` keys additionally retain a specialization ID per axis,
-with a default dimension of one. A concrete value and specialization ID cannot
-both select one axis, dimension IDs must be distinct, and they cannot collide
-with an explicit specialization constant in the same stage. Nested structures,
+with a default dimension of one. Concrete sizes and their independently
+declared IDs merge across compatible layout statements, matching Vulkan GLSL;
+at least one concrete dimension must be declared. Repeated concrete sizes/IDs
+must agree, dimension IDs must be distinct, and they cannot collide with an
+explicit specialization constant in the same stage. Nested structures,
 multiple declarators, composite specialization constants, computed host-layout
 validation, and backend pipeline specialization wiring are still forthcoming.
 

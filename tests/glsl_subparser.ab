@@ -67,6 +67,10 @@ fun main: int {
         [shaderStageCompute],
         ["layout(local_size_x=8) in; layout(local_size_x=4) in; void main() {}"]
     )
+    val compatibleRepeatedWorkgroup = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_x=8) in; layout(local_size_y=4) in; layout(local_size_x=8,local_size_z=2) in; void main() {}"]
+    )
     val specializedWorkgroup = glslPackage(
         [shaderStageCompute],
         ["layout(local_size_x_id=4,local_size_y=2,local_size_z_id=9) in; void main() {}"]
@@ -74,6 +78,10 @@ fun main: int {
     val mixedSpecializedWorkgroup = glslPackage(
         [shaderStageCompute],
         ["layout(local_size_x=8,local_size_x_id=4) in; void main() {}"]
+    )
+    val idOnlyWorkgroup = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_x_id=4) in; void main() {}"]
     )
     val duplicateWorkgroupId = glslPackage(
         [shaderStageCompute],
@@ -428,8 +436,15 @@ fun main: int {
         !duplicateBinding.valid && duplicateBinding.error != "" &&
         !mismatchedInterface.valid && mismatchedInterface.error != "" &&
         !missingInterface.valid && missingInterface.error != "" &&
-        !missingWorkgroupX.valid && missingWorkgroupX.error != "" &&
+        missingWorkgroupX.valid && missingWorkgroupX.workgroups.size == 1 &&
+        missingWorkgroupX.workgroups[0].x == 1 &&
+        missingWorkgroupX.workgroups[0].y == 4 &&
         !repeatedWorkgroup.valid && repeatedWorkgroup.error != "" &&
+        compatibleRepeatedWorkgroup.valid &&
+        compatibleRepeatedWorkgroup.workgroups.size == 1 &&
+        compatibleRepeatedWorkgroup.workgroups[0].x == 8 &&
+        compatibleRepeatedWorkgroup.workgroups[0].y == 4 &&
+        compatibleRepeatedWorkgroup.workgroups[0].z == 2 &&
         specializedWorkgroup.valid && specializedWorkgroup.workgroups.size == 1 &&
         specializedWorkgroup.workgroups[0].x == 1 &&
         specializedWorkgroup.workgroups[0].y == 2 &&
@@ -437,8 +452,10 @@ fun main: int {
         specializedWorkgroup.workgroups[0].xId == 4 &&
         specializedWorkgroup.workgroups[0].yId == -1 &&
         specializedWorkgroup.workgroups[0].zId == 9 &&
-        !mixedSpecializedWorkgroup.valid &&
-        mixedSpecializedWorkgroup.error != "" &&
+        mixedSpecializedWorkgroup.valid &&
+        mixedSpecializedWorkgroup.workgroups[0].x == 8 &&
+        mixedSpecializedWorkgroup.workgroups[0].xId == 4 &&
+        !idOnlyWorkgroup.valid && idOnlyWorkgroup.error != "" &&
         !duplicateWorkgroupId.valid && duplicateWorkgroupId.error != "" &&
         !collidingWorkgroupId.valid && collidingWorkgroupId.error != "" &&
         !invalidBindingArray.valid && invalidBindingArray.error != "" &&

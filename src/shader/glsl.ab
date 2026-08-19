@@ -70,7 +70,10 @@ class ShaderWorkgroup(
     val z: int,
     val xId: int = -1,
     val yId: int = -1,
-    val zId: int = -1
+    val zId: int = -1,
+    val xSpecified: bool = true,
+    val ySpecified: bool = true,
+    val zSpecified: bool = true
 )
 
 class ShaderPackage(
@@ -859,38 +862,90 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                     layout.localSizeYId >= 0 ||
                     layout.localSizeZId >= 0)) {
                     if (stage != shaderStageCompute ||
-                        declaration.storage != "in" ||
-                        (layout.localSizeX < 1 &&
-                         layout.localSizeXId < 0) ||
-                        (layout.localSizeX >= 0 &&
-                         layout.localSizeXId >= 0) ||
-                        (layout.localSizeY >= 0 &&
-                         layout.localSizeYId >= 0) ||
-                        (layout.localSizeZ >= 0 &&
-                         layout.localSizeZId >= 0) ||
-                        (layout.localSizeXId >= 0 &&
-                         (layout.localSizeXId == layout.localSizeYId ||
-                          layout.localSizeXId == layout.localSizeZId)) ||
-                        (layout.localSizeYId >= 0 &&
-                         layout.localSizeYId == layout.localSizeZId)) {
+                        declaration.storage != "in") {
                         valid = false
                         error = "invalid GLSL $stage workgroup layout"
-                    } else if (workgroups.size > 0) {
-                        valid = false
-                        error = "duplicate GLSL compute workgroup layout"
                     } else {
-                        workgroups.append(ShaderWorkgroup(
+                        var x = 1
+                        var y = 1
+                        var z = 1
+                        var xId = -1
+                        var yId = -1
+                        var zId = -1
+                        var xSpecified = false
+                        var ySpecified = false
+                        var zSpecified = false
+                        if (workgroups.size > 0) {
+                            val previous = workgroups[0]
+                            x = previous.x
+                            y = previous.y
+                            z = previous.z
+                            xId = previous.xId
+                            yId = previous.yId
+                            zId = previous.zId
+                            xSpecified = previous.xSpecified
+                            ySpecified = previous.ySpecified
+                            zSpecified = previous.zSpecified
+                        }
+                        if (layout.localSizeX >= 0) {
+                            if (xSpecified && x != layout.localSizeX) {
+                                valid = false
+                            } else {
+                                x = layout.localSizeX
+                                xSpecified = true
+                            }
+                        }
+                        if (layout.localSizeY >= 0) {
+                            if (ySpecified && y != layout.localSizeY) {
+                                valid = false
+                            } else {
+                                y = layout.localSizeY
+                                ySpecified = true
+                            }
+                        }
+                        if (layout.localSizeZ >= 0) {
+                            if (zSpecified && z != layout.localSizeZ) {
+                                valid = false
+                            } else {
+                                z = layout.localSizeZ
+                                zSpecified = true
+                            }
+                        }
+                        if (layout.localSizeXId >= 0) {
+                            if (xId >= 0 && xId != layout.localSizeXId) {
+                                valid = false
+                            } else xId = layout.localSizeXId
+                        }
+                        if (layout.localSizeYId >= 0) {
+                            if (yId >= 0 && yId != layout.localSizeYId) {
+                                valid = false
+                            } else yId = layout.localSizeYId
+                        }
+                        if (layout.localSizeZId >= 0) {
+                            if (zId >= 0 && zId != layout.localSizeZId) {
+                                valid = false
+                            } else zId = layout.localSizeZId
+                        }
+                        valid = valid &&
+                            (xId < 0 || (xId != yId && xId != zId)) &&
+                            (yId < 0 || yId != zId)
+                        if (!valid) {
+                            error = "incompatible GLSL compute workgroup layouts"
+                        }
+                        val merged = ShaderWorkgroup(
                             stage,
-                            if (layout.localSizeX < 0) 1
-                                else layout.localSizeX,
-                            if (layout.localSizeY < 0) 1
-                                else layout.localSizeY,
-                            if (layout.localSizeZ < 0) 1
-                                else layout.localSizeZ,
-                            layout.localSizeXId,
-                            layout.localSizeYId,
-                            layout.localSizeZId
-                        ))
+                            x,
+                            y,
+                            z,
+                            xId,
+                            yId,
+                            zId,
+                            xSpecified,
+                            ySpecified,
+                            zSpecified
+                        )
+                        if (valid && workgroups.size > 0) workgroups[0] = merged
+                        else if (valid) workgroups.append(merged)
                     }
                 }
                 index = layout.next
@@ -901,6 +956,11 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     var workgroupIndex = 0
     while (valid && workgroupIndex < workgroups.size) {
         val workgroup = workgroups[workgroupIndex]
+        if (!workgroup.xSpecified && !workgroup.ySpecified &&
+            !workgroup.zSpecified) {
+            valid = false
+            error = "GLSL compute workgroup has no fixed local size"
+        }
         var specializationIndex = 0
         while (valid && specializationIndex <
             specializationConstants.size) {

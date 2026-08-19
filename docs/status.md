@@ -526,8 +526,9 @@ signed/unsigned integer, float, and double forms. Duplicate IDs, repeated
 recognized layout keys, incompatible qualifier combinations, malformed typed
 literals, and cross-stage push-block mismatches are regression-tested failures.
 Specialized compute workgroup axes retain `local_size_x/y/z_id` alongside the
-resolved default or concrete dimension. Mixed concrete/ID axes, repeated IDs,
-and collisions with explicit specialization constants are rejected.
+resolved default or concrete dimension. Compatible declarations merge, while
+conflicting repeated values, cross-axis repeated IDs, ID-only workgroups, and
+collisions with explicit specialization constants are rejected.
 
 ## Not yet claimed
 
