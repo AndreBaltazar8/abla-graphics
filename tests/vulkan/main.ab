@@ -23,6 +23,8 @@ fun main: int {
         false,
         false,
         0,
+        0,
+        0,
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(0)
     )
@@ -121,10 +123,14 @@ fun main: int {
     val storageDispatchedAgain = storagePipeline.dispatch(1)
     val storageValue = storageBuffer.readI64()
     val buffer = device.buffer(64)
+    val transferTimelineHandle = device.transferTimeline
+    val transferValueBefore = device.transferTimelineValue
     val filled = device.fillBuffer(
         buffer,
         BufferFillDescriptor(305419896)
     )
+    val transferValueAfter = device.transferTimelineValue
+    val transferCompleted = device.transferCompletedValue()
     val first = buffer.readI64()
     var result = 42
     if (vulkanVersionMajor(loader) < 1 ||
@@ -170,7 +176,10 @@ fun main: int {
         nativePointerAddress(pipeline.command.load()) != commandBuffer ||
         pipeline.dispatch(0)) result = 9
     else if (!buffer.valid()) result = 10
-    else if (!filled) result = 11
+    else if (!filled || transferTimelineHandle == 0 ||
+        device.transferTimeline != transferTimelineHandle ||
+        transferValueAfter <= transferValueBefore ||
+        transferCompleted != transferValueAfter) result = 11
     else if (first != 1311768465173141112) result = 12
     else if (!device.waitIdle()) result = 13
     result

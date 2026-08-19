@@ -100,7 +100,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   ownership plus allocation-free counter, monotonic host-signal, and bounded
   wait operations on both headless and surfaced logical devices; Vulkan 1.3
   synchronization2 is independently queried/enabled and the reusable transfer
-  boundary submits through `vkQueueSubmit2` with a legacy fallback;
+  boundary submits through `vkQueueSubmit2`, signals a device-owned timeline,
+  and waits only for that completion value, with a legacy fallback;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,

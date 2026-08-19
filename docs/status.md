@@ -44,8 +44,9 @@ Updated: 2026-08-18.
   buffer binding, command pool/buffer, GPU fill, transfer-to-host barrier,
   queue submission/wait, mapping/readback, queried/enabled Vulkan 1.2 timeline
   semaphores with allocation-free counter/signal/wait operations, queried and
-  enabled Vulkan 1.3 synchronization2, real `vkQueueSubmit2` transfer work, and
-  reverse-order affine cleanup.
+  enabled Vulkan 1.3 synchronization2, real `vkQueueSubmit2` transfer work,
+  device-owned timeline completion without queue-wide idle, exact counter
+  verification, and reverse-order affine cleanup.
 - Vulkan X11 surface test: required instance extensions, `VkXlibSurfaceKHR`
   creation for the direct Abla window, per-adapter graphics/presentation queue
   checks, surface capabilities/formats, a swapchain-enabled logical device,

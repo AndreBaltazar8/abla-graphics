@@ -51,8 +51,12 @@ perform no general heap allocation. Negative initial/counter values,
 non-increasing signals, and negative timeouts are rejected before driver calls.
 When synchronization2 is enabled, the device's reusable transfer command path
 encodes `VkCommandBufferSubmitInfo` and `VkSubmitInfo2` into its existing scratch
-block and calls `vkQueueSubmit2`; older devices retain the checked legacy submit
-encoding.
+block, signals a device-owned timeline semaphore, calls `vkQueueSubmit2`, and
+waits for only that transfer's monotonic completion value. The command buffer,
+semaphore, scratch storage, and counter survive repeated work without general
+allocation or queue-wide idle. `transferCompletedValue()` exposes the observed
+driver counter for diagnostics. Older devices retain the checked legacy submit
+and queue-wait encoding.
 
 The first portable raster pipeline uses the same embedded shader package on
 both backends:

@@ -38,7 +38,8 @@ subpasses and explicit dependencies or ordered OpenGL FBO draws are
 implemented, together with queried and explicitly enabled Vulkan 1.2 timeline
 semaphores and allocation-free counter/signal/wait operations plus queried and
 enabled Vulkan 1.3 synchronization2 with real `vkQueueSubmit2` transfer
-submission. Repeated clear,
+submission and device-owned timeline completion instead of queue-wide transfer
+idle. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

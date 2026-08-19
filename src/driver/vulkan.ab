@@ -1403,6 +1403,8 @@ resource class VulkanDevice(
     val physicalDevice: i64*,
     val timelineSemaphores: bool,
     val synchronization2: bool,
+    var transferTimeline: int,
+    var transferTimelineValue: int,
     var transferPool: int,
     val transferCommand: NativePointerCell,
     val transferScratch: NativeByteBuffer
@@ -1553,6 +1555,20 @@ resource class VulkanDevice(
         !pointerIsNull(this.transferCommand.load()) &&
         !this.transferScratch.closed && this.transferScratch.capacity >= 72
 
+    trusted fun transferCompletedValue(): int {
+        var value = -1
+        if (this.transferValid() && this.transferTimeline != 0 &&
+            this.transferScratch.capacity >= 216 &&
+            vkGetSemaphoreCounterValue(
+                this.handle,
+                this.transferTimeline,
+                this.transferScratch.pointerAt(208)
+            ) == vulkanSuccess) {
+            value = this.transferScratch.loadI64(208)
+        }
+        value
+    }
+
     trusted fun initializeTransfer(): bool {
         var succeeded = this.valid() && this.transferPool == 0 &&
             !this.transferCommand.closed && !this.transferScratch.closed
@@ -1584,6 +1600,29 @@ resource class VulkanDevice(
                 allocateInfo.address,
                 this.transferCommand.address
             ) == vulkanSuccess
+        }
+        if (succeeded && this.timelineSemaphores && this.synchronization2 &&
+            this.transferTimeline == 0 &&
+            this.transferScratch.capacity >= 216) {
+            this.transferScratch.storeI64(0, 1000207002)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 1)
+            this.transferScratch.storeI64(24, 0)
+            this.transferScratch.storeI64(32, 9)
+            this.transferScratch.storePointer(
+                40,
+                this.transferScratch.address
+            )
+            this.transferScratch.storeI64(48, 0)
+            if (vkCreateSemaphore(
+                this.handle,
+                this.transferScratch.pointerAt(32),
+                nativeNullPointer(),
+                this.transferScratch.pointerAt(56)
+            ) == vulkanSuccess) {
+                this.transferTimeline = this.transferScratch.loadI64(56)
+                this.transferTimelineValue = 0
+            }
         }
         if (!succeeded && this.transferPool != 0) {
             vkDestroyCommandPool(
@@ -1620,6 +1659,11 @@ resource class VulkanDevice(
         var succeeded = this.transferValid() && vkEndCommandBuffer(
             this.transferCommand.load()
         ) == vulkanSuccess
+        val timelineCompletion = this.synchronization2 &&
+            this.transferTimeline != 0 &&
+            this.transferTimelineValue < 9223372036854775807
+        val completionValue = if (timelineCompletion)
+            this.transferTimelineValue + 1 else 0
         if (succeeded) {
             if (this.synchronization2) {
                 this.transferScratch.storeI64(80, 1000314006)
@@ -1638,8 +1682,31 @@ resource class VulkanDevice(
                     40,
                     this.transferScratch.pointerAt(80)
                 )
-                this.transferScratch.storeI64(48, 0)
-                this.transferScratch.storePointer(56, nativeNullPointer())
+                if (timelineCompletion) {
+                    this.transferScratch.storeI64(112, 1000314005)
+                    this.transferScratch.storePointer(
+                        120,
+                        nativeNullPointer()
+                    )
+                    this.transferScratch.storeI64(
+                        128,
+                        this.transferTimeline
+                    )
+                    this.transferScratch.storeI64(136, completionValue)
+                    this.transferScratch.storeI64(144, 65536)
+                    this.transferScratch.storeI64(152, 0)
+                    this.transferScratch.storeI64(48, 1)
+                    this.transferScratch.storePointer(
+                        56,
+                        this.transferScratch.pointerAt(112)
+                    )
+                } else {
+                    this.transferScratch.storeI64(48, 0)
+                    this.transferScratch.storePointer(
+                        56,
+                        nativeNullPointer()
+                    )
+                }
                 succeeded = vkQueueSubmit2(
                     this.queue,
                     1,
@@ -1667,7 +1734,27 @@ resource class VulkanDevice(
                 ) == vulkanSuccess
             }
         }
-        if (succeeded) {
+        if (succeeded && timelineCompletion) {
+            this.transferScratch.storeI64(200, this.transferTimeline)
+            this.transferScratch.storeI64(208, completionValue)
+            this.transferScratch.storeI64(160, 1000207004)
+            this.transferScratch.storePointer(168, nativeNullPointer())
+            this.transferScratch.storeI64(176, 4294967296)
+            this.transferScratch.storePointer(
+                184,
+                this.transferScratch.pointerAt(200)
+            )
+            this.transferScratch.storePointer(
+                192,
+                this.transferScratch.pointerAt(208)
+            )
+            succeeded = vkWaitSemaphores(
+                this.handle,
+                this.transferScratch.pointerAt(160),
+                9223372036854775807
+            ) == vulkanSuccess
+            if (succeeded) this.transferTimelineValue = completionValue
+        } else if (succeeded) {
             succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
         }
         succeeded
@@ -2099,6 +2186,15 @@ resource class VulkanDevice(
     trusted fun drop(): void {
         if (!pointerIsNull(this.handle)) {
             vkDeviceWaitIdle(this.handle)
+            if (this.transferTimeline != 0) {
+                vkDestroySemaphore(
+                    this.handle,
+                    this.transferTimeline,
+                    nativeNullPointer()
+                )
+                this.transferTimeline = 0
+                this.transferTimelineValue = 0
+            }
             if (this.transferPool != 0) {
                 vkDestroyCommandPool(
                     this.handle,
@@ -2197,6 +2293,8 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         this.handle,
         timelineSupported,
         synchronization2Supported,
+        0,
+        0,
         0,
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(216)
@@ -5481,6 +5579,8 @@ trusted fun VulkanAdapter.deviceForSurface(
         this.handle,
         timelineSupported,
         synchronization2Supported,
+        0,
+        0,
         0,
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(216)
