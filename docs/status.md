@@ -980,7 +980,11 @@ validity gate unchanged.
   emits entry-point interfaces/decorations/variables/loads, and replaces the
   former fixed interpolated-color fragment table. Single-input real-driver and
   multiple-input deterministic tests pass. Other interface types, functions,
-  and control flow remain upcoming.
+  and control flow remain upcoming. Constant-only `vec4` expressions now use
+  the same emitter with no input or fragment push interface, including when a
+  different stage owns the package push block; the fixed solid-color fragment
+  table has been removed. Arbitrary literals, cross-stage regression, exact
+  real-driver pixels, stable handles, and zero-growth frames are verified.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

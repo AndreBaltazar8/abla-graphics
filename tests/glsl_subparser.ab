@@ -1121,6 +1121,17 @@ fun main: int {
     val triangleVertexAgain = triangle.spirv(shaderStageVertex)
     val triangleFragment = triangle.spirv(shaderStageFragment)
     val triangleFragmentAgain = triangle.spirv(shaderStageFragment)
+    val rasterLiteral = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(-0.25,0.5,0.75,1.0); }"
+        ]
+    )
+    val rasterLiteralProgram = rasterLiteral.rasterFragmentProgram()
+    val rasterLiteralFragment = rasterLiteral.spirv(shaderStageFragment)
+    val rasterLiteralFragmentAgain =
+        rasterLiteral.spirv(shaderStageFragment)
     val pushColorTriangle = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -1145,6 +1156,8 @@ fun main: int {
         pushTransformTriangle.spirv(shaderStageVertex)
     val pushTransformVertexAgain =
         pushTransformTriangle.spirv(shaderStageVertex)
+    val pushTransformFragment =
+        pushTransformTriangle.spirv(shaderStageFragment)
     val pushTransformLayout = pushTransformTriangle.pushConstantLayout()
     val pushTransformOpenGlSource =
         pushTransformTriangle.openGlSource(shaderStageVertex)
@@ -2229,11 +2242,22 @@ fun main: int {
             triangleVertexAgain.module
         ) &&
         triangleFragment.succeeded && triangleFragment.module.valid() &&
-        triangleFragment.module.words.size == 84 &&
-        triangleFragment.module.bound() == 15 &&
+        triangleFragment.module.words.size == 82 &&
+        triangleFragment.module.bound() == 19 &&
         spirvWordsEqual(
             triangleFragment.module,
             triangleFragmentAgain.module
+        ) && rasterLiteral.valid && rasterLiteralProgram.valid &&
+        rasterLiteralProgram.inputs.size == 0 &&
+        rasterLiteralProgram.memberCount == 0 &&
+        rasterLiteralProgram.expression.tokens.size == 1 &&
+        rasterLiteralProgram.expression.tokens[0].kind ==
+            glslRasterTokenVectorLiteral &&
+        rasterLiteralFragment.succeeded &&
+        rasterLiteralFragment.module.valid() &&
+        spirvWordsEqual(
+            rasterLiteralFragment.module,
+            rasterLiteralFragmentAgain.module
         ) &&
         pushColorTriangle.valid &&
         pushColorTriangle.pushConstants.size == 1 &&
@@ -2251,6 +2275,8 @@ fun main: int {
         pushTransformTriangle.valid &&
         pushTransformTriangle.pushConstants.size == 1 &&
         pushTransformVertex.succeeded && pushTransformVertex.module.valid() &&
+        pushTransformFragment.succeeded &&
+        pushTransformFragment.module.valid() &&
         pushTransformVertex.module.words.size == 267 &&
         pushTransformVertex.module.bound() == 49 &&
         spirvContainsWord(pushTransformVertex.module, 327809) &&

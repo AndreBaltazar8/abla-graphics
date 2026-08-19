@@ -369,8 +369,7 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         }
         index = index + 1
     }
-    var valid = this.valid && lexical.valid &&
-        (pushIndex >= 0 || inputs.size > 0) && inputs.size <= 8 &&
+    var valid = this.valid && lexical.valid && inputs.size <= 8 &&
         outputCount == 1 && this.locations[outputIndex].location == 0 &&
         this.locations[outputIndex].dataType == "vec4"
     var inputIndex = 0
@@ -512,9 +511,9 @@ fun glslRasterFragmentSpirv(
         spirvMagic, spirvVersion10, 0, 0, 0
     ]
     var valid = program.valid && layout.valid &&
-        layout.members.size == program.memberCount &&
-        program.memberCount <= 8 && program.inputs.size <= 8 &&
-        (program.memberCount > 0 || program.inputs.size > 0)
+        (program.memberCount == 0 ||
+         layout.members.size == program.memberCount) &&
+        program.memberCount <= 8 && program.inputs.size <= 8
     var inputIndex = 0
     while (valid && inputIndex < program.inputs.size) {
         val input = program.inputs[inputIndex]
@@ -4613,17 +4612,6 @@ fun glslTexturedFragmentSource(source: string): bool =
         "atlas", ",", "texCoord", ")", ";", "}"
     ])
 
-fun glslTriangleFragmentSource(source: string): bool =
-    glslSourceMatchesTokens(source, [
-        "#", "version", glslSourceVersionPattern,
-        "layout", "(", "location", "=", "0", ")",
-        "out", "vec4", "color", ";",
-        "void", "main", "(", ")", "{",
-        "color", "=", "vec4", "(",
-        "0.12", ",", "0.54", ",", "0.96", ",", "1.0",
-        ")", ";", "}"
-    ])
-
 fun glslPushStorageComputeSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
@@ -4737,8 +4725,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslVertexBufferTriangleSource(this.source(shaderStageVertex))
     val coloredVertex = graphicsCommon && stage == shaderStageVertex &&
         glslColoredVertexSource(this.source(shaderStageVertex))
-    val fragment = graphicsCommon && stage == shaderStageFragment &&
-        glslTriangleFragmentSource(this.source(shaderStageFragment))
     val multipleColorFragment = graphicsCommon &&
         stage == shaderStageFragment &&
         glslMultipleColorFragmentSource(this.source(shaderStageFragment))
@@ -4755,7 +4741,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || pushStorage || vertex ||
         pushTransformVertex || pushDrawVertex ||
-        vertexBuffer || fragment || rasterFragmentExpression ||
+        vertexBuffer || rasterFragmentExpression ||
         multipleColorFragment ||
         coloredVertex || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
@@ -5123,32 +5109,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             196670, 34, 32,
             262205, 35, 40, 39,
             196670, 37, 40,
-            65789,
-            65592
-        ]
-    } else if (fragment) {
-        words = [
-            119734787, 65536, 458752, 15, 0,
-            131089, 1,
-            393227, 1, 1280527431, 1685353262, 808793134, 0,
-            196622, 0, 1,
-            393231, 4, 2, 1852399981, 0, 3,
-            196624, 2, 7,
-            262215, 3, 30, 0,
-            131091, 4,
-            196641, 5, 4,
-            196630, 6, 32,
-            262167, 7, 6, 4,
-            262176, 8, 3, 7,
-            262203, 8, 3, 3,
-            262187, 6, 9, 1039516303,
-            262187, 6, 10, 1057635697,
-            262187, 6, 11, 1064682127,
-            262187, 6, 12, 1065353216,
-            458796, 7, 13, 9, 10, 11, 12,
-            327734, 4, 2, 0, 5,
-            131320, 14,
-            196670, 3, 13,
             65789,
             65592
         ]
