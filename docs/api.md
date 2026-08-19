@@ -1766,15 +1766,18 @@ steady-state allocation growth on both backends.
 Fragment push expressions are no longer limited to fixed word templates. The
 typed raster parser accepts one location-zero `vec4` output, one reflected block
 of up to eight non-array `vec4` members, `vec4` literals, parentheses, and
-vector `*`, `+`, and `-` with GLSL precedence. It produces bounded postfix IR
-and emits the push structure, reflected member offsets, constants, loads, and
-floating-vector operations as deterministic SPIR-V. Unknown members,
-scalar/vector mixing, extra statements/declarations, malformed expressions, and
-unsupported operators fail before pipeline creation. Existing push-color and
-combined-stage fragment shaders use this generated path; their former fixed
-SPIR-V tables were removed. `push-expression` executes multiplication before
-addition and proves exact red/green output, stable handles, and zero steady-state
-allocation growth on both real backends.
+scalar or `vec4` `*`, `+`, and `-` with GLSL precedence. Equal-type operations
+emit floating scalar or vector instructions; `vec4 * float` and `float * vec4`
+emit `OpVectorTimesScalar` with normalized SPIR-V operand order. The parser
+produces bounded postfix IR and emits the push structure, reflected member
+offsets, constants, loads, and typed operations deterministically. Unknown
+members, mismatched addition/subtraction such as `vec4 + float`, scalar final
+outputs, extra statements/declarations, malformed expressions, and unsupported
+operators fail before pipeline creation. Existing push-color and combined-stage
+fragment shaders use this generated path; their former fixed SPIR-V tables were
+removed. `push-expression` executes vector-times-scalar multiplication before
+addition and proves exact red/green output, stable handles, and zero
+steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

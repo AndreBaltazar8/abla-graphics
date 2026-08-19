@@ -1181,7 +1181,7 @@ fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first+draw.second*vec4(1.0,1.0,1.0,1.0); }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first*0.5+draw.second; }"
         ]
     )
     val rasterExpressionProgram =
@@ -1194,7 +1194,14 @@ fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=(draw.first+draw.second)*vec4(1.0,1.0,1.0,1.0); }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=(draw.first+draw.second)*0.5; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarFirst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=0.5*draw.first+draw.second; }"
         ]
     ).spirv(shaderStageFragment)
     val rasterSubtraction = glslPackage(
@@ -1208,7 +1215,14 @@ fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first*0.5; }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first+0.5; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarOutputRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=0.5*0.5; }"
         ]
     ).spirv(shaderStageFragment)
     val rasterUnknownRejected = glslPackage(
@@ -2233,16 +2247,20 @@ fun main: int {
         rasterExpressionFragment.module.valid() &&
         spirvWordsOrdered(
             rasterExpressionFragment.module,
-            327813,
+            327822,
             327809
         ) && spirvWordsEqual(
             rasterExpressionFragment.module,
             rasterExpressionFragmentAgain.module
         ) && rasterParenthesized.succeeded &&
-        spirvWordsOrdered(rasterParenthesized.module, 327809, 327813) &&
+        spirvWordsOrdered(rasterParenthesized.module, 327809, 327822) &&
+        rasterScalarFirst.succeeded &&
+        spirvContainsWord(rasterScalarFirst.module, 327822) &&
         rasterSubtraction.succeeded &&
         spirvContainsWord(rasterSubtraction.module, 327811) &&
         !rasterScalarRejected.succeeded && rasterScalarRejected.error != "" &&
+        !rasterScalarOutputRejected.succeeded &&
+        rasterScalarOutputRejected.error != "" &&
         !rasterUnknownRejected.succeeded &&
         rasterUnknownRejected.error != "" &&
         triangle460.valid && triangle460Vertex.succeeded &&

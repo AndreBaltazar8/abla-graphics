@@ -2,8 +2,8 @@
 //
 // The executable subsets are intentionally strict: compute packages cover
 // fixed or specialized local sizes, scalar specialization constants, and the
-// documented storage arithmetic forms. Typed fragment vec4 expressions use a
-// bounded postfix IR and generated SPIR-V. Any declaration or statement
+// documented storage arithmetic forms. Typed fragment vec4/scalar expressions
+// use a bounded postfix IR and generated SPIR-V. Any declaration or statement
 // outside those subsets is rejected rather than lost.
 
 import "glsl.ab"
@@ -85,6 +85,11 @@ class GlslStorageWrite(
 val glslRasterTokenPushMember = 0
 val glslRasterTokenVectorLiteral = 1
 val glslRasterTokenOperation = 2
+val glslRasterTokenScalarLiteral = 3
+
+val glslRasterTypeInvalid = 0
+val glslRasterTypeScalar = 1
+val glslRasterTypeVector = 2
 
 class GlslRasterToken(
     val kind: int,
@@ -243,7 +248,17 @@ fun glslRasterPrimary(
             ))
             index = index + 1
         }
-    } else valid = false
+    } else if (valid) {
+        val scalar = glslRasterFloat(sourceTokens, index)
+        valid = scalar.valid
+        if (valid) {
+            tokens.append(GlslRasterToken(
+                glslRasterTokenScalarLiteral,
+                first = scalar.bits
+            ))
+            index = scalar.next
+        }
+    }
     GlslRasterExpression(valid && tokens.size > 0, tokens, index)
 }
 
@@ -521,10 +536,12 @@ fun glslRasterFragmentSpirv(
         memberIndex = memberIndex + 1
     }
     val tokenValues: array<int> = []
+    val tokenTypes: array<int> = []
     var tokenIndex = 0
     while (valid && tokenIndex < program.expression.tokens.size) {
         val token = program.expression.tokens[tokenIndex]
         var valueId = 0
+        var valueType = glslRasterTypeInvalid
         if (token.kind == glslRasterTokenVectorLiteral) {
             val first = nextId
             val second = nextId + 1
@@ -548,8 +565,18 @@ fun glslRasterFragmentSpirv(
             words.append(third)
             words.append(fourth)
             nextId = nextId + 5
+            valueType = glslRasterTypeVector
+        } else if (token.kind == glslRasterTokenScalarLiteral) {
+            valueId = nextId
+            words.append(262187)
+            words.append(floatType)
+            words.append(valueId)
+            words.append(token.first)
+            nextId = nextId + 1
+            valueType = glslRasterTypeScalar
         }
         tokenValues.append(valueId)
+        tokenTypes.append(valueType)
         tokenIndex = tokenIndex + 1
     }
     val label = nextId
@@ -564,6 +591,7 @@ fun glslRasterFragmentSpirv(
         words.append(label)
     }
     val stack: array<int> = []
+    val stackTypes: array<int> = []
     var stackSize = 0
     tokenIndex = 0
     while (valid && tokenIndex < program.expression.tokens.size) {
@@ -585,31 +613,59 @@ fun glslRasterFragmentSpirv(
                 words.append(vectorType)
                 words.append(valueId)
                 words.append(pointer)
+                tokenTypes[tokenIndex] = glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenOperation) {
             valid = stackSize >= 2 && (token.opcode == 327809 ||
                 token.opcode == 327811 || token.opcode == 327813)
             if (valid) {
-                val right = stack[stackSize - 1]
-                val left = stack[stackSize - 2]
+                var right = stack[stackSize - 1]
+                var left = stack[stackSize - 2]
+                val rightType = stackTypes[stackSize - 1]
+                val leftType = stackTypes[stackSize - 2]
                 stackSize = stackSize - 2
+                var operation = token.opcode
+                var resultType = leftType
+                if (operation == 327813 && leftType != rightType) {
+                    valid = (leftType == glslRasterTypeVector &&
+                        rightType == glslRasterTypeScalar) ||
+                        (leftType == glslRasterTypeScalar &&
+                         rightType == glslRasterTypeVector)
+                    operation = 327822
+                    resultType = glslRasterTypeVector
+                    if (valid && leftType == glslRasterTypeScalar) {
+                        val scalar = left
+                        left = right
+                        right = scalar
+                    }
+                } else valid = leftType == rightType &&
+                    leftType != glslRasterTypeInvalid
                 valueId = nextId
                 nextId = nextId + 1
-                words.append(token.opcode)
-                words.append(vectorType)
-                words.append(valueId)
-                words.append(left)
-                words.append(right)
+                if (valid) {
+                    words.append(operation)
+                    words.append(if (resultType == glslRasterTypeVector)
+                        vectorType else floatType)
+                    words.append(valueId)
+                    words.append(left)
+                    words.append(right)
+                    tokenTypes[tokenIndex] = resultType
+                }
             }
-        } else valid = token.kind == glslRasterTokenVectorLiteral
+        } else valid = token.kind == glslRasterTokenVectorLiteral ||
+            token.kind == glslRasterTokenScalarLiteral
         if (valid) {
             if (stackSize < stack.size) stack[stackSize] = valueId
             else stack.append(valueId)
+            if (stackSize < stackTypes.size) {
+                stackTypes[stackSize] = tokenTypes[tokenIndex]
+            } else stackTypes.append(tokenTypes[tokenIndex])
             stackSize = stackSize + 1
         }
         tokenIndex = tokenIndex + 1
     }
-    valid = valid && stackSize == 1
+    valid = valid && stackSize == 1 &&
+        stackTypes[0] == glslRasterTypeVector
     if (valid) {
         words.append(196670)
         words.append(outputVariable)

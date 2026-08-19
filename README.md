@@ -261,9 +261,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   shifted and recolored pixels, stable handles, and zero-growth repeated frames
   on both backends;
 - `examples/push-expression`: a typed fragment expression combines two
-  reflected `vec4` push members with precedence-ordered multiplication and
-  addition, producing exact alternating red/green pixels with stable handles
-  and zero-growth repeated frames on both backends;
+  reflected `vec4` push members with a scalar literal and
+  precedence-ordered vector-times-scalar multiplication plus addition,
+  producing exact alternating red/green pixels with stable handles and
+  zero-growth repeated frames on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted
   frames on explicit OpenGL and Vulkan, including counter-period conversion,
   stable native handles, and zero steady-state live-memory growth; and
