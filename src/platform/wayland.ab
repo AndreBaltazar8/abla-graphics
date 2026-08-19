@@ -15,6 +15,11 @@ val waylandMaximumMessageBytes = 65532
 val waylandMaximumGlobals = 4096
 val waylandSeatCapabilityPointer = 1
 val waylandSeatCapabilityKeyboard = 2
+val waylandMaximumRepeatRate = 1000
+val waylandMaximumRepeatDelayMilliseconds = 600000
+val waylandNanosecondsPerMillisecond = 1000000
+val waylandNanosecondsPerSecond = 1000000000
+val waylandMaximumInteger = 9223372036854775807
 
 fun waylandKeyFromEvdev(code: int): int {
     var key = keyUnknown
@@ -114,6 +119,41 @@ fun waylandSignedU32(value: int): int =
     if (value >= 2147483648) value - 4294967296 else value
 
 fun waylandFixedInteger(value: int): int = waylandSignedU32(value) / 256
+
+fun waylandKeyRepeatable(key: int): bool = key != keyUnknown &&
+    key != keyCapsLock && key != keyScrollLock && key != keyNumLock &&
+    key != keyPrintScreen && key != keyPause &&
+    key != keyLeftShift && key != keyRightShift &&
+    key != keyLeftControl && key != keyRightControl &&
+    key != keyLeftAlt && key != keyRightAlt &&
+    key != keyLeftSuper && key != keyRightSuper && key != keyMenu
+
+fun waylandRepeatPeriodNanoseconds(rate: int): int =
+    if (rate >= 1 && rate <= waylandMaximumRepeatRate)
+        waylandNanosecondsPerSecond / rate
+    else 0
+
+fun waylandRepeatPollTimeout(
+    requestedMilliseconds: int,
+    deadlineNanoseconds: int,
+    nowNanoseconds: int
+): int {
+    var result = requestedMilliseconds
+    if (requestedMilliseconds >= 0 && deadlineNanoseconds >= 0 &&
+        nowNanoseconds > 0) {
+        val remaining = deadlineNanoseconds - nowNanoseconds
+        val wholeMilliseconds = if (remaining > 0)
+            remaining / waylandNanosecondsPerMillisecond
+        else 0
+        val repeatWait = if (remaining <= 0) 0
+        else if (remaining - wholeMilliseconds *
+            waylandNanosecondsPerMillisecond > 0)
+            wholeMilliseconds + 1
+        else wholeMilliseconds
+        if (repeatWait < result) result = repeatWait
+    }
+    result
+}
 
 fun waylandU32(value: string, offset: int): int =
     value[offset] + value[offset + 1] * 256 +
@@ -817,6 +857,11 @@ resource class WaylandXdgWindow(
     var parsedKeymap: XkbKeymap,
     var repeatRate: int,
     var repeatDelay: int,
+    var repeatPlatformCode: int,
+    var repeatKey: int,
+    var repeatDeadlineNanoseconds: int,
+    var repeatPeriodNanoseconds: int,
+    var repeatClockScratch: NativeByteBuffer,
     var modifiersDepressed: int,
     var modifiersLatched: int,
     var modifiersLocked: int,
@@ -973,6 +1018,7 @@ resource class WaylandXdgWindow(
             if (succeeded) {
                 this.keyboardIdentifier = 0
                 this.keyboardFocused = false
+                this.cancelKeyRepeat()
             }
         }
         if (succeeded && this.pointerIdentifier == 0 &&
@@ -1050,10 +1096,25 @@ resource class WaylandXdgWindow(
         timeoutMilliseconds: int = 0
     ): WindowEvent {
         var result = this.nextInputEvent()
+        var now = 0
+        if (!result.happened() && this.repeatDeadlineNanoseconds >= 0) {
+            now = linuxMonotonicNanosecondsWithBuffer(this.repeatClockScratch)
+            if (now >= this.repeatDeadlineNanoseconds) {
+                this.enqueueDueKeyRepeat(now)
+                result = this.nextInputEvent()
+            }
+        }
         if (!result.happened() && this.connection.valid() &&
             this.seatIdentifier >= 2 && timeoutMilliseconds >= 0 &&
-            timeoutMilliseconds <= 600000 &&
+            timeoutMilliseconds <= waylandMaximumRepeatDelayMilliseconds &&
             this.ensureWireStorage(true)) {
+            if (now == 0 && this.repeatDeadlineNanoseconds >= 0) now =
+                linuxMonotonicNanosecondsWithBuffer(this.repeatClockScratch)
+            val pollTimeout = waylandRepeatPollTimeout(
+                timeoutMilliseconds,
+                this.repeatDeadlineNanoseconds,
+                now
+            )
             waylandStoreU32(
                 this.wireScratch,
                 0,
@@ -1067,11 +1128,20 @@ resource class WaylandXdgWindow(
                 7,
                 nativePointerAddress(this.wireScratch.address),
                 1,
-                timeoutMilliseconds
+                pollTimeout
             )
             if (measured > 0 && this.wireScratch.load(6) != 0) {
                 this.dispatchNative()
                 result = this.nextInputEvent()
+            }
+            if (!result.happened() && this.repeatDeadlineNanoseconds >= 0) {
+                now = linuxMonotonicNanosecondsWithBuffer(
+                    this.repeatClockScratch
+                )
+                if (now >= this.repeatDeadlineNanoseconds) {
+                    this.enqueueDueKeyRepeat(now)
+                    result = this.nextInputEvent()
+                }
             }
         }
         result
@@ -1082,6 +1152,88 @@ resource class WaylandXdgWindow(
 
     fun keyboardTextMapped(): bool = this.keyboardMapped() &&
         this.parsedKeymap.valid
+
+    fun cancelKeyRepeat(): void {
+        this.repeatPlatformCode = -1
+        this.repeatKey = keyUnknown
+        this.repeatDeadlineNanoseconds = -1
+        this.repeatPeriodNanoseconds = 0
+        return
+    }
+
+    fun beginKeyRepeat(platformCode: int, key: int): void {
+        val period = waylandRepeatPeriodNanoseconds(this.repeatRate)
+        if (waylandKeyRepeatable(key)) {
+            this.cancelKeyRepeat()
+            if (period > 0 && this.repeatDelay >= 0 &&
+                this.repeatDelay <= waylandMaximumRepeatDelayMilliseconds) {
+                val now = linuxMonotonicNanosecondsWithBuffer(
+                    this.repeatClockScratch
+                )
+                val delay = this.repeatDelay *
+                    waylandNanosecondsPerMillisecond
+                if (now > 0 && now <= waylandMaximumInteger - delay) {
+                    this.repeatPlatformCode = platformCode
+                    this.repeatKey = key
+                    this.repeatDeadlineNanoseconds = now + delay
+                    this.repeatPeriodNanoseconds = period
+                }
+            }
+        }
+        return
+    }
+
+    fun enqueueKeyboardEvents(platformCode: int, state: int): bool {
+        val key = waylandKeyFromEvdev(platformCode)
+        var succeeded = this.enqueueInputEvent(WindowEvent(
+            windowEventKey,
+            key,
+            state,
+            "",
+            platformCode
+        ))
+        if (succeeded && state != 0 && this.modifierGroup == 0) {
+            val text = this.parsedKeymap.textInput(
+                platformCode,
+                this.modifiersDepressed,
+                this.modifiersLatched,
+                this.modifiersLocked
+            )
+            if (text.text != "") succeeded = this.enqueueInputEvent(
+                WindowEvent(
+                    windowEventText,
+                    text.codepoint,
+                    0,
+                    text.text,
+                    platformCode
+                )
+            )
+        }
+        succeeded
+    }
+
+    fun enqueueDueKeyRepeat(nowNanoseconds: int): bool {
+        var succeeded = this.repeatPlatformCode >= 0 &&
+            this.repeatKey != keyUnknown && this.repeatPeriodNanoseconds > 0 &&
+            this.repeatDeadlineNanoseconds >= 0 && nowNanoseconds > 0 &&
+            nowNanoseconds >= this.repeatDeadlineNanoseconds
+        if (succeeded) succeeded = this.enqueueKeyboardEvents(
+            this.repeatPlatformCode,
+            2
+        )
+        if (succeeded && this.repeatDeadlineNanoseconds <=
+            waylandMaximumInteger - this.repeatPeriodNanoseconds) {
+            val next = this.repeatDeadlineNanoseconds +
+                this.repeatPeriodNanoseconds
+            this.repeatDeadlineNanoseconds = if (next > nowNanoseconds)
+                next
+            else if (nowNanoseconds <= waylandMaximumInteger -
+                this.repeatPeriodNanoseconds)
+                nowNanoseconds + this.repeatPeriodNanoseconds
+            else -1
+        } else if (succeeded) this.cancelKeyRepeat()
+        succeeded
+    }
 
     trusted fun receiveKeyboardKeymap(format: int, size: int): bool {
         val descriptor = this.receivedDescriptor
@@ -1291,6 +1443,7 @@ resource class WaylandXdgWindow(
                 12 + padded == message.payload.size
             if (valid) {
                 this.keyboardFocused = surface == this.surfaceIdentifier
+                if (!this.keyboardFocused) this.cancelKeyRepeat()
                 valid = this.enqueueInputEvent(WindowEvent(
                     windowEventFocused,
                     if (this.keyboardFocused) 1 else 0
@@ -1317,6 +1470,7 @@ resource class WaylandXdgWindow(
             result = if (message.payload.size == 8) 1 else -1
             if (result > 0) {
                 this.keyboardFocused = false
+                this.cancelKeyRepeat()
                 if (!this.enqueueInputEvent(WindowEvent(
                     windowEventFocused,
                     0
@@ -1329,30 +1483,15 @@ resource class WaylandXdgWindow(
             if (result > 0) {
                 val platformCode = waylandU32(message.payload, 8)
                 val pressed = waylandU32(message.payload, 12)
-                if (!this.enqueueInputEvent(WindowEvent(
-                    windowEventKey,
-                    waylandKeyFromEvdev(platformCode),
-                    pressed,
-                    "",
-                    platformCode
-                ))) result = -1
-                if (result > 0 && pressed != 0 &&
-                    this.modifierGroup == 0) {
-                    val text = this.parsedKeymap.textInput(
+                if (!this.enqueueKeyboardEvents(platformCode, pressed)) {
+                    result = -1
+                } else if (pressed != 0) {
+                    this.beginKeyRepeat(
                         platformCode,
-                        this.modifiersDepressed,
-                        this.modifiersLatched,
-                        this.modifiersLocked
+                        waylandKeyFromEvdev(platformCode)
                     )
-                    if (text.text != "" && !this.enqueueInputEvent(
-                        WindowEvent(
-                            windowEventText,
-                            text.codepoint,
-                            0,
-                            text.text,
-                            platformCode
-                        )
-                    )) result = -1
+                } else if (platformCode == this.repeatPlatformCode) {
+                    this.cancelKeyRepeat()
                 }
             }
         } else if (message.objectIdentifier == this.keyboardIdentifier &&
@@ -1372,10 +1511,18 @@ resource class WaylandXdgWindow(
             val delay = if (message.payload.size == 8)
                 waylandSignedU32(waylandU32(message.payload, 4))
             else -1
-            result = if (rate >= 0 && delay >= 0) 1 else -1
+            result = if (rate >= 0 && rate <= waylandMaximumRepeatRate &&
+                delay >= 0 &&
+                delay <= waylandMaximumRepeatDelayMilliseconds) 1 else -1
             if (result > 0) {
                 this.repeatRate = rate
                 this.repeatDelay = delay
+                if (rate == 0) this.cancelKeyRepeat()
+                else if (this.repeatPlatformCode >= 0) {
+                    val platformCode = this.repeatPlatformCode
+                    val key = this.repeatKey
+                    this.beginKeyRepeat(platformCode, key)
+                }
             }
         }
         result
@@ -1992,6 +2139,7 @@ resource class WaylandXdgWindow(
             this.receivedDescriptor = -1
         }
         this.ancillaryScratch.close()
+        this.repeatClockScratch.close()
         this.wireScratch.close()
         this.connection.drop()
         return
@@ -2066,23 +2214,28 @@ fun waylandXdgWindow(
         XkbKeymap(),
         0,
         0,
+        -1,
+        0,
+        -1,
+        0,
+        nativeByteBuffer(16),
         0,
         0,
         0,
         0,
+        nativeByteBuffer(0),
+        -1,
+        [],
+        0,
+        0,
+        [],
+        [],
+        -1,
+        0,
+        0,
+        0,
+        nativeByteBuffer(0),
         nativeByteBuffer(waylandMaximumMessageBytes),
-        -1,
-        [],
-        0,
-        0,
-        [],
-        [],
-        -1,
-        0,
-        0,
-        0,
-        nativeByteBuffer(0),
-        nativeByteBuffer(0),
         0,
         0,
         0,

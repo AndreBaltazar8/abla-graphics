@@ -42,9 +42,12 @@ Portable raw key, focus, pointer, button, and scroll events share the X11
 `WindowEvent` vocabulary. A bounded pure-Abla parser resolves numeric keycodes
 and group-one symbols into fixed lookup tables, applies live Shift/Caps state,
 and emits copied ASCII, Latin-1, or direct-Unicode UTF-8 text after key presses.
-Clipboard, outputs, higher XKB groups/compose, and driver presentation build on
-this object foundation in later slices. No `libwayland-client` or
-`libxkbcommon` ABI participates in this path.
+One reusable clock block drives compositor-configured keyboard repeat by
+shortening the existing socket-poll deadline; late consumers resynchronize
+instead of accumulating repeat bursts. Clipboard, outputs, higher XKB
+groups/compose, and driver presentation build on this object foundation in
+later slices. No `libwayland-client` or `libxkbcommon` ABI participates in this
+path.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

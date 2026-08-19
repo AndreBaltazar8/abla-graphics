@@ -68,7 +68,10 @@ Updated: 2026-08-19.
   fixed 256-key tables and applies live Shift/Caps state. A nested Weston/Xvfb
   gate receives a real 65,553-byte keymap, parses 230 keys, and receives focus,
   pointer motion, W press/release, and lowercase/shifted uppercase text; exact
-  BTN_LEFT wire packets prove button press/release decoding. There is no
+  BTN_LEFT wire packets prove button press/release decoding. Client-side repeat
+  uses the live compositor rate/delay (40 Hz after 400 ms in the gate), caps the
+  socket-poll deadline with allocation-free monotonic timing, emits a typed
+  repeat plus text, and cancels on release/focus/capability loss. There is no
   libxkbcommon dependency.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
@@ -800,8 +803,7 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland higher XKB groups/levels, dead-key compose, input methods, and repeat
-  synthesis,
+- Wayland higher XKB groups/levels, dead-key compose, and input methods,
   clipboard, output, fractional scaling, and Vulkan/EGL presentation
   integration. The current stable xdg-shell slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,

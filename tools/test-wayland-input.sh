@@ -63,6 +63,9 @@ xdotool windowfocus "$window_id"
 xdotool mousemove --window "$window_id" 400 360
 xdotool key w
 xdotool key W
+xdotool keydown w
+sleep 0.75
+xdotool keyup w
 xdotool mousemove --window "$window_id" 420 340
 
 set +e

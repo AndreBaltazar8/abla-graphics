@@ -1217,7 +1217,16 @@ Latin-1 keysym name range, `Uxxxx` Unicode names, and numeric direct-Unicode
 keysyms become validated UTF-8. Control/Alt/Super/level-three combinations and
 nonzero groups are conservatively suppressed rather than emitting incorrect
 base text. Higher groups, level-three/four selection, dead-key compose, input
-methods, and repeat synthesis remain explicit future work.
+methods remain explicit future work.
+
+Wayland repeat is client-owned as required by the protocol. A bounded
+`repeat_info` rate of 1 through 1,000 Hz and delay up to 600,000 ms arms one
+active non-modifier key. `pollInputEvent` uses a reusable monotonic-clock block
+and reduces its native poll timeout to the next repeat deadline, then emits the
+same key-before-text pair with `event.keyRepeated()` true. Rate zero disables
+repeat. Release, keyboard focus loss, or keyboard capability removal cancels
+the deadline. A late caller emits one repeat and resynchronizes to the current
+time instead of receiving an unbounded catch-up burst.
 
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,

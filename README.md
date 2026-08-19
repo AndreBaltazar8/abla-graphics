@@ -27,8 +27,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   transfer, affine `memfd`-backed XRGB shared pixels, reusable triple
   buffering, allocation-stable frame callbacks, capability-driven seat,
   pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
-  symbol/text parsing, and ordered teardown without `libwayland-client` or
-  `libxkbcommon`;
+  symbol/text parsing, deadline-driven keyboard repeat, and ordered teardown
+  without `libwayland-client` or `libxkbcommon`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,
