@@ -699,9 +699,37 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value>0u){ uint local=1u; values.value=local; } }"]
     ).spirv(shaderStageCompute)
-    val invalidBranchLocalAssignment = glslPackage(
+    val storageBranchLocalAssignment = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ local=2u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageBranchLocalAssignmentAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ local=2u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageBranchLocalElse = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ local=2u; } else { local=3u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedBranchLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ if(values.value<10u){ local=2u; } else { local=3u; } } else { local=4u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageBooleanBranchLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool local=false; if(values.value>0u){ local=true; } values.value=local?1u:2u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBranchLocalType = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ local=true; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBranchConstAssignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ const uint local=1u; if(values.value>0u){ local=2u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidLoopLocalAssignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; while(values.value<3u){ local=2u; values.value++; } values.value=local; }"]
     ).spirv(shaderStageCompute)
     val storageElseIf = glslPackage(
         [shaderStageCompute],
@@ -1162,6 +1190,26 @@ fun main: int {
             "invalid compute-storage GLSL semantics at 2:"
         ) &&
         !invalidWhileBody.succeeded
+    val structuredBranchLocalsPassed =
+        storageBranchLocalAssignment.succeeded &&
+        storageBranchLocalAssignment.module.valid() &&
+        spirvWordsEqual(
+            storageBranchLocalAssignment.module,
+            storageBranchLocalAssignmentAgain.module
+        ) &&
+        spirvWordCount(storageBranchLocalAssignment.module, 458997) == 1 &&
+        storageBranchLocalElse.succeeded &&
+        storageBranchLocalElse.module.valid() &&
+        spirvWordCount(storageBranchLocalElse.module, 458997) == 1 &&
+        storageNestedBranchLocal.succeeded &&
+        storageNestedBranchLocal.module.valid() &&
+        spirvWordCount(storageNestedBranchLocal.module, 458997) == 2 &&
+        storageBooleanBranchLocal.succeeded &&
+        storageBooleanBranchLocal.module.valid() &&
+        spirvWordCount(storageBooleanBranchLocal.module, 458997) == 1 &&
+        !invalidBranchLocalType.succeeded &&
+        !invalidBranchConstAssignment.succeeded &&
+        !invalidLoopLocalAssignment.succeeded
     if (interpolated.valid && interpolated.workgroups.size == 1 &&
         interpolated.workgroups[0].x == 6 &&
         interpolated.specializationConstants.size == 2 &&
@@ -1656,7 +1704,7 @@ fun main: int {
             "invalid compute-storage GLSL semantics at 2:"
         ) &&
         !invalidBranchLocalDeclaration.succeeded &&
-        !invalidBranchLocalAssignment.succeeded &&
+        structuredBranchLocalsPassed &&
         storageElseIf.succeeded && storageElseIf.module.valid() &&
         spirvWordsEqual(storageElseIf.module, storageElseIfAgain.module) &&
         spirvWordCount(storageElseIf.module, 196855) == 3 &&

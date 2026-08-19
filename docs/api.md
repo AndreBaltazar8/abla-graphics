@@ -1480,16 +1480,23 @@ buffer-member assignments and updates. The emitter lowers each branch to
 deterministic structured SPIR-V with `OpSelectionMerge`,
 `OpBranchConditional`, and explicit then, optional else, and merge labels. An
 `else if` chain becomes nested selections in the preceding else arm, preserving
-structured control flow without a special backend path. Declaring, rebinding,
-or mutating locals inside a branch is rejected until the subset can emit the
-required SSA merge values.
+structured control flow without a special backend path. A mutable local
+declared before a selection may be rebound or updated in its arms. The emitter
+snapshots its incoming SSA result, resets that result before an else arm, tracks
+the actual predecessor after nested control flow, and emits a typed `OpPhi`
+immediately after the merge label whenever the incoming IDs differ. This keeps
+integer and Boolean locals in SSA form without function variables or local
+loads/stores. Declaring a new local inside a branch remains rejected so lexical
+scope cannot escape accidentally; const-local mutation and type changes remain
+checked errors.
 Brace-delimited `while (condition) { ... }` loops use the same Boolean
 conditions and buffer-member statements and may be nested with selections or
 other loops within the shared 64-level bound. Condition tokens are emitted in
 the loop header so member loads are recomputed on every iteration. The SPIR-V
 form uses `OpLoopMerge` with explicit header, body, continue, and merge labels;
 the continue block branches back to the header. Local declaration or mutation
-inside a loop is rejected for the same SSA reason. `for`, `do`/`while`,
+inside a loop is rejected until loop-header/back-edge phis are implemented.
+`for`, `do`/`while`,
 `break`, `continue`, `switch`, and early `return` remain explicit grammar
 failures rather than being ignored or miscompiled.
 The strict compute declaration grammar and deterministic postfix/SSA lowering

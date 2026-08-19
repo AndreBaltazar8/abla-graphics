@@ -421,6 +421,13 @@ Updated: 2026-08-19.
   byte-identical to its fully inlined form. Comma-separated same-type
   declarators are initialized and exposed left to right, capped at 64 total
   locals, and emit byte-identical output to separate declaration statements.
+  Mutable preexisting locals may now be rebound inside selections. Each
+  selection snapshots incoming local IDs, preserves actual predecessors across
+  nesting, resets IDs for the else arm, and emits typed `OpPhi` values directly
+  after the merge label only where incoming IDs differ. No function variable,
+  local load, or local store is introduced. Tests cover no-else, else, nested,
+  repeat-identical, integer and Boolean phis, const mutation, type mismatch, and
+  the deliberate loop-local rejection.
   Missing initializers, forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   every simple/compound/prefix/postfix mutation of a const local, and local-only
@@ -434,11 +441,11 @@ Updated: 2026-08-19.
   Unit coverage verifies no-else, else, multi-arm `else if`, nested,
   repeat-identical, malformed-else, and non-Boolean-condition cases. An
   `else if` chain is represented as nested structured selections in the
-  preceding else arm. Branch arms may read preexisting SSA locals and update
-  storage members; branch-local declaration/rebinding/mutation is rejected
-  pending explicit SSA-phi support. The live specialized shader reaches its
-  checked `tail = 8`, `output = 7` result through an `else if` arm containing a
-  nested branch on both real backends.
+  preceding else arm. Branch arms may read and rebind preexisting SSA locals or
+  update storage members; declarations inside arms remain rejected. The live
+  specialized shader rebinds one result local across an `else if` arm containing
+  a nested branch, then performs a single merged buffer store. Both real
+  backends return the checked `tail = 8`, `output = 7` result.
   Brace-delimited `while` loops lower to deterministic structured SPIR-V with
   explicit header, body, continue, and merge blocks plus `OpLoopMerge`.
   Conditions execute in the header and therefore reload storage members after
