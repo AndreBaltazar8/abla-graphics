@@ -1900,6 +1900,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     val localWritable: array<bool> = []
     val controlBeginTokenIndices: array<int> = []
     val controlElseEntered: array<bool> = []
+    val controlClosesAfterChild: array<bool> = []
     var controlDepth = 0
     var firstMemberIndex = -1
     var statements = 0
@@ -1926,21 +1927,26 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                         column = beginToken.column
                     )
                     index = index + 1
-                    matched = glslStorageTokenTake(
-                        sourceTokens,
-                        index,
-                        glslTokenPunctuation,
-                        "{"
-                    )
-                    valid = matched.valid &&
-                        programTokens.size + 1 < 8192
-                    index = matched.next
+                    val elseIf = index < sourceTokens.size &&
+                        sourceTokens[index].is(glslTokenIdentifier, "if")
+                    if (!elseIf) {
+                        matched = glslStorageTokenTake(
+                            sourceTokens,
+                            index,
+                            glslTokenPunctuation,
+                            "{"
+                        )
+                        valid = matched.valid
+                        index = matched.next
+                    }
+                    valid = valid && programTokens.size + 1 < 8192
                     if (valid) programTokens.append(GlslStorageToken(
                         glslStorageTokenElse,
                         line = elseToken.line,
                         column = elseToken.column
                     ))
                     controlElseEntered[controlIndex] = true
+                    controlClosesAfterChild[controlIndex] = elseIf
                 } else {
                     valid = programTokens.size + 1 < 8192
                     if (valid) programTokens.append(GlslStorageToken(
@@ -1949,6 +1955,19 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                         column = closingToken.column
                     ))
                     controlDepth = controlDepth - 1
+                    var closeParent = controlDepth > 0 &&
+                        controlClosesAfterChild[controlDepth - 1]
+                    while (valid && closeParent) {
+                        valid = programTokens.size + 1 < 8192
+                        if (valid) programTokens.append(GlslStorageToken(
+                            glslStorageTokenIfEnd,
+                            line = closingToken.line,
+                            column = closingToken.column
+                        ))
+                        controlDepth = controlDepth - 1
+                        closeParent = controlDepth > 0 &&
+                            controlClosesAfterChild[controlDepth - 1]
+                    }
                 }
             } else mainClosed = true
         } else if (index < sourceTokens.size &&
@@ -2017,9 +2036,11 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 if (controlDepth < controlBeginTokenIndices.size) {
                     controlBeginTokenIndices[controlDepth] = beginIndex
                     controlElseEntered[controlDepth] = false
+                    controlClosesAfterChild[controlDepth] = false
                 } else {
                     controlBeginTokenIndices.append(beginIndex)
                     controlElseEntered.append(false)
+                    controlClosesAfterChild.append(false)
                 }
                 controlDepth = controlDepth + 1
             }

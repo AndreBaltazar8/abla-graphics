@@ -703,9 +703,17 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ local=2u; } values.value=local; }"]
     ).spirv(shaderStageCompute)
-    val invalidElseIf = glslPackage(
+    val storageElseIf = glslPackage(
         [shaderStageCompute],
-        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else if(values.value==1u){ values.value=2u; } }"]
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else if(values.value==1u){ values.value=2u; } else if(values.value==2u){ values.value=3u; } else { values.value=4u; } }"]
+    ).spirv(shaderStageCompute)
+    val storageElseIfAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else if(values.value==1u){ values.value=2u; } else if(values.value==2u){ values.value=3u; } else { values.value=4u; } }"]
+    ).spirv(shaderStageCompute)
+    val invalidElseBody = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else values.value=2u; }"]
     ).spirv(shaderStageCompute)
     val storageBooleanLiteral = glslPackage(
         [shaderStageCompute],
@@ -1607,7 +1615,13 @@ fun main: int {
             "invalid compute-storage GLSL semantics at 2:"
         ) &&
         !invalidBranchLocalDeclaration.succeeded &&
-        !invalidBranchLocalAssignment.succeeded && !invalidElseIf.succeeded &&
+        !invalidBranchLocalAssignment.succeeded &&
+        storageElseIf.succeeded && storageElseIf.module.valid() &&
+        spirvWordsEqual(storageElseIf.module, storageElseIfAgain.module) &&
+        spirvWordCount(storageElseIf.module, 196855) == 3 &&
+        spirvWordCount(storageElseIf.module, 262394) == 3 &&
+        spirvWordCount(storageElseIf.module, 131321) == 6 &&
+        !invalidElseBody.succeeded &&
         storageBooleanLiteral.succeeded &&
         storageBooleanLiteral.module.valid() &&
         spirvContainsWord(storageBooleanLiteral.module, 196649) &&
