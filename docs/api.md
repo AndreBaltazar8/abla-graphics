@@ -1302,6 +1302,13 @@ idempotent for the current preference, while `unsetDecorationMode()` returns
 policy selection to the compositor. The decoration object is destroyed before
 its xdg toplevel during affine teardown.
 
+`idleInhibitAvailable()` reports the optional version-one protocol.
+`setIdleInhibited(true)` creates one inhibitor for the application surface;
+repeated calls are idempotent, while `false` destroys only the inhibitor so a
+later call can cheaply reuse the manager. Both objects precede the core surface
+in teardown. This is the direct compositor mechanism for games, video, and
+presentation applications that must suppress idle behavior.
+
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
 advertises UTF-8 and plain-text MIME types, and retains each affine source until

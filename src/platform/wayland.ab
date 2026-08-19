@@ -1477,6 +1477,9 @@ resource class WaylandXdgWindow(
     var requestedDecorationMode: int,
     var decorationMode: int,
     var decorationConfigured: bool,
+    var idleInhibitManagerIdentifier: int,
+    var idleInhibitorIdentifier: int,
+    var idleInhibited: bool,
     var xdgOutputManagerIdentifier: int,
     var xdgOutputManagerVersion: int,
     var outputsEnabled: bool,
@@ -1820,6 +1823,54 @@ resource class WaylandXdgWindow(
             }
         }
         result
+    }
+
+    fun idleInhibitAvailable(): bool = this.connection.global(
+        "zwp_idle_inhibit_manager_v1"
+    ).valid
+
+    fun setIdleInhibited(inhibited: bool): bool {
+        var succeeded = this.valid()
+        if (succeeded && inhibited != this.idleInhibited && inhibited) {
+            val manager = if (this.idleInhibitManagerIdentifier == 0)
+                this.connection.bind("zwp_idle_inhibit_manager_v1", 1)
+            else WaylandBinding(
+                true,
+                this.idleInhibitManagerIdentifier,
+                0,
+                "zwp_idle_inhibit_manager_v1",
+                1
+            )
+            succeeded = manager.valid
+            val identifier = if (succeeded)
+                this.connection.allocateIdentifier()
+            else -1
+            if (succeeded) succeeded = identifier >= 2 &&
+                this.connection.send(waylandPacket(
+                    manager.identifier,
+                    1,
+                    waylandU32PairPayload(
+                        identifier,
+                        this.surfaceIdentifier
+                    )
+                ))
+            if (succeeded) {
+                this.idleInhibitManagerIdentifier = manager.identifier
+                this.idleInhibitorIdentifier = identifier
+                this.idleInhibited = true
+            }
+        } else if (succeeded && inhibited != this.idleInhibited) {
+            succeeded = this.idleInhibitorIdentifier >= 2 &&
+                this.connection.send(waylandPacket(
+                    this.idleInhibitorIdentifier,
+                    0
+                ))
+            if (succeeded) {
+                this.idleInhibitorIdentifier = 0
+                this.idleInhibited = false
+            }
+        }
+        succeeded
     }
 
     trusted fun ensureWireStorage(receiveDescriptors: bool = false): bool {
@@ -4335,6 +4386,18 @@ resource class WaylandXdgWindow(
                     waylandPacket(this.decorationManagerIdentifier, 0)
                 )
             }
+            if (this.idleInhibitorIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.idleInhibitorIdentifier, 0)
+                )
+            }
+            if (this.idleInhibitManagerIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.idleInhibitManagerIdentifier, 0)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -4593,6 +4656,9 @@ fun waylandXdgWindow(
         0,
         0,
         0,
+        0,
+        0,
+        false,
         0,
         0,
         false,

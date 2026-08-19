@@ -81,6 +81,8 @@ xdg-decoration object is created before content attachment and keeps requested
 policy separate from the compositor's configured client/server mode; its
 configure is paired with the following xdg-surface serial before the method
 returns.
+The idle-inhibit manager similarly owns a replaceable per-surface inhibitor,
+keeping application policy explicit without background services.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

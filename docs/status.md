@@ -122,6 +122,11 @@ Updated: 2026-08-19.
   healthy; deterministic packets cover creation/server preference and an exact
   synthetic configure proves effective-mode dispatch. Idempotent/invalid mode
   handling and decoration-before-toplevel teardown are also covered.
+- Optional `zwp_idle_inhibit_manager_v1` support creates and destroys one
+  surface inhibitor idempotently while retaining its manager for reuse. The
+  current headless-Weston environment verifies the capability-missing path
+  remains healthy before buffer attachment; deterministic wire coverage proves
+  the exact inhibitor/surface creation request.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec
