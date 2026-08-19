@@ -1121,6 +1121,19 @@ fun main: int {
     val triangleVertexAgain = triangle.spirv(shaderStageVertex)
     val triangleFragment = triangle.spirv(shaderStageFragment)
     val triangleFragmentAgain = triangle.spirv(shaderStageFragment)
+    val pushColorTriangle = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=draw.tint; }"
+        ]
+    )
+    val pushColorFragment =
+        pushColorTriangle.spirv(shaderStageFragment)
+    val pushColorFragmentAgain =
+        pushColorTriangle.spirv(shaderStageFragment)
+    val pushColorOpenGlSource =
+        pushColorTriangle.openGlSource(shaderStageFragment)
     val triangle460 = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2070,6 +2083,19 @@ fun main: int {
             triangleFragment.module,
             triangleFragmentAgain.module
         ) &&
+        pushColorTriangle.valid &&
+        pushColorTriangle.pushConstants.size == 1 &&
+        pushColorFragment.succeeded && pushColorFragment.module.valid() &&
+        pushColorFragment.module.bound() == 18 &&
+        spirvWordsEqual(
+            pushColorFragment.module,
+            pushColorFragmentAgain.module
+        ) &&
+        glslContainsText(
+            pushColorOpenGlSource,
+            "layout(std140, binding = 15)"
+        ) &&
+        !glslContainsText(pushColorOpenGlSource, "push_constant") &&
         triangle460.valid && triangle460Vertex.succeeded &&
         triangle460Fragment.succeeded &&
         spirvWordsEqual(triangleVertex.module, triangle460Vertex.module) &&

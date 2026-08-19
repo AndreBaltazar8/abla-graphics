@@ -4719,7 +4719,9 @@ trusted fun VulkanDevice.renderTargetProgram(
     indirectBuffer: int = 0,
     indexedIndirect: bool = false,
     clearStorage: i64* = nativeNullPointer(),
-    compatibleRenderPass: int = 0
+    compatibleRenderPass: int = 0,
+    pushConstantData: i64* = nativeNullPointer(),
+    pushConstantSize: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     val colorCount = 1 + target.additionalViews.size
@@ -4740,6 +4742,11 @@ trusted fun VulkanDevice.renderTargetProgram(
         ((!indexed && indexBuffer == 0) ||
          (pipeline.vertexStride > 0 && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        ((pipeline.pushConstantSize == 0 && pushConstantSize == 0 &&
+          pointerIsNull(pushConstantData)) ||
+         (pipeline.pushConstantSize > 0 &&
+          pushConstantSize == pipeline.pushConstantSize &&
+          !pointerIsNull(pushConstantData))) &&
         pipeline.requiresBinding == (descriptorSet != 0) &&
         pipeline.renderPass == target.renderPass &&
         selectedRenderPass != 0 &&
@@ -4818,6 +4825,14 @@ trusted fun VulkanDevice.renderTargetProgram(
             this.transferCommand.load(),
             0,
             pipeline.handle
+        )
+        if (pipeline.pushConstantSize > 0) vkCmdPushConstants(
+            this.transferCommand.load(),
+            pipeline.layout,
+            pipeline.pushConstantStageMask,
+            0,
+            pipeline.pushConstantSize,
+            pushConstantData
         )
         if (descriptorSet != 0) {
             this.transferScratch.storeI64(88, descriptorSet)
@@ -5999,6 +6014,8 @@ resource class VulkanRenderPipeline(
     val width: int,
     val height: int,
     val vertexStride: int,
+    val pushConstantSize: int,
+    val pushConstantStageMask: int,
     val depthEnabled: bool,
     val dynamicRendering: bool,
     val ownsAttachments: bool,
@@ -6009,6 +6026,9 @@ resource class VulkanRenderPipeline(
         !pointerIsNull(this.queue) && this.layout != 0 &&
         this.handle != 0 && this.format != 0 &&
         this.width > 0 && this.height > 0 && this.vertexStride >= 0 &&
+        this.pushConstantSize >= 0 && this.pushConstantSize <= 128 &&
+        ((this.pushConstantSize == 0 && this.pushConstantStageMask == 0) ||
+         (this.pushConstantSize > 0 && this.pushConstantStageMask != 0)) &&
         this.imageViews.size > 0 &&
         ((this.dynamicRendering && this.renderPass == 0 &&
           this.framebuffers.size == 0) ||
@@ -6110,7 +6130,9 @@ trusted fun VulkanDevice.renderPipeline(
     colorAttachmentCount: int = 1,
     samples: int = 1,
     subpassIndex: int = 0,
-    preferDynamicRendering: bool = true
+    preferDynamicRendering: bool = true,
+    pushConstantSize: int = 0,
+    pushConstantStageMask: int = 0
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -6145,7 +6167,10 @@ trusted fun VulkanDevice.renderPipeline(
         (samples == 1 || samples == 2 || samples == 4 || samples == 8 ||
          samples == 16) && (offscreen || samples == 1) &&
         (!depthWrite || depthEnabled) &&
-        (!offscreen || depthEnabled == (targetDepthView != 0))
+        (!offscreen || depthEnabled == (targetDepthView != 0)) &&
+        ((pushConstantSize == 0 && pushConstantStageMask == 0) ||
+         (pushConstantSize > 0 && pushConstantSize <= 128 &&
+          pushConstantStageMask != 0))
 
     if (succeeded && offscreen) renderPass = targetRenderPass
     if (succeeded && !offscreen && !dynamicRendering) {
@@ -6205,6 +6230,9 @@ trusted fun VulkanDevice.renderPipeline(
 
     if (succeeded) {
         val layoutInfo = nativeByteBuffer(48)
+        val pushRange = nativeByteBuffer(16)
+        pushRange.storeI64(0, pushConstantStageMask)
+        pushRange.storeI64(8, pushConstantSize)
         layoutInfo.storeI64(0, 30)
         layoutInfo.storePointer(8, nativeNullPointer())
         layoutInfo.storeI64(
@@ -6217,8 +6245,12 @@ trusted fun VulkanDevice.renderPipeline(
             if (descriptorSetLayout != 0) setLayout.address
             else nativeNullPointer()
         )
-        layoutInfo.storeI64(32, 0)
-        layoutInfo.storePointer(40, nativeNullPointer())
+        layoutInfo.storeI64(32, if (pushConstantSize > 0) 1 else 0)
+        layoutInfo.storePointer(
+            40,
+            if (pushConstantSize > 0) pushRange.address
+            else nativeNullPointer()
+        )
         val output = nativeI64Cell(0)
         succeeded = vkCreatePipelineLayout(
             this.handle,
@@ -6529,6 +6561,8 @@ trusted fun VulkanDevice.renderPipeline(
         width,
         height,
         vertexStride,
+        pushConstantSize,
+        pushConstantStageMask,
         depthEnabled,
         dynamicRendering,
         !offscreen,
@@ -7336,7 +7370,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
     instanceCount: int = 1,
     descriptorSet: int = 0,
     indirectBuffer: int = 0,
-    indexedIndirect: bool = false
+    indexedIndirect: bool = false,
+    pushConstantData: i64* = nativeNullPointer(),
+    pushConstantSize: int = 0
 ): int {
     val indexed = indexCount > 0 || indexedIndirect
     var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
@@ -7358,6 +7394,11 @@ trusted fun VulkanDevice.presentRenderOutcome(
         ((!indexed && indexBuffer == 0) ||
          (pipeline.vertexStride > 0 && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        ((pipeline.pushConstantSize == 0 && pushConstantSize == 0 &&
+          pointerIsNull(pushConstantData)) ||
+         (pipeline.pushConstantSize > 0 &&
+          pushConstantSize == pipeline.pushConstantSize &&
+          !pointerIsNull(pushConstantData))) &&
         pipeline.requiresBinding == (descriptorSet != 0)
     var recreateSwapchain = false
     var status = if (succeeded) vulkanSuccess else -1
@@ -7568,6 +7609,14 @@ trusted fun VulkanDevice.presentRenderOutcome(
             presenter.frames[frame].command.load(),
             0,
             pipeline.handle
+        )
+        if (pipeline.pushConstantSize > 0) vkCmdPushConstants(
+            presenter.frames[frame].command.load(),
+            pipeline.layout,
+            pipeline.pushConstantStageMask,
+            0,
+            pipeline.pushConstantSize,
+            pushConstantData
         )
         if (descriptorSet != 0) {
             presenter.frames[frame].scratch.storeI64(152, descriptorSet)

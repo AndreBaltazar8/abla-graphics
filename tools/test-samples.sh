@@ -30,7 +30,7 @@ for sample in x11-window wayland-info wayland-window wayland-pixels \
     opengl-window common-clear common-triangle common-buffer common-texture \
     common-textured indexed-textured-cube render-to-texture \
     multiple-render-targets subpasses common-compute gpu-timestamp \
-    frame-pacing render-graph; do
+    push-color frame-pacing render-graph; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
@@ -97,6 +97,8 @@ for backend in opengl vulkan; do
         "$output_directory/subpasses" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-compute" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/push-color" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/gpu-timestamp" "$backend"
 done

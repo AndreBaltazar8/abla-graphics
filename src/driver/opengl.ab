@@ -850,11 +850,21 @@ resource class OpenGlTimestampQuery(
 resource class OpenGlProgram(
     var handle: int,
     var vertexArray: int,
+    var pushConstantBuffer: int,
+    val pushConstantSize: int,
     val error: string
 ) {
-    fun valid(): bool = this.handle != 0 && this.vertexArray != 0
+    fun valid(): bool = this.handle != 0 && this.vertexArray != 0 &&
+        ((this.pushConstantSize == 0 && this.pushConstantBuffer == 0) ||
+         (this.pushConstantSize > 0 && this.pushConstantSize <= 128 &&
+          this.pushConstantBuffer != 0))
 
     trusted fun drop(): void {
+        if (this.pushConstantBuffer != 0) {
+            val buffer = nativeI64Cell(this.pushConstantBuffer)
+            glDeleteBuffers(1, buffer.address)
+            this.pushConstantBuffer = 0
+        }
         if (this.handle != 0) glDeleteProgram(this.handle)
         if (this.vertexArray != 0) {
             val array = nativeI64Cell(this.vertexArray)
@@ -1701,7 +1711,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     clearStorage: i64* = nativeNullPointer(),
     clearMask: int = -1,
     discardBeforeMask: int = 0,
-    discardAfterMask: int = 0
+    discardAfterMask: int = 0,
+    pushConstantData: i64* = nativeNullPointer(),
+    pushConstantSize: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
@@ -1718,6 +1730,11 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         ((!indexed && indexBuffer == 0) ||
          (vertexLayout.buffered() && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        ((program.pushConstantSize == 0 && pushConstantSize == 0 &&
+          pointerIsNull(pushConstantData)) ||
+         (program.pushConstantSize > 0 &&
+          pushConstantSize == program.pushConstantSize &&
+          !pointerIsNull(pushConstantData))) &&
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (rendered) {
@@ -1773,6 +1790,20 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         }
         glUseProgram(program.handle)
         glBindVertexArray(program.vertexArray)
+        if (program.pushConstantSize > 0) {
+            glBindBuffer(35345, program.pushConstantBuffer)
+            glBufferSubData(
+                35345,
+                0,
+                program.pushConstantSize,
+                pushConstantData
+            )
+            glBindBufferBase(
+                35345,
+                openGlPushConstantBinding,
+                program.pushConstantBuffer
+            )
+        }
         if (vertexLayout.buffered()) {
             glBindBuffer(34962, vertexBuffer)
             rendered = openGlConfigureVertexLayout(vertexLayout)
@@ -2133,12 +2164,14 @@ trusted fun OpenGlWindowContext.computeSpirvPipeline(
 
 trusted fun openGlProgram(
     vertexSource: string,
-    fragmentSource: string
+    fragmentSource: string,
+    pushConstantSize: int = 0
 ): OpenGlProgram {
     val vertex = openGlCompileShader(35633, vertexSource)
     val fragment = openGlCompileShader(35632, fragmentSource)
     var program = 0
     var vertexArray = 0
+    var pushConstantBuffer = 0
     var error = if (vertex.error != "") vertex.error else fragment.error
     if (vertex.handle != 0 && fragment.handle != 0) {
         program = glCreateProgram()
@@ -2168,16 +2201,78 @@ trusted fun openGlProgram(
             program = 0
         }
     }
-    OpenGlProgram(program, vertexArray, error)
+    if (program != 0 && pushConstantSize > 0 && pushConstantSize <= 128) {
+        val output = nativeI64Cell(0)
+        glGenBuffers(1, output.address)
+        pushConstantBuffer = output.load() & 4294967295
+        if (pushConstantBuffer != 0) {
+            glBindBuffer(35345, pushConstantBuffer)
+            glBufferData(
+                35345,
+                pushConstantSize,
+                nativeNullPointer(),
+                35048
+            )
+            if (glGetError() != 0) {
+                glDeleteBuffers(1, output.address)
+                pushConstantBuffer = 0
+            }
+        }
+        if (pushConstantBuffer == 0) {
+            glDeleteProgram(program)
+            val array = nativeI64Cell(vertexArray)
+            glDeleteVertexArrays(1, array.address)
+            program = 0
+            vertexArray = 0
+            error = "OpenGL push-constant buffer creation failed"
+        }
+    } else if (program != 0 &&
+        (pushConstantSize < 0 || pushConstantSize > 128)) {
+        glDeleteProgram(program)
+        val array = nativeI64Cell(vertexArray)
+        glDeleteVertexArrays(1, array.address)
+        program = 0
+        vertexArray = 0
+        error = "invalid OpenGL push-constant size"
+    }
+    OpenGlProgram(
+        program,
+        vertexArray,
+        pushConstantBuffer,
+        pushConstantSize,
+        error
+    )
 }
 
 trusted fun openGlProgramFromPackage(
-    shader: ShaderPackage
+    var shader: ShaderPackage
 ): OpenGlProgram {
-    if (shader.valid) openGlProgram(
-        shader.source(shaderStageVertex),
-        shader.source(shaderStageFragment)
-    ) else OpenGlProgram(0, 0, shader.error)
+    var bindingAvailable = true
+    var index = 0
+    while (bindingAvailable && index < shader.bindings.size) {
+        bindingAvailable = shader.bindings[index].binding !=
+            openGlPushConstantBinding
+        index = index + 1
+    }
+    val vertexSource = shader.openGlSource(shaderStageVertex)
+    val fragmentSource = shader.openGlSource(shaderStageFragment)
+    val layout = shader.pushConstantLayout()
+    if (shader.valid && layout.valid && layout.openGlCompatible() &&
+        (layout.size == 0 || bindingAvailable)) openGlProgram(
+        vertexSource,
+        fragmentSource,
+        layout.size
+    ) else OpenGlProgram(
+        0,
+        0,
+        0,
+        layout.size,
+        if (!shader.valid) shader.error
+        else if (!layout.valid) layout.error
+        else if (!layout.openGlCompatible())
+            "OpenGL push-constant emulation requires std140-compatible member strides"
+        else "OpenGL push-constant binding collides with binding 15"
+    )
 }
 
 resource class OpenGlComputePipeline(
@@ -2387,7 +2482,9 @@ trusted fun openGlPixelPresenter(
             }
         }
     }
-    var program = OpenGlProgram(0, 0, "invalid context or dimensions")
+    var program = OpenGlProgram(
+        0, 0, 0, 0, "invalid context or dimensions"
+    )
     var texture = 0
     if (context.valid() && width > 0 && width <= 16384 &&
         height > 0 && height <= 16384 && context.makeCurrent()) {
@@ -2557,10 +2654,18 @@ resource class OpenGlWindowContext(
         bindingKinds: array<int>,
         bindingNumbers: array<int>,
         bindingResources: array<int>,
-        bindingSamplers: array<int>
+        bindingSamplers: array<int>,
+        pushConstantData: i64* = nativeNullPointer(),
+        pushConstantSize: int = 0
     ): bool {
         var presented = program.valid() && clear.valid() && raster.valid() &&
-            depth.valid() && this.makeCurrent()
+            depth.valid() &&
+            ((program.pushConstantSize == 0 && pushConstantSize == 0 &&
+              pointerIsNull(pushConstantData)) ||
+             (program.pushConstantSize > 0 &&
+              pushConstantSize == program.pushConstantSize &&
+              !pointerIsNull(pushConstantData))) &&
+            this.makeCurrent()
         if (presented) {
             openGlStoreI32(
                 this.clearScratch,
@@ -2586,6 +2691,20 @@ resource class OpenGlWindowContext(
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
+            if (program.pushConstantSize > 0) {
+                glBindBuffer(35345, program.pushConstantBuffer)
+                glBufferSubData(
+                    35345,
+                    0,
+                    program.pushConstantSize,
+                    pushConstantData
+                )
+                glBindBufferBase(
+                    35345,
+                    openGlPushConstantBinding,
+                    program.pushConstantBuffer
+                )
+            }
             presented = openGlApplyBindGroup(
                 bindingKinds,
                 bindingNumbers,

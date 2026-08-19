@@ -1607,8 +1607,8 @@ declared IDs merge across compatible layout statements, matching Vulkan GLSL;
 at least one concrete dimension must be declared. Repeated concrete sizes/IDs
 must agree, dimension IDs must be distinct, and they cannot collide with an
 explicit specialization constant in the same stage. Composite specialization
-constants, computed host-layout validation, filesystem module discovery, and
-general push-constant backend wiring are still forthcoming.
+constants, computed host-layout validation, and filesystem module discovery
+are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every
@@ -1721,8 +1721,20 @@ accepts the documented binding-zero `uint value` plus compute-visible
 `uint addend` block and `value = value + addend` program. Integration tests run
 that exact program on both real drivers, reject wrong stages and byte sizes,
 verify repeated value updates, and assert zero steady-state allocation growth.
-General push-constant expressions and raster-stage command wiring remain
-future slices.
+The first raster push-constant slice accepts the strict fragment form
+`layout(push_constant) uniform Draw { vec4 tint; } draw` with
+`color = draw.tint`. `renderPushToTarget(target, pipeline, values, clear)` and
+`presentPushRender(pipeline, values, clear)` require the complete reflected
+layout and stage mask to match. Their plain `renderToTarget` and
+`presentRender` counterparts reject a pipeline that requires values. Vulkan
+places the same range in the graphics pipeline layout and records
+`vkCmdPushConstants` after binding the pipeline; OpenGL uses one persistent
+binding-15 UBO owned by the linked program. Both command forms accept changing
+values without allocation, and Vulkan swapchain recreation preserves the
+reflected range. Integration tests prove the exact center pixel on both real
+drivers and reject missing, wrong-stage, and wrong-size value blocks. General
+raster push-constant expressions and push-aware vertex/index command overloads
+remain future slices.
 
 The overload
 `app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,

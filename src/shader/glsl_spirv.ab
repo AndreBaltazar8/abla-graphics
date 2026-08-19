@@ -3744,6 +3744,36 @@ fun glslTriangleFragmentSource(source: string): bool =
         ")", ";", "}"
     ])
 
+fun glslPushColorFragmentSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec4", "color", ";",
+        "layout", "(", "push_constant", ")", "uniform", "Draw", "{",
+        "vec4", "tint", ";", "}", "draw", ";",
+        "void", "main", "(", ")", "{",
+        "color", "=", "draw", ".", "tint", ";", "}"
+    ])
+
+fun glslPushColorFragmentSpirv(): array<int> = [
+    119734787, 65536, 524299, 18, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    393231, 4, 4, 1852399981, 0, 9, 196624, 4,
+    7, 196611, 2, 450, 262149, 4, 1852399981, 0,
+    262149, 9, 1869377379, 114, 262149, 10, 2002874948, 0,
+    327686, 10, 0, 1953393012, 0, 262149, 12, 2002874980,
+    0, 262215, 9, 30, 0, 196679, 10, 2,
+    327752, 10, 0, 35, 0, 131091, 2, 196641,
+    3, 2, 196630, 6, 32, 262167, 7, 6,
+    4, 262176, 8, 3, 7, 262203, 8, 9,
+    3, 196638, 10, 7, 262176, 11, 9, 10,
+    262203, 11, 12, 9, 262165, 13, 32, 1,
+    262187, 13, 14, 0, 262176, 15, 9, 7,
+    327734, 2, 4, 0, 3, 131320, 5, 327745,
+    15, 16, 12, 14, 262205, 7, 17, 16,
+    196670, 9, 17, 65789, 65592
+]
+
 fun glslPushStorageComputeSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
@@ -3846,6 +3876,9 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslColoredVertexSource(this.source(shaderStageVertex))
     val fragment = graphicsCommon && stage == shaderStageFragment &&
         glslTriangleFragmentSource(this.source(shaderStageFragment))
+    val pushColorFragment = graphicsCommon &&
+        stage == shaderStageFragment && this.pushConstants.size == 1 &&
+        glslPushColorFragmentSource(this.source(shaderStageFragment))
     val multipleColorFragment = graphicsCommon &&
         stage == shaderStageFragment &&
         glslMultipleColorFragmentSource(this.source(shaderStageFragment))
@@ -3863,7 +3896,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || pushStorage || vertex ||
-        vertexBuffer || fragment ||
+        vertexBuffer || fragment || pushColorFragment ||
         multipleColorFragment ||
         coloredVertex || coloredFragment || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
@@ -3905,6 +3938,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             succeeded = false
             error = storageEmission.error
         }
+    } else if (pushColorFragment) {
+        words = glslPushColorFragmentSpirv()
     } else if (vertex) {
         words = [
             119734787, 65536, 458752, 42, 0,
