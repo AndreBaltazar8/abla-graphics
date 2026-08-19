@@ -1480,7 +1480,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     index = matched.next
     var versionLine = -1
     if (valid && index < sourceTokens.size &&
-        sourceTokens[index].is(glslTokenInteger, "450")) {
+        sourceTokens[index].kind == glslTokenInteger &&
+        (sourceTokens[index].text == "450" ||
+         sourceTokens[index].text == "460")) {
         versionLine = sourceTokens[index].line
         index = index + 1
     } else valid = false
@@ -2167,36 +2169,34 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     words
 }
 
+val glslSourceVersionPattern = "GLSL_VERSION_450_OR_460"
+
 fun glslSourceMatchesTokens(
     source: string,
     tokens: array<string>
 ): bool {
-    var sourceIndex = 0
+    val lexical = glslLex(source)
     var tokenIndex = 0
-    var matches = true
+    var matches = lexical.valid && lexical.tokens.size == tokens.size + 1
     while (matches && tokenIndex < tokens.size) {
-        sourceIndex = glslSkipTrivia(source, sourceIndex)
-        val token = tokens[tokenIndex]
-        var character = 0
-        while (matches && character < token.size) {
-            matches = sourceIndex + character < source.size &&
-                source[sourceIndex + character] == token[character]
-            character = character + 1
-        }
-        if (matches) sourceIndex = sourceIndex + token.size
+        val expected = tokens[tokenIndex]
+        val actual = lexical.tokens[tokenIndex]
+        matches = if (expected == glslSourceVersionPattern)
+            actual.kind == glslTokenInteger &&
+                (actual.text == "450" || actual.text == "460")
+            else actual.text == expected
         tokenIndex = tokenIndex + 1
     }
-    matches && tokenIndex == tokens.size &&
-        glslSkipTrivia(source, sourceIndex) == source.size
+    matches && tokenIndex == tokens.size
 }
 
 fun glslTriangleVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "const", "vec2", "positions", "[", "3", "]", "=",
         "vec2", "[", "3", "]", "(",
-        "vec2", "(", "-0.75", ",", "-0.65", ")", ",",
-        "vec2", "(", "0.75", ",", "-0.65", ")", ",",
+        "vec2", "(", "-", "0.75", ",", "-", "0.65", ")", ",",
+        "vec2", "(", "0.75", ",", "-", "0.65", ")", ",",
         "vec2", "(", "0.0", ",", "0.75", ")", ")", ";",
         "void", "main", "(", ")", "{",
         "gl_Position", "=", "vec4", "(", "positions", "[",
@@ -2206,7 +2206,7 @@ fun glslTriangleVertexSource(source: string): bool =
 
 fun glslVertexBufferTriangleSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec2", "position", ";",
         "void", "main", "(", ")", "{",
@@ -2217,7 +2217,7 @@ fun glslVertexBufferTriangleSource(source: string): bool =
 
 fun glslColoredVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec2", "position", ";",
         "layout", "(", "location", "=", "1", ")",
@@ -2232,7 +2232,7 @@ fun glslColoredVertexSource(source: string): bool =
 
 fun glslColoredFragmentSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec4", "vertexTint", ";",
         "layout", "(", "location", "=", "0", ")",
@@ -2243,7 +2243,7 @@ fun glslColoredFragmentSource(source: string): bool =
 
 fun glslTexturedVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec2", "position", ";",
         "layout", "(", "location", "=", "1", ")",
@@ -2258,7 +2258,7 @@ fun glslTexturedVertexSource(source: string): bool =
 
 fun glslTexturedCubeVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec3", "position", ";",
         "layout", "(", "location", "=", "1", ")",
@@ -2273,7 +2273,7 @@ fun glslTexturedCubeVertexSource(source: string): bool =
 
 fun glslTransformCubeVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec3", "position", ";",
         "layout", "(", "location", "=", "1", ")",
@@ -2291,7 +2291,7 @@ fun glslTransformCubeVertexSource(source: string): bool =
 
 fun glslTexturedFragmentSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec2", "texCoord", ";",
         "layout", "(", "location", "=", "0", ")",
@@ -2305,7 +2305,7 @@ fun glslTexturedFragmentSource(source: string): bool =
 
 fun glslTriangleFragmentSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "out", "vec4", "color", ";",
         "void", "main", "(", ")", "{",
@@ -2316,7 +2316,7 @@ fun glslTriangleFragmentSource(source: string): bool =
 
 fun glslMultipleColorFragmentSource(source: string): bool =
     glslSourceMatchesTokens(source, [
-        "#", "version", "450",
+        "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "out", "vec4", "firstColor", ";",
         "layout", "(", "location", "=", "1", ")",

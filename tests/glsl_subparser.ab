@@ -499,6 +499,10 @@ fun main: int {
     }
     val storageSpirv = storage.spirv(shaderStageCompute)
     val storageSpirvAgain = storage.spirv(shaderStageCompute)
+    val storage460Spirv = glslPackage(
+        [shaderStageCompute],
+        ["#version 460\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
+    ).spirv(shaderStageCompute)
     val storage77 = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=77u; }"]
@@ -741,6 +745,15 @@ fun main: int {
     val triangleVertexAgain = triangle.spirv(shaderStageVertex)
     val triangleFragment = triangle.spirv(shaderStageFragment)
     val triangleFragmentAgain = triangle.spirv(shaderStageFragment)
+    val triangle460 = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 460\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 460\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.12,0.54,0.96,1.0); }"
+        ]
+    )
+    val triangle460Vertex = triangle460.spirv(shaderStageVertex)
+    val triangle460Fragment = triangle460.spirv(shaderStageFragment)
     val multipleColor = $glsl {
         vertex {
             #version 450
@@ -1224,6 +1237,8 @@ fun main: int {
         storageSpirv.succeeded && storageSpirv.module.valid() &&
         storageSpirv.module.words.size == 86 &&
         spirvWordsEqual(storageSpirv.module, storageSpirvAgain.module) &&
+        storage460Spirv.succeeded &&
+        spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
         storage77.succeeded && storage77.module.words[64] == 77 &&
         storageIncrement.succeeded && storageIncrement.module.valid() &&
         storageIncrement.module.words.size == 95 &&
@@ -1407,6 +1422,13 @@ fun main: int {
         spirvWordsEqual(
             triangleFragment.module,
             triangleFragmentAgain.module
+        ) &&
+        triangle460.valid && triangle460Vertex.succeeded &&
+        triangle460Fragment.succeeded &&
+        spirvWordsEqual(triangleVertex.module, triangle460Vertex.module) &&
+        spirvWordsEqual(
+            triangleFragment.module,
+            triangle460Fragment.module
         ) &&
         multipleColor.valid && multipleColor.locations.size == 2 &&
         multipleColorFragment.succeeded &&

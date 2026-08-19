@@ -1336,26 +1336,27 @@ additionally accepts packed
 rejects them. Scalar constants and specialized workgroup axes may coexist in
 one package; the emitter assigns disjoint SPIR-V IDs and preserves every
 reflected `SpecId` on both backend forms. The
-second grammar declares one binding-zero `Values` storage block whose member is
-`int` or `uint`, and either stores a matching parsed integer literal or applies
-`+`, `-`, `*`, `/`, or `%` to the existing member and that literal. Division
-and remainder select signed or unsigned SPIR-V operations from the reflected
-member type. It also accepts one matching reflected integer
-specialization constant as the stored value or arithmetic operand, emits its
-`OpSpecConstant` and `SpecId`, and routes that ID through the real
-load/operation/store chain. A common storage pipeline overriding `3u` with
-`5u` observably transforms `2u` into `10u` on both installed backends.
+second grammar is the token-driven binding-zero homogeneous scalar storage
+program documented below: one to 64 members, integer/Boolean decision
+expressions, scalar specialization, compound assignment, cross-member reads,
+and up to 64 ordered stores. Signed operations are selected from the reflected
+member type, and every specialization ID is routed through the real typed
+load/operation/store chain.
 Repeated translation produces identical words and
 all results create real Vulkan shader modules; the specialized form also
 creates and dispatches a validation-clean Vulkan 1.4 compute pipeline with its
 defaults. Any other
-binding, global, statement, version, or stage returns a checked
+unsupported binding, global, statement, version, or stage returns a checked
 `GlslSpirvResult` failure; nothing unsupported is silently dropped. These
 narrow subsets establish the pure-Abla emitter and execution path, not
 completion of general GLSL-to-SPIR-V compilation.
 
 The initial raster translator recognizes strict procedural and vertex-buffer
-triangle packages. The procedural form declares three constant `vec2`
+triangle packages under either `#version 450` or `460`. Its structural matcher
+consumes the same lexer tokens as compute emission, so comments and token
+boundaries are handled consistently rather than by raw substring matching.
+Equivalent 450/460 compute-storage and raster packages emit byte-identical
+SPIR-V. The procedural form declares three constant `vec2`
 positions and selects one with `gl_VertexID`; the buffered forms accept either
 one location-zero `vec2` position or an interleaved location-zero `vec2`
 position plus a location-one `vec4` tint or `vec2` texture coordinate passed
