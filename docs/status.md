@@ -584,8 +584,9 @@ three rejection paths are executable tests.
   barrier/event migration, and offscreen/MRT dynamic rendering. The delivered
   pure-Abla graph planner validates stable explicit dependencies, derives
   declaration-order read/write hazards, rejects cycles, computes scheduled
-  lifetimes, and aliases compatible non-overlapping transient allocations; it
-  does not yet record backend commands or materialize those barriers/pools.
+  lifetimes, emits pruned resource-specific barrier records, and aliases
+  compatible non-overlapping transient allocations; it does not yet record
+  backend commands or materialize those barriers/pools.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
   color/depth/resolve attachment set and inserts

@@ -1090,6 +1090,13 @@ declaration-order edges for read/write hazards, performs a stable topological
 sort, rejects unknown dependencies and cycles, and reports every used
 resource's first and last scheduled pass.
 
+`plan.barriers` contains declaration-order read/write transitions pruned when
+an intervening access already supplies the dependency path. Each record carries
+the resource ID, source/destination pass IDs, and both access masks. Explicit
+ordering edges do not fabricate resource barriers. These backend-neutral
+records are the direct input for the forthcoming OpenGL memory-barrier and
+Vulkan synchronization2 materialization layer.
+
 Transient resources with disjoint lifetimes and the same compatibility class
 share the lowest available `GraphicsGraphAllocation` slot. Slot capacity grows
 to the largest aliased resource, while overlapping or incompatible lifetimes

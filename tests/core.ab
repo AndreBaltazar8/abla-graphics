@@ -386,6 +386,19 @@ fun main: int {
             GraphicsGraphUse(0, graphAccessWrite)
         ])
     ])
+    val prunedGraph = graphicsRenderGraph([
+        GraphicsGraphResource(0, "chain", true, 4, 0)
+    ], [
+        GraphicsGraphPass(1, "produce", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(2, "consume", [
+            GraphicsGraphUse(0, graphAccessRead)
+        ]),
+        GraphicsGraphPass(3, "replace", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ])
+    ])
 
     if (automatic.succeeded &&
         graph.valid() && graph.order.size == 4 &&
@@ -401,6 +414,19 @@ fun main: int {
         graph.lifetimes[2].allocationSlot == -1 &&
         graph.allocations.size == 1 &&
         graph.allocations[0].capacity == 128 &&
+        graph.barriers.size == 3 &&
+        graph.barriers[0].resourceId == 0 &&
+        graph.barriers[0].sourcePass == 10 &&
+        graph.barriers[0].destinationPass == 20 &&
+        graph.barriers[0].sourceAccess == graphAccessWrite &&
+        graph.barriers[0].destinationAccess == graphAccessRead &&
+        graph.barriers[1].resourceId == 2 &&
+        graph.barriers[2].resourceId == 1 &&
+        prunedGraph.valid() && prunedGraph.barriers.size == 2 &&
+        prunedGraph.barriers[0].sourcePass == 1 &&
+        prunedGraph.barriers[0].destinationPass == 2 &&
+        prunedGraph.barriers[1].sourcePass == 2 &&
+        prunedGraph.barriers[1].destinationPass == 3 &&
         !cyclicGraph.valid() && cyclicGraph.error.message != "" &&
         !invalidGraphUse.valid() && invalidGraphUse.error.message != "" &&
         automatic.backend == graphicsBackendVulkan &&

@@ -44,10 +44,19 @@ class GraphicsGraphAllocation(
     val capacity: int
 )
 
+class GraphicsGraphBarrier(
+    val resourceId: int,
+    val sourcePass: int,
+    val destinationPass: int,
+    val sourceAccess: int,
+    val destinationAccess: int
+)
+
 class GraphicsRenderGraphPlan(
     val order: array<int>,
     val lifetimes: array<GraphicsGraphLifetime>,
     val allocations: array<GraphicsGraphAllocation>,
+    val barriers: array<GraphicsGraphBarrier>,
     val error: GraphicsError = GraphicsError()
 ) {
     fun valid(): bool = !this.error.occurred() && this.order.size > 0
@@ -99,6 +108,21 @@ fun graphicsGraphHazard(
     hazard
 }
 
+fun graphicsGraphAccess(
+    pass: GraphicsGraphPass,
+    resourceId: int
+): int {
+    var access = 0
+    var index = 0
+    while (access == 0 && index < pass.uses.size) {
+        if (pass.uses[index].resourceId == resourceId) {
+            access = pass.uses[index].access
+        }
+        index = index + 1
+    }
+    access
+}
+
 fun graphicsRenderGraph(
     resources: array<GraphicsGraphResource>,
     passes: array<GraphicsGraphPass>
@@ -144,6 +168,7 @@ fun graphicsRenderGraph(
     }
 
     val edges: array<int> = []
+    val barriers: array<GraphicsGraphBarrier> = []
     index = 0
     while (index < passes.size * passes.size) {
         edges.append(0)
@@ -169,7 +194,45 @@ fun graphicsRenderGraph(
         var second = first + 1
         while (second < passes.size) {
             if (graphicsGraphHazard(passes[first], passes[second])) {
-                edges[first * passes.size + second] = 1
+                var useIndex = 0
+                while (useIndex < passes[first].uses.size) {
+                    val sourceUse = passes[first].uses[useIndex]
+                    val destinationAccess = graphicsGraphAccess(
+                        passes[second],
+                        sourceUse.resourceId
+                    )
+                    if (destinationAccess != 0 &&
+                        (sourceUse.writes() ||
+                         (destinationAccess & graphAccessWrite) != 0)) {
+                        var superseded = false
+                        var middle = first + 1
+                        while (!superseded && middle < second) {
+                            val middleAccess = graphicsGraphAccess(
+                                passes[middle],
+                                sourceUse.resourceId
+                            )
+                            val sourceWrites = sourceUse.writes()
+                            val destinationWrites =
+                                (destinationAccess & graphAccessWrite) != 0
+                            superseded =
+                                (middleAccess & graphAccessWrite) != 0 ||
+                                (middleAccess != 0 && sourceWrites &&
+                                 destinationWrites)
+                            middle = middle + 1
+                        }
+                        if (!superseded) {
+                            edges[first * passes.size + second] = 1
+                            barriers.append(GraphicsGraphBarrier(
+                                sourceUse.resourceId,
+                                passes[first].id,
+                                passes[second].id,
+                                sourceUse.access,
+                                destinationAccess
+                            ))
+                        }
+                    }
+                    useIndex = useIndex + 1
+                }
             }
             second = second + 1
         }
@@ -304,6 +367,7 @@ fun graphicsRenderGraph(
         order,
         lifetimes,
         allocations,
+        barriers,
         if (valid) GraphicsError() else GraphicsError(
             graphicsErrorInvalidConfiguration,
             "graphicsRenderGraph",
