@@ -28,8 +28,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   buffering, allocation-stable frame callbacks, capability-driven seat,
   pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
   symbol/text parsing, deadline-driven keyboard repeat, a direct ARGB cursor
-  surface with serial-correct visibility control, native pointer lock and
-  fixed-point relative motion, hotplug-aware atomic
+  surface with serial-correct visibility control, mutually exclusive native
+  pointer lock/confinement and fixed-point relative motion, hotplug-aware atomic
   output snapshots with optional xdg logical geometry and surface enter/leave
   tracking, optional per-surface fractional-scale preferences,
   optional per-surface viewport source crops and destinations for presenting

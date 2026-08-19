@@ -29,6 +29,7 @@ trusted fun main: int {
     var sawUpperWText = false
     var cursorShown = false
     val captureAvailable = window.pointerCaptureAvailable()
+    val confinementAvailable = window.pointerConfinementAvailable()
     var captureRequested = false
     var sawRelativeMotion = false
     var attempts = 0
@@ -118,14 +119,44 @@ trusted fun main: int {
         }
         queued = window.nextInputEvent()
     }
+    val captureExclusionPassed = if (captureAvailable &&
+        window.pointerCaptured)
+            !window.setPointerConfined(true) && !window.pointerConfined
+        else true
     val capturePassed = if (captureAvailable)
         captureRequested && window.pointerCaptured &&
         window.pointerCaptureActive && sawRelativeMotion &&
         window.relativeMotionEvents > 0 &&
+        captureExclusionPassed &&
         window.setPointerPositionHint(window.width / 2, window.height / 2) &&
         window.setPointerCaptured(false) && !window.pointerCaptured &&
         !window.pointerCaptureActive
     else !captureRequested && !window.pointerCaptured
+    var confinementRequested = false
+    var confinementActivatedByCompositor = false
+    var confinementPassed = !confinementAvailable
+    if (succeeded && capturePassed && confinementAvailable) {
+        succeeded = window.setPointerConfined(true)
+        confinementRequested = succeeded && window.pointerConfined
+        if (succeeded) succeeded = !window.setPointerCaptured(true) &&
+            !window.pointerCaptured && window.pointerConfined
+        attempts = 0
+        while (succeeded && !window.pointerConfinementActive &&
+            attempts < 10) {
+            succeeded = window.pollProtocol(10)
+            attempts = attempts + 1
+        }
+        confinementActivatedByCompositor =
+            window.pointerConfinementActive
+        if (succeeded && !window.pointerConfinementActive) succeeded =
+            window.dispatchConfinedPointer(waylandDecodeMessage(
+                waylandPacket(window.confinedPointerIdentifier, 0)
+            )) == 1
+        confinementPassed = succeeded && confinementRequested &&
+            window.pointerConfinementActive &&
+            window.setPointerConfined(false) &&
+            !window.pointerConfined && !window.pointerConfinementActive
+    }
     succeeded = succeeded &&
         (window.seatCapabilities & waylandSeatCapabilityPointer) != 0 &&
         (window.seatCapabilities & waylandSeatCapabilityKeyboard) != 0 &&
@@ -138,7 +169,8 @@ trusted fun main: int {
         window.primaryOutputScale() == 1 && sawMonitor &&
         sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
         sawWPress && sawWRelease && sawWRepeat && sawWText && sawUpperWText &&
-        window.repeatDeadlineNanoseconds < 0 && capturePassed && cursorShown &&
+        window.repeatDeadlineNanoseconds < 0 && capturePassed &&
+        confinementPassed && cursorShown &&
         window.cursorSurfaceIdentifier >= 2 &&
         window.cursorBufferIdentifier >= 2 &&
         window.cursorMappedLength ==
@@ -151,14 +183,17 @@ trusted fun main: int {
         window.setCursorVisible(true)
     attempts = 0
     while (succeeded &&
-        window.retiredLockedPointerIdentifiers.size > 0 && attempts < 100) {
+        (window.retiredLockedPointerIdentifiers.size > 0 ||
+         window.retiredConfinedPointerIdentifiers.size > 0) &&
+        attempts < 100) {
         succeeded = window.pollProtocol(10)
         attempts = attempts + 1
     }
     succeeded = succeeded &&
-        window.retiredLockedPointerIdentifiers.size == 0
+        window.retiredLockedPointerIdentifiers.size == 0 &&
+        window.retiredConfinedPointerIdentifiers.size == 0
     println(
-        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} capture=$captureAvailable/$captureRequested/$capturePassed/${window.relativeMotionEvents}/${window.lastRelativeXFixed},${window.lastRelativeYFixed} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion/$sawRelativeMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
+        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} capture=$captureAvailable/$captureRequested/$capturePassed/${window.relativeMotionEvents}/${window.lastRelativeXFixed},${window.lastRelativeYFixed} confine=$confinementAvailable/$confinementRequested/$confinementActivatedByCompositor/$confinementPassed keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion/$sawRelativeMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
     )
     if (succeeded) 42 else 1
 }

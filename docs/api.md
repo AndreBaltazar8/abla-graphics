@@ -1225,6 +1225,17 @@ unlock position. Disabling capture destroys only the lock, retaining the
 managers and relative pointer for cheap recapture; retired lock events remain
 valid until the display returns their IDs.
 
+`pointerConfinementAvailable()` requires only the version-one
+`zwp_pointer_constraints_v1` global. `setPointerConfined(true)` requests a
+persistent whole-surface confinement without creating a relative pointer;
+`pointerConfined` records ownership of that request and
+`pointerConfinementActive` follows the asynchronous confined/unconfined
+events. Capture and confinement are deliberately mutually exclusive, so an
+attempt to enable either while the other is requested fails without emitting
+a protocol request. Releasing confinement destroys its per-surface object but
+retains the shared constraints manager. Retired confinement objects remain
+routable until their display delete-ID event, matching the lock lifecycle.
+
 Keyboard keymaps are not discarded: the direct stream receiver captures
 close-on-exec ancillary descriptors with Linux `recvmsg`, preserves the
 descriptor across any earlier messages from the same compositor batch, maps

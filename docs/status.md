@@ -87,6 +87,13 @@ Updated: 2026-08-19.
   backend does not activate it in this fixture; exact synthetic locked and
   fractional relative-motion packets then prove the strict handler, position
   hint, release, and retired-ID path without claiming a real activation.
+- Direct Wayland confinement reuses the constraints manager without owning a
+  relative-pointer object, rejects simultaneous lock ownership before writing
+  to the compositor, and independently tracks requested and activated state.
+  The nested gate sends the real persistent whole-surface request; where the
+  X11-backed compositor defers activation, an exact synthetic confined event
+  proves dispatch before release. Both current and retired confinement events
+  remain valid until the compositor returns the object ID.
 - Direct Wayland output discovery binds all initial `wl_output` version two
   through four globals and tracks signed position, physical size, transform,
   current/preferred mode, millihertz refresh, integer scale, stable name, and

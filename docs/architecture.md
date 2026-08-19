@@ -48,11 +48,14 @@ instead of accumulating repeat bursts.
 The cursor path procedurally fills an owned ARGB8888 `wl_shm` mapping and keeps
 its role surface distinct from the application surface; visibility requests
 retain and use only the pointer-enter serial required by the protocol. The
-capture path combines a persistent pointer constraint with a seat-relative
-pointer, accumulates fractional accelerated motion into virtual coordinates,
-and retains unaccelerated deltas without manufacturing raw-device claims. Lock
-request and activation are distinct states because compositors may defer or
-decline activation. The data-device path binds the seat's
+capture path combines a persistent pointer lock with a seat-relative pointer,
+accumulates fractional accelerated motion into virtual coordinates, and
+retains unaccelerated deltas without manufacturing raw-device claims. Surface
+confinement shares the constraints manager but never creates a relative
+pointer. Lock and confinement are mutually exclusive protocol roles; each
+keeps requested state separate from compositor activation, and retired objects
+continue accepting terminal events until `wl_display.delete_id` makes their
+numeric identifiers reusable. The data-device path binds the seat's
 selection device, tracks immutable MIME offers and serial-gated owned sources,
 and transfers bounded UTF-8 through close-on-exec pipes carried with
 `SCM_RIGHTS`. Output snapshots and surface membership use the same direct
