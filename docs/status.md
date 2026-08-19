@@ -371,13 +371,17 @@ Updated: 2026-08-19.
   creates and dispatches on both drivers. A reflected signed or unsigned integer
   constant can additionally feed a precedence-parsed executable storage
   expression with repeated member loads, typed literals, nested parentheses,
-  arithmetic, shifts, bitwise AND/XOR/OR, unary plus, signed negation, and
-  integer complement. Tests prove the GLSL precedence order,
+  arithmetic, shifts, relational/equality comparisons, bitwise AND/XOR/OR,
+  Boolean AND/XOR/OR, unary plus, signed negation, integer complement, Boolean
+  negation, and right-associative integer ternary selection. Tests prove the
+  GLSL precedence order,
   signed-arithmetic versus unsigned-logical right shift, direct negative-literal
   constants, unary arity, and increment/decrement rejection. The bounded
-  postfix form emits deterministic SSA operations; a live override in a nested
-  complement/arithmetic/XOR/AND chain produces checked buffer output on OpenGL
-  and Vulkan rather than merely proving pipeline creation.
+  postfix form emits deterministic typed SSA operations plus `OpSelect`; a live
+  override in an arithmetic/comparison/logical/select chain produces checked
+  buffer output on OpenGL and Vulkan rather than merely proving pipeline
+  creation. Integer conditions, Boolean branches, raw Boolean assignment, and
+  mismatched logical operands are checked failures.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
@@ -390,9 +394,9 @@ Updated: 2026-08-19.
   parser. Version/layout qualifiers, optional specialization, storage members,
   entry point, assignment, and expression all use the same tokens. A
   comment-heavy declaration/expression form produces byte-identical SPIR-V to
-  compact source, while lexer-level longest matching keeps `&&`, `||`,
-  increments, decrements, and compound assignments out of the supported
-  bitwise/arithmetic subset. The former private character expression parser and
+  compact source, while lexer-level longest matching distinguishes logical,
+  increment/decrement, and compound-assignment tokens from bitwise/arithmetic
+  operators. The former private character expression parser and
   strict storage declaration scanner have been removed.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
@@ -429,8 +433,9 @@ Updated: 2026-08-19.
   `OpLoad`, `OpIAdd` or `OpIMul`, and `OpStore`. OpenGL binds an SSBO; Vulkan
   creates and binds descriptor
   layout/pool/set state. Explicit and automatic/fallback paths dispatch the
-  same multiplication package five times and common buffer readback returns
-  exactly `486`, with no live-memory growth across the four repeated calls;
+  same typed comparison/logical/ternary package five times and common buffer
+  readback returns exactly `161`, with no live-memory growth across the four
+  repeated calls;
   the raw Vulkan variant multiplies twice and returns `18`, proving repeated
   commands operate on observable persistent storage.
 - Project tree inspection finds no C/C++/Rust source and no GLFW/SDL dependency.

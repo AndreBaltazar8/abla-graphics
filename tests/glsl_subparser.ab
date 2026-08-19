@@ -563,6 +563,34 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value&&1u; }"]
     ).spirv(shaderStageCompute)
+    val storageConditional = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value<10u?1u:2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageLogicalConditional = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=!(values.value<0)||(values.value>=3&&values.value!=7)?11:12; }"]
+    ).spirv(shaderStageCompute)
+    val storageLogicalXor = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=((values.value==1u)^^(values.value==2u))?3u:4u; }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedConditional = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value==0u?1u:values.value==1u?2u:3u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidConditionalCondition = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value?1u:2u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidConditionalBranch = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value<1u)?(values.value<2u):3u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBooleanAssignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value<1u; }"]
+    ).spirv(shaderStageCompute)
     val storageUnaryNot = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=~values.value; }"]
@@ -1219,6 +1247,21 @@ fun main: int {
         storageSignedShift.module.words[85] == 327875 &&
         !unsupportedStorageLogical.succeeded &&
         unsupportedStorageLogical.error != "" &&
+        storageConditional.succeeded && storageConditional.module.valid() &&
+        spirvContainsWord(storageConditional.module, 327856) &&
+        spirvContainsWord(storageConditional.module, 393385) &&
+        storageLogicalConditional.succeeded &&
+        storageLogicalConditional.module.valid() &&
+        spirvContainsWord(storageLogicalConditional.module, 262312) &&
+        spirvContainsWord(storageLogicalConditional.module, 327847) &&
+        spirvContainsWord(storageLogicalConditional.module, 327846) &&
+        storageLogicalXor.succeeded && storageLogicalXor.module.valid() &&
+        spirvContainsWord(storageLogicalXor.module, 327845) &&
+        storageNestedConditional.succeeded &&
+        storageNestedConditional.module.valid() &&
+        !invalidConditionalCondition.succeeded &&
+        !invalidConditionalBranch.succeeded &&
+        !invalidBooleanAssignment.succeeded &&
         storageUnaryNot.succeeded && storageUnaryNot.module.valid() &&
         spirvContainsWord(storageUnaryNot.module, 262344) &&
         storageUnaryNegate.succeeded && storageUnaryNegate.module.valid() &&

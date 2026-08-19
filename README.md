@@ -40,8 +40,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   position/color, and sampled-texture vertex/fragment triangle subsets, with
   composable typed scalar/workgroup specialization constants, observable
   shared-token precedence-parsed signed/unsigned arithmetic, shift, bitwise,
-  and unary
-  expressions over checked multi-member storage blocks, with unsupported GLSL
+  relational, Boolean/logical, unary, and integer ternary expressions over
+  checked multi-member storage blocks, with unsupported GLSL
   rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
@@ -198,7 +198,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   frames on both backends;
 - `examples/common-compute`: one `$glsl` compute package compiled and dispatched
   unchanged on explicit OpenGL and Vulkan, including verified storage-buffer
-  mutation and readback;
+  comparison/logical/ternary mutation and readback;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted
   frames on explicit OpenGL and Vulkan, including counter-period conversion,
   stable native handles, and zero steady-state live-memory growth; and

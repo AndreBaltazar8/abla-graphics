@@ -1436,23 +1436,26 @@ buffer update alongside the pipeline, then binds that set before dispatch.
 The assignment expression reads and writes that same selected storage member and
 accepts typed integer literals,
 one matching scalar specialization constant, nested parentheses, and
-left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, `&`, `^`, and `|`.
+left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, relational/equality,
+bitwise, and `&&`/`^^`/`||` operators. A Boolean condition may feed the
+right-associative integer `condition ? whenTrue : whenFalse` form.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by
 immutable parse results carrying their next index, which fits Abla's ownership
 model without a mutable borrowed cursor. Comments and whitespace cannot change
-the parse, and longest-match operator tokens keep unsupported logical or
-assignment operators from being mistaken for supported bitwise operations.
-Precedence follows GLSL: multiplicative, additive, shift, bitwise AND, XOR, then
-OR. Signed right shift emits arithmetic shift while unsigned right shift emits
-logical shift. Unary `+`, signed symbolic `-`, and integer `~` bind at the
-primary-expression level; negative numeric literals preserve their direct
-constant representation, while unsigned symbolic negation and `++`/`--` are
-rejected. The parser emits a bounded postfix program of fewer than 128 tokens,
-and the Abla emitter deterministically assigns one SSA result per load and
-unary/binary operation. Comparison, Boolean/logical, and function-call
-expressions remain explicit subset failures.
+the parse, and longest-match operator tokens keep assignment operators from
+being mistaken for bitwise operations. Precedence follows GLSL from
+multiplicative through conditional selection. Signed right shift emits
+arithmetic shift while unsigned right shift emits logical shift. Unary `+`,
+signed symbolic `-`, integer `~`, and Boolean `!` bind at the primary-expression
+level; negative numeric literals preserve their direct constant representation,
+while unsigned symbolic negation and `++`/`--` are rejected. The parser emits a
+bounded postfix program of fewer than 128 tokens. The Abla emitter tracks integer
+and Boolean stack types, emits `OpTypeBool`, typed comparison/logical SSA values,
+and `OpSelect`, and requires the final stored value to remain an integer.
+Integer logical operands, Boolean select branches, a non-Boolean condition, raw
+Boolean assignment, and function-call expressions are explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also
 reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without
