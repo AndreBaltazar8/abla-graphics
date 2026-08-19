@@ -1242,6 +1242,22 @@ during ordered teardown. Dynamic output-global hotplug, xdg-output logical
 geometry, fractional scale, and automatic buffer-scale changes remain future
 work.
 
+`enableClipboard()` binds `wl_data_device_manager` version three for the
+active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
+advertises UTF-8 and plain-text MIME types, and retains each affine source until
+the compositor cancels it. `requestClipboard()` chooses UTF-8 preferentially,
+passes a close-on-exec pipe through `wl_data_offer.receive`, reads at most 1 MiB
+with a bounded poll, and enqueues the same copied `windowEventClipboard` value
+used by X11. Empty text remains a successful transfer. The live gate moves a
+26-byte Unicode value between two independent pure-Abla clients through nested
+Weston.
+
+Direct xdg-toplevel controls expose `setFullscreen`, `setMaximized`,
+`setMinimized`, `setResizable`, and `requestClose`. Fullscreen can prefer a
+known bound output or let the compositor choose. Received state values are
+queried with `hasToplevelState`; the live headless gate verifies the complete
+fullscreen configure/ack transition and return to windowed state.
+
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,
 DPI behavior, and graphics surface needs. `Window.pollEvents()` returns bounded

@@ -29,7 +29,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
   symbol/text parsing, deadline-driven keyboard repeat, atomic output snapshots
   and surface enter/leave tracking, compositor-mediated UTF-8 clipboard
-  ownership/offers with bounded descriptor transfers, and ordered teardown
+  ownership/offers with bounded descriptor transfers, xdg fullscreen/maximize/
+  minimize/fixed-size controls, and ordered teardown
   without `libwayland-client` or `libxkbcommon`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;

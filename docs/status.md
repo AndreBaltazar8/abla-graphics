@@ -81,6 +81,14 @@ Updated: 2026-08-19.
   values. The nested Weston gate validates the real `screen0` output at 800x600
   scale one and observes its enter event; teardown uses the versioned output
   release request.
+- Direct Wayland clipboard support binds `wl_data_device_manager` version three,
+  records real input serials, owns bounded UTF-8/plain-text sources, tracks
+  immutable compositor offers, and transfers at most 1 MiB through close-on-exec
+  pipes passed by `SCM_RIGHTS`. A deterministic pipe gate and two independent
+  clients under nested Weston verify the exact 26-byte Unicode selection.
+  xdg-toplevel controls request fullscreen, maximize, minimize, fixed/resizable
+  constraints, and local close; headless Weston verifies fullscreen configure,
+  ack, dimensions, and return to windowed state.
 - The published sibling `AndreBaltazar8/abla-doom` is a playable original
   all-Abla raycasting homage using this framework. Its current smoke gate
   renders and presents through both OpenGL and Vulkan, and its committed
@@ -816,7 +824,7 @@ validity gate unchanged.
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
 - Wayland higher XKB groups/levels, dead-key compose, and input methods,
-  clipboard, dynamic output hotplug, xdg-output logical geometry, fractional
+  dynamic output hotplug, xdg-output logical geometry, fractional
   scaling, and Vulkan/EGL presentation
   integration. The current stable xdg-shell slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,

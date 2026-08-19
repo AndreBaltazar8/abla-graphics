@@ -21,6 +21,10 @@ val waylandMaximumClipboardBytes = 1048576
 val waylandClipboardTransferTimeoutMilliseconds = 5000
 val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
 val waylandClipboardMimeText = "text/plain"
+val waylandToplevelStateMaximized = 1
+val waylandToplevelStateFullscreen = 2
+val waylandToplevelStateResizing = 3
+val waylandToplevelStateActivated = 4
 val waylandNanosecondsPerMillisecond = 1000000
 val waylandNanosecondsPerSecond = 1000000000
 val waylandMaximumInteger = 9223372036854775807
@@ -157,6 +161,16 @@ fun waylandRepeatPollTimeout(
         if (repeatWait < result) result = repeatWait
     }
     result
+}
+
+fun waylandContainsState(states: array<int>, state: int): bool {
+    var found = false
+    var index = 0
+    while (!found && index < states.size) {
+        found = states[index] == state
+        index = index + 1
+    }
+    found
 }
 
 fun waylandU32(value: string, offset: int): int =
@@ -1219,6 +1233,63 @@ resource class WaylandXdgWindow(
         succeeded
     }
 
+    fun hasToplevelState(state: int): bool = waylandContainsState(
+        this.states,
+        state
+    )
+
+    fun setFullscreen(
+        fullscreen: bool,
+        outputIdentifier: int = 0
+    ): bool {
+        val outputKnown = outputIdentifier == 0 ||
+            this.outputIndex(outputIdentifier) >= 0
+        val packet = if (fullscreen && outputKnown)
+            waylandPacket(
+                this.toplevelIdentifier,
+                11,
+                waylandU32Payload(outputIdentifier)
+            )
+        else if (!fullscreen && outputIdentifier == 0)
+            waylandPacket(this.toplevelIdentifier, 12)
+        else ""
+        this.valid() && packet != "" && this.connection.send(packet)
+    }
+
+    fun setMaximized(maximized: bool): bool = this.valid() &&
+        this.connection.send(waylandPacket(
+            this.toplevelIdentifier,
+            if (maximized) 9 else 10
+        ))
+
+    fun setMinimized(): bool = this.valid() && this.connection.send(
+        waylandPacket(this.toplevelIdentifier, 13)
+    )
+
+    fun setResizable(resizable: bool): bool {
+        val width = if (resizable) 0 else this.width
+        val height = if (resizable) 0 else this.height
+        var succeeded = this.valid() && width >= 0 && height >= 0 &&
+            this.connection.send(waylandPacket(
+                this.toplevelIdentifier,
+                7,
+                waylandU32PairPayload(width, height)
+            )) && this.connection.send(waylandPacket(
+                this.toplevelIdentifier,
+                8,
+                waylandU32PairPayload(width, height)
+            ))
+        if (succeeded) succeeded = this.commit()
+        succeeded
+    }
+
+    fun requestClose(): bool {
+        val succeeded = this.valid() && !this.closeRequested &&
+            this.enqueueInputEvent(WindowEvent(windowEventCloseRequested))
+        if (succeeded) this.closeRequested = true
+        succeeded
+    }
+
     trusted fun ensureWireStorage(receiveDescriptors: bool = false): bool {
         if (receiveDescriptors && (this.ancillaryScratch.closed ||
             this.ancillaryScratch.capacity < 96)) {
@@ -1299,6 +1370,44 @@ resource class WaylandXdgWindow(
         if (!succeeded && this.receivedDescriptor >= 0) {
             linuxSyscall1(3, this.receivedDescriptor)
             this.receivedDescriptor = -1
+        }
+        succeeded
+    }
+
+    trusted fun pollProtocol(timeoutMilliseconds: int = 0): bool {
+        var succeeded = this.connection.valid() &&
+            timeoutMilliseconds >= 0 &&
+            timeoutMilliseconds <= waylandMaximumRepeatDelayMilliseconds &&
+            this.ensureWireStorage(this.seatIdentifier >= 2)
+        if (succeeded) {
+            waylandStoreU32(
+                this.wireScratch,
+                0,
+                this.connection.descriptor
+            )
+            this.wireScratch.store(4, 1)
+            this.wireScratch.store(5, 0)
+            this.wireScratch.store(6, 0)
+            this.wireScratch.store(7, 0)
+            var measured = linuxSyscall3(
+                7,
+                nativePointerAddress(this.wireScratch.address),
+                1,
+                timeoutMilliseconds
+            )
+            while (measured == -4) {
+                measured = linuxSyscall3(
+                    7,
+                    nativePointerAddress(this.wireScratch.address),
+                    1,
+                    timeoutMilliseconds
+                )
+            }
+            succeeded = measured >= 0
+            if (succeeded && measured > 0) {
+                succeeded = (this.wireScratch.load(6) & 25) != 0 &&
+                    this.dispatchNative()
+            }
         }
         succeeded
     }

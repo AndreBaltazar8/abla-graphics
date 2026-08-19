@@ -1,4 +1,5 @@
 import "../src/platform/wayland.ab"
+import "abla/io"
 
 fun main: int {
     val window = waylandXdgWindow(
@@ -7,12 +8,46 @@ fun main: int {
         320,
         200
     )
-    if (window.valid() && window.configured &&
+    var succeeded = window.valid() && window.configured &&
+        window.createSharedBuffers(320, 200, 2) &&
+        window.clearSharedPixels(32, 48, 72) &&
+        window.presentSharedPixels() && window.waitFrame()
+    val firstSerial = window.lastConfigureSerial
+    if (succeeded) succeeded = window.setFullscreen(true)
+    var attempts = 0
+    while (succeeded && attempts < 100 &&
+        !(window.lastConfigureSerial != firstSerial &&
+          window.hasToplevelState(waylandToplevelStateFullscreen))) {
+        succeeded = window.pollProtocol(50)
+        attempts = attempts + 1
+    }
+    val fullscreenSerial = window.lastConfigureSerial
+    succeeded = succeeded &&
+        window.hasToplevelState(waylandToplevelStateFullscreen) &&
+        window.width == 1024 && window.height == 768 &&
+        window.commit() &&
+        window.setFullscreen(false)
+    attempts = 0
+    while (succeeded && attempts < 100 &&
+        !(window.lastConfigureSerial != fullscreenSerial &&
+          !window.hasToplevelState(waylandToplevelStateFullscreen))) {
+        succeeded = window.pollProtocol(50)
+        attempts = attempts + 1
+    }
+    succeeded = succeeded &&
+        !window.hasToplevelState(waylandToplevelStateFullscreen) &&
+        window.setResizable(false) && window.setResizable(true) &&
+        window.requestClose() &&
+        window.nextInputEvent().kind == windowEventCloseRequested
+    println(
+        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
+    )
+    if (succeeded &&
         window.width > 0 && window.height > 0 &&
         window.title == "Abla Graphics Wayland test" &&
         window.appId == "io.abla.graphics.test" &&
         window.compositorIdentifier != window.wmBaseIdentifier &&
         window.surfaceIdentifier != window.xdgSurfaceIdentifier &&
         window.xdgSurfaceIdentifier != window.toplevelIdentifier &&
-        !window.closeRequested) 42 else 1
+        window.closeRequested) 42 else 1
 }
