@@ -1188,6 +1188,27 @@ scratch storage are released during window teardown. A separate live gate uses
 Weston's Pixman renderer and captures a deterministic 1024x768 compositor PNG
 in `build/tests/wayland_pixels.png` for visual inspection.
 
+`enableInput()` binds `wl_seat` version seven, waits for its complete
+capability mask, and creates `wl_pointer` and `wl_keyboard` objects only when
+advertised. Capability removal sends the versioned release request and clears
+focus state; later re-addition creates fresh protocol objects.
+`pollInputEvent(timeoutMilliseconds = 0)` returns the same copied
+`WindowEvent` values used by X11. It currently provides keyboard focus,
+portable physical key press/release with the raw evdev code in `platformCode`,
+pointer position, five portable buttons, and horizontal/vertical scrolling.
+`seatName`, `seatCapabilities`, `pointerFocused`, `keyboardFocused`,
+`pointerX`, `pointerY`, modifier masks, and repeat rate/delay retain the latest
+protocol state.
+
+Keyboard keymaps are not discarded: the direct stream receiver captures
+close-on-exec ancillary descriptors with Linux `recvmsg`, preserves the
+descriptor across any earlier messages from the same compositor batch, maps
+the version-seven keymap privately, validates its terminating NUL, copies up
+to 16 MiB into `keymap`, unmaps, and closes the descriptor. `keyboardMapped()`
+reports an owned XKB v1 keymap. Layout-aware symbols, UTF-8 text, dead keys,
+compose, and repeat synthesis await the pure-Abla XKB parser; no
+`libxkbcommon` code participates.
+
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,
 DPI behavior, and graphics surface needs. `Window.pollEvents()` returns bounded

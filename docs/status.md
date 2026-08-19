@@ -56,6 +56,16 @@ Updated: 2026-08-19.
   `build/tests/wayland_pixels.png`.
   Ping/pong, buffer release, surface enter/leave, and close-intent dispatch are
   strict; the whole path uses no libwayland, GLFW, or SDL.
+- Direct Wayland input binds `wl_seat` version seven and follows pointer and
+  keyboard capability hot-plug with fresh protocol objects and versioned
+  releases. A Linux `recvmsg` ancillary queue correctly preserves a keymap FD
+  that arrives on an earlier batched stream read; the XKB v1 map is privately
+  mapped, validated, copied into Abla ownership, unmapped, and closed. The
+  portable event queue covers focus, evdev-to-Abla physical keys, repeat and
+  modifier state, fixed-point pointer motion, five Linux buttons, and both
+  scroll axes. A nested Weston/Xvfb gate receives a real 65,553-byte keymap,
+  focus, pointer motion, and W press/release; exact BTN_LEFT wire packets prove
+  button press/release decoding. There is no libxkbcommon dependency.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
@@ -786,11 +796,12 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland input, clipboard, output, fractional scaling, and Vulkan/EGL
-  presentation integration. The current stable xdg-shell slice has reusable
+- Wayland pure-Abla XKB layout/symbol/text/compose and repeat synthesis,
+  clipboard, output, fractional scaling, and Vulkan/EGL presentation
+  integration. The current stable xdg-shell slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,
-  allocation-stable hot-path wire I/O, and continuous callback-driven frames.
-  Windows and macOS platform modules.
+  allocation-stable hot-path wire I/O, continuous callback-driven frames, and
+  raw portable keyboard/pointer events. Windows and macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional

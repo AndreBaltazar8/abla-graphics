@@ -36,6 +36,8 @@ cd "$compiler_root"
     -o "$output_directory/wayland_pixels" --no-cache
 "$compiler" build "$project_root/tests/wayland_animation.ab" \
     -o "$output_directory/wayland_animation" --no-cache
+"$compiler" build "$project_root/tests/wayland_input.ab" \
+    -o "$output_directory/wayland_input" --no-cache
 
 set +e
 "$output_directory/wayland_protocol"
@@ -45,6 +47,9 @@ if [[ $status -ne 42 ]]; then
     printf 'Wayland protocol test returned %s, expected 42\n' "$status" >&2
     exit 1
 fi
+
+xvfb-run -a -s "-screen 0 1024x768x24" \
+    "$project_root/tools/test-wayland-input.sh"
 
 XDG_RUNTIME_DIR="$runtime_directory" weston \
     --backend=headless-backend.so \

@@ -25,8 +25,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   stable xdg-shell toplevel from `wl_surface` creation through configure/ack,
   title/application ID, ping/pong, close intent, Linux `SCM_RIGHTS` descriptor
   transfer, affine `memfd`-backed XRGB shared pixels, reusable triple
-  buffering, allocation-stable frame callbacks, and ordered teardown without
-  `libwayland-client`;
+  buffering, allocation-stable frame callbacks, capability-driven seat,
+  pointer and keyboard objects, ancillary XKB keymap receipt, and ordered
+  teardown without `libwayland-client` or `libxkbcommon`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,
@@ -185,6 +186,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   attach, damage, commit, and frame completion;
 - `examples/wayland-animation`: allocation-stable triple-buffered XRGB
   animation paced by compositor frame callbacks;
+- `examples/wayland-input`: direct seat capability, pointer, keyboard, and
+  keymap report using the portable window-event vocabulary;
 - `examples/vulkan-info`: loader and physical-adapter report;
 - `examples/vulkan-surface`: X11 WSI adapter/capability selection;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and

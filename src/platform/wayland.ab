@@ -7,10 +7,112 @@ import "abla/sys/linux"
 import "abla/sys/linux/fs"
 import "abla/sys/linux/process"
 import "abla/unsafe/memory"
+import "../window.ab"
 
 val waylandDisplayIdentifier = 1
 val waylandMaximumMessageBytes = 65532
 val waylandMaximumGlobals = 4096
+val waylandSeatCapabilityPointer = 1
+val waylandSeatCapabilityKeyboard = 2
+
+fun waylandKeyFromEvdev(code: int): int {
+    var key = keyUnknown
+    if (code >= 2 && code <= 10) key = key1 + code - 2
+    else if (code == 11) key = key0
+    else if (code == 16) key = keyQ
+    else if (code == 17) key = keyW
+    else if (code == 18) key = keyE
+    else if (code == 19) key = keyR
+    else if (code == 20) key = keyT
+    else if (code == 21) key = keyY
+    else if (code == 22) key = keyU
+    else if (code == 23) key = keyI
+    else if (code == 24) key = keyO
+    else if (code == 25) key = keyP
+    else if (code == 30) key = keyA
+    else if (code == 31) key = keyS
+    else if (code == 32) key = keyD
+    else if (code == 33) key = keyF
+    else if (code == 34) key = keyG
+    else if (code == 35) key = keyH
+    else if (code == 36) key = keyJ
+    else if (code == 37) key = keyK
+    else if (code == 38) key = keyL
+    else if (code == 44) key = keyZ
+    else if (code == 45) key = keyX
+    else if (code == 46) key = keyC
+    else if (code == 47) key = keyV
+    else if (code == 48) key = keyB
+    else if (code == 49) key = keyN
+    else if (code == 50) key = keyM
+    else if (code >= 59 && code <= 68) key = keyF1 + code - 59
+    else if (code == 87) key = keyF11
+    else if (code == 88) key = keyF12
+    else if (code == 1) key = keyEscape
+    else if (code == 12) key = keyMinus
+    else if (code == 13) key = keyEqual
+    else if (code == 14) key = keyBackspace
+    else if (code == 15) key = keyTab
+    else if (code == 26) key = keyLeftBracket
+    else if (code == 27) key = keyRightBracket
+    else if (code == 28) key = keyEnter
+    else if (code == 29) key = keyLeftControl
+    else if (code == 39) key = keySemicolon
+    else if (code == 40) key = keyApostrophe
+    else if (code == 41) key = keyGraveAccent
+    else if (code == 42) key = keyLeftShift
+    else if (code == 43) key = keyBackslash
+    else if (code == 51) key = keyComma
+    else if (code == 52) key = keyPeriod
+    else if (code == 53) key = keySlash
+    else if (code == 54) key = keyRightShift
+    else if (code == 55) key = keyKpMultiply
+    else if (code == 56) key = keyLeftAlt
+    else if (code == 57) key = keySpace
+    else if (code == 58) key = keyCapsLock
+    else if (code == 69) key = keyNumLock
+    else if (code == 70) key = keyScrollLock
+    else if (code >= 71 && code <= 73) key = keyKp7 + code - 71
+    else if (code == 74) key = keyKpSubtract
+    else if (code >= 75 && code <= 77) key = keyKp4 + code - 75
+    else if (code == 78) key = keyKpAdd
+    else if (code >= 79 && code <= 81) key = keyKp1 + code - 79
+    else if (code == 82) key = keyKp0
+    else if (code == 83) key = keyKpDecimal
+    else if (code == 96) key = keyKpEnter
+    else if (code == 97) key = keyRightControl
+    else if (code == 98) key = keyKpDivide
+    else if (code == 100) key = keyRightAlt
+    else if (code == 102) key = keyHome
+    else if (code == 103) key = keyUp
+    else if (code == 104) key = keyPageUp
+    else if (code == 105) key = keyLeft
+    else if (code == 106) key = keyRight
+    else if (code == 107) key = keyEnd
+    else if (code == 108) key = keyDown
+    else if (code == 109) key = keyPageDown
+    else if (code == 110) key = keyInsert
+    else if (code == 111) key = keyDelete
+    else if (code == 125) key = keyLeftSuper
+    else if (code == 126) key = keyRightSuper
+    else if (code == 127) key = keyMenu
+    key
+}
+
+fun waylandPointerButton(code: int): int {
+    var button = pointerButtonUnknown
+    if (code == 272) button = pointerButtonLeft
+    else if (code == 273) button = pointerButtonRight
+    else if (code == 274) button = pointerButtonMiddle
+    else if (code == 275) button = pointerButtonBack
+    else if (code == 276) button = pointerButtonForward
+    button
+}
+
+fun waylandSignedU32(value: int): int =
+    if (value >= 2147483648) value - 4294967296 else value
+
+fun waylandFixedInteger(value: int): int = waylandSignedU32(value) / 256
 
 fun waylandU32(value: string, offset: int): int =
     value[offset] + value[offset + 1] * 256 +
@@ -698,6 +800,29 @@ resource class WaylandXdgWindow(
     var lastConfigureSerial: int,
     var title: string,
     var appId: string,
+    var seatIdentifier: int,
+    var seatVersion: int,
+    var seatCapabilities: int,
+    var seatCapabilitiesReceived: bool,
+    var seatName: string,
+    var pointerIdentifier: int,
+    var keyboardIdentifier: int,
+    var pointerFocused: bool,
+    var keyboardFocused: bool,
+    var pointerX: int,
+    var pointerY: int,
+    var keymapFormat: int,
+    var keymap: string,
+    var repeatRate: int,
+    var repeatDelay: int,
+    var modifiersDepressed: int,
+    var modifiersLatched: int,
+    var modifiersLocked: int,
+    var modifierGroup: int,
+    var ancillaryScratch: NativeByteBuffer,
+    var receivedDescriptor: int,
+    var pendingInputEvents: array<WindowEvent>,
+    var pendingInputIndex: int,
     var shmIdentifier: int,
     var bufferIdentifiers: array<int>,
     var bufferBusy: array<bool>,
@@ -738,6 +863,507 @@ resource class WaylandXdgWindow(
         ))
         if (succeeded) this.appId = value
         succeeded
+    }
+
+    trusted fun ensureWireStorage(receiveDescriptors: bool = false): bool {
+        if (receiveDescriptors && (this.ancillaryScratch.closed ||
+            this.ancillaryScratch.capacity < 96)) {
+            this.ancillaryScratch = nativeByteBuffer(96)
+        }
+        !this.wireScratch.closed &&
+            this.wireScratch.capacity >= waylandMaximumMessageBytes &&
+            (!receiveDescriptors || (!this.ancillaryScratch.closed &&
+                this.ancillaryScratch.capacity >= 96))
+    }
+
+    trusted fun receiveNativeHeader(): bool {
+        var succeeded = this.ensureWireStorage(this.seatIdentifier >= 2)
+        if (succeeded && this.seatIdentifier < 2) succeeded =
+            waylandNativeReadExact(
+                this.connection.descriptor,
+                this.wireScratch,
+                0,
+                8
+            )
+        var receivedTotal = 0
+        while (succeeded && this.seatIdentifier >= 2 &&
+            receivedTotal < 8) {
+            val workspaceAddress = nativePointerAddress(
+                this.ancillaryScratch.address
+            )
+            val wireAddress = nativePointerAddress(this.wireScratch.address)
+            this.ancillaryScratch.storeI64(
+                0,
+                wireAddress + receivedTotal
+            )
+            this.ancillaryScratch.storeI64(8, 8 - receivedTotal)
+            this.ancillaryScratch.storeI64(16, 0)
+            this.ancillaryScratch.storeI64(24, 0)
+            this.ancillaryScratch.storeI64(32, 0)
+            this.ancillaryScratch.storeI64(40, 0)
+            this.ancillaryScratch.storeI64(48, 0)
+            this.ancillaryScratch.storeI64(56, workspaceAddress)
+            this.ancillaryScratch.storeI64(64, 1)
+            this.ancillaryScratch.storeI64(72, workspaceAddress + 16)
+            this.ancillaryScratch.storeI64(80, 24)
+            this.ancillaryScratch.storeI64(88, 0)
+            var received = linuxSyscall3(
+                47,
+                this.connection.descriptor,
+                workspaceAddress + 40,
+                1073741824
+            )
+            while (received == -4) {
+                received = linuxSyscall3(
+                    47,
+                    this.connection.descriptor,
+                    workspaceAddress + 40,
+                    1073741824
+                )
+            }
+            succeeded = received > 0 && received <= 8 - receivedTotal
+            if (succeeded) {
+                val controlLength = this.ancillaryScratch.loadI64(80)
+                val flags = this.ancillaryScratch.loadI64(88) & 4294967295
+                if (controlLength > 0) {
+                    val descriptor =
+                        this.ancillaryScratch.loadI64(32) & 4294967295
+                    succeeded = this.receivedDescriptor < 0 &&
+                        controlLength >= 20 && controlLength <= 24 &&
+                        this.ancillaryScratch.loadI64(16) == 20 &&
+                        this.ancillaryScratch.loadI64(24) == 4294967297 &&
+                        (flags & 8) == 0 && descriptor >= 0 &&
+                        descriptor <= 2147483647
+                    if (succeeded) this.receivedDescriptor = descriptor
+                    else if (descriptor <= 2147483647) {
+                        linuxSyscall1(3, descriptor)
+                    }
+                }
+            }
+            if (succeeded) receivedTotal = receivedTotal + received
+        }
+        if (!succeeded && this.receivedDescriptor >= 0) {
+            linuxSyscall1(3, this.receivedDescriptor)
+            this.receivedDescriptor = -1
+        }
+        succeeded
+    }
+
+    fun updateSeatCapabilities(capabilities: int): bool {
+        var succeeded = this.connection.valid() &&
+            this.seatIdentifier >= 2 && capabilities >= 0 &&
+            capabilities <= 7
+        if (succeeded && this.pointerIdentifier >= 2 &&
+            (capabilities & waylandSeatCapabilityPointer) == 0) {
+            succeeded = this.connection.send(
+                waylandPacket(this.pointerIdentifier, 1)
+            )
+            if (succeeded) {
+                this.pointerIdentifier = 0
+                this.pointerFocused = false
+            }
+        }
+        if (succeeded && this.keyboardIdentifier >= 2 &&
+            (capabilities & waylandSeatCapabilityKeyboard) == 0) {
+            succeeded = this.connection.send(
+                waylandPacket(this.keyboardIdentifier, 0)
+            )
+            if (succeeded) {
+                this.keyboardIdentifier = 0
+                this.keyboardFocused = false
+            }
+        }
+        if (succeeded && this.pointerIdentifier == 0 &&
+            (capabilities & waylandSeatCapabilityPointer) != 0) {
+            val identifier = this.connection.allocateIdentifier()
+            succeeded = identifier >= 2 && this.connection.send(
+                waylandNewIdentifierRequest(
+                    this.seatIdentifier,
+                    0,
+                    identifier
+                )
+            )
+            if (succeeded) this.pointerIdentifier = identifier
+        }
+        if (succeeded && this.keyboardIdentifier == 0 &&
+            (capabilities & waylandSeatCapabilityKeyboard) != 0) {
+            val identifier = this.connection.allocateIdentifier()
+            succeeded = identifier >= 2 && this.connection.send(
+                waylandNewIdentifierRequest(
+                    this.seatIdentifier,
+                    1,
+                    identifier
+                )
+            )
+            if (succeeded) this.keyboardIdentifier = identifier
+        }
+        if (succeeded) {
+            this.seatCapabilities = capabilities
+            this.seatCapabilitiesReceived = true
+        }
+        succeeded
+    }
+
+    trusted fun enableInput(): bool {
+        var succeeded = this.valid() && this.seatIdentifier == 0 &&
+            this.ensureWireStorage(true)
+        val seat = if (succeeded)
+            this.connection.bind("wl_seat", 7)
+        else WaylandBinding()
+        succeeded = succeeded && seat.valid
+        if (succeeded) {
+            this.seatIdentifier = seat.identifier
+            this.seatVersion = seat.version
+        }
+        var messages = 0
+        while (succeeded && !this.seatCapabilitiesReceived &&
+            messages < 16384) {
+            succeeded = this.dispatchNative()
+            messages = messages + 1
+        }
+        succeeded && this.seatCapabilitiesReceived
+    }
+
+    fun enqueueInputEvent(event: WindowEvent): bool {
+        var succeeded = event.happened() &&
+            this.pendingInputEvents.size - this.pendingInputIndex < 4096
+        if (succeeded) this.pendingInputEvents.append(event)
+        succeeded
+    }
+
+    fun nextInputEvent(): WindowEvent {
+        var result = windowEventEmpty
+        if (this.pendingInputIndex < this.pendingInputEvents.size) {
+            result = this.pendingInputEvents[this.pendingInputIndex]
+            this.pendingInputIndex = this.pendingInputIndex + 1
+            if (this.pendingInputIndex == this.pendingInputEvents.size) {
+                this.pendingInputEvents = []
+                this.pendingInputIndex = 0
+            }
+        }
+        result
+    }
+
+    trusted fun pollInputEvent(
+        timeoutMilliseconds: int = 0
+    ): WindowEvent {
+        var result = this.nextInputEvent()
+        if (!result.happened() && this.connection.valid() &&
+            this.seatIdentifier >= 2 && timeoutMilliseconds >= 0 &&
+            timeoutMilliseconds <= 600000 &&
+            this.ensureWireStorage(true)) {
+            waylandStoreU32(
+                this.wireScratch,
+                0,
+                this.connection.descriptor
+            )
+            this.wireScratch.store(4, 1)
+            this.wireScratch.store(5, 0)
+            this.wireScratch.store(6, 0)
+            this.wireScratch.store(7, 0)
+            val measured = linuxSyscall3(
+                7,
+                nativePointerAddress(this.wireScratch.address),
+                1,
+                timeoutMilliseconds
+            )
+            if (measured > 0 && this.wireScratch.load(6) != 0) {
+                this.dispatchNative()
+                result = this.nextInputEvent()
+            }
+        }
+        result
+    }
+
+    fun keyboardMapped(): bool = this.keymapFormat == 1 &&
+        this.keymap != ""
+
+    trusted fun receiveKeyboardKeymap(format: int, size: int): bool {
+        val descriptor = this.receivedDescriptor
+        var succeeded = descriptor >= 0 &&
+            (format == 0 || format == 1) && size >= 0 &&
+            size <= 16777216
+        var address = 0
+        var parsed = ""
+        if (succeeded && format == 1) {
+            succeeded = size >= 1
+            if (succeeded) {
+                address = linuxSyscall6(9, 0, size, 1, 2, descriptor, 0)
+                succeeded = address > 0 && ablaUnsafeLoadU8(
+                    nativePointerFromAddress(address + size - 1)
+                ) == 0
+            }
+            if (succeeded) {
+                val keymap = nativeByteBuffer(size)
+                var index = 0
+                while (succeeded && index + 1 < size) {
+                    val value = ablaUnsafeLoadU8(
+                        nativePointerFromAddress(address + index)
+                    )
+                    succeeded = value != 0 && keymap.store(index, value)
+                    index = index + 1
+                }
+                if (succeeded) parsed = keymap.adoptString(size - 1)
+            }
+        }
+        if (address > 0) linuxSyscall2(11, address, size)
+        if (descriptor >= 0) linuxSyscall1(3, descriptor)
+        this.receivedDescriptor = -1
+        if (succeeded) {
+            this.keymapFormat = format
+            this.keymap = parsed
+        }
+        succeeded
+    }
+
+    fun dispatchSeatInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.seatIdentifier &&
+            message.opcode == 0) {
+            result = if (message.payload.size == 4 &&
+                this.updateSeatCapabilities(
+                    waylandU32(message.payload, 0)
+                )) 1 else -1
+        } else if (message.objectIdentifier == this.seatIdentifier &&
+            message.opcode == 1) {
+            val name = waylandString(message.payload, 0)
+            if (name.valid && name.next == message.payload.size) {
+                this.seatName = name.text
+                result = 1
+            } else result = -1
+        }
+        result
+    }
+
+    fun dispatchPointerFocusInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 0) {
+            result = if (message.payload.size == 16) 1 else -1
+            if (result > 0) {
+                this.pointerFocused =
+                    waylandU32(message.payload, 4) == this.surfaceIdentifier
+                this.pointerX = waylandFixedInteger(
+                    waylandU32(message.payload, 8)
+                )
+                this.pointerY = waylandFixedInteger(
+                    waylandU32(message.payload, 12)
+                )
+                if (this.pointerFocused && !this.enqueueInputEvent(
+                    WindowEvent(
+                        windowEventPointerMoved,
+                        this.pointerX,
+                        this.pointerY
+                    )
+                )) result = -1
+            }
+        } else if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 1) {
+            result = if (message.payload.size == 8) 1 else -1
+            if (result > 0) this.pointerFocused = false
+        } else if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 2) {
+            result = if (message.payload.size == 12) 1 else -1
+            if (result > 0) {
+                this.pointerX = waylandFixedInteger(
+                    waylandU32(message.payload, 4)
+                )
+                this.pointerY = waylandFixedInteger(
+                    waylandU32(message.payload, 8)
+                )
+                if (!this.enqueueInputEvent(WindowEvent(
+                    windowEventPointerMoved,
+                    this.pointerX,
+                    this.pointerY
+                ))) result = -1
+            }
+        }
+        result
+    }
+
+    fun dispatchPointerButtonInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 3) {
+            result = if (message.payload.size == 16 &&
+                waylandU32(message.payload, 12) <= 1) 1 else -1
+            if (result > 0) {
+                val platformCode = waylandU32(message.payload, 8)
+                if (!this.enqueueInputEvent(WindowEvent(
+                    windowEventPointerButton,
+                    waylandPointerButton(platformCode),
+                    waylandU32(message.payload, 12),
+                    "",
+                    platformCode
+                ))) result = -1
+            }
+        }
+        result
+    }
+
+    fun dispatchPointerScrollInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 4) {
+            var axis = -1
+            var value = 0
+            if (message.payload.size == 12) {
+                axis = waylandU32(message.payload, 4)
+                value = waylandSignedU32(waylandU32(message.payload, 8))
+            }
+            result = if ((axis == 0 || axis == 1) && value != 0) 1 else -1
+            if (result > 0) {
+                val amount = if (value < 0) 1 else -1
+                val horizontal = if (axis == 1) amount else 0
+                val vertical = if (axis == 0) amount else 0
+                if (!this.enqueueInputEvent(WindowEvent(
+                    windowEventScrolled,
+                    horizontal,
+                    vertical,
+                    "",
+                    axis
+                ))) result = -1
+            }
+        }
+        result
+    }
+
+    fun dispatchPointerAxisInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 5) {
+            result = if (message.payload.size == 0) 1 else -1
+        } else if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 6) {
+            result = if (message.payload.size == 4 &&
+                waylandU32(message.payload, 0) <= 3) 1 else -1
+        } else if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 7) {
+            result = if (message.payload.size == 8 &&
+                waylandU32(message.payload, 4) <= 1) 1 else -1
+        } else if (message.objectIdentifier == this.pointerIdentifier &&
+            message.opcode == 8) {
+            result = if (message.payload.size == 8 &&
+                waylandU32(message.payload, 0) <= 1) 1 else -1
+        }
+        result
+    }
+
+    fun dispatchPointerInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.opcode >= 0 && message.opcode <= 2) {
+            result = this.dispatchPointerFocusInput(message)
+        } else if (message.opcode == 3) {
+            result = this.dispatchPointerButtonInput(message)
+        } else if (message.opcode == 4) {
+            result = this.dispatchPointerScrollInput(message)
+        } else if (message.opcode >= 5 && message.opcode <= 8) {
+            result = this.dispatchPointerAxisInput(message)
+        }
+        result
+    }
+
+    fun dispatchKeyboardInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.keyboardIdentifier &&
+            message.opcode == 0) {
+            result = -1
+        } else if (message.objectIdentifier == this.keyboardIdentifier &&
+            message.opcode == 1) {
+            var valid = message.payload.size >= 12
+            val surface = if (valid) waylandU32(message.payload, 4) else 0
+            val keysLength = if (valid)
+                waylandU32(message.payload, 8)
+            else 0
+            val padded = if (keysLength >= 0)
+                waylandAligned(keysLength)
+            else 0
+            valid = valid && keysLength >= 0 &&
+                (keysLength / 4) * 4 == keysLength &&
+                12 + padded == message.payload.size
+            if (valid) {
+                this.keyboardFocused = surface == this.surfaceIdentifier
+                valid = this.enqueueInputEvent(WindowEvent(
+                    windowEventFocused,
+                    if (this.keyboardFocused) 1 else 0
+                ))
+            }
+            var offset = 0
+            while (valid && this.keyboardFocused && offset < keysLength) {
+                val platformCode = waylandU32(
+                    message.payload,
+                    12 + offset
+                )
+                valid = this.enqueueInputEvent(WindowEvent(
+                    windowEventKey,
+                    waylandKeyFromEvdev(platformCode),
+                    1,
+                    "",
+                    platformCode
+                ))
+                offset = offset + 4
+            }
+            result = if (valid) 1 else -1
+        } else if (message.objectIdentifier == this.keyboardIdentifier &&
+            message.opcode == 2) {
+            result = if (message.payload.size == 8) 1 else -1
+            if (result > 0) {
+                this.keyboardFocused = false
+                if (!this.enqueueInputEvent(WindowEvent(
+                    windowEventFocused,
+                    0
+                ))) result = -1
+            }
+        } else if (message.objectIdentifier == this.keyboardIdentifier &&
+            message.opcode == 3) {
+            result = if (message.payload.size == 16 &&
+                waylandU32(message.payload, 12) <= 1) 1 else -1
+            if (result > 0) {
+                val platformCode = waylandU32(message.payload, 8)
+                if (!this.enqueueInputEvent(WindowEvent(
+                    windowEventKey,
+                    waylandKeyFromEvdev(platformCode),
+                    waylandU32(message.payload, 12),
+                    "",
+                    platformCode
+                ))) result = -1
+            }
+        } else if (message.objectIdentifier == this.keyboardIdentifier &&
+            message.opcode == 4) {
+            result = if (message.payload.size == 20) 1 else -1
+            if (result > 0) {
+                this.modifiersDepressed = waylandU32(message.payload, 4)
+                this.modifiersLatched = waylandU32(message.payload, 8)
+                this.modifiersLocked = waylandU32(message.payload, 12)
+                this.modifierGroup = waylandU32(message.payload, 16)
+            }
+        } else if (message.objectIdentifier == this.keyboardIdentifier &&
+            message.opcode == 5) {
+            val rate = if (message.payload.size == 8)
+                waylandSignedU32(waylandU32(message.payload, 0))
+            else -1
+            val delay = if (message.payload.size == 8)
+                waylandSignedU32(waylandU32(message.payload, 4))
+            else -1
+            result = if (rate >= 0 && delay >= 0) 1 else -1
+            if (result > 0) {
+                this.repeatRate = rate
+                this.repeatDelay = delay
+            }
+        }
+        result
+    }
+
+    fun dispatchInput(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.seatIdentifier) {
+            result = this.dispatchSeatInput(message)
+        } else if (message.objectIdentifier == this.pointerIdentifier) {
+            result = this.dispatchPointerInput(message)
+        } else if (message.objectIdentifier == this.keyboardIdentifier) {
+            result = this.dispatchKeyboardInput(message)
+        }
+        result
     }
 
     fun sharedBufferCount(): int = this.bufferIdentifiers.size
@@ -1105,14 +1731,7 @@ resource class WaylandXdgWindow(
 
     trusted fun dispatchNative(): bool {
         var succeeded = this.connection.valid() &&
-            !this.wireScratch.closed &&
-            this.wireScratch.capacity >= waylandMaximumMessageBytes &&
-            waylandNativeReadExact(
-                this.connection.descriptor,
-                this.wireScratch,
-                0,
-                8
-            )
+            this.receiveNativeHeader()
         val objectIdentifier = if (succeeded)
             waylandNativeU32(this.wireScratch, 0)
         else 0
@@ -1134,7 +1753,14 @@ resource class WaylandXdgWindow(
             this.sharedBufferIndex(objectIdentifier)
         else -1
         var handled = false
-        if (succeeded && objectIdentifier == waylandDisplayIdentifier &&
+        if (succeeded && objectIdentifier == this.keyboardIdentifier &&
+            opcode == 0 && length == 16) {
+            succeeded = this.receiveKeyboardKeymap(
+                waylandNativeU32(this.wireScratch, 8),
+                waylandNativeU32(this.wireScratch, 12)
+            )
+            handled = succeeded
+        } else if (succeeded && objectIdentifier == waylandDisplayIdentifier &&
             opcode == 1 && length == 12) {
             handled = true
         } else if (succeeded && bufferIndex >= 0 && opcode == 0 &&
@@ -1180,7 +1806,7 @@ resource class WaylandXdgWindow(
             )
         }
         if (!succeeded && !this.connection.failed) this.connection.fail(
-            "Malformed native Wayland event"
+            "Malformed native Wayland event object=$objectIdentifier opcode=$opcode length=$length descriptor=${this.receivedDescriptor}"
         )
         succeeded
     }
@@ -1193,7 +1819,12 @@ resource class WaylandXdgWindow(
         val bufferIndex = if (succeeded)
             this.sharedBufferIndex(message.objectIdentifier)
         else -1
+        val input = if (succeeded && core == 0)
+            this.dispatchInput(message)
+        else 0
         if (core < 0) succeeded = false
+        else if (input < 0) succeeded = false
+        else if (input > 0) succeeded = true
         else if (core == 0 && message.objectIdentifier ==
             this.wmBaseIdentifier && message.opcode == 0) {
             succeeded = message.payload.size == 4 && this.connection.send(
@@ -1279,6 +1910,20 @@ resource class WaylandXdgWindow(
 
     fun drop(): void {
         if (this.connection.descriptor >= 0) {
+            if (this.keyboardIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.keyboardIdentifier, 0)
+            )
+            if (this.pointerIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.pointerIdentifier, 1)
+            )
+            if (this.seatIdentifier >= 2 && this.seatVersion >= 5) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.seatIdentifier, 3)
+                )
+            }
             var bufferIndex = 0
             while (bufferIndex < this.bufferIdentifiers.size) {
                 if (this.bufferIdentifiers[bufferIndex] >= 2) {
@@ -1315,6 +1960,11 @@ resource class WaylandXdgWindow(
             this.mappedAddress = 0
             this.mappedLength = 0
         } else this.mappedBytes.close()
+        if (this.receivedDescriptor >= 0) {
+            linuxSyscall1(3, this.receivedDescriptor)
+            this.receivedDescriptor = -1
+        }
+        this.ancillaryScratch.close()
         this.wireScratch.close()
         this.connection.drop()
         return
@@ -1373,6 +2023,29 @@ fun waylandXdgWindow(
         0,
         "",
         "",
+        0,
+        0,
+        0,
+        false,
+        "",
+        0,
+        0,
+        false,
+        false,
+        0,
+        0,
+        0,
+        "",
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        nativeByteBuffer(waylandMaximumMessageBytes),
+        -1,
+        [],
+        0,
         0,
         [],
         [],

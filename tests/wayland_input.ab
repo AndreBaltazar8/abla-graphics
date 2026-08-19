@@ -1,0 +1,81 @@
+import "../src/platform/wayland.ab"
+import "abla/io"
+
+trusted fun main: int {
+    val window = waylandXdgWindow(
+        "Abla Graphics input test",
+        "io.abla.graphics.input-test",
+        600,
+        400
+    )
+    var succeeded = window.valid() &&
+        window.createSharedBuffers(600, 400, 2) &&
+        window.clearSharedPixels(14, 22, 40) &&
+        window.fillSharedRect(100, 100, 400, 200, 44, 202, 224) &&
+        window.presentSharedPixels() && window.waitFrame() &&
+        window.enableInput()
+    var sawFocus = false
+    var sawMotion = false
+    var sawButtonPress = false
+    var sawButtonRelease = false
+    var lastButtonCode = 0
+    var sawWPress = false
+    var sawWRelease = false
+    var attempts = 0
+    while (succeeded && attempts < 100 &&
+        !(window.keyboardMapped() && sawFocus && sawMotion &&
+          sawWPress && sawWRelease)) {
+        val event = window.pollInputEvent(50)
+        if (event.kind == windowEventFocused && event.first != 0) {
+            sawFocus = true
+        } else if (event.kind == windowEventPointerMoved) {
+            sawMotion = true
+        } else if (event.kind == windowEventPointerButton) {
+            lastButtonCode = event.platformCode
+            if (event.platformCode == 272) {
+                if (event.pointerButtonPressed()) sawButtonPress = true
+                else sawButtonRelease = true
+            }
+        } else if (event.kind == windowEventKey &&
+            event.platformCode == 17 && event.key() == keyW) {
+            if (event.keyPressed()) sawWPress = true
+            else sawWRelease = true
+        }
+        succeeded = window.connection.valid()
+        attempts = attempts + 1
+    }
+    if (succeeded) succeeded = window.dispatchPointerButtonInput(
+        waylandDecodeMessage(waylandPacket(
+            window.pointerIdentifier,
+            3,
+            waylandU32ArrayPayload([1, 2, 272, 1])
+        ))
+    ) == 1 && window.dispatchPointerButtonInput(
+        waylandDecodeMessage(waylandPacket(
+            window.pointerIdentifier,
+            3,
+            waylandU32ArrayPayload([3, 4, 272, 0])
+        ))
+    ) == 1
+    var queued = window.nextInputEvent()
+    while (queued.happened()) {
+        if (queued.kind == windowEventPointerButton &&
+            queued.platformCode == 272) {
+            lastButtonCode = queued.platformCode
+            if (queued.pointerButtonPressed()) sawButtonPress = true
+            else sawButtonRelease = true
+        }
+        queued = window.nextInputEvent()
+    }
+    succeeded = succeeded &&
+        (window.seatCapabilities & waylandSeatCapabilityPointer) != 0 &&
+        (window.seatCapabilities & waylandSeatCapabilityKeyboard) != 0 &&
+        window.pointerIdentifier >= 2 && window.keyboardIdentifier >= 2 &&
+        window.keyboardMapped() && window.keymap.size > 100 &&
+        sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
+        sawWPress && sawWRelease
+    println(
+        "wayland-input-test: succeeded=$succeeded seat=${window.seatName} caps=${window.seatCapabilities} keymap=${window.keymap.size} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRelease error=${window.connection.error}"
+    )
+    if (succeeded) 42 else 1
+}

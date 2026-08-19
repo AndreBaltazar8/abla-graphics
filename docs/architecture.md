@@ -33,9 +33,15 @@ buffer-coordinate damage plus frame callbacks. A bounded one-to-three-buffer
 ring uses one mapping and fixed frame offsets. The hot path batches frame,
 attach, damage, and commit requests into one 64-byte native write and decodes
 routine callback/release traffic in reusable scratch storage, so steady-state
-animation has no managed-allocation growth. Input, clipboard, outputs, and
+animation has no managed-allocation growth. The input path binds `wl_seat`
+version seven and creates or releases pointer/keyboard objects as capabilities
+change. Its direct `recvmsg` transport queues an `SCM_RIGHTS` descriptor across
+intervening stream messages until the logical keyboard-keymap event consumes
+it, then maps the XKB v1 text privately and copies it into owned Abla memory.
+Portable raw key, focus, pointer, button, and scroll events share the X11
+`WindowEvent` vocabulary. Clipboard, outputs, layout-aware XKB text, and
 driver presentation build on this object foundation in later slices. No
-`libwayland-client` ABI participates in this path.
+`libwayland-client` or `libxkbcommon` ABI participates in this path.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

@@ -21,6 +21,7 @@ pkgs.mkShell {
     weston
     xorg.xauth
     xorg.libX11
+    xdotool
     xorg.xorgserver
     xvfb-run
   ];
