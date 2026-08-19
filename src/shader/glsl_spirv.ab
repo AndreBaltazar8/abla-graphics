@@ -86,6 +86,7 @@ val glslRasterTokenPushMember = 0
 val glslRasterTokenVectorLiteral = 1
 val glslRasterTokenOperation = 2
 val glslRasterTokenScalarLiteral = 3
+val glslRasterTokenInput = 4
 
 val glslRasterTypeInvalid = 0
 val glslRasterTypeScalar = 1
@@ -110,6 +111,7 @@ class GlslRasterExpression(
 class GlslRasterFragmentProgram(
     val valid: bool,
     val expression: GlslRasterExpression,
+    val inputs: array<ShaderLocation> = [],
     val memberCount: int = 0,
     val error: string = ""
 )
@@ -167,6 +169,7 @@ fun glslRasterPrimary(
     sourceTokens: array<GlslToken>,
     begin: int,
     push: ShaderPushConstant,
+    inputs: array<ShaderLocation>,
     depth: int
 ): GlslRasterExpression {
     val tokens: array<GlslRasterToken> = []
@@ -178,6 +181,7 @@ fun glslRasterPrimary(
             index + 1,
             1,
             push,
+            inputs,
             depth + 1
         )
         index = nested.next
@@ -251,14 +255,30 @@ fun glslRasterPrimary(
             index = index + 1
         }
     } else if (valid) {
-        val scalar = glslRasterFloat(sourceTokens, index)
-        valid = scalar.valid
-        if (valid) {
+        var inputIndex = -1
+        var candidate = 0
+        while (inputIndex < 0 && candidate < inputs.size) {
+            if (inputs[candidate].name == sourceTokens[index].text) {
+                inputIndex = candidate
+            }
+            candidate = candidate + 1
+        }
+        if (inputIndex >= 0) {
             tokens.append(GlslRasterToken(
-                glslRasterTokenScalarLiteral,
-                first = scalar.bits
+                glslRasterTokenInput,
+                memberIndex = inputIndex
             ))
-            index = scalar.next
+            index = index + 1
+        } else {
+            val scalar = glslRasterFloat(sourceTokens, index)
+            valid = scalar.valid
+            if (valid) {
+                tokens.append(GlslRasterToken(
+                    glslRasterTokenScalarLiteral,
+                    first = scalar.bits
+                ))
+                index = scalar.next
+            }
         }
     }
     GlslRasterExpression(valid && tokens.size > 0, tokens, index)
@@ -269,10 +289,13 @@ fun glslRasterExpression(
     begin: int,
     minimumPrecedence: int,
     push: ShaderPushConstant,
+    inputs: array<ShaderLocation>,
     depth: int
 ): GlslRasterExpression {
     if (depth >= 64) return GlslRasterExpression(false, [], begin)
-    val first = glslRasterPrimary(sourceTokens, begin, push, depth)
+    val first = glslRasterPrimary(
+        sourceTokens, begin, push, inputs, depth
+    )
     val tokens = glslRasterTokensCopy(first.tokens)
     var valid = first.valid
     var index = first.next
@@ -289,6 +312,7 @@ fun glslRasterExpression(
                 index + 1,
                 precedence + 1,
                 push,
+                inputs,
                 depth + 1
             )
             valid = opcode != 0 && right.valid
@@ -331,6 +355,7 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
     }
     var outputIndex = -1
     var outputCount = 0
+    val inputs: array<ShaderLocation> = []
     index = 0
     while (index < this.locations.size) {
         val location = this.locations[index]
@@ -338,12 +363,22 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
             location.direction == "out") {
             outputIndex = index
             outputCount = outputCount + 1
+        } else if (location.stage == shaderStageFragment &&
+            location.direction == "in") {
+            inputs.append(location)
         }
         index = index + 1
     }
-    var valid = this.valid && lexical.valid && pushIndex >= 0 &&
+    var valid = this.valid && lexical.valid &&
+        (pushIndex >= 0 || inputs.size > 0) && inputs.size <= 8 &&
         outputCount == 1 && this.locations[outputIndex].location == 0 &&
         this.locations[outputIndex].dataType == "vec4"
+    var inputIndex = 0
+    while (valid && inputIndex < inputs.size) {
+        valid = inputs[inputIndex].dataType == "vec4" &&
+            inputs[inputIndex].arraySize == 1
+        inputIndex = inputIndex + 1
+    }
     val push = if (pushIndex >= 0) this.pushConstants[pushIndex]
         else ShaderPushConstant("", "", "", [])
     index = 0
@@ -360,10 +395,28 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
     }
     val output = if (outputIndex >= 0) this.locations[outputIndex]
         else ShaderLocation("", 0, "")
+    inputIndex = 0
+    while (valid && inputIndex < inputs.size) {
+        val input = inputs[inputIndex]
+        val inputTokens = [
+            "layout", "(", "location", "=", "${input.location}", ")",
+            "in", "vec4", input.name, ";"
+        ]
+        var inputTokenIndex = 0
+        while (valid && inputTokenIndex < inputTokens.size) {
+            valid = glslRasterTokenText(
+                lexical.tokens,
+                index,
+                inputTokens[inputTokenIndex]
+            )
+            if (valid) index = index + 1
+            inputTokenIndex = inputTokenIndex + 1
+        }
+        inputIndex = inputIndex + 1
+    }
     val outputTokens = [
         "layout", "(", "location", "=", "0", ")", "out", "vec4",
-        output.name, ";", "layout", "(", "push_constant", ")",
-        "uniform", push.dataType, "{"
+        output.name, ";"
     ]
     var expectedIndex = 0
     while (valid && expectedIndex < outputTokens.size) {
@@ -371,6 +424,20 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
             lexical.tokens,
             index,
             outputTokens[expectedIndex]
+        )
+        if (valid) index = index + 1
+        expectedIndex = expectedIndex + 1
+    }
+    val pushTokens = [
+        "layout", "(", "push_constant", ")", "uniform", push.dataType,
+        "{"
+    ]
+    expectedIndex = 0
+    while (valid && pushIndex >= 0 && expectedIndex < pushTokens.size) {
+        valid = glslRasterTokenText(
+            lexical.tokens,
+            index,
+            pushTokens[expectedIndex]
         )
         if (valid) index = index + 1
         expectedIndex = expectedIndex + 1
@@ -387,9 +454,20 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         if (valid) index = index + 3
         memberIndex = memberIndex + 1
     }
+    val pushEndTokens = ["}", push.name, ";"]
+    expectedIndex = 0
+    while (valid && pushIndex >= 0 &&
+        expectedIndex < pushEndTokens.size) {
+        valid = glslRasterTokenText(
+            lexical.tokens,
+            index,
+            pushEndTokens[expectedIndex]
+        )
+        if (valid) index = index + 1
+        expectedIndex = expectedIndex + 1
+    }
     val mainTokens = [
-        "}", push.name, ";", "void", "main", "(", ")", "{",
-        output.name, "="
+        "void", "main", "(", ")", "{", output.name, "="
     ]
     expectedIndex = 0
     while (valid && expectedIndex < mainTokens.size) {
@@ -407,6 +485,7 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         index,
         1,
         push,
+        inputs,
         0
     )
     index = expression.next
@@ -418,9 +497,10 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
     GlslRasterFragmentProgram(
         valid,
         expression,
+        inputs,
         push.members.size,
         if (valid) "" else
-            "fragment source is outside the typed vec4 raster subset"
+            "fragment source is outside the typed raster expression subset"
     )
 }
 
@@ -433,7 +513,15 @@ fun glslRasterFragmentSpirv(
     ]
     var valid = program.valid && layout.valid &&
         layout.members.size == program.memberCount &&
-        program.memberCount > 0 && program.memberCount <= 8
+        program.memberCount <= 8 && program.inputs.size <= 8 &&
+        (program.memberCount > 0 || program.inputs.size > 0)
+    var inputIndex = 0
+    while (valid && inputIndex < program.inputs.size) {
+        val input = program.inputs[inputIndex]
+        valid = input.location >= 0 && input.dataType == "vec4" &&
+            input.arraySize == 1
+        inputIndex = inputIndex + 1
+    }
     var hasScalarMember = false
     var memberIndex = 0
     while (valid && memberIndex < layout.members.size) {
@@ -456,18 +544,35 @@ fun glslRasterFragmentSpirv(
     val pushVectorPointerType = 11
     val mainFunction = 12
     var nextId = 13
+    var inputPointerType = 0
+    val inputVariables: array<int> = []
+    if (valid && program.inputs.size > 0) {
+        inputPointerType = nextId
+        nextId = nextId + 1
+        inputIndex = 0
+        while (inputIndex < program.inputs.size) {
+            inputVariables.append(nextId)
+            nextId = nextId + 1
+            inputIndex = inputIndex + 1
+        }
+    }
     if (valid) {
         words.append(131089)
         words.append(1)
         words.append(196622)
         words.append(0)
         words.append(1)
-        words.append(393231)
+        words.append((6 + inputVariables.size) * 65536 + 15)
         words.append(4)
         words.append(mainFunction)
         words.append(1852399981)
         words.append(0)
         words.append(outputVariable)
+        inputIndex = 0
+        while (inputIndex < inputVariables.size) {
+            words.append(inputVariables[inputIndex])
+            inputIndex = inputIndex + 1
+        }
         words.append(196624)
         words.append(mainFunction)
         words.append(7)
@@ -475,9 +580,19 @@ fun glslRasterFragmentSpirv(
         words.append(outputVariable)
         words.append(30)
         words.append(0)
-        words.append(196679)
-        words.append(pushStructure)
-        words.append(2)
+        inputIndex = 0
+        while (inputIndex < inputVariables.size) {
+            words.append(262215)
+            words.append(inputVariables[inputIndex])
+            words.append(30)
+            words.append(program.inputs[inputIndex].location)
+            inputIndex = inputIndex + 1
+        }
+        if (program.memberCount > 0) {
+            words.append(196679)
+            words.append(pushStructure)
+            words.append(2)
+        }
         memberIndex = 0
         while (memberIndex < layout.members.size) {
             words.append(327752)
@@ -507,30 +622,47 @@ fun glslRasterFragmentSpirv(
         words.append(outputPointerType)
         words.append(outputVariable)
         words.append(3)
+        if (inputVariables.size > 0) {
+            words.append(262176)
+            words.append(inputPointerType)
+            words.append(1)
+            words.append(vectorType)
+            inputIndex = 0
+            while (inputIndex < inputVariables.size) {
+                words.append(262203)
+                words.append(inputPointerType)
+                words.append(inputVariables[inputIndex])
+                words.append(1)
+                inputIndex = inputIndex + 1
+            }
+        }
         words.append(262165)
         words.append(integerType)
         words.append(32)
         words.append(1)
-        words.append((2 + program.memberCount) * 65536 + 30)
-        words.append(pushStructure)
-        memberIndex = 0
-        while (memberIndex < program.memberCount) {
-            words.append(if (layout.members[memberIndex].dataType == "float")
-                floatType else vectorType)
-            memberIndex = memberIndex + 1
+        if (program.memberCount > 0) {
+            words.append((2 + program.memberCount) * 65536 + 30)
+            words.append(pushStructure)
+            memberIndex = 0
+            while (memberIndex < program.memberCount) {
+                words.append(if (
+                    layout.members[memberIndex].dataType == "float"
+                ) floatType else vectorType)
+                memberIndex = memberIndex + 1
+            }
+            words.append(262176)
+            words.append(pushPointerType)
+            words.append(9)
+            words.append(pushStructure)
+            words.append(262203)
+            words.append(pushPointerType)
+            words.append(pushVariable)
+            words.append(9)
+            words.append(262176)
+            words.append(pushVectorPointerType)
+            words.append(9)
+            words.append(vectorType)
         }
-        words.append(262176)
-        words.append(pushPointerType)
-        words.append(9)
-        words.append(pushStructure)
-        words.append(262203)
-        words.append(pushPointerType)
-        words.append(pushVariable)
-        words.append(9)
-        words.append(262176)
-        words.append(pushVectorPointerType)
-        words.append(9)
-        words.append(vectorType)
     }
     var pushScalarPointerType = 0
     if (valid && hasScalarMember) {
@@ -636,6 +768,18 @@ fun glslRasterFragmentSpirv(
                 words.append(pointer)
                 tokenTypes[tokenIndex] = if (scalarMember)
                     glslRasterTypeScalar else glslRasterTypeVector
+            }
+        } else if (token.kind == glslRasterTokenInput) {
+            valid = token.memberIndex >= 0 &&
+                token.memberIndex < inputVariables.size
+            if (valid) {
+                valueId = nextId
+                nextId = nextId + 1
+                words.append(262205)
+                words.append(vectorType)
+                words.append(valueId)
+                words.append(inputVariables[token.memberIndex])
+                tokenTypes[tokenIndex] = glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenOperation) {
             valid = stackSize >= 2 && (token.opcode == 327809 ||
@@ -4407,17 +4551,6 @@ fun glslColoredVertexSource(source: string): bool =
         "vertexTint", "=", "tint", ";", "}"
     ])
 
-fun glslColoredFragmentSource(source: string): bool =
-    glslSourceMatchesTokens(source, [
-        "#", "version", glslSourceVersionPattern,
-        "layout", "(", "location", "=", "0", ")",
-        "in", "vec4", "vertexTint", ";",
-        "layout", "(", "location", "=", "0", ")",
-        "out", "vec4", "color", ";",
-        "void", "main", "(", ")", "{",
-        "color", "=", "vertexTint", ";", "}"
-    ])
-
 fun glslTexturedVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
@@ -4609,8 +4742,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val multipleColorFragment = graphicsCommon &&
         stage == shaderStageFragment &&
         glslMultipleColorFragmentSource(this.source(shaderStageFragment))
-    val coloredFragment = graphicsCommon && stage == shaderStageFragment &&
-        glslColoredFragmentSource(this.source(shaderStageFragment))
     val texturedVertex = graphicsCommon && stage == shaderStageVertex &&
         glslTexturedVertexSource(this.source(shaderStageVertex))
     val texturedCubeVertex = graphicsCommon && stage == shaderStageVertex &&
@@ -4626,7 +4757,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         pushTransformVertex || pushDrawVertex ||
         vertexBuffer || fragment || rasterFragmentExpression ||
         multipleColorFragment ||
-        coloredVertex || coloredFragment || texturedVertex ||
+        coloredVertex || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
@@ -5046,31 +5177,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             131320, 14,
             196670, 3, 12,
             196670, 4, 13,
-            65789,
-            65592
-        ]
-    } else if (coloredFragment) {
-        words = [
-            119734787, 65536, 524299, 13, 0,
-            131089, 1,
-            393227, 1, 1280527431, 1685353262, 808793134, 0,
-            196622, 0, 1,
-            458767, 4, 4, 1852399981, 0, 9, 11,
-            196624, 4, 7,
-            262215, 9, 30, 0,
-            262215, 11, 30, 0,
-            131091, 2,
-            196641, 3, 2,
-            196630, 6, 32,
-            262167, 7, 6, 4,
-            262176, 8, 3, 7,
-            262203, 8, 9, 3,
-            262176, 10, 1, 7,
-            262203, 10, 11, 1,
-            327734, 2, 4, 0, 3,
-            131320, 5,
-            262205, 7, 12, 11,
-            196670, 9, 12,
             65789,
             65592
         ]

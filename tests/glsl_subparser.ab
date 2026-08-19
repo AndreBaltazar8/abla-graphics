@@ -1332,6 +1332,37 @@ fun main: int {
     val coloredVertexAgain = coloredTriangle.spirv(shaderStageVertex)
     val coloredFragment = coloredTriangle.spirv(shaderStageFragment)
     val coloredFragmentAgain = coloredTriangle.spirv(shaderStageFragment)
+    val coloredFragmentProgram = coloredTriangle.rasterFragmentProgram()
+    val rasterInputPush = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec4 tint; layout(location=0) out vec4 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
+            "#version 450\nlayout(location=0) in vec4 vertexTint; layout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vertexTint*draw.gain; }"
+        ]
+    )
+    val rasterInputPushProgram = rasterInputPush.rasterFragmentProgram()
+    val rasterInputPushFragment =
+        rasterInputPush.spirv(shaderStageFragment)
+    val rasterMultipleInputs = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) out vec4 first; layout(location=1) out vec4 second; void main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); first=vec4(1.0,0.0,0.0,1.0); second=vec4(0.0,1.0,0.0,0.0); }",
+            "#version 450\nlayout(location=0) in vec4 first; layout(location=1) in vec4 second; layout(location=0) out vec4 color; void main(){ color=first+second; }"
+        ]
+    )
+    val rasterMultipleInputsProgram =
+        rasterMultipleInputs.rasterFragmentProgram()
+    val rasterMultipleInputsFragment =
+        rasterMultipleInputs.spirv(shaderStageFragment)
+    val rasterMultipleInputsFragmentAgain =
+        rasterMultipleInputs.spirv(shaderStageFragment)
+    val rasterVec3InputRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec3 tint; layout(location=0) out vec3 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
+            "#version 450\nlayout(location=0) in vec3 vertexTint; layout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vertexTint*draw.gain; }"
+        ]
+    ).spirv(shaderStageFragment)
     val texturedTriangle = $glsl {
         vertex {
             #version 450
@@ -2332,13 +2363,38 @@ fun main: int {
         coloredVertex.module.words.size == 187 &&
         coloredVertex.module.bound() == 31 &&
         spirvWordsEqual(coloredVertex.module, coloredVertexAgain.module) &&
+        coloredFragmentProgram.valid &&
+        coloredFragmentProgram.inputs.size == 1 &&
+        coloredFragmentProgram.expression.tokens.size == 1 &&
+        coloredFragmentProgram.expression.tokens[0].kind ==
+            glslRasterTokenInput &&
         coloredFragment.succeeded && coloredFragment.module.valid() &&
-        coloredFragment.module.words.size == 78 &&
-        coloredFragment.module.bound() == 13 &&
+        coloredFragment.module.words.size == 76 &&
+        coloredFragment.module.bound() == 17 &&
+        spirvContainsWords(coloredFragment.module, [262215, 14, 30, 0]) &&
+        spirvContainsWords(coloredFragment.module, [262203, 13, 14, 1]) &&
+        spirvContainsWords(coloredFragment.module, [262205, 4, 16, 14]) &&
         spirvWordsEqual(
             coloredFragment.module,
             coloredFragmentAgain.module
+        ) && rasterInputPush.valid && rasterInputPushProgram.valid &&
+        rasterInputPushProgram.inputs.size == 1 &&
+        rasterInputPushProgram.expression.tokens.size == 3 &&
+        rasterInputPushFragment.succeeded &&
+        rasterInputPushFragment.module.valid() &&
+        spirvContainsWord(rasterInputPushFragment.module, 327822) &&
+        rasterMultipleInputs.valid && rasterMultipleInputsProgram.valid &&
+        rasterMultipleInputsProgram.inputs.size == 2 &&
+        rasterMultipleInputsProgram.expression.tokens.size == 3 &&
+        rasterMultipleInputsFragment.succeeded &&
+        rasterMultipleInputsFragment.module.valid() &&
+        spirvContainsWord(rasterMultipleInputsFragment.module, 327809) &&
+        spirvWordsEqual(
+            rasterMultipleInputsFragment.module,
+            rasterMultipleInputsFragmentAgain.module
         ) &&
+        !rasterVec3InputRejected.succeeded &&
+        rasterVec3InputRejected.error != "" &&
         texturedTriangle.valid && texturedTriangle.locations.size == 5 &&
         texturedTriangle.bindings.size == 1 &&
         texturedTriangle.bindings[0].stage == shaderStageFragment &&

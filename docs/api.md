@@ -1763,25 +1763,30 @@ the procedural position while the fragment stage returns `draw.tint`.
 and color, with exact pixels, missing-value rejection, stable handles, and zero
 steady-state allocation growth on both backends.
 
-Fragment push expressions are no longer limited to fixed word templates. The
-typed raster parser accepts one location-zero `vec4` output, one reflected block
-of up to eight non-array `float` or `vec4` members, scalar/`vec4` literals,
-parentheses, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence.
+Typed fragment expressions are no longer limited to fixed word templates. The
+typed raster parser accepts up to eight reflected non-array `vec4` inputs in
+source order before one location-zero `vec4` output, an optional reflected
+block of up to eight non-array `float` or `vec4` members, scalar/`vec4`
+literals, parentheses, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL
+precedence.
 Equal-type operations emit floating scalar or vector instructions; `vec4 *
 float` and `float * vec4` emit `OpVectorTimesScalar` with normalized SPIR-V
 operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
 `OpFDiv`, preserving division semantics without a reciprocal-multiply rewrite;
 `float / vec4` is rejected. The parser produces bounded postfix IR and emits a
 mixed-type push structure, reflected member offsets, scalar/vector pointer
-types, constants, loads, composites, and typed operations deterministically.
+types, entry-point interfaces, input locations/variables, constants, loads,
+composites, and typed operations deterministically.
 Unknown or array members, mismatched addition/subtraction such as `vec4 +
 float`, scalar final outputs, extra statements/declarations, malformed
 expressions, and unsupported operators fail before pipeline creation. Existing
 push-color and combined-stage fragment shaders use this generated path; their
-former fixed SPIR-V tables were removed. `push-expression` loads a reflected
-scalar gain, executes vector/scalar division before addition, and proves its
-48-byte mixed layout plus exact red/green output, stable handles, and zero
-steady-state allocation growth on both real backends.
+former fixed SPIR-V tables were removed. The existing interpolated-color
+fragment also uses this path, and its former fixed input-copy table was removed.
+`push-expression` loads a reflected scalar gain, executes vector/scalar division
+before addition, and proves its 48-byte mixed layout plus exact red/green
+output, stable handles, and zero steady-state allocation growth on both real
+backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

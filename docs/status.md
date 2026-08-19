@@ -970,13 +970,17 @@ validity gate unchanged.
   expressions with parenthesized multiplication, division, addition, and
   subtraction directly to deterministic SPIR-V, including mixed-type push
   structures, scalar/vector loads, both operand orders of
-  `OpVectorTimesScalar`, equal-type
-  division, and exact `vec4 / float` lowering through a runtime splat plus
+  `OpVectorTimesScalar`, equal-type division, and exact `vec4 / float` lowering
+  through a runtime splat plus
   vector `OpFDiv`; fixed fragment push word tables have been removed. Typed
   mismatch/array and `float / vec4` rejection, 48-byte reflected offsets,
   precedence, repeat-emission, exact real-driver pixels, stable handles, and
-  zero-growth frames are verified. Interface inputs, functions, and control
-  flow remain upcoming.
+  zero-growth frames are verified. The same IR now accepts up to eight
+  reflected location-based `vec4` fragment inputs with or without a push block,
+  emits entry-point interfaces/decorations/variables/loads, and replaces the
+  former fixed interpolated-color fragment table. Single-input real-driver and
+  multiple-input deterministic tests pass. Other interface types, functions,
+  and control flow remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

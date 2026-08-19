@@ -52,9 +52,9 @@ exact shifted-position and color proof, backed by allocation-free typed
 name/component/array-index writes plus reflected float/double matrix-coordinate
 writes for ordinary and subpass values, and a typed bounded fragment
 `vec4`/scalar expression IR emitting mixed reflected push layouts, typed
-loads/literals, and precedence-ordered equal-type or vector-times-scalar
-floating operations plus exact vector/scalar division without fixed SPIR-V
-templates. Repeated clear,
+push/input loads and literals, location-based fragment interfaces, and
+precedence-ordered equal-type or vector-times-scalar floating operations plus
+exact vector/scalar division without fixed SPIR-V templates. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.
