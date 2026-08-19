@@ -1238,9 +1238,12 @@ falling back to the first valid output before the surface is mapped, while
 `leave` traffic maintains the active-output set and enqueues
 `windowEventMonitorChanged`; its monitor width, height, and name are available
 through typed event accessors. Version-three/four output objects are released
-during ordered teardown. Dynamic output-global hotplug, xdg-output logical
-geometry, fractional scale, and automatic buffer-scale changes remain future
-work.
+during ordered teardown. Once enabled, registry output additions bind fresh
+version-capped objects and removals retire the matching global/object, active
+surface membership, and primary selection before emitting the replacement (or
+empty) monitor value. A live remove/re-add gate proves distinct object IDs and
+a rebuilt 1024x768 snapshot. xdg-output logical geometry, fractional scale, and
+automatic buffer-scale changes remain future work.
 
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,

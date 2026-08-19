@@ -1,0 +1,81 @@
+import "../src/platform/wayland.ab"
+import "abla/io"
+import "abla/unsafe/memory"
+
+fun outputGlobalPayload(global: WaylandGlobal): string {
+    val name = global.interfaceName
+    val padded = waylandAligned(name.size + 1)
+    val payload = nativeByteBuffer(13 + padded)
+    waylandStoreU32(payload, 0, global.name)
+    waylandStoreU32(payload, 4, name.size + 1)
+    var index = 0
+    while (index < name.size) {
+        payload.store(8 + index, name[index])
+        index = index + 1
+    }
+    payload.store(8 + name.size, 0)
+    waylandStoreU32(payload, 8 + padded, global.version)
+    payload.adoptString(12 + padded)
+}
+
+trusted fun main: int {
+    val window = waylandXdgWindow(
+        "Abla Graphics output hotplug",
+        "io.abla.graphics.output-hotplug",
+        320,
+        200
+    )
+    var succeeded = window.valid() && window.enableOutputs() &&
+        window.outputs.size == 1
+    val global = window.connection.global("wl_output")
+    val firstIdentifier = if (succeeded) window.outputs[0].identifier else 0
+    if (succeeded) succeeded = window.dispatch(waylandDecodeMessage(
+        waylandPacket(
+            window.connection.registryIdentifier,
+            1,
+            waylandU32Payload(global.name)
+        )
+    ))
+    var event = window.nextInputEvent()
+    var sawDisconnected = false
+    while (event.happened()) {
+        if (event.kind == windowEventMonitorChanged &&
+            event.monitorWidth() == 0 && event.monitorHeight() == 0) {
+            sawDisconnected = true
+        }
+        event = window.nextInputEvent()
+    }
+    succeeded = succeeded && window.outputs.size == 0 &&
+        window.connection.global("wl_output").name == 0 && sawDisconnected
+    if (succeeded) succeeded = window.dispatch(waylandDecodeMessage(
+        waylandPacket(
+            window.connection.registryIdentifier,
+            0,
+            outputGlobalPayload(global)
+        )
+    ))
+    var attempts = 0
+    while (succeeded && !window.outputsReady() && attempts < 100) {
+        succeeded = window.pollProtocol(50)
+        attempts = attempts + 1
+    }
+    event = window.nextInputEvent()
+    var sawReconnected = false
+    while (event.happened()) {
+        if (event.kind == windowEventMonitorChanged &&
+            event.monitorWidth() == 1024 && event.monitorHeight() == 768) {
+            sawReconnected = true
+        }
+        event = window.nextInputEvent()
+    }
+    val monitor = window.primaryMonitor()
+    succeeded = succeeded && window.outputs.size == 1 &&
+        window.outputs[0].identifier != firstIdentifier &&
+        window.outputs[0].globalName == global.name &&
+        monitor.width == 1024 && monitor.height == 768 &&
+        sawReconnected
+    println(
+        "wayland-output-hotplug: succeeded=$succeeded identifiers=$firstIdentifier/${if (window.outputs.size > 0) window.outputs[0].identifier else 0} disconnected=$sawDisconnected reconnected=$sawReconnected monitor=${monitor.name}/${monitor.width}x${monitor.height} error=${window.connection.error}"
+    )
+    if (succeeded) 42 else 1
+}

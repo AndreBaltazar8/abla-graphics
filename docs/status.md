@@ -79,8 +79,11 @@ Updated: 2026-08-19.
   description in immutable values marked coherent by `done`. Surface
   enter/leave selects the primary output and emits copied monitor-change
   values. The nested Weston gate validates the real `screen0` output at 800x600
-  scale one and observes its enter event; teardown uses the versioned output
-  release request.
+  scale one and observes its enter event. Registry add/remove handling binds
+  fresh output objects or retires the matching snapshot, active-surface entry,
+  and primary selection; a live remove/re-add gate changes object identifier
+  `9` to `10`, emits disconnected/reconnected monitor values, and rebuilds the
+  1024x768 snapshot. Teardown uses the versioned output release request.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec
@@ -824,8 +827,7 @@ validity gate unchanged.
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
 - Wayland higher XKB groups/levels, dead-key compose, and input methods,
-  dynamic output hotplug, xdg-output logical geometry, fractional
-  scaling, and Vulkan/EGL presentation
+  xdg-output logical geometry, fractional scaling, and Vulkan/EGL presentation
   integration. The current stable xdg-shell slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,
   allocation-stable hot-path wire I/O, continuous callback-driven frames, and

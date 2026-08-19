@@ -44,6 +44,8 @@ cd "$compiler_root"
     -o "$output_directory/wayland_clipboard_reader" --no-cache
 "$compiler" build "$project_root/tests/wayland_clipboard_pipe.ab" \
     -o "$output_directory/wayland_clipboard_pipe" --no-cache
+"$compiler" build "$project_root/tests/wayland_output_hotplug.ab" \
+    -o "$output_directory/wayland_output_hotplug" --no-cache
 
 set +e
 "$output_directory/wayland_protocol"
@@ -93,6 +95,19 @@ done
 
 if [[ ! -S "$runtime_directory/wayland-abla-test" ]]; then
     printf '%s\n' 'Weston socket was not created' >&2
+    exit 1
+fi
+
+set +e
+XDG_RUNTIME_DIR="$runtime_directory" \
+WAYLAND_DISPLAY=wayland-abla-test \
+    timeout 10s "$output_directory/wayland_output_hotplug"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'Wayland output hotplug test returned %s, expected 42\n' \
+        "$status" >&2
+    sed -n '1,240p' "$runtime_directory/weston.log" >&2
     exit 1
 fi
 

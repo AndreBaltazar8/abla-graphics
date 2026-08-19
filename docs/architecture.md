@@ -56,7 +56,10 @@ scale, and v4 identity strings replace immutable Abla snapshots until the
 protocol's atomic `done`; surface enter/leave keeps a bounded active-output set
 and emits the portable monitor-change value. The current direct layer exposes
 hardware-pixel/physical metadata and integer scale without pretending that
-deprecated core-output coordinates are xdg-output logical geometry.
+deprecated core-output coordinates are xdg-output logical geometry. Registry
+add/remove events bind fresh output objects or release and remove the matching
+snapshot, surface membership, and primary selection; a real compositor gate
+proves removal and rebinding use distinct protocol identifiers.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,
