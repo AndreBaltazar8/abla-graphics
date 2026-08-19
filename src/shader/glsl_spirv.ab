@@ -788,63 +788,70 @@ fun glslRasterFragmentSpirv(
     valid = valid && allTokens.size > 0 && allTokens.size < 512
     val tokenValues: array<int> = []
     val tokenTypes: array<int> = []
+    val constantBits: array<int> = []
+    val constantIds: array<int> = []
     var tokenIndex = 0
     while (valid && tokenIndex < allTokens.size) {
         val token = allTokens[tokenIndex]
         var valueId = 0
         var valueType = glslRasterTypeInvalid
         if (token.kind == glslRasterTokenVectorLiteral) {
-            val equalComponents = token.first == token.second &&
-                token.first == token.third && token.first == token.fourth
-            if (equalComponents) {
-                val component = nextId
-                valueId = nextId + 1
-                words.append(262187)
-                words.append(floatType)
-                words.append(component)
-                words.append(token.first)
-                words.append(458796)
-                words.append(vectorType)
-                words.append(valueId)
-                words.append(component)
-                words.append(component)
-                words.append(component)
-                words.append(component)
-                nextId = nextId + 2
-            } else {
-                val first = nextId
-                val second = nextId + 1
-                val third = nextId + 2
-                val fourth = nextId + 3
-                valueId = nextId + 4
-                val bits = [
-                    token.first, token.second, token.third, token.fourth
-                ]
-                var component = 0
-                while (component < 4) {
+            val bits = [
+                token.first, token.second, token.third, token.fourth
+            ]
+            val componentIds: array<int> = []
+            var component = 0
+            while (component < bits.size) {
+                var constantIndex = 0
+                var componentId = 0
+                while (componentId == 0 &&
+                    constantIndex < constantBits.size) {
+                    if (constantBits[constantIndex] == bits[component]) {
+                        componentId = constantIds[constantIndex]
+                    }
+                    constantIndex = constantIndex + 1
+                }
+                if (componentId == 0) {
+                    componentId = nextId
+                    nextId = nextId + 1
                     words.append(262187)
                     words.append(floatType)
-                    words.append(nextId + component)
+                    words.append(componentId)
                     words.append(bits[component])
-                    component = component + 1
+                    constantBits.append(bits[component])
+                    constantIds.append(componentId)
                 }
-                words.append(458796)
-                words.append(vectorType)
-                words.append(valueId)
-                words.append(first)
-                words.append(second)
-                words.append(third)
-                words.append(fourth)
-                nextId = nextId + 5
+                componentIds.append(componentId)
+                component = component + 1
             }
+            valueId = nextId
+            nextId = nextId + 1
+            words.append(458796)
+            words.append(vectorType)
+            words.append(valueId)
+            words.append(componentIds[0])
+            words.append(componentIds[1])
+            words.append(componentIds[2])
+            words.append(componentIds[3])
             valueType = glslRasterTypeVector
         } else if (token.kind == glslRasterTokenScalarLiteral) {
-            valueId = nextId
-            words.append(262187)
-            words.append(floatType)
-            words.append(valueId)
-            words.append(token.first)
-            nextId = nextId + 1
+            var constantIndex = 0
+            while (valueId == 0 && constantIndex < constantBits.size) {
+                if (constantBits[constantIndex] == token.first) {
+                    valueId = constantIds[constantIndex]
+                }
+                constantIndex = constantIndex + 1
+            }
+            if (valueId == 0) {
+                valueId = nextId
+                nextId = nextId + 1
+                words.append(262187)
+                words.append(floatType)
+                words.append(valueId)
+                words.append(token.first)
+                constantBits.append(token.first)
+                constantIds.append(valueId)
+            }
             valueType = glslRasterTypeScalar
         }
         tokenValues.append(valueId)

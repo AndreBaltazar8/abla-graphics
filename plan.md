@@ -57,7 +57,7 @@ precedence-ordered equal-type or vector-times-scalar floating operations plus
 exact vector/scalar division, including input-free/push-free constant fragments,
 typed unary signs, and deduplicated scalar-splat `vec4` constructors without
 fixed SPIR-V templates, plus one-to-eight independently typed fragment output
-writes. Repeated clear,
+writes and exact-bit module-wide float constant interning. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

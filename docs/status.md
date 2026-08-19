@@ -1000,6 +1000,10 @@ validity gate unchanged.
   real-driver sample prove deterministic exact output, stable handles, and zero
   steady-state growth. Stage-local fragments no longer emit stray metadata for
   push blocks owned only by another stage.
+  Exact-bit float constant interning is shared across every typed output stack,
+  vector component, and scalar literal. The MRT module drops from 117 to 93
+  words with two constants, while vector/scalar reuse, deterministic bytes, all
+  exact pixels, stable handles, and zero-growth behavior remain verified.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

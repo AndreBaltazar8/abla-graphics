@@ -1800,6 +1800,11 @@ The two-output MRT fragment now shares this emitter rather than its former fixed
 95-word table. Independent add/subtract expressions prove that each output has
 its own typed stack, while the multisampled MRT sample proves exact red/green
 resolved pixels on both drivers.
+Float constants are interned by exact 32-bit representation across every output
+expression, vector lane, and scalar literal in the module. Signed zero and other
+distinct bit patterns remain distinct. The red/green MRT module consequently
+uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
+changing either output.
 `push-expression` loads a reflected scalar gain, executes vector/scalar division
 after vector negation and before addition, and proves its 48-byte mixed layout
 plus exact red/green output, stable handles, and zero steady-state allocation
