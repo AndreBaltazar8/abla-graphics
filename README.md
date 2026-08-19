@@ -102,7 +102,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   synchronization2 is independently queried/enabled and the reusable transfer
   boundary submits through `vkQueueSubmit2`, signals a device-owned timeline,
   records memory/image transitions through `vkCmdPipelineBarrier2`, and waits
-  only for that completion value, with a legacy fallback;
+  only for that completion value, with a legacy fallback; surfaced pipelines
+  use feature-gated `vkCmdBeginRendering`/`vkCmdEndRendering` without native
+  render-pass/framebuffer objects, while offscreen/subpass paths retain them;
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,

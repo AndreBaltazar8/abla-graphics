@@ -44,10 +44,10 @@ val completed = timeline.currentValue()
 This is intentionally a Vulkan-specific primitive rather than a false portable
 wrapper. Device creation queries `VkPhysicalDeviceVulkan12Features` and
 `VkPhysicalDeviceVulkan13Features` through `vkGetPhysicalDeviceFeatures2`, then
-enables only `timelineSemaphore` and `synchronization2` when the adapter reports
-them. `VulkanTimelineSemaphore` owns the native handle and one
-reusable ABI block; counter queries, strictly monotonic host signals, and waits
-perform no general heap allocation. Negative initial/counter values,
+enables only `timelineSemaphore`, `synchronization2`, and `dynamicRendering`
+when the adapter reports them. `VulkanTimelineSemaphore` owns the native handle
+and one reusable ABI block; counter queries, strictly monotonic host signals,
+and waits perform no general heap allocation. Negative initial/counter values,
 non-increasing signals, and negative timeouts are rejected before driver calls.
 When synchronization2 is enabled, the device's reusable transfer command path
 encodes `VkCommandBufferSubmitInfo` and `VkSubmitInfo2` into its existing scratch
@@ -60,6 +60,14 @@ scratch block and record `vkCmdPipelineBarrier2`; older devices retain the
 checked legacy barrier, submit, and queue-wait encoding.
 `transferCompletedValue()` exposes the observed driver counter and
 `transferBarrier2Count` proves advanced barrier recording in diagnostics.
+
+Surfaced `VulkanRenderPipeline` creation uses dynamic rendering when the
+negotiated feature is enabled. The pipeline chains a packed
+`VkPipelineRenderingCreateInfo`, owns image/depth views but no render-pass or
+framebuffer handles, and records explicit attachment transitions around packed
+`VkRenderingInfo`/`VkRenderingAttachmentInfo` commands. Offscreen targets and
+multi-subpass sequences retain compatible render-pass/framebuffer objects;
+devices without dynamic rendering use that same checked legacy path.
 
 The first portable raster pipeline uses the same embedded shader package on
 both backends:

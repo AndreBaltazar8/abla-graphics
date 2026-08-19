@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 25/842
+- Classified commands: 27/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -57,7 +57,7 @@
 | `vkCmdBeginRenderPass` | definition | unclassified | - | - | - | - |
 | `vkCmdBeginRenderPass2` | definition | unclassified | - | - | - | - |
 | `vkCmdBeginRenderPass2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdBeginRendering` | definition | unclassified | - | - | - | - |
+| `vkCmdBeginRendering` | definition | common | src/driver/vulkan.ab surfaced dynamic rendering | src/driver/vulkan.ab packed RenderingInfo and attachment ABIs | tests/vulkan_window/main.ab repeated dynamic color rendering | tests/vulkan_window/main.ab forced legacy render-pass fallback |
 | `vkCmdBeginRenderingKHR` | alias | unclassified | - | - | - | - |
 | `vkCmdBeginShaderInstrumentationARM` | definition | unclassified | - | - | - | - |
 | `vkCmdBeginTransformFeedback2EXT` | definition | unclassified | - | - | - | - |
@@ -190,7 +190,7 @@
 | `vkCmdEndRenderPass` | definition | unclassified | - | - | - | - |
 | `vkCmdEndRenderPass2` | definition | unclassified | - | - | - | - |
 | `vkCmdEndRenderPass2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdEndRendering` | definition | unclassified | - | - | - | - |
+| `vkCmdEndRendering` | definition | common | src/driver/vulkan.ab surfaced dynamic rendering completion | src/driver/vulkan.ab typed extern signature | tests/vulkan_window/main.ab repeated dynamic presentation | tests/vulkan_window/main.ab forced legacy render-pass fallback |
 | `vkCmdEndRendering2EXT` | alias | unclassified | - | - | - | - |
 | `vkCmdEndRendering2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdEndRenderingKHR` | alias | unclassified | - | - | - | - |

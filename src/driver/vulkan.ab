@@ -455,6 +455,11 @@ noescape extern:"c" fun vkCmdPipelineBarrier2(
     commandBuffer: i64*,
     dependencyInfo: i64*
 ): void
+noescape extern:"c" fun vkCmdBeginRendering(
+    commandBuffer: i64*,
+    renderingInfo: i64*
+): void
+noescape extern:"c" fun vkCmdEndRendering(commandBuffer: i64*): void
 noescape extern:"c" fun vkCmdResetQueryPool(
     commandBuffer: i64*,
     queryPool: int,
@@ -1166,6 +1171,15 @@ trusted fun VulkanAdapter.timelineSemaphoreSupported(): bool {
 }
 
 trusted fun VulkanAdapter.synchronization2Supported(): bool {
+    this.vulkan13Features().synchronization2
+}
+
+class Vulkan13FeatureSupport(
+    val synchronization2: bool,
+    val dynamicRendering: bool
+)
+
+trusted fun VulkanAdapter.vulkan13Features(): Vulkan13FeatureSupport {
     val features13 = nativeByteBuffer(80)
     val features2 = nativeByteBuffer(240)
     var index = 0
@@ -1185,8 +1199,12 @@ trusted fun VulkanAdapter.synchronization2Supported(): bool {
     if (this.apiVersion >= vulkanApiVersion13) {
         vkGetPhysicalDeviceFeatures2(this.handle, features2.address)
     }
-    this.apiVersion >= vulkanApiVersion13 &&
-        (features13.loadI64(52) & 4294967295) != 0
+    Vulkan13FeatureSupport(
+        this.apiVersion >= vulkanApiVersion13 &&
+            (features13.loadI64(52) & 4294967295) != 0,
+        this.apiVersion >= vulkanApiVersion13 &&
+            (features13.loadI64(64) & 4294967295) != 0
+    )
 }
 
 fun vulkanEnabledTimelineSemaphoreFeatures(
@@ -1204,8 +1222,9 @@ fun vulkanEnabledTimelineSemaphoreFeatures(
     features
 }
 
-fun vulkanEnabledSynchronization2Features(
-    enabled: bool
+fun vulkanEnabledVulkan13Features(
+    synchronization2: bool,
+    dynamicRendering: bool
 ): NativeByteBuffer {
     val features = nativeByteBuffer(80)
     var index = 0
@@ -1215,7 +1234,8 @@ fun vulkanEnabledSynchronization2Features(
     }
     features.storeI64(0, 53)
     features.storePointer(8, nativeNullPointer())
-    if (enabled) features.storeI64(52, 1)
+    if (synchronization2) features.storeI64(52, 1)
+    if (dynamicRendering) features.storeI64(64, 1)
     features
 }
 
@@ -1407,6 +1427,7 @@ resource class VulkanDevice(
     val physicalDevice: i64*,
     val timelineSemaphores: bool,
     val synchronization2: bool,
+    val dynamicRendering: bool,
     var transferBarrier2Count: int,
     var transferTimeline: int,
     var transferTimelineValue: int,
@@ -2248,21 +2269,24 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
     var queue = nativeNullPointer()
     var timelineSupported = false
     var synchronization2Supported = false
+    var dynamicRenderingSupported = false
     if (queueFamily >= 0) {
         val enabledFeatures = this.enabledDeviceFeatures()
         timelineSupported = this.timelineSemaphoreSupported()
         val timelineFeatures = vulkanEnabledTimelineSemaphoreFeatures(
             timelineSupported
         )
-        synchronization2Supported = this.synchronization2Supported()
-        val synchronization2Features =
-            vulkanEnabledSynchronization2Features(
-                synchronization2Supported
-            )
+        val features13 = this.vulkan13Features()
+        synchronization2Supported = features13.synchronization2
+        dynamicRenderingSupported = features13.dynamicRendering
+        val enabledFeatures13 = vulkanEnabledVulkan13Features(
+            synchronization2Supported,
+            dynamicRenderingSupported
+        )
         timelineFeatures.storePointer(
             8,
-            if (synchronization2Supported)
-                synchronization2Features.address
+            if (synchronization2Supported || dynamicRenderingSupported)
+                enabledFeatures13.address
             else nativeNullPointer()
         )
         val priority = nativeByteBuffer(8)
@@ -2282,8 +2306,8 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         createInfo.storePointer(
             8,
             if (timelineSupported) timelineFeatures.address
-            else if (synchronization2Supported)
-                synchronization2Features.address
+            else if (synchronization2Supported || dynamicRenderingSupported)
+                enabledFeatures13.address
             else nativeNullPointer()
         )
         createInfo.storeI64(16, 4294967296)
@@ -2321,6 +2345,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         this.handle,
         timelineSupported,
         synchronization2Supported,
+        dynamicRenderingSupported,
         0,
         0,
         0,
@@ -5384,7 +5409,7 @@ trusted fun VulkanDevice.pixelFrame(size: int): VulkanPixelFrame {
     var staging = this.buffer(size)
     val pool = nativeI64Cell(0)
     var command = nativePointerCell(nativeNullPointer())
-    var scratch = nativeByteBuffer(160)
+    var scratch = nativeByteBuffer(400)
     val acquired = nativeI64Cell(0)
     val fence = nativeI64Cell(0)
     var succeeded = staging.valid()
@@ -5529,21 +5554,24 @@ trusted fun VulkanAdapter.deviceForSurface(
     var queue = nativeNullPointer()
     var timelineSupported = false
     var synchronization2Supported = false
+    var dynamicRenderingSupported = false
     if (queueFamily >= 0 && this.supportsSurface(surface, queueFamily)) {
         val enabledFeatures = this.enabledDeviceFeatures()
         timelineSupported = this.timelineSemaphoreSupported()
         val timelineFeatures = vulkanEnabledTimelineSemaphoreFeatures(
             timelineSupported
         )
-        synchronization2Supported = this.synchronization2Supported()
-        val synchronization2Features =
-            vulkanEnabledSynchronization2Features(
-                synchronization2Supported
-            )
+        val features13 = this.vulkan13Features()
+        synchronization2Supported = features13.synchronization2
+        dynamicRenderingSupported = features13.dynamicRendering
+        val enabledFeatures13 = vulkanEnabledVulkan13Features(
+            synchronization2Supported,
+            dynamicRenderingSupported
+        )
         timelineFeatures.storePointer(
             8,
-            if (synchronization2Supported)
-                synchronization2Features.address
+            if (synchronization2Supported || dynamicRenderingSupported)
+                enabledFeatures13.address
             else nativeNullPointer()
         )
         val priority = nativeByteBuffer(8)
@@ -5570,8 +5598,8 @@ trusted fun VulkanAdapter.deviceForSurface(
         createInfo.storePointer(
             8,
             if (timelineSupported) timelineFeatures.address
-            else if (synchronization2Supported)
-                synchronization2Features.address
+            else if (synchronization2Supported || dynamicRenderingSupported)
+                enabledFeatures13.address
             else nativeNullPointer()
         )
         createInfo.storeI64(16, 4294967296)
@@ -5608,6 +5636,7 @@ trusted fun VulkanAdapter.deviceForSurface(
         this.handle,
         timelineSupported,
         synchronization2Supported,
+        dynamicRenderingSupported,
         0,
         0,
         0,
@@ -5714,16 +5743,20 @@ resource class VulkanRenderPipeline(
     val height: int,
     val vertexStride: int,
     val depthEnabled: bool,
+    val dynamicRendering: bool,
     val ownsAttachments: bool,
     val ownsRenderPass: bool,
     val requiresBinding: bool
 ) {
     trusted fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.layout != 0 &&
-        this.renderPass != 0 && this.handle != 0 && this.format != 0 &&
+        this.handle != 0 && this.format != 0 &&
         this.width > 0 && this.height > 0 && this.vertexStride >= 0 &&
         this.imageViews.size > 0 &&
-        this.framebuffers.size == this.imageViews.size &&
+        ((this.dynamicRendering && this.renderPass == 0 &&
+          this.framebuffers.size == 0) ||
+         (!this.dynamicRendering && this.renderPass != 0 &&
+          this.framebuffers.size == this.imageViews.size)) &&
         ((!this.depthEnabled && this.depthTextures.size == 0 &&
           this.depthViews.size == 0) ||
          (this.depthEnabled && (
@@ -5819,7 +5852,8 @@ trusted fun VulkanDevice.renderPipeline(
     targetDepthView: int = 0,
     colorAttachmentCount: int = 1,
     samples: int = 1,
-    subpassIndex: int = 0
+    subpassIndex: int = 0,
+    preferDynamicRendering: bool = true
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -5832,6 +5866,8 @@ trusted fun VulkanDevice.renderPipeline(
     val offscreen = targetRenderPass != 0 && targetView != 0 &&
         targetFramebuffer != 0 && targetFormat != 0 &&
         targetWidth > 0 && targetHeight > 0
+    val dynamicRendering = this.dynamicRendering && !offscreen &&
+        preferDynamicRendering
     val format = if (offscreen) targetFormat else swapchain.format
     val width = if (offscreen) targetWidth else swapchain.width
     val height = if (offscreen) targetHeight else swapchain.height
@@ -5855,7 +5891,7 @@ trusted fun VulkanDevice.renderPipeline(
         (!offscreen || depthEnabled == (targetDepthView != 0))
 
     if (succeeded && offscreen) renderPass = targetRenderPass
-    if (succeeded && !offscreen) {
+    if (succeeded && !offscreen && !dynamicRendering) {
         val attachments = nativeByteBuffer(if (depthEnabled) 80 else 40)
         attachments.storeI64(0, swapchain.format * 4294967296)
         attachments.storeI64(8, 4294967296 + 1)
@@ -5987,7 +6023,8 @@ trusted fun VulkanDevice.renderPipeline(
     }
 
     imageIndex = 0
-    while (succeeded && !offscreen && imageIndex < imageViews.size) {
+    while (succeeded && !offscreen && !dynamicRendering &&
+        imageIndex < imageViews.size) {
         val framebufferAttachments = nativeByteBuffer(16)
         framebufferAttachments.storeI64(0, imageViews[imageIndex])
         if (depthEnabled) framebufferAttachments.storeI64(
@@ -6175,7 +6212,21 @@ trusted fun VulkanDevice.renderPipeline(
 
         val pipelineInfo = nativeByteBuffer(144)
         pipelineInfo.storeI64(0, 28)
-        pipelineInfo.storePointer(8, nativeNullPointer())
+        val renderingInfo = nativeByteBuffer(40)
+        val renderingFormat = nativeI64Cell(format)
+        renderingInfo.storeI64(0, 1000044002)
+        renderingInfo.storePointer(8, nativeNullPointer())
+        renderingInfo.storeI64(16, 4294967296)
+        renderingInfo.storePointer(24, renderingFormat.address)
+        renderingInfo.storeI64(
+            32,
+            if (depthEnabled) 126 else 0
+        )
+        pipelineInfo.storePointer(
+            8,
+            if (dynamicRendering) renderingInfo.address
+            else nativeNullPointer()
+        )
         pipelineInfo.storeI64(16, 2 * 4294967296)
         pipelineInfo.storePointer(24, stages.address)
         pipelineInfo.storePointer(32, vertexInput.address)
@@ -6222,8 +6273,9 @@ trusted fun VulkanDevice.renderPipeline(
         height,
         vertexStride,
         depthEnabled,
+        dynamicRendering,
         !offscreen,
-        !offscreen,
+        !offscreen && !dynamicRendering,
         descriptorSetLayout != 0
     )
 }
@@ -6379,6 +6431,135 @@ trusted fun vulkanStoreImageBarrier(
     )
     ablaUnsafeStoreI64(ablaUnsafePointerOffset(barrier, 64), 1)
     return
+}
+
+trusted fun vulkanRecordImageTransition(
+    command: i64*,
+    var scratch: NativeByteBuffer,
+    synchronization2: bool,
+    image: int,
+    oldLayout: int,
+    newLayout: int,
+    sourceStage: int,
+    destinationStage: int,
+    sourceAccess: int,
+    destinationAccess: int,
+    aspect: int = 1
+): bool {
+    var succeeded = !pointerIsNull(command) && !scratch.closed &&
+        scratch.capacity >= 320 && image != 0
+    if (succeeded && synchronization2) {
+        // VkDependencyInfo at 160 and VkImageMemoryBarrier2 at 224.
+        scratch.storeI64(224, 1000314002)
+        scratch.storePointer(232, nativeNullPointer())
+        scratch.storeI64(240, sourceStage)
+        scratch.storeI64(248, sourceAccess)
+        scratch.storeI64(256, destinationStage)
+        scratch.storeI64(264, destinationAccess)
+        scratch.storeI64(272, newLayout * 4294967296 + oldLayout)
+        scratch.storeI64(280, 18446744073709551615)
+        scratch.storeI64(288, image)
+        scratch.storeI64(296, aspect)
+        scratch.storeI64(304, 1)
+        scratch.storeI64(312, 1)
+        scratch.storeI64(160, 1000314003)
+        scratch.storePointer(168, nativeNullPointer())
+        scratch.storeI64(176, 0)
+        scratch.storePointer(184, nativeNullPointer())
+        scratch.storeI64(192, 0)
+        scratch.storePointer(200, nativeNullPointer())
+        scratch.storeI64(208, 1)
+        scratch.storePointer(216, scratch.pointerAt(224))
+        vkCmdPipelineBarrier2(command, scratch.pointerAt(160))
+    } else if (succeeded) {
+        vulkanStoreImageBarrier(
+            scratch.pointerAt(160),
+            image,
+            oldLayout,
+            newLayout,
+            sourceAccess,
+            destinationAccess,
+            aspect
+        )
+        vkCmdPipelineBarrier(
+            command,
+            sourceStage,
+            destinationStage,
+            0,
+            0,
+            nativeNullPointer(),
+            0,
+            nativeNullPointer(),
+            1,
+            scratch.pointerAt(160)
+        )
+    }
+    succeeded
+}
+
+trusted fun vulkanBeginDynamicRendering(
+    command: i64*,
+    var scratch: NativeByteBuffer,
+    colorView: int,
+    depthView: int,
+    width: int,
+    height: int,
+    clear: Color
+): bool {
+    val depthEnabled = depthView != 0
+    val succeeded = !pointerIsNull(command) && !scratch.closed &&
+        scratch.capacity >= 376 && colorView != 0 && width > 0 &&
+        height > 0 && clear.valid()
+    if (succeeded) {
+        // Color VkRenderingAttachmentInfo at 160.
+        scratch.storeI64(160, 1000044001)
+        scratch.storePointer(168, nativeNullPointer())
+        scratch.storeI64(176, colorView)
+        scratch.storeI64(184, 2)
+        scratch.storeI64(192, 0)
+        scratch.storeI64(200, 4294967296)
+        scratch.storeI64(208, 0)
+        scratch.storeI64(
+            216,
+            (graphicsScalarF32Bits(clear.green) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.red) & 4294967295)
+        )
+        scratch.storeI64(
+            224,
+            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(clear.blue) & 4294967295)
+        )
+        if (depthEnabled) {
+            // Depth VkRenderingAttachmentInfo at 232.
+            scratch.storeI64(232, 1000044001)
+            scratch.storePointer(240, nativeNullPointer())
+            scratch.storeI64(248, depthView)
+            scratch.storeI64(256, 3)
+            scratch.storeI64(264, 0)
+            scratch.storeI64(272, 4294967296)
+            scratch.storeI64(280, 0)
+            scratch.storeI64(288, 1065353216)
+            scratch.storeI64(296, 0)
+        }
+        // VkRenderingInfo at 304.
+        scratch.storeI64(304, 1000044000)
+        scratch.storePointer(312, nativeNullPointer())
+        scratch.storeI64(320, 0)
+        scratch.storeI64(328, width * 4294967296)
+        scratch.storeI64(336, 4294967296 + height)
+        scratch.storeI64(344, 4294967296)
+        scratch.storePointer(352, scratch.pointerAt(160))
+        scratch.storePointer(
+            360,
+            if (depthEnabled) scratch.pointerAt(232)
+            else nativeNullPointer()
+        )
+        scratch.storePointer(368, nativeNullPointer())
+        vkCmdBeginRendering(command, scratch.pointerAt(304))
+    }
+    succeeded
 }
 
 trusted fun vulkanImageBarrier(
@@ -6909,7 +7090,11 @@ trusted fun VulkanDevice.presentRenderOutcome(
         pipeline.width == swapchain.width &&
         pipeline.height == swapchain.height &&
         pipeline.format == swapchain.format &&
-        pipeline.framebuffers.size == swapchain.images.size && clear.valid() &&
+        ((pipeline.dynamicRendering && pipeline.framebuffers.size == 0 &&
+          pipeline.imageViews.size == swapchain.images.size) ||
+         (!pipeline.dynamicRendering &&
+          pipeline.framebuffers.size == swapchain.images.size)) &&
+        clear.valid() &&
         vertexCount > 0 && indexCount >= 0 && instanceCount > 0 &&
         ((pipeline.vertexStride == 0 && vertexBuffer == 0) ||
          (pipeline.vertexStride > 0 && vertexBuffer != 0)) &&
@@ -6970,7 +7155,11 @@ trusted fun VulkanDevice.presentRenderOutcome(
     else -1
     if (imageIndex < 0 || imageIndex >= swapchain.images.size ||
         imageIndex >= presenter.rendered.size ||
-        imageIndex >= pipeline.framebuffers.size) succeeded = false
+        imageIndex >= pipeline.imageViews.size ||
+        (!pipeline.dynamicRendering &&
+         imageIndex >= pipeline.framebuffers.size) ||
+        (pipeline.dynamicRendering && pipeline.depthEnabled &&
+         imageIndex >= pipeline.depthTextures.size)) succeeded = false
 
     if (succeeded) {
         presenter.frames[frame].scratch.storeI64(
@@ -7000,54 +7189,96 @@ trusted fun VulkanDevice.presentRenderOutcome(
         ) == vulkanSuccess
     }
     if (succeeded) {
-        presenter.frames[frame].scratch.storeI64(
-            120,
-            (graphicsScalarF32Bits(clear.green) & 4294967295) *
-                4294967296 +
-                (graphicsScalarF32Bits(clear.red) & 4294967295)
-        )
-        presenter.frames[frame].scratch.storeI64(
-            128,
-            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
-                4294967296 +
-                (graphicsScalarF32Bits(clear.blue) & 4294967295)
-        )
-        if (pipeline.depthEnabled) {
-            presenter.frames[frame].scratch.storeI64(136, 1065353216)
-            presenter.frames[frame].scratch.storeI64(144, 0)
-        }
-        presenter.frames[frame].scratch.storeI64(0, 43)
-        presenter.frames[frame].scratch.storePointer(
-            8,
-            nativeNullPointer()
-        )
-        presenter.frames[frame].scratch.storeI64(16, pipeline.renderPass)
-        presenter.frames[frame].scratch.storeI64(
-            24,
-            pipeline.framebuffers[imageIndex]
-        )
-        presenter.frames[frame].scratch.storeI64(32, 0)
-        presenter.frames[frame].scratch.storeI64(
-            40,
-            swapchain.height * 4294967296 + swapchain.width
-        )
-        presenter.frames[frame].scratch.storeI64(
-            48,
-            if (pipeline.depthEnabled) 2 else 1
-        )
-        presenter.frames[frame].scratch.storePointer(
-            56,
-            nativePointerFromAddress(
-                nativePointerAddress(
-                    presenter.frames[frame].scratch.address
-                ) + 120
+        val command = presenter.frames[frame].command.load()
+        if (pipeline.dynamicRendering) {
+            succeeded = vulkanRecordImageTransition(
+                command,
+                presenter.frames[frame].scratch,
+                this.synchronization2,
+                swapchain.images[imageIndex],
+                0,
+                2,
+                1,
+                1024,
+                0,
+                256
             )
-        )
-        vkCmdBeginRenderPass(
-            presenter.frames[frame].command.load(),
-            presenter.frames[frame].scratch.address,
-            0
-        )
+            if (succeeded && pipeline.depthEnabled) {
+                succeeded = vulkanRecordImageTransition(
+                    command,
+                    presenter.frames[frame].scratch,
+                    this.synchronization2,
+                    pipeline.depthTextures[imageIndex].image,
+                    0,
+                    3,
+                    1,
+                    768,
+                    0,
+                    1536,
+                    2
+                )
+            }
+            if (succeeded) {
+                succeeded = vulkanBeginDynamicRendering(
+                    command,
+                    presenter.frames[frame].scratch,
+                    pipeline.imageViews[imageIndex],
+                    if (pipeline.depthEnabled)
+                        pipeline.depthViews[imageIndex].handle
+                    else 0,
+                    swapchain.width,
+                    swapchain.height,
+                    clear
+                )
+            }
+        } else {
+            presenter.frames[frame].scratch.storeI64(
+                120,
+                (graphicsScalarF32Bits(clear.green) & 4294967295) *
+                    4294967296 +
+                    (graphicsScalarF32Bits(clear.red) & 4294967295)
+            )
+            presenter.frames[frame].scratch.storeI64(
+                128,
+                (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
+                    4294967296 +
+                    (graphicsScalarF32Bits(clear.blue) & 4294967295)
+            )
+            if (pipeline.depthEnabled) {
+                presenter.frames[frame].scratch.storeI64(136, 1065353216)
+                presenter.frames[frame].scratch.storeI64(144, 0)
+            }
+            presenter.frames[frame].scratch.storeI64(0, 43)
+            presenter.frames[frame].scratch.storePointer(
+                8,
+                nativeNullPointer()
+            )
+            presenter.frames[frame].scratch.storeI64(16, pipeline.renderPass)
+            presenter.frames[frame].scratch.storeI64(
+                24,
+                pipeline.framebuffers[imageIndex]
+            )
+            presenter.frames[frame].scratch.storeI64(32, 0)
+            presenter.frames[frame].scratch.storeI64(
+                40,
+                swapchain.height * 4294967296 + swapchain.width
+            )
+            presenter.frames[frame].scratch.storeI64(
+                48,
+                if (pipeline.depthEnabled) 2 else 1
+            )
+            presenter.frames[frame].scratch.storePointer(
+                56,
+                presenter.frames[frame].scratch.pointerAt(120)
+            )
+            vkCmdBeginRenderPass(
+                command,
+                presenter.frames[frame].scratch.address,
+                0
+            )
+        }
+    }
+    if (succeeded) {
         presenter.frames[frame].scratch.storeI64(0, 0)
         presenter.frames[frame].scratch.storeI64(
             8,
@@ -7156,7 +7387,25 @@ trusted fun VulkanDevice.presentRenderOutcome(
                 0
             )
         }
-        vkCmdEndRenderPass(presenter.frames[frame].command.load())
+        if (pipeline.dynamicRendering) {
+            vkCmdEndRendering(presenter.frames[frame].command.load())
+            succeeded = vulkanRecordImageTransition(
+                presenter.frames[frame].command.load(),
+                presenter.frames[frame].scratch,
+                this.synchronization2,
+                swapchain.images[imageIndex],
+                2,
+                1000001002,
+                1024,
+                8192,
+                256,
+                0
+            )
+        } else {
+            vkCmdEndRenderPass(presenter.frames[frame].command.load())
+        }
+    }
+    if (succeeded) {
         succeeded = vkEndCommandBuffer(
             presenter.frames[frame].command.load()
         ) == vulkanSuccess

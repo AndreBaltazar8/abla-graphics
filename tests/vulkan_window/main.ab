@@ -33,7 +33,7 @@ fun main: int {
                 val device = adapters[index].deviceForSurface(surface)
                 val timeline = device.timelineSemaphore(2)
                 val timelinePassed = device.timelineSemaphores &&
-                    device.synchronization2 &&
+                    device.synchronization2 && device.dynamicRendering &&
                     timeline.valid() && timeline.currentValue() == 2 &&
                     timeline.signal(3) &&
                     timeline.wait(3, 1000000000) &&
@@ -111,6 +111,24 @@ fun main: int {
                     drawIndex = drawIndex + 1
                 }
                 val liveAfter = runtimeMemoryLiveBytes()
+                val legacyPipeline = device.renderPipeline(
+                    swapchain,
+                    vertex,
+                    fragment,
+                    preferDynamicRendering = false
+                )
+                val legacyRendered = device.presentRenderOutcome(
+                    swapchain,
+                    presenter,
+                    legacyPipeline,
+                    clear
+                )
+                val legacyPassed = legacyPipeline.valid() &&
+                    !legacyPipeline.dynamicRendering &&
+                    legacyPipeline.renderPass != 0 &&
+                    legacyPipeline.framebuffers.size ==
+                        swapchain.images.size &&
+                    vulkanPresentSucceeded(legacyRendered)
                 val stable = pipeline.handle == pipelineHandle &&
                     pipeline.renderPass == renderPassHandle &&
                     (pipeline.framebuffers.size == 0 ||
@@ -127,13 +145,19 @@ fun main: int {
                     (presenter.frames.size <= 1 || nativePointerAddress(
                         presenter.frames[1].command.load()
                      ) == command1)
+                val dynamicPassed = pipeline.dynamicRendering &&
+                    pipeline.renderPass == 0 &&
+                    pipeline.framebuffers.size == 0 &&
+                    pipeline.imageViews.size == swapchain.images.size &&
+                    presenter.frames[0].scratch.capacity >= 376
                 swapchainValid = device.valid() && timelinePassed &&
                     swapchain.valid() &&
                     swapchain.images.size >= capabilities.minimumImages &&
                     vertexCode.succeeded && fragmentCode.succeeded &&
                     vertex.valid() && fragment.valid() && pipeline.valid() &&
                     presenter.valid() && vulkanPresentSucceeded(rendered) &&
-                    repeated && liveAfter == liveBefore && stable
+                    repeated && liveAfter == liveBefore && stable &&
+                    dynamicPassed && legacyPassed
                 if (!swapchainValid) {
                     println(
                         "Vulkan draw failure initial=${vulkanPresentSucceeded(rendered)} repeated=$repeated live=$liveBefore/$liveAfter stable=$stable frame=${presenter.frameIndex}"

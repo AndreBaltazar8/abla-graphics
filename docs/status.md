@@ -52,14 +52,16 @@ Updated: 2026-08-18.
   creation for the direct Abla window, per-adapter graphics/presentation queue
   checks, surface capabilities/formats, a swapchain-enabled logical device,
   swapchain creation/image enumeration, surfaced-device timeline and
-  synchronization2 enablement, semaphore-synchronized acquisition,
-  image layout barriers, GPU clear, queue submission/presentation/wait, and
+  synchronization2/dynamic-rendering enablement, semaphore-synchronized
+  acquisition, render-pass-free surfaced pipeline creation, repeated dynamic
+  color/depth rendering with explicit image transitions, GPU clear, queue
+  submission/presentation/wait, and
   affine reverse-order teardown.
 - Common triangle render test/sample: one strict `$glsl` vertex/fragment
   package creates an affine OpenGL program/VAO or Abla-emitted Vulkan shader
-  modules, render pass, pipeline layout, graphics pipeline, swapchain image
-  views, and framebuffers. Vulkan records begin-pass, dynamic viewport/scissor,
-  bind, three-vertex draw, end-pass, submit, and present into the existing
+  modules, pipeline layout, graphics pipeline, and swapchain image views.
+  Vulkan dynamically records begin-rendering, viewport/scissor, bind,
+  three-vertex draw, end-rendering, submit, and present into the existing
   fence-guarded application frame slots. Explicit OpenGL and Vulkan each draw
   four warmed frames with stable program/pipeline/framebuffer/command handles
   and zero runtime live-byte growth. Vulkan validation is silent.
@@ -450,13 +452,20 @@ Compiler commit `2b376c3` adds the reusable affine nanosecond process clock used
 by the allocation-free frame pacer; its complete 73-test conformance suite and
 byte-identical pure-Abla self-rebuild passed before this framework slice.
 
+Compiler commit `f8a0a09` normalizes named arguments on overloaded extension
+calls, including omitted defaults and affine results. Its focused regression,
+73-test conformance suite, compact value-ABI check, and byte-identical
+pure-Abla self-rebuild passed before the dynamic-rendering fallback test used
+`preferDynamicRendering = false`.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
   arbitrary attachment routing and dependency masks, complete synchronization2
-  barrier/event migration, and dynamic rendering. The implemented portable
-  sequence currently gives every
-  stage the target's complete color/depth/resolve attachment set and inserts
+  barrier/event migration, and offscreen/MRT dynamic rendering. Surfaced
+  pipelines already use feature-gated dynamic rendering while the portable
+  sequence currently gives every stage the target's complete
+  color/depth/resolve attachment set and inserts
   fixed color-output dependencies. The initial raster pipeline,
   reusable clear, and pixel-upload paths honor the configured one-to-eight
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
@@ -481,7 +490,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with the initial 40 exercised common commands classified; all other
+  exist, with the initial 42 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
