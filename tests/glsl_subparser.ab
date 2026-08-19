@@ -1,6 +1,24 @@
 import "../src/shader/glsl.ab"
 import "../src/shader/glsl_spirv.ab"
 
+fun spirvWordsOrdered(
+    module: SpirvModule,
+    first: int,
+    second: int
+): bool {
+    var firstIndex = -1
+    var secondIndex = -1
+    var index = 0
+    while (index < module.words.size) {
+        if (firstIndex < 0 && module.words[index] == first) firstIndex = index
+        if (secondIndex < 0 && module.words[index] == second) {
+            secondIndex = index
+        }
+        index = index + 1
+    }
+    firstIndex >= 0 && secondIndex > firstIndex
+}
+
 fun main: int {
     val interpolatedSize = 6
     val interpolatedScale = 5
@@ -490,6 +508,30 @@ fun main: int {
     val unsupportedStorageBitwise = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value&1u; }"]
+    ).spirv(shaderStageCompute)
+    val storagePrecedence = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value+2u*3u; }"]
+    ).spirv(shaderStageCompute)
+    val storagePrecedenceAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value+2u*3u; }"]
+    ).spirv(shaderStageCompute)
+    val storageParentheses = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value+2u)*3u; }"]
+    ).spirv(shaderStageCompute)
+    val storageRepeatedLoad = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value*values.value+1u; }"]
+    ).spirv(shaderStageCompute)
+    val malformedStorageParentheses = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value+2u; }"]
+    ).spirv(shaderStageCompute)
+    val malformedStorageIncrement = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value++2u; }"]
     ).spirv(shaderStageCompute)
     val triangle = $glsl {
         vertex {
@@ -1040,6 +1082,19 @@ fun main: int {
         signedStorageModulo.module.words[85] == 327818 &&
         !unsupportedStorageBitwise.succeeded &&
         unsupportedStorageBitwise.error != "" &&
+        storagePrecedence.succeeded && storagePrecedence.module.valid() &&
+        spirvWordsOrdered(storagePrecedence.module, 327812, 327808) &&
+        spirvWordsEqual(
+            storagePrecedence.module,
+            storagePrecedenceAgain.module
+        ) &&
+        storageParentheses.succeeded && storageParentheses.module.valid() &&
+        spirvWordsOrdered(storageParentheses.module, 327808, 327812) &&
+        storageRepeatedLoad.succeeded && storageRepeatedLoad.module.valid() &&
+        !malformedStorageParentheses.succeeded &&
+        malformedStorageParentheses.error != "" &&
+        !malformedStorageIncrement.succeeded &&
+        malformedStorageIncrement.error != "" &&
         triangle.valid && triangle.locations.size == 1 &&
         triangleVertex.succeeded && triangleVertex.module.valid() &&
         triangleVertex.module.words.size == 232 &&

@@ -368,12 +368,13 @@ Updated: 2026-08-19.
   32-bit subset creates and dispatches on both installed drivers; Vulkan's ABI
   packer also carries 64-bit double overrides, which OpenGL rejects explicitly.
   Scalar and workgroup specialization coexistence is word-repeatable and also
-  creates and dispatches on both drivers. A reflected unsigned specialization
-  signed or unsigned integer constant can additionally feed the executable
-  storage assignment/addition/
-  subtraction/multiplication/division/modulo chain; a live override produces
-  checked buffer output on
-  OpenGL and Vulkan rather than merely proving pipeline creation.
+  creates and dispatches on both drivers. A reflected signed or unsigned integer
+  constant can additionally feed a precedence-parsed executable storage
+  expression with repeated member loads, typed literals, nested parentheses,
+  and left-associative addition/subtraction/multiplication/division/modulo. The
+  bounded postfix form emits deterministic SSA operations; a live override and
+  a parenthesized chain produce checked buffer output on OpenGL and Vulkan
+  rather than merely proving pipeline creation.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
@@ -635,9 +636,10 @@ three rejection paths are executable tests.
   Reflected push constants are not yet wired into backend pipeline creation.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
-  currently covers the strict no-op and single-member storage-assignment
-  compute subsets plus fixed, interleaved position/color, and sampled-texture
-  triangle vertex/fragment subsets described above, not general shaders.
+  currently covers the strict no-op and precedence-parsed single-member integer
+  storage-expression compute subsets plus fixed, interleaved position/color,
+  and sampled-texture triangle vertex/fragment subsets described above, not
+  general shaders.
 - Callable generated bindings, compiler-verified host offsets, and fully
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and

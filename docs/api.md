@@ -1411,15 +1411,23 @@ compute package on both real backends.
 
 `app.computeStoragePipeline(shader, buffer)` is the first observable binding
 slice. The shader must reflect exactly one `layout(std430, binding = 0)` buffer
-at set zero and match the documented `Values { uint value; }` write subset.
+at set zero and match the documented `Values { int|uint value; }` write subset.
 OpenGL binds the existing buffer object as SSBO binding zero and issues a shader
 storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
-Both paths execute the parsed assignment and common checked readback observes
-the result. Repeated storage dispatch also reuses the Vulkan descriptor handle
-and pipeline-owned ABI scratch without live-memory growth. The pipeline must
-drop before its borrowed storage buffer; additional bindings, general
-block layouts, dynamic offsets, and descriptor reuse are still upcoming.
+The assignment expression accepts the storage member, typed integer literals,
+one matching scalar specialization constant, nested parentheses, and
+left-associative `+`, `-`, `*`, `/`, and `%`; multiplication, division, and
+remainder bind before addition and subtraction. The parser emits a bounded
+postfix program of fewer than 128 tokens, and the Abla emitter deterministically
+assigns one SSA result per load and operation. Bitwise, comparison, Boolean,
+unary-symbolic, and function-call expressions remain explicit subset failures.
+Both paths execute the same parsed chain and common checked readback observes
+the result, including specialization overrides. Repeated storage dispatch also
+reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without
+live-memory growth. The pipeline must drop before its borrowed storage buffer;
+additional bindings, general block layouts, dynamic offsets, and descriptor
+reuse are still upcoming.
 
 Dynamic source through a common `ShaderSource` and common pipeline creation are
 still target APIs. They will validate that the selected backend can consume the

@@ -16,29 +16,38 @@ class GlslSpirvResult(
     val error: string = ""
 )
 
+val glslStorageTokenLoad = 0
+val glslStorageTokenLiteral = 1
+val glslStorageTokenSpecialization = 2
+val glslStorageTokenOperation = 3
+
+class GlslStorageToken(
+    val kind: int,
+    val value: int = 0,
+    val opcode: int = 0,
+    val specializationId: int = -1
+)
+
+class GlslStorageExpression(
+    val valid: bool,
+    val tokens: array<GlslStorageToken>,
+    val next: int
+)
+
 class GlslStorageWrite(
     val valid: bool,
-    val value: int = 0,
-    val add: bool = false,
-    val multiply: bool = false,
-    val specialized: bool = false,
-    val specializationId: int = -1,
-    val subtract: bool = false,
-    val divide: bool = false,
-    val modulo: bool = false,
-    val signed: bool = false
+    val signed: bool = false,
+    val tokens: array<GlslStorageToken> = [],
+    val specialized: bool = false
 ) {
-    fun arithmetic(): bool = this.add || this.subtract || this.multiply ||
-        this.divide || this.modulo
-
-    fun opcode(): int {
-        var opcode = 0
-        if (this.add) opcode = 327808
-        else if (this.subtract) opcode = 327810
-        else if (this.multiply) opcode = 327812
-        else if (this.divide) opcode = if (this.signed) 327815 else 327814
-        else if (this.modulo) opcode = if (this.signed) 327818 else 327817
-        opcode
+    fun arithmetic(): bool {
+        var result = false
+        var index = 0
+        while (!result && index < this.tokens.size) {
+            result = this.tokens[index].kind == glslStorageTokenOperation
+            index = index + 1
+        }
+        result
     }
 }
 
@@ -868,6 +877,233 @@ fun glslExpectCharacter(
     )
 }
 
+fun glslStorageTokensCopy(
+    source: array<GlslStorageToken>
+): array<GlslStorageToken> {
+    val result: array<GlslStorageToken> = []
+    var index = 0
+    while (index < source.size) {
+        result.append(source[index])
+        index = index + 1
+    }
+    result
+}
+
+fun glslStorageExpressionSpecialized(
+    tokens: array<GlslStorageToken>
+): bool {
+    var specialized = false
+    var index = 0
+    while (!specialized && index < tokens.size) {
+        specialized = tokens[index].kind == glslStorageTokenSpecialization
+        index = index + 1
+    }
+    specialized
+}
+
+fun glslStorageOpcode(character: int, signed: bool): int {
+    var opcode = 0
+    if (character == 43) opcode = 327808
+    else if (character == 45) opcode = 327810
+    else if (character == 42) opcode = 327812
+    else if (character == 47) opcode = if (signed) 327815 else 327814
+    else if (character == 37) opcode = if (signed) 327818 else 327817
+    opcode
+}
+
+fun glslStoragePrimary(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val tokens: array<GlslStorageToken> = []
+    var index = glslSkipTrivia(source, begin)
+    var valid = index < source.size
+    if (valid && source[index] == 40) {
+        val nested = glslStorageAdditive(
+            source,
+            index + 1,
+            signed,
+            specializationName,
+            specializationDefault,
+            specializationId
+        )
+        val close = glslExpectCharacter(source, nested.next, 41)
+        valid = nested.valid && close.valid
+        if (valid) {
+            val copied = glslStorageTokensCopy(nested.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                tokens.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+        }
+        index = close.next
+    } else {
+        val name = glslReadName(source, index)
+        if (name.text == "values") {
+            val dot = glslExpectCharacter(source, name.next, 46)
+            val member = glslReadName(source, dot.next)
+            valid = dot.valid && member.text == "value"
+            if (valid) tokens.append(GlslStorageToken(
+                glslStorageTokenLoad
+            ))
+            index = member.next
+        } else if (specializationName != "" &&
+            name.text == specializationName) {
+            tokens.append(GlslStorageToken(
+                glslStorageTokenSpecialization,
+                specializationDefault,
+                specializationId = specializationId
+            ))
+            index = name.next
+        } else {
+            val literal = glslNumericLiteral(
+                source,
+                index,
+                if (signed) "int" else "uint"
+            )
+            val parsed = glslIntegerDefault(literal.text, signed)
+            valid = literal.text != "" && parsed.valid
+            if (valid) tokens.append(GlslStorageToken(
+                glslStorageTokenLiteral,
+                parsed.bits
+            ))
+            index = literal.next
+        }
+    }
+    GlslStorageExpression(valid && tokens.size > 0, tokens, index)
+}
+
+fun glslStorageMultiplicative(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val first = glslStoragePrimary(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+    val tokens: array<GlslStorageToken> = []
+    if (first.valid) {
+        val copied = glslStorageTokensCopy(first.tokens)
+        var copiedIndex = 0
+        while (copiedIndex < copied.size) {
+            tokens.append(copied[copiedIndex])
+            copiedIndex = copiedIndex + 1
+        }
+    }
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128) {
+        val operator = glslSkipTrivia(source, index)
+        if (operator < source.size &&
+            (source[operator] == 42 || source[operator] == 47 ||
+             source[operator] == 37)) {
+            val right = glslStoragePrimary(
+                source,
+                operator + 1,
+                signed,
+                specializationName,
+                specializationDefault,
+                specializationId
+            )
+            valid = right.valid
+            if (valid) {
+                val copied = glslStorageTokensCopy(right.tokens)
+                var copiedIndex = 0
+                while (copiedIndex < copied.size) {
+                    tokens.append(copied[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                tokens.append(GlslStorageToken(
+                    glslStorageTokenOperation,
+                    opcode = glslStorageOpcode(source[operator], signed)
+                ))
+                index = right.next
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
+fun glslStorageAdditive(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val first = glslStorageMultiplicative(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+    val tokens: array<GlslStorageToken> = []
+    if (first.valid) {
+        val copied = glslStorageTokensCopy(first.tokens)
+        var copiedIndex = 0
+        while (copiedIndex < copied.size) {
+            tokens.append(copied[copiedIndex])
+            copiedIndex = copiedIndex + 1
+        }
+    }
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128) {
+        val operator = glslSkipTrivia(source, index)
+        if (operator < source.size &&
+            (source[operator] == 43 || source[operator] == 45)) {
+            valid = operator + 1 >= source.size ||
+                source[operator + 1] != source[operator]
+            if (valid) {
+                val right = glslStorageMultiplicative(
+                    source,
+                    operator + 1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationId
+                )
+                valid = right.valid
+                if (valid) {
+                    val copied = glslStorageTokensCopy(right.tokens)
+                    var copiedIndex = 0
+                    while (copiedIndex < copied.size) {
+                        tokens.append(copied[copiedIndex])
+                        copiedIndex = copiedIndex + 1
+                    }
+                    tokens.append(GlslStorageToken(
+                        glslStorageTokenOperation,
+                        opcode = glslStorageOpcode(
+                            source[operator],
+                            signed
+                        )
+                    ))
+                    index = right.next
+                }
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
 fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     var index = glslSkipTrivia(source, 0)
     var valid = index < source.size && source[index] == 35
@@ -963,71 +1199,183 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && part.text == "value"
     character = glslExpectCharacter(source, part.next, 61)
     valid = valid && character.valid
-    var add = false
-    var multiply = false
-    var subtract = false
-    var divide = false
-    var modulo = false
-    val expression = glslReadName(source, character.next)
-    var operandBegin = character.next
-    if (expression.text == "values") {
-        character = glslExpectCharacter(source, expression.next, 46)
-        valid = valid && character.valid
-        part = glslReadName(source, character.next)
-        valid = valid && part.text == "value"
-        val operator = glslSkipTrivia(source, part.next)
-        valid = valid && operator < source.size &&
-            (source[operator] == 43 || source[operator] == 45 ||
-             source[operator] == 42 || source[operator] == 47 ||
-             source[operator] == 37)
-        if (operator < source.size) {
-            add = source[operator] == 43
-            subtract = source[operator] == 45
-            multiply = source[operator] == 42
-            divide = source[operator] == 47
-            modulo = source[operator] == 37
-        }
-        operandBegin = operator + 1
-    }
-    val symbolic = glslReadName(source, operandBegin)
-    val specialized = specializationName != "" &&
-        symbolic.text == specializationName
-    var value = GlslInteger(
-        specialized,
+    val expression = glslStorageAdditive(
+        source,
+        character.next,
+        signed,
+        specializationName,
         specializationDefault,
-        symbolic.next
+        specializationId
     )
-    if (!specialized) {
-        val literal = glslNumericLiteral(
-            source,
-            operandBegin,
-            if (signed) "int" else "uint"
-        )
-        val parsed = glslIntegerDefault(literal.text, signed)
-        value = GlslInteger(
-            literal.text != "" && parsed.valid,
-            parsed.bits,
-            literal.next
-        )
-    }
-    valid = valid && value.valid
-    character = glslExpectCharacter(source, value.next, 59)
+    valid = valid && expression.valid
+    character = glslExpectCharacter(source, expression.next, 59)
     valid = valid && character.valid
     character = glslExpectCharacter(source, character.next, 125)
     valid = valid && character.valid &&
         glslSkipTrivia(source, character.next) == source.size
     GlslStorageWrite(
         valid,
-        value.value,
-        add,
-        multiply,
-        specialized,
-        if (specialized) specializationId else -1,
-        subtract,
-        divide,
-        modulo,
-        signed
+        signed,
+        expression.tokens,
+        specializationName != "" && glslStorageExpressionSpecialized(
+            expression.tokens
+        )
     )
+}
+
+fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
+    val tokenIds: array<int> = []
+    var tokenIndex = 0
+    while (tokenIndex < write.tokens.size) {
+        tokenIds.append(-1)
+        tokenIndex = tokenIndex + 1
+    }
+    var nextId = 8
+    var specializationResultId = -1
+    tokenIndex = 0
+    while (tokenIndex < write.tokens.size) {
+        val token = write.tokens[tokenIndex]
+        if (token.kind == glslStorageTokenLiteral) {
+            tokenIds[tokenIndex] = nextId
+            nextId = nextId + 1
+        } else if (token.kind == glslStorageTokenSpecialization) {
+            if (specializationResultId < 0) {
+                specializationResultId = nextId
+                nextId = nextId + 1
+            }
+            tokenIds[tokenIndex] = specializationResultId
+        }
+        tokenIndex = tokenIndex + 1
+    }
+    val variableId = nextId
+    nextId = nextId + 1
+    val mainId = nextId
+    nextId = nextId + 1
+    val labelId = nextId
+    nextId = nextId + 1
+    val pointerId = nextId
+    nextId = nextId + 1
+    val body: array<int> = []
+    val stack: array<int> = []
+    var stackSize = 0
+    var valid = write.valid
+    tokenIndex = 0
+    while (valid && tokenIndex < write.tokens.size) {
+        val token = write.tokens[tokenIndex]
+        var resultId = tokenIds[tokenIndex]
+        if (token.kind == glslStorageTokenLoad) {
+            resultId = nextId
+            nextId = nextId + 1
+            body.append(262205)
+            body.append(3)
+            body.append(resultId)
+            body.append(pointerId)
+        } else if (token.kind == glslStorageTokenOperation) {
+            valid = stackSize >= 2 && token.opcode != 0
+            if (valid) {
+                resultId = nextId
+                nextId = nextId + 1
+                body.append(token.opcode)
+                body.append(3)
+                body.append(resultId)
+                body.append(stack[stackSize - 2])
+                body.append(stack[stackSize - 1])
+                stackSize = stackSize - 2
+            }
+        }
+        if (valid) {
+            if (stackSize < stack.size) stack[stackSize] = resultId
+            else stack.append(resultId)
+            stackSize = stackSize + 1
+        }
+        tokenIndex = tokenIndex + 1
+    }
+    valid = valid && stackSize == 1
+    if (!valid) {
+        val empty: array<int> = []
+        return empty
+    }
+    val words: array<int> = [
+        spirvMagic, spirvVersion10, 0, nextId, 0,
+        131089, 1,
+        196622, 0, 1,
+        327695, 5, mainId, 1852399981, 0,
+        393232, mainId, 17, 1, 1, 1,
+        196679, 4, 3,
+        327752, 4, 0, 35, 0,
+        262215, variableId, 34, 0,
+        262215, variableId, 33, 0
+    ]
+    if (specializationResultId >= 0) {
+        var specializationId = -1
+        tokenIndex = 0
+        while (specializationId < 0 && tokenIndex < write.tokens.size) {
+            if (write.tokens[tokenIndex].kind ==
+                glslStorageTokenSpecialization) {
+                specializationId = write.tokens[tokenIndex].specializationId
+            }
+            tokenIndex = tokenIndex + 1
+        }
+        words.append(262215)
+        words.append(specializationResultId)
+        words.append(1)
+        words.append(specializationId)
+    }
+    val declarations: array<int> = [
+        131091, 1,
+        196641, 2, 1,
+        262165, 3, 32, if (write.signed) 1 else 0,
+        196638, 4, 3,
+        262176, 5, 2, 4,
+        262176, 6, 2, 3,
+        262187, 3, 7, 0
+    ]
+    var wordIndex = 0
+    while (wordIndex < declarations.size) {
+        words.append(declarations[wordIndex])
+        wordIndex = wordIndex + 1
+    }
+    var specializationDeclared = false
+    tokenIndex = 0
+    while (tokenIndex < write.tokens.size) {
+        val token = write.tokens[tokenIndex]
+        if (token.kind == glslStorageTokenLiteral) {
+            words.append(262187)
+            words.append(3)
+            words.append(tokenIds[tokenIndex])
+            words.append(token.value)
+        } else if (token.kind == glslStorageTokenSpecialization &&
+            !specializationDeclared) {
+            words.append(262194)
+            words.append(3)
+            words.append(specializationResultId)
+            words.append(token.value)
+            specializationDeclared = true
+        }
+        tokenIndex = tokenIndex + 1
+    }
+    val functionPrefix: array<int> = [
+        262203, 5, variableId, 2,
+        327734, 1, mainId, 0, 2,
+        131320, labelId,
+        327745, 6, pointerId, variableId, 7
+    ]
+    wordIndex = 0
+    while (wordIndex < functionPrefix.size) {
+        words.append(functionPrefix[wordIndex])
+        wordIndex = wordIndex + 1
+    }
+    wordIndex = 0
+    while (wordIndex < body.size) {
+        words.append(body[wordIndex])
+        wordIndex = wordIndex + 1
+    }
+    words.append(196670)
+    words.append(pointerId)
+    words.append(stack[0])
+    words.append(65789)
+    words.append(65592)
+    words
 }
 
 fun glslSourceMatchesTokens(
@@ -1281,64 +1629,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65592
         ]
     } else if (storage) {
-        words = [
-            spirvMagic, spirvVersion10, 0,
-            if (storageWrite.arithmetic()) 15 else 13, 0,
-            131089, 1,
-            196622, 0, 1,
-            327695, 5, 10, 1852399981, 0,
-            393232, 10, 17, 1, 1, 1,
-            196679, 4, 3,
-            327752, 4, 0, 35, 0,
-            262215, 9, 34, 0,
-            262215, 9, 33, 0
-        ]
-        if (storageWrite.specialized) {
-            words.append(262215)
-            words.append(8)
-            words.append(1)
-            words.append(storageWrite.specializationId)
-        }
-        val storageDeclarations: array<int> = [
-            131091, 1,
-            196641, 2, 1,
-            262165, 3, 32, if (storageWrite.signed) 1 else 0,
-            196638, 4, 3,
-            262176, 5, 2, 4,
-            262176, 6, 2, 3,
-            262187, 3, 7, 0,
-            if (storageWrite.specialized) 262194 else 262187,
-            3, 8, storageWrite.value,
-            262203, 5, 9, 2,
-            327734, 1, 10, 0, 2,
-            131320, 11,
-            327745, 6, 12, 9, 7
-        ]
-        var storageWord = 0
-        while (storageWord < storageDeclarations.size) {
-            words.append(storageDeclarations[storageWord])
-            storageWord = storageWord + 1
-        }
-        if (storageWrite.arithmetic()) {
-            words.append(262205)
-            words.append(3)
-            words.append(13)
-            words.append(12)
-            words.append(storageWrite.opcode())
-            words.append(3)
-            words.append(14)
-            words.append(13)
-            words.append(8)
-            words.append(196670)
-            words.append(12)
-            words.append(14)
-        } else {
-            words.append(196670)
-            words.append(12)
-            words.append(8)
-        }
-        words.append(65789)
-        words.append(65592)
+        words = glslStorageSpirv(storageWrite)
     } else if (vertex) {
         words = [
             119734787, 65536, 458752, 42, 0,
