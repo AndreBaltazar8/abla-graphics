@@ -30,7 +30,11 @@ class ShaderLocation(
 class ShaderBlockMember(
     val dataType: string,
     val name: string,
-    val arraySize: int = 1
+    val arraySize: int = 1,
+    val offset: int = -1,
+    val align: int = -1,
+    val rowMajor: bool = false,
+    val columnMajor: bool = false
 )
 
 class ShaderBinding(
@@ -148,6 +152,15 @@ class GlslSpecializationDeclaration(
     val dataType: string,
     val name: string,
     val defaultValue: string,
+    val next: int
+)
+
+class GlslMemberLayout(
+    val valid: bool,
+    val offset: int,
+    val align: int,
+    val rowMajor: bool,
+    val columnMajor: bool,
     val next: int
 )
 
@@ -347,6 +360,74 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     )
 }
 
+fun glslPowerOfTwo(value: int): bool {
+    var candidate = 1
+    while (candidate < value && candidate < 1073741824) {
+        candidate = candidate * 2
+    }
+    value > 0 && candidate == value
+}
+
+fun glslParseMemberLayout(source: string, begin: int): GlslMemberLayout {
+    var index = glslSkipTrivia(source, begin)
+    var valid = index < source.size && source[index] == 40
+    if (valid) index = index + 1
+    var offset = -1
+    var align = -1
+    var rowMajor = false
+    var columnMajor = false
+    var done = false
+    var entries = 0
+    while (valid && !done && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index < source.size && source[index] == 41) {
+            index = index + 1
+            done = true
+        } else {
+            val name = glslReadName(source, index)
+            valid = name.text != ""
+            index = glslSkipTrivia(source, name.next)
+            if (valid &&
+                (name.text == "offset" || name.text == "align")) {
+                valid = index < source.size && source[index] == 61
+                val integer = glslReadUnsigned(source, index + 1)
+                valid = valid && integer.valid
+                if (valid && name.text == "offset") {
+                    valid = offset < 0
+                    if (valid) offset = integer.value
+                } else if (valid) {
+                    valid = align < 0 && glslPowerOfTwo(integer.value)
+                    if (valid) align = integer.value
+                }
+                index = integer.next
+            } else if (valid && name.text == "row_major") {
+                valid = !rowMajor && !columnMajor
+                if (valid) rowMajor = true
+            } else if (valid && name.text == "column_major") {
+                valid = !rowMajor && !columnMajor
+                if (valid) columnMajor = true
+            } else valid = false
+            if (valid) entries = entries + 1
+            index = glslSkipTrivia(source, index)
+            if (valid && index < source.size && source[index] == 44) {
+                index = index + 1
+            } else if (valid && index < source.size &&
+                source[index] == 41) {
+                index = index + 1
+                done = true
+            } else valid = false
+        }
+    }
+    GlslMemberLayout(
+        valid && done && entries > 0,
+        offset,
+        align,
+        rowMajor,
+        columnMajor,
+        index
+    )
+}
+
 fun glslNumericLiteral(
     source: string,
     begin: int,
@@ -495,6 +576,20 @@ fun glslParseBlock(source: string, begin: int): GlslBlock {
             index = index + 1
             closed = true
         } else {
+            var memberLayout = GlslMemberLayout(
+                true,
+                -1,
+                -1,
+                false,
+                false,
+                index
+            )
+            val prefix = glslReadName(source, index)
+            if (prefix.text == "layout") {
+                memberLayout = glslParseMemberLayout(source, prefix.next)
+                valid = memberLayout.valid
+                index = memberLayout.next
+            }
             var type = GlslName("", index)
             var searching = true
             var attempts = 0
@@ -513,7 +608,7 @@ fun glslParseBlock(source: string, begin: int): GlslBlock {
             val member = glslReadName(source, index)
             val arraySize = glslArraySizeAfterName(source, member.next)
             index = glslSkipTrivia(source, arraySize.next)
-            valid = type.text != "" && member.text != "" &&
+            valid = valid && type.text != "" && member.text != "" &&
                 arraySize.valid && index < source.size &&
                 source[index] == 59
             var duplicate = false
@@ -527,7 +622,11 @@ fun glslParseBlock(source: string, begin: int): GlslBlock {
                 members.append(ShaderBlockMember(
                     type.text,
                     member.text,
-                    arraySize.value
+                    arraySize.value,
+                    memberLayout.offset,
+                    memberLayout.align,
+                    memberLayout.rowMajor,
+                    memberLayout.columnMajor
                 ))
                 index = index + 1
             }
@@ -835,7 +934,11 @@ fun glslBlockMembersEqual(
     while (equal && index < left.size) {
         equal = left[index].dataType == right[index].dataType &&
             left[index].name == right[index].name &&
-            left[index].arraySize == right[index].arraySize
+            left[index].arraySize == right[index].arraySize &&
+            left[index].offset == right[index].offset &&
+            left[index].align == right[index].align &&
+            left[index].rowMajor == right[index].rowMajor &&
+            left[index].columnMajor == right[index].columnMajor
         index = index + 1
     }
     equal

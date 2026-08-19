@@ -509,10 +509,13 @@ combined executable exports precisely the two requested Abla callback symbols.
 
 GLSL binding reflection now parses non-empty uniform/storage interface blocks,
 including qualified scalar/vector/matrix members, fixed or unsized member
-arrays, block instance names, and instance arrays. It rejects malformed and
-duplicate-name member declarations and compares the complete ordered member
-structure when a descriptor slot is shared across stages. Positive and
-negative subparser cases preserve deterministic existing SPIR-V output.
+arrays, block instance names, instance arrays, and leading member layout
+qualifiers. Member reflection retains explicit offsets, power-of-two
+alignments, and row/column-major selection. It rejects malformed,
+duplicate-name, duplicate-layout-key, and conflicting-major member declarations
+and compares the complete ordered member structure and layout metadata when a
+descriptor slot is shared across stages. Positive and negative subparser cases
+preserve deterministic existing SPIR-V output.
 
 GLSL reflection now also owns explicit `layout(push_constant)` uniform blocks
 and scalar `layout(constant_id=N) const` declarations. Push constants retain
@@ -551,8 +554,10 @@ and collisions with explicit specialization constants are rejected.
   location/set/binding declaration, interface-block member subset, and
   cross-stage compatibility slice, push-constant reflection, and scalar
   specialization-constant reflection. It deliberately rejects quoted includes
-  and does not yet parse nested/member-layout structures, general declarations,
-  composite constants, or expressions.
+  and does not yet parse nested structures, multiple declarators, general
+  declarations, composite constants, or expressions. Explicit member layout
+  metadata is reflected but not yet converted into compiler-verified host
+  structure offsets.
   Reflected push/specialization constants are not yet wired into backend
   pipeline creation. SPIR-V emission currently covers the
   strict no-op and single-member storage-assignment compute subsets plus fixed,

@@ -1183,8 +1183,11 @@ numeric coordinates plus the declared data type, identifier, and fixed/unsized
 array extent. Uniform and storage interface blocks additionally expose ordered
 `ShaderBlockMember` values with each member's type, name, and array extent, plus
 the block instance name and array extent. Precision and memory qualifiers are
-accepted on members. Empty, malformed, and duplicate-name member lists are
-rejected. `layout(push_constant)` uniform blocks are reflected separately as
+accepted on members. A leading member `layout(...)` additionally retains
+explicit `offset`, power-of-two `align`, and mutually exclusive `row_major` or
+`column_major` metadata. Empty, malformed, duplicate-name, duplicate-layout-key,
+and conflicting-major member declarations are rejected.
+`layout(push_constant)` uniform blocks are reflected separately as
 stage-tagged `ShaderPushConstant` values. One block is accepted per stage;
 incompatible member structures across stages, descriptor coordinates on a push
 constant, and arrayed block instances are rejected. Scalar
@@ -1207,8 +1210,8 @@ source-preserved and are not misclassified. For compute packages,
 with a default dimension of one. A concrete value and specialization ID cannot
 both select one axis, dimension IDs must be distinct, and they cannot collide
 with an explicit specialization constant in the same stage. Nested structures,
-explicit member layout qualifiers, composite specialization constants, and
-backend pipeline specialization wiring are still forthcoming.
+multiple declarators, composite specialization constants, computed host-layout
+validation, and backend pipeline specialization wiring are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every

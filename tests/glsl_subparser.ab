@@ -109,6 +109,36 @@ fun main: int {
         [shaderStageVertex],
         ["layout(binding=0) uniform Camera { mat4 value } camera; void main() {}"]
     )
+    val reflectedMemberLayout = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(binding=5) uniform Draw { layout(offset=0,align=16,row_major) mat4 transform; layout(offset=64,column_major) mat4 projection; } draw; void main() {}",
+            "layout(binding=5) uniform Draw { layout(offset=0,align=16,row_major) mat4 transform; layout(offset=64,column_major) mat4 projection; } draw; void main() {}"
+        ]
+    )
+    val mismatchedMemberLayout = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(binding=5) uniform Draw { layout(offset=0) vec4 tint; } draw; void main() {}",
+            "layout(binding=5) uniform Draw { layout(offset=16) vec4 tint; } draw; void main() {}"
+        ]
+    )
+    val malformedMemberAlignment = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=5) uniform Draw { layout(align=3) vec4 tint; } draw; void main() {}"]
+    )
+    val conflictingMemberMajor = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=5) uniform Draw { layout(row_major,column_major) mat4 transform; } draw; void main() {}"]
+    )
+    val duplicateMemberLayoutKey = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=5) uniform Draw { layout(offset=0,offset=16) vec4 tint; } draw; void main() {}"]
+    )
+    val emptyMemberLayout = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=5) uniform Draw { layout() vec4 tint; } draw; void main() {}"]
+    )
     val reflectedPushConstants = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -425,6 +455,24 @@ fun main: int {
         !mismatchedBlock.valid && mismatchedBlock.error != "" &&
         !duplicateBlockMember.valid && duplicateBlockMember.error != "" &&
         !malformedBlockMember.valid && malformedBlockMember.error != "" &&
+        reflectedMemberLayout.valid &&
+        reflectedMemberLayout.bindings.size == 2 &&
+        reflectedMemberLayout.bindings[0].members.size == 2 &&
+        reflectedMemberLayout.bindings[0].members[0].offset == 0 &&
+        reflectedMemberLayout.bindings[0].members[0].align == 16 &&
+        reflectedMemberLayout.bindings[0].members[0].rowMajor &&
+        !reflectedMemberLayout.bindings[0].members[0].columnMajor &&
+        reflectedMemberLayout.bindings[0].members[1].offset == 64 &&
+        reflectedMemberLayout.bindings[0].members[1].columnMajor &&
+        !mismatchedMemberLayout.valid &&
+        mismatchedMemberLayout.error != "" &&
+        !malformedMemberAlignment.valid &&
+        malformedMemberAlignment.error != "" &&
+        !conflictingMemberMajor.valid &&
+        conflictingMemberMajor.error != "" &&
+        !duplicateMemberLayoutKey.valid &&
+        duplicateMemberLayoutKey.error != "" &&
+        !emptyMemberLayout.valid && emptyMemberLayout.error != "" &&
         reflectedPushConstants.valid &&
         reflectedPushConstants.pushConstants.size == 2 &&
         reflectedPushConstants.pushConstants[0].stage == shaderStageVertex &&
