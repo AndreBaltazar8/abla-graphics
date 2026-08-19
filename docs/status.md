@@ -387,6 +387,10 @@ Updated: 2026-08-19.
   constant/spec-constant instructions; a default-false specialization overridden
   to true selects the checked result `7` after real OpenGL and Vulkan dispatch.
   Boolean arithmetic remains a checked type failure.
+  All ten integer compound-assignment operators lower through the same typed
+  token program. Tests prove `value += 2u` is byte-identical to its expanded
+  form and cover shift/bitwise compound opcodes; increment/decrement and logical
+  assignment remain rejected.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a

@@ -1441,7 +1441,10 @@ one matching integer specialization constant, Boolean literals or one Boolean
 specialization constant in condition expressions, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, relational/equality,
 bitwise, and `&&`/`^^`/`||` operators. A Boolean condition may feed the
-right-associative integer `condition ? whenTrue : whenFalse` form.
+right-associative integer `condition ? whenTrue : whenFalse` form. Integer
+targets also accept `+=`, `-=`, `*=`, `/=`, `%=`, `<<=`, `>>=`, `&=`, `^=`,
+and `|=`; each lowers to the byte-identical load/binary/store program produced
+by its expanded assignment.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

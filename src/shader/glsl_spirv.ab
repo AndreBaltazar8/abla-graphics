@@ -947,6 +947,21 @@ fun glslStorageTokenBinaryOperationClass(text: string): int {
     operationClass
 }
 
+fun glslStorageTokenCompoundOpcode(text: string, signed: bool): int {
+    var opcode = 0
+    if (text == "+=") opcode = 327808
+    else if (text == "-=") opcode = 327810
+    else if (text == "*=") opcode = 327812
+    else if (text == "/=") opcode = if (signed) 327815 else 327814
+    else if (text == "%=") opcode = if (signed) 327818 else 327817
+    else if (text == "<<=") opcode = 327876
+    else if (text == ">>=") opcode = if (signed) 327875 else 327874
+    else if (text == "|=") opcode = 327877
+    else if (text == "^=") opcode = 327878
+    else if (text == "&=") opcode = 327879
+    opcode
+}
+
 fun glslStorageTokenExpression(
     source: string,
     sourceTokens: array<GlslToken>,
@@ -1734,14 +1749,14 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         reflectedMember = reflectedMember + 1
     }
     valid = valid && memberIndex >= 0
-    matched = glslStorageTokenTake(
-        sourceTokens,
-        index,
-        glslTokenOperator,
-        "="
-    )
-    valid = valid && matched.valid
-    index = matched.next
+    var assignmentOperator = ""
+    if (valid && index < sourceTokens.size &&
+        sourceTokens[index].kind == glslTokenOperator) {
+        assignmentOperator = glslStorageTokenTextCopy(sourceTokens[index])
+        valid = assignmentOperator == "=" ||
+            glslStorageTokenCompoundOpcode(assignmentOperator, signed) != 0
+        index = index + 1
+    } else valid = false
 
     val empty: array<GlslStorageToken> = []
     var expression = GlslStorageExpression(false, empty, index)
@@ -1759,6 +1774,29 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         memberNames,
         0
     )
+    if (expression.valid && assignmentOperator != "=") {
+        val compoundTokens: array<GlslStorageToken> = [GlslStorageToken(
+            glslStorageTokenLoad,
+            memberIndex
+        )]
+        var compoundIndex = 0
+        while (compoundIndex < expression.tokens.size) {
+            compoundTokens.append(expression.tokens[compoundIndex])
+            compoundIndex = compoundIndex + 1
+        }
+        compoundTokens.append(GlslStorageToken(
+            glslStorageTokenOperation,
+            opcode = glslStorageTokenCompoundOpcode(
+                assignmentOperator,
+                signed
+            )
+        ))
+        expression = GlslStorageExpression(
+            compoundTokens.size < 128,
+            compoundTokens,
+            expression.next
+        )
+    }
     valid = valid && expression.valid
     index = expression.next
     matched = glslStorageTokenTake(
