@@ -446,6 +446,10 @@ Updated: 2026-08-19.
   increment/decrement, and compound-assignment tokens from bitwise/arithmetic
   operators. The former private character expression parser and
   strict storage declaration scanner have been removed.
+  Failed compute-storage grammar matches now preserve the current token's
+  original one-based line and column in `GlslSpirvResult.error`. Regressions
+  cover malformed built-in arity and a foreign storage instance on line two;
+  semantic emitter diagnostics remain a separate layer.
   Strict raster templates now also match the shared lexer stream instead of a
   private character/subsequence scanner. Compute-storage and every delivered
   raster template accept both GLSL 4.50 and 4.60; equivalent 450/460 storage and

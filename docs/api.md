@@ -1479,7 +1479,9 @@ block/member, entry-point, assignment, and expression tokens are advanced by
 immutable parse results carrying their next index, which fits Abla's ownership
 model without a mutable borrowed cursor. Comments and whitespace cannot change
 the parse, and longest-match operator tokens keep assignment operators from
-being mistaken for bitwise operations. Precedence follows GLSL from
+being mistaken for bitwise operations. A compute-storage grammar failure is
+reported through `GlslSpirvResult.error` at the offending token's original
+one-based line and column. Precedence follows GLSL from
 multiplicative through conditional selection. Signed right shift emits
 arithmetic shift while unsigned right shift emits logical shift. Unary `+`,
 signed symbolic `-`, integer `~`, and Boolean `!` bind at the primary-expression

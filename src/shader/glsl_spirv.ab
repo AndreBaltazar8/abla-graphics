@@ -51,7 +51,8 @@ class GlslStorageWrite(
     val tokens: array<GlslStorageToken> = [],
     val specialized: bool = false,
     val memberCount: int = 1,
-    val memberIndex: int = 0
+    val memberIndex: int = 0,
+    val error: string = ""
 ) {
     fun arithmetic(): bool {
         var result = false
@@ -2293,6 +2294,17 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && mainClosed && statements > 0 && firstMemberIndex >= 0 &&
         index < sourceTokens.size &&
         sourceTokens[index].kind == glslTokenEnd
+    var parseError = ""
+    if (!valid) {
+        if (!lexical.valid) {
+            parseError = "${lexical.error} at ${lexical.errorLine}:${lexical.errorColumn}"
+        } else if (sourceTokens.size > 0) {
+            val errorIndex = if (index >= 0 && index < sourceTokens.size)
+                index else sourceTokens.size - 1
+            val errorToken = sourceTokens[errorIndex]
+            parseError = "unsupported compute-storage GLSL syntax at ${errorToken.line}:${errorToken.column}"
+        } else parseError = "unsupported compute-storage GLSL syntax"
+    }
     GlslStorageWrite(
         valid,
         signed,
@@ -2301,7 +2313,8 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             programTokens
         ),
         memberCount,
-        firstMemberIndex
+        firstMemberIndex,
+        parseError
     )
 }
 fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
@@ -3387,6 +3400,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65789,
             65592
         ]
+    } else if (storageWrite.error != "") {
+        error = storageWrite.error
     } else {
         error = "the deterministic GLSL translator supports the documented compute, fixed triangle, and vertex-buffer graphics subsets"
     }
