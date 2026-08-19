@@ -44,7 +44,8 @@ on that reusable path, plus feature-gated surfaced dynamic rendering without
 render-pass/framebuffer objects and with a legacy fallback, plus reusable
 reflected push values wired to strict compute storage mutation and raster
 procedural/vertex/indexed/direct-indirect/indexed-indirect offscreen and
-presented commands on both backends. Repeated clear,
+presented commands plus matching reusable render-pass attachment operations on
+both backends. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

@@ -1746,9 +1746,20 @@ swapchain-recovery rules while additionally requiring an exact reflected value
 layout. OpenGL reuses the program-owned UBO for every draw form; Vulkan records
 the range before direct or indirect drawing. The `push-color` sample executes
 all eight buffered forms plus both procedural forms for changing values across
-four allocation-free frames on each backend. General raster push-constant
-expressions and push-aware render-pass clear/load/store overloads remain future
-slices.
+four allocation-free frames on each backend.
+
+Reusable attachment-operation passes have the matching
+`renderPushPassToTarget`, `renderPushPassVerticesToTarget`,
+`renderPushPassIndexedToTarget`,
+`renderPushPassVerticesIndirectToTarget`, and
+`renderPushPassIndexedIndirectToTarget` methods. The existing target/pass,
+subpass index, clear-value storage, clear mask, discard-before mask,
+discard-after mask, and Vulkan-compatible-render-pass checks remain unchanged;
+the reflected value layout is an additional mandatory condition. The sample
+exercises clear/store, load/store, and discard/discard operations before a
+stored exact-pixel pass, then repeats all five command forms allocation-free.
+General raster push-constant expressions and subpass-wide push value sequences
+remain future slices.
 
 The overload
 `app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,

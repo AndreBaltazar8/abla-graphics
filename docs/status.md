@@ -951,9 +951,10 @@ validity gate unchanged.
   recording plus persistent OpenGL UBO emulation for the strict observable
   storage-add shader slice. Raster fragment `vec4` push color is wired through
   procedural, vertex, indexed, vertex-indirect, and indexed-indirect offscreen
-  and presented commands on both backends with exact pixels, stable handles,
-  and zero-growth repeated values. General compute/raster expressions and
-  push-aware render-pass operation overloads remain upcoming.
+  and presented commands plus matching reusable render-pass attachment
+  operation commands on both backends with exact pixels, stable handles, and
+  zero-growth repeated values. General compute/raster expressions and
+  subpass-wide push value sequences remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

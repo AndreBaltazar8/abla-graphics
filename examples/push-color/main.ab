@@ -120,6 +120,25 @@ fun main: int {
         indexed.writeAllBytes(indexedBytes)
     val values = shader.pushConstants()
     val clear = Color(0.01, 0.02, 0.03)
+    val clearValues = renderPassClearValues(clear)
+    val clearPass = app.renderPass(target, move(clearValues))
+    val loadValues = renderPassClearValues(Color(0.0, 0.0, 1.0))
+    val loadPass = app.renderPass(
+        target,
+        move(loadValues),
+        RenderPassOperations(color = RenderAttachmentOperations(
+            load = attachmentLoadOperationLoad
+        ))
+    )
+    val discardValues = renderPassClearValues(Color(0.0, 1.0, 0.0))
+    val discardPass = app.renderPass(
+        target,
+        move(discardValues),
+        RenderPassOperations(color = RenderAttachmentOperations(
+            load = attachmentLoadOperationDiscard,
+            store = attachmentStoreOperationDiscard
+        ))
+    )
     val stored = values.storeF32(1.0, 0) &&
         values.storeF32(0.0, 4) && values.storeF32(0.0, 8) &&
         values.storeF32(1.0, 12)
@@ -135,17 +154,48 @@ fun main: int {
         3,
         clear
     )
+    val missingPassRejected = !app.renderPassToTarget(
+        target,
+        targetPipeline,
+        clearPass
+    ) && !app.renderPassVerticesToTarget(
+        target,
+        targetBufferedPipeline,
+        clearPass,
+        vertices,
+        3
+    )
     val warmed = app.valid() && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() && values.valid() &&
         targetBufferedPipeline.valid() && windowBufferedPipeline.valid() &&
+        clearPass.valid() && loadPass.valid() && discardPass.valid() &&
         vertices.valid() && indices.valid() && direct.valid() &&
         indexed.valid() && verticesUploaded && indicesUploaded &&
         directUploaded && indexedUploaded && missingBufferedRejected &&
+        missingPassRejected &&
         stored && app.renderPushToTarget(
             target,
             targetPipeline,
             values,
             clear
+        ) && target.texture.rgba8(32, 32) == 4278190335 &&
+        app.renderPushPassToTarget(
+            target, targetPipeline, values, clearPass
+        ) && app.renderPushPassToTarget(
+            target, targetPipeline, values, loadPass
+        ) && app.renderPushPassToTarget(
+            target, targetPipeline, values, discardPass
+        ) && app.renderPushPassVerticesToTarget(
+            target, targetBufferedPipeline, values, clearPass, vertices, 3
+        ) && app.renderPushPassIndexedToTarget(
+            target, targetBufferedPipeline, values, clearPass, vertices,
+            indices, 3
+        ) && app.renderPushPassVerticesIndirectToTarget(
+            target, targetBufferedPipeline, values, clearPass, vertices,
+            direct
+        ) && app.renderPushPassIndexedIndirectToTarget(
+            target, targetBufferedPipeline, values, clearPass, vertices,
+            indices, indexed
         ) && target.texture.rgba8(32, 32) == 4278190335 &&
         app.renderPushVerticesToTarget(
             target, targetBufferedPipeline, values, vertices, 3, clear
@@ -188,6 +238,21 @@ fun main: int {
         repeated = values.storeF32(if (even) 0.0 else 1.0, 0) &&
             values.storeF32(if (even) 1.0 else 0.0, 4) &&
             app.renderPushToTarget(target, targetPipeline, values, clear) &&
+            app.renderPushPassToTarget(
+                target, targetPipeline, values, clearPass
+            ) && app.renderPushPassVerticesToTarget(
+                target, targetBufferedPipeline, values, clearPass, vertices,
+                3
+            ) && app.renderPushPassIndexedToTarget(
+                target, targetBufferedPipeline, values, clearPass, vertices,
+                indices, 3
+            ) && app.renderPushPassVerticesIndirectToTarget(
+                target, targetBufferedPipeline, values, clearPass, vertices,
+                direct
+            ) && app.renderPushPassIndexedIndirectToTarget(
+                target, targetBufferedPipeline, values, clearPass, vertices,
+                indices, indexed
+            ) &&
             app.renderPushVerticesToTarget(
                 target, targetBufferedPipeline, values, vertices, 3, clear
             ) && app.renderPushIndexedToTarget(
@@ -232,7 +297,7 @@ fun main: int {
         targetBufferedPipeline.vulkan.pushConstantSize == 16 &&
         windowBufferedPipeline.vulkan.pushConstantSize == 16
     println(
-        "push-color backend=${graphicsBackendName(app.backend)} forms=10 pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+        "push-color backend=${graphicsBackendName(app.backend)} forms=15 pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
     )
     if (repeated && frame == 4 && finalPixel == 4278190335 &&
         liveAfter == liveBefore && handlesStable) 0 else 1
