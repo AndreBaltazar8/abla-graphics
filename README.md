@@ -30,6 +30,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   symbol/text parsing, deadline-driven keyboard repeat, hotplug-aware atomic
   output snapshots with optional xdg logical geometry and surface enter/leave
   tracking, optional per-surface fractional-scale preferences,
+  optional per-surface viewport destinations for presenting independently
+  sized high-resolution buffers at the xdg-shell logical size,
   compositor-mediated UTF-8
   clipboard ownership/offers with bounded descriptor transfers, xdg
   fullscreen/maximize/minimize/fixed-size controls, and ordered teardown
@@ -188,7 +190,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/x11-window`: direct X11 window/event loop;
 - `examples/wayland-info`: direct Wayland socket, registry, and global report;
 - `examples/wayland-window`: direct stable xdg-shell toplevel construction and
-  initial configure/ack handshake;
+  initial configure/ack handshake plus optional viewport destination setup;
 - `examples/wayland-pixels`: direct affine XRGB shared-memory buffer fill,
   attach, damage, commit, and frame completion;
 - `examples/wayland-animation`: allocation-stable triple-buffered XRGB

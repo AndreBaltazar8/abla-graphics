@@ -91,8 +91,14 @@ Updated: 2026-08-19.
   per surface, validates its numerator over 120, computes half-away rounded
   framebuffer extents, and emits copied framebuffer-resize events. The current
   Weston gate verifies the capability-missing path leaves the direct connection
-  healthy; deterministic tests cover 1.5x and half-pixel rounding. Viewport
-  destination/buffer replacement remains explicitly separate.
+  healthy; deterministic tests cover 1.5x and half-pixel rounding.
+- Optional `wp_viewporter` support owns one viewport per surface and stages a
+  positive logical destination or the exact protocol reset for the next
+  surface commit. The headless-Weston gate enables the advertised extension,
+  presents a 640x400 physical buffer at an initial 320x200 logical size,
+  updates the destination through a 1024x768 configure, rejects a mixed reset
+  pair, then unsets and commits it. Physical shared-buffer
+  allocation/replacement remains explicit.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec
@@ -835,12 +841,13 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland higher XKB groups/levels, dead-key compose, and input methods,
-  fractional-scale viewport/buffer application, and Vulkan/EGL presentation
-  integration. The current stable xdg-shell/xdg-output slice has reusable
-  one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,
-  allocation-stable hot-path wire I/O, continuous callback-driven frames, and
-  raw portable keyboard/pointer events. Windows and macOS platform modules.
+- Wayland higher XKB groups/levels, dead-key compose, input methods, automatic
+  fractional-scale shared-buffer replacement, and Vulkan/EGL presentation
+  integration. The current stable xdg-shell/xdg-output/viewporter slice has
+  reusable one-to-three-buffer XRGB8888 presentation, compositor-ownership
+  tracking, allocation-stable hot-path wire I/O, continuous callback-driven
+  frames, and raw portable keyboard/pointer events. Windows and macOS platform
+  modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional

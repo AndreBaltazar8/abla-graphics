@@ -1149,13 +1149,14 @@ surface serial configure/ack, and close intent. `setTitle()`, `setAppId()`, and
 `commit()` remain available after construction; callers can feed subsequent
 `connection.read()` values through `dispatch()`.
 
-`WaylandXdgWindow` is affine. Its drop path destroys any shared buffer, then
-the toplevel role, xdg surface, core surface, and shell binding before closing
-the connection. Deterministic codec tests cover strings, object-ID pairs,
-state arrays, and malformed inputs. Live headless-Weston gates separately prove
-registry binding and the real xdg-shell configure/ack handshake without
-linking `libwayland-client`. Input, clipboard, output discovery, and
-Vulkan/EGL Wayland presentation are not yet provided.
+`WaylandXdgWindow` is affine. Its drop path destroys owned data, scale,
+viewport, output, input, and shared-buffer objects before the toplevel role,
+xdg surface, core surface, shell binding, and connection. Deterministic codec
+tests cover strings, object-ID pairs, state arrays, and malformed inputs. Live
+headless-Weston gates separately prove registry binding, the real xdg-shell
+configure/ack handshake, input, clipboard, output discovery, pixel
+presentation, and ordered extension ownership without linking
+`libwayland-client`. Vulkan/EGL Wayland presentation is not yet provided.
 
 `createSharedBuffer(width, height)` adds the first pure-Abla content path. It
 binds `wl_shm` version one, creates and sizes a close-on-exec Linux `memfd`,
@@ -1252,8 +1253,16 @@ preferences are independently optional: `enableFractionalScale()` binds the
 standard version-one manager when advertised and queues a framebuffer-resized
 event from each preferred numerator over 120. `preferredFramebufferWidth` and
 `preferredFramebufferHeight` use the protocol's half-away rounding rule.
-`wp_viewport` destination setup and automatic buffer replacement remain future
-work, so this does not over-claim complete fractional presentation.
+When `wp_viewporter` is advertised, `enableViewport()` owns one standard
+version-one viewport for the surface. `setViewportDestination(width, height)`
+stages an independently sized logical destination, and
+`setPreferredViewportDestination()` stages the current xdg-shell width and
+height; the next `commit()` or `presentSharedPixels()` applies it atomically
+with other surface state. `unsetViewportDestination()` stages the protocol's
+`-1, -1` reset. This lets an application allocate shared buffers at
+`preferredFramebufferWidth/Height` while presenting them at the logical window
+size. Buffer replacement remains explicit and affine rather than happening
+behind the caller's back.
 
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,

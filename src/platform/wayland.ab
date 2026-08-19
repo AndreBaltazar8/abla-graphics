@@ -1371,6 +1371,10 @@ resource class WaylandXdgWindow(
     var fractionalScaleManagerIdentifier: int,
     var fractionalScaleIdentifier: int,
     var preferredFractionalScale: int,
+    var viewporterIdentifier: int,
+    var viewportIdentifier: int,
+    var viewportDestinationWidth: int,
+    var viewportDestinationHeight: int,
     var xdgOutputManagerIdentifier: int,
     var xdgOutputManagerVersion: int,
     var outputsEnabled: bool,
@@ -1515,6 +1519,58 @@ resource class WaylandXdgWindow(
         }
         succeeded
     }
+
+    fun enableViewport(): bool {
+        var succeeded = this.valid() && this.viewporterIdentifier == 0 &&
+            this.viewportIdentifier == 0
+        val manager = if (succeeded) this.connection.bind(
+            "wp_viewporter",
+            1
+        ) else WaylandBinding()
+        succeeded = succeeded && manager.valid
+        val identifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        if (succeeded) succeeded = identifier >= 2 && this.connection.send(
+            waylandPacket(
+                manager.identifier,
+                1,
+                waylandU32PairPayload(identifier, this.surfaceIdentifier)
+            )
+        )
+        if (succeeded) {
+            this.viewporterIdentifier = manager.identifier
+            this.viewportIdentifier = identifier
+        }
+        succeeded
+    }
+
+    fun viewportDestinationSet(): bool =
+        this.viewportDestinationWidth > 0 &&
+        this.viewportDestinationHeight > 0
+
+    fun setViewportDestination(width: int, height: int): bool {
+        val unset = width == -1 && height == -1
+        val validSize = width > 0 && width <= 2147483647 &&
+            height > 0 && height <= 2147483647
+        val succeeded = this.valid() && this.viewportIdentifier >= 2 &&
+            (unset || validSize) && this.connection.send(waylandPacket(
+                this.viewportIdentifier,
+                2,
+                waylandU32PairPayload(width, height)
+            ))
+        if (succeeded) {
+            this.viewportDestinationWidth = if (unset) 0 else width
+            this.viewportDestinationHeight = if (unset) 0 else height
+        }
+        succeeded
+    }
+
+    fun setPreferredViewportDestination(): bool =
+        this.setViewportDestination(this.width, this.height)
+
+    fun unsetViewportDestination(): bool =
+        this.setViewportDestination(-1, -1)
 
     trusted fun ensureWireStorage(receiveDescriptors: bool = false): bool {
         if (receiveDescriptors && (this.ancillaryScratch.closed ||
@@ -3540,6 +3596,18 @@ resource class WaylandXdgWindow(
                     waylandPacket(this.fractionalScaleManagerIdentifier, 0)
                 )
             }
+            if (this.viewportIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.viewportIdentifier, 0)
+                )
+            }
+            if (this.viewporterIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.viewporterIdentifier, 0)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -3714,6 +3782,10 @@ fun waylandXdgWindow(
         nativeByteBuffer(0),
         -1,
         [],
+        0,
+        0,
+        0,
+        0,
         0,
         0,
         0,

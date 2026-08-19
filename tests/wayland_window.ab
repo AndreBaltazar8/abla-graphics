@@ -8,8 +8,19 @@ fun main: int {
         320,
         200
     )
-    var succeeded = window.valid() && window.configured &&
-        window.createSharedBuffers(320, 200, 2) &&
+    var succeeded = window.valid() && window.configured
+    val viewporterAvailable = window.connection.global(
+        "wp_viewporter"
+    ).valid
+    val viewportEnabled = if (succeeded) window.enableViewport() else false
+    succeeded = succeeded && viewportEnabled == viewporterAvailable &&
+        window.connection.valid()
+    if (succeeded && viewportEnabled) succeeded =
+        window.setPreferredViewportDestination()
+    val bufferWidth = if (viewportEnabled) 640 else 320
+    val bufferHeight = if (viewportEnabled) 400 else 200
+    succeeded = succeeded &&
+        window.createSharedBuffers(bufferWidth, bufferHeight, 2) &&
         window.clearSharedPixels(32, 48, 72) &&
         window.presentSharedPixels() && window.waitFrame()
     val firstSerial = window.lastConfigureSerial
@@ -34,6 +45,17 @@ fun main: int {
         succeeded = window.pollProtocol(50)
         attempts = attempts + 1
     }
+    if (succeeded && viewportEnabled) succeeded =
+        window.setPreferredViewportDestination() &&
+        window.viewportDestinationSet() &&
+        window.viewportDestinationWidth == window.width &&
+        window.viewportDestinationHeight == window.height &&
+        !window.setViewportDestination(-1, window.height) &&
+        window.waitSharedBuffer() &&
+        window.clearSharedPixels(40, 56, 80) &&
+        window.presentSharedPixels() && window.waitFrame() &&
+        window.unsetViewportDestination() &&
+        !window.viewportDestinationSet() && window.commit()
     val fractionalAvailable = window.connection.global(
         "wp_fractional_scale_manager_v1"
     ).valid
@@ -77,7 +99,7 @@ fun main: int {
     }
     succeeded = succeeded && closeEvent.kind == windowEventCloseRequested
     println(
-        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
+        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} buffer=${window.bufferWidth}x${window.bufferHeight} viewport=$viewporterAvailable/$viewportEnabled/${window.viewportDestinationWidth}x${window.viewportDestinationHeight} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
     )
     if (succeeded &&
         window.width > 0 && window.height > 0 &&
