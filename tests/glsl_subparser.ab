@@ -43,6 +43,35 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\n#include \"\"\nlayout(local_size_x=1) in; void main() {}"]
     )
+    val includeModules: array<GlslModule> = [
+        GlslModule(
+            "lighting/common.glsl",
+            "#include <engine/colors.glsl>\nconst vec4 lightColor=vec4(1.0);"
+        ),
+        GlslModule(
+            "engine/math.glsl",
+            "const float engineScale=1.0;",
+            system = true
+        ),
+        GlslModule(
+            "engine/colors.glsl",
+            "const vec4 engineColor=vec4(1.0);",
+            system = true
+        )
+    ]
+    val resolvedIncludes = included.resolveIncludes(includeModules)
+    val missingIncludeModule = included.resolveIncludes([])
+    val duplicateIncludeModule = included.resolveIncludes([
+        GlslModule("lighting/common.glsl", "const int first=1;"),
+        GlslModule("lighting/common.glsl", "const int second=2;")
+    ])
+    val cyclicIncludes = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\n#include \"a.glsl\"\nlayout(local_size_x=1) in; void main() {}"]
+    ).resolveIncludes([
+        GlslModule("a.glsl", "#include \"b.glsl\""),
+        GlslModule("b.glsl", "#include \"a.glsl\"")
+    ])
     val duplicate = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -429,6 +458,13 @@ fun main: int {
         included.includes[1].path == "engine/math.glsl" &&
         included.includes[1].system &&
         !malformedInclude.valid && malformedInclude.error != "" &&
+        resolvedIncludes.valid && resolvedIncludes.includes.size == 0 &&
+        resolvedIncludes.workgroups.size == 1 &&
+        resolvedIncludes.source(shaderStageCompute).size >
+            included.source(shaderStageCompute).size &&
+        !missingIncludeModule.valid && missingIncludeModule.error != "" &&
+        !duplicateIncludeModule.valid && duplicateIncludeModule.error != "" &&
+        !cyclicIncludes.valid && cyclicIncludes.error != "" &&
         frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&

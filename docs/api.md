@@ -1177,12 +1177,16 @@ all inputs are static.
 
 Quoted and angle-bracket `#include` directives are source-preserved and
 reflected as ordered, stage-tagged `ShaderInclude` values with their path and
-system/local form. Empty or malformed directives invalidate runtime-created
-packages, while an unterminated quoted directive in `$glsl` reports the exact
-subparser failure with its original Abla extension span. Include resolution,
-module search paths, cycle detection, and include-graph cache keys are not yet
-implemented; reflection exposes dependencies without pretending they were
-resolved.
+system/local form and source byte range. Empty or malformed directives
+invalidate runtime-created packages, while an unterminated quoted directive in
+`$glsl` reports the exact
+subparser failure with its original Abla extension span.
+`package.resolveIncludes(modules)` resolves those dependencies recursively from
+an explicit array of pure-Abla `GlslModule` values. It rejects empty/duplicate
+module identities, missing local or system modules, include cycles, and depths
+above 64, then reparses the expanded stage sources so reflection covers the
+resolved declarations. It performs no ambient file reads. Filesystem/package
+search paths and include-graph cache keys are not yet implemented.
 
 The available reflection slice recognizes explicit `layout(location = N)`
 input/output declarations and `layout(set = S, binding = B)` uniform/buffer
@@ -1222,8 +1226,8 @@ at least one concrete dimension must be declared. Repeated concrete sizes/IDs
 must agree, dimension IDs must be distinct, and they cannot collide with an
 explicit specialization constant in the same stage. Nested structures,
 multiple declarators, composite specialization constants, computed host-layout
-validation, include resolution, and backend pipeline specialization wiring are
-still forthcoming.
+validation, filesystem module discovery, and backend pipeline specialization
+wiring are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every

@@ -541,6 +541,11 @@ malformed includes invalidate runtime packages, and unterminated quoted text is
 a compile-time `E_SUBPARSER_FAILURE` with its original extension-expression
 span. The supporting `ablac` diagnostic path is regression-tested through a
 pure self-rebuild and the complete 73-test compiler suite.
+An explicit pure-Abla `GlslModule` table now resolves local/system includes
+recursively without ambient filesystem access. Expanded stages are reparsed for
+their complete reflection. Missing and duplicate modules, empty identities,
+cycles, and recursion beyond 64 modules are checked failures; nested positive
+coverage leaves no unresolved `ShaderInclude` entries.
 
 ## Not yet claimed
 
@@ -566,8 +571,8 @@ pure self-rebuild and the complete 73-test compiler suite.
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration, interface-block member subset, and
   cross-stage compatibility slice, push-constant reflection, and scalar
-  specialization-constant reflection. It does not yet resolve reflected
-  includes or parse nested structures, multiple declarators, general
+  specialization-constant reflection. It does not yet discover modules from
+  filesystem/package search paths or parse nested structures, multiple declarators, general
   declarations, composite constants, or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.

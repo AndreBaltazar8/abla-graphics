@@ -66,7 +66,21 @@ class ShaderSpecializationConstant(
 class ShaderInclude(
     val stage: string,
     val path: string,
-    val system: bool
+    val system: bool,
+    val begin: int = -1,
+    val end: int = -1
+)
+
+class GlslModule(
+    val path: string,
+    val source: string,
+    val system: bool = false
+)
+
+class GlslResolvedSource(
+    val valid: bool,
+    val source: string,
+    val error: string = ""
 )
 
 class ShaderWorkgroup(
@@ -314,7 +328,9 @@ fun glslReflectIncludes(stage: string, source: string): GlslIncludesReflection {
                     includes.append(ShaderInclude(
                         stage,
                         include.path,
-                        include.system
+                        include.system,
+                        index,
+                        include.next
                     ))
                 }
                 index = include.next
@@ -1311,6 +1327,134 @@ fun glslPackage(
         valid,
         error
     )
+}
+
+fun glslInvalidPackage(error: string): ShaderPackage = ShaderPackage(
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    false,
+    error
+)
+
+fun glslModuleKey(path: string, system: bool): string =
+    "${if (system) "system" else "local"}:$path"
+
+fun glslResolveSource(
+    stage: string,
+    source: string,
+    modules: array<GlslModule>,
+    stack: array<string>
+): GlslResolvedSource {
+    val reflection = glslReflectIncludes(stage, source)
+    var valid = reflection.valid
+    var error = reflection.error
+    var result = ""
+    var cursor = 0
+    var includeIndex = 0
+    while (valid && includeIndex < reflection.includes.size) {
+        val include = reflection.includes[includeIndex]
+        var moduleIndex = 0
+        var matched = -1
+        while (moduleIndex < modules.size) {
+            if (modules[moduleIndex].path == include.path &&
+                modules[moduleIndex].system == include.system) {
+                matched = moduleIndex
+            }
+            moduleIndex = moduleIndex + 1
+        }
+        if (matched < 0) {
+            valid = false
+            error = "unresolved GLSL $stage include '${include.path}'"
+        }
+        val key = glslModuleKey(include.path, include.system)
+        var cycle = false
+        var stackIndex = 0
+        while (!cycle && stackIndex < stack.size) {
+            cycle = stack[stackIndex] == key
+            stackIndex = stackIndex + 1
+        }
+        if (valid && cycle) {
+            valid = false
+            error = "cyclic GLSL $stage include '$key'"
+        } else if (valid && stack.size >= 64) {
+            valid = false
+            error = "GLSL $stage include depth exceeds 64 modules"
+        }
+        if (valid) {
+            val nextStack: array<string> = []
+            stackIndex = 0
+            while (stackIndex < stack.size) {
+                nextStack.append(stack[stackIndex])
+                stackIndex = stackIndex + 1
+            }
+            nextStack.append(key)
+            val nested = glslResolveSource(
+                stage,
+                modules[matched].source,
+                modules,
+                nextStack
+            )
+            if (!nested.valid) {
+                valid = false
+                error = nested.error
+            } else {
+                result = "$result${source.slice(cursor, include.begin)}${nested.source}"
+                cursor = include.end
+            }
+        }
+        includeIndex = includeIndex + 1
+    }
+    if (valid) result = "$result${source.slice(cursor, source.size)}"
+    GlslResolvedSource(valid, result, error)
+}
+
+fun ShaderPackage.resolveIncludes(
+    modules: array<GlslModule>
+): ShaderPackage {
+    var valid = this.valid
+    var error = this.error
+    var moduleIndex = 0
+    while (valid && moduleIndex < modules.size) {
+        val module = modules[moduleIndex]
+        if (module.path == "" || module.source == "") {
+            valid = false
+            error = "GLSL module path and source must be non-empty"
+        }
+        var previous = 0
+        while (valid && previous < moduleIndex) {
+            if (modules[previous].path == module.path &&
+                modules[previous].system == module.system) {
+                valid = false
+                error = "duplicate GLSL module '${glslModuleKey(
+                    module.path,
+                    module.system
+                )}'"
+            }
+            previous = previous + 1
+        }
+        moduleIndex = moduleIndex + 1
+    }
+    val names: array<string> = []
+    val sources: array<string> = []
+    var stageIndex = 0
+    while (valid && stageIndex < this.stages.size) {
+        val stage = this.stages[stageIndex]
+        val resolved = glslResolveSource(stage.kind, stage.source, modules, [])
+        if (!resolved.valid) {
+            valid = false
+            error = resolved.error
+        } else {
+            names.append(stage.kind)
+            sources.append(resolved.source)
+        }
+        stageIndex = stageIndex + 1
+    }
+    if (valid) glslPackage(names, sources) else glslInvalidPackage(error)
 }
 
 compile fun glslAppend(left: string, right: string): string = "$left$right"
