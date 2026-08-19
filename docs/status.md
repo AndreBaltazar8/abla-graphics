@@ -971,8 +971,8 @@ validity gate unchanged.
   subtraction directly to deterministic SPIR-V, including mixed-type push
   structures, scalar/vector loads, both operand orders of
   `OpVectorTimesScalar`, equal-type division, and exact `vec4 / float` lowering
-  through a runtime splat plus
-  vector `OpFDiv`; fixed fragment push word tables have been removed. Typed
+  through a runtime splat plus vector `OpFDiv`; fixed fragment push word tables
+  have been removed. Typed
   mismatch/array and `float / vec4` rejection, 48-byte reflected offsets,
   precedence, repeat-emission, exact real-driver pixels, stable handles, and
   zero-growth frames are verified. The same IR now accepts up to eight
@@ -993,6 +993,13 @@ validity gate unchanged.
   across all four lanes. Signed splat equivalence to the explicit constructor,
   deterministic 70-word output, malformed-arity rejection, and exact white
   real-driver pixels with stable zero-growth frames are verified.
+  One to eight reflected `vec4` outputs now have independently flattened typed
+  expressions, entry-point variables/decorations, and stores. Ordered-write and
+  missing/type failure remain strict. The former fixed MRT fragment table is
+  removed; independent add/subtract tests and the two-output 4x multisampled
+  real-driver sample prove deterministic exact output, stable handles, and zero
+  steady-state growth. Stage-local fragments no longer emit stray metadata for
+  push blocks owned only by another stage.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

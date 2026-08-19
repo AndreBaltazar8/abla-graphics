@@ -237,7 +237,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   one reusable target-bound pass supplies all four offscreen command forms for
   four allocation-free frames on both backends;
 - `examples/multiple-render-targets`: one pure-Abla `$glsl` fragment stage
-  writes exact red and green results to two 4x multisampled affine color
+  uses two typed raster output expressions to write exact red and green results
+  to two 4x multisampled affine color
   attachments over a blue attachment loaded from the prior pass and a
   separately cleared cyan attachment, then automatically resolves both owned
   colors independently,

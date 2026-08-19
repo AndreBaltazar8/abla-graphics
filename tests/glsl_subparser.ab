@@ -1337,6 +1337,32 @@ fun main: int {
     val multipleColorFragment = multipleColor.spirv(shaderStageFragment)
     val multipleColorFragmentAgain =
         multipleColor.spirv(shaderStageFragment)
+    val multipleColorProgram = multipleColor.rasterFragmentProgram()
+    val rasterMultipleOutputExpressions = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 firstColor; layout(location=1) out vec4 secondColor; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ firstColor=draw.first+draw.second; secondColor=draw.first-draw.second; }"
+        ]
+    )
+    val rasterMultipleOutputProgram =
+        rasterMultipleOutputExpressions.rasterFragmentProgram()
+    val rasterMultipleOutputFragment =
+        rasterMultipleOutputExpressions.spirv(shaderStageFragment)
+    val rasterReorderedOutputRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 firstColor; layout(location=1) out vec4 secondColor; void main(){ secondColor=vec4(0.0); firstColor=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMissingOutputRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 firstColor; layout(location=1) out vec4 secondColor; void main(){ firstColor=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val vertexBufferTriangle = $glsl {
         vertex {
             #version 450
@@ -2319,6 +2345,8 @@ fun main: int {
         pushTransformVertex.succeeded && pushTransformVertex.module.valid() &&
         pushTransformFragment.succeeded &&
         pushTransformFragment.module.valid() &&
+        spirvWordCount(pushTransformFragment.module, 196679) == 0 &&
+        spirvWordCount(pushTransformFragment.module, 327752) == 0 &&
         pushTransformVertex.module.words.size == 267 &&
         pushTransformVertex.module.bound() == 49 &&
         spirvContainsWord(pushTransformVertex.module, 327809) &&
@@ -2420,14 +2448,30 @@ fun main: int {
             triangle460Fragment.module
         ) &&
         multipleColor.valid && multipleColor.locations.size == 2 &&
+        multipleColorProgram.valid && multipleColorProgram.outputs.size == 2 &&
+        multipleColorProgram.expressions.size == 2 &&
+        multipleColorProgram.outputs[0].location == 0 &&
+        multipleColorProgram.outputs[1].location == 1 &&
         multipleColorFragment.succeeded &&
         multipleColorFragment.module.valid() &&
-        multipleColorFragment.module.words.size == 95 &&
-        multipleColorFragment.module.bound() == 15 &&
+        multipleColorFragment.module.words.size == 117 &&
+        multipleColorFragment.module.bound() == 25 &&
+        spirvWordCount(multipleColorFragment.module, 196670) == 2 &&
         spirvWordsEqual(
             multipleColorFragment.module,
             multipleColorFragmentAgain.module
-        ) &&
+        ) && rasterMultipleOutputExpressions.valid &&
+        rasterMultipleOutputProgram.valid &&
+        rasterMultipleOutputProgram.expressions.size == 2 &&
+        rasterMultipleOutputFragment.succeeded &&
+        rasterMultipleOutputFragment.module.valid() &&
+        spirvContainsWord(rasterMultipleOutputFragment.module, 327809) &&
+        spirvContainsWord(rasterMultipleOutputFragment.module, 327811) &&
+        spirvWordCount(rasterMultipleOutputFragment.module, 196670) == 2 &&
+        !rasterReorderedOutputRejected.succeeded &&
+        rasterReorderedOutputRejected.error != "" &&
+        !rasterMissingOutputRejected.succeeded &&
+        rasterMissingOutputRejected.error != "" &&
         vertexBufferTriangle.valid &&
         vertexBufferTriangle.locations.size == 2 &&
         vertexBufferSpirv.succeeded && vertexBufferSpirv.module.valid() &&

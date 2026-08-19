@@ -1765,12 +1765,12 @@ steady-state allocation growth on both backends.
 
 Typed fragment expressions are no longer limited to fixed word templates. The
 typed raster parser accepts up to eight reflected non-array `vec4` inputs in
-source order before one location-zero `vec4` output, an optional reflected
-block of up to eight non-array `float` or `vec4` members, scalar/`vec4`
-literals, four-component or scalar-splat `vec4` constructors, parentheses, and
-scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence. Prefix `+` is an
-identity and prefix `-` emits typed scalar or vector `OpFNegate`; unary nesting
-is included in the same 64-level/token bounds.
+source order before one to eight reflected non-array `vec4` outputs, an optional
+reflected block of up to eight non-array `float` or `vec4` members,
+scalar/`vec4` literals, four-component or scalar-splat `vec4` constructors,
+parentheses, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence.
+Prefix `+` is an identity and prefix `-` emits typed scalar or vector
+`OpFNegate`; unary nesting is included in the same 64-level/token bounds.
 Inputs and the push block may both be absent for a constant-only expression; a
 push block reflected only in another stage does not become a fragment interface
 requirement.
@@ -1781,7 +1781,10 @@ operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
 `float / vec4` is rejected. The parser produces bounded postfix IR and emits a
 mixed-type push structure, reflected member offsets, scalar/vector pointer
 types, entry-point interfaces, input locations/variables, constants, loads,
-composites, and typed operations deterministically.
+composites, typed operations, and one store per output deterministically.
+Output declarations and assignments use the same reflected source order, so
+missing, duplicated, or reordered writes reject rather than being silently
+reassociated.
 Unknown or array members, mismatched addition/subtraction such as `vec4 +
 float`, scalar final outputs, extra statements/declarations, malformed
 expressions, and unsupported operators fail before pipeline creation. Existing
@@ -1793,6 +1796,10 @@ or scalar-splat `vec4` literals through generated constants instead of its
 former fixed table. Equal component bit patterns share one `OpConstant` across
 all four composite lanes, so the one-argument and equivalent explicit forms
 produce byte-identical modules.
+The two-output MRT fragment now shares this emitter rather than its former fixed
+95-word table. Independent add/subtract expressions prove that each output has
+its own typed stack, while the multisampled MRT sample proves exact red/green
+resolved pixels on both drivers.
 `push-expression` loads a reflected scalar gain, executes vector/scalar division
 after vector negation and before addition, and proves its 48-byte mixed layout
 plus exact red/green output, stable handles, and zero steady-state allocation

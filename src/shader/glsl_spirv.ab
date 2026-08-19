@@ -113,7 +113,9 @@ class GlslRasterFragmentProgram(
     val expression: GlslRasterExpression,
     val inputs: array<ShaderLocation> = [],
     val memberCount: int = 0,
-    val error: string = ""
+    val error: string = "",
+    val outputs: array<ShaderLocation> = [],
+    val expressions: array<GlslRasterExpression> = []
 )
 
 class GlslRasterFloat(
@@ -382,16 +384,14 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         }
         index = index + 1
     }
-    var outputIndex = -1
-    var outputCount = 0
     val inputs: array<ShaderLocation> = []
+    val outputs: array<ShaderLocation> = []
     index = 0
     while (index < this.locations.size) {
         val location = this.locations[index]
         if (location.stage == shaderStageFragment &&
             location.direction == "out") {
-            outputIndex = index
-            outputCount = outputCount + 1
+            outputs.append(location)
         } else if (location.stage == shaderStageFragment &&
             location.direction == "in") {
             inputs.append(location)
@@ -399,13 +399,19 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         index = index + 1
     }
     var valid = this.valid && lexical.valid && inputs.size <= 8 &&
-        outputCount == 1 && this.locations[outputIndex].location == 0 &&
-        this.locations[outputIndex].dataType == "vec4"
+        outputs.size > 0 && outputs.size <= 8
     var inputIndex = 0
     while (valid && inputIndex < inputs.size) {
         valid = inputs[inputIndex].dataType == "vec4" &&
             inputs[inputIndex].arraySize == 1
         inputIndex = inputIndex + 1
+    }
+    var outputIndex = 0
+    while (valid && outputIndex < outputs.size) {
+        valid = outputs[outputIndex].location >= 0 &&
+            outputs[outputIndex].dataType == "vec4" &&
+            outputs[outputIndex].arraySize == 1
+        outputIndex = outputIndex + 1
     }
     val push = if (pushIndex >= 0) this.pushConstants[pushIndex]
         else ShaderPushConstant("", "", "", [])
@@ -421,8 +427,6 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
     if (valid && glslRasterTokenText(lexical.tokens, index, "core")) {
         index = index + 1
     }
-    val output = if (outputIndex >= 0) this.locations[outputIndex]
-        else ShaderLocation("", 0, "")
     inputIndex = 0
     while (valid && inputIndex < inputs.size) {
         val input = inputs[inputIndex]
@@ -442,25 +446,30 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         }
         inputIndex = inputIndex + 1
     }
-    val outputTokens = [
-        "layout", "(", "location", "=", "0", ")", "out", "vec4",
-        output.name, ";"
-    ]
-    var expectedIndex = 0
-    while (valid && expectedIndex < outputTokens.size) {
-        valid = glslRasterTokenText(
-            lexical.tokens,
-            index,
-            outputTokens[expectedIndex]
-        )
-        if (valid) index = index + 1
-        expectedIndex = expectedIndex + 1
+    outputIndex = 0
+    while (valid && outputIndex < outputs.size) {
+        val output = outputs[outputIndex]
+        val outputTokens = [
+            "layout", "(", "location", "=", "${output.location}", ")",
+            "out", "vec4", output.name, ";"
+        ]
+        var outputTokenIndex = 0
+        while (valid && outputTokenIndex < outputTokens.size) {
+            valid = glslRasterTokenText(
+                lexical.tokens,
+                index,
+                outputTokens[outputTokenIndex]
+            )
+            if (valid) index = index + 1
+            outputTokenIndex = outputTokenIndex + 1
+        }
+        outputIndex = outputIndex + 1
     }
     val pushTokens = [
         "layout", "(", "push_constant", ")", "uniform", push.dataType,
         "{"
     ]
-    expectedIndex = 0
+    var expectedIndex = 0
     while (valid && pushIndex >= 0 && expectedIndex < pushTokens.size) {
         valid = glslRasterTokenText(
             lexical.tokens,
@@ -494,9 +503,7 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         if (valid) index = index + 1
         expectedIndex = expectedIndex + 1
     }
-    val mainTokens = [
-        "void", "main", "(", ")", "{", output.name, "="
-    ]
+    val mainTokens = ["void", "main", "(", ")", "{"]
     expectedIndex = 0
     while (valid && expectedIndex < mainTokens.size) {
         valid = glslRasterTokenText(
@@ -507,28 +514,47 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         if (valid) index = index + 1
         expectedIndex = expectedIndex + 1
     }
-    var expression = GlslRasterExpression(false, [], index)
-    if (valid) expression = glslRasterExpression(
-        lexical.tokens,
-        index,
-        1,
-        push,
-        inputs,
-        0
-    )
-    index = expression.next
-    valid = valid && expression.valid &&
-        glslRasterTokenText(lexical.tokens, index, ";") &&
-        glslRasterTokenText(lexical.tokens, index + 1, "}") &&
-        index + 2 < lexical.tokens.size &&
-        lexical.tokens[index + 2].kind == glslTokenEnd
+    val expressions: array<GlslRasterExpression> = []
+    outputIndex = 0
+    while (valid && outputIndex < outputs.size) {
+        valid = glslRasterTokenText(
+            lexical.tokens,
+            index,
+            outputs[outputIndex].name
+        ) && glslRasterTokenText(lexical.tokens, index + 1, "=")
+        if (valid) index = index + 2
+        val expression = if (valid) glslRasterExpression(
+            lexical.tokens,
+            index,
+            1,
+            push,
+            inputs,
+            0
+        ) else GlslRasterExpression(false, [], index)
+        index = expression.next
+        valid = valid && expression.valid &&
+            glslRasterTokenText(lexical.tokens, index, ";")
+        if (valid) {
+            expressions.append(expression)
+            index = index + 1
+        }
+        outputIndex = outputIndex + 1
+    }
+    valid = valid && expressions.size == outputs.size &&
+        glslRasterTokenText(lexical.tokens, index, "}") &&
+        index + 1 < lexical.tokens.size &&
+        lexical.tokens[index + 1].kind == glslTokenEnd
+    val expression = if (expressions.size > 0) expressions[0]
+        else GlslRasterExpression(false, [], index)
     GlslRasterFragmentProgram(
         valid,
         expression,
         inputs,
         push.members.size,
         if (valid) "" else
-            "fragment source is outside the typed raster expression subset"
+            "fragment source is outside the typed raster expression subset",
+        outputs,
+        expressions
     )
 }
 
@@ -542,7 +568,9 @@ fun glslRasterFragmentSpirv(
     var valid = program.valid && layout.valid &&
         (program.memberCount == 0 ||
          layout.members.size == program.memberCount) &&
-        program.memberCount <= 8 && program.inputs.size <= 8
+        program.memberCount <= 8 && program.inputs.size <= 8 &&
+        program.outputs.size > 0 && program.outputs.size <= 8 &&
+        program.expressions.size == program.outputs.size
     var inputIndex = 0
     while (valid && inputIndex < program.inputs.size) {
         val input = program.inputs[inputIndex]
@@ -550,9 +578,16 @@ fun glslRasterFragmentSpirv(
             input.arraySize == 1
         inputIndex = inputIndex + 1
     }
+    var outputIndex = 0
+    while (valid && outputIndex < program.outputs.size) {
+        val output = program.outputs[outputIndex]
+        valid = output.location >= 0 && output.dataType == "vec4" &&
+            output.arraySize == 1
+        outputIndex = outputIndex + 1
+    }
     var hasScalarMember = false
     var memberIndex = 0
-    while (valid && memberIndex < layout.members.size) {
+    while (valid && memberIndex < program.memberCount) {
         val dataType = layout.members[memberIndex].dataType
         valid = (dataType == "vec4" || dataType == "float") &&
             layout.members[memberIndex].arraySize == 1
@@ -572,6 +607,13 @@ fun glslRasterFragmentSpirv(
     val pushVectorPointerType = 11
     val mainFunction = 12
     var nextId = 13
+    val outputVariables: array<int> = [outputVariable]
+    outputIndex = 1
+    while (valid && outputIndex < program.outputs.size) {
+        outputVariables.append(nextId)
+        nextId = nextId + 1
+        outputIndex = outputIndex + 1
+    }
     var inputPointerType = 0
     val inputVariables: array<int> = []
     if (valid && program.inputs.size > 0) {
@@ -590,12 +632,18 @@ fun glslRasterFragmentSpirv(
         words.append(196622)
         words.append(0)
         words.append(1)
-        words.append((6 + inputVariables.size) * 65536 + 15)
+        words.append(
+            (5 + outputVariables.size + inputVariables.size) * 65536 + 15
+        )
         words.append(4)
         words.append(mainFunction)
         words.append(1852399981)
         words.append(0)
-        words.append(outputVariable)
+        outputIndex = 0
+        while (outputIndex < outputVariables.size) {
+            words.append(outputVariables[outputIndex])
+            outputIndex = outputIndex + 1
+        }
         inputIndex = 0
         while (inputIndex < inputVariables.size) {
             words.append(inputVariables[inputIndex])
@@ -604,10 +652,14 @@ fun glslRasterFragmentSpirv(
         words.append(196624)
         words.append(mainFunction)
         words.append(7)
-        words.append(262215)
-        words.append(outputVariable)
-        words.append(30)
-        words.append(0)
+        outputIndex = 0
+        while (outputIndex < outputVariables.size) {
+            words.append(262215)
+            words.append(outputVariables[outputIndex])
+            words.append(30)
+            words.append(program.outputs[outputIndex].location)
+            outputIndex = outputIndex + 1
+        }
         inputIndex = 0
         while (inputIndex < inputVariables.size) {
             words.append(262215)
@@ -622,7 +674,7 @@ fun glslRasterFragmentSpirv(
             words.append(2)
         }
         memberIndex = 0
-        while (memberIndex < layout.members.size) {
+        while (memberIndex < program.memberCount) {
             words.append(327752)
             words.append(pushStructure)
             words.append(memberIndex)
@@ -646,10 +698,14 @@ fun glslRasterFragmentSpirv(
         words.append(outputPointerType)
         words.append(3)
         words.append(vectorType)
-        words.append(262203)
-        words.append(outputPointerType)
-        words.append(outputVariable)
-        words.append(3)
+        outputIndex = 0
+        while (outputIndex < outputVariables.size) {
+            words.append(262203)
+            words.append(outputPointerType)
+            words.append(outputVariables[outputIndex])
+            words.append(3)
+            outputIndex = outputIndex + 1
+        }
         if (inputVariables.size > 0) {
             words.append(262176)
             words.append(inputPointerType)
@@ -712,11 +768,29 @@ fun glslRasterFragmentSpirv(
         nextId = nextId + 1
         memberIndex = memberIndex + 1
     }
+    val allTokens: array<GlslRasterToken> = []
+    val expressionEnds: array<int> = []
+    var expressionIndex = 0
+    while (valid && expressionIndex < program.expressions.size) {
+        val expressionTokens = glslRasterTokensCopy(
+            program.expressions[expressionIndex].tokens
+        )
+        valid = program.expressions[expressionIndex].valid &&
+            expressionTokens.size > 0
+        var expressionTokenIndex = 0
+        while (valid && expressionTokenIndex < expressionTokens.size) {
+            allTokens.append(expressionTokens[expressionTokenIndex])
+            expressionTokenIndex = expressionTokenIndex + 1
+        }
+        expressionEnds.append(allTokens.size)
+        expressionIndex = expressionIndex + 1
+    }
+    valid = valid && allTokens.size > 0 && allTokens.size < 512
     val tokenValues: array<int> = []
     val tokenTypes: array<int> = []
     var tokenIndex = 0
-    while (valid && tokenIndex < program.expression.tokens.size) {
-        val token = program.expression.tokens[tokenIndex]
+    while (valid && tokenIndex < allTokens.size) {
+        val token = allTokens[tokenIndex]
         var valueId = 0
         var valueType = glslRasterTypeInvalid
         if (token.kind == glslRasterTokenVectorLiteral) {
@@ -790,10 +864,12 @@ fun glslRasterFragmentSpirv(
     }
     val stack: array<int> = []
     val stackTypes: array<int> = []
+    val expressionValues: array<int> = []
     var stackSize = 0
+    expressionIndex = 0
     tokenIndex = 0
-    while (valid && tokenIndex < program.expression.tokens.size) {
-        val token = program.expression.tokens[tokenIndex]
+    while (valid && tokenIndex < allTokens.size) {
+        val token = allTokens[tokenIndex]
         var valueId = tokenValues[tokenIndex]
         if (token.kind == glslRasterTokenPushMember) {
             valid = token.memberIndex >= 0 &&
@@ -913,14 +989,29 @@ fun glslRasterFragmentSpirv(
             } else stackTypes.append(tokenTypes[tokenIndex])
             stackSize = stackSize + 1
         }
+        if (valid && expressionIndex < expressionEnds.size &&
+            tokenIndex + 1 == expressionEnds[expressionIndex]) {
+            valid = stackSize == 1 &&
+                stackTypes[0] == glslRasterTypeVector
+            if (valid) {
+                expressionValues.append(stack[0])
+                stackSize = 0
+                expressionIndex = expressionIndex + 1
+            }
+        }
         tokenIndex = tokenIndex + 1
     }
-    valid = valid && stackSize == 1 &&
-        stackTypes[0] == glslRasterTypeVector
+    valid = valid && stackSize == 0 &&
+        expressionIndex == program.expressions.size &&
+        expressionValues.size == outputVariables.size
     if (valid) {
-        words.append(196670)
-        words.append(outputVariable)
-        words.append(stack[0])
+        outputIndex = 0
+        while (outputIndex < outputVariables.size) {
+            words.append(196670)
+            words.append(outputVariables[outputIndex])
+            words.append(expressionValues[outputIndex])
+            outputIndex = outputIndex + 1
+        }
         words.append(65789)
         words.append(65592)
         words[3] = nextId
@@ -4721,20 +4812,6 @@ fun glslPushStorageComputeSpirv(): array<int> = [
     196670, 22, 21, 65789, 65592
 ]
 
-fun glslMultipleColorFragmentSource(source: string): bool =
-    glslSourceMatchesTokens(source, [
-        "#", "version", glslSourceVersionPattern,
-        "layout", "(", "location", "=", "0", ")",
-        "out", "vec4", "firstColor", ";",
-        "layout", "(", "location", "=", "1", ")",
-        "out", "vec4", "secondColor", ";",
-        "void", "main", "(", ")", "{",
-        "firstColor", "=", "vec4", "(",
-        "1.0", ",", "0.0", ",", "0.0", ",", "1.0", ")", ";",
-        "secondColor", "=", "vec4", "(",
-        "0.0", ",", "1.0", ",", "0.0", ",", "1.0", ")", ";", "}"
-    ])
-
 fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val computeCommon = this.valid && stage == shaderStageCompute &&
         this.stages.size == 1 && this.stages[0].kind == shaderStageCompute &&
@@ -4793,9 +4870,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslVertexBufferTriangleSource(this.source(shaderStageVertex))
     val coloredVertex = graphicsCommon && stage == shaderStageVertex &&
         glslColoredVertexSource(this.source(shaderStageVertex))
-    val multipleColorFragment = graphicsCommon &&
-        stage == shaderStageFragment &&
-        glslMultipleColorFragmentSource(this.source(shaderStageFragment))
     val texturedVertex = graphicsCommon && stage == shaderStageVertex &&
         glslTexturedVertexSource(this.source(shaderStageVertex))
     val texturedCubeVertex = graphicsCommon && stage == shaderStageVertex &&
@@ -4810,7 +4884,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         combinedSpecializedNoOp || storage || pushStorage || vertex ||
         pushTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
-        multipleColorFragment ||
         coloredVertex || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
@@ -5177,34 +5250,6 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             196670, 34, 32,
             262205, 35, 40, 39,
             196670, 37, 40,
-            65789,
-            65592
-        ]
-    } else if (multipleColorFragment) {
-        words = [
-            119734787, 65536, 458752, 15, 0,
-            131089, 1,
-            393227, 1, 1280527431, 1685353262, 808793134, 0,
-            196622, 0, 1,
-            458767, 4, 2, 1852399981, 0, 3, 4,
-            196624, 2, 7,
-            262215, 3, 30, 0,
-            262215, 4, 30, 1,
-            131091, 5,
-            196641, 6, 5,
-            196630, 7, 32,
-            262167, 8, 7, 4,
-            262176, 9, 3, 8,
-            262203, 9, 3, 3,
-            262203, 9, 4, 3,
-            262187, 7, 10, 1065353216,
-            262187, 7, 11, 0,
-            458796, 8, 12, 10, 11, 11, 10,
-            458796, 8, 13, 11, 10, 11, 10,
-            327734, 5, 2, 0, 6,
-            131320, 14,
-            196670, 3, 12,
-            196670, 4, 13,
             65789,
             65592
         ]
