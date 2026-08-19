@@ -543,6 +543,16 @@ and compares the complete ordered member structure and layout metadata when a
 descriptor slot is shared across stages. Positive and negative subparser cases
 preserve deterministic existing SPIR-V output.
 
+Top-level named GLSL structures are now reflected as ordered, stage-tagged
+`ShaderStructure` definitions. Members can nest previously declared structures;
+duplicate names, unknown/forward/self-referential types, unsized members, and
+structure-member layout qualifiers are rejected. Explicit interface locations
+retain their recursively computed slot count, so nested members, arrays,
+matrices, and wide double vectors participate in overlap checks. Adjacent
+raster stages compare complete nested definitions rather than accepting an
+equal outer type name with incompatible contents. Interface-block locations
+also retain their ordered members and computed ranges.
+
 GLSL reflection now also owns explicit `layout(push_constant)` uniform blocks
 and scalar `layout(constant_id=N) const` declarations. Push constants retain
 stage, block/instance names, and ordered member structure; each stage permits
@@ -610,10 +620,11 @@ three rejection paths are executable tests.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration, interface-block member subset, and
-  cross-stage compatibility slice, push-constant reflection, and scalar
+  cross-stage compatibility slice, named/nested structure reflection,
+  push-constant reflection, and scalar
   specialization-constant reflection. It does not yet discover modules from
-  filesystem/package search paths or parse nested structures, general
-  declarations, composite constants,
+  filesystem/package search paths or parse general declarations, structure
+  instance-declarator lists, composite constants,
   or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.

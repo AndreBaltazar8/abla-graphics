@@ -1243,6 +1243,17 @@ while explicit `offset` or `align` on a multi-declarator statement is rejected
 until computed host-layout validation can assign unambiguous values. Empty,
 malformed, duplicate-name, duplicate-layout-key, and conflicting-major member
 declarations are rejected.
+Top-level named `struct` definitions produce ordered, stage-tagged `ShaderStructure`
+values in `ShaderPackage.structures`. Members retain the same type, name, and
+fixed-array metadata as block members and may refer to a previously declared
+structure. Forward/self references, duplicate structure names, unsized members,
+and layout-qualified structure members are rejected. When a named structure is
+used by an explicit input or output, `ShaderLocation.slots` recursively sums
+nested members, arrays, matrices, and wide double vectors. Collision detection
+uses that complete range. Cross-stage linking compares the full nested
+definition even when both stages use the same outer type name. Reflected
+interface-block locations likewise retain their ordered members and computed
+slot count.
 `layout(push_constant)` uniform blocks are reflected separately as
 stage-tagged `ShaderPushConstant` values. One block is accepted per stage;
 incompatible member structures across stages, descriptor coordinates on a push
@@ -1262,7 +1273,8 @@ explicit locations, while same-typed opaque-uniform names may intentionally
 alias one descriptor slot. Duplicate names, empty names, trailing commas, and
 incompatible descriptor aliases are rejected.
 Bindings shared across stages must agree on storage, data type, array extent,
-and complete ordered member structure. Each explicit
+and complete ordered member structure, including referenced named structures.
+Each explicit
 input in an adjacent raster stage must have a preceding output at the same
 location and with the same type. Interpolation and precision qualifiers are
 skipped without losing the declaration type. Other unknown layout keys remain
@@ -1274,10 +1286,9 @@ with a default dimension of one. Concrete sizes and their independently
 declared IDs merge across compatible layout statements, matching Vulkan GLSL;
 at least one concrete dimension must be declared. Repeated concrete sizes/IDs
 must agree, dimension IDs must be distinct, and they cannot collide with an
-explicit specialization constant in the same stage. Nested structures,
-composite specialization constants,
-computed host-layout validation, filesystem module discovery, and general
-push-constant backend wiring are still forthcoming.
+explicit specialization constant in the same stage. Composite specialization
+constants, computed host-layout validation, filesystem module discovery, and
+general push-constant backend wiring are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every

@@ -115,6 +115,13 @@ fun main: int {
         [shaderStageFragment],
         ["layout(set=0,binding=1) uniform sampler2D first; layout(set=0,binding=1) uniform samplerCube second;"]
     )
+    val mismatchedStructureBinding = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "struct Settings { vec4 tint; }; layout(set=0,binding=0) uniform Settings settings; void main() {}",
+            "struct Settings { vec3 tint; }; layout(set=0,binding=0) uniform Settings settings; void main() {}"
+        ]
+    )
     val aliasedBindingDeclarators = glslPackage(
         [shaderStageFragment],
         ["layout(set=0,binding=1) uniform sampler2D first, second;"]
@@ -134,6 +141,48 @@ fun main: int {
     val separateMatrixLocation = glslPackage(
         [shaderStageVertex],
         ["layout(location=0) in mat3 transform; layout(location=3) in vec4 second; void main() {}"]
+    )
+    val nestedStructureInterface = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "struct Inner { vec4 color; }; struct Payload { Inner inner; mat2 basis; }; layout(location=0) out Payload payload; layout(location=3) out vec4 tail; void main() {}",
+            "struct Inner { vec4 color; }; struct Payload { Inner inner; mat2 basis; }; layout(location=0) in Payload payload; layout(location=0) out vec4 color; void main() {}"
+        ]
+    )
+    val structureArrayLocations = glslPackage(
+        [shaderStageVertex],
+        ["struct Payload { vec4 color; mat2 basis; }; layout(location=0) out Payload payloads[2]; layout(location=6) out vec4 tail; void main() {}"]
+    )
+    val overlappingStructureLocation = glslPackage(
+        [shaderStageVertex],
+        ["struct Payload { vec4 color; mat2 basis; }; layout(location=0) out Payload payload; layout(location=2) out vec4 overlap; void main() {}"]
+    )
+    val interfaceBlockLocations = glslPackage(
+        [shaderStageVertex],
+        ["layout(location=0) out Payload { vec4 color; mat2 basis; } payload; layout(location=3) out vec4 tail; void main() {}"]
+    )
+    val duplicateStructure = glslPackage(
+        [shaderStageVertex],
+        ["struct Payload { vec4 color; }; struct Payload { vec4 other; }; void main() {}"]
+    )
+    val unknownStructureMember = glslPackage(
+        [shaderStageVertex],
+        ["struct Payload { Missing value; }; void main() {}"]
+    )
+    val forwardStructureMember = glslPackage(
+        [shaderStageVertex],
+        ["struct Payload { Later value; }; struct Later { vec4 color; }; void main() {}"]
+    )
+    val recursiveStructureMember = glslPackage(
+        [shaderStageVertex],
+        ["struct Payload { Payload value; }; void main() {}"]
+    )
+    val mismatchedStructureInterface = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "struct Inner { vec4 color; }; struct Payload { Inner inner; }; layout(location=0) out Payload payload; void main() {}",
+            "struct Inner { vec3 color; }; struct Payload { Inner inner; }; layout(location=0) in Payload payload; layout(location=0) out vec4 color; void main() {}"
+        ]
     )
     val duplicateTopLevelDeclarator = glslPackage(
         [shaderStageFragment],
@@ -654,6 +703,8 @@ fun main: int {
         !duplicate.valid && duplicate.error != "" &&
         !malformed.valid && malformed.error != "" &&
         !duplicateBinding.valid && duplicateBinding.error != "" &&
+        !mismatchedStructureBinding.valid &&
+        mismatchedStructureBinding.error != "" &&
         aliasedBindingDeclarators.valid &&
         aliasedBindingDeclarators.bindings.size == 2 &&
         aliasedBindingDeclarators.bindings[0].name == "first" &&
@@ -668,6 +719,36 @@ fun main: int {
         overlappingMatrixLocation.error != "" &&
         separateMatrixLocation.valid &&
         separateMatrixLocation.locations.size == 2 &&
+        nestedStructureInterface.valid &&
+        nestedStructureInterface.structures.size == 4 &&
+        nestedStructureInterface.structures[0].stage == shaderStageVertex &&
+        nestedStructureInterface.structures[0].name == "Inner" &&
+        nestedStructureInterface.structures[0].members.size == 1 &&
+        nestedStructureInterface.structures[1].name == "Payload" &&
+        nestedStructureInterface.structures[1].members.size == 2 &&
+        nestedStructureInterface.structures[1].members[0].dataType ==
+            "Inner" &&
+        nestedStructureInterface.locations.size == 4 &&
+        nestedStructureInterface.locations[0].slots == 3 &&
+        nestedStructureInterface.locations[1].slots == 1 &&
+        structureArrayLocations.valid &&
+        structureArrayLocations.locations.size == 2 &&
+        structureArrayLocations.locations[0].slots == 6 &&
+        structureArrayLocations.locations[1].slots == 1 &&
+        !overlappingStructureLocation.valid &&
+        overlappingStructureLocation.error != "" &&
+        interfaceBlockLocations.valid &&
+        interfaceBlockLocations.locations.size == 2 &&
+        interfaceBlockLocations.locations[0].slots == 3 &&
+        interfaceBlockLocations.locations[0].members.size == 2 &&
+        !duplicateStructure.valid && duplicateStructure.error != "" &&
+        !unknownStructureMember.valid &&
+        unknownStructureMember.error != "" &&
+        !forwardStructureMember.valid && forwardStructureMember.error != "" &&
+        !recursiveStructureMember.valid &&
+        recursiveStructureMember.error != "" &&
+        !mismatchedStructureInterface.valid &&
+        mismatchedStructureInterface.error != "" &&
         !duplicateTopLevelDeclarator.valid &&
         duplicateTopLevelDeclarator.error != "" &&
         !trailingTopLevelComma.valid && trailingTopLevelComma.error != "" &&

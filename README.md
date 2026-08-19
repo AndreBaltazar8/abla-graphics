@@ -29,7 +29,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   readback;
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
-- an Abla-defined `$glsl`/`#$glsl` stage parser feeding that triangle;
+- an Abla-defined `$glsl`/`#$glsl` stage parser with reflected named/nested
+  structures and recursively checked interface-location ranges;
 - a deterministic pure-Abla render-graph planner with explicit dependencies,
   read/write hazard ordering, transient lifetimes, cycle rejection, and
   compatible allocation-slot aliasing plus pruned synchronization records;

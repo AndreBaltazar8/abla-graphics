@@ -30,7 +30,9 @@ class ShaderLocation(
     val direction: string,
     val dataType: string = "",
     val name: string = "",
-    val arraySize: int = 1
+    val arraySize: int = 1,
+    val slots: int = 0,
+    val members: array<ShaderBlockMember> = []
 )
 
 class ShaderBlockMember(
@@ -41,6 +43,12 @@ class ShaderBlockMember(
     val align: int = -1,
     val rowMajor: bool = false,
     val columnMajor: bool = false
+)
+
+class ShaderStructure(
+    val stage: string,
+    val name: string,
+    val members: array<ShaderBlockMember>
 )
 
 class ShaderBinding(
@@ -111,7 +119,8 @@ class ShaderPackage(
     val specializationConstants: array<ShaderSpecializationConstant>,
     val includes: array<ShaderInclude>,
     val valid: bool,
-    val error: string
+    val error: string,
+    val structures: array<ShaderStructure> = []
 ) {
     fun source(kind: string): string {
         var result = ""
@@ -156,7 +165,8 @@ class GlslStageReflection(
     val specializationConstants: array<ShaderSpecializationConstant>,
     val includes: array<ShaderInclude>,
     val valid: bool,
-    val error: string
+    val error: string,
+    val structures: array<ShaderStructure> = []
 )
 
 class GlslDeclaration(
@@ -934,6 +944,185 @@ fun glslLocationSlots(dataType: string, arraySize: int): int {
     elementSlots * arraySize
 }
 
+fun glslBuiltinType(dataType: string): bool =
+    dataType == "bool" || dataType == "int" || dataType == "uint" ||
+    dataType == "float" || dataType == "double" ||
+    dataType == "bvec2" || dataType == "bvec3" || dataType == "bvec4" ||
+    dataType == "ivec2" || dataType == "ivec3" || dataType == "ivec4" ||
+    dataType == "uvec2" || dataType == "uvec3" || dataType == "uvec4" ||
+    dataType == "vec2" || dataType == "vec3" || dataType == "vec4" ||
+    dataType == "dvec2" || dataType == "dvec3" || dataType == "dvec4" ||
+    glslMatrixColumns(dataType) > 0 || dataType == "atomic_uint" ||
+    dataType == "sampler1D" || dataType == "sampler2D" ||
+    dataType == "sampler3D" || dataType == "samplerCube" ||
+    dataType == "sampler2DRect" || dataType == "sampler1DArray" ||
+    dataType == "sampler2DArray" || dataType == "samplerCubeArray" ||
+    dataType == "samplerBuffer" || dataType == "sampler2DMS" ||
+    dataType == "sampler2DMSArray" ||
+    dataType == "sampler1DShadow" || dataType == "sampler2DShadow" ||
+    dataType == "samplerCubeShadow" ||
+    dataType == "sampler2DRectShadow" ||
+    dataType == "sampler1DArrayShadow" ||
+    dataType == "sampler2DArrayShadow" ||
+    dataType == "samplerCubeArrayShadow" ||
+    dataType == "isampler1D" || dataType == "isampler2D" ||
+    dataType == "isampler3D" || dataType == "isamplerCube" ||
+    dataType == "isampler2DRect" || dataType == "isampler1DArray" ||
+    dataType == "isampler2DArray" || dataType == "isamplerCubeArray" ||
+    dataType == "isamplerBuffer" || dataType == "isampler2DMS" ||
+    dataType == "isampler2DMSArray" ||
+    dataType == "usampler1D" || dataType == "usampler2D" ||
+    dataType == "usampler3D" || dataType == "usamplerCube" ||
+    dataType == "usampler2DRect" || dataType == "usampler1DArray" ||
+    dataType == "usampler2DArray" || dataType == "usamplerCubeArray" ||
+    dataType == "usamplerBuffer" || dataType == "usampler2DMS" ||
+    dataType == "usampler2DMSArray" ||
+    dataType == "image1D" || dataType == "image2D" ||
+    dataType == "image3D" || dataType == "imageCube" ||
+    dataType == "image2DRect" || dataType == "image1DArray" ||
+    dataType == "image2DArray" || dataType == "imageCubeArray" ||
+    dataType == "imageBuffer" || dataType == "image2DMS" ||
+    dataType == "image2DMSArray" ||
+    dataType == "iimage1D" || dataType == "iimage2D" ||
+    dataType == "iimage3D" || dataType == "iimageCube" ||
+    dataType == "iimage2DRect" || dataType == "iimage1DArray" ||
+    dataType == "iimage2DArray" || dataType == "iimageCubeArray" ||
+    dataType == "iimageBuffer" || dataType == "iimage2DMS" ||
+    dataType == "iimage2DMSArray" ||
+    dataType == "uimage1D" || dataType == "uimage2D" ||
+    dataType == "uimage3D" || dataType == "uimageCube" ||
+    dataType == "uimage2DRect" || dataType == "uimage1DArray" ||
+    dataType == "uimage2DArray" || dataType == "uimageCubeArray" ||
+    dataType == "uimageBuffer" || dataType == "uimage2DMS" ||
+    dataType == "uimage2DMSArray"
+
+fun glslStructureIndex(
+    stage: string,
+    name: string,
+    structures: array<ShaderStructure>
+): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < structures.size) {
+        if (structures[index].stage == stage &&
+            structures[index].name == name) result = index
+        index = index + 1
+    }
+    result
+}
+
+fun glslLocationSlotsForStage(
+    stage: string,
+    dataType: string,
+    arraySize: int,
+    structures: array<ShaderStructure>
+): int {
+    val structureIndex = glslStructureIndex(stage, dataType, structures)
+    var elementSlots = glslLocationSlots(dataType, 1)
+    if (structureIndex >= 0) {
+        elementSlots = 0
+        val structure = structures[structureIndex]
+        var memberIndex = 0
+        while (memberIndex < structure.members.size) {
+            val member = structure.members[memberIndex]
+            elementSlots = elementSlots + glslLocationSlotsForStage(
+                stage,
+                member.dataType,
+                member.arraySize,
+                structures
+            )
+            memberIndex = memberIndex + 1
+        }
+    }
+    elementSlots * arraySize
+}
+
+fun glslMembersLocationSlots(
+    stage: string,
+    members: array<ShaderBlockMember>,
+    arraySize: int,
+    structures: array<ShaderStructure>
+): int {
+    var slots = 0
+    var memberIndex = 0
+    while (memberIndex < members.size) {
+        val member = members[memberIndex]
+        slots = slots + glslLocationSlotsForStage(
+            stage,
+            member.dataType,
+            member.arraySize,
+            structures
+        )
+        memberIndex = memberIndex + 1
+    }
+    slots * arraySize
+}
+
+fun glslStructureTypeEqual(
+    leftStage: string,
+    rightStage: string,
+    dataType: string,
+    structures: array<ShaderStructure>,
+    depth: int = 0
+): bool {
+    val leftIndex = glslStructureIndex(leftStage, dataType, structures)
+    val rightIndex = glslStructureIndex(rightStage, dataType, structures)
+    var equal = leftIndex == rightIndex
+    if (leftIndex >= 0 || rightIndex >= 0) {
+        equal = leftIndex >= 0 && rightIndex >= 0 && depth < 64
+        if (equal) {
+            val left = structures[leftIndex]
+            val right = structures[rightIndex]
+            equal = glslBlockMembersEqual(left.members, right.members)
+            var memberIndex = 0
+            while (equal && memberIndex < left.members.size) {
+                equal = glslStructureTypeEqual(
+                    leftStage,
+                    rightStage,
+                    left.members[memberIndex].dataType,
+                    structures,
+                    depth + 1
+                )
+                memberIndex = memberIndex + 1
+            }
+        }
+    }
+    equal
+}
+
+fun glslMembersTypesEqual(
+    leftStage: string,
+    rightStage: string,
+    left: array<ShaderBlockMember>,
+    right: array<ShaderBlockMember>,
+    structures: array<ShaderStructure>
+): bool {
+    var equal = glslBlockMembersEqual(left, right)
+    var index = 0
+    while (equal && index < left.size) {
+        equal = glslStructureTypeEqual(
+            leftStage,
+            rightStage,
+            left[index].dataType,
+            structures
+        )
+        index = index + 1
+    }
+    equal
+}
+
+fun glslLocationMembersEqual(
+    left: ShaderLocation,
+    right: ShaderLocation,
+    structures: array<ShaderStructure>
+): bool = glslMembersTypesEqual(
+    left.stage,
+    right.stage,
+    left.members,
+    right.members,
+    structures
+)
+
 fun glslLocationsOverlap(
     first: int,
     firstSize: int,
@@ -948,13 +1137,56 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     val workgroups: array<ShaderWorkgroup> = []
     val pushConstants: array<ShaderPushConstant> = []
     val specializationConstants: array<ShaderSpecializationConstant> = []
+    val structures: array<ShaderStructure> = []
     val includes = includeReflection.includes
     var valid = includeReflection.valid
     var error = includeReflection.error
     var index = 0
+    var scopeDepth = 0
     while (valid && index < source.size) {
         val name = glslReadName(source, index)
-        if (name.text == "layout") {
+        if (scopeDepth == 0 && name.text == "struct") {
+            val structureName = glslReadName(source, name.next)
+            val body = glslSkipTrivia(source, structureName.next)
+            val block = glslParseBlock(source, body)
+            if (structureName.text == "" || !block.valid) {
+                valid = false
+                error = "malformed GLSL $stage structure declaration"
+            }
+            if (valid && glslStructureIndex(
+                stage,
+                structureName.text,
+                structures
+            ) >= 0) {
+                valid = false
+                error = "duplicate GLSL $stage structure '${structureName.text}'"
+            }
+            var memberIndex = 0
+            while (valid && memberIndex < block.members.size) {
+                val member = block.members[memberIndex]
+                if (member.arraySize <= 0 || member.offset >= 0 ||
+                    member.align >= 0 || member.rowMajor ||
+                    member.columnMajor) {
+                    valid = false
+                    error = "invalid GLSL $stage structure member '${member.name}'"
+                } else if (!glslBuiltinType(member.dataType) &&
+                    glslStructureIndex(
+                        stage,
+                        member.dataType,
+                        structures
+                    ) < 0) {
+                    valid = false
+                    error = "unknown GLSL $stage structure member type '${member.dataType}'"
+                }
+                memberIndex = memberIndex + 1
+            }
+            if (valid) structures.append(ShaderStructure(
+                stage,
+                structureName.text,
+                block.members
+            ))
+            index = if (block.next > body) block.next else body + 1
+        } else if (scopeDepth == 0 && name.text == "layout") {
             val layout = glslParseLayout(source, name.next)
             valid = layout.valid
             if (!valid) error = layout.error
@@ -1053,10 +1285,30 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                                 declaration.name,
                                 declaration.arraySize
                             )
-                        val slots = glslLocationSlots(
+                        val knownType = declaration.members.size > 0 ||
+                            glslBuiltinType(
+                            declaration.dataType
+                        ) || glslStructureIndex(
+                            stage,
                             declaration.dataType,
-                            declarator.arraySize
-                        )
+                            structures
+                        ) >= 0
+                        if (!knownType) {
+                            valid = false
+                            error = "unknown GLSL $stage interface type '${declaration.dataType}'"
+                        }
+                        val slots = if (declaration.members.size > 0)
+                            glslMembersLocationSlots(
+                                stage,
+                                declaration.members,
+                                declarator.arraySize,
+                                structures
+                            ) else glslLocationSlotsForStage(
+                                stage,
+                                declaration.dataType,
+                                declarator.arraySize,
+                                structures
+                            )
                         var duplicate = slots <= 0
                         var locationIndex = 0
                         while (valid && !duplicate &&
@@ -1065,10 +1317,13 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                             duplicate = previous.direction ==
                                 declaration.storage && glslLocationsOverlap(
                                     previous.location,
-                                    glslLocationSlots(
-                                        previous.dataType,
-                                        previous.arraySize
-                                    ),
+                                    if (previous.slots > 0) previous.slots
+                                    else glslLocationSlotsForStage(
+                                            stage,
+                                            previous.dataType,
+                                            previous.arraySize,
+                                            structures
+                                        ),
                                     layout.location,
                                     slots
                                 )
@@ -1084,7 +1339,9 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                                 declaration.storage,
                                 declaration.dataType,
                                 declarator.name,
-                                declarator.arraySize
+                                declarator.arraySize,
+                                slots,
+                                declaration.members
                             ))
                         }
                         declaratorIndex = declaratorIndex + 1
@@ -1253,7 +1510,15 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                 if (index < source.size && source[index] == 34) {
                     index = index + 1
                 }
-            } else index = skipped + 1
+            } else {
+                if (skipped < source.size && source[skipped] == 123) {
+                    scopeDepth = scopeDepth + 1
+                } else if (skipped < source.size &&
+                    source[skipped] == 125 && scopeDepth > 0) {
+                    scopeDepth = scopeDepth - 1
+                }
+                index = skipped + 1
+            }
         }
     }
     var workgroupIndex = 0
@@ -1285,7 +1550,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
         specializationConstants,
         includes,
         valid,
-        error
+        error,
+        structures
     )
 }
 
@@ -1345,7 +1611,8 @@ fun glslPreviousRasterStage(names: array<string>, stage: string): string {
 
 fun glslRasterInterfacesError(
     names: array<string>,
-    locations: array<ShaderLocation>
+    locations: array<ShaderLocation>,
+    structures: array<ShaderStructure>
 ): string {
     var error = ""
     var index = 0
@@ -1361,7 +1628,18 @@ fun glslRasterInterfacesError(
                     if (output.stage == previous && output.direction == "out" &&
                         output.location == input.location) {
                         matched = true
-                        if (output.dataType != input.dataType) {
+                        if (output.dataType != input.dataType ||
+                            !glslLocationMembersEqual(
+                                output,
+                                input,
+                                structures
+                            ) ||
+                            !glslStructureTypeEqual(
+                                output.stage,
+                                input.stage,
+                                input.dataType,
+                                structures
+                            )) {
                             error = "GLSL interface type mismatch at location ${input.location}: ${output.dataType} from $previous, ${input.dataType} in ${input.stage}"
                         }
                     }
@@ -1388,6 +1666,7 @@ fun glslPackage(
     val pushConstants: array<ShaderPushConstant> = []
     val specializationConstants: array<ShaderSpecializationConstant> = []
     val includes: array<ShaderInclude> = []
+    val structures: array<ShaderStructure> = []
     var valid = names.size == sources.size && names.size > 0
     var error = if (valid) "" else "GLSL package has no stages"
     var compute = false
@@ -1423,6 +1702,11 @@ fun glslPackage(
                 error = reflection.error
             }
             var reflectedIndex = 0
+            while (valid && reflectedIndex < reflection.structures.size) {
+                structures.append(reflection.structures[reflectedIndex])
+                reflectedIndex = reflectedIndex + 1
+            }
+            reflectedIndex = 0
             while (valid && reflectedIndex < reflection.locations.size) {
                 locations.append(reflection.locations[reflectedIndex])
                 reflectedIndex = reflectedIndex + 1
@@ -1438,9 +1722,18 @@ fun glslPackage(
                         (previous.storage != reflected.storage ||
                          previous.dataType != reflected.dataType ||
                          previous.arraySize != reflected.arraySize ||
-                         !glslBlockMembersEqual(
+                         !glslStructureTypeEqual(
+                             previous.stage,
+                             reflected.stage,
+                             reflected.dataType,
+                             structures
+                         ) ||
+                         !glslMembersTypesEqual(
+                             previous.stage,
+                             reflected.stage,
                              previous.members,
-                             reflected.members
+                             reflected.members,
+                             structures
                          ))) {
                         valid = false
                         error = "incompatible GLSL set ${reflected.set} binding ${reflected.binding} declarations"
@@ -1462,9 +1755,12 @@ fun glslPackage(
                 while (valid && pushIndex < pushConstants.size) {
                     val previous = pushConstants[pushIndex]
                     if (previous.dataType != reflected.dataType ||
-                        !glslBlockMembersEqual(
+                        !glslMembersTypesEqual(
+                            previous.stage,
+                            reflected.stage,
                             previous.members,
-                            reflected.members
+                            reflected.members,
+                            structures
                         )) {
                         valid = false
                         error = "incompatible GLSL push constant block declarations"
@@ -1498,7 +1794,11 @@ fun glslPackage(
         error = "compute and raster GLSL stages cannot share one package"
     }
     if (valid && raster) {
-        val interfaceError = glslRasterInterfacesError(names, locations)
+        val interfaceError = glslRasterInterfacesError(
+            names,
+            locations,
+            structures
+        )
         if (interfaceError != "") {
             valid = false
             error = interfaceError
@@ -1513,7 +1813,8 @@ fun glslPackage(
         specializationConstants,
         includes,
         valid,
-        error
+        error,
+        structures
     )
 }
 
