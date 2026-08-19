@@ -28,7 +28,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   buffering, allocation-stable frame callbacks, capability-driven seat,
   pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
   symbol/text parsing, deadline-driven keyboard repeat, hotplug-aware atomic
-  output snapshots and surface enter/leave tracking, compositor-mediated UTF-8
+  output snapshots with optional xdg logical geometry and surface enter/leave
+  tracking, compositor-mediated UTF-8
   clipboard ownership/offers with bounded descriptor transfers, xdg
   fullscreen/maximize/minimize/fixed-size controls, and ordered teardown
   without `libwayland-client` or `libxkbcommon`;

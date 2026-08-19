@@ -59,7 +59,9 @@ hardware-pixel/physical metadata and integer scale without pretending that
 deprecated core-output coordinates are xdg-output logical geometry. Registry
 add/remove events bind fresh output objects or release and remove the matching
 snapshot, surface membership, and primary selection; a real compositor gate
-proves removal and rebinding use distinct protocol identifiers.
+proves removal and rebinding use distinct protocol identifiers. The optional
+xdg-output manager attaches logical position/size and versioned atomic completion
+to each core object, keeping compositor coordinates separate from pixel modes.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

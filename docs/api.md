@@ -1242,8 +1242,13 @@ during ordered teardown. Once enabled, registry output additions bind fresh
 version-capped objects and removals retire the matching global/object, active
 surface membership, and primary selection before emitting the replacement (or
 empty) monitor value. A live remove/re-add gate proves distinct object IDs and
-a rebuilt 1024x768 snapshot. xdg-output logical geometry, fractional scale, and
-automatic buffer-scale changes remain future work.
+a rebuilt 1024x768 snapshot. When `zxdg_output_manager_v1` is advertised, each
+core output also owns a version-matched xdg-output object. Logical position,
+logical size, fallback name, and description merge into the same immutable
+snapshot and honor the extension's version-two `done` or version-three
+`wl_output.done` atomic boundary. `primaryLogicalX/Y/Width/Height` expose those
+coordinates without conflating them with hardware pixels. Fractional-scale
+surface negotiation and automatic buffer-scale changes remain future work.
 
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
