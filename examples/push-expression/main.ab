@@ -1,0 +1,120 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun storeColorTerms(
+    var values: GraphicsPushConstants,
+    green: bool
+): bool = values.storeMemberF32("first", if (green) 0.0 else 1.0) &&
+    values.storeMemberF32("first", 0.0, 1) &&
+    values.storeMemberF32("first", 0.0, 2) &&
+    values.storeMemberF32("first", if (green) 0.0 else 1.0, 3) &&
+    values.storeMemberF32("second", 0.0) &&
+    values.storeMemberF32("second", if (green) 1.0 else 0.0, 1) &&
+    values.storeMemberF32("second", 0.0, 2) &&
+    values.storeMemberF32("second", if (green) 1.0 else 0.0, 3)
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics push expression",
+            width = 640,
+            height = 480
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec4 first;
+                vec4 second;
+            } draw;
+            void main() {
+                color = draw.first +
+                    draw.second * vec4(1.0, 1.0, 1.0, 1.0);
+            }
+        }
+    }
+    val texture = app.texture(TextureDescriptor(
+        label = "push-expression-proof",
+        size = Extent3D(64, 64),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(texture))
+    val targetPipeline = app.renderTargetPipeline(target, shader)
+    val windowPipeline = app.renderPipeline(shader)
+    val values = shader.pushConstants()
+    val clear = Color(0.0, 0.0, 1.0)
+    val initialized = values.valid() && values.layout.size == 32 &&
+        values.layout.stageMask == shaderStageMaskFragment &&
+        values.memberOffset("first") == 0 &&
+        values.memberOffset("second") == 16 && storeColorTerms(values, false)
+    val missingRejected = !app.renderToTarget(
+        target,
+        targetPipeline,
+        clear
+    ) && !app.presentRender(windowPipeline, clear)
+    val warmed = app.valid() && target.valid() && targetPipeline.valid() &&
+        windowPipeline.valid() && initialized && missingRejected &&
+        app.renderPushToTarget(target, targetPipeline, values, clear) &&
+        target.texture.rgba8(32, 32) == 4278190335 &&
+        storeColorTerms(values, true) &&
+        app.renderPushToTarget(target, targetPipeline, values, clear) &&
+        target.texture.rgba8(32, 32) == 4278255360 &&
+        app.presentPushRender(windowPipeline, values, clear)
+    val targetHandle = if (app.backend == graphicsBackendOpenGl)
+        targetPipeline.openGl.pushConstantBuffer
+    else targetPipeline.vulkan.handle
+    val windowHandle = if (app.backend == graphicsBackendOpenGl)
+        windowPipeline.openGl.pushConstantBuffer
+    else windowPipeline.vulkan.handle
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = warmed
+    var frame = 0
+    while (repeated && frame < 4) {
+        val green = (frame & 1) == 0
+        val expected = if (green) 4278255360 else 4278190335
+        repeated = storeColorTerms(values, green) &&
+            app.renderPushToTarget(target, targetPipeline, values, clear) &&
+            target.texture.rgba8(32, 32) == expected &&
+            app.presentPushRender(windowPipeline, values, clear)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val finalPixel = target.texture.rgba8(32, 32)
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        targetPipeline.openGl.pushConstantBuffer == targetHandle &&
+            windowPipeline.openGl.pushConstantBuffer == windowHandle &&
+            targetHandle != 0 && windowHandle != 0
+    else targetPipeline.vulkan.handle == targetHandle &&
+        windowPipeline.vulkan.handle == windowHandle &&
+        targetPipeline.vulkan.pushConstantSize == 32 &&
+        windowPipeline.vulkan.pushConstantSize == 32 &&
+        targetPipeline.vulkan.pushConstantStageMask == shaderStageMaskFragment &&
+        windowPipeline.vulkan.pushConstantStageMask == shaderStageMaskFragment
+    println(
+        "push-expression backend=${graphicsBackendName(app.backend)} pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+    )
+    if (repeated && frame == 4 && finalPixel == 4278190335 &&
+        liveAfter == liveBefore && handlesStable) 0 else 1
+}

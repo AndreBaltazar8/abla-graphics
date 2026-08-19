@@ -50,7 +50,9 @@ Vulkan or ordered OpenGL procedural subpass sequences and a vertex-visible
 push-offset transform plus a shared vertex/fragment offset-and-tint block with
 exact shifted-position and color proof, backed by allocation-free typed
 name/component/array-index writes plus reflected float/double matrix-coordinate
-writes for ordinary and subpass values. Repeated clear,
+writes for ordinary and subpass values, and a typed bounded fragment `vec4`
+expression IR emitting push loads/literals and precedence-ordered floating
+operations without fixed SPIR-V templates. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

@@ -1763,6 +1763,19 @@ the procedural position while the fragment stage returns `draw.tint`.
 and color, with exact pixels, missing-value rejection, stable handles, and zero
 steady-state allocation growth on both backends.
 
+Fragment push expressions are no longer limited to fixed word templates. The
+typed raster parser accepts one location-zero `vec4` output, one reflected block
+of up to eight non-array `vec4` members, `vec4` literals, parentheses, and
+vector `*`, `+`, and `-` with GLSL precedence. It produces bounded postfix IR
+and emits the push structure, reflected member offsets, constants, loads, and
+floating-vector operations as deterministic SPIR-V. Unknown members,
+scalar/vector mixing, extra statements/declarations, malformed expressions, and
+unsupported operators fail before pipeline creation. Existing push-color and
+combined-stage fragment shaders use this generated path; their former fixed
+SPIR-V tables were removed. `push-expression` executes multiplication before
+addition and proves exact red/green output, stable handles, and zero steady-state
+allocation growth on both real backends.
+
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:
 `renderPushVerticesToTarget`, `renderPushIndexedToTarget`,

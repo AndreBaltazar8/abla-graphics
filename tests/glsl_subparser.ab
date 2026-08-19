@@ -1177,6 +1177,47 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 offset; vec4 tint; } draw; void main(){ color=draw.tint; }"
         ]
     ).spirv(shaderStageVertex)
+    val rasterExpressionShader = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first+draw.second*vec4(1.0,1.0,1.0,1.0); }"
+        ]
+    )
+    val rasterExpressionProgram =
+        rasterExpressionShader.rasterFragmentProgram()
+    val rasterExpressionFragment =
+        rasterExpressionShader.spirv(shaderStageFragment)
+    val rasterExpressionFragmentAgain =
+        rasterExpressionShader.spirv(shaderStageFragment)
+    val rasterParenthesized = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=(draw.first+draw.second)*vec4(1.0,1.0,1.0,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSubtraction = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first-draw.second; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.first*0.5; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnknownRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=draw.missing; }"
+        ]
+    ).spirv(shaderStageFragment)
     val triangle460 = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2129,7 +2170,7 @@ fun main: int {
         pushColorTriangle.valid &&
         pushColorTriangle.pushConstants.size == 1 &&
         pushColorFragment.succeeded && pushColorFragment.module.valid() &&
-        pushColorFragment.module.bound() == 18 &&
+        pushColorFragment.module.bound() == 17 &&
         spirvWordsEqual(
             pushColorFragment.module,
             pushColorFragmentAgain.module
@@ -2165,7 +2206,7 @@ fun main: int {
         spirvContainsWord(pushDrawVertex.module, 327809) &&
         spirvWordsEqual(pushDrawVertex.module, pushDrawVertexAgain.module) &&
         pushDrawFragment.succeeded && pushDrawFragment.module.valid() &&
-        pushDrawFragment.module.words.size == 107 &&
+        pushDrawFragment.module.words.size == 105 &&
         pushDrawFragment.module.bound() == 18 &&
         spirvWordsEqual(
             pushDrawFragment.module,
@@ -2186,6 +2227,24 @@ fun main: int {
             "layout(std140, binding = 15)"
         ) && !unsupportedPushDraw.succeeded &&
         unsupportedPushDraw.error != "" &&
+        rasterExpressionShader.valid && rasterExpressionProgram.valid &&
+        rasterExpressionProgram.expression.tokens.size == 5 &&
+        rasterExpressionFragment.succeeded &&
+        rasterExpressionFragment.module.valid() &&
+        spirvWordsOrdered(
+            rasterExpressionFragment.module,
+            327813,
+            327809
+        ) && spirvWordsEqual(
+            rasterExpressionFragment.module,
+            rasterExpressionFragmentAgain.module
+        ) && rasterParenthesized.succeeded &&
+        spirvWordsOrdered(rasterParenthesized.module, 327809, 327813) &&
+        rasterSubtraction.succeeded &&
+        spirvContainsWord(rasterSubtraction.module, 327811) &&
+        !rasterScalarRejected.succeeded && rasterScalarRejected.error != "" &&
+        !rasterUnknownRejected.succeeded &&
+        rasterUnknownRejected.error != "" &&
         triangle460.valid && triangle460Vertex.succeeded &&
         triangle460Fragment.succeeded &&
         spirvWordsEqual(triangleVertex.module, triangle460Vertex.module) &&
