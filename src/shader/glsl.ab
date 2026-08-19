@@ -76,6 +76,33 @@ class ShaderPushConstant(
     val members: array<ShaderBlockMember>
 )
 
+val shaderStageMaskVertex = 1
+val shaderStageMaskTessellationControl = 2
+val shaderStageMaskTessellationEvaluation = 4
+val shaderStageMaskGeometry = 8
+val shaderStageMaskFragment = 16
+val shaderStageMaskCompute = 32
+
+class ShaderPushConstantMemberLayout(
+    val dataType: string,
+    val name: string,
+    val arraySize: int,
+    val offset: int,
+    val size: int,
+    val alignment: int,
+    val arrayStride: int,
+    val matrixStride: int,
+    val rowMajor: bool
+)
+
+class ShaderPushConstantLayout(
+    val valid: bool,
+    val size: int,
+    val stageMask: int,
+    val members: array<ShaderPushConstantMemberLayout>,
+    val error: string
+)
+
 class ShaderSpecializationConstant(
     val stage: string,
     val id: int,
@@ -1013,6 +1040,198 @@ fun glslBuiltinType(dataType: string): bool =
     dataType == "uimage2DArray" || dataType == "uimageCubeArray" ||
     dataType == "uimageBuffer" || dataType == "uimage2DMS" ||
     dataType == "uimage2DMSArray"
+
+fun glslPushConstantStageMask(stage: string): int {
+    var mask = 0
+    if (stage == shaderStageVertex) mask = shaderStageMaskVertex
+    else if (stage == shaderStageTessellationControl)
+        mask = shaderStageMaskTessellationControl
+    else if (stage == shaderStageTessellationEvaluation)
+        mask = shaderStageMaskTessellationEvaluation
+    else if (stage == shaderStageGeometry) mask = shaderStageMaskGeometry
+    else if (stage == shaderStageFragment) mask = shaderStageMaskFragment
+    else if (stage == shaderStageCompute) mask = shaderStageMaskCompute
+    mask
+}
+
+fun glslAlignSize(value: int, alignment: int): int {
+    if (value < 0 || alignment <= 0) -1
+    else ((value + alignment - 1) / alignment) * alignment
+}
+
+class GlslPushConstantTypeLayout(
+    val valid: bool,
+    val size: int,
+    val alignment: int,
+    val matrixStride: int
+)
+
+fun glslPushConstantScalarSize(dataType: string): int {
+    var size = 0
+    if (dataType == "bool" || dataType == "int" ||
+        dataType == "uint" || dataType == "float") size = 4
+    else if (dataType == "double") size = 8
+    size
+}
+
+fun glslVectorComponents(dataType: string): int {
+    var components = 0
+    if (dataType == "bvec2" || dataType == "ivec2" ||
+        dataType == "uvec2" || dataType == "vec2" ||
+        dataType == "dvec2") components = 2
+    else if (dataType == "bvec3" || dataType == "ivec3" ||
+        dataType == "uvec3" || dataType == "vec3" ||
+        dataType == "dvec3") components = 3
+    else if (dataType == "bvec4" || dataType == "ivec4" ||
+        dataType == "uvec4" || dataType == "vec4" ||
+        dataType == "dvec4") components = 4
+    components
+}
+
+fun glslVectorScalarSize(dataType: string): int {
+    if (dataType == "dvec2" || dataType == "dvec3" ||
+        dataType == "dvec4") 8
+    else if (glslVectorComponents(dataType) > 0) 4 else 0
+}
+
+fun glslMatrixRows(dataType: string): int {
+    var rows = 0
+    if (dataType == "mat2" || dataType == "mat2x2" ||
+        dataType == "mat3x2" || dataType == "mat4x2" ||
+        dataType == "dmat2" || dataType == "dmat2x2" ||
+        dataType == "dmat3x2" || dataType == "dmat4x2") rows = 2
+    else if (dataType == "mat3" || dataType == "mat2x3" ||
+        dataType == "mat3x3" || dataType == "mat4x3" ||
+        dataType == "dmat3" || dataType == "dmat2x3" ||
+        dataType == "dmat3x3" || dataType == "dmat4x3") rows = 3
+    else if (dataType == "mat4" || dataType == "mat2x4" ||
+        dataType == "mat3x4" || dataType == "mat4x4" ||
+        dataType == "dmat4" || dataType == "dmat2x4" ||
+        dataType == "dmat3x4" || dataType == "dmat4x4") rows = 4
+    rows
+}
+
+fun glslMatrixScalarSize(dataType: string): int =
+    if (dataType.size >= 4 && dataType.slice(0, 4) == "dmat") 8
+    else if (glslMatrixColumns(dataType) > 0) 4 else 0
+
+fun glslPushConstantVectorLayout(
+    components: int,
+    scalarSize: int
+): GlslPushConstantTypeLayout {
+    val alignment = if (components == 2) scalarSize * 2
+        else if (components == 3 || components == 4) scalarSize * 4 else 0
+    GlslPushConstantTypeLayout(
+        components >= 2 && components <= 4 && scalarSize > 0,
+        components * scalarSize,
+        alignment,
+        0
+    )
+}
+
+fun glslPushConstantTypeLayout(
+    dataType: string,
+    rowMajor: bool
+): GlslPushConstantTypeLayout {
+    val scalarSize = glslPushConstantScalarSize(dataType)
+    val vectorComponents = glslVectorComponents(dataType)
+    val matrixColumns = glslMatrixColumns(dataType)
+    val matrixRows = glslMatrixRows(dataType)
+    var layout = GlslPushConstantTypeLayout(false, 0, 0, 0)
+    if (scalarSize > 0) {
+        layout = GlslPushConstantTypeLayout(true, scalarSize, scalarSize, 0)
+    } else if (vectorComponents > 0) {
+        layout = glslPushConstantVectorLayout(
+            vectorComponents,
+            glslVectorScalarSize(dataType)
+        )
+    } else if (matrixColumns > 0 && matrixRows > 0) {
+        val vector = glslPushConstantVectorLayout(
+            if (rowMajor) matrixColumns else matrixRows,
+            glslMatrixScalarSize(dataType)
+        )
+        val vectors = if (rowMajor) matrixRows else matrixColumns
+        val stride = glslAlignSize(vector.size, vector.alignment)
+        layout = GlslPushConstantTypeLayout(
+            vector.valid && vectors > 0 && stride > 0,
+            stride * vectors,
+            vector.alignment,
+            stride
+        )
+    }
+    layout
+}
+
+fun ShaderPackage.pushConstantLayout(
+    maximumSize: int = 128
+): ShaderPushConstantLayout {
+    val layouts: array<ShaderPushConstantMemberLayout> = []
+    var valid = this.valid && maximumSize >= 0
+    var error = if (!this.valid) this.error else ""
+    var stageMask = 0
+    var pushIndex = 0
+    while (valid && pushIndex < this.pushConstants.size) {
+        val mask = glslPushConstantStageMask(
+            this.pushConstants[pushIndex].stage
+        )
+        valid = mask != 0
+        if (!valid) error = "unknown GLSL push-constant shader stage"
+        stageMask = stageMask | mask
+        pushIndex = pushIndex + 1
+    }
+    val members: array<ShaderBlockMember> =
+        if (this.pushConstants.size > 0)
+            this.pushConstants[0].members else []
+    var cursor = 0
+    var maximumAlignment = 4
+    var index = 0
+    while (valid && index < members.size) {
+        val member = members[index]
+        val typeLayout = glslPushConstantTypeLayout(
+            member.dataType,
+            member.rowMajor
+        )
+        var alignment = typeLayout.alignment
+        if (member.align > alignment) alignment = member.align
+        var arrayStride = 0
+        var size = typeLayout.size
+        if (typeLayout.valid && member.arraySize > 1) {
+            arrayStride = glslAlignSize(typeLayout.size, alignment)
+            size = arrayStride * member.arraySize
+        }
+        var offset = glslAlignSize(cursor, alignment)
+        if (member.offset >= 0) offset = member.offset
+        valid = typeLayout.valid && member.arraySize > 0 &&
+            alignment > 0 && offset >= cursor &&
+            (offset / alignment) * alignment == offset && size > 0 &&
+            offset <= maximumSize - size
+        if (!valid) {
+            error = "invalid or unsupported GLSL push-constant member '${member.name}'"
+        } else {
+            layouts.append(ShaderPushConstantMemberLayout(
+                member.dataType,
+                member.name,
+                member.arraySize,
+                offset,
+                size,
+                alignment,
+                arrayStride,
+                typeLayout.matrixStride,
+                member.rowMajor
+            ))
+            cursor = offset + size
+            if (alignment > maximumAlignment) maximumAlignment = alignment
+        }
+        index = index + 1
+    }
+    val size = if (valid && members.size > 0)
+        glslAlignSize(cursor, maximumAlignment) else 0
+    if (valid && size > maximumSize) {
+        valid = false
+        error = "GLSL push-constant block exceeds the portable size limit"
+    }
+    ShaderPushConstantLayout(valid, size, stageMask, layouts, error)
+}
 
 fun glslStructureIndex(
     stage: string,

@@ -1557,7 +1557,19 @@ slot count.
 `layout(push_constant)` uniform blocks are reflected separately as
 stage-tagged `ShaderPushConstant` values. One block is accepted per stage;
 incompatible member structures across stages, descriptor coordinates on a push
-constant, and arrayed block instances are rejected. Scalar
+constant, and arrayed block instances are rejected.
+`package.pushConstantLayout()` converts the shared reflected block into one
+backend-neutral byte contract. It exposes the combined stage mask, total byte
+size, and each member's offset, size, base alignment, array stride, matrix
+stride, and matrix order. The initial executable layout slice follows Vulkan's
+standard push-constant layout for scalar, vector, matrix, and fixed-array
+members, honors explicit `offset` and increased `align`, rejects overlaps and
+misalignment, and defaults to the Vulkan-required portable floor of 128 bytes.
+Opaque and user-defined structure members remain rejected by layout conversion
+until recursive structure layout is implemented; reflection itself continues
+to preserve them.
+
+Scalar
 `layout(constant_id = N) const` declarations produce stage-tagged
 `ShaderSpecializationConstant` values containing the ID, type, name, and exact
 default literal. The initial typed literal grammar covers `bool`, `int`,

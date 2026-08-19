@@ -446,6 +446,24 @@ fun main: int {
             "layout(push_constant) uniform Draw { mat4 transform; vec4 tint; } draw; void main() {}"
         ]
     )
+    val reflectedPushConstantLayout =
+        reflectedPushConstants.pushConstantLayout()
+    val explicitPushConstantLayout = glslPackage(
+        [shaderStageCompute],
+        ["layout(push_constant) uniform Dispatch { float scale; layout(offset=16,align=16) vec3 bias; mat2 basis[2]; } values; void main() {}"]
+    ).pushConstantLayout()
+    val rowMajorPushConstantLayout = glslPackage(
+        [shaderStageVertex],
+        ["layout(push_constant) uniform Draw { layout(row_major) mat2x3 transform; } draw; void main() {}"]
+    ).pushConstantLayout()
+    val oversizedPushConstantLayout = glslPackage(
+        [shaderStageCompute],
+        ["layout(push_constant) uniform TooLarge { mat4 values[3]; } data; void main() {}"]
+    ).pushConstantLayout()
+    val misalignedPushConstantLayout = glslPackage(
+        [shaderStageCompute],
+        ["layout(push_constant) uniform Misaligned { layout(offset=4) vec4 value; } data; void main() {}"]
+    ).pushConstantLayout()
     val mismatchedPushConstants = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -1610,6 +1628,35 @@ fun main: int {
         reflectedPushConstants.pushConstants[0].members[0].dataType ==
             "mat4" &&
         reflectedPushConstants.pushConstants[0].members[1].name == "tint" &&
+        reflectedPushConstantLayout.valid &&
+        reflectedPushConstantLayout.size == 80 &&
+        reflectedPushConstantLayout.stageMask ==
+            (shaderStageMaskVertex | shaderStageMaskFragment) &&
+        reflectedPushConstantLayout.members.size == 2 &&
+        reflectedPushConstantLayout.members[0].offset == 0 &&
+        reflectedPushConstantLayout.members[0].size == 64 &&
+        reflectedPushConstantLayout.members[0].alignment == 16 &&
+        reflectedPushConstantLayout.members[0].matrixStride == 16 &&
+        reflectedPushConstantLayout.members[1].offset == 64 &&
+        reflectedPushConstantLayout.members[1].size == 16 &&
+        explicitPushConstantLayout.valid &&
+        explicitPushConstantLayout.size == 80 &&
+        explicitPushConstantLayout.stageMask == shaderStageMaskCompute &&
+        explicitPushConstantLayout.members.size == 3 &&
+        explicitPushConstantLayout.members[0].offset == 0 &&
+        explicitPushConstantLayout.members[1].offset == 16 &&
+        explicitPushConstantLayout.members[1].size == 12 &&
+        explicitPushConstantLayout.members[2].offset == 32 &&
+        explicitPushConstantLayout.members[2].arrayStride == 16 &&
+        explicitPushConstantLayout.members[2].matrixStride == 8 &&
+        rowMajorPushConstantLayout.valid &&
+        rowMajorPushConstantLayout.size == 24 &&
+        rowMajorPushConstantLayout.members[0].rowMajor &&
+        rowMajorPushConstantLayout.members[0].matrixStride == 8 &&
+        !oversizedPushConstantLayout.valid &&
+        oversizedPushConstantLayout.error != "" &&
+        !misalignedPushConstantLayout.valid &&
+        misalignedPushConstantLayout.error != "" &&
         !mismatchedPushConstants.valid &&
         mismatchedPushConstants.error != "" &&
         !duplicatePushConstants.valid && duplicatePushConstants.error != "" &&

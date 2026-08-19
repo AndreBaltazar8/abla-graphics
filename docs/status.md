@@ -941,9 +941,12 @@ validity gate unchanged.
   filesystem/package search paths or parse general declarations, structure
   instance initializers, composite constants, or expressions. Explicit member
   layout
-  metadata is reflected but not yet converted into compiler-verified host
-  structure offsets.
-  Reflected push constants are not yet wired into backend pipeline creation.
+  metadata is reflected and push-constant scalar/vector/matrix/fixed-array
+  blocks now convert into a deterministic standard-layout byte contract with
+  combined stage masks, offsets, sizes, alignments, and array/matrix strides.
+  General uniform/storage host-structure offsets remain unverified. Reflected
+  push constants are not yet wired into backend pipeline creation or command
+  recording.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
