@@ -353,6 +353,14 @@ Updated: 2026-08-19.
   subset additionally emits deterministic vertex and fragment modules and
   creates both on Lavapipe. A zero-word-count instruction is rejected before
   reaching the driver.
+- Portable specialization test: typed values validate against reflected IDs and
+  scalar types, duplicate/unknown/type-mismatched values fail before driver
+  creation, and zero/oversized workgroup overrides fail the effective device
+  limits. A specialized no-op compute package emits deterministic SPIR-V 1.0
+  `WorkgroupSize` for OpenGL and SPIR-V 1.2 `LocalSizeId` for Vulkan, then
+  creates and dispatches successfully on both installed drivers. Vulkan packs
+  `VkSpecializationInfo` and OpenGL calls `glShaderBinary` plus
+  `glSpecializeShader`, all from Abla-owned storage.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
@@ -583,11 +591,12 @@ self-rebuild.
   declarations, composite constants, or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.
-  Reflected push/specialization constants are not yet wired into backend
-  pipeline creation. SPIR-V emission currently covers the
-  strict no-op and single-member storage-assignment compute subsets plus fixed,
-  interleaved position/color, and sampled-texture triangle vertex/fragment
-  subsets described above, not general shaders.
+  Reflected push constants and general scalar specialization constants are not
+  yet wired into backend pipeline creation. Specialized compute workgroup IDs
+  are wired through the portable descriptor on both backends. SPIR-V emission
+  currently covers the strict no-op and single-member storage-assignment
+  compute subsets plus fixed, interleaved position/color, and sampled-texture
+  triangle vertex/fragment subsets described above, not general shaders.
 - Callable generated bindings, compiler-verified host offsets, and fully
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and

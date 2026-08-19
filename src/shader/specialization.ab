@@ -1,0 +1,142 @@
+// Typed, backend-neutral shader specialization descriptors.
+
+import "abla/float"
+import "../core.ab"
+import "glsl.ab"
+
+class ShaderSpecializationValue(
+    val id: int,
+    val dataType: string,
+    val bits: int,
+    val byteSize: int,
+    val accepted: bool = true
+) {
+    fun valid(): bool = this.accepted && this.id >= 0 &&
+        (this.byteSize == 4 || this.byteSize == 8) &&
+        (this.dataType == "bool" || this.dataType == "int" ||
+         this.dataType == "uint" || this.dataType == "float" ||
+         this.dataType == "double") &&
+        ((this.dataType == "double") == (this.byteSize == 8))
+}
+
+fun shaderSpecializationBool(
+    id: int,
+    value: bool
+): ShaderSpecializationValue = ShaderSpecializationValue(
+    id,
+    "bool",
+    if (value) 1 else 0,
+    4
+)
+
+fun shaderSpecializationInt(
+    id: int,
+    value: int
+): ShaderSpecializationValue = ShaderSpecializationValue(
+    id,
+    "int",
+    value,
+    4,
+    value >= -2147483648 && value <= 2147483647
+)
+
+fun shaderSpecializationUint(
+    id: int,
+    value: int
+): ShaderSpecializationValue = ShaderSpecializationValue(
+    id,
+    "uint",
+    value,
+    4,
+    value >= 0 && value <= 4294967295
+)
+
+fun shaderSpecializationFloat(
+    id: int,
+    value: f64
+): ShaderSpecializationValue = ShaderSpecializationValue(
+    id,
+    "float",
+    graphicsScalarF32Bits(value),
+    4
+)
+
+fun shaderSpecializationDouble(
+    id: int,
+    value: f64
+): ShaderSpecializationValue = ShaderSpecializationValue(
+    id,
+    "double",
+    f64ToBits(value),
+    8
+)
+
+class ShaderSpecialization(
+    val values: array<ShaderSpecializationValue> = []
+) {
+    fun empty(): bool = this.values.size == 0
+
+    fun structurallyValid(): bool {
+        var valid = true
+        var index = 0
+        while (valid && index < this.values.size) {
+            valid = this.values[index].valid()
+            var earlier = 0
+            while (valid && earlier < index) {
+                valid = this.values[earlier].id != this.values[index].id
+                earlier = earlier + 1
+            }
+            index = index + 1
+        }
+        valid
+    }
+
+    fun value(id: int, fallback: int): int {
+        var result = fallback
+        var index = 0
+        var found = false
+        while (!found && index < this.values.size) {
+            if (this.values[index].id == id) {
+                result = this.values[index].bits
+                found = true
+            }
+            index = index + 1
+        }
+        result
+    }
+
+    fun expectedType(shader: ShaderPackage, stage: string, id: int): string {
+        var result = ""
+        var index = 0
+        while (result == "" && index < shader.specializationConstants.size) {
+            val constant = shader.specializationConstants[index]
+            if (constant.stage == stage && constant.id == id) {
+                result = constant.dataType
+            }
+            index = index + 1
+        }
+        index = 0
+        while (result == "" && index < shader.workgroups.size) {
+            val workgroup = shader.workgroups[index]
+            if (workgroup.stage == stage &&
+                (workgroup.xId == id || workgroup.yId == id ||
+                 workgroup.zId == id)) result = "uint"
+            index = index + 1
+        }
+        result
+    }
+
+    fun validFor(shader: ShaderPackage, stage: string): bool {
+        var valid = shader.valid && this.structurallyValid()
+        var index = 0
+        while (valid && index < this.values.size) {
+            valid = this.expectedType(
+                shader,
+                stage,
+                this.values[index].id
+            ) == this.values[index].dataType
+            index = index + 1
+        }
+        valid
+    }
+}

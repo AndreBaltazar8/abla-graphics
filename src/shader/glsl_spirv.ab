@@ -200,6 +200,107 @@ fun glslSpecializedWorkgroupSpirv(workgroup: ShaderWorkgroup): array<int> {
     words
 }
 
+// OpenGL 4.6 / ARB_gl_spirv consumes the SPIR-V 1.0 WorkgroupSize built-in
+// form. Vulkan uses the SPIR-V 1.2 LocalSizeId execution mode above. Both
+// modules expose the same reflected SpecId values and concrete defaults.
+fun glslSpecializedWorkgroupOpenGlSpirv(
+    workgroup: ShaderWorkgroup
+): array<int> {
+    val words: array<int> = [
+        spirvMagic, spirvVersion10, 0, 11, 0,
+        131089, 1,
+        196622, 0, 1,
+        327695, 5, 5, 1852399981, 0,
+        393232, 5, 17, workgroup.x, workgroup.y, workgroup.z
+    ]
+    if (workgroup.xId >= 0) {
+        words.append(262215)
+        words.append(7)
+        words.append(1)
+        words.append(workgroup.xId)
+    }
+    if (workgroup.yId >= 0) {
+        words.append(262215)
+        words.append(8)
+        words.append(1)
+        words.append(workgroup.yId)
+    }
+    if (workgroup.zId >= 0) {
+        words.append(262215)
+        words.append(9)
+        words.append(1)
+        words.append(workgroup.zId)
+    }
+    words.append(262215)
+    words.append(10)
+    words.append(11)
+    words.append(25)
+    words.append(131091)
+    words.append(1)
+    words.append(196641)
+    words.append(2)
+    words.append(1)
+    words.append(262165)
+    words.append(3)
+    words.append(32)
+    words.append(0)
+    words.append(262167)
+    words.append(4)
+    words.append(3)
+    words.append(3)
+    words.append(if (workgroup.xId >= 0) 262194 else 262187)
+    words.append(3)
+    words.append(7)
+    words.append(workgroup.x)
+    words.append(if (workgroup.yId >= 0) 262194 else 262187)
+    words.append(3)
+    words.append(8)
+    words.append(workgroup.y)
+    words.append(if (workgroup.zId >= 0) 262194 else 262187)
+    words.append(3)
+    words.append(9)
+    words.append(workgroup.z)
+    words.append(393267)
+    words.append(4)
+    words.append(10)
+    words.append(7)
+    words.append(8)
+    words.append(9)
+    words.append(327734)
+    words.append(1)
+    words.append(5)
+    words.append(0)
+    words.append(2)
+    words.append(131320)
+    words.append(6)
+    words.append(65789)
+    words.append(65592)
+    words
+}
+
+fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
+    val specializedNoOp = this.valid && stage == shaderStageCompute &&
+        this.stages.size == 1 &&
+        this.stages[0].kind == shaderStageCompute &&
+        this.workgroups.size == 1 && this.locations.size == 0 &&
+        (this.workgroups[0].xId >= 0 || this.workgroups[0].yId >= 0 ||
+         this.workgroups[0].zId >= 0) &&
+        this.bindings.size == 0 && this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslComputeSpecializedNoOpSource(this.stages[0].source)
+    var words: array<int> = []
+    if (specializedNoOp) {
+        words = glslSpecializedWorkgroupOpenGlSpirv(this.workgroups[0])
+    }
+    val module = spirvModule(words)
+    GlslSpirvResult(
+        module,
+        specializedNoOp && module.valid(),
+        if (specializedNoOp) "" else
+            "GLSL source is outside the deterministic OpenGL SPIR-V subset"
+    )
+}
+
 fun glslExpectCharacter(
     source: string,
     begin: int,

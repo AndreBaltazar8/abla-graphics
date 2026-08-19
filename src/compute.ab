@@ -4,6 +4,7 @@ import "abla/unsafe/memory"
 import "core.ab"
 import "application.ab"
 import "shader/glsl.ab"
+import "shader/specialization.ab"
 import "shader/glsl_spirv.ab"
 import "driver/opengl.ab"
 import "driver/vulkan.ab"
@@ -40,25 +41,38 @@ resource class GraphicsComputePipeline(
 
 fun graphicsComputeWorkgroupSupported(
     shader: ShaderPackage,
-    limits: GraphicsLimits
+    limits: GraphicsLimits,
+    specialization: ShaderSpecialization = ShaderSpecialization()
 ): bool {
-    var supported = shader.workgroups.size == 1
+    var supported = shader.workgroups.size == 1 &&
+        specialization.validFor(shader, shaderStageCompute)
     if (supported) {
         val workgroup = shader.workgroups[0]
-        val xy = graphicsCheckedSizeProduct(workgroup.x, workgroup.y)
+        val x = if (workgroup.xId >= 0)
+            specialization.value(workgroup.xId, workgroup.x)
+        else workgroup.x
+        val y = if (workgroup.yId >= 0)
+            specialization.value(workgroup.yId, workgroup.y)
+        else workgroup.y
+        val z = if (workgroup.zId >= 0)
+            specialization.value(workgroup.zId, workgroup.z)
+        else workgroup.z
+        val xy = graphicsCheckedSizeProduct(x, y)
         val xyz = if (xy.succeeded)
-            graphicsCheckedSizeProduct(xy.value, workgroup.z)
+            graphicsCheckedSizeProduct(xy.value, z)
         else GraphicsIntResult(false)
-        supported = workgroup.x <= limits.maximumComputeWorkgroupSizeX &&
-            workgroup.y <= limits.maximumComputeWorkgroupSizeY &&
-            workgroup.z <= limits.maximumComputeWorkgroupSizeZ &&
+        supported = x >= 1 && y >= 1 && z >= 1 &&
+            x <= limits.maximumComputeWorkgroupSizeX &&
+            y <= limits.maximumComputeWorkgroupSizeY &&
+            z <= limits.maximumComputeWorkgroupSizeZ &&
             xyz.succeeded && xyz.value <= limits.maximumComputeInvocations
     }
     supported
 }
 
 trusted fun GraphicsApplication.computePipeline(
-    shader: ShaderPackage
+    shader: ShaderPackage,
+    specialization: ShaderSpecialization = ShaderSpecialization()
 ): GraphicsComputePipeline {
     var openGl = OpenGlComputePipeline(
         0,
@@ -87,6 +101,8 @@ trusted fun GraphicsApplication.computePipeline(
         [shader.source(shaderStageCompute)]
     )
     val emitted = translatable.spirv(shaderStageCompute)
+    val openGlEmitted = if (specialization.empty()) emitted
+        else translatable.spirvOpenGl(shaderStageCompute)
     if (!this.valid() || !shader.valid) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
@@ -94,21 +110,30 @@ trusted fun GraphicsApplication.computePipeline(
             if (shader.error != "") shader.error else
                 "the application or shader package is invalid"
         )
+    } else if (!specialization.validFor(shader, shaderStageCompute)) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.computePipeline.specialization",
+            "specialization IDs and types must match reflected compute constants"
+        )
     } else if (!this.capabilities.supports(graphicsFeatureCompute)) {
         error = GraphicsError(
             graphicsErrorUnsupportedFeature,
             "GraphicsApplication.computePipeline",
             "compute is unavailable on the selected device"
         )
-    } else if (!emitted.succeeded) {
+    } else if (!emitted.succeeded ||
+        (this.backend == graphicsBackendOpenGl &&
+         !openGlEmitted.succeeded)) {
         error = GraphicsError(
             graphicsErrorUnsupportedFeature,
             "ShaderPackage.spirv",
-            emitted.error
+            if (!emitted.succeeded) emitted.error else openGlEmitted.error
         )
     } else if (!graphicsComputeWorkgroupSupported(
             shader,
-            this.capabilities.limits
+            this.capabilities.limits,
+            specialization
         )) {
         error = GraphicsError(
             graphicsErrorLimitExceeded,
@@ -116,7 +141,12 @@ trusted fun GraphicsApplication.computePipeline(
             "compute workgroup dimensions exceed the selected device limits"
         )
     } else if (this.backend == graphicsBackendOpenGl) {
-        openGl = this.openGl.computePipeline(shader)
+        openGl = if (specialization.empty())
+            this.openGl.computePipeline(shader)
+        else this.openGl.computeSpirvPipeline(
+            openGlEmitted.module,
+            specialization
+        )
         if (!openGl.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
             "OpenGlWindowContext.computePipeline",
@@ -125,7 +155,7 @@ trusted fun GraphicsApplication.computePipeline(
     } else if (this.backend == graphicsBackendVulkan) {
         val module = this.vulkanDevice.shaderModule(emitted.module)
         if (module.valid()) {
-            vulkan = this.vulkanDevice.computePipeline(module)
+            vulkan = this.vulkanDevice.computePipeline(module, specialization)
         }
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
@@ -144,7 +174,8 @@ trusted fun GraphicsApplication.computePipeline(
 
 trusted fun GraphicsApplication.computeStoragePipeline(
     shader: ShaderPackage,
-    storage: GraphicsBuffer
+    storage: GraphicsBuffer,
+    specialization: ShaderSpecialization = ShaderSpecialization()
 ): GraphicsComputePipeline {
     var openGl = OpenGlComputePipeline(
         0,
@@ -164,6 +195,8 @@ trusted fun GraphicsApplication.computeStoragePipeline(
         [shader.source(shaderStageCompute)]
     )
     val emitted = translatable.spirv(shaderStageCompute)
+    val openGlEmitted = if (specialization.empty()) emitted
+        else translatable.spirvOpenGl(shaderStageCompute)
     val bindingValid = shader.bindings.size == 1 &&
         shader.bindings[0].set == 0 && shader.bindings[0].binding == 0 &&
         shader.bindings[0].storage == "buffer"
@@ -174,6 +207,12 @@ trusted fun GraphicsApplication.computeStoragePipeline(
             "GraphicsApplication.computeStoragePipeline",
             "compute storage requires one valid binding-zero buffer on the selected backend"
         )
+    } else if (!specialization.validFor(shader, shaderStageCompute)) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.computeStoragePipeline.specialization",
+            "specialization IDs and types must match reflected compute constants"
+        )
     } else if (!this.capabilities.supports(
             graphicsFeatureCompute | graphicsFeatureStorageBuffers
         )) {
@@ -182,15 +221,18 @@ trusted fun GraphicsApplication.computeStoragePipeline(
             "GraphicsApplication.computeStoragePipeline",
             "compute storage is unavailable on the selected device"
         )
-    } else if (!emitted.succeeded) {
+    } else if (!emitted.succeeded ||
+        (this.backend == graphicsBackendOpenGl &&
+         !openGlEmitted.succeeded)) {
         error = GraphicsError(
             graphicsErrorUnsupportedFeature,
             "ShaderPackage.spirv",
-            emitted.error
+            if (!emitted.succeeded) emitted.error else openGlEmitted.error
         )
     } else if (!graphicsComputeWorkgroupSupported(
             shader,
-            this.capabilities.limits
+            this.capabilities.limits,
+            specialization
         )) {
         error = GraphicsError(
             graphicsErrorLimitExceeded,
@@ -198,7 +240,14 @@ trusted fun GraphicsApplication.computeStoragePipeline(
             "compute workgroup dimensions exceed the selected device limits"
         )
     } else if (this.backend == graphicsBackendOpenGl) {
-        openGl = this.openGl.computePipeline(shader, storage.openGl.handle)
+        openGl = if (specialization.empty()) this.openGl.computePipeline(
+            shader,
+            storageBuffer = storage.openGl.handle
+        ) else this.openGl.computeSpirvPipeline(
+            openGlEmitted.module,
+            specialization,
+            storage.openGl.handle
+        )
         if (!openGl.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
             "OpenGlWindowContext.computePipeline",
@@ -207,7 +256,11 @@ trusted fun GraphicsApplication.computeStoragePipeline(
     } else if (this.backend == graphicsBackendVulkan) {
         val module = this.vulkanDevice.shaderModule(emitted.module)
         if (module.valid()) vulkan =
-            this.vulkanDevice.computeStoragePipeline(module, storage.vulkan)
+            this.vulkanDevice.computeStoragePipeline(
+                module,
+                storage.vulkan,
+                specialization
+            )
         if (!vulkan.valid()) error = GraphicsError(
             graphicsErrorDriverFailure,
             "VulkanDevice.computeStoragePipeline",

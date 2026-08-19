@@ -1309,6 +1309,24 @@ The common facade runs the shared Abla SPIR-V translator validation before
 either backend is created, so OpenGL cannot accidentally accept a shader that
 would fail after switching the same application to Vulkan.
 
+The overload
+`app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,
+typed specialization values. Constructors are
+`shaderSpecializationBool`, `shaderSpecializationInt`,
+`shaderSpecializationUint`, `shaderSpecializationFloat`, and
+`shaderSpecializationDouble`. IDs, duplicate entries, scalar widths, numeric
+ranges, and reflected GLSL types are checked before any driver call. Specialized
+workgroup dimensions are substituted into the same per-axis and total-invocation
+limit checks, including rejection of zero. Vulkan packs the accepted values into
+one bounded `VkSpecializationInfo` allocation. OpenGL loads a deterministic
+SPIR-V 1.0 module and supplies parallel ID/value arrays to
+`glSpecializeShader`; the Vulkan module remains SPIR-V 1.2 with `LocalSizeId`.
+The current executable subset applies unsigned 32-bit workgroup dimension IDs.
+General reflected scalar constants await the corresponding general SPIR-V
+emitter, and OpenGL's specialization API cannot directly consume a 64-bit
+value. The integration suite creates and dispatches the same specialized
+compute package on both real backends.
+
 `app.computeStoragePipeline(shader, buffer)` is the first observable binding
 slice. The shader must reflect exactly one `layout(std430, binding = 0)` buffer
 at set zero and match the documented `Values { uint value; }` write subset.

@@ -10,6 +10,7 @@ import "../resources.ab"
 import "../pixels.ab"
 import "../bytes.ab"
 import "../shader/spirv.ab"
+import "../shader/specialization.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 
@@ -668,6 +669,63 @@ noescape extern:"c" fun vkQueuePresentKHR(
 fun vulkanVersionMajor(version: int): int = (version >>> 22) & 127
 fun vulkanVersionMinor(version: int): int = (version >>> 12) & 1023
 fun vulkanVersionPatch(version: int): int = version & 4095
+
+trusted fun vulkanSpecializationStorage(
+    specialization: ShaderSpecialization
+): NativeByteBuffer {
+    var dataSize = 0
+    var index = 0
+    while (index < specialization.values.size) {
+        dataSize = dataSize + specialization.values[index].byteSize
+        index = index + 1
+    }
+    val accepted = specialization.structurallyValid() &&
+        specialization.values.size > 0
+    val storage = nativeByteBuffer(
+        if (accepted) 32 + specialization.values.size * 16 + dataSize
+        else 0
+    )
+    if (accepted) {
+        val entriesOffset = 32
+        val dataOffset = entriesOffset + specialization.values.size * 16
+        storage.storeI64(0, specialization.values.size & 4294967295)
+        storage.storePointer(8, storage.pointerAt(entriesOffset))
+        storage.storeI64(16, dataSize)
+        storage.storePointer(24, storage.pointerAt(dataOffset))
+        var packedOffset = 0
+        index = 0
+        while (index < specialization.values.size) {
+            val value = specialization.values[index]
+            val entryOffset = entriesOffset + index * 16
+            storage.storeI64(
+                entryOffset,
+                (value.id & 4294967295) |
+                    ((packedOffset & 4294967295) << 32)
+            )
+            storage.storeI64(entryOffset + 8, value.byteSize)
+            if (value.byteSize == 8) {
+                storage.storeI64(dataOffset + packedOffset, value.bits)
+            } else {
+                storage.store(dataOffset + packedOffset, value.bits & 255)
+                storage.store(
+                    dataOffset + packedOffset + 1,
+                    (value.bits >>> 8) & 255
+                )
+                storage.store(
+                    dataOffset + packedOffset + 2,
+                    (value.bits >>> 16) & 255
+                )
+                storage.store(
+                    dataOffset + packedOffset + 3,
+                    (value.bits >>> 24) & 255
+                )
+            }
+            packedOffset = packedOffset + value.byteSize
+            index = index + 1
+        }
+    }
+    storage
+}
 
 trusted fun vulkanLoaderVersion(): int {
     val output = nativeI64Cell(0)
@@ -3004,7 +3062,8 @@ resource class VulkanComputePipeline(
 trusted fun VulkanDevice.computePipelineNative(
     shader: VulkanShaderModule,
     storageHandle: int = 0,
-    storageSize: int = 0
+    storageSize: int = 0,
+    specialization: ShaderSpecialization = ShaderSpecialization()
 ): VulkanComputePipeline {
     var layout = 0
     var pipeline = 0
@@ -3014,6 +3073,7 @@ trusted fun VulkanDevice.computePipelineNative(
     var descriptorSetLayout = 0
     var descriptorPool = 0
     var descriptorSet = 0
+    val specializationStorage = vulkanSpecializationStorage(specialization)
     if (this.valid() && storageHandle != 0 && storageSize > 0) {
         val binding = nativeByteBuffer(24)
         binding.storeI64(0, 7 * 4294967296)
@@ -3056,7 +3116,7 @@ trusted fun VulkanDevice.computePipelineNative(
             output.address
         ) == vulkanSuccess) layout = output.load()
     }
-    if (layout != 0) {
+    if (layout != 0 && specialization.structurallyValid()) {
         val createInfo = nativeByteBuffer(96)
         createInfo.storeI64(0, 29)
         createInfo.storePointer(8, nativeNullPointer())
@@ -3069,7 +3129,11 @@ trusted fun VulkanDevice.computePipelineNative(
             56,
             nativePointerFromAddress(nativeCStringAddress("main"))
         )
-        createInfo.storePointer(64, nativeNullPointer())
+        createInfo.storePointer(
+            64,
+            if (specialization.empty()) nativeNullPointer()
+            else specializationStorage.address
+        )
         createInfo.storeI64(72, layout)
         createInfo.storeI64(80, 0)
         createInfo.storeI64(88, 4294967295)
@@ -3226,14 +3290,24 @@ trusted fun VulkanDevice.computePipelineNative(
 }
 
 trusted fun VulkanDevice.computePipeline(
-    shader: VulkanShaderModule
-): VulkanComputePipeline = this.computePipelineNative(shader)
+    shader: VulkanShaderModule,
+    specialization: ShaderSpecialization = ShaderSpecialization()
+): VulkanComputePipeline = this.computePipelineNative(
+    shader,
+    specialization = specialization
+)
 
 trusted fun VulkanDevice.computeStoragePipeline(
     shader: VulkanShaderModule,
-    storage: VulkanBuffer
+    storage: VulkanBuffer,
+    specialization: ShaderSpecialization = ShaderSpecialization()
 ): VulkanComputePipeline = if (storage.valid() && storage.device == this.handle)
-    this.computePipelineNative(shader, storage.handle, storage.size)
+    this.computePipelineNative(
+        shader,
+        storage.handle,
+        storage.size,
+        specialization
+    )
 else VulkanComputePipeline(
     nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
     nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0

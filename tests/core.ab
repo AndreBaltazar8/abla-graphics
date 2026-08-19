@@ -325,6 +325,30 @@ fun main: int {
     val overflowDelay = overflowSchedule.delayForNextFrame(
         graphicsMaximumInt
     )
+    val specializedShader = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=2, local_size_x_id=12) in; void main() {}"]
+    )
+    val specialization = ShaderSpecialization([
+        shaderSpecializationUint(12, 4)
+    ])
+    val duplicateSpecialization = ShaderSpecialization([
+        shaderSpecializationUint(12, 4),
+        shaderSpecializationUint(12, 8)
+    ])
+    val mismatchedSpecialization = ShaderSpecialization([
+        shaderSpecializationInt(12, 4)
+    ])
+    val unknownSpecialization = ShaderSpecialization([
+        shaderSpecializationUint(99, 4)
+    ])
+    val scalarSpecializationShader = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(constant_id=5) const float scale=1.0; void main() {}"]
+    )
+    val scalarSpecialization = ShaderSpecialization([
+        shaderSpecializationFloat(5, 0.5)
+    ])
 
     if (automatic.succeeded &&
         automatic.backend == graphicsBackendVulkan &&
@@ -397,6 +421,30 @@ fun main: int {
         graphicsUnsignedIntegerF32Bits(0) == 0 &&
         graphicsUnsignedIntegerF32Bits(16) == 1098907648 &&
         graphicsUnsignedIntegerF32Bits(32) == 1107296256 &&
+        specializedShader.valid && specialization.structurallyValid() &&
+        specialization.validFor(specializedShader, shaderStageCompute) &&
+        specialization.value(12, 2) == 4 &&
+        specialization.value(8, 2) == 2 &&
+        !duplicateSpecialization.structurallyValid() &&
+        !mismatchedSpecialization.validFor(
+            specializedShader,
+            shaderStageCompute
+        ) &&
+        !unknownSpecialization.validFor(
+            specializedShader,
+            shaderStageCompute
+        ) &&
+        scalarSpecializationShader.valid &&
+        scalarSpecialization.validFor(
+            scalarSpecializationShader,
+            shaderStageCompute
+        ) &&
+        scalarSpecialization.values[0].bits == 1056964608 &&
+        shaderSpecializationBool(0, true).bits == 1 &&
+        shaderSpecializationDouble(0, 1.0).bits ==
+            4607182418800017408 &&
+        !shaderSpecializationInt(0, 2147483648).valid() &&
+        !shaderSpecializationUint(0, -1).valid() &&
         VertexBufferLayout().valid() &&
         !VertexBufferLayout().buffered() &&
         VertexBufferLayout(8).valid() &&

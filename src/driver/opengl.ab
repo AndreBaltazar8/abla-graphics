@@ -11,6 +11,8 @@ import "../bytes.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
 import "../shader/glsl.ab"
+import "../shader/specialization.ab"
+import "../shader/spirv.ab"
 
 val eglFalse = 0
 val eglTrue = 1
@@ -121,6 +123,20 @@ noescape extern:"c" fun glShaderSource(
     lengths: i64*
 ): void
 noescape extern:"c" fun glCompileShader(shader: i32): void
+noescape extern:"c" fun glShaderBinary(
+    count: i32,
+    shaders: i64*,
+    binaryFormat: i32,
+    binary: i64*,
+    length: i32
+): void
+noescape extern:"c" fun glSpecializeShader(
+    shader: i32,
+    entryPoint: i64*,
+    constantCount: i32,
+    constantIndices: i64*,
+    constantValues: i64*
+): void
 noescape extern:"c" fun glGetShaderiv(
     shader: i32,
     name: i32,
@@ -633,6 +649,21 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
         ),
         GraphicsVersion(majorValue, minorValue)
     )
+}
+
+trusted fun openGlExtensionAvailable(wanted: string): bool {
+    val count = nativeI64Cell(0)
+    glGetIntegerv(33309, count.address)
+    var found = false
+    var index = 0
+    while (!found && index < (count.load() & 4294967295)) {
+        val extension = glGetStringi(7939, index)
+        if (!pointerIsNull(extension)) {
+            found = borrowNativeCString(extension) == wanted
+        }
+        index = index + 1
+    }
+    found
 }
 
 fun openGlConfigAttributes(): NativeByteBuffer {
@@ -1967,6 +1998,135 @@ trusted fun openGlCompileShader(
         error = "OpenGL returned shader handle zero"
     }
     OpenGlShaderResult(shader, error)
+}
+
+trusted fun openGlSpecializeShader(
+    kind: int,
+    module: SpirvModule,
+    specialization: ShaderSpecialization
+): OpenGlShaderResult {
+    var accepted = module.valid() && specialization.structurallyValid()
+    var index = 0
+    while (accepted && index < specialization.values.size) {
+        accepted = specialization.values[index].byteSize == 4
+        index = index + 1
+    }
+    var shader = 0
+    var error = ""
+    if (!accepted) {
+        error = "OpenGL specialization requires valid 32-bit scalar values"
+    } else if (!openGlExtensionAvailable("GL_ARB_gl_spirv")) {
+        error = "OpenGL SPIR-V specialization is unavailable"
+    } else {
+        shader = glCreateShader(kind)
+        if (shader != 0) {
+            val code = nativeByteBuffer(module.words.size * 4)
+            index = 0
+            while (index < module.words.size) {
+                openGlStoreI32(code, index, module.words[index])
+                index = index + 1
+            }
+            val shaderCell = nativeI64Cell(shader)
+            while (glGetError() != 0) {}
+            glShaderBinary(
+                1,
+                shaderCell.address,
+                38225,
+                code.address,
+                module.words.size * 4
+            )
+            val binaryError = glGetError()
+            var specializeError = 0
+            val compiled = nativeI64Cell(0)
+            if (binaryError == 0) {
+                val indices = nativeByteBuffer(
+                    specialization.values.size * 4
+                )
+                val values = nativeByteBuffer(
+                    specialization.values.size * 4
+                )
+                index = 0
+                while (index < specialization.values.size) {
+                    openGlStoreI32(
+                        indices,
+                        index,
+                        specialization.values[index].id
+                    )
+                    openGlStoreI32(
+                        values,
+                        index,
+                        specialization.values[index].bits
+                    )
+                    index = index + 1
+                }
+                glSpecializeShader(
+                    shader,
+                    nativePointerFromAddress(nativeCStringAddress("main")),
+                    specialization.values.size,
+                    if (specialization.empty()) nativeNullPointer()
+                    else indices.address,
+                    if (specialization.empty()) nativeNullPointer()
+                    else values.address
+                )
+                specializeError = glGetError()
+                glGetShaderiv(shader, 35713, compiled.address)
+            }
+            if (binaryError != 0 || specializeError != 0 ||
+                (compiled.load() & 4294967295) == 0) {
+                error = openGlShaderLog(shader)
+                if (error == "") {
+                    error = if (binaryError != 0)
+                        "OpenGL rejected the SPIR-V binary"
+                    else if (specializeError != 0)
+                        "OpenGL rejected SPIR-V specialization values"
+                    else "OpenGL SPIR-V specialization failed"
+                }
+                glDeleteShader(shader)
+                shader = 0
+            }
+        } else error = "OpenGL returned shader handle zero"
+    }
+    OpenGlShaderResult(shader, error)
+}
+
+trusted fun OpenGlWindowContext.computeSpirvPipeline(
+    module: SpirvModule,
+    specialization: ShaderSpecialization,
+    storageBuffer: int = 0
+): OpenGlComputePipeline {
+    var program = 0
+    var error = ""
+    if (this.makeCurrent()) {
+        val compute = openGlSpecializeShader(
+            37305,
+            module,
+            specialization
+        )
+        error = compute.error
+        if (compute.handle != 0) {
+            program = glCreateProgram()
+            if (program != 0) {
+                glAttachShader(program, compute.handle)
+                glLinkProgram(program)
+                val linked = nativeI64Cell(0)
+                glGetProgramiv(program, 35714, linked.address)
+                if ((linked.load() & 4294967295) == 0) {
+                    error = openGlProgramLog(program)
+                    glDeleteProgram(program)
+                    program = 0
+                }
+            } else error = "OpenGL returned program handle zero"
+            glDeleteShader(compute.handle)
+        }
+    } else error = "OpenGL specialization requires a current context"
+    OpenGlComputePipeline(
+        program,
+        this.display,
+        this.surface,
+        this.context,
+        storageBuffer,
+        error
+    )
 }
 
 trusted fun openGlProgram(
