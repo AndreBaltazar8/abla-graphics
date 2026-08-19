@@ -501,7 +501,15 @@ fun main: int {
     val storageSpirvAgain = storage.spirv(shaderStageCompute)
     val storage460Spirv = glslPackage(
         [shaderStageCompute],
-        ["#version 460\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
+        ["#version 460 core\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
+    ).spirv(shaderStageCompute)
+    val misplacedStorageProfile = glslPackage(
+        [shaderStageCompute],
+        ["#version 460\ncore\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
+    ).spirv(shaderStageCompute)
+    val unsupportedStorageProfile = glslPackage(
+        [shaderStageCompute],
+        ["#version 460 compatibility\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
     ).spirv(shaderStageCompute)
     val storage77 = glslPackage(
         [shaderStageCompute],
@@ -748,8 +756,8 @@ fun main: int {
     val triangle460 = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
-            "#version 460\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 460\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.12,0.54,0.96,1.0); }"
+            "#version 460 core\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 460 core\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.12,0.54,0.96,1.0); }"
         ]
     )
     val triangle460Vertex = triangle460.spirv(shaderStageVertex)
@@ -1239,6 +1247,8 @@ fun main: int {
         spirvWordsEqual(storageSpirv.module, storageSpirvAgain.module) &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
+        !misplacedStorageProfile.succeeded &&
+        !unsupportedStorageProfile.succeeded &&
         storage77.succeeded && storage77.module.words[64] == 77 &&
         storageIncrement.succeeded && storageIncrement.module.valid() &&
         storageIncrement.module.words.size == 95 &&

@@ -419,6 +419,8 @@ Updated: 2026-08-19.
   private character/subsequence scanner. Compute-storage and every delivered
   raster template accept both GLSL 4.50 and 4.60; equivalent 450/460 storage and
   procedural vertex/fragment packages are regression-tested byte-identical.
+  An optional same-line `core` profile is accepted without changing output;
+  misplaced or compatibility profiles are checked failures.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the

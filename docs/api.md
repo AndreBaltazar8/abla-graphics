@@ -1321,7 +1321,9 @@ semantic validation.
 
 The executable translator is available as `package.spirv(stage)`. Its compute
 path accepts exactly one compute stage with one `#version 450` or `460`
-directive and an explicit local-size layout. The
+directive, an optional same-line `core` profile, and an explicit local-size
+layout. Other profiles or a profile token moved onto a later line are rejected.
+The
 first form has an empty `main`; fixed dimensions emit SPIR-V 1.0 `LocalSize`,
 while specialized axes emit SPIR-V 1.2 `LocalSizeId` backed by decorated
 unsigned specialization constants and the reflected concrete defaults. An
@@ -1352,7 +1354,8 @@ narrow subsets establish the pure-Abla emitter and execution path, not
 completion of general GLSL-to-SPIR-V compilation.
 
 The initial raster translator recognizes strict procedural and vertex-buffer
-triangle packages under either `#version 450` or `460`. Its structural matcher
+triangle packages under either `#version 450` or `460`, with the same optional
+same-line `core` profile. Its structural matcher
 consumes the same lexer tokens as compute emission, so comments and token
 boundaries are handled consistently rather than by raw substring matching.
 Equivalent 450/460 compute-storage and raster packages emit byte-identical

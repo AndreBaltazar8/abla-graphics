@@ -1486,6 +1486,11 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         versionLine = sourceTokens[index].line
         index = index + 1
     } else valid = false
+    if (valid && index < sourceTokens.size &&
+        sourceTokens[index].line == versionLine &&
+        sourceTokens[index].is(glslTokenIdentifier, "core")) {
+        index = index + 1
+    }
     valid = valid && index < sourceTokens.size &&
         sourceTokens[index].line > versionLine
 
@@ -2177,17 +2182,34 @@ fun glslSourceMatchesTokens(
 ): bool {
     val lexical = glslLex(source)
     var tokenIndex = 0
-    var matches = lexical.valid && lexical.tokens.size == tokens.size + 1
+    var sourceIndex = 0
+    var matches = lexical.valid
     while (matches && tokenIndex < tokens.size) {
         val expected = tokens[tokenIndex]
-        val actual = lexical.tokens[tokenIndex]
-        matches = if (expected == glslSourceVersionPattern)
+        matches = sourceIndex < lexical.tokens.size
+        val actual = if (matches) lexical.tokens[sourceIndex]
+            else GlslToken(glslTokenEnd, "", 0, 0, 0, 0)
+        if (matches && expected == glslSourceVersionPattern) {
+            val versionLine = actual.line
+            matches =
             actual.kind == glslTokenInteger &&
                 (actual.text == "450" || actual.text == "460")
-            else actual.text == expected
+            sourceIndex = sourceIndex + 1
+            if (matches && sourceIndex < lexical.tokens.size &&
+                lexical.tokens[sourceIndex].line == versionLine &&
+                lexical.tokens[sourceIndex].is(
+                    glslTokenIdentifier,
+                    "core"
+                )) sourceIndex = sourceIndex + 1
+        } else if (matches) {
+            matches = actual.text == expected
+            sourceIndex = sourceIndex + 1
+        }
         tokenIndex = tokenIndex + 1
     }
-    matches && tokenIndex == tokens.size
+    matches && tokenIndex == tokens.size &&
+        sourceIndex < lexical.tokens.size &&
+        lexical.tokens[sourceIndex].kind == glslTokenEnd
 }
 
 fun glslTriangleVertexSource(source: string): bool =
