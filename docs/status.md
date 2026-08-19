@@ -426,8 +426,12 @@ Updated: 2026-08-19.
   nesting, resets IDs for the else arm, and emits typed `OpPhi` values directly
   after the merge label only where incoming IDs differ. No function variable,
   local load, or local store is introduced. Tests cover no-else, else, nested,
-  repeat-identical, integer and Boolean phis, const mutation, type mismatch, and
-  the deliberate loop-local rejection.
+  repeat-identical, integer and Boolean phis, const mutation, and type mismatch.
+  Loop-carried mutable locals use the same zero-storage contract. A bounded
+  pre-emission scan marks only locals stored within the loop, emits typed header
+  phis for those locals, and patches their forward continue-edge values at loop
+  close. Tests cover deterministic integer and Boolean loop phis, nested loops,
+  const mutation, and type mismatch; unmodified locals add no phi.
   Missing initializers, forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   every simple/compound/prefix/postfix mutation of a const local, and local-only
@@ -451,9 +455,9 @@ Updated: 2026-08-19.
   Conditions execute in the header and therefore reload storage members after
   every back edge. Unit coverage verifies repeat-identical, nested-loop,
   loop-containing-selection, non-Boolean-condition, and missing-brace cases.
-  The live shader increments `tail` twice in a terminating loop, folds the
-  observed value into `tail = 8`, and returns the exact packed value
-  `34359738375` through both OpenGL and Vulkan.
+  The live shader increments a zero-storage `iterations` local twice through a
+  loop-carried phi, folds the result into one final `tail = 8` buffer write, and
+  returns the exact packed value `34359738375` through both OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a

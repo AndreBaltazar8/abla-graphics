@@ -727,9 +727,29 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ const uint local=1u; if(values.value>0u){ local=2u; } values.value=local; }"]
     ).spirv(shaderStageCompute)
-    val invalidLoopLocalAssignment = glslPackage(
+    val storageLoopLocalAssignment = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; while(values.value<3u){ local=2u; values.value++; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageLoopLocalAssignmentAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; while(values.value<3u){ local=2u; values.value++; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageBooleanLoopLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool running=true; while(running){ running=false; values.value=1u; } }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedLoopLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<2u){ while(values.value<1u){ values.value++; } local++; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidLoopConstAssignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ const uint local=1u; while(values.value<3u){ local=2u; values.value++; } }"]
+    ).spirv(shaderStageCompute)
+    val invalidLoopLocalType = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; while(values.value<3u){ local=true; values.value++; } }"]
     ).spirv(shaderStageCompute)
     val storageElseIf = glslPackage(
         [shaderStageCompute],
@@ -1209,7 +1229,22 @@ fun main: int {
         spirvWordCount(storageBooleanBranchLocal.module, 458997) == 1 &&
         !invalidBranchLocalType.succeeded &&
         !invalidBranchConstAssignment.succeeded &&
-        !invalidLoopLocalAssignment.succeeded
+        storageLoopLocalAssignment.succeeded &&
+        storageLoopLocalAssignment.module.valid() &&
+        spirvWordsEqual(
+            storageLoopLocalAssignment.module,
+            storageLoopLocalAssignmentAgain.module
+        ) &&
+        spirvWordCount(storageLoopLocalAssignment.module, 458997) == 1 &&
+        storageBooleanLoopLocal.succeeded &&
+        storageBooleanLoopLocal.module.valid() &&
+        spirvWordCount(storageBooleanLoopLocal.module, 458997) == 1 &&
+        storageNestedLoopLocal.succeeded &&
+        storageNestedLoopLocal.module.valid() &&
+        spirvWordCount(storageNestedLoopLocal.module, 262390) == 2 &&
+        spirvWordCount(storageNestedLoopLocal.module, 458997) == 1 &&
+        !invalidLoopConstAssignment.succeeded &&
+        !invalidLoopLocalType.succeeded
     if (interpolated.valid && interpolated.workgroups.size == 1 &&
         interpolated.workgroups[0].x == 6 &&
         interpolated.specializationConstants.size == 2 &&

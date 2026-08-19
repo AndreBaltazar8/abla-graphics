@@ -43,8 +43,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   relational, Boolean/logical, unary, and integer ternary expressions over
   checked multi-member storage blocks, including declaration-before-use typed
   scalar locals and reassignment lowered as zero-storage SSA bindings with
-  typed selection-merge phis, plus signed/unsigned `min`, `max`, and `clamp`,
-  and nested structured
+  typed selection-merge and loop-carried phis, plus signed/unsigned `min`,
+  `max`, and `clamp`, and nested structured
   `if`/`else if`/`else` branches and `while` loops over buffer updates, with
   unsupported GLSL rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that

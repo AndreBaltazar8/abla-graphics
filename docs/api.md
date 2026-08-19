@@ -1494,9 +1494,13 @@ conditions and buffer-member statements and may be nested with selections or
 other loops within the shared 64-level bound. Condition tokens are emitted in
 the loop header so member loads are recomputed on every iteration. The SPIR-V
 form uses `OpLoopMerge` with explicit header, body, continue, and merge labels;
-the continue block branches back to the header. Local declaration or mutation
-inside a loop is rejected until loop-header/back-edge phis are implemented.
-`for`, `do`/`while`,
+the continue block branches back to the header. A predeclared mutable local may
+be updated in the body. Before emitting a loop, the bounded token program is
+scanned for local stores; only affected locals receive typed header `OpPhi`
+values. Their entry predecessor/value is emitted immediately, their forward
+back-edge value is patched when the body closes, and the header result remains
+the local value after the loop. Unmodified locals receive no phi. Declarations
+inside a loop remain rejected so no scope escapes. `for`, `do`/`while`,
 `break`, `continue`, `switch`, and early `return` remain explicit grammar
 failures rather than being ignored or miscompiled.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
