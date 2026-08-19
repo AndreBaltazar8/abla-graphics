@@ -448,8 +448,12 @@ Updated: 2026-08-19.
   strict storage declaration scanner have been removed.
   Failed compute-storage grammar matches now preserve the current token's
   original one-based line and column in `GlslSpirvResult.error`. Regressions
-  cover malformed built-in arity and a foreign storage instance on line two;
-  semantic emitter diagnostics remain a separate layer.
+  cover malformed built-in arity and a foreign storage instance on line two.
+  The typed postfix tokens now retain spans for literals, loads, unary/binary/
+  select/extended operations, and local or buffer stores. The storage emitter
+  returns a typed words/error result, and regressions prove line-two semantic
+  locations for bad built-in operands, Boolean arithmetic, non-Boolean ternary
+  conditions, and mismatched local initializers.
   Strict raster templates now also match the shared lexer stream instead of a
   private character/subsequence scanner. Compute-storage and every delivered
   raster template accept both GLSL 4.50 and 4.60; equivalent 450/460 storage and

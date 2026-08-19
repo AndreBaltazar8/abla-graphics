@@ -36,7 +36,14 @@ class GlslStorageToken(
     val specializationId: int = -1,
     val arity: int = 2,
     val operationClass: int = glslStorageOperationInteger,
-    val valueType: int = 0
+    val valueType: int = 0,
+    val line: int = -1,
+    val column: int = -1
+)
+
+class GlslStorageSpirvEmission(
+    val words: array<int>,
+    val error: string = ""
 )
 
 class GlslStorageExpression(
@@ -1043,7 +1050,9 @@ fun glslStorageTokenExpression(
                         signed
                     ),
                     operationClass =
-                        glslStorageTokenBinaryOperationClass(operator.text)
+                        glslStorageTokenBinaryOperationClass(operator.text),
+                    line = operator.line,
+                    column = operator.column
                 ))
                 index = right.next
             }
@@ -1052,6 +1061,7 @@ fun glslStorageTokenExpression(
     if (valid && minimumPrecedence == 1 && tokens.size < 128 &&
         index < sourceTokens.size &&
         sourceTokens[index].is(glslTokenPunctuation, "?")) {
+        val conditionalToken = sourceTokens[index]
         val whenTrue = glslStorageTokenExpression(
             source,
             sourceTokens,
@@ -1106,7 +1116,9 @@ fun glslStorageTokenExpression(
                 glslStorageTokenOperation,
                 opcode = 393385,
                 arity = 3,
-                operationClass = glslStorageOperationSelect
+                operationClass = glslStorageOperationSelect,
+                line = conditionalToken.line,
+                column = conditionalToken.column
             ))
             index = whenFalse.next
         }
@@ -1162,7 +1174,8 @@ fun glslStorageTokenPrimary(
             index = index + 1
         }
     } else if (valid && sourceTokens[index].kind == glslTokenIdentifier) {
-        val name = sourceTokens[index].text
+        val nameToken = sourceTokens[index]
+        val name = nameToken.text
         if ((name == "min" || name == "max" || name == "clamp") &&
             index + 1 < sourceTokens.size &&
             sourceTokens[index + 1].is(glslTokenPunctuation, "(")) {
@@ -1214,7 +1227,9 @@ fun glslStorageTokenPrimary(
                     glslStorageTokenOperation,
                     value = instruction,
                     arity = arity,
-                    operationClass = glslStorageOperationExtInst
+                    operationClass = glslStorageOperationExtInst,
+                    line = nameToken.line,
+                    column = nameToken.column
                 ))
             }
         } else if (name == storageInstance) {
@@ -1234,7 +1249,9 @@ fun glslStorageTokenPrimary(
             valid = valid && memberIndex >= 0
             if (valid) tokens.append(GlslStorageToken(
                 glslStorageTokenLoad,
-                memberIndex
+                memberIndex,
+                line = nameToken.line,
+                column = nameToken.column
             ))
             index = index + 3
         } else if (specializationName != "" && name == specializationName) {
@@ -1242,14 +1259,18 @@ fun glslStorageTokenPrimary(
                 glslStorageTokenSpecialization,
                 specializationDefault,
                 specializationId = specializationId,
-                valueType = if (specializationBoolean) 1 else 0
+                valueType = if (specializationBoolean) 1 else 0,
+                line = nameToken.line,
+                column = nameToken.column
             ))
             index = index + 1
         } else if (name == "true" || name == "false") {
             tokens.append(GlslStorageToken(
                 glslStorageTokenLiteral,
                 if (name == "true") 1 else 0,
-                valueType = 1
+                valueType = 1,
+                line = nameToken.line,
+                column = nameToken.column
             ))
             index = index + 1
         } else {
@@ -1258,7 +1279,9 @@ fun glslStorageTokenPrimary(
             if (valid) tokens.append(GlslStorageToken(
                 glslStorageTokenLocalLoad,
                 localIndex,
-                valueType = localTypes[localIndex]
+                valueType = localTypes[localIndex],
+                line = nameToken.line,
+                column = nameToken.column
             ))
             index = index + 1
         }
@@ -1267,7 +1290,9 @@ fun glslStorageTokenPrimary(
         valid = parsed.valid
         if (valid) tokens.append(GlslStorageToken(
             glslStorageTokenLiteral,
-            parsed.bits
+            parsed.bits,
+            line = sourceTokens[index].line,
+            column = sourceTokens[index].column
         ))
         index = index + 1
     } else valid = false
@@ -1311,7 +1336,9 @@ fun glslStorageTokenUnary(
             val tokens: array<GlslStorageToken> = []
             if (parsed.valid) tokens.append(GlslStorageToken(
                 glslStorageTokenLiteral,
-                parsed.bits
+                parsed.bits,
+                line = operator.line,
+                column = operator.column
             ))
             return GlslStorageExpression(
                 parsed.valid,
@@ -1342,7 +1369,9 @@ fun glslStorageTokenUnary(
                 else if (operator.text == "~") 262344 else 262312,
             arity = 1,
             operationClass = if (operator.text == "!")
-                glslStorageOperationLogical else glslStorageOperationInteger
+                glslStorageOperationLogical else glslStorageOperationInteger,
+            line = operator.line,
+            column = operator.column
         ))
         return GlslStorageExpression(
             valid && tokens.size < 128,
@@ -1400,15 +1429,36 @@ fun glslStorageUpdateTokens(
     storeKind: int,
     value: int,
     valueType: int,
-    increment: bool
+    increment: bool,
+    line: int = -1,
+    column: int = -1
 ): array<GlslStorageToken> = [
-    GlslStorageToken(loadKind, value, valueType = valueType),
-    GlslStorageToken(glslStorageTokenLiteral, 1),
+    GlslStorageToken(
+        loadKind,
+        value,
+        valueType = valueType,
+        line = line,
+        column = column
+    ),
+    GlslStorageToken(
+        glslStorageTokenLiteral,
+        1,
+        line = line,
+        column = column
+    ),
     GlslStorageToken(
         glslStorageTokenOperation,
-        opcode = if (increment) 327808 else 327810
+        opcode = if (increment) 327808 else 327810,
+        line = line,
+        column = column
     ),
-    GlslStorageToken(storeKind, value, valueType = valueType)
+    GlslStorageToken(
+        storeKind,
+        value,
+        valueType = valueType,
+        line = line,
+        column = column
+    )
 ]
 
 class GlslStorageTokenLayout(
@@ -1855,6 +1905,10 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             mainClosed = true
         } else {
             valid = statements < 64
+            val statementLine = if (index < sourceTokens.size)
+                sourceTokens[index].line else -1
+            val statementColumn = if (index < sourceTokens.size)
+                sourceTokens[index].column else -1
             val prefixUpdate = index < sourceTokens.size &&
                 sourceTokens[index].kind == glslTokenOperator &&
                 (sourceTokens[index].text == "++" ||
@@ -1897,7 +1951,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                             glslStorageTokenLocalStore,
                             prefixLocalIndex,
                             0,
-                            increment
+                            increment,
+                            statementLine,
+                            statementColumn
                         )
                         var updateIndex = 0
                         while (updateIndex < updateTokens.size) {
@@ -1943,7 +1999,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                             glslStorageTokenStore,
                             memberIndex,
                             0,
-                            increment
+                            increment,
+                            statementLine,
+                            statementColumn
                         )
                         var updateIndex = 0
                         while (updateIndex < updateTokens.size) {
@@ -2021,7 +2079,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                         programTokens.append(GlslStorageToken(
                             glslStorageTokenLocalStore,
                             localNames.size,
-                            valueType = localType
+                            valueType = localType,
+                            line = statementLine,
+                            column = statementColumn
                         ))
                         localNames.append(localName)
                         localTypes.append(localType)
@@ -2053,7 +2113,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                             glslStorageTokenLocalStore,
                             statementLocalIndex,
                             localType,
-                            sourceTokens[index].text == "++"
+                            sourceTokens[index].text == "++",
+                            statementLine,
+                            statementColumn
                         )
                         var updateIndex = 0
                         while (updateIndex < updateTokens.size) {
@@ -2115,7 +2177,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                             opcode = glslStorageTokenCompoundOpcode(
                                 assignmentOperator,
                                 signed
-                            )
+                            ),
+                            line = statementLine,
+                            column = statementColumn
                         ))
                         expression = GlslStorageExpression(
                             compoundTokens.size < 128,
@@ -2136,7 +2200,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                         programTokens.append(GlslStorageToken(
                             glslStorageTokenLocalStore,
                             statementLocalIndex,
-                            valueType = localType
+                            valueType = localType,
+                            line = statementLine,
+                            column = statementColumn
                         ))
                     }
                     expressionNext = expression.next
@@ -2192,7 +2258,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                             glslStorageTokenStore,
                             memberIndex,
                             0,
-                            sourceTokens[index].text == "++"
+                            sourceTokens[index].text == "++",
+                            statementLine,
+                            statementColumn
                         )
                         var updateIndex = 0
                         while (updateIndex < updateTokens.size) {
@@ -2253,7 +2321,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                             opcode = glslStorageTokenCompoundOpcode(
                                 assignmentOperator,
                                 signed
-                            )
+                            ),
+                            line = statementLine,
+                            column = statementColumn
                         ))
                         expression = GlslStorageExpression(
                             compoundTokens.size < 128,
@@ -2273,7 +2343,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                         }
                         programTokens.append(GlslStorageToken(
                             glslStorageTokenStore,
-                            memberIndex
+                            memberIndex,
+                            line = statementLine,
+                            column = statementColumn
                         ))
                     }
                     expressionNext = expression.next
@@ -2317,7 +2389,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         parseError
     )
 }
-fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
+fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
     val tokenIds: array<int> = []
     var usesBoolean = false
     var usesExtendedInstructions = false
@@ -2405,6 +2477,7 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     val emittedLocalTypes: array<int> = []
     var stackSize = 0
     var valid = write.valid
+    var semanticError = ""
     tokenIndex = 0
     while (valid && tokenIndex < write.tokens.size) {
         val token = write.tokens[tokenIndex]
@@ -2532,12 +2605,23 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
             } else stackTypes.append(resultType)
             stackSize = stackSize + 1
         }
+        if (!valid && semanticError == "") {
+            semanticError = if (token.line > 0 && token.column > 0)
+                "invalid compute-storage GLSL semantics at ${token.line}:${token.column}"
+            else "invalid compute-storage GLSL semantics"
+        }
         tokenIndex = tokenIndex + 1
     }
     valid = valid && stackSize == 0
     if (!valid) {
         val empty: array<int> = []
-        return empty
+        if (semanticError == "" && write.tokens.size > 0) {
+            val token = write.tokens[write.tokens.size - 1]
+            semanticError = if (token.line > 0 && token.column > 0)
+                "invalid compute-storage GLSL semantics at ${token.line}:${token.column}"
+            else "invalid compute-storage GLSL semantics"
+        }
+        return GlslStorageSpirvEmission(empty, semanticError)
     }
     val words: array<int> = [
         spirvMagic, spirvVersion10, 0, nextId, 0,
@@ -2702,7 +2786,7 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     }
     words.append(65789)
     words.append(65592)
-    words
+    GlslStorageSpirvEmission(words)
 }
 
 val glslSourceVersionPattern = "GLSL_VERSION_450_OR_460"
@@ -2934,6 +3018,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslTransformCubeVertexSource(this.source(shaderStageVertex))
     val texturedFragment = graphicsCommon && stage == shaderStageFragment &&
         glslTexturedFragmentSource(this.source(shaderStageFragment))
+    val storageEmission = if (storage) glslStorageSpirv(storageWrite)
+        else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || vertex ||
         vertexBuffer || fragment ||
@@ -2971,7 +3057,11 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65592
         ]
     } else if (storage) {
-        words = glslStorageSpirv(storageWrite)
+        words = storageEmission.words
+        if (storageEmission.error != "") {
+            succeeded = false
+            error = storageEmission.error
+        }
     } else if (vertex) {
         words = [
             119734787, 65536, 458752, 42, 0,

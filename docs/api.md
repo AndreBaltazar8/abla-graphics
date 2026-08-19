@@ -1481,7 +1481,10 @@ model without a mutable borrowed cursor. Comments and whitespace cannot change
 the parse, and longest-match operator tokens keep assignment operators from
 being mistaken for bitwise operations. A compute-storage grammar failure is
 reported through `GlslSpirvResult.error` at the offending token's original
-one-based line and column. Precedence follows GLSL from
+one-based line and column. Typed literals, loads, operations, built-in calls,
+selects, and stores retain that span in the postfix IR, so semantic type
+failures report their responsible source token through the same result.
+Precedence follows GLSL from
 multiplicative through conditional selection. Signed right shift emits
 arithmetic shift while unsigned right shift emits logical shift. Unary `+`,
 signed symbolic `-`, integer `~`, and Boolean `!` bind at the primary-expression
