@@ -675,6 +675,38 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=min(true,false)?1u:2u; }"]
     ).spirv(shaderStageCompute)
+    val storageIfElse = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=5) const bool enabled=true; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(enabled){ values.value=11u; } else { values.value=12u; } }"]
+    ).spirv(shaderStageCompute)
+    val storageIfElseAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=5) const bool enabled=true; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(enabled){ values.value=11u; } else { values.value=12u; } }"]
+    ).spirv(shaderStageCompute)
+    val storageIfWithoutElse = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } values.value+=2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedIfElse = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value>0u){ if(values.value<10u){ values.value=3u; } else { values.value=4u; } } else { values.value=5u; } }"]
+    ).spirv(shaderStageCompute)
+    val invalidIfCondition = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value){ values.value=1u; } }"]
+    ).spirv(shaderStageCompute)
+    val invalidBranchLocalDeclaration = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value>0u){ uint local=1u; values.value=local; } }"]
+    ).spirv(shaderStageCompute)
+    val invalidBranchLocalAssignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; if(values.value>0u){ local=2u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidElseIf = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else if(values.value==1u){ values.value=2u; } }"]
+    ).spirv(shaderStageCompute)
     val storageBooleanLiteral = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value<10u&&true)?1u:2u; }"]
@@ -1556,6 +1588,26 @@ fun main: int {
             invalidBuiltinBoolean.error,
             "invalid compute-storage GLSL semantics at 2:"
         ) &&
+        storageIfElse.succeeded && storageIfElse.module.valid() &&
+        spirvWordsEqual(storageIfElse.module, storageIfElseAgain.module) &&
+        spirvWordCount(storageIfElse.module, 196855) == 1 &&
+        spirvWordCount(storageIfElse.module, 262394) == 1 &&
+        spirvWordCount(storageIfElse.module, 131321) == 2 &&
+        storageIfWithoutElse.succeeded &&
+        storageIfWithoutElse.module.valid() &&
+        spirvWordCount(storageIfWithoutElse.module, 196855) == 1 &&
+        spirvWordCount(storageIfWithoutElse.module, 131321) == 1 &&
+        storageNestedIfElse.succeeded &&
+        storageNestedIfElse.module.valid() &&
+        spirvWordCount(storageNestedIfElse.module, 196855) == 2 &&
+        spirvWordCount(storageNestedIfElse.module, 262394) == 2 &&
+        !invalidIfCondition.succeeded &&
+        glslContainsText(
+            invalidIfCondition.error,
+            "invalid compute-storage GLSL semantics at 2:"
+        ) &&
+        !invalidBranchLocalDeclaration.succeeded &&
+        !invalidBranchLocalAssignment.succeeded && !invalidElseIf.succeeded &&
         storageBooleanLiteral.succeeded &&
         storageBooleanLiteral.module.valid() &&
         spirvContainsWord(storageBooleanLiteral.module, 196649) &&

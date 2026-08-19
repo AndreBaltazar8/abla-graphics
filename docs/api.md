@@ -1473,6 +1473,15 @@ direct member reads still observe earlier writes. The flattened program is
 capped below 8,192 tokens and must contain at least one buffer store; empty
 bodies, foreign instances, undeclared local assignment, and other statements
 remain explicit failures in this executable subset.
+Brace-delimited `if (condition) { ... }` and `if (condition) { ... } else {
+... }` statements may be nested to 64 levels. Conditions must be Boolean;
+branch arms may read existing locals and perform the supported buffer-member
+assignments and updates. The emitter lowers each branch to deterministic
+structured SPIR-V with `OpSelectionMerge`, `OpBranchConditional`, and explicit
+then, optional else, and merge labels. Declaring, rebinding, or mutating locals
+inside a branch is rejected until the subset can emit the required SSA merge
+values. `else if`, loops, `switch`, and early `return` remain explicit grammar
+failures rather than being ignored or miscompiled.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

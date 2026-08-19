@@ -429,6 +429,14 @@ Updated: 2026-08-19.
   `min`/`max`/`clamp`, prefix-increments and rebinds mutable integer/Boolean
   intermediates, then produces the same checked `tail = 6` and `output = 7` on
   OpenGL and Vulkan.
+  Brace-delimited structured `if`/`else` now lowers to deterministic
+  `OpSelectionMerge`, `OpBranchConditional`, `OpBranch`, and label sequences.
+  Unit coverage verifies no-else, else, nested, repeat-identical, and
+  non-Boolean-condition cases. Branch arms may read preexisting SSA locals and
+  update storage members; branch-local declaration/rebinding/mutation and
+  `else if` are rejected pending explicit SSA-phi support. The live specialized
+  shader exercises nested branches on both real backends while retaining the
+  exact checked `tail = 6`, `output = 7` result.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
