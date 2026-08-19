@@ -1292,6 +1292,16 @@ tuples locally. This lets an application allocate shared buffers at
 the logical window size. Buffer replacement remains explicit and affine rather
 than happening behind the caller's back.
 
+`enableDecorations(preferredMode)` optionally binds the version-one
+`zxdg_decoration_manager_v1`, creates the toplevel decoration before any
+content buffer is attached, requests client- or server-side mode, and waits for
+both the decoration configure and its matching new xdg-surface configure/ack.
+`decorationMode` is the compositor's effective choice rather than the request;
+`decorated()` is true only for server-side controls. `setDecorationMode()` is
+idempotent for the current preference, while `unsetDecorationMode()` returns
+policy selection to the compositor. The decoration object is destroyed before
+its xdg toplevel during affine teardown.
+
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
 advertises UTF-8 and plain-text MIME types, and retains each affine source until

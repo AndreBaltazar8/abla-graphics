@@ -76,7 +76,11 @@ the application's back. The independent viewporter object stages an exact
 24.8 fixed-point source crop and logical destination for the next surface
 commit, allowing a differently sized physical buffer to be cropped and scaled
 without conflating xdg-shell coordinates and pixels. Applications retain
-explicit ownership of buffer creation and replacement.
+explicit ownership of buffer creation and replacement. The optional
+xdg-decoration object is created before content attachment and keeps requested
+policy separate from the compositor's configured client/server mode; its
+configure is paired with the following xdg-surface serial before the method
+returns.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

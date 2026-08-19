@@ -36,7 +36,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   independently sized high-resolution buffers at the xdg-shell logical size,
   compositor-mediated UTF-8
   clipboard ownership/offers with bounded descriptor transfers, xdg
-  fullscreen/maximize/minimize/fixed-size controls, and ordered teardown
+  fullscreen/maximize/minimize/fixed-size controls, explicit compositor/client
+  decoration negotiation, and ordered teardown
   without `libwayland-client` or `libxkbcommon`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
@@ -192,7 +193,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/x11-window`: direct X11 window/event loop;
 - `examples/wayland-info`: direct Wayland socket, registry, and global report;
 - `examples/wayland-window`: direct stable xdg-shell toplevel construction and
-  initial configure/ack handshake plus optional viewport destination setup;
+  initial configure/ack handshake plus optional decoration and viewport setup;
 - `examples/wayland-pixels`: direct affine XRGB shared-memory buffer fill,
   attach, damage, commit, and frame completion;
 - `examples/wayland-animation`: allocation-stable triple-buffered XRGB

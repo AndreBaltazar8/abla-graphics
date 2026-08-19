@@ -22,6 +22,8 @@ val waylandClipboardTransferTimeoutMilliseconds = 5000
 val waylandCursorWidth = 16
 val waylandCursorHeight = 24
 val waylandPointerConstraintPersistent = 2
+val waylandDecorationModeClient = 1
+val waylandDecorationModeServer = 2
 val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
 val waylandClipboardMimeText = "text/plain"
 val waylandToplevelStateMaximized = 1
@@ -37,6 +39,10 @@ val waylandMaximumFractionalScale = 7680
 val waylandNanosecondsPerMillisecond = 1000000
 val waylandNanosecondsPerSecond = 1000000000
 val waylandMaximumInteger = 9223372036854775807
+
+fun waylandDecorationModeValid(mode: int): bool =
+    mode == waylandDecorationModeClient ||
+    mode == waylandDecorationModeServer
 
 fun waylandKeyFromEvdev(code: int): int {
     var key = keyUnknown
@@ -1466,6 +1472,11 @@ resource class WaylandXdgWindow(
     var viewportSourceYFixed: int,
     var viewportSourceWidthFixed: int,
     var viewportSourceHeightFixed: int,
+    var decorationManagerIdentifier: int,
+    var decorationIdentifier: int,
+    var requestedDecorationMode: int,
+    var decorationMode: int,
+    var decorationConfigured: bool,
     var xdgOutputManagerIdentifier: int,
     var xdgOutputManagerVersion: int,
     var outputsEnabled: bool,
@@ -1724,6 +1735,92 @@ resource class WaylandXdgWindow(
 
     fun unsetViewportDestination(): bool =
         this.setViewportDestination(-1, -1)
+
+    fun decorated(): bool =
+        this.decorationMode == waylandDecorationModeServer
+
+    trusted fun enableDecorations(
+        preferredMode: int = waylandDecorationModeServer
+    ): bool {
+        val previousSerial = this.lastConfigureSerial
+        var succeeded = this.valid() &&
+            waylandDecorationModeValid(preferredMode) &&
+            this.decorationManagerIdentifier == 0 &&
+            this.decorationIdentifier == 0
+        val manager = if (succeeded) this.connection.bind(
+            "zxdg_decoration_manager_v1",
+            1
+        ) else WaylandBinding()
+        succeeded = succeeded && manager.valid
+        val identifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        if (succeeded) succeeded = identifier >= 2 &&
+            this.connection.send(waylandPacket(
+                manager.identifier,
+                1,
+                waylandU32PairPayload(identifier, this.toplevelIdentifier)
+            )) && this.connection.send(waylandPacket(
+                identifier,
+                1,
+                waylandU32Payload(preferredMode)
+            ))
+        if (succeeded) {
+            this.decorationManagerIdentifier = manager.identifier
+            this.decorationIdentifier = identifier
+            this.requestedDecorationMode = preferredMode
+        }
+        var messages = 0
+        while (succeeded &&
+            (!this.decorationConfigured ||
+             this.lastConfigureSerial == previousSerial) &&
+            messages < 16384) {
+            succeeded = this.dispatchNative()
+            messages = messages + 1
+        }
+        succeeded && this.decorationConfigured &&
+            this.lastConfigureSerial != previousSerial
+    }
+
+    fun setDecorationMode(mode: int): bool {
+        val succeeded = this.valid() && this.decorationIdentifier >= 2 &&
+            waylandDecorationModeValid(mode) &&
+            (mode == this.requestedDecorationMode || this.connection.send(
+                waylandPacket(
+                    this.decorationIdentifier,
+                    1,
+                    waylandU32Payload(mode)
+                )
+            ))
+        if (succeeded) this.requestedDecorationMode = mode
+        succeeded
+    }
+
+    fun unsetDecorationMode(): bool {
+        val succeeded = this.valid() && this.decorationIdentifier >= 2 &&
+            this.connection.send(waylandPacket(
+                this.decorationIdentifier,
+                2
+            ))
+        if (succeeded) this.requestedDecorationMode = 0
+        succeeded
+    }
+
+    fun dispatchDecoration(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.decorationIdentifier &&
+            message.opcode == 0) {
+            val mode = if (message.payload.size == 4)
+                waylandU32(message.payload, 0)
+            else 0
+            result = if (waylandDecorationModeValid(mode)) 1 else -1
+            if (result > 0) {
+                this.decorationMode = mode
+                this.decorationConfigured = true
+            }
+        }
+        result
+    }
 
     trusted fun ensureWireStorage(receiveDescriptors: bool = false): bool {
         if (receiveDescriptors && (this.ancillaryScratch.closed ||
@@ -2064,6 +2161,7 @@ resource class WaylandXdgWindow(
     }
 
     fun removeRetiredLockedPointer(identifier: int): void {
+        if (this.retiredLockedPointerIndex(identifier) < 0) return
         val retained: array<int> = []
         var index = 0
         while (index < this.retiredLockedPointerIdentifiers.size) {
@@ -3573,6 +3671,8 @@ resource class WaylandXdgWindow(
             this.lockedPointerIdentifier ||
             this.retiredLockedPointerIndex(message.objectIdentifier) >= 0) {
             result = this.dispatchLockedPointer(message)
+        } else if (message.objectIdentifier == this.decorationIdentifier) {
+            result = this.dispatchDecoration(message)
         }
         if (result == 0) result = this.dispatchClipboard(message)
         result
@@ -4223,6 +4323,18 @@ resource class WaylandXdgWindow(
                     waylandPacket(this.viewporterIdentifier, 0)
                 )
             }
+            if (this.decorationIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.decorationIdentifier, 0)
+                )
+            }
+            if (this.decorationManagerIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.decorationManagerIdentifier, 0)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -4479,6 +4591,11 @@ fun waylandXdgWindow(
         0,
         0,
         0,
+        0,
+        0,
+        0,
+        0,
+        false,
         0,
         0,
         false,

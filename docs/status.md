@@ -115,6 +115,13 @@ Updated: 2026-08-19.
   destination through a 1024x768 configure, rejects malformed reset/value
   tuples, then unsets and commits both states. Physical shared-buffer
   allocation/replacement remains explicit.
+- Optional `zxdg_decoration_manager_v1` support owns one decoration object
+  before content attachment, distinguishes preferred from effective mode, and
+  waits for both decoration and xdg-surface configure boundaries. The current
+  headless-Weston environment verifies the capability-missing path remains
+  healthy; deterministic packets cover creation/server preference and an exact
+  synthetic configure proves effective-mode dispatch. Idempotent/invalid mode
+  handling and decoration-before-toplevel teardown are also covered.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec
