@@ -1202,10 +1202,13 @@ location and with the same type. Interpolation and precision qualifiers are
 skipped without losing the declaration type. Other unknown layout keys remain
 source-preserved and are not misclassified. For compute packages,
 `layout(local_size_x/y/z)` produces one checked
-`ShaderWorkgroup`; omitted Y/Z dimensions default to one. Nested structures,
-explicit member layout qualifiers, composite specialization constants,
-specialized workgroup dimensions, and backend pipeline specialization wiring
-are still forthcoming.
+`ShaderWorkgroup`; omitted Y/Z dimensions default to one. Vulkan-style
+`local_size_x/y/z_id` keys additionally retain a specialization ID per axis,
+with a default dimension of one. A concrete value and specialization ID cannot
+both select one axis, dimension IDs must be distinct, and they cannot collide
+with an explicit specialization constant in the same stage. Nested structures,
+explicit member layout qualifiers, composite specialization constants, and
+backend pipeline specialization wiring are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every

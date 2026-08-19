@@ -342,8 +342,9 @@ Updated: 2026-08-19.
   missing/type-mismatched interface rejection, fixed/unsized declaration array
   extents, ordered interface-block members, checked push-constant blocks,
   typed scalar specialization constants, checked compute workgroup
-  sizes/defaults, and compile-time rejection of invalid stage names. The
-  surfaced triangle is compiled from this package rather than opaque strings.
+  sizes/defaults and specialized dimension IDs, and compile-time rejection of
+  invalid stage names. The surfaced triangle is compiled from this package
+  rather than opaque strings.
 - Pure-Abla SPIR-V/Vulkan shader-module test: immutable copied words validate
   the SPIR-V 1.0-1.6 header, unsigned word domain, and every instruction
   boundary before little-endian packing. A minimal valid compute module creates
@@ -521,6 +522,9 @@ retain stage, ID, scalar type, name, and exact default literal across bool,
 signed/unsigned integer, float, and double forms. Duplicate IDs, repeated
 recognized layout keys, incompatible qualifier combinations, malformed typed
 literals, and cross-stage push-block mismatches are regression-tested failures.
+Specialized compute workgroup axes retain `local_size_x/y/z_id` alongside the
+resolved default or concrete dimension. Mixed concrete/ID axes, repeated IDs,
+and collisions with explicit specialization constants are rejected.
 
 ## Not yet claimed
 
@@ -548,7 +552,7 @@ literals, and cross-stage push-block mismatches are regression-tested failures.
   cross-stage compatibility slice, push-constant reflection, and scalar
   specialization-constant reflection. It deliberately rejects quoted includes
   and does not yet parse nested/member-layout structures, general declarations,
-  composite constants, specialized workgroup dimensions, or expressions.
+  composite constants, or expressions.
   Reflected push/specialization constants are not yet wired into backend
   pipeline creation. SPIR-V emission currently covers the
   strict no-op and single-member storage-assignment compute subsets plus fixed,

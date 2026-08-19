@@ -67,6 +67,22 @@ fun main: int {
         [shaderStageCompute],
         ["layout(local_size_x=8) in; layout(local_size_x=4) in; void main() {}"]
     )
+    val specializedWorkgroup = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_x_id=4,local_size_y=2,local_size_z_id=9) in; void main() {}"]
+    )
+    val mixedSpecializedWorkgroup = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_x=8,local_size_x_id=4) in; void main() {}"]
+    )
+    val duplicateWorkgroupId = glslPackage(
+        [shaderStageCompute],
+        ["layout(local_size_x_id=4,local_size_y_id=4) in; void main() {}"]
+    )
+    val collidingWorkgroupId = glslPackage(
+        [shaderStageCompute],
+        ["layout(constant_id=4) const uint count=2u; layout(local_size_x_id=4) in; void main() {}"]
+    )
     val invalidBindingArray = glslPackage(
         [shaderStageCompute],
         ["layout(set=0,binding=0) uniform sampler2D images[0]; void main() {}"]
@@ -384,6 +400,17 @@ fun main: int {
         !missingInterface.valid && missingInterface.error != "" &&
         !missingWorkgroupX.valid && missingWorkgroupX.error != "" &&
         !repeatedWorkgroup.valid && repeatedWorkgroup.error != "" &&
+        specializedWorkgroup.valid && specializedWorkgroup.workgroups.size == 1 &&
+        specializedWorkgroup.workgroups[0].x == 1 &&
+        specializedWorkgroup.workgroups[0].y == 2 &&
+        specializedWorkgroup.workgroups[0].z == 1 &&
+        specializedWorkgroup.workgroups[0].xId == 4 &&
+        specializedWorkgroup.workgroups[0].yId == -1 &&
+        specializedWorkgroup.workgroups[0].zId == 9 &&
+        !mixedSpecializedWorkgroup.valid &&
+        mixedSpecializedWorkgroup.error != "" &&
+        !duplicateWorkgroupId.valid && duplicateWorkgroupId.error != "" &&
+        !collidingWorkgroupId.valid && collidingWorkgroupId.error != "" &&
         !invalidBindingArray.valid && invalidBindingArray.error != "" &&
         reflectedBlock.valid && reflectedBlock.bindings.size == 2 &&
         reflectedBlock.bindings[0].name == "camera" &&

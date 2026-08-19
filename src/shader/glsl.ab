@@ -63,7 +63,10 @@ class ShaderWorkgroup(
     val stage: string,
     val x: int,
     val y: int,
-    val z: int
+    val z: int,
+    val xId: int = -1,
+    val yId: int = -1,
+    val zId: int = -1
 )
 
 class ShaderPackage(
@@ -101,6 +104,9 @@ class GlslLayout(
     val localSizeX: int,
     val localSizeY: int,
     val localSizeZ: int,
+    val localSizeXId: int,
+    val localSizeYId: int,
+    val localSizeZId: int,
     val setSpecified: bool,
     val pushConstant: bool,
     val constantId: int,
@@ -223,6 +229,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     var localSizeX = -1
     var localSizeY = -1
     var localSizeZ = -1
+    var localSizeXId = -1
+    var localSizeYId = -1
+    var localSizeZId = -1
     var setSpecified = false
     var pushConstant = false
     var constantId = -1
@@ -243,6 +252,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
                     name.text == "local_size_x" ||
                     name.text == "local_size_y" ||
                     name.text == "local_size_z" ||
+                    name.text == "local_size_x_id" ||
+                    name.text == "local_size_y_id" ||
+                    name.text == "local_size_z_id" ||
                     name.text == "constant_id"
                 if (integer.valid) {
                     if (name.text == "location") {
@@ -269,6 +281,15 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
                     } else if (name.text == "local_size_z") {
                         if (localSizeZ >= 0) valid = false
                         else localSizeZ = integer.value
+                    } else if (name.text == "local_size_x_id") {
+                        if (localSizeXId >= 0) valid = false
+                        else localSizeXId = integer.value
+                    } else if (name.text == "local_size_y_id") {
+                        if (localSizeYId >= 0) valid = false
+                        else localSizeYId = integer.value
+                    } else if (name.text == "local_size_z_id") {
+                        if (localSizeZId >= 0) valid = false
+                        else localSizeZId = integer.value
                     } else if (name.text == "constant_id") {
                         if (constantId >= 0) valid = false
                         else constantId = integer.value
@@ -287,6 +308,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
                  name.text == "binding" || name.text == "local_size_x" ||
                  name.text == "local_size_y" ||
                  name.text == "local_size_z" ||
+                 name.text == "local_size_x_id" ||
+                 name.text == "local_size_y_id" ||
+                 name.text == "local_size_z_id" ||
                  name.text == "constant_id")) {
                 valid = false
             }
@@ -301,6 +325,8 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     valid = valid && done && location <= 65535 && set <= 65535 &&
         binding <= 65535 && localSizeX <= 65535 &&
         localSizeY <= 65535 && localSizeZ <= 65535 &&
+        localSizeXId <= 65535 && localSizeYId <= 65535 &&
+        localSizeZId <= 65535 &&
         localSizeX != 0 && localSizeY != 0 && localSizeZ != 0
     GlslLayout(
         valid,
@@ -310,6 +336,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
         localSizeX,
         localSizeY,
         localSizeZ,
+        localSizeXId,
+        localSizeYId,
+        localSizeZId,
         setSpecified,
         pushConstant,
         constantId,
@@ -595,6 +624,9 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                     (layout.location >= 0 || layout.setSpecified ||
                      layout.binding >= 0 || layout.localSizeX >= 0 ||
                      layout.localSizeY >= 0 || layout.localSizeZ >= 0 ||
+                     layout.localSizeXId >= 0 ||
+                     layout.localSizeYId >= 0 ||
+                     layout.localSizeZId >= 0 ||
                      layout.constantId >= 0)) {
                     valid = false
                     error = "GLSL $stage push constant has incompatible layout qualifiers"
@@ -602,7 +634,10 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                 if (valid && layout.constantId >= 0 &&
                     (layout.location >= 0 || layout.setSpecified ||
                      layout.binding >= 0 || layout.localSizeX >= 0 ||
-                     layout.localSizeY >= 0 || layout.localSizeZ >= 0)) {
+                     layout.localSizeY >= 0 || layout.localSizeZ >= 0 ||
+                     layout.localSizeXId >= 0 ||
+                     layout.localSizeYId >= 0 ||
+                     layout.localSizeZId >= 0)) {
                     valid = false
                     error = "GLSL $stage specialization constant has incompatible layout qualifiers"
                 }
@@ -720,10 +755,25 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                     }
                 }
                 if (valid && (layout.localSizeX >= 0 ||
-                    layout.localSizeY >= 0 || layout.localSizeZ >= 0)) {
+                    layout.localSizeY >= 0 || layout.localSizeZ >= 0 ||
+                    layout.localSizeXId >= 0 ||
+                    layout.localSizeYId >= 0 ||
+                    layout.localSizeZId >= 0)) {
                     if (stage != shaderStageCompute ||
                         declaration.storage != "in" ||
-                        layout.localSizeX < 1) {
+                        (layout.localSizeX < 1 &&
+                         layout.localSizeXId < 0) ||
+                        (layout.localSizeX >= 0 &&
+                         layout.localSizeXId >= 0) ||
+                        (layout.localSizeY >= 0 &&
+                         layout.localSizeYId >= 0) ||
+                        (layout.localSizeZ >= 0 &&
+                         layout.localSizeZId >= 0) ||
+                        (layout.localSizeXId >= 0 &&
+                         (layout.localSizeXId == layout.localSizeYId ||
+                          layout.localSizeXId == layout.localSizeZId)) ||
+                        (layout.localSizeYId >= 0 &&
+                         layout.localSizeYId == layout.localSizeZId)) {
                         valid = false
                         error = "invalid GLSL $stage workgroup layout"
                     } else if (workgroups.size > 0) {
@@ -732,11 +782,15 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                     } else {
                         workgroups.append(ShaderWorkgroup(
                             stage,
-                            layout.localSizeX,
+                            if (layout.localSizeX < 0) 1
+                                else layout.localSizeX,
                             if (layout.localSizeY < 0) 1
                                 else layout.localSizeY,
                             if (layout.localSizeZ < 0) 1
-                                else layout.localSizeZ
+                                else layout.localSizeZ,
+                            layout.localSizeXId,
+                            layout.localSizeYId,
+                            layout.localSizeZId
                         ))
                     }
                 }
@@ -744,6 +798,22 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
             }
         } else if (name.text != "") index = name.next
         else index = glslSkipTrivia(source, index) + 1
+    }
+    var workgroupIndex = 0
+    while (valid && workgroupIndex < workgroups.size) {
+        val workgroup = workgroups[workgroupIndex]
+        var specializationIndex = 0
+        while (valid && specializationIndex <
+            specializationConstants.size) {
+            val id = specializationConstants[specializationIndex].id
+            if (id == workgroup.xId || id == workgroup.yId ||
+                id == workgroup.zId) {
+                valid = false
+                error = "duplicate GLSL $stage specialization constant id $id"
+            }
+            specializationIndex = specializationIndex + 1
+        }
+        workgroupIndex = workgroupIndex + 1
     }
     GlslStageReflection(
         locations,
