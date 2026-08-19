@@ -1453,15 +1453,17 @@ by its expanded assignment.
 members of that block. A declaration has the form `uint name = expression`,
 `int name = expression`, or `bool name = expression`; integer locals must match
 the homogeneous block signedness. Locals are declaration-before-use,
-single-assignment values with unique names. Their token stores capture the
-current result ID and subsequent reads reuse it directly, so they emit no
-SPIR-V function variable, load, or store. This both avoids local-memory traffic
-and gives snapshot semantics when a later statement changes a buffer member.
+uniquely named values. A later `name = expression` rebinds the local, and
+integer locals accept the same ten compound-assignment operators as block
+members. Their token stores capture or replace the current result ID and
+subsequent reads reuse it directly, so they emit no SPIR-V function variable,
+load, or store. This avoids local-memory traffic while preserving snapshot
+semantics for previously evaluated expressions and member reads.
 Each buffer assignment emits its store before the next statement's loads, so
 direct member reads still observe earlier writes. The flattened program is
 capped below 8,192 tokens and must contain at least one buffer store; empty
-bodies, foreign instances, reassignment of locals, and other statements remain
-explicit failures in this executable subset.
+bodies, foreign instances, undeclared local assignment, and other statements
+remain explicit failures in this executable subset.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

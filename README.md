@@ -42,8 +42,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   shared-token precedence-parsed signed/unsigned arithmetic, shift, bitwise,
   relational, Boolean/logical, unary, and integer ternary expressions over
   checked multi-member storage blocks, including declaration-before-use typed
-  scalar locals lowered as zero-storage SSA aliases, with unsupported GLSL
-  rejected rather than ignored;
+  scalar locals and reassignment lowered as zero-storage SSA bindings, with
+  unsupported GLSL rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`

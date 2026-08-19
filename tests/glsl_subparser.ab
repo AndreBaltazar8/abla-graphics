@@ -705,6 +705,18 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value+2u)*3u; }"]
     ).spirv(shaderStageCompute)
+    val storageLocalReassignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint next=values.value+2u; next*=3u; values.value=next; }"]
+    ).spirv(shaderStageCompute)
+    val storageBooleanLocalReassignment = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool enabled=values.value>0u; enabled=enabled&&values.value<10u; values.value=enabled?1u:2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageSignedLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ int next=values.value*2; next-=1; values.value=next; }"]
+    ).spirv(shaderStageCompute)
     val storageLocalSnapshot = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint result; } values; void main(){ uint snapshot=values.first; values.first=9u; values.result=snapshot; }"]
@@ -728,6 +740,14 @@ fun main: int {
     val invalidLocalBooleanStore = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool enabled=true; values.value=enabled; }"]
+    ).spirv(shaderStageCompute)
+    val invalidLocalReassignmentType = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; local=true; values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBooleanLocalCompound = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool local=true; local&=false; values.value=1u; }"]
     ).spirv(shaderStageCompute)
     val localOnlyMain = glslPackage(
         [shaderStageCompute],
@@ -1451,13 +1471,24 @@ fun main: int {
             storageLocalAlias.module,
             storageLocalAliasExpanded.module
         ) &&
+        storageLocalReassignment.succeeded &&
+        storageLocalReassignment.module.valid() &&
+        spirvWordsEqual(
+            storageLocalReassignment.module,
+            storageLocalAliasExpanded.module
+        ) &&
+        storageBooleanLocalReassignment.succeeded &&
+        storageBooleanLocalReassignment.module.valid() &&
+        storageSignedLocal.succeeded && storageSignedLocal.module.valid() &&
         storageLocalSnapshot.succeeded &&
         storageLocalSnapshot.module.valid() &&
         spirvWordCount(storageLocalSnapshot.module, 262205) == 1 &&
         spirvWordCount(storageLocalSnapshot.module, 196670) == 2 &&
         !invalidLocalType.succeeded && !invalidForwardLocal.succeeded &&
         !duplicateLocal.succeeded && !mismatchedLocalSignedness.succeeded &&
-        !invalidLocalBooleanStore.succeeded && !localOnlyMain.succeeded &&
+        !invalidLocalBooleanStore.succeeded &&
+        !invalidLocalReassignmentType.succeeded &&
+        !invalidBooleanLocalCompound.succeeded && !localOnlyMain.succeeded &&
         !unknownStorageReadMember.succeeded &&
         !mismatchedStorageInstance.succeeded &&
         mismatchedStorageInstance.error != "" &&
