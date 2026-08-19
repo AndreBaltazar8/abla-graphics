@@ -413,13 +413,16 @@ Updated: 2026-08-19.
   single-use local is byte-identical to its inlined expression, a captured
   member retains its value after a later buffer store, and three locals still
   produce only the one requested GPU store. A local followed by `*=` is also
-  byte-identical to its fully inlined form. Forward references, duplicate names,
+  byte-identical to its fully inlined form. Comma-separated same-type
+  declarators are initialized and exposed left to right, capped at 64 total
+  locals, and emit byte-identical output to separate declaration statements.
+  Missing initializers, forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   every simple/compound/prefix/postfix mutation of a const local, and local-only
-  programs are checked failures. The live specialized shader now captures its
-  original value as const, prefix-increments and rebinds mutable integer/Boolean
-  intermediates, then produces the same checked `tail = 6` and `output = 7` on
-  OpenGL and Vulkan.
+  programs are checked failures. The live specialized shader now captures two
+  left-to-right immutable intermediates in one declaration, prefix-increments
+  and rebinds mutable integer/Boolean intermediates, then produces the same
+  checked `tail = 6` and `output = 7` on OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a

@@ -1458,8 +1458,11 @@ rebinds a mutable local, while every mutation of a const local is rejected, and
 integer locals accept the same ten compound-assignment operators as block
 members. Standalone prefix or postfix integer updates such as `++name`,
 `name--`, or `block.member++` lower to the corresponding add/subtract-by-one
-token chain. Their token stores capture or replace the current result ID and
-subsequent reads reuse it directly, so they emit no SPIR-V function variable,
+token chain. One declaration may contain comma-separated same-type declarators;
+each requires an initializer, becomes visible to declarators on its right, and
+counts toward the 64-local bound. Local token stores capture or replace the
+current result ID and subsequent reads reuse it directly, so they emit no
+SPIR-V function variable,
 load, or store. This avoids local-memory traffic while preserving snapshot
 semantics for previously evaluated expressions and member reads.
 Each buffer assignment emits its store before the next statement's loads, so
@@ -1487,9 +1490,9 @@ Boolean literals use `OpConstantTrue`/`OpConstantFalse`; Boolean specialization
 defaults use their `OpSpecConstantTrue`/`OpSpecConstantFalse` forms and the same
 typed common override API as other reflected constants.
 Integer logical operands, Boolean select branches, a non-Boolean condition, raw
-Boolean assignment, mismatched local initializers, forward local references,
-const-local mutation, and function-call expressions are explicit subset
-failures.
+Boolean assignment, mismatched or missing local initializers, duplicate or
+forward local references, const-local mutation, and function-call expressions
+are explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also
 reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without

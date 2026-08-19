@@ -717,6 +717,14 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint result; } values; void main(){ const uint saved=values.first; const bool enabled=saved>0u; values.result=enabled?saved:1u; }"]
     ).spirv(shaderStageCompute)
+    val storageLocalDeclaratorGroup = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint first=values.value+1u, second=first*2u; values.value=second; }"]
+    ).spirv(shaderStageCompute)
+    val storageLocalDeclaratorsSeparate = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint first=values.value+1u; uint second=first*2u; values.value=second; }"]
+    ).spirv(shaderStageCompute)
     val storageLocalAlias = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint next=values.value+2u; values.value=next*3u; }"]
@@ -800,6 +808,14 @@ fun main: int {
     val invalidConstLocalPrefix = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ const uint local=1u; ++local; values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidLocalDeclaratorDuplicate = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u, local=2u; values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidUninitializedLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local; values.value=local; }"]
     ).spirv(shaderStageCompute)
     val localOnlyMain = glslPackage(
         [shaderStageCompute],
@@ -1530,6 +1546,13 @@ fun main: int {
         spirvWordCount(storageLocalScalars.module, 196670) == 1 &&
         storageConstLocals.succeeded && storageConstLocals.module.valid() &&
         spirvWordCount(storageConstLocals.module, 196670) == 1 &&
+        storageLocalDeclaratorGroup.succeeded &&
+        storageLocalDeclaratorGroup.module.valid() &&
+        storageLocalDeclaratorsSeparate.succeeded &&
+        spirvWordsEqual(
+            storageLocalDeclaratorGroup.module,
+            storageLocalDeclaratorsSeparate.module
+        ) &&
         storageLocalAlias.succeeded && storageLocalAlias.module.valid() &&
         storageLocalAliasExpanded.succeeded &&
         spirvWordsEqual(
@@ -1569,7 +1592,9 @@ fun main: int {
         !invalidConstLocalAssignment.succeeded &&
         !invalidConstLocalCompound.succeeded &&
         !invalidConstLocalPostfix.succeeded &&
-        !invalidConstLocalPrefix.succeeded && !localOnlyMain.succeeded &&
+        !invalidConstLocalPrefix.succeeded &&
+        !invalidLocalDeclaratorDuplicate.succeeded &&
+        !invalidUninitializedLocal.succeeded && !localOnlyMain.succeeded &&
         !unknownStorageReadMember.succeeded &&
         !mismatchedStorageInstance.succeeded &&
         mismatchedStorageInstance.error != "" &&

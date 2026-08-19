@@ -1905,63 +1905,80 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                     (signed && localTypeName == "int") ||
                     (!signed && localTypeName == "uint")
                 index = index + 1
-                var localName = ""
-                if (valid && index < sourceTokens.size &&
-                    sourceTokens[index].kind == glslTokenIdentifier) {
-                    localName = glslStorageTokenTextCopy(sourceTokens[index])
-                    index = index + 1
-                } else valid = false
-                var duplicateLocal = localName == instanceName ||
-                    localName == specializationName ||
-                    localName == "true" || localName == "false" ||
-                    localName == "const" || localName == "int" ||
-                    localName == "uint" || localName == "bool" ||
-                    glslStorageLocalIndex(localNames, localName) >= 0
-                valid = valid && !duplicateLocal
-                matched = glslStorageTokenTake(
-                    sourceTokens,
-                    index,
-                    glslTokenOperator,
-                    "="
-                )
-                valid = valid && matched.valid
-                index = matched.next
-                val empty: array<GlslStorageToken> = []
-                var expression = GlslStorageExpression(false, empty, index)
-                if (valid) expression = glslStorageTokenExpression(
-                    source,
-                    sourceTokens,
-                    index,
-                    1,
-                    signed,
-                    specializationName,
-                    specializationDefault,
-                    specializationType == "bool",
-                    specializationId,
-                    instanceName,
-                    memberNames,
-                    localNames,
-                    localTypes,
-                    0
-                )
-                valid = valid && expression.valid &&
-                    programTokens.size + expression.tokens.size + 1 < 8192
-                if (valid) {
-                    var expressionIndex = 0
-                    while (expressionIndex < expression.tokens.size) {
-                        programTokens.append(expression.tokens[expressionIndex])
-                        expressionIndex = expressionIndex + 1
+                var declarationsDone = false
+                while (valid && !declarationsDone && localNames.size < 64) {
+                    var localName = ""
+                    if (index < sourceTokens.size &&
+                        sourceTokens[index].kind == glslTokenIdentifier) {
+                        localName = glslStorageTokenTextCopy(
+                            sourceTokens[index]
+                        )
+                        index = index + 1
+                    } else valid = false
+                    val duplicateLocal = localName == instanceName ||
+                        localName == specializationName ||
+                        localName == "true" || localName == "false" ||
+                        localName == "const" || localName == "int" ||
+                        localName == "uint" || localName == "bool" ||
+                        glslStorageLocalIndex(localNames, localName) >= 0
+                    valid = valid && !duplicateLocal
+                    matched = glslStorageTokenTake(
+                        sourceTokens,
+                        index,
+                        glslTokenOperator,
+                        "="
+                    )
+                    valid = valid && matched.valid
+                    index = matched.next
+                    val empty: array<GlslStorageToken> = []
+                    var expression = GlslStorageExpression(
+                        false,
+                        empty,
+                        index
+                    )
+                    if (valid) expression = glslStorageTokenExpression(
+                        source,
+                        sourceTokens,
+                        index,
+                        1,
+                        signed,
+                        specializationName,
+                        specializationDefault,
+                        specializationType == "bool",
+                        specializationId,
+                        instanceName,
+                        memberNames,
+                        localNames,
+                        localTypes,
+                        0
+                    )
+                    valid = valid && expression.valid &&
+                        programTokens.size + expression.tokens.size + 1 < 8192
+                    if (valid) {
+                        var expressionIndex = 0
+                        while (expressionIndex < expression.tokens.size) {
+                            programTokens.append(
+                                expression.tokens[expressionIndex]
+                            )
+                            expressionIndex = expressionIndex + 1
+                        }
+                        programTokens.append(GlslStorageToken(
+                            glslStorageTokenLocalStore,
+                            localNames.size,
+                            valueType = localType
+                        ))
+                        localNames.append(localName)
+                        localTypes.append(localType)
+                        localWritable.append(!localConst)
                     }
-                    programTokens.append(GlslStorageToken(
-                        glslStorageTokenLocalStore,
-                        localNames.size,
-                        valueType = localType
-                    ))
-                    localNames.append(localName)
-                    localTypes.append(localType)
-                    localWritable.append(!localConst)
+                    index = expression.next
+                    if (valid && index < sourceTokens.size &&
+                        sourceTokens[index].is(glslTokenPunctuation, ",")) {
+                        index = index + 1
+                    } else declarationsDone = true
                 }
-                expressionNext = expression.next
+                valid = valid && declarationsDone
+                expressionNext = index
             } else if (statementLocalIndex >= 0 &&
                 statementLocalIndex < localTypes.size &&
                 statementLocalIndex < localWritable.size) {
