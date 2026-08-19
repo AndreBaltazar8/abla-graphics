@@ -1254,7 +1254,7 @@ must agree, dimension IDs must be distinct, and they cannot collide with an
 explicit specialization constant in the same stage. Nested structures,
 composite specialization constants,
 computed host-layout validation, filesystem module discovery, and general
-push/scalar-specialization backend wiring are still forthcoming.
+push-constant backend wiring are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every
@@ -1270,7 +1270,16 @@ path accepts exactly one compute stage with one `#version 450` or `460`
 directive and an explicit local-size layout. The
 first form has an empty `main`; fixed dimensions emit SPIR-V 1.0 `LocalSize`,
 while specialized axes emit SPIR-V 1.2 `LocalSizeId` backed by decorated
-unsigned specialization constants and the reflected concrete defaults. The
+unsigned specialization constants and the reflected concrete defaults. An
+empty fixed-workgroup shader may also declare any number of reflected scalar
+`bool`, `int`, `uint`, `float`, or `double` specialization constants. Their
+finite decimal defaults are converted to deterministic SPIR-V words in Abla,
+decorated with their reflected IDs, and emitted deterministically;
+out-of-range defaults fail emission. The portable 32-bit scalar subset creates
+and dispatches real pipelines through both OpenGL and Vulkan. Vulkan
+additionally accepts packed
+64-bit double overrides, while OpenGL's specialization ABI deliberately
+rejects them. The
 second grammar declares one binding-zero `Values` storage block and either
 stores a parsed unsigned integer literal or adds/multiplies the existing member
 value by a parsed unsigned literal. The arithmetic forms emit real

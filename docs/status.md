@@ -338,8 +338,9 @@ Updated: 2026-08-19.
   compute stage blocks, balanced nested scopes, comment preservation, typed
   stage lookup, quoted/system include preservation and dependency reflection,
   explicit input/output location reflection, descriptor set and
-  binding reflection including declaration types/names, duplicate location and
-  binding rejection, cross-stage binding compatibility, adjacent raster-stage
+  binding reflection including declaration types/names, ranged location
+  overlap rejection, compatible descriptor aliases, cross-stage binding
+  compatibility, adjacent raster-stage
   missing/type-mismatched interface rejection, fixed/unsized declaration array
   extents, ordered interface-block members including comma-separated member
   declarators and their rejection cases, checked push-constant blocks,
@@ -361,7 +362,11 @@ Updated: 2026-08-19.
   `WorkgroupSize` for OpenGL and SPIR-V 1.2 `LocalSizeId` for Vulkan, then
   creates and dispatches successfully on both installed drivers. Vulkan packs
   `VkSpecializationInfo` and OpenGL calls `glShaderBinary` plus
-  `glSpecializeShader`, all from Abla-owned storage.
+  `glSpecializeShader`, all from Abla-owned storage. Fixed-workgroup no-op
+  shaders additionally emit reflected scalar `bool`, `int`, `uint`, `float`,
+  and `double` specialization constants with deterministic default bits. The
+  32-bit subset creates and dispatches on both installed drivers; Vulkan's ABI
+  packer also carries 64-bit double overrides, which OpenGL rejects explicitly.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
@@ -600,9 +605,9 @@ three rejection paths are executable tests.
   or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.
-  Reflected push constants and general scalar specialization constants are not
-  yet wired into backend pipeline creation. Specialized compute workgroup IDs
-  are wired through the portable descriptor on both backends. SPIR-V emission
+  Reflected push constants are not yet wired into backend pipeline creation.
+  Specialized compute workgroup IDs and fixed-workgroup scalar constants are
+  wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and single-member storage-assignment
   compute subsets plus fixed, interleaved position/color, and sampled-texture
   triangle vertex/fragment subsets described above, not general shaders.

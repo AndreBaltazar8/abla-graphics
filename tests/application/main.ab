@@ -682,6 +682,27 @@ fun applicationBackendProbe(
         computeSpecialization
     )
     val specializedComputed = specializedCompute.dispatch(2)
+    val scalarSpecializedComputeShader = $glsl {
+        compute {
+            #version 450
+            layout(constant_id = 2) const bool enabled = false;
+            layout(constant_id = 3) const int offset = -2;
+            layout(constant_id = 4) const uint count = 3u;
+            layout(constant_id = 5) const float scale = 1.25;
+            layout(local_size_x = 1) in;
+            void main() {}
+        }
+    }
+    val scalarSpecializedCompute = app.computePipeline(
+        scalarSpecializedComputeShader,
+        ShaderSpecialization([
+            shaderSpecializationBool(2, true),
+            shaderSpecializationInt(3, 7),
+            shaderSpecializationUint(4, 9),
+            shaderSpecializationFloat(5, 0.5)
+        ])
+    )
+    val scalarSpecializedComputed = scalarSpecializedCompute.dispatch(1)
     val mismatchedSpecialization = app.computePipeline(
         specializedComputeShader,
         ShaderSpecialization([shaderSpecializationInt(12, 4)])
@@ -1278,7 +1299,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable computeSpecialized=${specializedCompute.valid()}/$specializedComputed/'${specializedCompute.error.message}' depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable computeSpecialized=${specializedCompute.valid()}/$specializedComputed scalarSpecialized=${scalarSpecializedCompute.valid()}/$scalarSpecializedComputed/'${scalarSpecializedCompute.error.message}' depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && waited && waitNoGrowth &&
         timestampsPassed &&
@@ -1424,6 +1445,7 @@ fun applicationBackendProbe(
         !excessiveInvocations.valid() &&
         excessiveInvocations.error.code == graphicsErrorLimitExceeded &&
         specializedCompute.valid() && specializedComputed &&
+        scalarSpecializedCompute.valid() && scalarSpecializedComputed &&
         !mismatchedSpecialization.valid() &&
         mismatchedSpecialization.error.code ==
             graphicsErrorInvalidConfiguration &&

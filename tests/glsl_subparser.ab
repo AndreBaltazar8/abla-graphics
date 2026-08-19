@@ -296,7 +296,7 @@ fun main: int {
     )
     val reflectedSpecialization = glslPackage(
         [shaderStageCompute],
-        ["layout(constant_id=0) const uint passCount = 4u; layout(constant_id=3) const bool enabled = true; layout(constant_id=4) const int offset = -2; layout(constant_id=6) const double threshold = 2.5LF; layout(constant_id=7) const float scale = -1.25f; layout(local_size_x=1) in; void main() {}"]
+        ["#version 450\nlayout(constant_id=0) const uint passCount = 4u; layout(constant_id=3) const bool enabled = true; layout(constant_id=4) const int offset = -2; layout(constant_id=6) const double threshold = 2.5LF; layout(constant_id=7) const float scale = -1.25f; layout(local_size_x=1) in; void main() {}"]
     )
     val duplicateSpecialization = glslPackage(
         [shaderStageCompute],
@@ -314,6 +314,16 @@ fun main: int {
         [shaderStageVertex],
         ["layout(location=0,location=1) in vec2 position; void main() {}"]
     )
+    val scalarSpecializationSpirv =
+        reflectedSpecialization.spirv(shaderStageCompute)
+    val scalarSpecializationSpirvAgain =
+        reflectedSpecialization.spirv(shaderStageCompute)
+    val scalarSpecializationOpenGlSpirv =
+        reflectedSpecialization.spirvOpenGl(shaderStageCompute)
+    val outOfRangeSpecializationSpirv = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=0) const int tooLarge=2147483648; layout(local_size_x=1) in; void main() {}"]
+    ).spirv(shaderStageCompute)
     val emitted = frozen.spirv(shaderStageCompute)
     val emittedAgain = frozen.spirv(shaderStageCompute)
     val unsupportedCompute = glslPackage(
@@ -752,6 +762,27 @@ fun main: int {
             "float" &&
         reflectedSpecialization.specializationConstants[4].defaultValue ==
             "-1.25f" &&
+        scalarSpecializationSpirv.succeeded &&
+        scalarSpecializationSpirv.module.valid() &&
+        scalarSpecializationSpirv.module.version() == spirvVersion10 &&
+        scalarSpecializationSpirv.module.bound() == 16 &&
+        scalarSpecializationSpirv.module.words.size == 93 &&
+        scalarSpecializationSpirv.module.words[55] == 4 &&
+        scalarSpecializationSpirv.module.words[68] == 4294967294 &&
+        scalarSpecializationSpirv.module.words[75] == 0 &&
+        scalarSpecializationSpirv.module.words[76] == 1074003968 &&
+        scalarSpecializationSpirv.module.words[83] == 3214934016 &&
+        spirvWordsEqual(
+            scalarSpecializationSpirv.module,
+            scalarSpecializationSpirvAgain.module
+        ) &&
+        scalarSpecializationOpenGlSpirv.succeeded &&
+        spirvWordsEqual(
+            scalarSpecializationSpirv.module,
+            scalarSpecializationOpenGlSpirv.module
+        ) &&
+        !outOfRangeSpecializationSpirv.succeeded &&
+        outOfRangeSpecializationSpirv.error != "" &&
         !duplicateSpecialization.valid &&
         duplicateSpecialization.error != "" &&
         !malformedSpecialization.valid &&
