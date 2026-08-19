@@ -693,6 +693,46 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint second; uint result; } values; void main(){ values.first=2u; values.second=values.first+3u; values.result=values.second*2u; }"]
     ).spirv(shaderStageCompute)
+    val storageLocalScalars = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint result; } values; void main(){ uint base=values.first+2u; bool enabled=base>=5u; uint selected=enabled?base*2u:0u; values.result=selected; }"]
+    ).spirv(shaderStageCompute)
+    val storageLocalAlias = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint next=values.value+2u; values.value=next*3u; }"]
+    ).spirv(shaderStageCompute)
+    val storageLocalAliasExpanded = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value+2u)*3u; }"]
+    ).spirv(shaderStageCompute)
+    val storageLocalSnapshot = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint first; uint result; } values; void main(){ uint snapshot=values.first; values.first=9u; values.result=snapshot; }"]
+    ).spirv(shaderStageCompute)
+    val invalidLocalType = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool invalid=values.value; values.value=1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidForwardLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint second=first; uint first=1u; values.value=second; }"]
+    ).spirv(shaderStageCompute)
+    val duplicateLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; uint local=2u; values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val mismatchedLocalSignedness = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ int local=1; values.value=1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidLocalBooleanStore = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool enabled=true; values.value=enabled; }"]
+    ).spirv(shaderStageCompute)
+    val localOnlyMain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; }"]
+    ).spirv(shaderStageCompute)
     val unknownStorageReadMember = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint padding; uint result; } counters; void main(){ counters.result=counters.missing+2u; }"]
@@ -1402,6 +1442,22 @@ fun main: int {
         storageMultipleAssignments.succeeded &&
         storageMultipleAssignments.module.valid() &&
         spirvWordCount(storageMultipleAssignments.module, 196670) == 3 &&
+        storageLocalScalars.succeeded &&
+        storageLocalScalars.module.valid() &&
+        spirvWordCount(storageLocalScalars.module, 196670) == 1 &&
+        storageLocalAlias.succeeded && storageLocalAlias.module.valid() &&
+        storageLocalAliasExpanded.succeeded &&
+        spirvWordsEqual(
+            storageLocalAlias.module,
+            storageLocalAliasExpanded.module
+        ) &&
+        storageLocalSnapshot.succeeded &&
+        storageLocalSnapshot.module.valid() &&
+        spirvWordCount(storageLocalSnapshot.module, 262205) == 1 &&
+        spirvWordCount(storageLocalSnapshot.module, 196670) == 2 &&
+        !invalidLocalType.succeeded && !invalidForwardLocal.succeeded &&
+        !duplicateLocal.succeeded && !mismatchedLocalSignedness.succeeded &&
+        !invalidLocalBooleanStore.succeeded && !localOnlyMain.succeeded &&
         !unknownStorageReadMember.succeeded &&
         !mismatchedStorageInstance.succeeded &&
         mismatchedStorageInstance.error != "" &&

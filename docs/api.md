@@ -1341,9 +1341,9 @@ reflected `SpecId` on both backend forms. The
 second grammar is the token-driven binding-zero homogeneous scalar storage
 program documented below: one to 64 members, integer/Boolean decision
 expressions, scalar specialization, compound assignment, cross-member reads,
-and up to 64 ordered stores. Signed operations are selected from the reflected
-member type, and every specialization ID is routed through the real typed
-load/operation/store chain.
+typed scalar locals, and up to 64 ordered statements. Signed operations are
+selected from the reflected member type, and every specialization ID is routed
+through the real typed load/operation/store chain.
 Repeated translation produces identical words and
 all results create real Vulkan shader modules; the specialized form also
 creates and dispatches a validation-clean Vulkan 1.4 compute pipeline with its
@@ -1449,10 +1449,18 @@ right-associative integer `condition ? whenTrue : whenFalse` form. Integer
 targets also accept `+=`, `-=`, `*=`, `/=`, `%=`, `<<=`, `>>=`, `&=`, `^=`,
 and `|=`; each lowers to the byte-identical load/binary/store program produced
 by its expanded assignment.
-`main` may contain up to 64 ordered assignments to members of that block. Each
-statement emits its store before the next statement's loads, so later
-expressions observe earlier writes. The flattened program is capped below 8,192
-tokens; empty bodies, foreign instances, and non-assignment statements remain
+`main` may contain up to 64 ordered scalar declarations and assignments to
+members of that block. A declaration has the form `uint name = expression`,
+`int name = expression`, or `bool name = expression`; integer locals must match
+the homogeneous block signedness. Locals are declaration-before-use,
+single-assignment values with unique names. Their token stores capture the
+current result ID and subsequent reads reuse it directly, so they emit no
+SPIR-V function variable, load, or store. This both avoids local-memory traffic
+and gives snapshot semantics when a later statement changes a buffer member.
+Each buffer assignment emits its store before the next statement's loads, so
+direct member reads still observe earlier writes. The flattened program is
+capped below 8,192 tokens and must contain at least one buffer store; empty
+bodies, foreign instances, reassignment of locals, and other statements remain
 explicit failures in this executable subset.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
@@ -1473,7 +1481,8 @@ Boolean literals use `OpConstantTrue`/`OpConstantFalse`; Boolean specialization
 defaults use their `OpSpecConstantTrue`/`OpSpecConstantFalse` forms and the same
 typed common override API as other reflected constants.
 Integer logical operands, Boolean select branches, a non-Boolean condition, raw
-Boolean assignment, and function-call expressions are explicit subset failures.
+Boolean assignment, mismatched local initializers, forward local references,
+and function-call expressions are explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also
 reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without

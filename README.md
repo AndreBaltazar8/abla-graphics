@@ -41,7 +41,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   composable typed scalar/workgroup specialization constants, observable
   shared-token precedence-parsed signed/unsigned arithmetic, shift, bitwise,
   relational, Boolean/logical, unary, and integer ternary expressions over
-  checked multi-member storage blocks, with unsupported GLSL
+  checked multi-member storage blocks, including declaration-before-use typed
+  scalar locals lowered as zero-storage SSA aliases, with unsupported GLSL
   rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;

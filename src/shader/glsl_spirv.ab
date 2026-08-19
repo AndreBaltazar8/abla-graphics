@@ -21,6 +21,8 @@ val glslStorageTokenLiteral = 1
 val glslStorageTokenSpecialization = 2
 val glslStorageTokenOperation = 3
 val glslStorageTokenStore = 4
+val glslStorageTokenLocalLoad = 5
+val glslStorageTokenLocalStore = 6
 val glslStorageOperationInteger = 0
 val glslStorageOperationComparison = 1
 val glslStorageOperationLogical = 2
@@ -975,6 +977,8 @@ fun glslStorageTokenExpression(
     specializationId: int,
     storageInstance: string,
     storageMembers: array<string>,
+    localNames: array<string>,
+    localTypes: array<int>,
     depth: int
 ): GlslStorageExpression {
     if (depth >= 128) {
@@ -992,6 +996,8 @@ fun glslStorageTokenExpression(
         specializationId,
         storageInstance,
         storageMembers,
+        localNames,
+        localTypes,
         depth
     )
     val tokens = glslStorageTokensCopy(first.tokens)
@@ -1016,6 +1022,8 @@ fun glslStorageTokenExpression(
                 specializationId,
                 storageInstance,
                 storageMembers,
+                localNames,
+                localTypes,
                 depth + 1
             )
             valid = right.valid
@@ -1054,6 +1062,8 @@ fun glslStorageTokenExpression(
             specializationId,
             storageInstance,
             storageMembers,
+            localNames,
+            localTypes,
             depth + 1
         )
         index = whenTrue.next
@@ -1072,6 +1082,8 @@ fun glslStorageTokenExpression(
             specializationId,
             storageInstance,
             storageMembers,
+            localNames,
+            localTypes,
             depth + 1
         )
         valid = valid && whenFalse.valid
@@ -1111,6 +1123,8 @@ fun glslStorageTokenPrimary(
     specializationId: int,
     storageInstance: string,
     storageMembers: array<string>,
+    localNames: array<string>,
+    localTypes: array<int>,
     depth: int
 ): GlslStorageExpression {
     val tokens: array<GlslStorageToken> = []
@@ -1129,6 +1143,8 @@ fun glslStorageTokenPrimary(
             specializationId,
             storageInstance,
             storageMembers,
+            localNames,
+            localTypes,
             depth + 1
         )
         index = nested.next
@@ -1180,7 +1196,23 @@ fun glslStorageTokenPrimary(
                 valueType = 1
             ))
             index = index + 1
-        } else valid = false
+        } else {
+            var localIndex = -1
+            var reflectedLocal = 0
+            while (localIndex < 0 && reflectedLocal < localNames.size) {
+                if (localNames[reflectedLocal] == name) {
+                    localIndex = reflectedLocal
+                }
+                reflectedLocal = reflectedLocal + 1
+            }
+            valid = localIndex >= 0 && localIndex < localTypes.size
+            if (valid) tokens.append(GlslStorageToken(
+                glslStorageTokenLocalLoad,
+                localIndex,
+                valueType = localTypes[localIndex]
+            ))
+            index = index + 1
+        }
     } else if (valid && sourceTokens[index].kind == glslTokenInteger) {
         val parsed = glslIntegerDefault(sourceTokens[index].text, signed)
         valid = parsed.valid
@@ -1204,6 +1236,8 @@ fun glslStorageTokenUnary(
     specializationId: int,
     storageInstance: string,
     storageMembers: array<string>,
+    localNames: array<string>,
+    localTypes: array<int>,
     depth: int
 ): GlslStorageExpression {
     if (depth >= 128) {
@@ -1247,6 +1281,8 @@ fun glslStorageTokenUnary(
             specializationId,
             storageInstance,
             storageMembers,
+            localNames,
+            localTypes,
             depth + 1
         )
         val tokens = glslStorageTokensCopy(operand.tokens)
@@ -1276,6 +1312,8 @@ fun glslStorageTokenUnary(
         specializationId,
         storageInstance,
         storageMembers,
+        localNames,
+        localTypes,
         depth
     )
 }
@@ -1726,6 +1764,8 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && matched.valid
     index = matched.next
     val programTokens: array<GlslStorageToken> = []
+    val localNames: array<string> = []
+    val localTypes: array<int> = []
     var firstMemberIndex = -1
     var statements = 0
     var mainClosed = false
@@ -1736,108 +1776,189 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             mainClosed = true
         } else {
             valid = statements < 64
-            matched = glslStorageTokenTake(
-                sourceTokens,
-                index,
-                glslTokenIdentifier,
-                instanceName
-            )
-            valid = matched.valid
-            index = matched.next
-            matched = glslStorageTokenTake(
-                sourceTokens,
-                index,
-                glslTokenPunctuation,
-                "."
-            )
-            valid = valid && matched.valid
-            index = matched.next
-
-            var memberName = ""
-            if (valid && index < sourceTokens.size &&
-                sourceTokens[index].kind == glslTokenIdentifier) {
-                memberName = glslStorageTokenTextCopy(sourceTokens[index])
+            val localDeclaration = index < sourceTokens.size &&
+                sourceTokens[index].kind == glslTokenIdentifier &&
+                (sourceTokens[index].text == "int" ||
+                 sourceTokens[index].text == "uint" ||
+                 sourceTokens[index].text == "bool")
+            var expressionNext = index
+            if (localDeclaration) {
+                val localTypeName = sourceTokens[index].text
+                val localType = if (localTypeName == "bool") 1 else 0
+                valid = localType == 1 ||
+                    (signed && localTypeName == "int") ||
+                    (!signed && localTypeName == "uint")
                 index = index + 1
-            } else valid = false
-            var memberIndex = -1
-            var reflectedMember = 0
-            while (memberIndex < 0 && reflectedMember < memberNames.size) {
-                if (memberNames[reflectedMember] == memberName) {
-                    memberIndex = reflectedMember
+                var localName = ""
+                if (valid && index < sourceTokens.size &&
+                    sourceTokens[index].kind == glslTokenIdentifier) {
+                    localName = glslStorageTokenTextCopy(sourceTokens[index])
+                    index = index + 1
+                } else valid = false
+                var duplicateLocal = localName == instanceName ||
+                    localName == specializationName ||
+                    localName == "true" || localName == "false"
+                var localIndex = 0
+                while (!duplicateLocal && localIndex < localNames.size) {
+                    duplicateLocal = localNames[localIndex] == localName
+                    localIndex = localIndex + 1
                 }
-                reflectedMember = reflectedMember + 1
-            }
-            valid = valid && memberIndex >= 0
-            if (firstMemberIndex < 0) firstMemberIndex = memberIndex
-            var assignmentOperator = ""
-            if (valid && index < sourceTokens.size &&
-                sourceTokens[index].kind == glslTokenOperator) {
-                assignmentOperator = glslStorageTokenTextCopy(
-                    sourceTokens[index]
+                valid = valid && !duplicateLocal
+                matched = glslStorageTokenTake(
+                    sourceTokens,
+                    index,
+                    glslTokenOperator,
+                    "="
                 )
-                valid = assignmentOperator == "=" ||
-                    glslStorageTokenCompoundOpcode(
-                        assignmentOperator,
-                        signed
-                    ) != 0
-                index = index + 1
-            } else valid = false
+                valid = valid && matched.valid
+                index = matched.next
+                val empty: array<GlslStorageToken> = []
+                var expression = GlslStorageExpression(false, empty, index)
+                if (valid) expression = glslStorageTokenExpression(
+                    source,
+                    sourceTokens,
+                    index,
+                    1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationType == "bool",
+                    specializationId,
+                    instanceName,
+                    memberNames,
+                    localNames,
+                    localTypes,
+                    0
+                )
+                valid = valid && expression.valid &&
+                    programTokens.size + expression.tokens.size + 1 < 8192
+                if (valid) {
+                    var expressionIndex = 0
+                    while (expressionIndex < expression.tokens.size) {
+                        programTokens.append(expression.tokens[expressionIndex])
+                        expressionIndex = expressionIndex + 1
+                    }
+                    programTokens.append(GlslStorageToken(
+                        glslStorageTokenLocalStore,
+                        localNames.size,
+                        valueType = localType
+                    ))
+                    localNames.append(localName)
+                    localTypes.append(localType)
+                }
+                expressionNext = expression.next
+            } else {
+                matched = glslStorageTokenTake(
+                    sourceTokens,
+                    index,
+                    glslTokenIdentifier,
+                    instanceName
+                )
+                valid = matched.valid
+                index = matched.next
+                matched = glslStorageTokenTake(
+                    sourceTokens,
+                    index,
+                    glslTokenPunctuation,
+                    "."
+                )
+                valid = valid && matched.valid
+                index = matched.next
 
-            val empty: array<GlslStorageToken> = []
-            var expression = GlslStorageExpression(false, empty, index)
-            if (valid) expression = glslStorageTokenExpression(
-                source,
-                sourceTokens,
-                index,
-                1,
-                signed,
-                specializationName,
-                specializationDefault,
-                specializationType == "bool",
-                specializationId,
-                instanceName,
-                memberNames,
-                0
-            )
-            if (expression.valid && assignmentOperator != "=") {
-                val compoundTokens: array<GlslStorageToken> = [
-                    GlslStorageToken(
-                        glslStorageTokenLoad,
+                var memberName = ""
+                if (valid && index < sourceTokens.size &&
+                    sourceTokens[index].kind == glslTokenIdentifier) {
+                    memberName = glslStorageTokenTextCopy(
+                        sourceTokens[index]
+                    )
+                    index = index + 1
+                } else valid = false
+                var memberIndex = -1
+                var reflectedMember = 0
+                while (memberIndex < 0 &&
+                    reflectedMember < memberNames.size) {
+                    if (memberNames[reflectedMember] == memberName) {
+                        memberIndex = reflectedMember
+                    }
+                    reflectedMember = reflectedMember + 1
+                }
+                valid = valid && memberIndex >= 0
+                if (valid && firstMemberIndex < 0) {
+                    firstMemberIndex = memberIndex
+                }
+                var assignmentOperator = ""
+                if (valid && index < sourceTokens.size &&
+                    sourceTokens[index].kind == glslTokenOperator) {
+                    assignmentOperator = glslStorageTokenTextCopy(
+                        sourceTokens[index]
+                    )
+                    valid = assignmentOperator == "=" ||
+                        glslStorageTokenCompoundOpcode(
+                            assignmentOperator,
+                            signed
+                        ) != 0
+                    index = index + 1
+                } else valid = false
+
+                val empty: array<GlslStorageToken> = []
+                var expression = GlslStorageExpression(false, empty, index)
+                if (valid) expression = glslStorageTokenExpression(
+                    source,
+                    sourceTokens,
+                    index,
+                    1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationType == "bool",
+                    specializationId,
+                    instanceName,
+                    memberNames,
+                    localNames,
+                    localTypes,
+                    0
+                )
+                if (expression.valid && assignmentOperator != "=") {
+                    val compoundTokens: array<GlslStorageToken> = [
+                        GlslStorageToken(
+                            glslStorageTokenLoad,
+                            memberIndex
+                        )
+                    ]
+                    var compoundIndex = 0
+                    while (compoundIndex < expression.tokens.size) {
+                        compoundTokens.append(expression.tokens[compoundIndex])
+                        compoundIndex = compoundIndex + 1
+                    }
+                    compoundTokens.append(GlslStorageToken(
+                        glslStorageTokenOperation,
+                        opcode = glslStorageTokenCompoundOpcode(
+                            assignmentOperator,
+                            signed
+                        )
+                    ))
+                    expression = GlslStorageExpression(
+                        compoundTokens.size < 128,
+                        compoundTokens,
+                        expression.next
+                    )
+                }
+                valid = valid && expression.valid &&
+                    programTokens.size + expression.tokens.size + 1 < 8192
+                if (valid) {
+                    var expressionIndex = 0
+                    while (expressionIndex < expression.tokens.size) {
+                        programTokens.append(expression.tokens[expressionIndex])
+                        expressionIndex = expressionIndex + 1
+                    }
+                    programTokens.append(GlslStorageToken(
+                        glslStorageTokenStore,
                         memberIndex
-                    )
-                ]
-                var compoundIndex = 0
-                while (compoundIndex < expression.tokens.size) {
-                    compoundTokens.append(expression.tokens[compoundIndex])
-                    compoundIndex = compoundIndex + 1
+                    ))
                 }
-                compoundTokens.append(GlslStorageToken(
-                    glslStorageTokenOperation,
-                    opcode = glslStorageTokenCompoundOpcode(
-                        assignmentOperator,
-                        signed
-                    )
-                ))
-                expression = GlslStorageExpression(
-                    compoundTokens.size < 128,
-                    compoundTokens,
-                    expression.next
-                )
+                expressionNext = expression.next
             }
-            valid = valid && expression.valid &&
-                programTokens.size + expression.tokens.size + 1 < 8192
-            if (valid) {
-                var expressionIndex = 0
-                while (expressionIndex < expression.tokens.size) {
-                    programTokens.append(expression.tokens[expressionIndex])
-                    expressionIndex = expressionIndex + 1
-                }
-                programTokens.append(GlslStorageToken(
-                    glslStorageTokenStore,
-                    memberIndex
-                ))
-            }
-            index = expression.next
+            index = expressionNext
             matched = glslStorageTokenTake(
                 sourceTokens,
                 index,
@@ -1849,7 +1970,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             statements = statements + 1
         }
     }
-    valid = valid && mainClosed && statements > 0 &&
+    valid = valid && mainClosed && statements > 0 && firstMemberIndex >= 0 &&
         index < sourceTokens.size &&
         sourceTokens[index].kind == glslTokenEnd
     GlslStorageWrite(
@@ -1933,6 +2054,8 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     val body: array<int> = []
     val stack: array<int> = []
     val stackTypes: array<int> = []
+    val localIds: array<int> = []
+    val emittedLocalTypes: array<int> = []
     var stackSize = 0
     var valid = write.valid
     tokenIndex = 0
@@ -1964,6 +2087,22 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
                 body.append(stack[stackSize - 1])
                 stackSize = stackSize - 1
             }
+        } else if (token.kind == glslStorageTokenLocalStore) {
+            pushesResult = false
+            valid = token.value == localIds.size &&
+                token.value == emittedLocalTypes.size &&
+                stackSize >= 1 &&
+                stackTypes[stackSize - 1] == token.valueType
+            if (valid) {
+                localIds.append(stack[stackSize - 1])
+                emittedLocalTypes.append(token.valueType)
+                stackSize = stackSize - 1
+            }
+        } else if (token.kind == glslStorageTokenLocalLoad) {
+            valid = token.value >= 0 && token.value < localIds.size &&
+                token.value < emittedLocalTypes.size &&
+                emittedLocalTypes[token.value] == token.valueType
+            if (valid) resultId = localIds[token.value]
         } else if (token.kind == glslStorageTokenOperation) {
             var resultType = 0
             valid = stackSize >= token.arity && token.opcode != 0

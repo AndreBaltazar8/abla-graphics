@@ -398,6 +398,18 @@ Updated: 2026-08-19.
   `tail = 6`, reads it in the following conditional, writes `output = 7`, and
   returns the exact packed high/low pair on both real drivers while preserving
   the separate initialized prefix.
+  Compute `main` also accepts declaration-before-use `int`, `uint`, and `bool`
+  locals within the same 64-statement bound. Integer declarations must match
+  the homogeneous block signedness; names are unique and initializers are type
+  checked. Local stores capture an SSA result ID and local loads reuse it, so no
+  SPIR-V function variable or memory instruction is emitted. Tests prove a
+  single-use local is byte-identical to its inlined expression, a captured
+  member retains its value after a later buffer store, and three locals still
+  produce only the one requested GPU store. Forward references, duplicate
+  names, signedness mismatch, Boolean/integer mismatch, and local-only programs
+  are checked failures. The live specialized shader now computes its integer
+  and Boolean intermediates through locals before producing the same checked
+  `tail = 6` and `output = 7` on OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
