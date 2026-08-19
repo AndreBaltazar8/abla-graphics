@@ -1,0 +1,123 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics push transform",
+            width = 640,
+            height = 480
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            layout(push_constant) uniform Transform {
+                vec4 offset;
+            } transform;
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID] + transform.offset.xy,
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val texture = app.texture(TextureDescriptor(
+        label = "push-transform-proof",
+        size = Extent3D(64, 64),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(texture))
+    val targetPipeline = app.renderTargetPipeline(target, shader)
+    val windowPipeline = app.renderPipeline(shader)
+    val values = shader.pushConstants()
+    val clear = Color(0.0, 0.0, 1.0)
+    val initialized = values.fill() && values.layout.size == 16 &&
+        values.layout.stageMask == shaderStageMaskVertex
+    val missingRejected = !app.renderToTarget(
+        target,
+        targetPipeline,
+        clear
+    ) && !app.presentRender(windowPipeline, clear)
+    val warmed = app.valid() && target.valid() && targetPipeline.valid() &&
+        windowPipeline.valid() && values.valid() && initialized &&
+        missingRejected && app.renderPushToTarget(
+            target,
+            targetPipeline,
+            values,
+            clear
+        ) && target.texture.rgba8(32, 32) == 4294281759 &&
+        values.storeF32(1.5, 0) && app.renderPushToTarget(
+            target,
+            targetPipeline,
+            values,
+            clear
+        ) && target.texture.rgba8(32, 32) == 4294901760 &&
+        values.storeF32(0.0, 0) && app.presentPushRender(
+            windowPipeline,
+            values,
+            clear
+        )
+    val targetHandle = if (app.backend == graphicsBackendOpenGl)
+        targetPipeline.openGl.pushConstantBuffer
+    else targetPipeline.vulkan.handle
+    val windowHandle = if (app.backend == graphicsBackendOpenGl)
+        windowPipeline.openGl.pushConstantBuffer
+    else windowPipeline.vulkan.handle
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = warmed
+    var frame = 0
+    while (repeated && frame < 4) {
+        val shifted = (frame & 1) == 0
+        val expected = if (shifted) 4294901760 else 4294281759
+        repeated = values.storeF32(if (shifted) 1.5 else 0.0, 0) &&
+            app.renderPushToTarget(
+                target,
+                targetPipeline,
+                values,
+                clear
+            ) && target.texture.rgba8(32, 32) == expected &&
+            app.presentPushRender(windowPipeline, values, clear)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val finalPixel = target.texture.rgba8(32, 32)
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        targetPipeline.openGl.pushConstantBuffer == targetHandle &&
+            windowPipeline.openGl.pushConstantBuffer == windowHandle &&
+            targetHandle != 0 && windowHandle != 0
+    else targetPipeline.vulkan.handle == targetHandle &&
+        windowPipeline.vulkan.handle == windowHandle &&
+        targetPipeline.vulkan.pushConstantSize == 16 &&
+        windowPipeline.vulkan.pushConstantSize == 16 &&
+        targetPipeline.vulkan.pushConstantStageMask == shaderStageMaskVertex &&
+        windowPipeline.vulkan.pushConstantStageMask == shaderStageMaskVertex
+    println(
+        "push-transform backend=${graphicsBackendName(app.backend)} pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+    )
+    if (repeated && frame == 4 && finalPixel == 4294281759 &&
+        liveAfter == liveBefore && handlesStable) 0 else 1
+}

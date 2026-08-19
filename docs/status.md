@@ -957,7 +957,9 @@ validity gate unchanged.
   each persistent program UBO and Vulkan records each native subpass range
   after its pipeline bind. Exact pixels, missing-value rejection, stable
   handles, and zero-growth repeated values are verified on both backends.
-  General compute/raster expressions remain upcoming.
+  A vertex-only `vec4` offset subset additionally performs real position
+  addition, with exact centered/shifted pixels and the same allocation and
+  handle proofs. General compute/raster expressions remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

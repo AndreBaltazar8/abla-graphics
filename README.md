@@ -252,6 +252,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   presentation forms plus an affine two-subpass sequence on OpenGL and Vulkan,
   with exact pixel proof, persistent native handles, changing values, and
   zero-growth repeated frames;
+- `examples/push-transform`: one vertex-visible `vec4` push block translates a
+  procedural triangle, proving exact centered and shifted-off-center pixels,
+  missing-value rejection, persistent native handles, and zero-growth repeated
+  frames on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted
   frames on explicit OpenGL and Vulkan, including counter-period conversion,
   stable native handles, and zero steady-state live-memory growth; and

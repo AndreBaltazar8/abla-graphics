@@ -1734,6 +1734,15 @@ values without allocation, and Vulkan swapchain recreation preserves the
 reflected range. Integration tests prove the exact center pixel on both real
 drivers and reject missing, wrong-stage, and wrong-size value blocks.
 
+The strict vertex transform subset accepts
+`layout(push_constant) uniform Transform { vec4 offset; } transform` and adds
+`transform.offset.xy` to the procedural triangle position. It uses the same
+`renderPushToTarget` and `presentPushRender` calls with a vertex-only reflected
+stage mask. The `push-transform` sample alternates the triangle between its
+centered and shifted-off-center positions, verifies both exact target pixels,
+rejects missing values, and proves stable native handles with zero steady-state
+allocation growth on OpenGL and Vulkan.
+
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:
 `renderPushVerticesToTarget`, `renderPushIndexedToTarget`,

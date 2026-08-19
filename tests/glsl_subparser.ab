@@ -1134,6 +1134,27 @@ fun main: int {
         pushColorTriangle.spirv(shaderStageFragment)
     val pushColorOpenGlSource =
         pushColorTriangle.openGlSource(shaderStageFragment)
+    val pushTransformTriangle = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); layout(push_constant) uniform Transform { vec4 offset; } transform; void main(){ gl_Position=vec4(positions[gl_VertexID]+transform.offset.xy,0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.12,0.54,0.96,1.0); }"
+        ]
+    )
+    val pushTransformVertex =
+        pushTransformTriangle.spirv(shaderStageVertex)
+    val pushTransformVertexAgain =
+        pushTransformTriangle.spirv(shaderStageVertex)
+    val pushTransformLayout = pushTransformTriangle.pushConstantLayout()
+    val pushTransformOpenGlSource =
+        pushTransformTriangle.openGlSource(shaderStageVertex)
+    val unsupportedPushTransform = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); layout(push_constant) uniform Transform { vec4 offset; } transform; void main(){ gl_Position=vec4(positions[gl_VertexID]-transform.offset.xy,0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(0.12,0.54,0.96,1.0); }"
+        ]
+    ).spirv(shaderStageVertex)
     val triangle460 = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2096,6 +2117,25 @@ fun main: int {
             "layout(std140, binding = 15)"
         ) &&
         !glslContainsText(pushColorOpenGlSource, "push_constant") &&
+        pushTransformTriangle.valid &&
+        pushTransformTriangle.pushConstants.size == 1 &&
+        pushTransformVertex.succeeded && pushTransformVertex.module.valid() &&
+        pushTransformVertex.module.words.size == 267 &&
+        pushTransformVertex.module.bound() == 49 &&
+        spirvContainsWord(pushTransformVertex.module, 327809) &&
+        spirvWordsEqual(
+            pushTransformVertex.module,
+            pushTransformVertexAgain.module
+        ) && pushTransformLayout.valid &&
+        pushTransformLayout.size == 16 &&
+        pushTransformLayout.stageMask == shaderStageMaskVertex &&
+        glslContainsText(
+            pushTransformOpenGlSource,
+            "layout(std140, binding = 15)"
+        ) &&
+        !glslContainsText(pushTransformOpenGlSource, "push_constant") &&
+        !unsupportedPushTransform.succeeded &&
+        unsupportedPushTransform.error != "" &&
         triangle460.valid && triangle460Vertex.succeeded &&
         triangle460Fragment.succeeded &&
         spirvWordsEqual(triangleVertex.module, triangle460Vertex.module) &&
