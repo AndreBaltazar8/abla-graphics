@@ -38,8 +38,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets, with
   composable typed scalar/workgroup specialization constants, observable
-  precedence-parsed signed/unsigned storage-expression chains, and unsupported
-  GLSL rejected rather than ignored;
+  precedence-parsed signed/unsigned arithmetic, shift, and bitwise storage
+  expressions, and unsupported GLSL rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`

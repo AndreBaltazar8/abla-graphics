@@ -923,7 +923,7 @@ fun glslStoragePrimary(
     var index = glslSkipTrivia(source, begin)
     var valid = index < source.size
     if (valid && source[index] == 40) {
-        val nested = glslStorageAdditive(
+        val nested = glslStorageBitwiseOr(
             source,
             index + 1,
             signed,
@@ -1104,6 +1104,226 @@ fun glslStorageAdditive(
     GlslStorageExpression(valid && tokens.size < 128, tokens, index)
 }
 
+fun glslStorageShift(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val first = glslStorageAdditive(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+    val tokens = glslStorageTokensCopy(first.tokens)
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128) {
+        val operator = glslSkipTrivia(source, index)
+        if (operator + 1 < source.size &&
+            ((source[operator] == 60 && source[operator + 1] == 60) ||
+             (source[operator] == 62 && source[operator + 1] == 62))) {
+            valid = operator + 2 >= source.size ||
+                source[operator + 2] != source[operator]
+            if (valid) {
+                val right = glslStorageAdditive(
+                    source,
+                    operator + 2,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationId
+                )
+                valid = right.valid
+                if (valid) {
+                    val copied = glslStorageTokensCopy(right.tokens)
+                    var copiedIndex = 0
+                    while (copiedIndex < copied.size) {
+                        tokens.append(copied[copiedIndex])
+                        copiedIndex = copiedIndex + 1
+                    }
+                    var opcode = 327876
+                    if (source[operator] == 62) {
+                        opcode = if (signed) 327875 else 327874
+                    }
+                    tokens.append(GlslStorageToken(
+                        glslStorageTokenOperation,
+                        opcode = opcode
+                    ))
+                    index = right.next
+                }
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
+fun glslStorageBitwiseAnd(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val first = glslStorageShift(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+    val tokens = glslStorageTokensCopy(first.tokens)
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128) {
+        val operator = glslSkipTrivia(source, index)
+        if (operator < source.size && source[operator] == 38) {
+            valid = operator + 1 >= source.size || source[operator + 1] != 38
+            if (valid) {
+                val right = glslStorageShift(
+                    source,
+                    operator + 1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationId
+                )
+                valid = right.valid
+                if (valid) {
+                    val copied = glslStorageTokensCopy(right.tokens)
+                    var copiedIndex = 0
+                    while (copiedIndex < copied.size) {
+                        tokens.append(copied[copiedIndex])
+                        copiedIndex = copiedIndex + 1
+                    }
+                    tokens.append(GlslStorageToken(
+                        glslStorageTokenOperation,
+                        opcode = 327879
+                    ))
+                    index = right.next
+                }
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
+fun glslStorageBitwiseXor(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val first = glslStorageBitwiseAnd(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+    val tokens = glslStorageTokensCopy(first.tokens)
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128) {
+        val operator = glslSkipTrivia(source, index)
+        if (operator < source.size && source[operator] == 94) {
+            valid = operator + 1 >= source.size || source[operator + 1] != 94
+            if (valid) {
+                val right = glslStorageBitwiseAnd(
+                    source,
+                    operator + 1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationId
+                )
+                valid = right.valid
+                if (valid) {
+                    val copied = glslStorageTokensCopy(right.tokens)
+                    var copiedIndex = 0
+                    while (copiedIndex < copied.size) {
+                        tokens.append(copied[copiedIndex])
+                        copiedIndex = copiedIndex + 1
+                    }
+                    tokens.append(GlslStorageToken(
+                        glslStorageTokenOperation,
+                        opcode = 327878
+                    ))
+                    index = right.next
+                }
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
+fun glslStorageBitwiseOr(
+    source: string,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int
+): GlslStorageExpression {
+    val first = glslStorageBitwiseXor(
+        source,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId
+    )
+    val tokens = glslStorageTokensCopy(first.tokens)
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128) {
+        val operator = glslSkipTrivia(source, index)
+        if (operator < source.size && source[operator] == 124) {
+            valid = operator + 1 >= source.size ||
+                source[operator + 1] != 124
+            if (valid) {
+                val right = glslStorageBitwiseXor(
+                    source,
+                    operator + 1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationId
+                )
+                valid = right.valid
+                if (valid) {
+                    val copied = glslStorageTokensCopy(right.tokens)
+                    var copiedIndex = 0
+                    while (copiedIndex < copied.size) {
+                        tokens.append(copied[copiedIndex])
+                        copiedIndex = copiedIndex + 1
+                    }
+                    tokens.append(GlslStorageToken(
+                        glslStorageTokenOperation,
+                        opcode = 327877
+                    ))
+                    index = right.next
+                }
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
 fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     var index = glslSkipTrivia(source, 0)
     var valid = index < source.size && source[index] == 35
@@ -1199,7 +1419,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && part.text == "value"
     character = glslExpectCharacter(source, part.next, 61)
     valid = valid && character.valid
-    val expression = glslStorageAdditive(
+    val expression = glslStorageBitwiseOr(
         source,
         character.next,
         signed,

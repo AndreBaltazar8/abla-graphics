@@ -1417,11 +1417,13 @@ storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
 The assignment expression accepts the storage member, typed integer literals,
 one matching scalar specialization constant, nested parentheses, and
-left-associative `+`, `-`, `*`, `/`, and `%`; multiplication, division, and
-remainder bind before addition and subtraction. The parser emits a bounded
-postfix program of fewer than 128 tokens, and the Abla emitter deterministically
-assigns one SSA result per load and operation. Bitwise, comparison, Boolean,
-unary-symbolic, and function-call expressions remain explicit subset failures.
+left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, `&`, `^`, and `|`.
+Precedence follows GLSL: multiplicative, additive, shift, bitwise AND, XOR, then
+OR. Signed right shift emits arithmetic shift while unsigned right shift emits
+logical shift. The parser emits a bounded postfix program of fewer than 128
+tokens, and the Abla emitter deterministically assigns one SSA result per load
+and operation. Comparison, Boolean/logical, unary-symbolic, and function-call
+expressions remain explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also
 reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without
