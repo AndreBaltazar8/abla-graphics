@@ -113,6 +113,11 @@ The adjacent optional content-type object classifies none, photo, video, or
 game content as another explicitly non-binding compositor optimization hint.
 It shares the same double-buffered state and ordered object/manager teardown
 model without coupling content policy to the rendering backend.
+The stable presentation-time object is an opt-in measurement path. One-shot
+feedback is requested only for sampled commits and records the compositor's
+clock domain, presented or discarded outcome, split 64-bit timestamp/sequence,
+refresh prediction, synchronized output, and reliability flags without adding
+work to ordinary frame submissions.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

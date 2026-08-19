@@ -34,6 +34,10 @@ val waylandContentTypeNone = 0
 val waylandContentTypePhoto = 1
 val waylandContentTypeVideo = 2
 val waylandContentTypeGame = 3
+val waylandPresentationKindVsync = 1
+val waylandPresentationKindHardwareClock = 2
+val waylandPresentationKindHardwareCompletion = 4
+val waylandPresentationKindZeroCopy = 8
 val waylandDecorationModeClient = 1
 val waylandDecorationModeServer = 2
 val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
@@ -1601,7 +1605,23 @@ resource class WaylandXdgWindow(
     var presentationHint: int,
     var contentTypeManagerIdentifier: int,
     var contentTypeIdentifier: int,
-    var contentType: int
+    var contentType: int,
+    var presentationIdentifier: int,
+    var presentationVersion: int,
+    var presentationClockIdentifier: int,
+    var presentationClockKnown: bool,
+    var presentationFeedbackIdentifier: int,
+    var presentationOutputIdentifier: int,
+    var presentationFeedbackComplete: bool,
+    var presentationDiscarded: bool,
+    var presentationSecondsHigh: int,
+    var presentationSecondsLow: int,
+    var presentationNanoseconds: int,
+    var presentationRefreshNanoseconds: int,
+    var presentationSequenceHigh: int,
+    var presentationSequenceLow: int,
+    var presentationFlags: int,
+    var presentationFeedbackCount: int
 ) {
     fun valid(): bool = this.connection.valid() &&
         this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
@@ -2265,6 +2285,132 @@ resource class WaylandXdgWindow(
             }
         }
         succeeded
+    }
+
+    fun presentationTimingAvailable(): bool =
+        this.presentationIdentifier >= 2 || this.connection.global(
+            "wp_presentation"
+        ).valid
+
+    trusted fun enablePresentationTiming(): bool {
+        var succeeded = this.valid() && this.presentationIdentifier == 0 &&
+            this.presentationTimingAvailable()
+        val presentation = if (succeeded) this.connection.bind(
+            "wp_presentation",
+            2
+        ) else WaylandBinding()
+        succeeded = succeeded && presentation.valid
+        if (succeeded) {
+            this.presentationIdentifier = presentation.identifier
+            this.presentationVersion = presentation.version
+        }
+        var messages = 0
+        while (succeeded && !this.presentationClockKnown &&
+            messages < 16384) {
+            succeeded = this.dispatchNative()
+            messages = messages + 1
+        }
+        succeeded && this.presentationClockKnown
+    }
+
+    fun requestPresentationFeedback(): bool {
+        val identifier = if (this.valid() &&
+            this.presentationIdentifier >= 2 &&
+            this.presentationFeedbackIdentifier == 0)
+                this.connection.allocateIdentifier()
+            else -1
+        val succeeded = identifier >= 2 && this.connection.send(
+            waylandPacket(
+                this.presentationIdentifier,
+                1,
+                waylandU32PairPayload(
+                    this.surfaceIdentifier,
+                    identifier
+                )
+            )
+        )
+        if (succeeded) {
+            this.presentationFeedbackIdentifier = identifier
+            this.presentationOutputIdentifier = 0
+            this.presentationFeedbackComplete = false
+            this.presentationDiscarded = false
+            this.presentationSecondsHigh = 0
+            this.presentationSecondsLow = 0
+            this.presentationNanoseconds = 0
+            this.presentationRefreshNanoseconds = 0
+            this.presentationSequenceHigh = 0
+            this.presentationSequenceLow = 0
+            this.presentationFlags = 0
+        }
+        succeeded
+    }
+
+    fun dispatchPresentation(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.presentationIdentifier &&
+            message.opcode == 0) {
+            result = if (message.payload.size == 4) 1 else -1
+            if (result > 0) {
+                this.presentationClockIdentifier = waylandU32(
+                    message.payload,
+                    0
+                )
+                this.presentationClockKnown = true
+            }
+        } else if (message.objectIdentifier ==
+            this.presentationFeedbackIdentifier && message.opcode == 0) {
+            val output = if (message.payload.size == 4)
+                waylandU32(message.payload, 0) else 0
+            result = if (message.payload.size == 4 &&
+                this.outputIndex(output) >= 0) 1 else -1
+            if (result > 0) this.presentationOutputIdentifier = output
+        } else if (message.objectIdentifier ==
+            this.presentationFeedbackIdentifier && message.opcode == 1) {
+            val nanoseconds = if (message.payload.size == 28)
+                waylandU32(message.payload, 8) else 1000000000
+            val flags = if (message.payload.size == 28)
+                waylandU32(message.payload, 24) else 16
+            result = if (message.payload.size == 28 &&
+                nanoseconds < 1000000000 && (flags & ~15) == 0 &&
+                this.presentationFeedbackCount < waylandMaximumInteger) 1
+            else -1
+            if (result > 0) {
+                this.presentationSecondsHigh = waylandU32(message.payload, 0)
+                this.presentationSecondsLow = waylandU32(message.payload, 4)
+                this.presentationNanoseconds = nanoseconds
+                this.presentationRefreshNanoseconds = waylandU32(
+                    message.payload,
+                    12
+                )
+                this.presentationSequenceHigh = waylandU32(
+                    message.payload,
+                    16
+                )
+                this.presentationSequenceLow = waylandU32(
+                    message.payload,
+                    20
+                )
+                this.presentationFlags = flags
+                this.presentationFeedbackIdentifier = 0
+                this.presentationFeedbackComplete = true
+                this.presentationDiscarded = false
+                this.presentationFeedbackCount =
+                    this.presentationFeedbackCount + 1
+            }
+        } else if (message.objectIdentifier ==
+            this.presentationFeedbackIdentifier && message.opcode == 2) {
+            result = if (message.payload.size == 0 &&
+                this.presentationFeedbackCount < waylandMaximumInteger) 1
+            else -1
+            if (result > 0) {
+                this.presentationFeedbackIdentifier = 0
+                this.presentationFeedbackComplete = true
+                this.presentationDiscarded = true
+                this.presentationFeedbackCount =
+                    this.presentationFeedbackCount + 1
+            }
+        }
+        result
     }
 
     trusted fun ensureWireStorage(receiveDescriptors: bool = false): bool {
@@ -4486,6 +4632,7 @@ resource class WaylandXdgWindow(
         } else if (message.objectIdentifier == this.decorationIdentifier) {
             result = this.dispatchDecoration(message)
         }
+        if (result == 0) result = this.dispatchPresentation(message)
         if (result == 0) result = this.dispatchClipboard(message)
         result
     }
@@ -5208,6 +5355,12 @@ resource class WaylandXdgWindow(
                     waylandPacket(this.contentTypeManagerIdentifier, 0)
                 )
             }
+            if (this.presentationIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.presentationIdentifier, 0)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -5523,7 +5676,23 @@ fun waylandXdgWindow(
         waylandPresentationHintVsync,
         0,
         0,
-        waylandContentTypeNone
+        waylandContentTypeNone,
+        0,
+        0,
+        0,
+        false,
+        0,
+        0,
+        false,
+        false,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
     )
     if (succeeded) succeeded = window.setTitle(title)
     if (succeeded) succeeded = window.setAppId(appId)

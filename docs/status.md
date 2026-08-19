@@ -169,6 +169,13 @@ Updated: 2026-08-19.
   creation/game packets, invalid values, transitions, disable/reuse, and
   ordered teardown are covered; the live Weston gate distinguishes advertised
   capability from the clean default-only fallback.
+- Stable `wp_presentation` v2 support owns the compositor clock and one
+  outstanding feedback object, classifies presented versus discarded frames,
+  and preserves exact split timestamp/sequence words, refresh prediction,
+  synchronized output, and all four quality flags. Feedback is sampled
+  explicitly before a commit, leaving ordinary allocation-stable frame
+  submission unchanged. Deterministic request coverage and the live Weston
+  gate verify the actual clock and one-shot completion path.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec

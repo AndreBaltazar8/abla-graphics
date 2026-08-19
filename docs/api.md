@@ -1378,6 +1378,17 @@ for example, video may favor timing and scaling while game may favor latency.
 retains its manager. None remains a successful no-op without the extension,
 while non-default classifications fail cleanly when it is absent.
 
+`presentationTimingAvailable()` and `enablePresentationTiming()` bind stable
+`wp_presentation` version two and wait for its POSIX clock identifier.
+`requestPresentationFeedback()` creates one one-shot feedback object for the
+next surface commit; request it immediately before `presentSharedPixels()` when
+sampling a frame. Completion records presented versus discarded status,
+seconds high/low, nanoseconds, predicted refresh interval, sequence high/low,
+synchronized output, and the vsync/hardware-clock/hardware-completion/zero-copy
+flags. Split words preserve the protocol's unsigned 64-bit values without
+inventing signed Abla timestamps. Sampling is opt-in, so the ordinary packed
+64-byte shared-pixel submission remains unchanged.
+
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
 advertises UTF-8 and plain-text MIME types, and retains each affine source until
