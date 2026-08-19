@@ -2,10 +2,10 @@
 //
 // This first grammar slice owns multi-stage block structure, balanced shader
 // scopes, comments, stage uniqueness, and source-preserving construction. The
-// Explicit interface declarations additionally feed deterministic reflection
-// and adjacent raster-stage compatibility checks. The remaining general GLSL
-// declaration/expression grammar extends this module without changing the
-// public ShaderPackage value.
+// Explicit interface declarations and simple uniform/storage block members
+// additionally feed deterministic reflection and cross-stage compatibility
+// checks. The remaining general GLSL declaration/expression grammar extends
+// this module without changing the public ShaderPackage value.
 
 import "abla/compiler/parser"
 
@@ -27,6 +27,12 @@ class ShaderLocation(
     val arraySize: int = 1
 )
 
+class ShaderBlockMember(
+    val dataType: string,
+    val name: string,
+    val arraySize: int = 1
+)
+
 class ShaderBinding(
     val stage: string,
     val set: int,
@@ -34,7 +40,8 @@ class ShaderBinding(
     val storage: string,
     val dataType: string = "",
     val name: string = "",
-    val arraySize: int = 1
+    val arraySize: int = 1,
+    val members: array<ShaderBlockMember> = []
 )
 
 class ShaderWorkgroup(
@@ -94,10 +101,19 @@ class GlslDeclaration(
     val dataType: string,
     val name: string,
     val arraySize: int,
+    val members: array<ShaderBlockMember>,
     val valid: bool
 )
 
-class GlslArraySize(val valid: bool, val value: int)
+class GlslArraySize(val valid: bool, val value: int, val next: int)
+
+class GlslBlock(
+    val valid: bool,
+    val name: string,
+    val arraySize: int,
+    val members: array<ShaderBlockMember>,
+    val next: int
+)
 
 fun glslAsciiWhitespace(value: int): bool =
     value == 9 || value == 10 || value == 11 || value == 12 ||
@@ -247,15 +263,82 @@ fun glslArraySizeAfterName(source: string, begin: int): GlslArraySize {
         index = glslSkipTrivia(source, index + 1)
         if (index < source.size && source[index] == 93) {
             size = 0
+            index = index + 1
         } else {
             val integer = glslReadUnsigned(source, index)
             valid = integer.valid && integer.value > 0
             size = integer.value
             index = glslSkipTrivia(source, integer.next)
             valid = valid && index < source.size && source[index] == 93
+            if (valid) index = index + 1
         }
     }
-    GlslArraySize(valid, size)
+    GlslArraySize(valid, size, index)
+}
+
+fun glslParseBlock(source: string, begin: int): GlslBlock {
+    val members: array<ShaderBlockMember> = []
+    var index = glslSkipTrivia(source, begin)
+    var valid = index < source.size && source[index] == 123
+    if (valid) index = index + 1
+    var closed = false
+    while (valid && !closed && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index < source.size && source[index] == 125) {
+            index = index + 1
+            closed = true
+        } else {
+            var type = GlslName("", index)
+            var searching = true
+            var attempts = 0
+            while (searching && attempts < 16) {
+                val part = glslReadName(source, index)
+                if (part.text == "") searching = false
+                else if (glslDeclarationQualifier(part.text)) {
+                    index = part.next
+                } else {
+                    type = part
+                    index = part.next
+                    searching = false
+                }
+                attempts = attempts + 1
+            }
+            val member = glslReadName(source, index)
+            val arraySize = glslArraySizeAfterName(source, member.next)
+            index = glslSkipTrivia(source, arraySize.next)
+            valid = type.text != "" && member.text != "" &&
+                arraySize.valid && index < source.size &&
+                source[index] == 59
+            var duplicate = false
+            var memberIndex = 0
+            while (valid && !duplicate && memberIndex < members.size) {
+                duplicate = members[memberIndex].name == member.text
+                memberIndex = memberIndex + 1
+            }
+            valid = valid && !duplicate
+            if (valid) {
+                members.append(ShaderBlockMember(
+                    type.text,
+                    member.text,
+                    arraySize.value
+                ))
+                index = index + 1
+            }
+        }
+    }
+    valid = valid && closed && members.size > 0
+    val instance = if (valid) glslReadName(source, index)
+        else GlslName("", index)
+    val arraySize = if (instance.text == "") GlslArraySize(true, 1, index)
+        else glslArraySizeAfterName(source, instance.next)
+    val end = glslSkipTrivia(source, arraySize.next)
+    GlslBlock(
+        valid && arraySize.valid && end < source.size && source[end] == 59,
+        instance.text,
+        arraySize.value,
+        members,
+        if (end < source.size && source[end] == 59) end + 1 else end
+    )
 }
 
 fun glslDeclarationAfterLayout(
@@ -294,15 +377,19 @@ fun glslDeclarationAfterLayout(
     val variable = glslReadName(source, index)
     val afterType = glslSkipTrivia(source, index)
     val block = afterType < source.size && source[afterType] == 123
-    val arraySize = if (variable.text == "") GlslArraySize(true, 1)
+    val arraySize = if (variable.text == "") GlslArraySize(true, 1, index)
         else glslArraySizeAfterName(source, variable.next)
+    val parsedBlock = if (block) glslParseBlock(source, afterType)
+        else GlslBlock(true, variable.text, arraySize.value, [], arraySize.next)
     GlslDeclaration(
         storage,
         type.text,
-        variable.text,
-        arraySize.value,
+        parsedBlock.name,
+        parsedBlock.arraySize,
+        parsedBlock.members,
         storage != "" && type.text != "" &&
-            (variable.text != "" || block) && arraySize.valid
+            (variable.text != "" || block) && arraySize.valid &&
+            parsedBlock.valid
     )
 }
 
@@ -381,7 +468,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                             declaration.storage,
                             declaration.dataType,
                             declaration.name,
-                            declaration.arraySize
+                            declaration.arraySize,
+                            declaration.members
                         ))
                     }
                 }
@@ -412,6 +500,21 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
         else index = glslSkipTrivia(source, index) + 1
     }
     GlslStageReflection(locations, bindings, workgroups, valid, error)
+}
+
+fun glslBlockMembersEqual(
+    left: array<ShaderBlockMember>,
+    right: array<ShaderBlockMember>
+): bool {
+    var equal = left.size == right.size
+    var index = 0
+    while (equal && index < left.size) {
+        equal = left[index].dataType == right[index].dataType &&
+            left[index].name == right[index].name &&
+            left[index].arraySize == right[index].arraySize
+        index = index + 1
+    }
+    equal
 }
 
 fun glslStageNameValid(name: string): bool =
@@ -531,7 +634,12 @@ fun glslPackage(
                     if (previous.set == reflected.set &&
                         previous.binding == reflected.binding &&
                         (previous.storage != reflected.storage ||
-                         previous.dataType != reflected.dataType)) {
+                         previous.dataType != reflected.dataType ||
+                         previous.arraySize != reflected.arraySize ||
+                         !glslBlockMembersEqual(
+                             previous.members,
+                             reflected.members
+                         ))) {
                         valid = false
                         error = "incompatible GLSL set ${reflected.set} binding ${reflected.binding} declarations"
                     }

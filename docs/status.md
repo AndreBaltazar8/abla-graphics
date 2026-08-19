@@ -505,6 +505,13 @@ conformance test exercises both real driver callbacks, exact normalized counter
 deltas, explicit destruction, and Vulkan's validation-disabled rejection. The
 combined executable exports precisely the two requested Abla callback symbols.
 
+GLSL binding reflection now parses non-empty uniform/storage interface blocks,
+including qualified scalar/vector/matrix members, fixed or unsized member
+arrays, block instance names, and instance arrays. It rejects malformed and
+duplicate-name member declarations and compares the complete ordered member
+structure when a descriptor slot is shared across stages. Positive and
+negative subparser cases preserve deterministic existing SPIR-V output.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
@@ -527,9 +534,10 @@ combined executable exports precisely the two requested Abla callback symbols.
   and ten directly queried limits documented in the API contract.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser owns stage structure/source preservation plus the initial explicit
-  location/set/binding declaration and cross-stage compatibility slice,
-  deliberately rejects quoted includes, and does not yet parse block members,
-  general declarations, or expressions. SPIR-V emission currently covers the
+  location/set/binding declaration, interface-block member subset, and
+  cross-stage compatibility slice. It deliberately rejects quoted includes and
+  does not yet parse nested/member-layout structures, general declarations, or
+  expressions. SPIR-V emission currently covers the
   strict no-op and single-member storage-assignment compute subsets plus fixed,
   interleaved position/color, and sampled-texture triangle vertex/fragment
   subsets described above, not general shaders.

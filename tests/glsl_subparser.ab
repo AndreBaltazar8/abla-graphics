@@ -71,6 +71,28 @@ fun main: int {
         [shaderStageCompute],
         ["layout(set=0,binding=0) uniform sampler2D images[0]; void main() {}"]
     )
+    val reflectedBlock = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(std140,set=2,binding=3) uniform Camera { highp mat4 viewProjection; vec4 eye[2]; } camera[2]; void main() {}",
+            "layout(std140,set=2,binding=3) uniform Camera { highp mat4 viewProjection; vec4 eye[2]; } camera[2]; void main() {}"
+        ]
+    )
+    val mismatchedBlock = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(set=2,binding=3) uniform Camera { mat4 viewProjection; vec4 eye[2]; } camera; void main() {}",
+            "layout(set=2,binding=3) uniform Camera { mat4 viewProjection; vec3 eye[2]; } camera; void main() {}"
+        ]
+    )
+    val duplicateBlockMember = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=0) uniform Camera { mat4 value; vec4 value; } camera; void main() {}"]
+    )
+    val malformedBlockMember = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=0) uniform Camera { mat4 value } camera; void main() {}"]
+    )
     val emitted = frozen.spirv(shaderStageCompute)
     val emittedAgain = frozen.spirv(shaderStageCompute)
     val unsupportedCompute = glslPackage(
@@ -321,6 +343,19 @@ fun main: int {
         !missingWorkgroupX.valid && missingWorkgroupX.error != "" &&
         !repeatedWorkgroup.valid && repeatedWorkgroup.error != "" &&
         !invalidBindingArray.valid && invalidBindingArray.error != "" &&
+        reflectedBlock.valid && reflectedBlock.bindings.size == 2 &&
+        reflectedBlock.bindings[0].name == "camera" &&
+        reflectedBlock.bindings[0].arraySize == 2 &&
+        reflectedBlock.bindings[0].members.size == 2 &&
+        reflectedBlock.bindings[0].members[0].dataType == "mat4" &&
+        reflectedBlock.bindings[0].members[0].name == "viewProjection" &&
+        reflectedBlock.bindings[0].members[0].arraySize == 1 &&
+        reflectedBlock.bindings[0].members[1].dataType == "vec4" &&
+        reflectedBlock.bindings[0].members[1].name == "eye" &&
+        reflectedBlock.bindings[0].members[1].arraySize == 2 &&
+        !mismatchedBlock.valid && mismatchedBlock.error != "" &&
+        !duplicateBlockMember.valid && duplicateBlockMember.error != "" &&
+        !malformedBlockMember.valid && malformedBlockMember.error != "" &&
         emitted.succeeded && emitted.module.valid() &&
         emitted.module.words.size == 35 &&
         emitted.module.words[18] == 8 && emitted.module.words[19] == 1 &&
