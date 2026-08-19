@@ -1194,7 +1194,7 @@ fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=draw.first/draw.gain+draw.second; }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=-draw.first/draw.gain+draw.second; }"
         ]
     )
     val rasterExpressionLayout =
@@ -1224,6 +1224,27 @@ fun main: int {
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=(0.5/0.25)*draw.first; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnaryScalar = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=(-0.5/-0.25)*draw.first; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnaryPlus = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=+draw.tint; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMalformedUnary = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=-; }"
         ]
     ).spirv(shaderStageFragment)
     val rasterScalarVectorDivisionRejected = glslPackage(
@@ -2329,9 +2350,14 @@ fun main: int {
         rasterExpressionLayout.members[1].offset == 16 &&
         rasterExpressionLayout.members[2].offset == 32 &&
         rasterExpressionProgram.valid &&
-        rasterExpressionProgram.expression.tokens.size == 5 &&
+        rasterExpressionProgram.expression.tokens.size == 6 &&
         rasterExpressionFragment.succeeded &&
         rasterExpressionFragment.module.valid() &&
+        spirvWordsOrdered(
+            rasterExpressionFragment.module,
+            262271,
+            327816
+        ) &&
         spirvWordsOrdered(
             rasterExpressionFragment.module,
             327816,
@@ -2348,6 +2374,12 @@ fun main: int {
         spirvContainsWord(rasterScalarFirst.module, 327822) &&
         rasterScalarDivision.succeeded &&
         spirvWordsOrdered(rasterScalarDivision.module, 327816, 327822) &&
+        rasterUnaryScalar.succeeded &&
+        spirvWordCount(rasterUnaryScalar.module, 262271) == 2 &&
+        rasterUnaryPlus.succeeded &&
+        spirvWordsEqual(rasterUnaryPlus.module, pushColorFragment.module) &&
+        !rasterMalformedUnary.succeeded &&
+        rasterMalformedUnary.error != "" &&
         !rasterScalarVectorDivisionRejected.succeeded &&
         rasterScalarVectorDivisionRejected.error != "" &&
         rasterSubtraction.succeeded &&

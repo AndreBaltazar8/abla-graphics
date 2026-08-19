@@ -265,7 +265,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   on both backends;
 - `examples/push-expression`: a typed fragment expression combines two
   reflected `vec4` push members with a reflected scalar gain and
-  precedence-ordered vector/scalar division plus addition,
+  typed vector negation plus precedence-ordered vector/scalar division and
+  addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted

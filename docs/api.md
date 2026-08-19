@@ -1768,9 +1768,11 @@ typed raster parser accepts up to eight reflected non-array `vec4` inputs in
 source order before one location-zero `vec4` output, an optional reflected
 block of up to eight non-array `float` or `vec4` members, scalar/`vec4`
 literals, parentheses, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL
-precedence. Inputs and the push block may both be absent for a constant-only
-expression; a push block reflected only in another stage does not become a
-fragment interface requirement.
+precedence. Prefix `+` is an identity and prefix `-` emits typed scalar or
+vector `OpFNegate`; unary nesting is included in the same 64-level/token bounds.
+Inputs and the push block may both be absent for a constant-only expression; a
+push block reflected only in another stage does not become a fragment interface
+requirement.
 Equal-type operations emit floating scalar or vector instructions; `vec4 *
 float` and `float * vec4` emit `OpVectorTimesScalar` with normalized SPIR-V
 operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
@@ -1788,9 +1790,9 @@ fragment also uses this path, and its former fixed input-copy table was removed.
 The basic solid-color fragment likewise accepts arbitrary four-component
 `vec4` literals through generated constants instead of its former fixed table.
 `push-expression` loads a reflected scalar gain, executes vector/scalar division
-before addition, and proves its 48-byte mixed layout plus exact red/green
-output, stable handles, and zero steady-state allocation growth on both real
-backends.
+after vector negation and before addition, and proves its 48-byte mixed layout
+plus exact red/green output, stable handles, and zero steady-state allocation
+growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

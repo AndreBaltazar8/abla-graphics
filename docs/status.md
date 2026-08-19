@@ -985,6 +985,10 @@ validity gate unchanged.
   different stage owns the package push block; the fixed solid-color fragment
   table has been removed. Arbitrary literals, cross-stage regression, exact
   real-driver pixels, stable handles, and zero-growth frames are verified.
+  Bounded prefix `+`/`-` now applies to scalar and `vec4` primaries; plus is an
+  IR identity while minus emits typed `OpFNegate`. Precedence, nested scalar
+  negation, identity byte equality, malformed-operand rejection, and exact
+  negative-vector real-driver output are verified.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

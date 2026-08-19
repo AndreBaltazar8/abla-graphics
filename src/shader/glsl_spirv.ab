@@ -175,7 +175,31 @@ fun glslRasterPrimary(
     val tokens: array<GlslRasterToken> = []
     var index = begin
     var valid = depth < 64 && index < sourceTokens.size
-    if (valid && sourceTokens[index].text == "(") {
+    if (valid && (sourceTokens[index].text == "+" ||
+        sourceTokens[index].text == "-")) {
+        val negate = sourceTokens[index].text == "-"
+        val signed = glslRasterPrimary(
+            sourceTokens,
+            index + 1,
+            push,
+            inputs,
+            depth + 1
+        )
+        valid = signed.valid
+        index = signed.next
+        if (valid) {
+            val copied = glslRasterTokensCopy(signed.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                tokens.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            if (negate) tokens.append(GlslRasterToken(
+                glslRasterTokenOperation,
+                opcode = 262271
+            ))
+        }
+    } else if (valid && sourceTokens[index].text == "(") {
         val nested = glslRasterExpression(
             sourceTokens,
             index + 1,
@@ -781,10 +805,28 @@ fun glslRasterFragmentSpirv(
                 tokenTypes[tokenIndex] = glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenOperation) {
-            valid = stackSize >= 2 && (token.opcode == 327809 ||
-                token.opcode == 327811 || token.opcode == 327813 ||
-                token.opcode == 327816)
-            if (valid) {
+            if (token.opcode == 262271) {
+                valid = stackSize >= 1 &&
+                    stackTypes[stackSize - 1] != glslRasterTypeInvalid
+                if (valid) {
+                    val operand = stack[stackSize - 1]
+                    val operandType = stackTypes[stackSize - 1]
+                    stackSize = stackSize - 1
+                    valueId = nextId
+                    nextId = nextId + 1
+                    words.append(262271)
+                    words.append(if (operandType == glslRasterTypeVector)
+                        vectorType else floatType)
+                    words.append(valueId)
+                    words.append(operand)
+                    tokenTypes[tokenIndex] = operandType
+                }
+            } else {
+                valid = stackSize >= 2 && (token.opcode == 327809 ||
+                    token.opcode == 327811 || token.opcode == 327813 ||
+                    token.opcode == 327816)
+            }
+            if (valid && token.opcode != 262271) {
                 var right = stack[stackSize - 1]
                 var left = stack[stackSize - 2]
                 val rightType = stackTypes[stackSize - 1]
