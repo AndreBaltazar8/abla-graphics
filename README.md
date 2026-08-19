@@ -30,8 +30,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   symbol/text parsing, deadline-driven keyboard repeat, hotplug-aware atomic
   output snapshots with optional xdg logical geometry and surface enter/leave
   tracking, optional per-surface fractional-scale preferences,
-  optional per-surface viewport destinations for presenting independently
-  sized high-resolution buffers at the xdg-shell logical size,
+  optional per-surface viewport source crops and destinations for presenting
+  independently sized high-resolution buffers at the xdg-shell logical size,
   compositor-mediated UTF-8
   clipboard ownership/offers with bounded descriptor transfers, xdg
   fullscreen/maximize/minimize/fixed-size controls, and ordered teardown

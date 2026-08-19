@@ -64,10 +64,11 @@ xdg-output manager attaches logical position/size and versioned atomic completio
 to each core object, keeping compositor coordinates separate from pixel modes.
 The independent fractional-scale object reports a per-surface numerator over
 120 and emits the preferred framebuffer extent without changing buffers behind
-the application's back. The independent viewporter object stages a logical
-destination for the next surface commit, allowing a differently sized physical
-buffer to be scaled without conflating xdg-shell coordinates and pixels.
-Applications retain explicit ownership of buffer creation and replacement.
+the application's back. The independent viewporter object stages an exact
+24.8 fixed-point source crop and logical destination for the next surface
+commit, allowing a differently sized physical buffer to be cropped and scaled
+without conflating xdg-shell coordinates and pixels. Applications retain
+explicit ownership of buffer creation and replacement.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

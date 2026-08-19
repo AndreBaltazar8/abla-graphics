@@ -92,12 +92,14 @@ Updated: 2026-08-19.
   framebuffer extents, and emits copied framebuffer-resize events. The current
   Weston gate verifies the capability-missing path leaves the direct connection
   healthy; deterministic tests cover 1.5x and half-pixel rounding.
-- Optional `wp_viewporter` support owns one viewport per surface and stages a
-  positive logical destination or the exact protocol reset for the next
-  surface commit. The headless-Weston gate enables the advertised extension,
-  presents a 640x400 physical buffer at an initial 320x200 logical size,
-  updates the destination through a 1024x768 configure, rejects a mixed reset
-  pair, then unsets and commits it. Physical shared-buffer
+- Optional `wp_viewporter` support owns one viewport per surface and stages an
+  exact 24.8 fixed-point source crop, a positive logical destination, or their
+  exact protocol resets for the next surface commit. Whole-pixel source setup
+  is a convenience over the exact fixed path. The headless-Weston gate enables
+  the advertised extension, presents a 640x400 physical buffer at an initial
+  320x200 logical size, applies a half-pixel source crop while updating the
+  destination through a 1024x768 configure, rejects malformed reset/value
+  tuples, then unsets and commits both states. Physical shared-buffer
   allocation/replacement remains explicit.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks

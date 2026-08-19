@@ -1258,11 +1258,15 @@ version-one viewport for the surface. `setViewportDestination(width, height)`
 stages an independently sized logical destination, and
 `setPreferredViewportDestination()` stages the current xdg-shell width and
 height; the next `commit()` or `presentSharedPixels()` applies it atomically
-with other surface state. `unsetViewportDestination()` stages the protocol's
-`-1, -1` reset. This lets an application allocate shared buffers at
-`preferredFramebufferWidth/Height` while presenting them at the logical window
-size. Buffer replacement remains explicit and affine rather than happening
-behind the caller's back.
+with other surface state. `setViewportSource(x, y, width, height)` stages a
+whole-pixel crop, while `setViewportSourceFixed()` exposes each exact signed
+24.8 protocol value for fractional crops. `unsetViewportSource()` emits four
+`-1.0` fixed values and `unsetViewportDestination()` emits the protocol's
+`-1, -1` reset. The setters reject zero/negative dimensions and partial reset
+tuples locally. This lets an application allocate shared buffers at
+`preferredFramebufferWidth/Height`, crop them when useful, and present them at
+the logical window size. Buffer replacement remains explicit and affine rather
+than happening behind the caller's back.
 
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,

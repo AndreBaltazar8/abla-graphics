@@ -25,6 +25,10 @@ val waylandToplevelStateMaximized = 1
 val waylandToplevelStateFullscreen = 2
 val waylandToplevelStateResizing = 3
 val waylandToplevelStateActivated = 4
+val waylandFixedDenominator = 256
+val waylandFixedMaximum = 2147483647
+val waylandFixedMaximumInteger = 8388607
+val waylandFixedUnset = -256
 val waylandFractionalScaleDenominator = 120
 val waylandMaximumFractionalScale = 7680
 val waylandNanosecondsPerMillisecond = 1000000
@@ -128,7 +132,8 @@ fun waylandPointerButton(code: int): int {
 fun waylandSignedU32(value: int): int =
     if (value >= 2147483648) value - 4294967296 else value
 
-fun waylandFixedInteger(value: int): int = waylandSignedU32(value) / 256
+fun waylandFixedInteger(value: int): int =
+    waylandSignedU32(value) / waylandFixedDenominator
 
 fun waylandKeyRepeatable(key: int): bool = key != keyUnknown &&
     key != keyCapsLock && key != keyScrollLock && key != keyNumLock &&
@@ -1375,6 +1380,10 @@ resource class WaylandXdgWindow(
     var viewportIdentifier: int,
     var viewportDestinationWidth: int,
     var viewportDestinationHeight: int,
+    var viewportSourceXFixed: int,
+    var viewportSourceYFixed: int,
+    var viewportSourceWidthFixed: int,
+    var viewportSourceHeightFixed: int,
     var xdgOutputManagerIdentifier: int,
     var xdgOutputManagerVersion: int,
     var outputsEnabled: bool,
@@ -1548,6 +1557,68 @@ resource class WaylandXdgWindow(
     fun viewportDestinationSet(): bool =
         this.viewportDestinationWidth > 0 &&
         this.viewportDestinationHeight > 0
+
+    fun viewportSourceSet(): bool = this.viewportSourceWidthFixed > 0 &&
+        this.viewportSourceHeightFixed > 0
+
+    fun setViewportSourceFixed(
+        xFixed: int,
+        yFixed: int,
+        widthFixed: int,
+        heightFixed: int
+    ): bool {
+        val unset = xFixed == waylandFixedUnset &&
+            yFixed == waylandFixedUnset &&
+            widthFixed == waylandFixedUnset &&
+            heightFixed == waylandFixedUnset
+        val validRectangle = xFixed >= 0 &&
+            xFixed <= waylandFixedMaximum && yFixed >= 0 &&
+            yFixed <= waylandFixedMaximum && widthFixed > 0 &&
+            widthFixed <= waylandFixedMaximum && heightFixed > 0 &&
+            heightFixed <= waylandFixedMaximum
+        val succeeded = this.valid() && this.viewportIdentifier >= 2 &&
+            (unset || validRectangle) && this.connection.send(waylandPacket(
+                this.viewportIdentifier,
+                1,
+                waylandU32ArrayPayload([
+                    xFixed,
+                    yFixed,
+                    widthFixed,
+                    heightFixed
+                ])
+            ))
+        if (succeeded) {
+            this.viewportSourceXFixed = if (unset) 0 else xFixed
+            this.viewportSourceYFixed = if (unset) 0 else yFixed
+            this.viewportSourceWidthFixed = if (unset) 0 else widthFixed
+            this.viewportSourceHeightFixed = if (unset) 0 else heightFixed
+        }
+        succeeded
+    }
+
+    fun setViewportSource(
+        x: int,
+        y: int,
+        width: int,
+        height: int
+    ): bool = x >= 0 && x <= waylandFixedMaximumInteger &&
+        y >= 0 && y <= waylandFixedMaximumInteger &&
+        width > 0 && width <= waylandFixedMaximumInteger &&
+        height > 0 && height <= waylandFixedMaximumInteger &&
+        this.setViewportSourceFixed(
+            x * waylandFixedDenominator,
+            y * waylandFixedDenominator,
+            width * waylandFixedDenominator,
+            height * waylandFixedDenominator
+        )
+
+    fun unsetViewportSource(): bool =
+        this.setViewportSourceFixed(
+            waylandFixedUnset,
+            waylandFixedUnset,
+            waylandFixedUnset,
+            waylandFixedUnset
+        )
 
     fun setViewportDestination(width: int, height: int): bool {
         val unset = width == -1 && height == -1
@@ -3782,6 +3853,10 @@ fun waylandXdgWindow(
         nativeByteBuffer(0),
         -1,
         [],
+        0,
+        0,
+        0,
+        0,
         0,
         0,
         0,
