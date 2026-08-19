@@ -1226,6 +1226,49 @@ fun main: int {
         rasterExpressionShader.spirv(shaderStageFragment)
     val rasterExpressionFragmentAgain =
         rasterExpressionShader.spirv(shaderStageFragment)
+    val rasterLocals = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ const vec4 scaled=-draw.first/draw.gain; const float weight=0.5; color=scaled*weight+draw.second; }"
+        ]
+    )
+    val rasterLocalsFragment = rasterLocals.spirv(shaderStageFragment)
+    val rasterLocalsExpanded = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=(-draw.first/draw.gain)*0.5+draw.second; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterDuplicateLocalRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ const vec4 value=vec4(1.0); const vec4 value=vec4(0.0); color=value; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterForwardLocalRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ const vec4 first=second; const vec4 second=vec4(1.0); color=first; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterLocalTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ const float wrong=draw.tint; color=draw.tint; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterLocalCollisionRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ const vec4 color=vec4(1.0); color=color; }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterParenthesized = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2427,7 +2470,20 @@ fun main: int {
         ) && spirvWordsEqual(
             rasterExpressionFragment.module,
             rasterExpressionFragmentAgain.module
-        ) && rasterParenthesized.succeeded &&
+        ) && rasterLocals.valid && rasterLocalsFragment.succeeded &&
+        rasterLocalsFragment.module.valid() &&
+        spirvWordsEqual(
+            rasterLocalsFragment.module,
+            rasterLocalsExpanded.module
+        ) && !rasterDuplicateLocalRejected.succeeded &&
+        rasterDuplicateLocalRejected.error != "" &&
+        !rasterForwardLocalRejected.succeeded &&
+        rasterForwardLocalRejected.error != "" &&
+        !rasterLocalTypeRejected.succeeded &&
+        rasterLocalTypeRejected.error != "" &&
+        !rasterLocalCollisionRejected.succeeded &&
+        rasterLocalCollisionRejected.error != "" &&
+        rasterParenthesized.succeeded &&
         spirvWordsOrdered(rasterParenthesized.module, 327809, 327822) &&
         rasterScalarFirst.succeeded &&
         spirvContainsWord(rasterScalarFirst.module, 327822) &&

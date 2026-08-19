@@ -1004,6 +1004,12 @@ validity gate unchanged.
   vector component, and scalar literal. The MRT module drops from 117 to 93
   words with two constants, while vector/scalar reuse, deterministic bytes, all
   exact pixels, stable handles, and zero-growth behavior remain verified.
+  Up to eight ordered immutable `const float`/`const vec4` locals now expand
+  into the typed postfix IR without function storage. Declared-type checking,
+  earlier-local chaining, inline byte equivalence, and duplicate, forward,
+  mismatch, and namespace-collision rejection are covered. The local-backed
+  push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
+  and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

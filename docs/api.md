@@ -1774,6 +1774,13 @@ Prefix `+` is an identity and prefix `-` emits typed scalar or vector
 Inputs and the push block may both be absent for a constant-only expression; a
 push block reflected only in another stage does not become a fragment interface
 requirement.
+Before the ordered output writes, a body may declare up to eight ordered
+`const float` or `const vec4` locals. Each initializer may use earlier locals,
+inputs, push members, literals, and the same typed operators. The parser checks
+the initializer result against the declared type, rejects forward references,
+duplicates, and interface/push-instance name collisions, then expands the local
+tokens into later expressions. This produces the same SSA-style SPIR-V bytes as
+writing the expression inline and introduces no function variable or storage.
 Equal-type operations emit floating scalar or vector instructions; `vec4 *
 float` and `float * vec4` emit `OpVectorTimesScalar` with normalized SPIR-V
 operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
@@ -1806,9 +1813,9 @@ distinct bit patterns remain distinct. The red/green MRT module consequently
 uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
 changing either output.
 `push-expression` loads a reflected scalar gain, executes vector/scalar division
-after vector negation and before addition, and proves its 48-byte mixed layout
-plus exact red/green output, stable handles, and zero steady-state allocation
-growth on both real backends.
+after vector negation into an immutable local and before addition, and proves
+its 48-byte mixed layout plus exact red/green output, stable handles, and zero
+steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:
