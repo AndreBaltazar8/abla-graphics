@@ -1279,7 +1279,9 @@ out-of-range defaults fail emission. The portable 32-bit scalar subset creates
 and dispatches real pipelines through both OpenGL and Vulkan. Vulkan
 additionally accepts packed
 64-bit double overrides, while OpenGL's specialization ABI deliberately
-rejects them. The
+rejects them. Scalar constants and specialized workgroup axes may coexist in
+one package; the emitter assigns disjoint SPIR-V IDs and preserves every
+reflected `SpecId` on both backend forms. The
 second grammar declares one binding-zero `Values` storage block and either
 stores a parsed unsigned integer literal or adds/multiplies the existing member
 value by a parsed unsigned literal. The arithmetic forms emit real

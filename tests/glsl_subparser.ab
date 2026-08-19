@@ -197,6 +197,16 @@ fun main: int {
         specializedWorkgroup.spirvOpenGl(shaderStageCompute)
     val specializedWorkgroupOpenGlSpirvAgain =
         specializedWorkgroup.spirvOpenGl(shaderStageCompute)
+    val combinedSpecialization = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=5) const bool enabled=true; layout(local_size_x=2,local_size_x_id=12) in; void main() {}"]
+    )
+    val combinedSpecializationSpirv =
+        combinedSpecialization.spirv(shaderStageCompute)
+    val combinedSpecializationSpirvAgain =
+        combinedSpecialization.spirv(shaderStageCompute)
+    val combinedSpecializationOpenGlSpirv =
+        combinedSpecialization.spirvOpenGl(shaderStageCompute)
     val invalidBindingArray = glslPackage(
         [shaderStageCompute],
         ["layout(set=0,binding=0) uniform sampler2D images[0]; void main() {}"]
@@ -661,6 +671,18 @@ fun main: int {
             specializedWorkgroupOpenGlSpirv.module,
             specializedWorkgroupOpenGlSpirvAgain.module
         ) &&
+        combinedSpecialization.valid &&
+        combinedSpecializationSpirv.succeeded &&
+        combinedSpecializationSpirv.module.version() == 66048 &&
+        combinedSpecializationSpirv.module.bound() == 12 &&
+        spirvWordsEqual(
+            combinedSpecializationSpirv.module,
+            combinedSpecializationSpirvAgain.module
+        ) &&
+        combinedSpecializationOpenGlSpirv.succeeded &&
+        combinedSpecializationOpenGlSpirv.module.version() ==
+            spirvVersion10 &&
+        combinedSpecializationOpenGlSpirv.module.bound() == 13 &&
         mixedSpecializedWorkgroup.valid &&
         mixedSpecializedWorkgroup.workgroups[0].x == 8 &&
         mixedSpecializedWorkgroup.workgroups[0].xId == 4 &&

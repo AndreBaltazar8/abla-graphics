@@ -150,7 +150,7 @@ fun glslComputeSpecializedNoOpSource(source: string): bool {
     valid && mainSeen && workgroupSeen && specializationSeen && versionSeen
 }
 
-fun glslComputeScalarSpecializedNoOpSource(source: string): bool {
+fun glslComputeGeneralSpecializedNoOpSource(source: string): bool {
     var index = 0
     var valid = true
     var mainSeen = false
@@ -186,11 +186,12 @@ fun glslComputeScalarSpecializedNoOpSource(source: string): bool {
                 } else {
                     val storage = glslReadName(source, layout.next)
                     index = glslSkipTrivia(source, storage.next)
-                    val concrete = layout.localSizeX > 0 &&
-                        layout.localSizeXId < 0 &&
-                        layout.localSizeYId < 0 &&
-                        layout.localSizeZId < 0
-                    valid = layout.valid && concrete &&
+                    val workgroup = layout.localSizeX >= 0 ||
+                        layout.localSizeY >= 0 || layout.localSizeZ >= 0 ||
+                        layout.localSizeXId >= 0 ||
+                        layout.localSizeYId >= 0 ||
+                        layout.localSizeZId >= 0
+                    valid = layout.valid && workgroup &&
                         storage.text == "in" && index < source.size &&
                         source[index] == 59
                     if (valid) {
@@ -565,6 +566,209 @@ fun glslSpecializedWorkgroupOpenGlSpirv(
     words
 }
 
+fun glslScalarDecorationWords(
+    constants: array<ShaderSpecializationConstant>,
+    firstConstantId: int
+): array<int> {
+    val words: array<int> = []
+    var index = 0
+    while (index < constants.size) {
+        words.append(262215)
+        words.append(firstConstantId + index * 2)
+        words.append(1)
+        words.append(constants[index].id)
+        index = index + 1
+    }
+    words
+}
+
+fun glslScalarDeclarationWords(
+    constants: array<ShaderSpecializationConstant>,
+    firstTypeId: int
+): array<int> {
+    val words: array<int> = []
+    var index = 0
+    while (index < constants.size) {
+        val constant = constants[index]
+        val default = glslSpecializationDefault(constant)
+        val typeId = firstTypeId + index * 2
+        val constantId = typeId + 1
+        if (constant.dataType == "bool") {
+            words.append(131092)
+            words.append(typeId)
+            words.append(if (default.bits != 0) 196656 else 196657)
+            words.append(typeId)
+            words.append(constantId)
+        } else if (constant.dataType == "int" ||
+            constant.dataType == "uint") {
+            words.append(262165)
+            words.append(typeId)
+            words.append(32)
+            words.append(if (constant.dataType == "int") 1 else 0)
+            words.append(262194)
+            words.append(typeId)
+            words.append(constantId)
+            words.append(default.bits & 4294967295)
+        } else {
+            words.append(196630)
+            words.append(typeId)
+            words.append(default.width)
+            words.append(if (default.width == 64) 327730 else 262194)
+            words.append(typeId)
+            words.append(constantId)
+            words.append(default.bits & 4294967295)
+            if (default.width == 64) {
+                words.append((default.bits >>> 32) & 4294967295)
+            }
+        }
+        index = index + 1
+    }
+    words
+}
+
+fun glslCombinedSpecializationSpirv(
+    workgroup: ShaderWorkgroup,
+    constants: array<ShaderSpecializationConstant>,
+    openGl: bool
+): array<int> {
+    var valid = constants.size > 0
+    var doubleCapability = false
+    var index = 0
+    while (valid && index < constants.size) {
+        valid = glslSpecializationDefault(constants[index]).valid
+        doubleCapability = doubleCapability ||
+            constants[index].dataType == "double"
+        index = index + 1
+    }
+    val words: array<int> = []
+    if (valid) {
+        val firstTypeId = if (openGl) 11 else 10
+        val functionId = if (openGl) 5 else 4
+        val labelId = if (openGl) 6 else 5
+        words.append(spirvMagic)
+        words.append(if (openGl) spirvVersion10 else 66048)
+        words.append(0)
+        words.append(firstTypeId + constants.size * 2)
+        words.append(0)
+        words.append(131089)
+        words.append(1)
+        if (doubleCapability) {
+            words.append(131089)
+            words.append(10)
+        }
+        words.append(196622)
+        words.append(0)
+        words.append(1)
+        words.append(327695)
+        words.append(5)
+        words.append(functionId)
+        words.append(1852399981)
+        words.append(0)
+        if (openGl) {
+            words.append(393232)
+            words.append(functionId)
+            words.append(17)
+            words.append(workgroup.x)
+            words.append(workgroup.y)
+            words.append(workgroup.z)
+        } else {
+            words.append(393547)
+            words.append(functionId)
+            words.append(38)
+            words.append(7)
+            words.append(8)
+            words.append(9)
+        }
+        if (workgroup.xId >= 0) {
+            words.append(262215)
+            words.append(7)
+            words.append(1)
+            words.append(workgroup.xId)
+        }
+        if (workgroup.yId >= 0) {
+            words.append(262215)
+            words.append(8)
+            words.append(1)
+            words.append(workgroup.yId)
+        }
+        if (workgroup.zId >= 0) {
+            words.append(262215)
+            words.append(9)
+            words.append(1)
+            words.append(workgroup.zId)
+        }
+        if (openGl) {
+            words.append(262215)
+            words.append(10)
+            words.append(11)
+            words.append(25)
+        }
+        val decorations = glslScalarDecorationWords(
+            constants,
+            firstTypeId + 1
+        )
+        index = 0
+        while (index < decorations.size) {
+            words.append(decorations[index])
+            index = index + 1
+        }
+        words.append(131091)
+        words.append(1)
+        words.append(196641)
+        words.append(2)
+        words.append(1)
+        words.append(262165)
+        words.append(if (openGl) 3 else 6)
+        words.append(32)
+        words.append(0)
+        if (openGl) {
+            words.append(262167)
+            words.append(4)
+            words.append(3)
+            words.append(3)
+        }
+        words.append(if (workgroup.xId >= 0) 262194 else 262187)
+        words.append(if (openGl) 3 else 6)
+        words.append(7)
+        words.append(workgroup.x)
+        words.append(if (workgroup.yId >= 0) 262194 else 262187)
+        words.append(if (openGl) 3 else 6)
+        words.append(8)
+        words.append(workgroup.y)
+        words.append(if (workgroup.zId >= 0) 262194 else 262187)
+        words.append(if (openGl) 3 else 6)
+        words.append(9)
+        words.append(workgroup.z)
+        if (openGl) {
+            words.append(393267)
+            words.append(4)
+            words.append(10)
+            words.append(7)
+            words.append(8)
+            words.append(9)
+        }
+        val declarations = glslScalarDeclarationWords(
+            constants,
+            firstTypeId
+        )
+        index = 0
+        while (index < declarations.size) {
+            words.append(declarations[index])
+            index = index + 1
+        }
+        words.append(327734)
+        words.append(1)
+        words.append(functionId)
+        words.append(0)
+        words.append(2)
+        words.append(131320)
+        words.append(labelId)
+        words.append(65789)
+        words.append(65592)
+    }
+    words
+}
+
 fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
     val specializedNoOp = this.valid && stage == shaderStageCompute &&
         this.stages.size == 1 &&
@@ -583,7 +787,16 @@ fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
         this.workgroups[0].zId < 0 &&
         this.bindings.size == 0 && this.pushConstants.size == 0 &&
         this.specializationConstants.size > 0 &&
-        glslComputeScalarSpecializedNoOpSource(this.stages[0].source)
+        glslComputeGeneralSpecializedNoOpSource(this.stages[0].source)
+    val combinedSpecializedNoOp = this.valid && stage == shaderStageCompute &&
+        this.stages.size == 1 &&
+        this.stages[0].kind == shaderStageCompute &&
+        this.workgroups.size == 1 && this.locations.size == 0 &&
+        (this.workgroups[0].xId >= 0 || this.workgroups[0].yId >= 0 ||
+         this.workgroups[0].zId >= 0) &&
+        this.bindings.size == 0 && this.pushConstants.size == 0 &&
+        this.specializationConstants.size > 0 &&
+        glslComputeGeneralSpecializedNoOpSource(this.stages[0].source)
     var words: array<int> = []
     if (specializedNoOp) {
         words = glslSpecializedWorkgroupOpenGlSpirv(this.workgroups[0])
@@ -592,12 +805,20 @@ fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
             this.workgroups[0],
             this.specializationConstants
         )
+    } else if (combinedSpecializedNoOp) {
+        words = glslCombinedSpecializationSpirv(
+            this.workgroups[0],
+            this.specializationConstants,
+            true
+        )
     }
     val module = spirvModule(words)
     GlslSpirvResult(
         module,
-        (specializedNoOp || scalarSpecializedNoOp) && module.valid(),
-        if (specializedNoOp || scalarSpecializedNoOp) "" else
+        (specializedNoOp || scalarSpecializedNoOp ||
+         combinedSpecializedNoOp) && module.valid(),
+        if (specializedNoOp || scalarSpecializedNoOp ||
+            combinedSpecializedNoOp) "" else
             "GLSL source is outside the deterministic OpenGL SPIR-V subset"
     )
 }
@@ -886,7 +1107,11 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val scalarSpecializedNoOp = computeCommon && !specializedWorkgroup &&
         this.bindings.size == 0 && this.pushConstants.size == 0 &&
         this.specializationConstants.size > 0 &&
-        glslComputeScalarSpecializedNoOpSource(this.stages[0].source)
+        glslComputeGeneralSpecializedNoOpSource(this.stages[0].source)
+    val combinedSpecializedNoOp = specializedWorkgroup &&
+        this.bindings.size == 0 && this.pushConstants.size == 0 &&
+        this.specializationConstants.size > 0 &&
+        glslComputeGeneralSpecializedNoOpSource(this.stages[0].source)
     val noOp = computeCommon && !specializedWorkgroup &&
         this.bindings.size == 0 && this.specializationConstants.size == 0 &&
         glslComputeNoOpSource(this.stages[0].source)
@@ -922,7 +1147,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val texturedFragment = graphicsCommon && stage == shaderStageFragment &&
         glslTexturedFragmentSource(this.source(shaderStageFragment))
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
-        storage || vertex ||
+        combinedSpecializedNoOp || storage || vertex ||
         vertexBuffer || fragment ||
         multipleColorFragment ||
         coloredVertex || coloredFragment || texturedVertex ||
@@ -935,6 +1160,12 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         words = glslScalarSpecializationSpirv(
             this.workgroups[0],
             this.specializationConstants
+        )
+    } else if (combinedSpecializedNoOp) {
+        words = glslCombinedSpecializationSpirv(
+            this.workgroups[0],
+            this.specializationConstants,
+            false
         )
     } else if (noOp) {
         val workgroup = this.workgroups[0]
