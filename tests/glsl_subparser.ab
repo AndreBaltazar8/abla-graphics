@@ -795,6 +795,30 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<2u){ break; values.value=1u; } values.value=2u; }"]
     ).spirv(shaderStageCompute)
+    val storageEarlyReturn = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; return; } values.value=2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageEarlyReturnAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; return; } values.value=2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageBothArmsReturn = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; return; } else { values.value=2u; return; } }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedLoopReturn = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<2u){ values.value++; if(values.value==1u){ return; } } values.value=3u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidReturnValue = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=1u; return 1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidStatementAfterReturn = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=1u; return; values.value=2u; }"]
+    ).spirv(shaderStageCompute)
     val storageElseIf = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else if(values.value==1u){ values.value=2u; } else if(values.value==2u){ values.value=3u; } else { values.value=4u; } }"]
@@ -1313,6 +1337,20 @@ fun main: int {
         !invalidContinueOutsideLoop.succeeded &&
         !invalidBreakMissingSemicolon.succeeded &&
         !invalidStatementAfterBreak.succeeded
+    val structuredReturnPassed =
+        storageEarlyReturn.succeeded && storageEarlyReturn.module.valid() &&
+        spirvWordsEqual(storageEarlyReturn.module, storageEarlyReturnAgain.module) &&
+        spirvWordCount(storageEarlyReturn.module, 65789) == 2 &&
+        storageBothArmsReturn.succeeded &&
+        storageBothArmsReturn.module.valid() &&
+        spirvWordCount(storageBothArmsReturn.module, 65789) == 2 &&
+        spirvWordCount(storageBothArmsReturn.module, 65791) == 1 &&
+        storageNestedLoopReturn.succeeded &&
+        storageNestedLoopReturn.module.valid() &&
+        spirvWordCount(storageNestedLoopReturn.module, 262390) == 1 &&
+        spirvWordCount(storageNestedLoopReturn.module, 65789) == 2 &&
+        !invalidReturnValue.succeeded &&
+        !invalidStatementAfterReturn.succeeded
     if (interpolated.valid && interpolated.workgroups.size == 1 &&
         interpolated.workgroups[0].x == 6 &&
         interpolated.specializationConstants.size == 2 &&
@@ -1816,6 +1854,7 @@ fun main: int {
         !invalidElseBody.succeeded &&
         structuredLoopPassed &&
         structuredLoopJumpsPassed &&
+        structuredReturnPassed &&
         storageBooleanLiteral.succeeded &&
         storageBooleanLiteral.module.valid() &&
         spirvContainsWord(storageBooleanLiteral.module, 196649) &&

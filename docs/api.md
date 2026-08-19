@@ -1510,9 +1510,16 @@ Continue-edge values merge in the loop's continue block before the single
 header back edge; break-edge values merge with the condition-false value in the
 loop merge block. This preserves zero-storage locals for multiple early edges
 and nested loops. A statement directly following an unconditional jump in the
-same block is a checked subset failure. `for`, `do`/`while`, `switch`, and early
-`return` remain explicit grammar failures rather than being ignored or
-miscompiled.
+same block is a checked subset failure. `for`, `do`/`while`, `switch`, and
+`return expression;` remain explicit grammar failures rather than being ignored
+or miscompiled.
+
+Because compute `main` returns `void`, `return;` is also supported at function
+or nested control depth. It emits `OpReturn` immediately and marks that arm
+terminated. When every arm of a selection returns or jumps away, the structural
+merge label is retained and sealed with `OpUnreachable`; no synthetic final
+return is appended after a terminated outer block. Return expressions and
+statements directly following an unconditional return remain checked failures.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

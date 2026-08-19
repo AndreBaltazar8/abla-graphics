@@ -31,6 +31,7 @@ val glslStorageTokenWhileCondition = 11
 val glslStorageTokenWhileEnd = 12
 val glslStorageTokenBreak = 13
 val glslStorageTokenContinue = 14
+val glslStorageTokenReturn = 15
 val glslStorageOperationInteger = 0
 val glslStorageOperationComparison = 1
 val glslStorageOperationLogical = 2
@@ -2166,6 +2167,25 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 column = jumpToken.column
             ))
             statements = statements + 1
+        } else if (index < sourceTokens.size &&
+            sourceTokens[index].is(glslTokenIdentifier, "return")) {
+            val returnToken = sourceTokens[index]
+            valid = statements < 64 && programTokens.size + 1 < 8192
+            index = index + 1
+            matched = glslStorageTokenTake(
+                sourceTokens,
+                index,
+                glslTokenPunctuation,
+                ";"
+            )
+            valid = valid && matched.valid
+            index = matched.next
+            if (valid) programTokens.append(GlslStorageToken(
+                glslStorageTokenReturn,
+                line = returnToken.line,
+                column = returnToken.column
+            ))
+            statements = statements + 1
         } else {
             valid = statements < 64
             val statementLine = if (index < sourceTokens.size)
@@ -2992,6 +3012,7 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                         controlDepth = controlDepth - 1
                     } else if (!mergeLive) {
                         valid = true
+                        body.append(65791)
                         currentBlockTerminated = true
                         controlDepth = controlDepth - 1
                     }
@@ -3159,6 +3180,13 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                         else loopMergeIds[loopIndex])
                     currentBlockTerminated = true
                 }
+            }
+        } else if (token.kind == glslStorageTokenReturn) {
+            pushesResult = false
+            valid = stackSize == 0
+            if (valid) {
+                body.append(65789)
+                currentBlockTerminated = true
             }
         } else if (token.kind == glslStorageTokenWhileEnd) {
             pushesResult = false
@@ -3549,7 +3577,7 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
         words.append(body[wordIndex])
         wordIndex = wordIndex + 1
     }
-    words.append(65789)
+    if (!currentBlockTerminated) words.append(65789)
     words.append(65592)
     GlslStorageSpirvEmission(words)
 }

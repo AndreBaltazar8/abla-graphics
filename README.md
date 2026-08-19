@@ -46,8 +46,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   typed selection-merge and loop-carried phis, plus signed/unsigned `min`,
   `max`, and `clamp`, and nested structured
   `if`/`else if`/`else` branches and `while` loops with nearest-loop `break`
-  and `continue` over buffer updates, with unsupported GLSL rejected rather
-  than ignored;
+  and `continue` plus void early `return` over buffer updates, with unsupported
+  GLSL rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`

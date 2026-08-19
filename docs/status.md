@@ -439,6 +439,11 @@ Updated: 2026-08-19.
   condition-false path after the loop. Tests cover deterministic output,
   integer and Boolean locals, nested-loop targeting, multiple early edges,
   malformed/out-of-loop jumps, and statements after an unconditional jump.
+  Void early `return;` emits `OpReturn` from function or nested control depth.
+  Selection reachability omits exited arms from local phis and seals a merge
+  reached by no arm with `OpUnreachable`, avoiding unterminated dead blocks.
+  Tests cover repeat-identical output, one-arm and both-arm returns, a return
+  nested in a loop, rejected return values, and rejected following statements.
   Missing initializers, forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   every simple/compound/prefix/postfix mutation of a const local, and local-only
@@ -465,7 +470,10 @@ Updated: 2026-08-19.
   The live shader advances a zero-storage `iterations` local through two static
   continue edges, then takes one of two static break edges, folds the merged
   result into one final `tail = 8` buffer write, and returns the exact packed
-  value `34359738375` through both OpenGL and Vulkan.
+  value `34359738375` through both OpenGL and Vulkan. A final selection takes
+  an actual early-return path after the checked output; its alternate arm writes
+  a failure sentinel and also returns, so both drivers validate a fully
+  terminating selection and unreachable structural merge.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
