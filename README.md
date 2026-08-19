@@ -28,8 +28,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   buffering, allocation-stable frame callbacks, capability-driven seat,
   pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
   symbol/text parsing, deadline-driven keyboard repeat, atomic output snapshots
-  and surface enter/leave tracking, and ordered teardown without
-  `libwayland-client` or `libxkbcommon`;
+  and surface enter/leave tracking, compositor-mediated UTF-8 clipboard
+  ownership/offers with bounded descriptor transfers, and ordered teardown
+  without `libwayland-client` or `libxkbcommon`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
 - a Vulkan X11 surface with presentation support, capability/format queries,
@@ -169,7 +170,8 @@ This runs:
 - the direct X11 protocol test under Xvfb;
 - deterministic Wayland wire tests plus live direct-client registry/bind and
   stable xdg-shell configure/ack probes, a real `wl_shm` pixel frame, and a
-  captured 1024x768 Pixman compositor screenshot against headless Weston;
+  captured 1024x768 Pixman compositor screenshot against headless Weston, plus
+  a real two-client selection transfer through nested Weston;
 - a real Vulkan 1.4 instance/device/GPU-command/readback test;
 - headless and surfaced EGL/OpenGL draw/readback tests; and
 - runtime/frozen GLSL subparser structure and invalid-stage diagnostics.
@@ -192,6 +194,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   keymap report using the portable window-event vocabulary;
 - `examples/wayland-output`: direct output name, current mode, physical size,
   and integer scale report;
+- `examples/wayland-clipboard`: direct data-device UTF-8 copy/paste using C and
+  V after the compositor supplies a real input serial;
 - `examples/vulkan-info`: loader and physical-adapter report;
 - `examples/vulkan-surface`: X11 WSI adapter/capability selection;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and

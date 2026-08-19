@@ -24,6 +24,7 @@ for sample in x11-window wayland-info wayland-window wayland-pixels \
     wayland-animation \
     wayland-input \
     wayland-output \
+    wayland-clipboard \
     vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \

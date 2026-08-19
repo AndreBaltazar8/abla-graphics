@@ -38,6 +38,12 @@ cd "$compiler_root"
     -o "$output_directory/wayland_animation" --no-cache
 "$compiler" build "$project_root/tests/wayland_input.ab" \
     -o "$output_directory/wayland_input" --no-cache
+"$compiler" build "$project_root/tests/wayland_clipboard_owner.ab" \
+    -o "$output_directory/wayland_clipboard_owner" --no-cache
+"$compiler" build "$project_root/tests/wayland_clipboard_reader.ab" \
+    -o "$output_directory/wayland_clipboard_reader" --no-cache
+"$compiler" build "$project_root/tests/wayland_clipboard_pipe.ab" \
+    -o "$output_directory/wayland_clipboard_pipe" --no-cache
 
 set +e
 "$output_directory/wayland_protocol"
@@ -48,8 +54,19 @@ if [[ $status -ne 42 ]]; then
     exit 1
 fi
 
+set +e
+"$output_directory/wayland_clipboard_pipe"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'Wayland clipboard pipe test returned %s, expected 42\n' "$status" >&2
+    exit 1
+fi
+
 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$project_root/tools/test-wayland-input.sh"
+xvfb-run -a -s "-screen 0 1024x768x24" \
+    "$project_root/tools/test-wayland-clipboard.sh"
 
 XDG_RUNTIME_DIR="$runtime_directory" weston \
     --backend=headless-backend.so \

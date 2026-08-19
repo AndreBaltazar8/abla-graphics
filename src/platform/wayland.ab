@@ -17,6 +17,10 @@ val waylandSeatCapabilityPointer = 1
 val waylandSeatCapabilityKeyboard = 2
 val waylandMaximumRepeatRate = 1000
 val waylandMaximumRepeatDelayMilliseconds = 600000
+val waylandMaximumClipboardBytes = 1048576
+val waylandClipboardTransferTimeoutMilliseconds = 5000
+val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
+val waylandClipboardMimeText = "text/plain"
 val waylandNanosecondsPerMillisecond = 1000000
 val waylandNanosecondsPerSecond = 1000000000
 val waylandMaximumInteger = 9223372036854775807
@@ -384,6 +388,70 @@ fun waylandSendDescriptor(
     succeeded
 }
 
+class WaylandClipboardRead(
+    val succeeded: bool = false,
+    val text: string = ""
+)
+
+trusted fun waylandReadDescriptorText(
+    descriptor: int,
+    maximum: int = waylandMaximumClipboardBytes
+): WaylandClipboardRead {
+    var result = ""
+    var succeeded = descriptor >= 0 && maximum >= 0 &&
+        maximum <= waylandMaximumClipboardBytes
+    val bytes = nativeByteBuffer(maximum + 1)
+    val poll = nativeByteBuffer(8)
+    var measured = 0
+    var complete = false
+    while (succeeded && !complete && measured <= maximum) {
+        waylandStoreU32(poll, 0, descriptor)
+        poll.store(4, 1)
+        poll.store(5, 0)
+        poll.store(6, 0)
+        poll.store(7, 0)
+        var ready = linuxSyscall3(
+            7,
+            nativePointerAddress(poll.address),
+            1,
+            waylandClipboardTransferTimeoutMilliseconds
+        )
+        while (ready == -4) {
+            ready = linuxSyscall3(
+                7,
+                nativePointerAddress(poll.address),
+                1,
+                waylandClipboardTransferTimeoutMilliseconds
+            )
+        }
+        succeeded = ready > 0 && (poll.load(6) & 25) != 0
+        if (succeeded) {
+            var amount = linuxSyscall3(
+                0,
+                descriptor,
+                nativePointerAddress(bytes.pointerAt(measured)),
+                maximum + 1 - measured
+            )
+            while (amount == -4) {
+                amount = linuxSyscall3(
+                    0,
+                    descriptor,
+                    nativePointerAddress(bytes.pointerAt(measured)),
+                    maximum + 1 - measured
+                )
+            }
+            succeeded = amount >= 0
+            if (amount == 0) complete = true
+            else if (amount > 0) measured = measured + amount
+        }
+    }
+    succeeded = succeeded && complete && measured <= maximum
+    poll.close()
+    if (succeeded) result = bytes.adoptString(measured)
+    else bytes.close()
+    WaylandClipboardRead(succeeded, result)
+}
+
 fun waylandStringPayload(value: string): string {
     var valid = value.size <= 4096
     var index = 0
@@ -453,6 +521,12 @@ fun waylandString(value: string, offset: int): WaylandString {
     WaylandString(valid, text, if (valid) offset + 4 + padded else offset)
 }
 
+fun waylandNullableStringPayloadValid(value: string): bool {
+    val parsed = waylandString(value, 0)
+    (value.size == 4 && waylandU32(value, 0) == 0) ||
+        (parsed.valid && parsed.next == value.size)
+}
+
 class WaylandMessage(
     val valid: bool,
     val objectIdentifier: int = 0,
@@ -519,6 +593,48 @@ class WaylandBinding(
     val interfaceName: string = "",
     val version: int = 0
 )
+
+class WaylandDataOffer(
+    val identifier: int = 0,
+    val mimeTypes: array<string> = []
+) {
+    fun valid(): bool = this.identifier > 0
+
+    fun hasMime(mimeType: string): bool {
+        var found = false
+        var index = 0
+        while (!found && index < this.mimeTypes.size) {
+            found = this.mimeTypes[index] == mimeType
+            index = index + 1
+        }
+        found
+    }
+
+    fun textMime(): string =
+        if (this.hasMime(waylandClipboardMimeUtf8)) waylandClipboardMimeUtf8
+        else if (this.hasMime(waylandClipboardMimeText)) waylandClipboardMimeText
+        else ""
+
+    fun withMime(mimeType: string): WaylandDataOffer {
+        val retained: array<string> = []
+        var index = 0
+        while (index < this.mimeTypes.size) {
+            retained.append(this.mimeTypes[index])
+            index = index + 1
+        }
+        if (mimeType != "" && !this.hasMime(mimeType) &&
+            retained.size < 256) retained.append(mimeType)
+        WaylandDataOffer(this.identifier, retained)
+    }
+}
+
+class WaylandDataSource(
+    val identifier: int = 0,
+    val text: string = ""
+) {
+    fun valid(): bool = this.identifier >= 2 &&
+        this.text.size <= waylandMaximumClipboardBytes
+}
 
 class WaylandOutputGeometry(
     val valid: bool = false,
@@ -1031,6 +1147,15 @@ resource class WaylandXdgWindow(
     var keyboardFocused: bool,
     var pointerX: int,
     var pointerY: int,
+    var lastInputSerial: int,
+    var dataDeviceManagerIdentifier: int,
+    var dataDeviceManagerVersion: int,
+    var dataDeviceIdentifier: int,
+    var clipboardSources: array<WaylandDataSource>,
+    var activeClipboardSourceIdentifier: int,
+    var clipboardOffers: array<WaylandDataOffer>,
+    var selectionOfferIdentifier: int,
+    var clipboardTransfersServed: int,
     var keymapFormat: int,
     var keymap: string,
     var parsedKeymap: XkbKeymap,
@@ -1252,6 +1377,201 @@ resource class WaylandXdgWindow(
             messages = messages + 1
         }
         succeeded && this.seatCapabilitiesReceived
+    }
+
+    fun clipboardOfferIndex(identifier: int): int {
+        var result = -1
+        var index = 0
+        while (result < 0 && index < this.clipboardOffers.size) {
+            if (this.clipboardOffers[index].identifier == identifier) {
+                result = index
+            }
+            index = index + 1
+        }
+        result
+    }
+
+    fun clipboardSourceIndex(identifier: int): int {
+        var result = -1
+        var index = 0
+        while (result < 0 && index < this.clipboardSources.size) {
+            if (this.clipboardSources[index].identifier == identifier) {
+                result = index
+            }
+            index = index + 1
+        }
+        result
+    }
+
+    fun removeClipboardOffer(identifier: int): void {
+        val retained: array<WaylandDataOffer> = []
+        var index = 0
+        while (index < this.clipboardOffers.size) {
+            if (this.clipboardOffers[index].identifier != identifier) {
+                retained.append(this.clipboardOffers[index])
+            }
+            index = index + 1
+        }
+        this.clipboardOffers = retained
+        return
+    }
+
+    fun removeClipboardSource(identifier: int): void {
+        val retained: array<WaylandDataSource> = []
+        var index = 0
+        while (index < this.clipboardSources.size) {
+            if (this.clipboardSources[index].identifier != identifier) {
+                retained.append(this.clipboardSources[index])
+            }
+            index = index + 1
+        }
+        this.clipboardSources = retained
+        if (this.activeClipboardSourceIdentifier == identifier) {
+            this.activeClipboardSourceIdentifier = 0
+        }
+        return
+    }
+
+    fun enableClipboard(): bool {
+        var succeeded = this.valid()
+        if (succeeded && this.seatIdentifier == 0) {
+            succeeded = this.enableInput()
+        }
+        if (succeeded && this.dataDeviceIdentifier == 0) {
+            val manager = this.connection.bind(
+                "wl_data_device_manager",
+                3
+            )
+            succeeded = manager.valid
+            val identifier = if (succeeded)
+                this.connection.allocateIdentifier()
+            else -1
+            if (succeeded) succeeded = identifier >= 2 &&
+                this.connection.send(waylandPacket(
+                    manager.identifier,
+                    1,
+                    waylandU32PairPayload(identifier, this.seatIdentifier)
+                ))
+            if (succeeded) {
+                this.dataDeviceManagerIdentifier = manager.identifier
+                this.dataDeviceManagerVersion = manager.version
+                this.dataDeviceIdentifier = identifier
+            }
+        }
+        succeeded && this.dataDeviceIdentifier >= 2
+    }
+
+    fun setClipboard(value: string): bool {
+        var succeeded = value.size <= waylandMaximumClipboardBytes &&
+            this.clipboardSources.size < 64 &&
+            this.lastInputSerial > 0 && this.enableClipboard()
+        val sourceIdentifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        if (succeeded) succeeded = sourceIdentifier >= 2 &&
+            this.connection.send(waylandNewIdentifierRequest(
+                this.dataDeviceManagerIdentifier,
+                0,
+                sourceIdentifier
+            )) && this.connection.send(waylandStringRequest(
+                sourceIdentifier,
+                0,
+                waylandClipboardMimeUtf8
+            )) && this.connection.send(waylandStringRequest(
+                sourceIdentifier,
+                0,
+                waylandClipboardMimeText
+            )) && this.connection.send(waylandPacket(
+                this.dataDeviceIdentifier,
+                1,
+                waylandU32PairPayload(
+                    sourceIdentifier,
+                    this.lastInputSerial
+                )
+            ))
+        if (succeeded) {
+            this.clipboardSources.append(WaylandDataSource(
+                sourceIdentifier,
+                value
+            ))
+            this.activeClipboardSourceIdentifier = sourceIdentifier
+        }
+        succeeded
+    }
+
+    fun selectionTextMime(): string {
+        val index = this.clipboardOfferIndex(
+            this.selectionOfferIdentifier
+        )
+        if (index >= 0) this.clipboardOffers[index].textMime() else ""
+    }
+
+    trusted fun requestClipboard(): bool {
+        var succeeded = this.enableClipboard()
+        val localIndex = this.clipboardSourceIndex(
+            this.activeClipboardSourceIdentifier
+        )
+        if (succeeded && localIndex >= 0) {
+            succeeded = this.enqueueInputEvent(WindowEvent(
+                windowEventClipboard,
+                1,
+                1,
+                this.clipboardSources[localIndex].text
+            ))
+        } else if (succeeded) {
+            val mimeType = this.selectionTextMime()
+            succeeded = this.selectionOfferIdentifier > 0 && mimeType != ""
+            val descriptors = nativeByteBuffer(8)
+            if (succeeded) succeeded = linuxSyscall2(
+                293,
+                nativePointerAddress(descriptors.address),
+                524288
+            ) == 0
+            val readDescriptor = if (succeeded)
+                waylandNativeU32(descriptors, 0)
+            else -1
+            val writeDescriptor = if (succeeded)
+                waylandNativeU32(descriptors, 4)
+            else -1
+            if (succeeded) succeeded = waylandSendDescriptor(
+                this.connection.descriptor,
+                waylandStringRequest(
+                    this.selectionOfferIdentifier,
+                    1,
+                    mimeType
+                ),
+                writeDescriptor
+            )
+            if (writeDescriptor >= 0) linuxSyscall1(3, writeDescriptor)
+            val received = if (succeeded)
+                waylandReadDescriptorText(readDescriptor)
+            else WaylandClipboardRead()
+            if (readDescriptor >= 0) linuxSyscall1(3, readDescriptor)
+            descriptors.close()
+            succeeded = succeeded && received.succeeded &&
+                this.enqueueInputEvent(WindowEvent(
+                    windowEventClipboard,
+                    1,
+                    1,
+                    received.text
+                ))
+        }
+        if (!succeeded) this.enqueueInputEvent(WindowEvent(
+            windowEventClipboard
+        ))
+        succeeded
+    }
+
+    fun requestClipboardFormats(): bool {
+        val succeeded = this.enableClipboard()
+        val available = this.clipboardSourceIndex(
+            this.activeClipboardSourceIdentifier
+        ) >= 0 || this.selectionTextMime() != ""
+        succeeded && this.enqueueInputEvent(WindowEvent(
+            windowEventClipboard,
+            1,
+            if (available) 1 else 0
+        ))
     }
 
     fun enqueueInputEvent(event: WindowEvent): bool {
@@ -1657,6 +1977,7 @@ resource class WaylandXdgWindow(
             message.opcode == 0) {
             result = if (message.payload.size == 16) 1 else -1
             if (result > 0) {
+                this.lastInputSerial = waylandU32(message.payload, 0)
                 this.pointerFocused =
                     waylandU32(message.payload, 4) == this.surfaceIdentifier
                 this.pointerX = waylandFixedInteger(
@@ -1704,6 +2025,7 @@ resource class WaylandXdgWindow(
             result = if (message.payload.size == 16 &&
                 waylandU32(message.payload, 12) <= 1) 1 else -1
             if (result > 0) {
+                this.lastInputSerial = waylandU32(message.payload, 0)
                 val platformCode = waylandU32(message.payload, 8)
                 if (!this.enqueueInputEvent(WindowEvent(
                     windowEventPointerButton,
@@ -1798,6 +2120,7 @@ resource class WaylandXdgWindow(
                 (keysLength / 4) * 4 == keysLength &&
                 12 + padded == message.payload.size
             if (valid) {
+                this.lastInputSerial = waylandU32(message.payload, 0)
                 this.keyboardFocused = surface == this.surfaceIdentifier
                 if (!this.keyboardFocused) this.cancelKeyRepeat()
                 valid = this.enqueueInputEvent(WindowEvent(
@@ -1837,6 +2160,7 @@ resource class WaylandXdgWindow(
             result = if (message.payload.size == 16 &&
                 waylandU32(message.payload, 12) <= 1) 1 else -1
             if (result > 0) {
+                this.lastInputSerial = waylandU32(message.payload, 0)
                 val platformCode = waylandU32(message.payload, 8)
                 val pressed = waylandU32(message.payload, 12)
                 if (!this.enqueueKeyboardEvents(platformCode, pressed)) {
@@ -1884,6 +2208,123 @@ resource class WaylandXdgWindow(
         result
     }
 
+    fun dispatchDataOffer(message: WaylandMessage): int {
+        val index = this.clipboardOfferIndex(message.objectIdentifier)
+        var result = 0
+        if (index >= 0 && message.opcode == 0) {
+            val mimeType = waylandString(message.payload, 0)
+            result = if (mimeType.valid &&
+                mimeType.next == message.payload.size) 1 else -1
+            if (result > 0) this.clipboardOffers[index] =
+                this.clipboardOffers[index].withMime(mimeType.text)
+        } else if (index >= 0 && (message.opcode == 1 ||
+            message.opcode == 2)) {
+            result = if (message.payload.size == 4) 1 else -1
+        }
+        result
+    }
+
+    fun dispatchDataSource(message: WaylandMessage): int {
+        val index = this.clipboardSourceIndex(message.objectIdentifier)
+        var result = 0
+        if (index >= 0 && message.opcode == 0) {
+            result = if (waylandNullableStringPayloadValid(
+                message.payload
+            )) 1 else -1
+        } else if (index >= 0 && message.opcode == 1) {
+            result = -1
+        } else if (index >= 0 && message.opcode == 2) {
+            result = if (message.payload.size == 0) 1 else -1
+            if (result > 0) {
+                result = if (this.connection.send(waylandPacket(
+                    message.objectIdentifier,
+                    1
+                ))) 1 else -1
+                if (result > 0) this.removeClipboardSource(
+                    message.objectIdentifier
+                )
+            }
+        } else if (index >= 0 && (message.opcode == 3 ||
+            message.opcode == 4)) {
+            result = if (message.payload.size == 0) 1 else -1
+        } else if (index >= 0 && message.opcode == 5) {
+            result = if (message.payload.size == 4) 1 else -1
+        }
+        result
+    }
+
+    fun dispatchDataDevice(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.dataDeviceIdentifier &&
+            message.opcode == 0) {
+            val identifier = if (message.payload.size == 4)
+                waylandU32(message.payload, 0)
+            else 0
+            result = if (identifier > 0 &&
+                this.clipboardOfferIndex(identifier) < 0 &&
+                this.clipboardOffers.size < 64) 1 else -1
+            if (result > 0) this.clipboardOffers.append(
+                WaylandDataOffer(identifier)
+            )
+        } else if (message.objectIdentifier == this.dataDeviceIdentifier &&
+            message.opcode == 5) {
+            val identifier = if (message.payload.size == 4)
+                waylandU32(message.payload, 0)
+            else -1
+            result = if (identifier == 0 ||
+                this.clipboardOfferIndex(identifier) >= 0) 1 else -1
+            if (result > 0 && this.selectionOfferIdentifier > 0 &&
+                this.selectionOfferIdentifier != identifier) {
+                val previous = this.selectionOfferIdentifier
+                result = if (this.connection.send(waylandPacket(
+                    previous,
+                    2
+                ))) 1 else -1
+                if (result > 0) this.removeClipboardOffer(previous)
+            }
+            if (result > 0) this.selectionOfferIdentifier = identifier
+        } else if (message.objectIdentifier == this.dataDeviceIdentifier &&
+            message.opcode == 1) {
+            result = if (message.payload.size == 20) 1 else -1
+        } else if (message.objectIdentifier == this.dataDeviceIdentifier &&
+            (message.opcode == 2 || message.opcode == 4)) {
+            result = if (message.payload.size == 0) 1 else -1
+        } else if (message.objectIdentifier == this.dataDeviceIdentifier &&
+            message.opcode == 3) {
+            result = if (message.payload.size == 12) 1 else -1
+        }
+        result
+    }
+
+    fun dispatchClipboard(message: WaylandMessage): int {
+        var result = this.dispatchDataDevice(message)
+        if (result == 0) result = this.dispatchDataOffer(message)
+        if (result == 0) result = this.dispatchDataSource(message)
+        result
+    }
+
+    fun serveClipboardSource(
+        identifier: int,
+        payload: string,
+        descriptor: int
+    ): bool {
+        val index = this.clipboardSourceIndex(identifier)
+        val mimeType = waylandString(payload, 0)
+        var succeeded = index >= 0 && descriptor >= 0 && mimeType.valid &&
+            mimeType.next == payload.size &&
+            (mimeType.text == waylandClipboardMimeUtf8 ||
+             mimeType.text == waylandClipboardMimeText)
+        if (succeeded) succeeded = linuxWriteAll(
+            descriptor,
+            this.clipboardSources[index].text
+        )
+        if (succeeded) this.clipboardTransfersServed =
+            this.clipboardTransfersServed + 1
+        if (descriptor >= 0) linuxSyscall1(3, descriptor)
+        this.receivedDescriptor = -1
+        succeeded
+    }
+
     fun dispatchInput(message: WaylandMessage): int {
         var result = 0
         if (message.objectIdentifier == this.seatIdentifier) {
@@ -1895,6 +2336,7 @@ resource class WaylandXdgWindow(
         } else if (this.outputIndex(message.objectIdentifier) >= 0) {
             result = this.dispatchOutput(message)
         }
+        if (result == 0) result = this.dispatchClipboard(message)
         result
     }
 
@@ -2292,6 +2734,21 @@ resource class WaylandXdgWindow(
                 waylandNativeU32(this.wireScratch, 12)
             )
             handled = succeeded
+        } else if (succeeded &&
+            this.clipboardSourceIndex(objectIdentifier) >= 0 &&
+            opcode == 1 && length >= 12) {
+            val payload = nativeByteBuffer(length - 7)
+            var index = 8
+            while (index < length) {
+                payload.store(index - 8, this.wireScratch.load(index))
+                index = index + 1
+            }
+            succeeded = this.serveClipboardSource(
+                objectIdentifier,
+                payload.adoptString(length - 8),
+                this.receivedDescriptor
+            )
+            handled = succeeded
         } else if (succeeded && objectIdentifier == waylandDisplayIdentifier &&
             opcode == 1 && length == 12) {
             handled = true
@@ -2450,6 +2907,39 @@ resource class WaylandXdgWindow(
 
     fun drop(): void {
         if (this.connection.descriptor >= 0) {
+            var offerIndex = 0
+            while (offerIndex < this.clipboardOffers.size) {
+                if (this.clipboardOffers[offerIndex].identifier > 0) {
+                    waylandWriteAll(
+                        this.connection.descriptor,
+                        waylandPacket(
+                            this.clipboardOffers[offerIndex].identifier,
+                            2
+                        )
+                    )
+                }
+                offerIndex = offerIndex + 1
+            }
+            var sourceIndex = 0
+            while (sourceIndex < this.clipboardSources.size) {
+                if (this.clipboardSources[sourceIndex].identifier >= 2) {
+                    waylandWriteAll(
+                        this.connection.descriptor,
+                        waylandPacket(
+                            this.clipboardSources[sourceIndex].identifier,
+                            1
+                        )
+                    )
+                }
+                sourceIndex = sourceIndex + 1
+            }
+            if (this.dataDeviceIdentifier >= 2 &&
+                this.dataDeviceManagerVersion >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.dataDeviceIdentifier, 2)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -2584,6 +3074,15 @@ fun waylandXdgWindow(
         0,
         false,
         false,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        [],
+        0,
+        [],
         0,
         0,
         0,

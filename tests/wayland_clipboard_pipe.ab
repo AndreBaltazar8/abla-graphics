@@ -1,0 +1,33 @@
+import "../src/platform/wayland.ab"
+import "abla/io"
+
+trusted fun main: int {
+    val descriptors = nativeByteBuffer(8)
+    var succeeded = linuxSyscall2(
+        293,
+        nativePointerAddress(descriptors.address),
+        524288
+    ) == 0
+    val readDescriptor = if (succeeded)
+        waylandNativeU32(descriptors, 0)
+    else -1
+    val writeDescriptor = if (succeeded)
+        waylandNativeU32(descriptors, 4)
+    else -1
+    if (succeeded) succeeded = linuxWriteAll(
+        writeDescriptor,
+        "Abla Wayland clipboard ✓"
+    )
+    if (writeDescriptor >= 0) linuxSyscall1(3, writeDescriptor)
+    val received = if (succeeded)
+        waylandReadDescriptorText(readDescriptor)
+    else WaylandClipboardRead()
+    if (readDescriptor >= 0) linuxSyscall1(3, readDescriptor)
+    descriptors.close()
+    succeeded = succeeded && received.succeeded &&
+        received.text == "Abla Wayland clipboard ✓"
+    println(
+        "wayland-clipboard-pipe: succeeded=$succeeded bytes=${received.text.size}"
+    )
+    if (succeeded) 42 else 1
+}

@@ -1,0 +1,41 @@
+import "../src/platform/wayland.ab"
+import "abla/io"
+
+trusted fun main: int {
+    val window = waylandXdgWindow(
+        "Abla clipboard owner",
+        "io.abla.graphics.clipboard-owner",
+        420,
+        240
+    )
+    var succeeded = window.valid() &&
+        window.createSharedBuffers(420, 240, 2) &&
+        window.clearSharedPixels(24, 32, 52) &&
+        window.fillSharedRect(40, 70, 340, 100, 54, 211, 153) &&
+        window.presentSharedPixels() && window.waitFrame() &&
+        window.enableClipboard()
+    var owned = false
+    var attempts = 0
+    while (succeeded && !owned && attempts < 200) {
+        val event = window.pollInputEvent(50)
+        if (event.kind == windowEventKey && event.key() == keyC &&
+            event.keyPressed() && !event.keyRepeated()) {
+            owned = window.setClipboard("Abla Wayland clipboard ✓")
+        }
+        succeeded = window.connection.valid()
+        attempts = attempts + 1
+    }
+    println(
+        "wayland-clipboard-owner: ready=$owned serial=${window.lastInputSerial} source=${window.activeClipboardSourceIdentifier}"
+    )
+    attempts = 0
+    while (succeeded && owned && attempts < 80) {
+        window.pollInputEvent(50)
+        succeeded = window.connection.valid()
+        attempts = attempts + 1
+    }
+    println(
+        "wayland-clipboard-owner: served=${window.clipboardTransfersServed} error=${window.connection.error}"
+    )
+    if (succeeded && owned && window.clipboardTransfersServed >= 1) 42 else 1
+}

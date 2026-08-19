@@ -1,0 +1,38 @@
+import "../src/platform/wayland.ab"
+import "abla/io"
+
+trusted fun main: int {
+    val window = waylandXdgWindow(
+        "Abla clipboard reader",
+        "io.abla.graphics.clipboard-reader",
+        420,
+        240
+    )
+    var succeeded = window.valid() &&
+        window.createSharedBuffers(420, 240, 2) &&
+        window.clearSharedPixels(42, 30, 52) &&
+        window.fillSharedRect(40, 70, 340, 100, 231, 178, 72) &&
+        window.presentSharedPixels() && window.waitFrame() &&
+        window.enableClipboard()
+    var attempts = 0
+    while (succeeded && window.selectionTextMime() == "" &&
+        attempts < 200) {
+        window.pollInputEvent(50)
+        succeeded = window.connection.valid()
+        attempts = attempts + 1
+    }
+    val offeredIdentifier = window.selectionOfferIdentifier
+    val offeredMime = window.selectionTextMime()
+    val requested = succeeded && window.requestClipboard()
+    var event = window.nextInputEvent()
+    while (event.happened() && event.kind != windowEventClipboard) {
+        event = window.nextInputEvent()
+    }
+    succeeded = requested && event.clipboardSucceeded() &&
+        event.clipboardTextAvailable() &&
+        event.clipboardText() == "Abla Wayland clipboard ✓"
+    println(
+        "wayland-clipboard-reader: succeeded=$succeeded requested=$requested event=${event.kind}/${event.first}/${event.second} offer=$offeredIdentifier/${window.selectionOfferIdentifier} mime=$offeredMime bytes=${event.clipboardText().size} error=${window.connection.error}"
+    )
+    if (succeeded) 42 else 1
+}
