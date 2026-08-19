@@ -1178,6 +1178,17 @@ Abla module identity plus exact body `begin`/`end` byte offsets; runtime-created
 packages use an empty identity and `-1` offsets. Hermetic include expansion
 retains the root stage span while replacing only its resolved source text.
 
+Embedded stages accept typed Abla constant interpolation outside comments and
+quoted text. `${expression}` and `${int: expression}` require an `int` and emit
+one signed decimal token; `${uint: expression}` requires an `int`, rejects
+negative values, and emits one non-negative decimal token; `${bool: expression}`
+requires a `bool` and emits `true` or `false`. There is deliberately no string
+form, so source text cannot inject GLSL declarations or statements. The same
+syntax works in `#$glsl` when its expression is compile-time evaluable. A
+`${float: expression}` attempt currently reports a dedicated diagnostic because
+Abla does not yet expose deterministic float formatting; it is never rendered
+from raw IEEE bits.
+
 Quoted and angle-bracket `#include` directives are source-preserved and
 reflected as ordered, stage-tagged `ShaderInclude` values with their path and
 system/local form and source byte range. Empty or malformed directives

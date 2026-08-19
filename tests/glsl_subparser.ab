@@ -2,6 +2,34 @@ import "../src/shader/glsl.ab"
 import "../src/shader/glsl_spirv.ab"
 
 fun main: int {
+    val interpolatedSize = 6
+    val interpolatedScale = 5
+    val interpolatedEnabled = true
+    val interpolated = $glsl {
+        compute {
+            #version 450
+            // ${interpolatedSize} remains inert inside comments.
+            layout(local_size_x = ${uint: interpolatedSize}) in;
+            layout(constant_id = 3) const int scale = ${int: interpolatedScale};
+            layout(constant_id = 4) const bool enabled = ${bool: interpolatedEnabled};
+            void main() {}
+        }
+    }
+    val frozenInterpolated = #$glsl {
+        compute {
+            #version 450
+            layout(local_size_x = ${4}) in;
+            void main() {}
+        }
+    }
+    val negativeInterpolation = -1
+    val invalidUintInterpolation = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = ${uint: negativeInterpolation}) in;
+            void main() {}
+        }
+    }
     val shader = $glsl {
         vertex {
             #version 330 core
@@ -454,7 +482,18 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0); }"
         ]
     ).spirv(shaderStageVertex)
-    if (shader.valid &&
+    if (interpolated.valid && interpolated.workgroups.size == 1 &&
+        interpolated.workgroups[0].x == 6 &&
+        interpolated.specializationConstants.size == 2 &&
+        interpolated.specializationConstants[0].defaultValue == "5" &&
+        interpolated.specializationConstants[1].defaultValue == "true" &&
+        interpolated.stages[0].sourceIdentity != "" &&
+        interpolated.stages[0].end > interpolated.stages[0].begin &&
+        frozenInterpolated.valid &&
+        frozenInterpolated.workgroups[0].x == 4 &&
+        !invalidUintInterpolation.valid &&
+        invalidUintInterpolation.error != "" &&
+        shader.valid &&
         shader.stages[0].sourceIdentity != "" &&
         shader.stages[0].begin >= 0 &&
         shader.stages[0].end > shader.stages[0].begin &&

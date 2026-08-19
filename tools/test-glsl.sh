@@ -38,3 +38,22 @@ rg -q 'unterminated GLSL quoted text' \
     "$output_directory/glsl-invalid-quote.log"
 rg -q 'source\[subparser\]:' \
     "$output_directory/glsl-invalid-quote.log"
+
+if "$compiler" build "$project_root/tests/glsl_invalid_interpolation.ab" \
+    -o "$output_directory/glsl-invalid-interpolation" --no-cache \
+    >"$output_directory/glsl-invalid-interpolation.log" 2>&1; then
+    printf '%s\n' 'string GLSL interpolation unexpectedly compiled' >&2
+    exit 1
+fi
+rg -q 'glslInterpolationInt' \
+    "$output_directory/glsl-invalid-interpolation.log"
+
+if "$compiler" build \
+    "$project_root/tests/glsl_invalid_float_interpolation.ab" \
+    -o "$output_directory/glsl-invalid-float-interpolation" --no-cache \
+    >"$output_directory/glsl-invalid-float-interpolation.log" 2>&1; then
+    printf '%s\n' 'GLSL float interpolation unexpectedly compiled' >&2
+    exit 1
+fi
+rg -q 'GLSL float interpolation requires deterministic Abla float formatting' \
+    "$output_directory/glsl-invalid-float-interpolation.log"

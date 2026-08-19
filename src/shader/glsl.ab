@@ -219,6 +219,16 @@ fun glslAsciiNameStart(value: int): bool =
 fun glslAsciiNameContinue(value: int): bool =
     glslAsciiNameStart(value) || (value >= 48 && value <= 57)
 
+fun glslContainsText(source: string, wanted: string): bool {
+    var found = false
+    var index = 0
+    while (!found && wanted != "" && index <= source.size - wanted.size) {
+        found = source.slice(index, index + wanted.size) == wanted
+        index = index + 1
+    }
+    found
+}
+
 fun glslSkipTrivia(source: string, begin: int): int {
     var index = begin
     var skipping = true
@@ -1220,9 +1230,17 @@ fun glslPackage(
     var raster = false
     var index = 0
     while (valid && index < names.size) {
-        if (!glslStageNameValid(names[index]) || sources[index] == "") {
+        if (!glslStageNameValid(names[index]) || sources[index] == "" ||
+            glslContainsText(
+                sources[index],
+                "__invalid_negative_uint__"
+            )) {
             valid = false
-            error = "GLSL package contains an invalid or empty stage"
+            error = if (glslContainsText(
+                sources[index],
+                "__invalid_negative_uint__"
+            )) "GLSL uint interpolation cannot be negative"
+            else "GLSL package contains an invalid or empty stage"
         }
         var previous = 0
         while (valid && previous < index) {
@@ -1516,6 +1534,40 @@ fun ShaderPackage.resolveIncludes(
 
 compile fun glslAppend(left: string, right: string): string = "$left$right"
 
+fun glslSourceAppend(left: string, right: string): string = "$left$right"
+
+fun glslInterpolationInt(value: int): string = "$value"
+
+fun glslInterpolationUint(value: int): string = if (value >= 0)
+    "$value" else "__invalid_negative_uint__"
+
+fun glslInterpolationBool(value: bool): string = if (value)
+    "true" else "false"
+
+compile fun glslSyntaxAppend(
+    left: SyntaxExpression,
+    right: SyntaxExpression
+): SyntaxExpression {
+    val arguments: array<SyntaxExpression> = []
+    arguments.append(left)
+    arguments.append(right)
+    syntaxCall("glslSourceAppend", arguments)
+}
+
+compile fun glslSyntaxAppendText(
+    left: SyntaxExpression,
+    right: string
+): SyntaxExpression = glslSyntaxAppend(left, syntaxString(right))
+
+compile fun glslSyntaxInterpolation(
+    name: string,
+    value: SyntaxExpression
+): SyntaxExpression {
+    val arguments: array<SyntaxExpression> = []
+    arguments.append(value)
+    syntaxCall(name, arguments)
+}
+
 compile fun glslReadLineComment(cursor: ParserCursor): string {
     parserRawExpect(cursor, "//")
     var result = "//"
@@ -1571,30 +1623,72 @@ compile fun glslReadQuotedText(cursor: ParserCursor): string {
     result
 }
 
-compile fun glslReadStageBody(cursor: ParserCursor): string {
-    var result = ""
+compile fun glslReadStageBody(cursor: ParserCursor): SyntaxExpression {
+    var result = syntaxString("")
+    var staticText = ""
+    var dynamic = false
     var depth = 1
     while (depth > 0 && !parserRawEnd(cursor)) {
-        val text = parserRawTakeUntil(cursor, "{}/\"")
-        result = glslAppend(result, text)
+        val text = parserRawTakeUntil(cursor, "{}/\"$")
+        staticText = glslAppend(staticText, text)
         if (parserRawAt(cursor, "//")) {
-            result = glslAppend(result, glslReadLineComment(cursor))
+            staticText = glslAppend(
+                staticText,
+                glslReadLineComment(cursor)
+            )
         } else if (parserRawAt(cursor, "/*")) {
-            result = glslAppend(result, glslReadBlockComment(cursor))
+            staticText = glslAppend(
+                staticText,
+                glslReadBlockComment(cursor)
+            )
         } else if (parserRawConsume(cursor, "/")) {
-            result = glslAppend(result, "/")
+            staticText = glslAppend(staticText, "/")
+        } else if (parserRawAt(cursor, "\${")) {
+            parserRawExpect(cursor, "\${")
+            parserRawSkipWhitespace(cursor)
+            var interpolationName = "glslInterpolationInt"
+            if (parserRawConsume(cursor, "int:")) {
+                interpolationName = "glslInterpolationInt"
+                parserRawSkipWhitespace(cursor)
+            } else if (parserRawConsume(cursor, "uint:")) {
+                interpolationName = "glslInterpolationUint"
+                parserRawSkipWhitespace(cursor)
+            } else if (parserRawConsume(cursor, "float:")) {
+                parserFail(
+                    cursor,
+                    "GLSL float interpolation requires deterministic Abla float formatting"
+                )
+            } else if (parserRawConsume(cursor, "bool:")) {
+                interpolationName = "glslInterpolationBool"
+                parserRawSkipWhitespace(cursor)
+            }
+            val interpolation = parserParseAblaExpression(cursor)
+            parserRawExpect(cursor, "}")
+            result = glslSyntaxAppendText(result, staticText)
+            staticText = ""
+            result = glslSyntaxAppend(
+                result,
+                glslSyntaxInterpolation(interpolationName, interpolation)
+            )
+            dynamic = true
+        } else if (parserRawConsume(cursor, "$")) {
+            staticText = glslAppend(staticText, "$")
         } else if (parserRawConsume(cursor, "{")) {
             depth = depth + 1
-            result = glslAppend(result, "{")
+            staticText = glslAppend(staticText, "{")
         } else if (parserRawConsume(cursor, "}")) {
             depth = depth - 1
-            if (depth > 0) result = glslAppend(result, "}")
+            if (depth > 0) staticText = glslAppend(staticText, "}")
         } else if (parserRawAt(cursor, "\"")) {
-            result = glslAppend(result, glslReadQuotedText(cursor))
+            staticText = glslAppend(
+                staticText,
+                glslReadQuotedText(cursor)
+            )
         }
     }
     if (depth != 0) parserFail(cursor, "unterminated GLSL stage block")
-    result
+    if (dynamic) glslSyntaxAppendText(result, staticText)
+    else syntaxString(staticText)
 }
 
 compile fun glslParsePackage(cursor: ParserCursor): SyntaxExpression {
@@ -1631,7 +1725,7 @@ compile fun glslParsePackage(cursor: ParserCursor): SyntaxExpression {
             val source = glslReadStageBody(cursor)
             val end = parserRawPosition(cursor) - 1
             names.append(syntaxString(name))
-            sources.append(syntaxString(source))
+            sources.append(source)
             identities.append(syntaxString(sourceIdentity))
             begins.append(syntaxInteger(begin))
             ends.append(syntaxInteger(end))

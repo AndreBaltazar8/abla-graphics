@@ -562,6 +562,13 @@ raw cursor API and `source[subparser]` diagnostic location are covered by its
 generated-subparser suite, all 73 compiler tests, and a byte-identical pure
 self-rebuild.
 
+`$glsl` and `#$glsl` now accept safe typed Abla interpolation for signed
+integers, checked non-negative integers, and Booleans. Comments and quoted text
+remain inert, string values fail semantic typing rather than becoming shader
+source, and unsupported float interpolation has a precise subparser diagnostic
+instead of exposing an IEEE-bit integer. Runtime/frozen positive cases and all
+three rejection paths are executable tests.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
