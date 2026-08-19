@@ -158,6 +158,12 @@ Updated: 2026-08-19.
   current headless-Weston environment verifies the capability-missing path
   remains healthy before buffer attachment; deterministic wire coverage proves
   the exact inhibitor/surface creation request.
+- Optional `wp_tearing_control_manager_v1` support owns a per-surface policy
+  object and commits explicit vsync/async hints without claiming that the
+  compositor honors them. Creation, idempotent transitions, disable/reuse,
+  teardown order, and exact wire packets are covered. The current Weston
+  fixture advertises the manager and accepts real async, restored-vsync, and
+  object-disable transitions while keeping the connection healthy.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec

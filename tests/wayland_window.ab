@@ -19,6 +19,24 @@ fun main: int {
          window.setIdleInhibited(true) &&
          window.setIdleInhibited(false) && !window.idleInhibited &&
          window.setIdleInhibited(false))) && window.connection.valid()
+    val tearingAvailable = window.tearingControlAvailable()
+    val tearingEnabled = if (succeeded && tearingAvailable)
+        window.enableTearingControl()
+    else false
+    val tearingPassed = tearingEnabled == tearingAvailable &&
+        (if (tearingEnabled)
+            window.setTearingAllowed(true) &&
+            window.presentationHint == waylandPresentationHintAsync &&
+            window.setTearingAllowed(true) &&
+            window.setTearingAllowed(false) &&
+            window.presentationHint == waylandPresentationHintVsync &&
+            window.setTearingAllowed(false) &&
+            window.disableTearingControl() &&
+            window.tearingControlIdentifier == 0 &&
+            window.disableTearingControl()
+        else window.setTearingAllowed(false) &&
+            !window.setTearingAllowed(true)) && window.connection.valid()
+    succeeded = succeeded && tearingPassed
     val decorationAvailable = window.connection.global(
         "zxdg_decoration_manager_v1"
     ).valid
@@ -185,7 +203,7 @@ fun main: int {
     }
     succeeded = succeeded && closeEvent.kind == windowEventCloseRequested
     println(
-        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} buffer=${window.bufferWidth}x${window.bufferHeight} surfaceState=$surfaceStatePassed/${window.bufferScale}/${window.bufferTransform}/${window.bufferSurfaceWidth()}x${window.bufferSurfaceHeight()}/${window.opaqueRegionSet}/${window.inputRegionMode} preferred=$preferredSurfacePassed/$preferredScaleFromCompositor/$preferredTransformFromCompositor/${window.preferredBufferScale}/${window.preferredBufferTransform} idle=$idleInhibitAvailable/$idleInhibitEnabled/${window.idleInhibited} decoration=$decorationAvailable/$decorationEnabled/${window.decorationMode} viewport=$viewporterAvailable/$viewportEnabled/${window.viewportDestinationWidth}x${window.viewportDestinationHeight}/${window.viewportSourceWidthFixed}x${window.viewportSourceHeightFixed} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
+        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} buffer=${window.bufferWidth}x${window.bufferHeight} surfaceState=$surfaceStatePassed/${window.bufferScale}/${window.bufferTransform}/${window.bufferSurfaceWidth()}x${window.bufferSurfaceHeight()}/${window.opaqueRegionSet}/${window.inputRegionMode} preferred=$preferredSurfacePassed/$preferredScaleFromCompositor/$preferredTransformFromCompositor/${window.preferredBufferScale}/${window.preferredBufferTransform} tearing=$tearingAvailable/$tearingEnabled/$tearingPassed/${window.presentationHint} idle=$idleInhibitAvailable/$idleInhibitEnabled/${window.idleInhibited} decoration=$decorationAvailable/$decorationEnabled/${window.decorationMode} viewport=$viewporterAvailable/$viewportEnabled/${window.viewportDestinationWidth}x${window.viewportDestinationHeight}/${window.viewportSourceWidthFixed}x${window.viewportSourceHeightFixed} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
     )
     if (succeeded &&
         window.width > 0 && window.height > 0 &&

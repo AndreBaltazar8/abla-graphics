@@ -28,6 +28,8 @@ val waylandPointerConstraintPersistent = 2
 val waylandInputRegionDefault = 0
 val waylandInputRegionEmpty = 1
 val waylandInputRegionRectangle = 2
+val waylandPresentationHintVsync = 0
+val waylandPresentationHintAsync = 1
 val waylandDecorationModeClient = 1
 val waylandDecorationModeServer = 2
 val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
@@ -1589,7 +1591,10 @@ resource class WaylandXdgWindow(
     var opaqueRegionSet: bool,
     var inputRegionMode: int,
     var preferredBufferScale: int,
-    var preferredBufferTransform: int
+    var preferredBufferTransform: int,
+    var tearingControlManagerIdentifier: int,
+    var tearingControlIdentifier: int,
+    var presentationHint: int
 ) {
     fun valid(): bool = this.connection.valid() &&
         this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
@@ -2100,6 +2105,81 @@ resource class WaylandXdgWindow(
             if (succeeded) {
                 this.idleInhibitorIdentifier = 0
                 this.idleInhibited = false
+            }
+        }
+        succeeded
+    }
+
+    fun tearingControlAvailable(): bool =
+        this.tearingControlManagerIdentifier >= 2 || this.connection.global(
+            "wp_tearing_control_manager_v1"
+        ).valid
+
+    fun enableTearingControl(): bool {
+        var succeeded = this.valid() &&
+            this.tearingControlIdentifier == 0 &&
+            this.tearingControlAvailable()
+        val manager = if (succeeded &&
+            this.tearingControlManagerIdentifier == 0) this.connection.bind(
+                "wp_tearing_control_manager_v1",
+                1
+            ) else if (succeeded) WaylandBinding(
+                true,
+                this.tearingControlManagerIdentifier,
+                0,
+                "wp_tearing_control_manager_v1",
+                1
+            ) else WaylandBinding()
+        succeeded = succeeded && manager.valid
+        val identifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        if (succeeded) succeeded = identifier >= 2 && this.connection.send(
+            waylandPacket(
+                manager.identifier,
+                1,
+                waylandU32PairPayload(identifier, this.surfaceIdentifier)
+            )
+        )
+        if (succeeded) {
+            this.tearingControlManagerIdentifier = manager.identifier
+            this.tearingControlIdentifier = identifier
+            this.presentationHint = waylandPresentationHintVsync
+        }
+        succeeded
+    }
+
+    fun setTearingAllowed(allowed: bool): bool {
+        var succeeded = this.valid()
+        if (succeeded && allowed && this.tearingControlIdentifier == 0) {
+            succeeded = this.enableTearingControl()
+        }
+        val hint = if (allowed)
+            waylandPresentationHintAsync else waylandPresentationHintVsync
+        if (succeeded && this.tearingControlIdentifier >= 2 &&
+            hint != this.presentationHint) {
+            succeeded = this.connection.send(waylandPacket(
+                this.tearingControlIdentifier,
+                0,
+                waylandU32Payload(hint)
+            ))
+            if (succeeded) succeeded = this.commit()
+            if (succeeded) this.presentationHint = hint
+        }
+        succeeded
+    }
+
+    fun disableTearingControl(): bool {
+        var succeeded = this.valid()
+        if (succeeded && this.tearingControlIdentifier >= 2) {
+            succeeded = this.connection.send(waylandPacket(
+                this.tearingControlIdentifier,
+                1
+            ))
+            if (succeeded) succeeded = this.commit()
+            if (succeeded) {
+                this.tearingControlIdentifier = 0
+                this.presentationHint = waylandPresentationHintVsync
             }
         }
         succeeded
@@ -5022,6 +5102,18 @@ resource class WaylandXdgWindow(
                     waylandPacket(this.idleInhibitManagerIdentifier, 0)
                 )
             }
+            if (this.tearingControlIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.tearingControlIdentifier, 1)
+                )
+            }
+            if (this.tearingControlManagerIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.tearingControlManagerIdentifier, 0)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -5331,7 +5423,10 @@ fun waylandXdgWindow(
         false,
         waylandInputRegionDefault,
         0,
-        -1
+        -1,
+        0,
+        0,
+        waylandPresentationHintVsync
     )
     if (succeeded) succeeded = window.setTitle(title)
     if (succeeded) succeeded = window.setAppId(appId)

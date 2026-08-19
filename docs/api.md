@@ -1358,6 +1358,16 @@ later call can cheaply reuse the manager. Both objects precede the core surface
 in teardown. This is the direct compositor mechanism for games, video, and
 presentation applications that must suppress idle behavior.
 
+`tearingControlAvailable()` reports the staging version-one tearing-control
+global. `enableTearingControl()` owns one extension object for the application
+surface with a synchronized default. `setTearingAllowed(true)` commits the
+asynchronous hint for latency-sensitive rendering, while `false` commits the
+vsync hint; repeated values are idempotent. The compositor may ignore either
+hint according to hardware, surface state, or user policy. Disabling the
+object restores vsync on the next commit and retains the manager for reuse.
+Requesting synchronized behavior succeeds without the optional extension;
+requesting asynchronous behavior fails cleanly when it is unavailable.
+
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
 advertises UTF-8 and plain-text MIME types, and retains each affine source until

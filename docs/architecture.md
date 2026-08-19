@@ -105,6 +105,10 @@ object is destroyed and the state is committed, so no extra long-lived native
 object or per-frame allocation is retained.
 The idle-inhibit manager similarly owns a replaceable per-surface inhibitor,
 keeping application policy explicit without background services.
+The optional tearing-control object keeps synchronized versus low-latency
+asynchronous presentation as an explicit application hint. Its state is
+committed with the surface, never treated as a guarantee, and is destroyed
+before its reusable manager and the core surface.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

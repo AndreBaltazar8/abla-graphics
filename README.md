@@ -39,7 +39,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   compositor-mediated UTF-8
   clipboard ownership/offers with bounded descriptor transfers, xdg
   fullscreen/maximize/minimize/fixed-size controls, explicit compositor/client
-  decoration negotiation, direct idle inhibition, and ordered teardown
+  decoration negotiation, direct idle inhibition and optional tearing policy,
+  and ordered teardown
   without `libwayland-client` or `libxkbcommon`;
 - a pure-Abla Vulkan loader/instance/adapter/logical-device implementation;
 - a pure-Abla SPIR-V word validator and real Vulkan shader-module path;
