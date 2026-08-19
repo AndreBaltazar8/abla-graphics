@@ -1,0 +1,237 @@
+// Optional OpenGL 4.3+ KHR_debug ownership and callback surface.
+
+import "abla/unsafe/memory"
+import "opengl.ab"
+import "opengl_debug_callback.ab"
+
+val openGlDebugSourceApplication = 33354
+val openGlDebugTypeError = 33356
+val openGlDebugTypeDeprecatedBehavior = 33357
+val openGlDebugTypeUndefinedBehavior = 33358
+val openGlDebugTypePortability = 33359
+val openGlDebugTypePerformance = 33360
+val openGlDebugTypeOther = 33361
+val openGlDebugTypeMarker = 33384
+val openGlDebugSeverityHigh = 37190
+val openGlDebugSeverityMedium = 37191
+val openGlDebugSeverityLow = 37192
+val openGlDebugSeverityNotification = 33387
+
+trusted noescape extern:"c" fun dlsym(handle: i64*, symbol: cstring): i64*
+noescape extern:"c" fun glDebugMessageCallback(
+    callback: i64*,
+    userData: i64*
+): void
+noescape extern:"c" fun glDebugMessageControl(
+    source: i32,
+    messageType: i32,
+    severity: i32,
+    count: i32,
+    identifiers: i64*,
+    enabled: i32
+): void
+noescape extern:"c" fun glDebugMessageInsert(
+    source: i32,
+    messageType: i32,
+    identifier: i32,
+    severity: i32,
+    length: i32,
+    message: i64*
+): void
+
+class OpenGlDebugMessageCounts(
+    val total: int,
+    val high: int,
+    val medium: int,
+    val low: int,
+    val notification: int,
+    val error: int,
+    val deprecatedBehavior: int,
+    val undefinedBehavior: int,
+    val portability: int,
+    val performance: int,
+    val marker: int,
+    val other: int
+)
+
+resource class OpenGlDebugMessenger(
+    var active: bool,
+    val callbackAddress: int,
+    var display: i64*,
+    var surface: i64*,
+    var context: i64*,
+    var counters: NativeByteBuffer,
+    var scratch: NativeByteBuffer
+) {
+    trusted fun valid(): bool = this.active && this.callbackAddress != 0 &&
+        !pointerIsNull(this.display) && !pointerIsNull(this.surface) &&
+        !pointerIsNull(this.context)
+
+    trusted fun counts(): OpenGlDebugMessageCounts =
+        OpenGlDebugMessageCounts(
+            this.counters.loadI64(0),
+            this.counters.loadI64(8),
+            this.counters.loadI64(16),
+            this.counters.loadI64(24),
+            this.counters.loadI64(32),
+            this.counters.loadI64(40),
+            this.counters.loadI64(48),
+            this.counters.loadI64(56),
+            this.counters.loadI64(64),
+            this.counters.loadI64(72),
+            this.counters.loadI64(80),
+            this.counters.loadI64(88)
+        )
+
+    trusted fun submit(
+        messageType: int,
+        severity: int,
+        message: string,
+        identifier: int = 1
+    ): bool {
+        val validType = (
+            messageType >= openGlDebugTypeError &&
+            messageType <= openGlDebugTypeOther
+        ) || messageType == openGlDebugTypeMarker
+        val validSeverity = severity == openGlDebugSeverityHigh ||
+            severity == openGlDebugSeverityMedium ||
+            severity == openGlDebugSeverityLow ||
+            severity == openGlDebugSeverityNotification
+        val submitted = this.valid() && validType && validSeverity &&
+            identifier >= 0 && message.size > 0 && message.size <= 4095 &&
+            this.scratch.capacity >= 4096 && eglMakeCurrent(
+                this.display,
+                this.surface,
+                this.surface,
+                this.context
+            ) == eglTrue
+        if (submitted) {
+            var index = 0
+            while (index < message.size) {
+                this.scratch.store(index, message[index])
+                index = index + 1
+            }
+            this.scratch.store(message.size, 0)
+            glDebugMessageInsert(
+                openGlDebugSourceApplication,
+                messageType,
+                identifier,
+                severity,
+                message.size,
+                this.scratch.address
+            )
+        }
+        submitted && glGetError() == 0
+    }
+
+    trusted fun drop(): void {
+        if (this.valid() && eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue) {
+            glDebugMessageCallback(
+                nativeNullPointer(),
+                nativeNullPointer()
+            )
+            glDisable(33346)
+            glDisable(37600)
+        }
+        this.active = false
+        this.display = nativeNullPointer()
+        this.surface = nativeNullPointer()
+        this.context = nativeNullPointer()
+        this.counters.close()
+        this.scratch.close()
+        return
+    }
+}
+
+trusted fun openGlDebugMessenger(
+    display: i64*,
+    surface: i64*,
+    context: i64*,
+    version: int,
+    enabled: bool
+): OpenGlDebugMessenger {
+    val counters = nativeByteBuffer(96)
+    val scratch = nativeByteBuffer(4096)
+    var offset = 0
+    while (offset < counters.capacity) {
+        counters.storeI64(offset, 0)
+        offset = offset + 8
+    }
+    val callbackAddress = nativePointerAddress(dlsym(
+        nativeNullPointer(),
+        "abla_graphics_opengl_debug_callback"
+    ))
+    var active = enabled && version >= 4003 && callbackAddress != 0 &&
+        !pointerIsNull(display) && !pointerIsNull(surface) &&
+        !pointerIsNull(context) && eglMakeCurrent(
+            display,
+            surface,
+            surface,
+            context
+        ) == eglTrue
+    if (active) {
+        while (glGetError() != 0) {}
+        glEnable(37600)
+        glEnable(33346)
+        glDebugMessageControl(
+            4352,
+            4352,
+            4352,
+            0,
+            nativeNullPointer(),
+            1
+        )
+        glDebugMessageCallback(
+            nativePointerFromAddress(callbackAddress),
+            counters.address
+        )
+        active = glGetError() == 0
+        if (!active) {
+            glDebugMessageCallback(
+                nativeNullPointer(),
+                nativeNullPointer()
+            )
+            glDisable(33346)
+            glDisable(37600)
+            while (glGetError() != 0) {}
+        }
+    }
+    OpenGlDebugMessenger(
+        active,
+        callbackAddress,
+        display,
+        surface,
+        context,
+        move(counters),
+        move(scratch)
+    )
+}
+
+trusted fun OpenGlContext.debugMessenger(
+    enabled: bool = true
+): OpenGlDebugMessenger =
+    openGlDebugMessenger(
+        this.display,
+        this.surface,
+        this.context,
+        this.version(),
+        enabled
+    )
+
+trusted fun OpenGlWindowContext.debugMessenger(
+    enabled: bool = true
+): OpenGlDebugMessenger {
+    val version = this.capabilities().version
+    openGlDebugMessenger(
+        this.display,
+        this.surface,
+        this.context,
+        version.major * 1000 + version.minor,
+        enabled
+    )
+}

@@ -484,6 +484,14 @@ compatible render pass owns a framebuffer created against that exact pass.
 The full test matrix and all 18 sample applications then passed with no Vulkan
 validation errors, warnings, or VUID diagnostics.
 
+The optional OpenGL debug module now owns synchronous OpenGL 4.3 core debug
+output with a process-resolved Abla callback, atomic severity/type counters,
+and reusable message storage. Its direct headless test drives real
+`glDebugMessageInsert` callbacks across all four severities, checks exact
+counter deltas, rejects invalid input, proves an explicitly disabled path, and
+retains zero steady-state live-byte growth. The linked executable exposes only
+the requested callback symbol.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
@@ -516,7 +524,7 @@ validation errors, warnings, or VUID diagnostics.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with the initial 47 exercised common commands classified; all other
+  exist, with the initial 50 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

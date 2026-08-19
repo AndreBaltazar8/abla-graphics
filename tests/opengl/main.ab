@@ -1,8 +1,67 @@
-import "../../src/driver/opengl.ab"
+import "abla/runtime/memory"
+import "abla/io"
+import "../../src/driver/opengl_debug.ab"
 
 fun main: int {
     val context = openGlHeadlessContext()
     val capabilities = context.capabilities()
+    val debug = context.debugMessenger()
+    val debugCallbackAddress = debug.callbackAddress
+    val debugMessage = "Abla OpenGL debug message"
+    val debugWarmup = debug.valid() && debug.submit(
+        openGlDebugTypeMarker,
+        openGlDebugSeverityLow,
+        debugMessage
+    )
+    val debugBefore = debug.counts()
+    val debugLiveBefore = runtimeMemoryLiveBytes()
+    var debugPassed = debugWarmup && debug.submit(
+        openGlDebugTypeError,
+        openGlDebugSeverityHigh,
+        debugMessage
+    ) && debug.submit(
+        openGlDebugTypePerformance,
+        openGlDebugSeverityMedium,
+        debugMessage
+    ) && debug.submit(
+        openGlDebugTypeDeprecatedBehavior,
+        openGlDebugSeverityLow,
+        debugMessage
+    )
+    var repeat = 0
+    while (debugPassed && repeat < 4) {
+        debugPassed = debug.submit(
+            openGlDebugTypeMarker,
+            openGlDebugSeverityNotification,
+            debugMessage
+        )
+        repeat = repeat + 1
+    }
+    debugPassed = debugPassed &&
+        !debug.submit(0, openGlDebugSeverityLow, debugMessage) &&
+        !debug.submit(openGlDebugTypeMarker, 0, debugMessage) &&
+        !debug.submit(openGlDebugTypeMarker, openGlDebugSeverityLow, "")
+    val debugLiveAfter = runtimeMemoryLiveBytes()
+    val debugAfter = debug.counts()
+    val noDebug = context.debugMessenger(false)
+    debugPassed = debugPassed && debug.callbackAddress ==
+        debugCallbackAddress && debugLiveAfter == debugLiveBefore &&
+        !noDebug.valid() && !noDebug.submit(
+            openGlDebugTypeMarker,
+            openGlDebugSeverityLow,
+            debugMessage
+        ) &&
+        debugAfter.total - debugBefore.total == 7 &&
+        debugAfter.high - debugBefore.high == 1 &&
+        debugAfter.medium - debugBefore.medium == 1 &&
+        debugAfter.low - debugBefore.low == 1 &&
+        debugAfter.notification - debugBefore.notification == 4 &&
+        debugAfter.error - debugBefore.error == 1 &&
+        debugAfter.performance - debugBefore.performance == 1 &&
+        debugAfter.deprecatedBehavior - debugBefore.deprecatedBehavior == 1 &&
+        debugAfter.marker - debugBefore.marker == 4
+    debug.drop()
+    debugPassed = debugPassed && !debug.valid() && context.makeCurrent()
     var result = 42
     if (!context.valid()) result = 2
     else if (!context.makeCurrent()) result = 3
@@ -21,5 +80,9 @@ fun main: int {
         capabilities.limits.maximumComputeWorkgroupSizeY <= 0 ||
         capabilities.limits.maximumComputeWorkgroupSizeZ <= 0 ||
         capabilities.limits.maximumSamplerAnisotropy < 16) result = 6
+    else if (!debugPassed) result = 7
+    if (result == 7) println(
+        "OpenGL debug failure valid=${debug.valid()} live=$debugLiveBefore/$debugLiveAfter counts=${debugBefore.total}/${debugAfter.total},${debugBefore.high}/${debugAfter.high},${debugBefore.medium}/${debugAfter.medium},${debugBefore.low}/${debugAfter.low},${debugBefore.notification}/${debugAfter.notification}"
+    )
     result
 }

@@ -35,4 +35,5 @@ extension and feature-structure negotiation is still classified as future
 work. The backend-specific Vulkan surface additionally discovers
 `VK_EXT_debug_utils`; its optional debug module owns the messenger, including
 the process-resolved Abla callback, atomic message accounting, and a tested
-explicitly disabled path.
+explicitly disabled path. The optional OpenGL debug module provides the same
+pure-Abla ownership and accounting model over the OpenGL 4.3 core debug API.

@@ -994,7 +994,18 @@ This is the delivered portable capability subset, not a claim of complete
 extension/feature-chain negotiation. Optional feature preferences and typed
 extension objects remain planned API work.
 
-### Vulkan debug utilities
+### OpenGL and Vulkan debug utilities
+
+OpenGL 4.3 or newer exposes an affine debug messenger after importing the
+optional `driver/opengl_debug.ab` module and calling
+`context.debugMessenger()`. The messenger enables synchronous core debug
+output, registers a process-resolved `@export` Abla callback, and accepts
+allocation-free application messages through `submit(type, severity,
+message)`. `counts()` reports atomic totals for all four severities and the
+error, deprecated-behavior, undefined-behavior, portability, performance,
+marker, and other message classes. Pass `false` to `debugMessenger(false)` for
+an explicitly disabled object. The messenger must be dropped before its OpenGL
+context.
 
 `vulkanInstance()` and `vulkanX11Instance()` discover and enable
 `VK_EXT_debug_utils` by default when the loader advertises it. Pass

@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 15/2892
+- Classified commands: 18/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -397,13 +397,13 @@
 | `glCullParameterdvEXT` | definition | unclassified | - | - | - | - |
 | `glCullParameterfvEXT` | definition | unclassified | - | - | - | - |
 | `glCurrentPaletteMatrixARB` | definition | unclassified | - | - | - | - |
-| `glDebugMessageCallback` | definition | unclassified | - | - | - | - |
+| `glDebugMessageCallback` | definition | common | src/driver/opengl_debug.ab optional debug callback ownership | src/driver/opengl_debug_callback.ab process-resolved Abla callback ABI | tests/opengl/main.ab exact injected message counts | tests/opengl/main.ab explicitly disabled messenger |
 | `glDebugMessageCallbackAMD` | definition | unclassified | - | - | - | - |
 | `glDebugMessageCallbackARB` | definition | unclassified | - | - | - | - |
-| `glDebugMessageControl` | definition | unclassified | - | - | - | - |
+| `glDebugMessageControl` | definition | common | src/driver/opengl_debug.ab all-severity debug configuration | src/driver/opengl_debug.ab typed extern signature | tests/opengl/main.ab high medium low and notification delivery | tests/opengl/main.ab invalid severity rejection |
 | `glDebugMessageControlARB` | definition | unclassified | - | - | - | - |
 | `glDebugMessageEnableAMD` | definition | unclassified | - | - | - | - |
-| `glDebugMessageInsert` | definition | unclassified | - | - | - | - |
+| `glDebugMessageInsert` | definition | common | src/driver/opengl_debug.ab allocation-free debug message injection | src/driver/opengl_debug.ab reusable string ABI storage | tests/opengl/main.ab exact type and severity accounting | tests/opengl/main.ab invalid type and empty message rejection |
 | `glDebugMessageInsertAMD` | definition | unclassified | - | - | - | - |
 | `glDebugMessageInsertARB` | definition | unclassified | - | - | - | - |
 | `glDeformSGIX` | definition | unclassified | - | - | - | - |
