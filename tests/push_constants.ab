@@ -33,6 +33,20 @@ fun main: int {
         move(subpassBytes),
         ""
     )
+    val wideShader = glslPackage(
+        [shaderStageCompute],
+        ["layout(push_constant) uniform Wide { double scalar; dvec2 vector; mat2 basis[2]; layout(row_major) dmat2 wideMatrix; } wide; void main() {}"]
+    )
+    val wideValues = wideShader.pushConstants()
+    val wideSubpassBytes = bufferBytes(192)
+    val wideSubpassValues = GraphicsSubpassPushConstants(
+        [wideValues.layout, wideValues.layout],
+        [0, 96],
+        [96, 96],
+        [shaderStageMaskCompute, shaderStageMaskCompute],
+        move(wideSubpassBytes),
+        ""
+    )
     val passed = values.valid() && values.layout.size == 80 &&
         values.memberOffset("transform") == 0 &&
         values.memberSize("transform") == 64 &&
@@ -93,6 +107,52 @@ fun main: int {
         subpassValues.bytes.load(44) == 1 &&
         !subpassValues.storeMemberF32(2, "scalar", 1.0) &&
         !subpassValues.storeMemberBool(0, "floats", true) &&
-        !subpassValues.storeMemberU32(1, "unsigneds", -1)
+        !subpassValues.storeMemberU32(1, "unsigneds", -1) &&
+        wideValues.valid() && wideValues.layout.size == 96 &&
+        wideValues.layout.members[2].arrayStride == 16 &&
+        wideValues.layout.members[2].matrixStride == 8 &&
+        !wideValues.layout.members[2].rowMajor &&
+        wideValues.layout.members[3].matrixStride == 16 &&
+        wideValues.layout.members[3].rowMajor && wideValues.fill() &&
+        wideValues.storeMemberF64("scalar", 1.0) &&
+        wideValues.storeMemberF64("vector", 0.5, 1) &&
+        wideValues.storeMemberMatrixF32("basis", 0.5, 1, 0, 1) &&
+        wideValues.storeMemberMatrixF64("wideMatrix", 0.5, 1, 0) &&
+        wideValues.storeMemberMatrixF64("wideMatrix", 1.0, 0, 1) &&
+        wideValues.bytes.load(6) == 240 &&
+        wideValues.bytes.load(7) == 63 &&
+        wideValues.bytes.load(30) == 224 &&
+        wideValues.bytes.load(31) == 63 &&
+        wideValues.bytes.load(58) == 0 &&
+        wideValues.bytes.load(59) == 63 &&
+        wideValues.bytes.load(78) == 224 &&
+        wideValues.bytes.load(79) == 63 &&
+        wideValues.bytes.load(86) == 240 &&
+        wideValues.bytes.load(87) == 63 &&
+        !wideValues.storeMemberF64("vector", 1.0, 2) &&
+        !wideValues.storeMemberF64("scalar", 1.0, 0, 1) &&
+        !wideValues.storeMemberF64("basis", 1.0) &&
+        !wideValues.storeMemberF32("scalar", 1.0) &&
+        !wideValues.storeMemberMatrixF32("wideMatrix", 1.0, 0, 0) &&
+        !wideValues.storeMemberMatrixF64("basis", 1.0, 0, 0) &&
+        !wideValues.storeMemberMatrixF32("basis", 1.0, 2, 0) &&
+        !wideValues.storeMemberMatrixF32("basis", 1.0, 0, 2) &&
+        !wideValues.storeMemberMatrixF32("basis", 1.0, 0, 0, 2) &&
+        wideSubpassValues.valid() && wideSubpassValues.fill() &&
+        wideSubpassValues.storeMemberF64(1, "scalar", 1.0) &&
+        wideSubpassValues.storeMemberMatrixF32(
+            0, "basis", 0.5, 1, 0, 1
+        ) && wideSubpassValues.storeMemberMatrixF64(
+            1, "wideMatrix", 0.5, 1, 0
+        ) && wideSubpassValues.bytes.load(102) == 240 &&
+        wideSubpassValues.bytes.load(103) == 63 &&
+        wideSubpassValues.bytes.load(58) == 0 &&
+        wideSubpassValues.bytes.load(59) == 63 &&
+        wideSubpassValues.bytes.load(174) == 224 &&
+        wideSubpassValues.bytes.load(175) == 63 &&
+        !wideSubpassValues.storeMemberF64(2, "scalar", 1.0) &&
+        !wideSubpassValues.storeMemberMatrixF32(
+            0, "wideMatrix", 1.0, 0, 0
+        )
     if (passed) 42 else 1
 }

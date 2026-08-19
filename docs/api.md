@@ -1576,7 +1576,12 @@ member-sized `BufferBytes`. Typed `storeMemberF32`, `storeMemberI32`,
 optional vector component and fixed-array index without allocation. They accept
 only the matching scalar/vector family, apply the reflected array stride, and
 reject missing names, wrong types, invalid components, array overflow, and
-integer range overflow without modifying memory. `writeBytes()` and
+integer range overflow without modifying memory. `storeMemberF64` provides the
+same contract for `double` and `dvec*`. `storeMemberMatrixF32` and
+`storeMemberMatrixF64` accept explicit column and row coordinates plus an
+optional array index; they apply the reflected column/row-major matrix stride
+and scalar width, so callers never calculate native layout offsets.
+`writeBytes()` and
 `storeU32()`/`storeF32()` remain available as checked offset-based hot paths.
 `GraphicsSubpassPushConstants` exposes the same typed member methods with a
 leading subpass index. Member offsets and sizes remain queryable. The reusable
