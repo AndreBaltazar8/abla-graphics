@@ -390,10 +390,11 @@ Updated: 2026-08-19.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
-  deterministic four-byte `std430` offset and access-chain index; real-driver
-  tests update the third member while preserving the initialized prefix. Mixed
-  member types, unknown targets, mismatched instances, and reads from a different
-  member are rejected.
+  deterministic four-byte `std430` offset and access-chain index. Expressions
+  may read any declared homogeneous member; only referenced foreign members get
+  additional constant/access-chain IDs. Real-driver tests combine the first two
+  members to update the third while preserving the initialized 64-bit prefix.
+  Mixed member types, unknown members, and mismatched instances are rejected.
   Storage emission now consumes the shared source-spanned lexer end to end via
   immutable next-index parse results and one precedence-climbing expression
   parser. Version/layout qualifiers, optional specialization, storage members,

@@ -647,9 +647,13 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint padding; uint result; } counters; void main(){ counters.result=counters.result+2u; }"]
     ).spirv(shaderStageCompute)
-    val mismatchedStorageReadMember = glslPackage(
+    val crossMemberStorageRead = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint padding; uint result; } counters; void main(){ counters.result=counters.padding+2u; }"]
+    ).spirv(shaderStageCompute)
+    val unknownStorageReadMember = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Counters { uint padding; uint result; } counters; void main(){ counters.result=counters.missing+2u; }"]
     ).spirv(shaderStageCompute)
     val mismatchedStorageInstance = glslPackage(
         [shaderStageCompute],
@@ -1321,8 +1325,17 @@ fun main: int {
             namedStorageBlock.module,
             [262187, 3, 7, 1]
         ) &&
-        !mismatchedStorageReadMember.succeeded &&
-        mismatchedStorageReadMember.error != "" &&
+        crossMemberStorageRead.succeeded &&
+        crossMemberStorageRead.module.valid() &&
+        spirvContainsWords(
+            crossMemberStorageRead.module,
+            [262187, 3, 13, 0]
+        ) &&
+        spirvContainsWords(
+            crossMemberStorageRead.module,
+            [327745, 6, 14, 9, 13]
+        ) &&
+        !unknownStorageReadMember.succeeded &&
         !mismatchedStorageInstance.succeeded &&
         mismatchedStorageInstance.error != "" &&
         storagePrecedence.succeeded && storagePrecedence.module.valid() &&

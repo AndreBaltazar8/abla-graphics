@@ -958,7 +958,7 @@ fun glslStorageTokenExpression(
     specializationBoolean: bool,
     specializationId: int,
     storageInstance: string,
-    storageMember: string,
+    storageMembers: array<string>,
     depth: int
 ): GlslStorageExpression {
     if (depth >= 128) {
@@ -975,7 +975,7 @@ fun glslStorageTokenExpression(
         specializationBoolean,
         specializationId,
         storageInstance,
-        storageMember,
+        storageMembers,
         depth
     )
     val tokens = glslStorageTokensCopy(first.tokens)
@@ -999,7 +999,7 @@ fun glslStorageTokenExpression(
                 specializationBoolean,
                 specializationId,
                 storageInstance,
-                storageMember,
+                storageMembers,
                 depth + 1
             )
             valid = right.valid
@@ -1037,7 +1037,7 @@ fun glslStorageTokenExpression(
             specializationBoolean,
             specializationId,
             storageInstance,
-            storageMember,
+            storageMembers,
             depth + 1
         )
         index = whenTrue.next
@@ -1055,7 +1055,7 @@ fun glslStorageTokenExpression(
             specializationBoolean,
             specializationId,
             storageInstance,
-            storageMember,
+            storageMembers,
             depth + 1
         )
         valid = valid && whenFalse.valid
@@ -1094,7 +1094,7 @@ fun glslStorageTokenPrimary(
     specializationBoolean: bool,
     specializationId: int,
     storageInstance: string,
-    storageMember: string,
+    storageMembers: array<string>,
     depth: int
 ): GlslStorageExpression {
     val tokens: array<GlslStorageToken> = []
@@ -1112,7 +1112,7 @@ fun glslStorageTokenPrimary(
             specializationBoolean,
             specializationId,
             storageInstance,
-            storageMember,
+            storageMembers,
             depth + 1
         )
         index = nested.next
@@ -1132,12 +1132,21 @@ fun glslStorageTokenPrimary(
         if (name == storageInstance) {
             valid = index + 2 < sourceTokens.size &&
                 sourceTokens[index + 1].is(glslTokenPunctuation, ".") &&
-                sourceTokens[index + 2].is(
-                    glslTokenIdentifier,
-                    storageMember
-                )
+                sourceTokens[index + 2].kind == glslTokenIdentifier
+            var memberIndex = -1
+            var reflectedMember = 0
+            while (valid && memberIndex < 0 &&
+                reflectedMember < storageMembers.size) {
+                if (storageMembers[reflectedMember] ==
+                    sourceTokens[index + 2].text) {
+                    memberIndex = reflectedMember
+                }
+                reflectedMember = reflectedMember + 1
+            }
+            valid = valid && memberIndex >= 0
             if (valid) tokens.append(GlslStorageToken(
-                glslStorageTokenLoad
+                glslStorageTokenLoad,
+                memberIndex
             ))
             index = index + 3
         } else if (specializationName != "" && name == specializationName) {
@@ -1178,7 +1187,7 @@ fun glslStorageTokenUnary(
     specializationBoolean: bool,
     specializationId: int,
     storageInstance: string,
-    storageMember: string,
+    storageMembers: array<string>,
     depth: int
 ): GlslStorageExpression {
     if (depth >= 128) {
@@ -1221,7 +1230,7 @@ fun glslStorageTokenUnary(
             specializationBoolean,
             specializationId,
             storageInstance,
-            storageMember,
+            storageMembers,
             depth + 1
         )
         val tokens = glslStorageTokensCopy(operand.tokens)
@@ -1250,7 +1259,7 @@ fun glslStorageTokenUnary(
         specializationBoolean,
         specializationId,
         storageInstance,
-        storageMember,
+        storageMembers,
         depth
     )
 }
@@ -1747,7 +1756,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         specializationType == "bool",
         specializationId,
         instanceName,
-        memberName,
+        memberNames,
         0
     )
     valid = valid && expression.valid
@@ -1824,6 +1833,29 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     nextId = nextId + 1
     val pointerId = nextId
     nextId = nextId + 1
+    val memberConstantIds: array<int> = []
+    val memberPointerIds: array<int> = []
+    var member = 0
+    while (member < write.memberCount) {
+        memberConstantIds.append(if (member == write.memberIndex) 7 else -1)
+        memberPointerIds.append(
+            if (member == write.memberIndex) pointerId else -1
+        )
+        member = member + 1
+    }
+    tokenIndex = 0
+    while (tokenIndex < write.tokens.size) {
+        val token = write.tokens[tokenIndex]
+        if (token.kind == glslStorageTokenLoad && token.value >= 0 &&
+            token.value < memberPointerIds.size &&
+            memberPointerIds[token.value] < 0) {
+            memberConstantIds[token.value] = nextId
+            nextId = nextId + 1
+            memberPointerIds[token.value] = nextId
+            nextId = nextId + 1
+        }
+        tokenIndex = tokenIndex + 1
+    }
     val body: array<int> = []
     val stack: array<int> = []
     val stackTypes: array<int> = []
@@ -1834,12 +1866,17 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
         val token = write.tokens[tokenIndex]
         var resultId = tokenIds[tokenIndex]
         if (token.kind == glslStorageTokenLoad) {
+            valid = token.value >= 0 &&
+                token.value < memberPointerIds.size &&
+                memberPointerIds[token.value] >= 0
             resultId = nextId
             nextId = nextId + 1
-            body.append(262205)
-            body.append(3)
-            body.append(resultId)
-            body.append(pointerId)
+            if (valid) {
+                body.append(262205)
+                body.append(3)
+                body.append(resultId)
+                body.append(memberPointerIds[token.value])
+            }
         } else if (token.kind == glslStorageTokenOperation) {
             var resultType = 0
             valid = stackSize >= token.arity && token.opcode != 0
@@ -1977,6 +2014,16 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
         words.append(storageDeclarations[wordIndex])
         wordIndex = wordIndex + 1
     }
+    member = 0
+    while (member < memberConstantIds.size) {
+        if (member != write.memberIndex && memberConstantIds[member] >= 0) {
+            words.append(262187)
+            words.append(3)
+            words.append(memberConstantIds[member])
+            words.append(member)
+        }
+        member = member + 1
+    }
     var specializationDeclared = false
     tokenIndex = 0
     while (tokenIndex < write.tokens.size) {
@@ -2018,6 +2065,17 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     while (wordIndex < functionPrefix.size) {
         words.append(functionPrefix[wordIndex])
         wordIndex = wordIndex + 1
+    }
+    member = 0
+    while (member < memberPointerIds.size) {
+        if (member != write.memberIndex && memberPointerIds[member] >= 0) {
+            words.append(327745)
+            words.append(6)
+            words.append(memberPointerIds[member])
+            words.append(variableId)
+            words.append(memberConstantIds[member])
+        }
+        member = member + 1
     }
     wordIndex = 0
     while (wordIndex < body.size) {

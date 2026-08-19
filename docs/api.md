@@ -1428,13 +1428,15 @@ and target-member identifiers are parsed from the declaration and assignment;
 there are no required names. The block accepts one to 64 homogeneous scalar
 `int` or `uint` members. The emitter creates the variable-length SPIR-V struct,
 assigns consecutive four-byte `std430` offsets, and indexes the LHS member in
-the access chain. Mixed signedness, arrays, qualified members, or an unknown
-target remain explicit subset failures.
+the access chain. Every other referenced member receives its own deterministic
+index constant and access chain while unreferenced members add no instructions.
+Mixed signedness, arrays, qualified members, or an unknown target/read remain
+explicit subset failures.
 OpenGL binds the existing buffer object as SSBO binding zero and issues a shader
 storage barrier. Vulkan owns a descriptor-set layout, pool, set, and storage
 buffer update alongside the pipeline, then binds that set before dispatch.
-The assignment expression reads and writes that same selected storage member and
-accepts typed integer literals,
+The assignment expression writes the selected member and may read any
+homogeneous member of the same block. It accepts typed integer literals,
 one matching integer specialization constant, Boolean literals or one Boolean
 specialization constant in condition expressions, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, relational/equality,
