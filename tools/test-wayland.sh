@@ -25,6 +25,8 @@ cd "$compiler_root"
     -o "$output_directory/wayland_protocol" --no-cache
 "$compiler" build "$project_root/tests/wayland_live.ab" \
     -o "$output_directory/wayland_live" --no-cache
+"$compiler" build "$project_root/tests/wayland_window.ab" \
+    -o "$output_directory/wayland_window" --no-cache
 
 set +e
 "$output_directory/wayland_protocol"
@@ -67,6 +69,18 @@ status=$?
 set -e
 if [[ $status -ne 42 ]]; then
     printf 'Wayland live test returned %s, expected 42\n' "$status" >&2
+    sed -n '1,200p' "$output_directory/weston.log" >&2
+    exit 1
+fi
+
+set +e
+XDG_RUNTIME_DIR="$runtime_directory" \
+WAYLAND_DISPLAY=wayland-abla-test \
+    timeout 10s "$output_directory/wayland_window"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'Wayland window test returned %s, expected 42\n' "$status" >&2
     sed -n '1,200p' "$output_directory/weston.log" >&2
     exit 1
 fi

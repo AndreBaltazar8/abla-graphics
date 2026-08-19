@@ -20,7 +20,7 @@ trap cleanup EXIT
 mkdir -p "$output_directory"
 chmod 700 "$wayland_runtime"
 
-for sample in x11-window wayland-info vulkan-info vulkan-surface headless-opengl \
+for sample in x11-window wayland-info wayland-window vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \
     common-textured indexed-textured-cube render-to-texture \
@@ -46,6 +46,8 @@ done
 [[ -S "$wayland_runtime/wayland-abla-samples" ]]
 XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
     "$output_directory/wayland-info"
+XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
+    timeout 10s "$output_directory/wayland-window"
 
 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/x11-window"

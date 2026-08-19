@@ -21,6 +21,30 @@ fun waylandTestGlobalPayload(
     payload.adoptString(12 + padded)
 }
 
+fun waylandTestToplevelConfigurePayload(): string {
+    val payload = nativeByteBuffer(21)
+    waylandStoreU32(payload, 0, 640)
+    waylandStoreU32(payload, 4, 480)
+    waylandStoreU32(payload, 8, 8)
+    waylandStoreU32(payload, 12, 1)
+    waylandStoreU32(payload, 16, 4)
+    payload.adoptString(20)
+}
+
+fun waylandTestEmbeddedNull(): string {
+    val value = nativeByteBuffer(10)
+    value.store(0, 98)
+    value.store(1, 97)
+    value.store(2, 100)
+    value.store(3, 0)
+    value.store(4, 116)
+    value.store(5, 105)
+    value.store(6, 116)
+    value.store(7, 108)
+    value.store(8, 101)
+    value.adoptString(9)
+}
+
 fun main: int {
     val getRegistry = waylandNewIdentifierRequest(1, 1, 2)
     val getRegistryMessage = waylandDecodeMessage(getRegistry)
@@ -45,6 +69,29 @@ fun main: int {
     val interiorNullString = waylandRegistryGlobal(
         "\u{1}\u{0}\u{0}\u{0}\u{3}\u{0}\u{0}\u{0}x\u{0}\u{0}\u{0}\u{1}\u{0}\u{0}\u{0}"
     )
+    val title = waylandStringRequest(8, 2, "Abla")
+    val titleMessage = waylandDecodeMessage(title)
+    val titleText = waylandString(titleMessage.payload, 0)
+    val identifiers = waylandU32PairPayload(11, 12)
+    val getXdgSurface = waylandDecodeMessage(
+        waylandPacket(5, 2, identifiers)
+    )
+    val getToplevel = waylandDecodeMessage(
+        waylandNewIdentifierRequest(11, 1, 13)
+    )
+    val initialCommit = waylandDecodeMessage(waylandPacket(12, 6))
+    val acknowledge = waylandDecodeMessage(
+        waylandPacket(11, 4, waylandU32Payload(99))
+    )
+    val pong = waylandDecodeMessage(
+        waylandPacket(5, 3, waylandU32Payload(101))
+    )
+    val configured = waylandToplevelConfigure(
+        waylandTestToplevelConfigurePayload()
+    )
+    val malformedConfigure = waylandToplevelConfigure(
+        "\u{80}\u{2}\u{0}\u{0}\u{224}\u{1}\u{0}\u{0}\u{3}\u{0}\u{0}\u{0}abc\u{0}"
+    )
     if (getRegistry.size == 12 && getRegistryMessage.valid &&
         getRegistryMessage.objectIdentifier == 1 &&
         getRegistryMessage.opcode == 1 &&
@@ -57,6 +104,30 @@ fun main: int {
         waylandU32(bindMessage.payload, 0) == 17 &&
         bindInterface.valid && bindInterface.text == "wl_compositor" &&
         bindVersion == 4 && bindIdentifier == 3 &&
+        title.size == 20 && titleMessage.valid &&
+        titleMessage.objectIdentifier == 8 && titleMessage.opcode == 2 &&
+        titleText.valid && titleText.text == "Abla" &&
+        waylandStringRequest(8, 2, "").size == 16 &&
+        waylandStringRequest(8, 2, waylandTestEmbeddedNull()) == "" &&
+        identifiers.size == 8 && waylandU32(identifiers, 0) == 11 &&
+        waylandU32(identifiers, 4) == 12 &&
+        getXdgSurface.valid && getXdgSurface.objectIdentifier == 5 &&
+        getXdgSurface.opcode == 2 &&
+        waylandU32(getXdgSurface.payload, 0) == 11 &&
+        waylandU32(getXdgSurface.payload, 4) == 12 &&
+        getToplevel.valid && getToplevel.objectIdentifier == 11 &&
+        getToplevel.opcode == 1 &&
+        waylandU32(getToplevel.payload, 0) == 13 &&
+        initialCommit.valid && initialCommit.objectIdentifier == 12 &&
+        initialCommit.opcode == 6 && initialCommit.payload.size == 0 &&
+        acknowledge.valid && acknowledge.objectIdentifier == 11 &&
+        acknowledge.opcode == 4 && waylandU32(acknowledge.payload, 0) == 99 &&
+        pong.valid && pong.objectIdentifier == 5 && pong.opcode == 3 &&
+        waylandU32(pong.payload, 0) == 101 &&
+        configured.valid && configured.width == 640 &&
+        configured.height == 480 && configured.states.size == 2 &&
+        configured.states[0] == 1 && configured.states[1] == 4 &&
+        !malformedConfigure.valid &&
         !malformedLength.valid && !malformedString.valid &&
         !interiorNullString.valid &&
         waylandDescriptor("0") == 0 && waylandDescriptor("17") == 17 &&

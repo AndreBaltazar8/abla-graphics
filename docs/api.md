@@ -1134,14 +1134,29 @@ object IDs, the singleton display/registry bootstrap, and copied
 registry global/global-remove, callback, delete-id, and fatal display events;
 `bind(interfaceName, maximumVersion)` clamps the requested version to the
 advertised global and emits the untyped registry bind signature directly.
+`read()`, `send()`, and `dispatchCore()` are the bounded base for typed object
+dispatch.
 
 The wire codec uses native-order 32-bit words, validates the two-word header,
 message byte bounds/alignment, null-terminated padded strings, and complete
-registry payloads. The live gate discovers `wl_compositor`, `wl_shm`, and
-`xdg_wm_base` from headless Weston, binds the compositor, and completes another
-roundtrip without linking `libwayland-client`. This is the transport/registry
-foundation, not yet a claim of Wayland surfaces, xdg-shell windows, input,
-clipboard, or Vulkan/EGL Wayland presentation.
+registry payloads. `waylandXdgWindow(title, appId, width, height)` binds
+`wl_compositor` and stable `xdg_wm_base`, allocates dense IDs for one
+`wl_surface`, `xdg_surface`, and `xdg_toplevel`, sends title/application ID and
+the required initial bufferless commit, then waits for and acknowledges the
+first configure sequence. The shell binding is deliberately capped at version
+one, so dispatch strictly covers ping/pong, toplevel size/state configure,
+surface serial configure/ack, and close intent. `setTitle()`, `setAppId()`, and
+`commit()` remain available after construction; callers can feed subsequent
+`connection.read()` values through `dispatch()`.
+
+`WaylandXdgWindow` is affine. Its drop path destroys the toplevel role before
+the xdg surface and core surface, then destroys the shell binding and closes
+the connection. Deterministic codec tests cover strings, object-ID pairs,
+state arrays, and malformed inputs. Live headless-Weston gates separately prove
+registry binding and the real xdg-shell configure/ack handshake without
+linking `libwayland-client`. This is a real shell-window object foundation, but
+it does not yet attach a shared pixel buffer or provide input, clipboard,
+output discovery, or Vulkan/EGL Wayland presentation.
 
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,

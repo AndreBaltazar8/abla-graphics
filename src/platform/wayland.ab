@@ -85,6 +85,48 @@ fun waylandU32Payload(value: int): string {
     payload.adoptString(4)
 }
 
+fun waylandU32PairPayload(first: int, second: int): string {
+    val payload = nativeByteBuffer(9)
+    waylandStoreU32(payload, 0, first)
+    waylandStoreU32(payload, 4, second)
+    payload.adoptString(8)
+}
+
+fun waylandStringPayload(value: string): string {
+    var valid = value.size <= 4096
+    var index = 0
+    while (valid && index < value.size) {
+        valid = value[index] != 0
+        index = index + 1
+    }
+    val length = value.size + 1
+    val padded = waylandAligned(length)
+    var result = ""
+    if (valid && padded + 4 <= waylandMaximumMessageBytes - 8) {
+        val payload = nativeByteBuffer(padded + 5)
+        waylandStoreU32(payload, 0, length)
+        index = 0
+        while (index < value.size) {
+            payload.store(4 + index, value[index])
+            index = index + 1
+        }
+        payload.store(4 + value.size, 0)
+        result = payload.adoptString(4 + padded)
+    }
+    result
+}
+
+fun waylandStringRequest(
+    objectIdentifier: int,
+    opcode: int,
+    value: string
+): string {
+    val payload = waylandStringPayload(value)
+    if (payload != "")
+        waylandPacket(objectIdentifier, opcode, payload)
+    else ""
+}
+
 fun waylandNewIdentifierRequest(
     objectIdentifier: int,
     opcode: int,
@@ -185,6 +227,36 @@ class WaylandBinding(
     val interfaceName: string = "",
     val version: int = 0
 )
+
+class WaylandToplevelConfigure(
+    val valid: bool = false,
+    val width: int = 0,
+    val height: int = 0,
+    val states: array<int> = []
+)
+
+fun waylandI32(value: string, offset: int): int {
+    val encoded = waylandU32(value, offset)
+    if (encoded <= 2147483647) encoded else encoded - 4294967296
+}
+
+fun waylandToplevelConfigure(payload: string): WaylandToplevelConfigure {
+    var valid = payload.size >= 12
+    val width = if (valid) waylandI32(payload, 0) else 0
+    val height = if (valid) waylandI32(payload, 4) else 0
+    val length = if (valid) waylandU32(payload, 8) else 0
+    val padded = if (length >= 0) waylandAligned(length) else 0
+    valid = valid && width >= 0 && height >= 0 &&
+        length >= 0 && (length / 4) * 4 == length &&
+        padded >= length && 12 + padded == payload.size
+    val states: array<int> = []
+    var offset = 0
+    while (valid && offset < length) {
+        states.append(waylandU32(payload, 12 + offset))
+        offset = offset + 4
+    }
+    WaylandToplevelConfigure(valid, width, height, states)
+}
 
 fun waylandRegistryBindRequest(
     registryIdentifier: int,
@@ -341,6 +413,61 @@ resource class WaylandConnection(
         return
     }
 
+    fun send(packet: string): bool {
+        val succeeded = this.valid() && packet != "" &&
+            waylandWriteAll(this.descriptor, packet)
+        if (!succeeded && !this.failed) this.fail("Wayland request failed")
+        succeeded
+    }
+
+    fun read(): WaylandMessage {
+        val message = if (this.valid())
+            waylandReadMessage(this.descriptor)
+        else WaylandMessage(false)
+        if (!message.valid && !this.failed) this.fail(
+            "Wayland message read failed"
+        )
+        message
+    }
+
+    // Returns 1 when a core message was consumed, 0 for an application
+    // object, and -1 for malformed or unknown core traffic.
+    fun dispatchCore(message: WaylandMessage): int {
+        var result = 0
+        if (!message.valid) result = -1
+        else if (message.objectIdentifier == this.registryIdentifier &&
+            message.opcode == 0) {
+            val global = waylandRegistryGlobal(message.payload)
+            if (global.valid && this.globals.size < waylandMaximumGlobals) {
+                this.globals.append(global)
+                result = 1
+            } else result = -1
+        } else if (message.objectIdentifier == this.registryIdentifier &&
+            message.opcode == 1) {
+            if (message.payload.size == 4) {
+                this.removeGlobal(waylandU32(message.payload, 0))
+                result = 1
+            } else result = -1
+        } else if (message.objectIdentifier == waylandDisplayIdentifier &&
+            message.opcode == 0) {
+            var detail = "Wayland compositor protocol error"
+            if (message.payload.size >= 12) {
+                val parsed = waylandString(message.payload, 8)
+                if (parsed.valid) detail = parsed.text
+            }
+            this.fail(detail)
+            result = -1
+        } else if (message.objectIdentifier == waylandDisplayIdentifier &&
+            message.opcode == 1) {
+            result = if (message.payload.size == 4) 1 else -1
+        } else if (message.objectIdentifier == this.registryIdentifier ||
+            message.objectIdentifier == waylandDisplayIdentifier) result = -1
+        if (result < 0 && !this.failed) this.fail(
+            "Malformed Wayland core event"
+        )
+        result
+    }
+
     fun roundtrip(): bool {
         val callbackIdentifier = this.allocateIdentifier()
         var succeeded = callbackIdentifier >= 2 && waylandWriteAll(
@@ -354,42 +481,15 @@ resource class WaylandConnection(
         var complete = false
         var messages = 0
         while (succeeded && !complete && messages < 16384) {
-            val message = waylandReadMessage(this.descriptor)
+            val message = this.read()
             succeeded = message.valid
             if (succeeded && message.objectIdentifier ==
-                this.registryIdentifier && message.opcode == 0) {
-                val global = waylandRegistryGlobal(message.payload)
-                succeeded = global.valid &&
-                    this.globals.size < waylandMaximumGlobals
-                if (succeeded) this.globals.append(global)
-            } else if (succeeded && message.objectIdentifier ==
-                this.registryIdentifier && message.opcode == 1) {
-                succeeded = message.payload.size == 4
-                if (succeeded) this.removeGlobal(
-                    waylandU32(message.payload, 0)
-                )
-            } else if (succeeded && message.objectIdentifier ==
                 callbackIdentifier && message.opcode == 0) {
                 succeeded = message.payload.size == 4
                 complete = succeeded
-            } else if (succeeded && message.objectIdentifier ==
-                waylandDisplayIdentifier && message.opcode == 0) {
-                succeeded = false
-                var detail = "Wayland compositor protocol error"
-                if (message.payload.size >= 12) {
-                    val parsed = waylandString(message.payload, 8)
-                    if (parsed.valid) detail = parsed.text
-                }
-                this.fail(detail)
-            } else if (succeeded && message.objectIdentifier ==
-                waylandDisplayIdentifier && message.opcode == 1) {
-                succeeded = message.payload.size == 4
             } else if (succeeded &&
-                (message.objectIdentifier == this.registryIdentifier ||
-                 message.objectIdentifier == callbackIdentifier ||
-                 message.objectIdentifier == waylandDisplayIdentifier)) {
-                succeeded = false
-            }
+                message.objectIdentifier == callbackIdentifier) succeeded = false
+            else if (succeeded) succeeded = this.dispatchCore(message) >= 0
             messages = messages + 1
         }
         succeeded = succeeded && complete
@@ -432,6 +532,202 @@ resource class WaylandConnection(
         this.descriptor = -1
         return
     }
+}
+
+resource class WaylandXdgWindow(
+    var connection: WaylandConnection,
+    val compositorIdentifier: int,
+    val wmBaseIdentifier: int,
+    val surfaceIdentifier: int,
+    val xdgSurfaceIdentifier: int,
+    val toplevelIdentifier: int,
+    var width: int,
+    var height: int,
+    var states: array<int>,
+    var configured: bool,
+    var closeRequested: bool,
+    var lastConfigureSerial: int,
+    var title: string,
+    var appId: string
+) {
+    fun valid(): bool = this.connection.valid() &&
+        this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
+        this.surfaceIdentifier >= 2 && this.xdgSurfaceIdentifier >= 2 &&
+        this.toplevelIdentifier >= 2 && this.configured
+
+    fun setTitle(value: string): bool {
+        val succeeded = this.connection.send(waylandStringRequest(
+            this.toplevelIdentifier,
+            2,
+            value
+        ))
+        if (succeeded) this.title = value
+        succeeded
+    }
+
+    fun setAppId(value: string): bool {
+        val succeeded = this.connection.send(waylandStringRequest(
+            this.toplevelIdentifier,
+            3,
+            value
+        ))
+        if (succeeded) this.appId = value
+        succeeded
+    }
+
+    fun dispatch(message: WaylandMessage): bool {
+        var succeeded = message.valid
+        val core = if (succeeded)
+            this.connection.dispatchCore(message)
+        else -1
+        if (core < 0) succeeded = false
+        else if (core == 0 && message.objectIdentifier ==
+            this.wmBaseIdentifier && message.opcode == 0) {
+            succeeded = message.payload.size == 4 && this.connection.send(
+                waylandPacket(
+                    this.wmBaseIdentifier,
+                    3,
+                    message.payload
+                )
+            )
+        } else if (core == 0 && message.objectIdentifier ==
+            this.xdgSurfaceIdentifier && message.opcode == 0) {
+            succeeded = message.payload.size == 4
+            if (succeeded) {
+                val serial = waylandU32(message.payload, 0)
+                succeeded = this.connection.send(waylandPacket(
+                    this.xdgSurfaceIdentifier,
+                    4,
+                    message.payload
+                ))
+                if (succeeded) {
+                    this.lastConfigureSerial = serial
+                    this.configured = true
+                }
+            }
+        } else if (core == 0 && message.objectIdentifier ==
+            this.toplevelIdentifier && message.opcode == 0) {
+            val configured = waylandToplevelConfigure(message.payload)
+            succeeded = configured.valid
+            if (succeeded) {
+                if (configured.width > 0) this.width = configured.width
+                if (configured.height > 0) this.height = configured.height
+                this.states = configured.states
+            }
+        } else if (core == 0 && message.objectIdentifier ==
+            this.toplevelIdentifier && message.opcode == 1) {
+            succeeded = message.payload.size == 0
+            if (succeeded) this.closeRequested = true
+        } else if (core == 0) succeeded = false
+        if (!succeeded && !this.connection.failed) this.connection.fail(
+            "Unknown or malformed Wayland xdg-shell event"
+        )
+        succeeded
+    }
+
+    fun waitConfigured(): bool {
+        var succeeded = this.connection.valid()
+        var messages = 0
+        while (succeeded && !this.configured && messages < 16384) {
+            succeeded = this.dispatch(this.connection.read())
+            messages = messages + 1
+        }
+        succeeded = succeeded && this.configured
+        if (!succeeded && !this.connection.failed) this.connection.fail(
+            "Wayland xdg-shell configure was not received"
+        )
+        succeeded
+    }
+
+    fun commit(): bool = this.connection.send(
+        waylandPacket(this.surfaceIdentifier, 6)
+    )
+
+    fun drop(): void {
+        if (this.connection.descriptor >= 0) {
+            if (this.toplevelIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.toplevelIdentifier, 0)
+            )
+            if (this.xdgSurfaceIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.xdgSurfaceIdentifier, 0)
+            )
+            if (this.surfaceIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.surfaceIdentifier, 0)
+            )
+            if (this.wmBaseIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.wmBaseIdentifier, 0)
+            )
+        }
+        this.connection.drop()
+        return
+    }
+}
+
+fun waylandXdgWindow(
+    title: string = "Abla Graphics",
+    appId: string = "abla-graphics",
+    width: int = 640,
+    height: int = 480
+): WaylandXdgWindow {
+    var connection = waylandConnection()
+    val compositor = connection.bind("wl_compositor", 4)
+    val wmBase = connection.bind("xdg_wm_base", 1)
+    var surfaceIdentifier = 0
+    var xdgSurfaceIdentifier = 0
+    var toplevelIdentifier = 0
+    var succeeded = connection.valid() && compositor.valid && wmBase.valid &&
+        width > 0 && width <= 16384 && height > 0 && height <= 16384
+    if (succeeded) {
+        val identifier = connection.allocateIdentifier()
+        succeeded = identifier >= 2 && connection.send(
+            waylandNewIdentifierRequest(compositor.identifier, 0, identifier)
+        )
+        if (succeeded) surfaceIdentifier = identifier
+    }
+    if (succeeded) {
+        val identifier = connection.allocateIdentifier()
+        succeeded = identifier >= 2 && connection.send(waylandPacket(
+            wmBase.identifier,
+            2,
+            waylandU32PairPayload(identifier, surfaceIdentifier)
+        ))
+        if (succeeded) xdgSurfaceIdentifier = identifier
+    }
+    if (succeeded) {
+        val identifier = connection.allocateIdentifier()
+        succeeded = identifier >= 2 && connection.send(
+            waylandNewIdentifierRequest(xdgSurfaceIdentifier, 1, identifier)
+        )
+        if (succeeded) toplevelIdentifier = identifier
+    }
+    val window = WaylandXdgWindow(
+        move(connection),
+        compositor.identifier,
+        wmBase.identifier,
+        surfaceIdentifier,
+        xdgSurfaceIdentifier,
+        toplevelIdentifier,
+        width,
+        height,
+        [],
+        false,
+        false,
+        0,
+        "",
+        ""
+    )
+    if (succeeded) succeeded = window.setTitle(title)
+    if (succeeded) succeeded = window.setAppId(appId)
+    if (succeeded) succeeded = window.commit()
+    if (succeeded) succeeded = window.waitConfigured()
+    if (!succeeded && !window.connection.failed) window.connection.fail(
+        "Unable to create Wayland xdg-shell window"
+    )
+    window
 }
 
 fun waylandConnection(): WaylandConnection {
