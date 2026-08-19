@@ -1180,6 +1180,14 @@ the active scale before sending an attachment that would trigger a compositor
 protocol error. These values are independent from fractional preferred scale
 and viewporter source/destination policy.
 
+`setOpaqueRegion()` and `clearOpaqueRegion()` control the compositor overdraw
+hint. `setInputRegion()`, `setInputRegionEmpty()`, and `resetInputRegion()`
+select rectangular, click-through, or default infinite hit testing. Each
+setter creates a short-lived core `wl_region`, optionally adds one validated
+rectangle, assigns it with the surface's copy-semantics request, destroys it,
+and commits. `opaqueRegionSet` and `inputRegionMode` retain the resulting
+policy without retaining the temporary protocol object.
+
 `createSharedBuffers(width, height, count = 3)` provides the sustained-frame
 path for one, two, or three buffers. All slots occupy fixed offsets in one
 mapping and one temporary pool. `acquireSharedBuffer()` performs a bounded

@@ -25,6 +25,9 @@ val waylandMaximumPendingTouchEvents = 256
 val waylandCursorWidth = 16
 val waylandCursorHeight = 24
 val waylandPointerConstraintPersistent = 2
+val waylandInputRegionDefault = 0
+val waylandInputRegionEmpty = 1
+val waylandInputRegionRectangle = 2
 val waylandDecorationModeClient = 1
 val waylandDecorationModeServer = 2
 val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
@@ -1578,7 +1581,9 @@ resource class WaylandXdgWindow(
     var frameComplete: bool,
     var shmFormats: array<int>,
     var bufferScale: int,
-    var bufferTransform: int
+    var bufferTransform: int,
+    var opaqueRegionSet: bool,
+    var inputRegionMode: int
 ) {
     fun valid(): bool = this.connection.valid() &&
         this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
@@ -1710,6 +1715,113 @@ resource class WaylandXdgWindow(
                 waylandU32Payload(transform)
             ))
         if (succeeded) this.bufferTransform = transform
+        succeeded
+    }
+
+    fun setSurfaceRectangleRegion(
+        surfaceOpcode: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        includeRectangle: bool
+    ): bool {
+        var succeeded = this.valid() &&
+            (surfaceOpcode == 4 || surfaceOpcode == 5) &&
+            x >= -2147483648 && x <= 2147483647 &&
+            y >= -2147483648 && y <= 2147483647 &&
+            width >= 0 && width <= 2147483647 &&
+            height >= 0 && height <= 2147483647 &&
+            (!includeRectangle || (width > 0 && height > 0))
+        val identifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        if (succeeded) succeeded = identifier >= 2 &&
+            this.connection.send(waylandNewIdentifierRequest(
+                this.compositorIdentifier,
+                1,
+                identifier
+            ))
+        if (succeeded && includeRectangle) succeeded = this.connection.send(
+            waylandPacket(
+                identifier,
+                1,
+                waylandU32ArrayPayload([x, y, width, height])
+            )
+        )
+        if (succeeded) succeeded = this.connection.send(waylandPacket(
+            this.surfaceIdentifier,
+            surfaceOpcode,
+            waylandU32Payload(identifier)
+        ))
+        if (succeeded) succeeded = this.connection.send(
+            waylandPacket(identifier, 0)
+        )
+        if (succeeded) succeeded = this.commit()
+        succeeded
+    }
+
+    fun setOpaqueRegion(
+        x: int,
+        y: int,
+        width: int,
+        height: int
+    ): bool {
+        val succeeded = this.setSurfaceRectangleRegion(
+            4,
+            x,
+            y,
+            width,
+            height,
+            true
+        )
+        if (succeeded) this.opaqueRegionSet = true
+        succeeded
+    }
+
+    fun clearOpaqueRegion(): bool {
+        var succeeded = this.valid() && this.connection.send(waylandPacket(
+            this.surfaceIdentifier,
+            4,
+            waylandU32Payload(0)
+        ))
+        if (succeeded) succeeded = this.commit()
+        if (succeeded) this.opaqueRegionSet = false
+        succeeded
+    }
+
+    fun setInputRegion(
+        x: int,
+        y: int,
+        width: int,
+        height: int
+    ): bool {
+        val succeeded = this.setSurfaceRectangleRegion(
+            5,
+            x,
+            y,
+            width,
+            height,
+            true
+        )
+        if (succeeded) this.inputRegionMode = waylandInputRegionRectangle
+        succeeded
+    }
+
+    fun setInputRegionEmpty(): bool {
+        val succeeded = this.setSurfaceRectangleRegion(5, 0, 0, 0, 0, false)
+        if (succeeded) this.inputRegionMode = waylandInputRegionEmpty
+        succeeded
+    }
+
+    fun resetInputRegion(): bool {
+        var succeeded = this.valid() && this.connection.send(waylandPacket(
+            this.surfaceIdentifier,
+            5,
+            waylandU32Payload(0)
+        ))
+        if (succeeded) succeeded = this.commit()
+        if (succeeded) this.inputRegionMode = waylandInputRegionDefault
         succeeded
     }
 
@@ -5172,7 +5284,9 @@ fun waylandXdgWindow(
         false,
         [],
         1,
-        0
+        0,
+        false,
+        waylandInputRegionDefault
     )
     if (succeeded) succeeded = window.setTitle(title)
     if (succeeded) succeeded = window.setAppId(appId)

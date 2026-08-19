@@ -94,6 +94,10 @@ Validated versioned requests stage a positive integer scale and one of the
 eight output transforms for the next commit; transformed buffer dimensions
 are exposed explicitly, and attachment rejects dimensions that the compositor
 would reject for not being integer multiples of the active scale.
+Short-lived core `wl_region` objects define opaque rectangles and default,
+empty, or rectangular input policy. The surface copies each region before the
+object is destroyed and the state is committed, so no extra long-lived native
+object or per-frame allocation is retained.
 The idle-inhibit manager similarly owns a replaceable per-surface inhibitor,
 keeping application policy explicit without background services.
 

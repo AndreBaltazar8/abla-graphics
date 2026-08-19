@@ -135,6 +135,11 @@ Updated: 2026-08-19.
   shared-buffer presentation rejects non-divisible scale inputs locally, and
   the live Weston gate accepts scale-two/90-degree commits followed by an exact
   normal/scale-one restoration before content presentation.
+- Direct core `wl_region` ownership applies validated opaque rectangles and
+  rectangular, empty, or default input policy using the protocol's copy
+  semantics, then immediately destroys each temporary region. The same live
+  gate proves every transition and restores default hit testing before input
+  fixtures run.
 - Optional `zxdg_decoration_manager_v1` support owns one decoration object
   before content attachment, distinguishes preferred from effective mode, and
   waits for both decoration and xdg-surface configure boundaries. The current
