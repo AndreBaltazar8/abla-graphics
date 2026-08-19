@@ -355,8 +355,12 @@ Updated: 2026-08-19.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the
-  result creates a real Lavapipe shader module. Statements and unsupported GLSL
-  versions fail explicitly instead of being omitted from the module.
+  result creates a real Lavapipe shader module. Specialized axes additionally
+  emit deterministic SPIR-V 1.2 `LocalSizeId` with `SpecId`-decorated unsigned
+  defaults. The resulting module creates a real Vulkan 1.4 compute pipeline and
+  dispatches under the Khronos validation layer without diagnostics. Statements
+  and unsupported GLSL versions fail explicitly instead of being omitted from
+  the module.
 - Vulkan compute execution test: the Abla-emitted module creates an empty
   pipeline layout and real compute pipeline, records bind/dispatch into a
   persistent command buffer, submits workgroups, waits for completion, and

@@ -73,7 +73,7 @@ fun main: int {
     )
     val specializedWorkgroup = glslPackage(
         [shaderStageCompute],
-        ["layout(local_size_x_id=4,local_size_y=2,local_size_z_id=9) in; void main() {}"]
+        ["#version 450\nlayout(local_size_x_id=4,local_size_y=2,local_size_z_id=9) in; void main() {}"]
     )
     val mixedSpecializedWorkgroup = glslPackage(
         [shaderStageCompute],
@@ -91,6 +91,10 @@ fun main: int {
         [shaderStageCompute],
         ["layout(constant_id=4) const uint count=2u; layout(local_size_x_id=4) in; void main() {}"]
     )
+    val specializedWorkgroupSpirv =
+        specializedWorkgroup.spirv(shaderStageCompute)
+    val specializedWorkgroupSpirvAgain =
+        specializedWorkgroup.spirv(shaderStageCompute)
     val invalidBindingArray = glslPackage(
         [shaderStageCompute],
         ["layout(set=0,binding=0) uniform sampler2D images[0]; void main() {}"]
@@ -452,6 +456,17 @@ fun main: int {
         specializedWorkgroup.workgroups[0].xId == 4 &&
         specializedWorkgroup.workgroups[0].yId == -1 &&
         specializedWorkgroup.workgroups[0].zId == 9 &&
+        specializedWorkgroupSpirv.succeeded &&
+        specializedWorkgroupSpirv.module.valid() &&
+        specializedWorkgroupSpirv.module.version() == 66048 &&
+        specializedWorkgroupSpirv.module.bound() == 10 &&
+        specializedWorkgroupSpirv.module.words.size == 59 &&
+        specializedWorkgroupSpirv.module.words[24] == 4 &&
+        specializedWorkgroupSpirv.module.words[28] == 9 &&
+        spirvWordsEqual(
+            specializedWorkgroupSpirv.module,
+            specializedWorkgroupSpirvAgain.module
+        ) &&
         mixedSpecializedWorkgroup.valid &&
         mixedSpecializedWorkgroup.workgroups[0].x == 8 &&
         mixedSpecializedWorkgroup.workgroups[0].xId == 4 &&

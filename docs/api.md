@@ -1227,13 +1227,16 @@ semantic validation.
 The executable translator is available as `package.spirv(stage)`. Its compute
 path accepts exactly one compute stage with one `#version 450` or `460`
 directive and an explicit local-size layout. The
-first form has an empty `main`; the second grammar declares one binding-zero
-`Values` storage block and either stores a parsed unsigned integer literal or
-adds/multiplies the existing member value by a parsed unsigned literal. They
-emit deterministic SPIR-V 1.0 modules using reflected workgroup/binding data;
-the arithmetic forms emit real load/operation/store chains. Repeated
-translation produces
-identical words and both results create real Vulkan shader modules. Any other
+first form has an empty `main`; fixed dimensions emit SPIR-V 1.0 `LocalSize`,
+while specialized axes emit SPIR-V 1.2 `LocalSizeId` backed by decorated
+unsigned specialization constants and the reflected concrete defaults. The
+second grammar declares one binding-zero `Values` storage block and either
+stores a parsed unsigned integer literal or adds/multiplies the existing member
+value by a parsed unsigned literal. The arithmetic forms emit real
+load/operation/store chains. Repeated translation produces identical words and
+all results create real Vulkan shader modules; the specialized form also
+creates and dispatches a validation-clean Vulkan 1.4 compute pipeline with its
+defaults. Any other
 binding, global, statement, version, or stage returns a checked
 `GlslSpirvResult` failure; nothing unsupported is silently dropped. These
 narrow subsets establish the pure-Abla emitter and execution path, not

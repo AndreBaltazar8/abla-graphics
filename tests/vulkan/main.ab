@@ -117,6 +117,18 @@ fun main: int {
     }
     val computeCode = computePackage.spirv(shaderStageCompute)
     val shader = device.shaderModule(computeCode.module)
+    val specializedComputePackage = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 2, local_size_x_id = 12) in;
+            void main() {}
+        }
+    }
+    val specializedComputeCode =
+        specializedComputePackage.spirv(shaderStageCompute)
+    val specializedShader = device.shaderModule(
+        specializedComputeCode.module
+    )
     val storagePackage = $glsl {
         compute {
             #version 450
@@ -162,6 +174,8 @@ fun main: int {
         triangleFragmentCode.module
     )
     val pipeline = device.computePipeline(shader)
+    val specializedPipeline = device.computePipeline(specializedShader)
+    val specializedDispatched = specializedPipeline.dispatch(1)
     val commandPool = pipeline.commandPool
     val commandBuffer = nativePointerAddress(pipeline.command.load())
     val dispatched = pipeline.dispatch(2)
@@ -228,6 +242,10 @@ fun main: int {
     else if (!computeCode.succeeded || !computeCode.module.valid() ||
         computeCode.module.words[18] != 8 ||
         computeCode.module.words[19] != 4 || !shader.valid() ||
+        !specializedComputeCode.succeeded ||
+        specializedComputeCode.module.version() != 66048 ||
+        !specializedShader.valid() || !specializedPipeline.valid() ||
+        !specializedDispatched ||
         !storageCode.succeeded || !storageShader.valid() ||
         !triangleVertexCode.succeeded || !triangleFragmentCode.succeeded ||
         !triangleVertexShader.valid() || !triangleFragmentShader.valid() ||

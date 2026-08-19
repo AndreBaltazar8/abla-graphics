@@ -79,6 +79,127 @@ fun glslComputeNoOpSource(source: string): bool {
     valid && mainSeen && workgroupSeen && versionSeen
 }
 
+fun glslComputeSpecializedNoOpSource(source: string): bool {
+    var index = 0
+    var valid = true
+    var mainSeen = false
+    var workgroupSeen = false
+    var specializationSeen = false
+    var versionSeen = false
+    while (valid && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index >= source.size) {
+            index = source.size
+        } else if (source[index] == 35) {
+            val directive = glslReadName(source, index + 1)
+            val version = glslReadUnsigned(source, directive.next)
+            valid = directive.text == "version" && !mainSeen &&
+                !versionSeen && version.valid &&
+                (version.value == 450 || version.value == 460)
+            if (valid) versionSeen = true
+            index = glslSkipLine(source, version.next)
+        } else {
+            val name = glslReadName(source, index)
+            if (name.text == "layout" && !mainSeen) {
+                val layout = glslParseLayout(source, name.next)
+                val storage = glslReadName(source, layout.next)
+                index = glslSkipTrivia(source, storage.next)
+                val workgroup = layout.localSizeX >= 0 ||
+                    layout.localSizeY >= 0 || layout.localSizeZ >= 0 ||
+                    layout.localSizeXId >= 0 ||
+                    layout.localSizeYId >= 0 ||
+                    layout.localSizeZId >= 0
+                valid = layout.valid && workgroup &&
+                    storage.text == "in" && index < source.size &&
+                    source[index] == 59
+                if (valid) {
+                    workgroupSeen = true
+                    specializationSeen = specializationSeen ||
+                        layout.localSizeXId >= 0 ||
+                        layout.localSizeYId >= 0 ||
+                        layout.localSizeZId >= 0
+                    index = index + 1
+                }
+            } else if (name.text == "void" && !mainSeen) {
+                val main = glslReadName(source, name.next)
+                index = glslSkipTrivia(source, main.next)
+                valid = main.text == "main" && index < source.size &&
+                    source[index] == 40
+                if (valid) index = glslSkipTrivia(source, index + 1)
+                valid = valid && index < source.size && source[index] == 41
+                if (valid) index = glslSkipTrivia(source, index + 1)
+                valid = valid && index < source.size && source[index] == 123
+                if (valid) index = glslSkipTrivia(source, index + 1)
+                valid = valid && index < source.size && source[index] == 125
+                if (valid) {
+                    mainSeen = true
+                    index = index + 1
+                }
+            } else valid = false
+        }
+    }
+    valid && mainSeen && workgroupSeen && specializationSeen && versionSeen
+}
+
+fun glslSpecializedWorkgroupSpirv(workgroup: ShaderWorkgroup): array<int> {
+    val words: array<int> = [
+        spirvMagic, 66048, 0, 10, 0,
+        131089, 1,
+        196622, 0, 1,
+        327695, 5, 4, 1852399981, 0,
+        393547, 4, 38, 7, 8, 9
+    ]
+    if (workgroup.xId >= 0) {
+        words.append(262215)
+        words.append(7)
+        words.append(1)
+        words.append(workgroup.xId)
+    }
+    if (workgroup.yId >= 0) {
+        words.append(262215)
+        words.append(8)
+        words.append(1)
+        words.append(workgroup.yId)
+    }
+    if (workgroup.zId >= 0) {
+        words.append(262215)
+        words.append(9)
+        words.append(1)
+        words.append(workgroup.zId)
+    }
+    words.append(131091)
+    words.append(1)
+    words.append(196641)
+    words.append(2)
+    words.append(1)
+    words.append(262165)
+    words.append(6)
+    words.append(32)
+    words.append(0)
+    words.append(if (workgroup.xId >= 0) 262194 else 262187)
+    words.append(6)
+    words.append(7)
+    words.append(workgroup.x)
+    words.append(if (workgroup.yId >= 0) 262194 else 262187)
+    words.append(6)
+    words.append(8)
+    words.append(workgroup.y)
+    words.append(if (workgroup.zId >= 0) 262194 else 262187)
+    words.append(6)
+    words.append(9)
+    words.append(workgroup.z)
+    words.append(327734)
+    words.append(1)
+    words.append(4)
+    words.append(0)
+    words.append(2)
+    words.append(131320)
+    words.append(5)
+    words.append(65789)
+    words.append(65592)
+    words
+}
+
 fun glslExpectCharacter(
     source: string,
     begin: int,
@@ -353,12 +474,21 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val computeCommon = this.valid && stage == shaderStageCompute &&
         this.stages.size == 1 && this.stages[0].kind == shaderStageCompute &&
         this.workgroups.size == 1 && this.locations.size == 0
-    val noOp = computeCommon && this.bindings.size == 0 &&
+    val specializedWorkgroup = computeCommon &&
+        (this.workgroups[0].xId >= 0 || this.workgroups[0].yId >= 0 ||
+         this.workgroups[0].zId >= 0)
+    val specializedNoOp = specializedWorkgroup && this.bindings.size == 0 &&
+        this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslComputeSpecializedNoOpSource(this.stages[0].source)
+    val noOp = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 0 &&
         glslComputeNoOpSource(this.stages[0].source)
     val storageWrite = if (computeCommon && this.bindings.size == 1)
         glslComputeStorageWrite(this.stages[0].source)
     else GlslStorageWrite(false)
-    val storage = computeCommon && this.bindings.size == 1 &&
+    val storage = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 1 &&
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
         this.bindings[0].storage == "buffer" &&
         this.bindings[0].dataType == "Values" && storageWrite.valid
@@ -385,13 +515,16 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslTransformCubeVertexSource(this.source(shaderStageVertex))
     val texturedFragment = graphicsCommon && stage == shaderStageFragment &&
         glslTexturedFragmentSource(this.source(shaderStageFragment))
-    var succeeded = noOp || storage || vertex || vertexBuffer || fragment ||
+    var succeeded = noOp || specializedNoOp || storage || vertex ||
+        vertexBuffer || fragment ||
         multipleColorFragment ||
         coloredVertex || coloredFragment || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
-    if (noOp) {
+    if (specializedNoOp) {
+        words = glslSpecializedWorkgroupSpirv(this.workgroups[0])
+    } else if (noOp) {
         val workgroup = this.workgroups[0]
         words = [
             spirvMagic, spirvVersion10, 0, 6, 0,
