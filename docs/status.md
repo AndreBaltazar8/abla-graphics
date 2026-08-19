@@ -336,7 +336,8 @@ Updated: 2026-08-19.
   growth.
 - Abla `$glsl` subparser test: runtime and frozen `#$glsl` packages, raster and
   compute stage blocks, balanced nested scopes, comment preservation, typed
-  stage lookup, explicit input/output location reflection, descriptor set and
+  stage lookup, quoted/system include preservation and dependency reflection,
+  explicit input/output location reflection, descriptor set and
   binding reflection including declaration types/names, duplicate location and
   binding rejection, cross-stage binding compatibility, adjacent raster-stage
   missing/type-mismatched interface rejection, fixed/unsized declaration array
@@ -534,6 +535,13 @@ resolved default or concrete dimension. Compatible declarations merge, while
 conflicting repeated values, cross-axis repeated IDs, ID-only workgroups, and
 collisions with explicit specialization constants are rejected.
 
+The embedded subparser now preserves quoted text and recognizes both
+`#include "path"` and `#include <path>` as ordered stage dependencies. Empty or
+malformed includes invalidate runtime packages, and unterminated quoted text is
+a compile-time `E_SUBPARSER_FAILURE` with its original extension-expression
+span. The supporting `ablac` diagnostic path is regression-tested through a
+pure self-rebuild and the complete 73-test compiler suite.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
@@ -558,8 +566,8 @@ collisions with explicit specialization constants are rejected.
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration, interface-block member subset, and
   cross-stage compatibility slice, push-constant reflection, and scalar
-  specialization-constant reflection. It deliberately rejects quoted includes
-  and does not yet parse nested structures, multiple declarators, general
+  specialization-constant reflection. It does not yet resolve reflected
+  includes or parse nested structures, multiple declarators, general
   declarations, composite constants, or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.

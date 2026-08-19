@@ -30,6 +30,19 @@ fun main: int {
             void main() {}
         }
     }
+    val included = $glsl {
+        compute {
+            #version 450
+            #include "lighting/common.glsl"
+            #include <engine/math.glsl>
+            layout(local_size_x = 1) in;
+            void main() {}
+        }
+    }
+    val malformedInclude = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\n#include \"\"\nlayout(local_size_x=1) in; void main() {}"]
+    )
     val duplicate = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -408,7 +421,15 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0); }"
         ]
     ).spirv(shaderStageVertex)
-    if (shader.valid && frozen.valid && frozen.stages.size == 1 &&
+    if (shader.valid && frozen.valid && included.valid &&
+        included.includes.size == 2 &&
+        included.includes[0].stage == shaderStageCompute &&
+        included.includes[0].path == "lighting/common.glsl" &&
+        !included.includes[0].system &&
+        included.includes[1].path == "engine/math.glsl" &&
+        included.includes[1].system &&
+        !malformedInclude.valid && malformedInclude.error != "" &&
+        frozen.stages.size == 1 &&
         frozen.stages[0].kind == shaderStageCompute &&
         shader.stages.size == 2 &&
         shader.locations.size == 4 &&

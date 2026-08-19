@@ -1,4 +1,5 @@
 PROJECT_DIR := $(abspath .)
+export ABLA_MAX_MEMORY_MB ?= 4096
 
 .PHONY: all test test-core test-x11 test-headless test-vulkan test-opengl \
 	test-vulkan-window test-opengl-window test-glsl test-samples test-toolchain \

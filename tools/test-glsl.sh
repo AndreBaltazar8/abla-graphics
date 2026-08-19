@@ -25,5 +25,14 @@ if "$compiler" build "$project_root/tests/glsl_invalid.ab" \
     printf '%s\n' 'invalid GLSL stage unexpectedly compiled' >&2
     exit 1
 fi
-rg -q 'subparser `glslParsePackage` failed' \
+rg -q 'unknown GLSL stage' \
     "$output_directory/glsl-invalid.log"
+
+if "$compiler" build "$project_root/tests/glsl_invalid_quote.ab" \
+    -o "$output_directory/glsl-invalid-quote" --no-cache \
+    >"$output_directory/glsl-invalid-quote.log" 2>&1; then
+    printf '%s\n' 'unterminated GLSL quoted include unexpectedly compiled' >&2
+    exit 1
+fi
+rg -q 'unterminated GLSL quoted text' \
+    "$output_directory/glsl-invalid-quote.log"

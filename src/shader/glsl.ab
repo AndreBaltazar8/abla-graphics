@@ -63,6 +63,12 @@ class ShaderSpecializationConstant(
     val defaultValue: string
 )
 
+class ShaderInclude(
+    val stage: string,
+    val path: string,
+    val system: bool
+)
+
 class ShaderWorkgroup(
     val stage: string,
     val x: int,
@@ -83,6 +89,7 @@ class ShaderPackage(
     val workgroups: array<ShaderWorkgroup>,
     val pushConstants: array<ShaderPushConstant>,
     val specializationConstants: array<ShaderSpecializationConstant>,
+    val includes: array<ShaderInclude>,
     val valid: bool,
     val error: string
 ) {
@@ -127,6 +134,7 @@ class GlslStageReflection(
     val workgroups: array<ShaderWorkgroup>,
     val pushConstants: array<ShaderPushConstant>,
     val specializationConstants: array<ShaderSpecializationConstant>,
+    val includes: array<ShaderInclude>,
     val valid: bool,
     val error: string
 )
@@ -165,6 +173,19 @@ class GlslMemberLayout(
     val rowMajor: bool,
     val columnMajor: bool,
     val next: int
+)
+
+class GlslInclude(
+    val valid: bool,
+    val path: string,
+    val system: bool,
+    val next: int
+)
+
+class GlslIncludesReflection(
+    val includes: array<ShaderInclude>,
+    val valid: bool,
+    val error: string
 )
 
 fun glslAsciiWhitespace(value: int): bool =
@@ -233,6 +254,74 @@ fun glslReadUnsigned(source: string, begin: int): GlslInteger {
         index = index + 1
     }
     GlslInteger(valid, value, index)
+}
+
+fun glslLineEnd(source: string, begin: int): int {
+    var index = begin
+    while (index < source.size && source[index] != 10 &&
+        source[index] != 13) index = index + 1
+    index
+}
+
+fun glslSkipHorizontalSpace(source: string, begin: int): int {
+    var index = begin
+    while (index < source.size &&
+        (source[index] == 9 || source[index] == 11 ||
+         source[index] == 12 || source[index] == 32)) index = index + 1
+    index
+}
+
+fun glslParseInclude(source: string, begin: int): GlslInclude {
+    var index = glslSkipHorizontalSpace(source, begin)
+    val system = index < source.size && source[index] == 60
+    val quoted = index < source.size && source[index] == 34
+    val close = if (system) 62 else 34
+    var valid = system || quoted
+    if (valid) index = index + 1
+    val start = index
+    while (valid && index < source.size && source[index] != close &&
+        source[index] != 10 && source[index] != 13) {
+        if (source[index] == 92) valid = false
+        else index = index + 1
+    }
+    val path = if (valid && index > start && index < source.size &&
+        source[index] == close) source.slice(start, index) else ""
+    valid = valid && path != ""
+    if (valid) index = index + 1
+    index = glslSkipHorizontalSpace(source, index)
+    if (valid && index + 1 < source.size && source[index] == 47 &&
+        source[index + 1] == 47) index = glslLineEnd(source, index)
+    else if (valid && index < source.size && source[index] != 10 &&
+        source[index] != 13) valid = false
+    GlslInclude(valid, path, system, glslLineEnd(source, index))
+}
+
+fun glslReflectIncludes(stage: string, source: string): GlslIncludesReflection {
+    val includes: array<ShaderInclude> = []
+    var valid = true
+    var error = ""
+    var index = 0
+    while (valid && index < source.size) {
+        index = glslSkipTrivia(source, index)
+        if (index < source.size && source[index] == 35) {
+            val directive = glslReadName(source, index + 1)
+            if (directive.text == "include") {
+                val include = glslParseInclude(source, directive.next)
+                if (!include.valid) {
+                    valid = false
+                    error = "malformed GLSL $stage include directive"
+                } else {
+                    includes.append(ShaderInclude(
+                        stage,
+                        include.path,
+                        include.system
+                    ))
+                }
+                index = include.next
+            } else index = glslLineEnd(source, directive.next)
+        } else index = glslLineEnd(source, index)
+    }
+    GlslIncludesReflection(includes, valid, error)
 }
 
 fun glslParseLayout(source: string, begin: int): GlslLayout {
@@ -703,13 +792,15 @@ fun glslDeclarationAfterLayout(
 }
 
 fun glslReflectStage(stage: string, source: string): GlslStageReflection {
+    val includeReflection = glslReflectIncludes(stage, source)
     val locations: array<ShaderLocation> = []
     val bindings: array<ShaderBinding> = []
     val workgroups: array<ShaderWorkgroup> = []
     val pushConstants: array<ShaderPushConstant> = []
     val specializationConstants: array<ShaderSpecializationConstant> = []
-    var valid = true
-    var error = ""
+    val includes = includeReflection.includes
+    var valid = includeReflection.valid
+    var error = includeReflection.error
     var index = 0
     while (valid && index < source.size) {
         val name = glslReadName(source, index)
@@ -951,7 +1042,23 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                 index = layout.next
             }
         } else if (name.text != "") index = name.next
-        else index = glslSkipTrivia(source, index) + 1
+        else {
+            val skipped = glslSkipTrivia(source, index)
+            if (skipped < source.size && source[skipped] == 35) {
+                index = glslLineEnd(source, skipped)
+            } else if (skipped < source.size && source[skipped] == 34) {
+                index = skipped + 1
+                while (index < source.size && source[index] != 34 &&
+                    source[index] != 10 && source[index] != 13) {
+                    if (source[index] == 92 && index + 1 < source.size) {
+                        index = index + 2
+                    } else index = index + 1
+                }
+                if (index < source.size && source[index] == 34) {
+                    index = index + 1
+                }
+            } else index = skipped + 1
+        }
     }
     var workgroupIndex = 0
     while (valid && workgroupIndex < workgroups.size) {
@@ -980,6 +1087,7 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
         workgroups,
         pushConstants,
         specializationConstants,
+        includes,
         valid,
         error
     )
@@ -1083,6 +1191,7 @@ fun glslPackage(
     val workgroups: array<ShaderWorkgroup> = []
     val pushConstants: array<ShaderPushConstant> = []
     val specializationConstants: array<ShaderSpecializationConstant> = []
+    val includes: array<ShaderInclude> = []
     var valid = names.size == sources.size && names.size > 0
     var error = if (valid) "" else "GLSL package has no stages"
     var compute = false
@@ -1169,6 +1278,11 @@ fun glslPackage(
                 )
                 reflectedIndex = reflectedIndex + 1
             }
+            reflectedIndex = 0
+            while (valid && reflectedIndex < reflection.includes.size) {
+                includes.append(reflection.includes[reflectedIndex])
+                reflectedIndex = reflectedIndex + 1
+            }
         }
         if (valid) {
             stages.append(ShaderStageSource(names[index], sources[index]))
@@ -1193,6 +1307,7 @@ fun glslPackage(
         workgroups,
         pushConstants,
         specializationConstants,
+        includes,
         valid,
         error
     )
@@ -1227,6 +1342,34 @@ compile fun glslReadBlockComment(cursor: ParserCursor): string {
     result
 }
 
+compile fun glslReadQuotedText(cursor: ParserCursor): string {
+    parserRawExpect(cursor, "\"")
+    var result = "\""
+    var closed = false
+    while (!closed && !parserRawEnd(cursor)) {
+        result = glslAppend(result, parserRawTakeUntil(cursor, "\\\""))
+        if (parserRawConsume(cursor, "\"")) {
+            result = glslAppend(result, "\"")
+            closed = true
+        } else if (parserRawConsume(cursor, "\\")) {
+            result = glslAppend(result, "\\")
+            if (parserRawConsume(cursor, "\"")) {
+                result = glslAppend(result, "\"")
+            } else if (parserRawConsume(cursor, "\\")) {
+                result = glslAppend(result, "\\")
+            } else if (parserRawConsume(cursor, "n")) {
+                result = glslAppend(result, "n")
+            } else if (parserRawConsume(cursor, "r")) {
+                result = glslAppend(result, "r")
+            } else if (parserRawConsume(cursor, "t")) {
+                result = glslAppend(result, "t")
+            } else parserFail(cursor, "unsupported GLSL quoted-text escape")
+        }
+    }
+    if (!closed) parserFail(cursor, "unterminated GLSL quoted text")
+    result
+}
+
 compile fun glslReadStageBody(cursor: ParserCursor): string {
     var result = ""
     var depth = 1
@@ -1245,11 +1388,8 @@ compile fun glslReadStageBody(cursor: ParserCursor): string {
         } else if (parserRawConsume(cursor, "}")) {
             depth = depth - 1
             if (depth > 0) result = glslAppend(result, "}")
-        } else if (parserRawConsume(cursor, "\"")) {
-            parserFail(
-                cursor,
-                "GLSL string literals and quoted includes are not implemented yet"
-            )
+        } else if (parserRawAt(cursor, "\"")) {
+            result = glslAppend(result, glslReadQuotedText(cursor))
         }
     }
     if (depth != 0) parserFail(cursor, "unterminated GLSL stage block")

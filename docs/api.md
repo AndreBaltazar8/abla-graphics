@@ -1175,6 +1175,15 @@ stage structure, retains source spans, reflects interfaces, and produces a
 backend-neutral shader package. `#$glsl` additionally freezes compilation when
 all inputs are static.
 
+Quoted and angle-bracket `#include` directives are source-preserved and
+reflected as ordered, stage-tagged `ShaderInclude` values with their path and
+system/local form. Empty or malformed directives invalidate runtime-created
+packages, while an unterminated quoted directive in `$glsl` reports the exact
+subparser failure with its original Abla extension span. Include resolution,
+module search paths, cycle detection, and include-graph cache keys are not yet
+implemented; reflection exposes dependencies without pretending they were
+resolved.
+
 The available reflection slice recognizes explicit `layout(location = N)`
 input/output declarations and `layout(set = S, binding = B)` uniform/buffer
 declarations while skipping whitespace and comments deterministically.
@@ -1213,7 +1222,8 @@ at least one concrete dimension must be declared. Repeated concrete sizes/IDs
 must agree, dimension IDs must be distinct, and they cannot collide with an
 explicit specialization constant in the same stage. Nested structures,
 multiple declarators, composite specialization constants, computed host-layout
-validation, and backend pipeline specialization wiring are still forthcoming.
+validation, include resolution, and backend pipeline specialization wiring are
+still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every
