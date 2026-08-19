@@ -1,5 +1,7 @@
 import "abla/runtime/memory"
+import "abla/io"
 import "../../src/driver/vulkan.ab"
+import "../../src/driver/vulkan_debug.ab"
 import "../../src/shader/glsl_spirv.ab"
 
 fun main: int {
@@ -8,6 +10,63 @@ fun main: int {
         "Abla-only Vulkan loader test",
         vulkanApiVersion14
     )
+    val debug = instance.debugMessenger()
+    val debugHandle = debug.handle
+    val debugMessage = "Abla Vulkan debug message"
+    val debugWarmup = instance.debugUtils && debug.valid() && debug.submit(
+        vulkanDebugSeverityInfo,
+        vulkanDebugTypeGeneral,
+        debugMessage
+    )
+    val debugLiveBefore = runtimeMemoryLiveBytes()
+    var debugPassed = debugWarmup &&
+        debug.submit(
+            vulkanDebugSeverityInfo,
+            vulkanDebugTypeGeneral,
+            debugMessage
+        ) && debug.submit(
+            vulkanDebugSeverityWarning,
+            vulkanDebugTypeValidation,
+            debugMessage
+        ) && debug.submit(
+            vulkanDebugSeverityError,
+            vulkanDebugTypeValidation | vulkanDebugTypePerformance,
+            debugMessage
+        )
+    var debugRepeat = 0
+    while (debugPassed && debugRepeat < 4) {
+        debugPassed = debug.submit(
+            vulkanDebugSeverityVerbose,
+            vulkanDebugTypeGeneral,
+            debugMessage
+        )
+        debugRepeat = debugRepeat + 1
+    }
+    debugPassed = debugPassed &&
+        !debug.submit(8, vulkanDebugTypeGeneral, debugMessage) &&
+        !debug.submit(vulkanDebugSeverityInfo, 8, debugMessage) &&
+        !debug.submit(vulkanDebugSeverityInfo, vulkanDebugTypeGeneral, "")
+    val debugLiveAfter = runtimeMemoryLiveBytes()
+    val debugCounts = debug.counts()
+    debugPassed = debugPassed && debug.handle == debugHandle &&
+        debugLiveAfter == debugLiveBefore && debugCounts.total == 8 &&
+        debugCounts.verbose == 4 && debugCounts.info == 2 &&
+        debugCounts.warning == 1 && debugCounts.error == 1 &&
+        debugCounts.general == 6 && debugCounts.validation == 2 &&
+        debugCounts.performance == 1
+    val noDebugInstance = vulkanInstance(
+        "Abla Vulkan debug-disabled test",
+        vulkanApiVersion14,
+        enableDebugUtils = false
+    )
+    val noDebug = noDebugInstance.debugMessenger()
+    debugPassed = debugPassed && noDebugInstance.valid() &&
+        !noDebugInstance.debugUtils && !noDebug.valid() &&
+        !noDebug.submit(
+            vulkanDebugSeverityInfo,
+            vulkanDebugTypeGeneral,
+            debugMessage
+        )
     val adapters = instance.adapters()
     val capabilities = if (adapters.size > 0)
         adapters[0].capabilities()
@@ -141,6 +200,7 @@ fun main: int {
         vulkanVersionMinor(loader) < 4) result = 2
     else if (!instance.valid()) result = 3
     else if (vulkanVersionMajor(instance.apiVersion) < 1) result = 4
+    else if (!debugPassed) result = 15
     else if (adapters.size == 0) result = 5
     else if (adapters[0].name.size == 0) result = 6
     else if (adapters[0].graphicsQueueFamily() < 0) result = 7
@@ -187,5 +247,8 @@ fun main: int {
         transferCompleted != transferValueAfter) result = 11
     else if (first != 1311768465173141112) result = 12
     else if (!device.waitIdle()) result = 13
+    if (result == 15) println(
+        "Vulkan debug failure supported=${instance.debugUtils} valid=${debug.valid()} handle=$debugHandle/${debug.handle} live=$debugLiveBefore/$debugLiveAfter counts=${debugCounts.total},${debugCounts.verbose},${debugCounts.info},${debugCounts.warning},${debugCounts.error},${debugCounts.general},${debugCounts.validation},${debugCounts.performance}"
+    )
     result
 }

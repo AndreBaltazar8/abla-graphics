@@ -458,6 +458,32 @@ calls, including omitted defaults and affine results. Its focused regression,
 pure-Abla self-rebuild passed before the dynamic-rendering fallback test used
 `preferDynamicRendering = false`.
 
+Compiler commits `bb5f101`, `bf994ea`, and `894ebea` add fixed-signature native
+extension calls, precisely scoped process-visible executable exports,
+initialized immutable globals for exported adapters, and monotonic atomic
+`i64` counters. Their focused ABI
+regressions, 73-test conformance suites, compact value-ABI checks, and
+byte-identical pure-Abla self-rebuilds passed before the Vulkan debug callback
+was enabled.
+
+The optional Vulkan debug-utils module discovers `VK_EXT_debug_utils`, while
+common headless and X11 configuration controls whether instances enable it.
+Importing `driver/vulkan_debug.ab` adds the process callback, resolves
+create/destroy/submit entry points through `vkGetInstanceProcAddr`, and owns the
+messenger, atomic counters, and reusable 4 KiB callback scratch in Abla. The
+validation test submits all four severity
+classes and all three message types through the real loader callback, verifies
+exact accounting and invalid-mask rejection, preserves the native handle, and
+shows zero steady-state live-byte growth. An explicitly disabled instance
+proves the unsupported path.
+
+The validation-enabled full suite also corrected three packed Vulkan ABI and
+ownership defects it exposed: 2D mip blits now set both second Z offsets to
+one, the final 28-byte subpass dependency has valid writable storage, and each
+compatible render pass owns a framebuffer created against that exact pass.
+The full test matrix and all 18 sample applications then passed with no Vulkan
+validation errors, warnings, or VUID diagnostics.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,
@@ -490,7 +516,7 @@ pure-Abla self-rebuild passed before the dynamic-rendering fallback test used
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with the initial 42 exercised common commands classified; all other
+  exist, with the initial 47 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

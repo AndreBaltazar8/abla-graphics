@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 27/842
+- Classified commands: 32/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -391,7 +391,7 @@
 | `vkCreateDataGraphPipelineSessionARM` | definition | unclassified | - | - | - | - |
 | `vkCreateDataGraphPipelinesARM` | definition | unclassified | - | - | - | - |
 | `vkCreateDebugReportCallbackEXT` | definition | unclassified | - | - | - | - |
-| `vkCreateDebugUtilsMessengerEXT` | definition | unclassified | - | - | - | - |
+| `vkCreateDebugUtilsMessengerEXT` | definition | common | src/driver/vulkan_debug.ab negotiated debug-utils messenger | src/driver/vulkan_debug.ab packed messenger create ABI and typed indirect call | tests/vulkan/main.ab live messenger and exact submitted message counts | tests/vulkan/main.ab explicitly disabled extension path |
 | `vkCreateDeferredOperationKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateDescriptorPool` | definition | unclassified | - | - | - | - |
 | `vkCreateDescriptorSetLayout` | definition | unclassified | - | - | - | - |
@@ -471,7 +471,7 @@
 | `vkDestroyCudaModuleNV` | definition | unclassified | - | - | - | - |
 | `vkDestroyDataGraphPipelineSessionARM` | definition | unclassified | - | - | - | - |
 | `vkDestroyDebugReportCallbackEXT` | definition | unclassified | - | - | - | - |
-| `vkDestroyDebugUtilsMessengerEXT` | definition | unclassified | - | - | - | - |
+| `vkDestroyDebugUtilsMessengerEXT` | definition | common | src/driver/vulkan_debug.ab affine debug messenger lifetime | src/driver/vulkan_debug.ab typed indirect destroy call | tests/vulkan/main.ab stable owned messenger handle | tests/vulkan/main.ab invalid messenger idempotent drop |
 | `vkDestroyDeferredOperationKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroyDescriptorPool` | definition | unclassified | - | - | - | - |
 | `vkDestroyDescriptorSetLayout` | definition | unclassified | - | - | - | - |
@@ -518,7 +518,7 @@
 | `vkEndCommandBuffer` | definition | unclassified | - | - | - | - |
 | `vkEnumerateDeviceExtensionProperties` | definition | unclassified | - | - | - | - |
 | `vkEnumerateDeviceLayerProperties` | definition | unclassified | - | - | - | - |
-| `vkEnumerateInstanceExtensionProperties` | definition | unclassified | - | - | - | - |
+| `vkEnumerateInstanceExtensionProperties` | definition | common | src/driver/vulkan.ab debug-utils extension discovery | src/driver/vulkan.ab bounded ExtensionProperties ABI | tests/vulkan/main.ab negotiated extension availability | tests/vulkan/main.ab explicitly disabled extension path |
 | `vkEnumerateInstanceLayerProperties` | definition | unclassified | - | - | - | - |
 | `vkEnumerateInstanceVersion` | definition | unclassified | - | - | - | - |
 | `vkEnumeratePhysicalDeviceGroups` | definition | unclassified | - | - | - | - |
@@ -630,7 +630,7 @@
 | `vkGetImageViewHandle64NVX` | definition | unclassified | - | - | - | - |
 | `vkGetImageViewHandleNVX` | definition | unclassified | - | - | - | - |
 | `vkGetImageViewOpaqueCaptureDescriptorDataEXT` | definition | unclassified | - | - | - | - |
-| `vkGetInstanceProcAddr` | definition | unclassified | - | - | - | - |
+| `vkGetInstanceProcAddr` | definition | common | src/driver/vulkan_debug.ab instance extension entry-point loading | stdlib fixed-signature native address calls | tests/vulkan/main.ab create destroy and submit resolution | tests/vulkan/main.ab unavailable or disabled messenger rejection |
 | `vkGetLatencyTimingsLegacyNV` | definition | unclassified | - | - | - | - |
 | `vkGetLatencyTimingsNV` | definition | unclassified | - | - | - | - |
 | `vkGetMemoryAndroidHardwareBufferANDROID` | definition | unclassified | - | - | - | - |
@@ -835,7 +835,7 @@
 | `vkShutdownLatencyDeviceLegacyNV` | definition | unclassified | - | - | - | - |
 | `vkSignalSemaphore` | definition | common | src/driver/vulkan.ab timeline host signal | src/driver/vulkan.ab packed semaphore signal ABI | tests/vulkan/main.ab repeated monotonic timeline signals | tests/vulkan/main.ab non-increasing signal rejection |
 | `vkSignalSemaphoreKHR` | alias | unclassified | - | - | - | - |
-| `vkSubmitDebugUtilsMessageEXT` | definition | unclassified | - | - | - | - |
+| `vkSubmitDebugUtilsMessageEXT` | definition | common | src/driver/vulkan_debug.ab synchronous debug message submission | src/driver/vulkan_debug.ab reusable callback-data ABI and typed indirect call | tests/vulkan/main.ab exact severity and type accounting | tests/vulkan/main.ab invalid masks and empty message rejection |
 | `vkTransitionImageLayout` | definition | unclassified | - | - | - | - |
 | `vkTransitionImageLayoutEXT` | alias | unclassified | - | - | - | - |
 | `vkTrimCommandPool` | definition | unclassified | - | - | - | - |

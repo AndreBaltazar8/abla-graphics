@@ -1,0 +1,40 @@
+// Process-visible Vulkan debug callback implemented entirely in Abla.
+// Keep this adapter module free of runtime globals so @export initialization
+// remains safe when applications import the larger Vulkan driver.
+
+import "abla/build"
+import "abla/unsafe/memory"
+
+trusted fun vulkanDebugCounterIncrement(address: int, offset: int): void {
+    val counter = nativePointerFromAddress(address + offset)
+    nativeAtomicFetchAddI64(counter, 1)
+    return
+}
+
+@export("abla_graphics_vulkan_debug_utils_callback")
+trusted fun vulkanDebugUtilsCallback(
+    severity: u32,
+    messageTypes: u32,
+    callbackData: int,
+    userData: int
+): u32 {
+    if (userData > 0) {
+        vulkanDebugCounterIncrement(userData, 0)
+        if (severity == 1) vulkanDebugCounterIncrement(userData, 8)
+        if (severity == 16) vulkanDebugCounterIncrement(userData, 16)
+        if (severity == 256) vulkanDebugCounterIncrement(userData, 24)
+        if (severity == 4096) vulkanDebugCounterIncrement(userData, 32)
+        if (messageTypes == 1 || messageTypes == 3 ||
+            messageTypes == 5 || messageTypes == 7) {
+            vulkanDebugCounterIncrement(userData, 40)
+        }
+        if (messageTypes == 2 || messageTypes == 3 ||
+            messageTypes == 6 || messageTypes == 7) {
+            vulkanDebugCounterIncrement(userData, 48)
+        }
+        if (messageTypes >= 4 && messageTypes <= 7) {
+            vulkanDebugCounterIncrement(userData, 56)
+        }
+    }
+    0
+}

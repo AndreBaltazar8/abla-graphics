@@ -62,6 +62,15 @@ noescape extern:"c" fun vkCreateInstance(
     allocator: i64*,
     instance: i64*
 ): i32
+noescape extern:"c" fun vkEnumerateInstanceExtensionProperties(
+    layerName: i64*,
+    count: i64*,
+    properties: i64*
+): i32
+noescape extern:"c" fun vkGetInstanceProcAddr(
+    instance: i64*,
+    name: cstring
+): i64*
 noescape extern:"c" fun vkDestroyInstance(
     instance: i64*,
     allocator: i64*
@@ -691,6 +700,37 @@ trusted fun vulkanCopyCString(
     output.adoptString(length)
 }
 
+trusted fun vulkanInstanceExtensionAvailable(name: string): bool {
+    val count = nativeI64Cell(0)
+    var status = vkEnumerateInstanceExtensionProperties(
+        nativeNullPointer(),
+        count.address,
+        nativeNullPointer()
+    )
+    var measured = count.load() & 4294967295
+    if (measured > 1024) measured = 0
+    var found = false
+    if (status == vulkanSuccess && measured > 0) {
+        val properties = nativeByteBuffer(measured * 260)
+        status = vkEnumerateInstanceExtensionProperties(
+            nativeNullPointer(),
+            count.address,
+            properties.address
+        )
+        measured = count.load() & 4294967295
+        var index = 0
+        while (status == vulkanSuccess && !found && index < measured) {
+            found = vulkanCopyCString(
+                properties,
+                index * 260,
+                256
+            ) == name
+            index = index + 1
+        }
+    }
+    found
+}
+
 trusted fun vulkanApplicationInfo(
     name: string,
     requestedVersion: int
@@ -739,7 +779,11 @@ trusted fun vulkanX11InstanceCreateInfo(
     info
 }
 
-resource class VulkanInstance(var handle: i64*, val apiVersion: int) {
+resource class VulkanInstance(
+    var handle: i64*,
+    val apiVersion: int,
+    val debugUtils: bool = false
+) {
     trusted fun valid(): bool = !pointerIsNull(this.handle)
 
     trusted fun drop(): void {
@@ -753,7 +797,8 @@ resource class VulkanInstance(var handle: i64*, val apiVersion: int) {
 
 trusted fun vulkanInstance(
     applicationName: string = "Abla Graphics",
-    requestedVersion: int = vulkanApiVersion14
+    requestedVersion: int = vulkanApiVersion14,
+    enableDebugUtils: bool = true
 ): VulkanInstance {
     val loaderVersion = vulkanLoaderVersion()
     var selectedVersion = requestedVersion
@@ -766,6 +811,19 @@ trusted fun vulkanInstance(
         selectedVersion
     )
     val createInfo = vulkanInstanceCreateInfo(application)
+    val debugUtils = enableDebugUtils &&
+        vulkanInstanceExtensionAvailable("VK_EXT_debug_utils")
+    val extensions = nativeByteBuffer(if (debugUtils) 8 else 0)
+    if (debugUtils) {
+        extensions.storePointer(
+            0,
+            nativePointerFromAddress(
+                nativeCStringAddress("VK_EXT_debug_utils")
+            )
+        )
+        createInfo.storeI64(48, 1)
+        createInfo.storePointer(56, extensions.address)
+    }
     val output = nativePointerCell(nativeNullPointer())
     val status = vkCreateInstance(
         createInfo.address,
@@ -775,12 +833,13 @@ trusted fun vulkanInstance(
     val handle = if (status == vulkanSuccess)
         output.load()
     else nativeNullPointer()
-    VulkanInstance(handle, selectedVersion)
+    VulkanInstance(handle, selectedVersion, debugUtils && status == vulkanSuccess)
 }
 
 trusted fun vulkanX11Instance(
     applicationName: string = "Abla Graphics",
-    requestedVersion: int = vulkanApiVersion14
+    requestedVersion: int = vulkanApiVersion14,
+    enableDebugUtils: bool = true
 ): VulkanInstance {
     val loaderVersion = vulkanLoaderVersion()
     var selectedVersion = requestedVersion
@@ -792,7 +851,9 @@ trusted fun vulkanX11Instance(
         applicationName,
         selectedVersion
     )
-    val extensions = nativeByteBuffer(16)
+    val debugUtils = enableDebugUtils &&
+        vulkanInstanceExtensionAvailable("VK_EXT_debug_utils")
+    val extensions = nativeByteBuffer(if (debugUtils) 24 else 16)
     extensions.storePointer(
         0,
         nativePointerFromAddress(nativeCStringAddress("VK_KHR_surface"))
@@ -801,7 +862,12 @@ trusted fun vulkanX11Instance(
         8,
         nativePointerFromAddress(nativeCStringAddress("VK_KHR_xlib_surface"))
     )
+    if (debugUtils) extensions.storePointer(
+        16,
+        nativePointerFromAddress(nativeCStringAddress("VK_EXT_debug_utils"))
+    )
     val createInfo = vulkanX11InstanceCreateInfo(application, extensions)
+    if (debugUtils) createInfo.storeI64(48, 3)
     val output = nativePointerCell(nativeNullPointer())
     val status = vkCreateInstance(
         createInfo.address,
@@ -811,7 +877,7 @@ trusted fun vulkanX11Instance(
     val handle = if (status == vulkanSuccess)
         output.load()
     else nativeNullPointer()
-    VulkanInstance(handle, selectedVersion)
+    VulkanInstance(handle, selectedVersion, debugUtils && status == vulkanSuccess)
 }
 
 resource class VulkanX11Surface(
@@ -3433,12 +3499,12 @@ trusted fun VulkanTexture.generateMipmaps(
         this.scratch.storeI64(8, 4294967296)
         this.scratch.storeI64(16, 0)
         this.scratch.storeI64(24, sourceWidth * 4294967296)
-        this.scratch.storeI64(32, sourceHeight)
+        this.scratch.storeI64(32, 4294967296 + sourceHeight)
         this.scratch.storeI64(40, destinationLevel * 4294967296 + 1)
         this.scratch.storeI64(48, 4294967296)
         this.scratch.storeI64(56, 0)
         this.scratch.storeI64(64, destinationWidth * 4294967296)
-        this.scratch.storeI64(72, destinationHeight)
+        this.scratch.storeI64(72, 4294967296 + destinationHeight)
         vkCmdBlitImage(
             this.command.load(),
             this.image,
@@ -3795,11 +3861,21 @@ resource class VulkanRenderTarget(
 
 resource class VulkanCompatibleRenderPass(
     val device: i64*,
-    var handle: int
+    var handle: int,
+    var framebuffer: int
 ) {
-    fun valid(): bool = !pointerIsNull(this.device) && this.handle != 0
+    fun valid(): bool = !pointerIsNull(this.device) && this.handle != 0 &&
+        this.framebuffer != 0
 
     trusted fun drop(): void {
+        if (this.framebuffer != 0 && !pointerIsNull(this.device)) {
+            vkDestroyFramebuffer(
+                this.device,
+                this.framebuffer,
+                nativeNullPointer()
+            )
+            this.framebuffer = 0
+        }
         if (this.handle != 0 && !pointerIsNull(this.device)) {
             vkDestroyRenderPass(this.device, this.handle, nativeNullPointer())
             this.handle = 0
@@ -3823,6 +3899,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
     val resolveCount = target.resolveViews.size
     val hasDepth = target.hasDepth()
     var handle = 0
+    var framebuffer = 0
     var succeeded = this.valid() && target.valid() &&
         target.device == this.handle && colorFormats.size == colorCount &&
         colorFinalLayouts.size == colorCount &&
@@ -3974,7 +4051,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
         }
         val dependencyCount = subpassCount - 1
         val dependencies = nativeByteBuffer(
-            if (dependencyCount > 0) dependencyCount * 28 else 28
+            if (dependencyCount > 0) dependencyCount * 28 + 4 else 28
         )
         var dependencyIndex = 0
         while (dependencyIndex < dependencyCount) {
@@ -4016,7 +4093,58 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
         ) == vulkanSuccess
         if (succeeded) handle = output.load()
     }
-    VulkanCompatibleRenderPass(this.handle, handle)
+    if (succeeded) {
+        val attachmentCount = colorCount + (if (hasDepth) 1 else 0) +
+            resolveCount
+        val resolveBase = colorCount + (if (hasDepth) 1 else 0)
+        val attachments = nativeByteBuffer(attachmentCount * 8)
+        attachments.storeI64(0, target.view)
+        colorIndex = 0
+        while (colorIndex < target.additionalViews.size) {
+            attachments.storeI64(
+                (colorIndex + 1) * 8,
+                target.additionalViews[colorIndex]
+            )
+            colorIndex = colorIndex + 1
+        }
+        if (hasDepth) attachments.storeI64(
+            colorCount * 8,
+            target.depthView
+        )
+        resolveIndex = 0
+        while (resolveIndex < target.resolveViews.size) {
+            attachments.storeI64(
+                (resolveBase + resolveIndex) * 8,
+                target.resolveViews[resolveIndex]
+            )
+            resolveIndex = resolveIndex + 1
+        }
+        val createInfo = nativeByteBuffer(64)
+        createInfo.storeI64(0, 37)
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(16, 0)
+        createInfo.storeI64(24, handle)
+        createInfo.storeI64(32, attachmentCount)
+        createInfo.storePointer(40, attachments.address)
+        createInfo.storeI64(
+            48,
+            target.height * 4294967296 + target.width
+        )
+        createInfo.storeI64(56, 1)
+        val output = nativeI64Cell(0)
+        succeeded = vkCreateFramebuffer(
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess
+        if (succeeded) framebuffer = output.load()
+    }
+    if (!succeeded && handle != 0) {
+        vkDestroyRenderPass(this.handle, handle, nativeNullPointer())
+        handle = 0
+    }
+    VulkanCompatibleRenderPass(this.handle, handle, framebuffer)
 }
 
 trusted fun VulkanDevice.renderTarget(
@@ -4633,6 +4761,7 @@ trusted fun VulkanDevice.renderTargetProgram(
 trusted fun VulkanDevice.renderTargetSubpasses(
     target: VulkanRenderTarget,
     compatibleRenderPass: int,
+    compatibleFramebuffer: int,
     pipelineHandles: array<int>,
     pipelineLayouts: array<int>,
     pipelineDepthEnabled: array<bool>,
@@ -4643,6 +4772,7 @@ trusted fun VulkanDevice.renderTargetSubpasses(
     val colorCount = 1 + target.additionalViews.size
     var succeeded = this.transferValid() && target.valid() &&
         target.device == this.handle && compatibleRenderPass != 0 &&
+        compatibleFramebuffer != 0 &&
         !pointerIsNull(clearStorage) && pipelineHandles.size >= 2 &&
         pipelineHandles.size <= 8 &&
         pipelineLayouts.size == pipelineHandles.size &&
@@ -4663,7 +4793,7 @@ trusted fun VulkanDevice.renderTargetSubpasses(
         this.transferScratch.storeI64(0, 43)
         this.transferScratch.storePointer(8, nativeNullPointer())
         this.transferScratch.storeI64(16, compatibleRenderPass)
-        this.transferScratch.storeI64(24, target.framebuffer)
+        this.transferScratch.storeI64(24, compatibleFramebuffer)
         this.transferScratch.storeI64(32, 0)
         this.transferScratch.storeI64(
             40,

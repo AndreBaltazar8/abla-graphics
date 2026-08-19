@@ -994,6 +994,32 @@ This is the delivered portable capability subset, not a claim of complete
 extension/feature-chain negotiation. Optional feature preferences and typed
 extension objects remain planned API work.
 
+### Vulkan debug utilities
+
+`vulkanInstance()` and `vulkanX11Instance()` discover and enable
+`VK_EXT_debug_utils` by default when the loader advertises it. Pass
+`enableDebugUtils = false` for an explicit unsupported path. The resulting
+instance exposes the negotiated state through `debugUtils` and creates an
+affine messenger with `instance.debugMessenger()` after importing the optional
+`driver/vulkan_debug.ab` module. `GraphicsConfig.validation` controls instance
+extension negotiation in the common surfaced and headless constructors; a
+caller that wants message capture owns the explicit messenger and must drop it
+before the application or instance.
+
+The default messenger accepts verbose, info, warning, and error severities and
+general, validation, and performance message types. Its callback is an
+`@export` Abla function resolved from the process image; create, destroy, and
+submit entry points are loaded with `vkGetInstanceProcAddr` and invoked through
+fixed-signature unsafe operations. No framework C shim is involved.
+
+`messenger.counts()` returns atomic totals per severity and type.
+`messenger.submit(severity, types, message)` synchronously exercises the same
+driver callback, rejects unknown masks, and accepts messages up to 4,095 bytes.
+After construction it reuses one owned scratch block, so repeated submissions
+preserve both the messenger handle and Abla live-byte count. Dropping the
+messenger destroys the Vulkan object exactly once before releasing its counter
+and scratch storage.
+
 Applications that need a coarse synchronization boundary can wait for every
 submitted command on the selected backend:
 

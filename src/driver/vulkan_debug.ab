@@ -1,0 +1,203 @@
+// Optional VK_EXT_debug_utils ownership and callback surface.
+// Importing this module deliberately adds the process-visible Abla callback;
+// ordinary Vulkan applications pay no export-root or messenger cost.
+
+import "abla/unsafe/memory"
+import "vulkan.ab"
+import "vulkan_debug_callback.ab"
+
+val vulkanStructureDebugUtilsMessengerCallbackData = 1000128003
+val vulkanStructureDebugUtilsMessengerCreateInfo = 1000128004
+val vulkanDebugSeverityVerbose = 1
+val vulkanDebugSeverityInfo = 16
+val vulkanDebugSeverityWarning = 256
+val vulkanDebugSeverityError = 4096
+val vulkanDebugTypeGeneral = 1
+val vulkanDebugTypeValidation = 2
+val vulkanDebugTypePerformance = 4
+
+trusted noescape extern:"c" fun dlsym(handle: i64*, symbol: cstring): i64*
+
+class VulkanDebugMessageCounts(
+    val total: int,
+    val verbose: int,
+    val info: int,
+    val warning: int,
+    val error: int,
+    val general: int,
+    val validation: int,
+    val performance: int
+)
+
+resource class VulkanDebugMessenger(
+    var handle: int,
+    var instance: i64*,
+    var destroyAddress: int,
+    val submitAddress: int,
+    var counters: NativeByteBuffer,
+    var scratch: NativeByteBuffer
+) {
+    trusted fun valid(): bool =
+        this.handle != 0 && !pointerIsNull(this.instance) &&
+        this.destroyAddress != 0
+
+    trusted fun counts(): VulkanDebugMessageCounts = VulkanDebugMessageCounts(
+        this.counters.loadI64(0),
+        this.counters.loadI64(8),
+        this.counters.loadI64(16),
+        this.counters.loadI64(24),
+        this.counters.loadI64(32),
+        this.counters.loadI64(40),
+        this.counters.loadI64(48),
+        this.counters.loadI64(56)
+    )
+
+    trusted fun submit(
+        severity: int,
+        messageTypes: int,
+        message: string
+    ): bool {
+        val validSeverity = severity == vulkanDebugSeverityVerbose ||
+            severity == vulkanDebugSeverityInfo ||
+            severity == vulkanDebugSeverityWarning ||
+            severity == vulkanDebugSeverityError
+        val validTypes = messageTypes > 0 && (messageTypes & -8) == 0
+        val submitted = this.valid() && this.submitAddress != 0 &&
+            validSeverity && validTypes && message.size > 0 &&
+            message.size <= 4095 && this.scratch.capacity >= 4208
+        if (submitted) {
+            var messageIndex = 0
+            while (messageIndex < message.size) {
+                this.scratch.store(112 + messageIndex, message[messageIndex])
+                messageIndex = messageIndex + 1
+            }
+            this.scratch.store(112 + message.size, 0)
+            this.scratch.storeI64(
+                0,
+                vulkanStructureDebugUtilsMessengerCallbackData
+            )
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 0)
+            this.scratch.storePointer(24, this.scratch.pointerAt(96))
+            this.scratch.storeI64(32, 1)
+            this.scratch.storePointer(40, this.scratch.pointerAt(112))
+            this.scratch.storeI64(48, 0)
+            this.scratch.storePointer(56, nativeNullPointer())
+            this.scratch.storeI64(64, 0)
+            this.scratch.storePointer(72, nativeNullPointer())
+            this.scratch.storeI64(80, 0)
+            this.scratch.storePointer(88, nativeNullPointer())
+            callNativeVoidPointerIntIntPointer(
+                this.submitAddress,
+                this.instance,
+                severity,
+                messageTypes,
+                this.scratch.address
+            )
+        }
+        submitted
+    }
+
+    trusted fun drop(): void {
+        if (this.valid()) callNativeVoidPointerIntPointer(
+            this.destroyAddress,
+            this.instance,
+            this.handle,
+            nativeNullPointer()
+        )
+        this.handle = 0
+        this.instance = nativeNullPointer()
+        this.destroyAddress = 0
+        this.counters.close()
+        this.scratch.close()
+        return
+    }
+}
+
+trusted fun VulkanInstance.debugMessenger(
+    severity: int = vulkanDebugSeverityVerbose |
+        vulkanDebugSeverityInfo |
+        vulkanDebugSeverityWarning |
+        vulkanDebugSeverityError,
+    messageTypes: int = vulkanDebugTypeGeneral |
+        vulkanDebugTypeValidation |
+        vulkanDebugTypePerformance
+): VulkanDebugMessenger {
+    var handle = 0
+    var destroyAddress = 0
+    var submitAddress = 0
+    val counters = nativeByteBuffer(64)
+    val scratch = nativeByteBuffer(4208)
+    var counterOffset = 0
+    while (counterOffset < 64) {
+        counters.storeI64(counterOffset, 0)
+        counterOffset = counterOffset + 8
+    }
+    val messageName = "abla-graphics"
+    var messageNameIndex = 0
+    while (messageNameIndex < messageName.size) {
+        scratch.store(96 + messageNameIndex, messageName[messageNameIndex])
+        messageNameIndex = messageNameIndex + 1
+    }
+    scratch.store(96 + messageName.size, 0)
+    var supported = this.valid() && this.debugUtils && severity > 0 &&
+        (severity & -4370) == 0 && messageTypes > 0 &&
+        (messageTypes & -8) == 0
+    var createAddress = 0
+    var callbackAddress = 0
+    if (supported) {
+        createAddress = nativePointerAddress(vkGetInstanceProcAddr(
+            this.handle,
+            "vkCreateDebugUtilsMessengerEXT"
+        ))
+        destroyAddress = nativePointerAddress(vkGetInstanceProcAddr(
+            this.handle,
+            "vkDestroyDebugUtilsMessengerEXT"
+        ))
+        submitAddress = nativePointerAddress(vkGetInstanceProcAddr(
+            this.handle,
+            "vkSubmitDebugUtilsMessageEXT"
+        ))
+        callbackAddress = nativePointerAddress(dlsym(
+            nativeNullPointer(),
+            "abla_graphics_vulkan_debug_utils_callback"
+        ))
+        supported = createAddress != 0 && destroyAddress != 0 &&
+            callbackAddress != 0
+    }
+    if (supported) {
+        val createInfo = nativeByteBuffer(48)
+        createInfo.storeI64(
+            0,
+            vulkanStructureDebugUtilsMessengerCreateInfo
+        )
+        createInfo.storePointer(8, nativeNullPointer())
+        createInfo.storeI64(
+            16,
+            (severity & 4294967295) * 4294967296
+        )
+        createInfo.storeI64(24, messageTypes & 4294967295)
+        createInfo.storePointer(
+            32,
+            nativePointerFromAddress(callbackAddress)
+        )
+        createInfo.storePointer(40, counters.address)
+        val output = nativeI64Cell(0)
+        if (callNativeI32Pointer4(
+            createAddress,
+            this.handle,
+            createInfo.address,
+            nativeNullPointer(),
+            output.address
+        ) == vulkanSuccess) handle = output.load()
+    }
+    if (handle == 0) destroyAddress = 0
+    VulkanDebugMessenger(
+        handle,
+        this.handle,
+        destroyAddress,
+        submitAddress,
+        move(counters),
+        move(scratch)
+    )
+}

@@ -32,4 +32,7 @@ total invocation, and sampler anisotropy limits from the active OpenGL context
 or selected Vulkan physical device/queue family. The common resource and
 compute paths enforce these delivered limits before driver work. Broader
 extension and feature-structure negotiation is still classified as future
-work.
+work. The backend-specific Vulkan surface additionally discovers
+`VK_EXT_debug_utils`; its optional debug module owns the messenger, including
+the process-resolved Abla callback, atomic message accounting, and a tested
+explicitly disabled path.
