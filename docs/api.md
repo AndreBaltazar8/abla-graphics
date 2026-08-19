@@ -1243,12 +1243,20 @@ while explicit `offset` or `align` on a multi-declarator statement is rejected
 until computed host-layout validation can assign unambiguous values. Empty,
 malformed, duplicate-name, duplicate-layout-key, and conflicting-major member
 declarations are rejected.
-Top-level named `struct` definitions produce ordered, stage-tagged `ShaderStructure`
-values in `ShaderPackage.structures`. Members retain the same type, name, and
-fixed-array metadata as block members and may refer to a previously declared
-structure. Forward/self references, duplicate structure names, unsized members,
-and layout-qualified structure members are rejected. When a named structure is
-used by an explicit input or output, `ShaderLocation.slots` recursively sums
+Top-level named `struct` definitions produce ordered, stage-tagged
+`ShaderStructure` values in `ShaderPackage.structures`. Members retain the same
+type, name, and fixed-array metadata as block members and may refer to a
+previously declared structure. Forward/self references, duplicate structure
+names, unsized members, and layout-qualified structure members are rejected. An
+inline comma-separated instance list is retained as ordered
+`ShaderStructureInstance` values, including each fixed-array extent. Later
+top-level declarations such as
+`Payload first, second[3];` extend the same list, while a function returning
+`Payload` is not misclassified as an instance. Duplicate stage-global, empty,
+and trailing-comma instances fail. Initializers are not reflected yet.
+Interface blocks continue to permit at most one instance. When a named
+structure is used by an explicit input or output, `ShaderLocation.slots`
+recursively sums
 nested members, arrays, matrices, and wide double vectors. Collision detection
 uses that complete range. Cross-stage linking compares the full nested
 definition even when both stages use the same outer type name. Reflected

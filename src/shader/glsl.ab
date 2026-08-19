@@ -45,10 +45,16 @@ class ShaderBlockMember(
     val columnMajor: bool = false
 )
 
+class ShaderStructureInstance(
+    val name: string,
+    val arraySize: int = 1
+)
+
 class ShaderStructure(
     val stage: string,
     val name: string,
-    val members: array<ShaderBlockMember>
+    val members: array<ShaderBlockMember>,
+    val instances: array<ShaderStructureInstance> = []
 )
 
 class ShaderBinding(
@@ -195,7 +201,8 @@ class GlslBlock(
     val name: string,
     val arraySize: int,
     val members: array<ShaderBlockMember>,
-    val next: int
+    val next: int,
+    val declarators: array<GlslDeclarator> = []
 )
 
 class GlslSpecializationDeclaration(
@@ -826,15 +833,28 @@ fun glslParseBlock(source: string, begin: int): GlslBlock {
     valid = valid && closed && members.size > 0
     val instance = if (valid) glslReadName(source, index)
         else GlslName("", index)
-    val arraySize = if (instance.text == "") GlslArraySize(true, 1, index)
-        else glslArraySizeAfterName(source, instance.next)
-    val end = glslSkipTrivia(source, arraySize.next)
+    val end = glslSkipTrivia(source, index)
+    val declarators = if (instance.text != "") {
+        glslParseDeclarators(source, index)
+    } else {
+        val values: array<GlslDeclarator> = []
+        GlslDeclarators(
+            valid && end < source.size && source[end] == 59,
+            values,
+            if (end < source.size && source[end] == 59) end + 1 else end
+        )
+    }
+    val firstName = if (declarators.values.size > 0)
+        declarators.values[0].name else ""
+    val firstArraySize = if (declarators.values.size > 0)
+        declarators.values[0].arraySize else 1
     GlslBlock(
-        valid && arraySize.valid && end < source.size && source[end] == 59,
-        instance.text,
-        arraySize.value,
+        valid && declarators.valid,
+        firstName,
+        firstArraySize,
         members,
-        if (end < source.size && source[end] == 59) end + 1 else end
+        declarators.next,
+        declarators.values
     )
 }
 
@@ -881,14 +901,11 @@ fun glslDeclarationAfterLayout(
     val declarators = if (!block && variable.text != "") {
         glslParseDeclarators(source, index)
     } else {
-        val values: array<GlslDeclarator> = []
-        if (parsedBlock.name != "") {
-            values.append(GlslDeclarator(
-                parsedBlock.name,
-                parsedBlock.arraySize
-            ))
-        }
-        GlslDeclarators(parsedBlock.valid, values, parsedBlock.next)
+        GlslDeclarators(
+            parsedBlock.valid && parsedBlock.declarators.size <= 1,
+            parsedBlock.declarators,
+            parsedBlock.next
+        )
     }
     GlslDeclaration(
         storage,
@@ -1009,6 +1026,27 @@ fun glslStructureIndex(
         index = index + 1
     }
     result
+}
+
+fun glslStructureInstanceExists(
+    stage: string,
+    name: string,
+    structures: array<ShaderStructure>
+): bool {
+    var found = false
+    var structureIndex = 0
+    while (!found && structureIndex < structures.size) {
+        val structure = structures[structureIndex]
+        if (structure.stage == stage) {
+            var instanceIndex = 0
+            while (!found && instanceIndex < structure.instances.size) {
+                found = structure.instances[instanceIndex].name == name
+                instanceIndex = instanceIndex + 1
+            }
+        }
+        structureIndex = structureIndex + 1
+    }
+    found
 }
 
 fun glslLocationSlotsForStage(
@@ -1180,10 +1218,30 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                 }
                 memberIndex = memberIndex + 1
             }
+            val instances: array<ShaderStructureInstance> = []
+            var instanceIndex = 0
+            while (valid && instanceIndex < block.declarators.size) {
+                val instance = block.declarators[instanceIndex]
+                if (glslStructureInstanceExists(
+                    stage,
+                    instance.name,
+                    structures
+                )) {
+                    valid = false
+                    error = "duplicate GLSL $stage structure instance '${instance.name}'"
+                } else {
+                    instances.append(ShaderStructureInstance(
+                        instance.name,
+                        instance.arraySize
+                    ))
+                }
+                instanceIndex = instanceIndex + 1
+            }
             if (valid) structures.append(ShaderStructure(
                 stage,
                 structureName.text,
-                block.members
+                block.members,
+                instances
             ))
             index = if (block.next > body) block.next else body + 1
         } else if (scopeDepth == 0 && name.text == "layout") {
@@ -1494,6 +1552,44 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                 index = if (declaration.next > layout.next)
                     declaration.next else layout.next
             }
+        } else if (scopeDepth == 0 && name.text != "" &&
+            glslStructureIndex(stage, name.text, structures) >= 0) {
+            val structureIndex = glslStructureIndex(
+                stage,
+                name.text,
+                structures
+            )
+            val variable = glslReadName(source, name.next)
+            val afterVariable = glslSkipTrivia(source, variable.next)
+            if (variable.text != "" && afterVariable < source.size &&
+                source[afterVariable] != 40) {
+                val declarators = glslParseDeclarators(source, name.next)
+                if (declarators.valid) {
+                    var declaratorIndex = 0
+                    while (valid && declaratorIndex <
+                        declarators.values.size) {
+                        val declarator = declarators.values[declaratorIndex]
+                        val duplicate = glslStructureInstanceExists(
+                            stage,
+                            declarator.name,
+                            structures
+                        )
+                        if (duplicate) {
+                            valid = false
+                            error = "duplicate GLSL $stage structure instance '${declarator.name}'"
+                        } else {
+                            structures[structureIndex].instances.append(
+                                ShaderStructureInstance(
+                                    declarator.name,
+                                    declarator.arraySize
+                                )
+                            )
+                        }
+                        declaratorIndex = declaratorIndex + 1
+                    }
+                    index = declarators.next
+                } else index = name.next
+            } else index = name.next
         } else if (name.text != "") index = name.next
         else {
             val skipped = glslSkipTrivia(source, index)

@@ -546,12 +546,16 @@ preserve deterministic existing SPIR-V output.
 Top-level named GLSL structures are now reflected as ordered, stage-tagged
 `ShaderStructure` definitions. Members can nest previously declared structures;
 duplicate names, unknown/forward/self-referential types, unsized members, and
-structure-member layout qualifiers are rejected. Explicit interface locations
-retain their recursively computed slot count, so nested members, arrays,
-matrices, and wide double vectors participate in overlap checks. Adjacent
-raster stages compare complete nested definitions rather than accepting an
-equal outer type name with incompatible contents. Interface-block locations
-also retain their ordered members and computed ranges.
+structure-member layout qualifiers are rejected. Inline comma-separated
+instances and their fixed-array extents are retained. Later uninitialized
+top-level declarations using the named type extend the same instance list;
+functions returning that type are excluded. Malformed lists and duplicate
+stage-global names fail, and interface blocks remain single-instance. Explicit
+interface locations retain their recursively computed slot count, so nested
+members, arrays, matrices, and wide double vectors participate in overlap
+checks. Adjacent raster stages compare complete nested definitions rather than
+accepting an equal outer type name with incompatible contents. Interface-block
+locations also retain their ordered members and computed ranges.
 
 GLSL reflection now also owns explicit `layout(push_constant)` uniform blocks
 and scalar `layout(constant_id=N) const` declarations. Push constants retain
@@ -621,11 +625,11 @@ three rejection paths are executable tests.
   subparser owns stage structure/source preservation plus the initial explicit
   location/set/binding declaration, interface-block member subset, and
   cross-stage compatibility slice, named/nested structure reflection,
-  push-constant reflection, and scalar
-  specialization-constant reflection. It does not yet discover modules from
+  push-constant reflection, and scalar specialization-constant reflection. It
+  does not yet discover modules from
   filesystem/package search paths or parse general declarations, structure
-  instance-declarator lists, composite constants,
-  or expressions. Explicit member layout
+  instance initializers, composite constants, or expressions. Explicit member
+  layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.
   Reflected push constants are not yet wired into backend pipeline creation.
