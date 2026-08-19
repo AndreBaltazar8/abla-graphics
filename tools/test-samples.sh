@@ -13,7 +13,7 @@ for sample in x11-window vulkan-info vulkan-surface headless-opengl \
     opengl-window common-clear common-triangle common-buffer common-texture \
     common-textured indexed-textured-cube render-to-texture \
     multiple-render-targets subpasses common-compute gpu-timestamp \
-    frame-pacing; do
+    frame-pacing render-graph; do
     cd "$compiler_root"
     ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
@@ -28,6 +28,7 @@ xvfb-run -a -s "-screen 0 1024x768x24" \
 LIBGL_ALWAYS_SOFTWARE=1 "$output_directory/headless-opengl"
 env -u DISPLAY "$output_directory/common-headless"
 env -u DISPLAY "$output_directory/frame-pacing"
+env -u DISPLAY "$output_directory/render-graph"
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/opengl-window"
 for backend in opengl vulkan; do

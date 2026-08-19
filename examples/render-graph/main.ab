@@ -1,0 +1,38 @@
+import "abla/io"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val graph = graphicsRenderGraph([
+        GraphicsGraphResource(0, "shadow", true, 4194304, 1),
+        GraphicsGraphResource(1, "lighting", true, 8388608, 1),
+        GraphicsGraphResource(2, "swapchain", false, 0, 2)
+    ], [
+        GraphicsGraphPass(10, "shadow", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "lighting", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "post", [
+            GraphicsGraphUse(2, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "present", [
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ])
+    val passed = graph.valid() && graph.order.size == 4 &&
+        graph.order[0] == 10 && graph.order[3] == 40 &&
+        graph.lifetimes.size == 3 &&
+        graph.lifetimes[0].allocationSlot == 0 &&
+        graph.lifetimes[1].allocationSlot == 0 &&
+        graph.lifetimes[2].allocationSlot == -1 &&
+        graph.allocations.size == 1 &&
+        graph.allocations[0].capacity == 8388608 &&
+        graph.barriers.size == 3
+    println(
+        "Render graph: valid=${graph.valid()} passes=${graph.order.size} barriers=${graph.barriers.size} transientSlots=${graph.allocations.size} capacity=${graph.allocations[0].capacity}"
+    )
+    if (passed) 0 else 1
+}

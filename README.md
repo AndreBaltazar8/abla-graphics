@@ -199,7 +199,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   frames on explicit OpenGL and Vulkan, including counter-period conversion,
   stable native handles, and zero steady-state live-memory growth; and
 - `examples/frame-pacing`: display-free high-resolution pacing with a live-memory
-  assertion across the steady-state frame loop.
+  assertion across the steady-state frame loop; and
+- `examples/render-graph`: display-free dependency planning with deterministic
+  pass order, transient lifetime aliasing, imported resources, and inspected
+  synchronization records.
 
 Run the sample smoke matrix with:
 
