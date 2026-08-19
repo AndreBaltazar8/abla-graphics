@@ -81,6 +81,10 @@ Updated: 2026-08-19.
   values. The nested Weston gate validates the real `screen0` output at 800x600
   scale one and observes its enter event; teardown uses the versioned output
   release request.
+- The published sibling `AndreBaltazar8/abla-doom` is a playable original
+  all-Abla raycasting homage using this framework. Its current smoke gate
+  renders and presents through both OpenGL and Vulkan, and its committed
+  320x200 proof image is regenerated from the exact game window.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths

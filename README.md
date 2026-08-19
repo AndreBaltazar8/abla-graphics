@@ -244,6 +244,11 @@ Run the sample smoke matrix with:
 nix-shell --run 'make test-samples'
 ```
 
+The sibling [Abla Doom](https://github.com/AndreBaltazar8/abla-doom) project is
+a playable original 2.5D raycasting homage built entirely in Abla on this
+framework. It renders and presents the same procedural framebuffer through
+OpenGL and Vulkan and publishes a reproducible window-only proof screenshot.
+
 ## API direction
 
 Normal applications will use the backend-neutral `graphicsApplication`,
