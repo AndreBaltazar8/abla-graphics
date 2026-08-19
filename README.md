@@ -44,8 +44,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   checked multi-member storage blocks, including declaration-before-use typed
   scalar locals and reassignment lowered as zero-storage SSA bindings plus
   signed/unsigned `min`, `max`, and `clamp`, and nested structured
-  `if`/`else if`/`else` buffer updates, with unsupported GLSL rejected rather
-  than ignored;
+  `if`/`else if`/`else` branches and `while` loops over buffer updates, with
+  unsupported GLSL rejected rather than ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`

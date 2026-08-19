@@ -403,10 +403,10 @@ Updated: 2026-08-19.
   A storage `main` now accepts a bounded sequence of up to 64 member assignments.
   Store tokens consume each typed postfix result before the next statement,
   retaining byte-identical output for every previous one-statement module. A
-  three-statement unit shader emits three ordered stores. The live shader writes
-  `tail = 6`, reads it in the following conditional, writes `output = 7`, and
-  returns the exact packed high/low pair on both real drivers while preserving
-  the separate initialized prefix.
+  three-statement unit shader emits three ordered stores. The live shader
+  performs ordered loop/member updates, reads the result in the following
+  conditional, writes `output = 7`, and returns the exact packed high/low pair
+  on both real drivers while preserving the separate initialized prefix.
   Compute `main` also accepts declaration-before-use `int`, `uint`, and `bool`
   locals within the same 64-statement bound, with an optional `const` qualifier.
   Integer declarations must match the homogeneous block signedness; names are
@@ -427,7 +427,7 @@ Updated: 2026-08-19.
   programs are checked failures. The live specialized shader now captures
   left-to-right immutable intermediates, computes signedness-correct bounds with
   `min`/`max`/`clamp`, prefix-increments and rebinds mutable integer/Boolean
-  intermediates, then produces the same checked `tail = 6` and `output = 7` on
+  intermediates, then produces the checked `tail = 8` and `output = 7` on
   OpenGL and Vulkan.
   Brace-delimited structured `if`/`else` now lowers to deterministic
   `OpSelectionMerge`, `OpBranchConditional`, `OpBranch`, and label sequences.
@@ -437,8 +437,16 @@ Updated: 2026-08-19.
   preceding else arm. Branch arms may read preexisting SSA locals and update
   storage members; branch-local declaration/rebinding/mutation is rejected
   pending explicit SSA-phi support. The live specialized shader reaches its
-  checked `tail = 6`, `output = 7` result through an `else if` arm containing a
+  checked `tail = 8`, `output = 7` result through an `else if` arm containing a
   nested branch on both real backends.
+  Brace-delimited `while` loops lower to deterministic structured SPIR-V with
+  explicit header, body, continue, and merge blocks plus `OpLoopMerge`.
+  Conditions execute in the header and therefore reload storage members after
+  every back edge. Unit coverage verifies repeat-identical, nested-loop,
+  loop-containing-selection, non-Boolean-condition, and missing-brace cases.
+  The live shader increments `tail` twice in a terminating loop, folds the
+  observed value into `tail = 8`, and returns the exact packed value
+  `34359738375` through both OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
@@ -551,6 +559,11 @@ Updated: 2026-08-19.
   values.
 - The required general `ablac` `nativeLibraries` contract is integrated in
   compiler commit `116090f`; graphics tests use the stock sibling compiler.
+- The loop regression exposed excessive recursive compile-time evaluation of
+  long logical chains. Sibling compiler commit `4ec5cd9` flattens homogeneous
+  `&&`/`||` trees while preserving left-to-right short-circuit evaluation; its
+  128-term conjunction/disjunction regression, 73-test suite, and pure
+  self-rebuild pass.
 - GitHub CI bootstraps `ablac` from its pinned seed and runs the complete
   Abla-only, core, authenticated X11, GLSL, Vulkan, OpenGL, and sample matrix
   against pinned Mesa Lavapipe/software rendering on every push and pull

@@ -26,6 +26,9 @@ val glslStorageTokenLocalStore = 6
 val glslStorageTokenIfBegin = 7
 val glslStorageTokenElse = 8
 val glslStorageTokenIfEnd = 9
+val glslStorageTokenWhileBegin = 10
+val glslStorageTokenWhileCondition = 11
+val glslStorageTokenWhileEnd = 12
 val glslStorageOperationInteger = 0
 val glslStorageOperationComparison = 1
 val glslStorageOperationLogical = 2
@@ -1901,6 +1904,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     val controlBeginTokenIndices: array<int> = []
     val controlElseEntered: array<bool> = []
     val controlClosesAfterChild: array<bool> = []
+    val controlKinds: array<int> = []
     var controlDepth = 0
     var firstMemberIndex = -1
     var statements = 0
@@ -1912,7 +1916,8 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             index = index + 1
             if (controlDepth > 0) {
                 val controlIndex = controlDepth - 1
-                val hasElse = !controlElseEntered[controlIndex] &&
+                val hasElse = controlKinds[controlIndex] == 0 &&
+                    !controlElseEntered[controlIndex] &&
                     index < sourceTokens.size &&
                     sourceTokens[index].is(glslTokenIdentifier, "else")
                 if (hasElse) {
@@ -1950,7 +1955,9 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 } else {
                     valid = programTokens.size + 1 < 8192
                     if (valid) programTokens.append(GlslStorageToken(
-                        glslStorageTokenIfEnd,
+                        if (controlKinds[controlIndex] == 0)
+                            glslStorageTokenIfEnd
+                        else glslStorageTokenWhileEnd,
                         line = closingToken.line,
                         column = closingToken.column
                     ))
@@ -2037,10 +2044,93 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                     controlBeginTokenIndices[controlDepth] = beginIndex
                     controlElseEntered[controlDepth] = false
                     controlClosesAfterChild[controlDepth] = false
+                    controlKinds[controlDepth] = 0
                 } else {
                     controlBeginTokenIndices.append(beginIndex)
                     controlElseEntered.append(false)
                     controlClosesAfterChild.append(false)
+                    controlKinds.append(0)
+                }
+                controlDepth = controlDepth + 1
+            }
+            statements = statements + 1
+        } else if (index < sourceTokens.size &&
+            sourceTokens[index].is(glslTokenIdentifier, "while")) {
+            val whileToken = sourceTokens[index]
+            valid = statements < 64 && controlDepth < 64
+            index = index + 1
+            matched = glslStorageTokenTake(
+                sourceTokens,
+                index,
+                glslTokenPunctuation,
+                "("
+            )
+            valid = valid && matched.valid
+            index = matched.next
+            val empty: array<GlslStorageToken> = []
+            var condition = GlslStorageExpression(false, empty, index)
+            if (valid) condition = glslStorageTokenExpression(
+                source,
+                sourceTokens,
+                index,
+                1,
+                signed,
+                specializationName,
+                specializationDefault,
+                specializationType == "bool",
+                specializationId,
+                instanceName,
+                memberNames,
+                localNames,
+                localTypes,
+                0
+            )
+            valid = valid && condition.valid
+            index = condition.next
+            matched = glslStorageTokenTake(
+                sourceTokens,
+                index,
+                glslTokenPunctuation,
+                ")"
+            )
+            valid = valid && matched.valid
+            index = matched.next
+            matched = glslStorageTokenTake(
+                sourceTokens,
+                index,
+                glslTokenPunctuation,
+                "{"
+            )
+            valid = valid && matched.valid &&
+                programTokens.size + condition.tokens.size + 2 < 8192
+            index = matched.next
+            if (valid) {
+                programTokens.append(GlslStorageToken(
+                    glslStorageTokenWhileBegin,
+                    line = whileToken.line,
+                    column = whileToken.column
+                ))
+                var conditionIndex = 0
+                while (conditionIndex < condition.tokens.size) {
+                    programTokens.append(condition.tokens[conditionIndex])
+                    conditionIndex = conditionIndex + 1
+                }
+                programTokens.append(GlslStorageToken(
+                    glslStorageTokenWhileCondition,
+                    valueType = 1,
+                    line = whileToken.line,
+                    column = whileToken.column
+                ))
+                if (controlDepth < controlBeginTokenIndices.size) {
+                    controlBeginTokenIndices[controlDepth] = -1
+                    controlElseEntered[controlDepth] = true
+                    controlClosesAfterChild[controlDepth] = false
+                    controlKinds[controlDepth] = 1
+                } else {
+                    controlBeginTokenIndices.append(-1)
+                    controlElseEntered.append(true)
+                    controlClosesAfterChild.append(false)
+                    controlKinds.append(1)
                 }
                 controlDepth = controlDepth + 1
             }
@@ -2626,6 +2716,12 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
     val controlHasElse: array<bool> = []
     val controlElseEmitted: array<bool> = []
     var controlDepth = 0
+    val loopHeaderIds: array<int> = []
+    val loopBodyIds: array<int> = []
+    val loopContinueIds: array<int> = []
+    val loopMergeIds: array<int> = []
+    val loopConditionEmitted: array<bool> = []
+    var loopDepth = 0
     var stackSize = 0
     var valid = write.valid
     var semanticError = ""
@@ -2747,6 +2843,74 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     controlDepth = controlDepth - 1
                 }
             }
+        } else if (token.kind == glslStorageTokenWhileBegin) {
+            pushesResult = false
+            valid = stackSize == 0 && loopDepth < 64
+            if (valid) {
+                val headerId = nextId
+                val bodyId = nextId + 1
+                val continueId = nextId + 2
+                val mergeId = nextId + 3
+                nextId = nextId + 4
+                body.append(131321)
+                body.append(headerId)
+                body.append(131320)
+                body.append(headerId)
+                if (loopDepth < loopHeaderIds.size) {
+                    loopHeaderIds[loopDepth] = headerId
+                    loopBodyIds[loopDepth] = bodyId
+                    loopContinueIds[loopDepth] = continueId
+                    loopMergeIds[loopDepth] = mergeId
+                    loopConditionEmitted[loopDepth] = false
+                } else {
+                    loopHeaderIds.append(headerId)
+                    loopBodyIds.append(bodyId)
+                    loopContinueIds.append(continueId)
+                    loopMergeIds.append(mergeId)
+                    loopConditionEmitted.append(false)
+                }
+                loopDepth = loopDepth + 1
+            }
+        } else if (token.kind == glslStorageTokenWhileCondition) {
+            pushesResult = false
+            valid = loopDepth > 0 && stackSize == 1 &&
+                stackTypes[0] == 1
+            if (valid) {
+                val loopIndex = loopDepth - 1
+                valid = !loopConditionEmitted[loopIndex]
+                if (valid) {
+                    body.append(262390)
+                    body.append(loopMergeIds[loopIndex])
+                    body.append(loopContinueIds[loopIndex])
+                    body.append(0)
+                    body.append(262394)
+                    body.append(stack[0])
+                    body.append(loopBodyIds[loopIndex])
+                    body.append(loopMergeIds[loopIndex])
+                    body.append(131320)
+                    body.append(loopBodyIds[loopIndex])
+                    loopConditionEmitted[loopIndex] = true
+                    stackSize = 0
+                }
+            }
+        } else if (token.kind == glslStorageTokenWhileEnd) {
+            pushesResult = false
+            valid = loopDepth > 0 && stackSize == 0
+            if (valid) {
+                val loopIndex = loopDepth - 1
+                valid = loopConditionEmitted[loopIndex]
+                if (valid) {
+                    body.append(131321)
+                    body.append(loopContinueIds[loopIndex])
+                    body.append(131320)
+                    body.append(loopContinueIds[loopIndex])
+                    body.append(131321)
+                    body.append(loopHeaderIds[loopIndex])
+                    body.append(131320)
+                    body.append(loopMergeIds[loopIndex])
+                    loopDepth = loopDepth - 1
+                }
+            }
         } else if (token.kind == glslStorageTokenOperation) {
             var resultType = 0
             valid = stackSize >= token.arity &&
@@ -2832,7 +2996,7 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
         }
         tokenIndex = tokenIndex + 1
     }
-    valid = valid && stackSize == 0 && controlDepth == 0
+    valid = valid && stackSize == 0 && controlDepth == 0 && loopDepth == 0
     if (!valid) {
         val empty: array<int> = []
         if (semanticError == "" && write.tokens.size > 0) {

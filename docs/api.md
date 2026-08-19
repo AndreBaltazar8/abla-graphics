@@ -1482,8 +1482,16 @@ deterministic structured SPIR-V with `OpSelectionMerge`,
 `else if` chain becomes nested selections in the preceding else arm, preserving
 structured control flow without a special backend path. Declaring, rebinding,
 or mutating locals inside a branch is rejected until the subset can emit the
-required SSA merge values. Loops, `switch`, and early `return` remain explicit
-grammar failures rather than being ignored or miscompiled.
+required SSA merge values.
+Brace-delimited `while (condition) { ... }` loops use the same Boolean
+conditions and buffer-member statements and may be nested with selections or
+other loops within the shared 64-level bound. Condition tokens are emitted in
+the loop header so member loads are recomputed on every iteration. The SPIR-V
+form uses `OpLoopMerge` with explicit header, body, continue, and merge labels;
+the continue block branches back to the header. Local declaration or mutation
+inside a loop is rejected for the same SSA reason. `for`, `do`/`while`,
+`break`, `continue`, `switch`, and early `return` remain explicit grammar
+failures rather than being ignored or miscompiled.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

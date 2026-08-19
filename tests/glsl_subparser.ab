@@ -715,6 +715,30 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else values.value=2u; }"]
     ).spirv(shaderStageCompute)
+    val storageWhile = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<3u){ values.value++; } }"]
+    ).spirv(shaderStageCompute)
+    val storageWhileAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<3u){ values.value++; } }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedWhile = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<3u){ while(values.value<2u){ values.value++; } values.value++; } }"]
+    ).spirv(shaderStageCompute)
+    val storageWhileIf = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<3u){ if(values.value==1u){ values.value+=2u; } else { values.value++; } } }"]
+    ).spirv(shaderStageCompute)
+    val invalidWhileCondition = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value){ values.value++; } }"]
+    ).spirv(shaderStageCompute)
+    val invalidWhileBody = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<3u) values.value++; }"]
+    ).spirv(shaderStageCompute)
     val storageBooleanLiteral = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=(values.value<10u&&true)?1u:2u; }"]
@@ -1121,6 +1145,23 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0); }"
         ]
     ).spirv(shaderStageVertex)
+    val structuredLoopPassed =
+        storageWhile.succeeded && storageWhile.module.valid() &&
+        spirvWordsEqual(storageWhile.module, storageWhileAgain.module) &&
+        spirvWordCount(storageWhile.module, 262390) == 1 &&
+        spirvWordCount(storageWhile.module, 262394) == 1 &&
+        spirvWordCount(storageWhile.module, 131321) == 3 &&
+        storageNestedWhile.succeeded && storageNestedWhile.module.valid() &&
+        spirvWordCount(storageNestedWhile.module, 262390) == 2 &&
+        storageWhileIf.succeeded && storageWhileIf.module.valid() &&
+        spirvWordCount(storageWhileIf.module, 262390) == 1 &&
+        spirvWordCount(storageWhileIf.module, 196855) == 1 &&
+        !invalidWhileCondition.succeeded &&
+        glslContainsText(
+            invalidWhileCondition.error,
+            "invalid compute-storage GLSL semantics at 2:"
+        ) &&
+        !invalidWhileBody.succeeded
     if (interpolated.valid && interpolated.workgroups.size == 1 &&
         interpolated.workgroups[0].x == 6 &&
         interpolated.specializationConstants.size == 2 &&
@@ -1622,6 +1663,7 @@ fun main: int {
         spirvWordCount(storageElseIf.module, 262394) == 3 &&
         spirvWordCount(storageElseIf.module, 131321) == 6 &&
         !invalidElseBody.succeeded &&
+        structuredLoopPassed &&
         storageBooleanLiteral.succeeded &&
         storageBooleanLiteral.module.valid() &&
         spirvContainsWord(storageBooleanLiteral.module, 196649) &&
