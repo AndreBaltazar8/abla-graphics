@@ -402,9 +402,10 @@ Updated: 2026-08-19.
   returns the exact packed high/low pair on both real drivers while preserving
   the separate initialized prefix.
   Compute `main` also accepts declaration-before-use `int`, `uint`, and `bool`
-  locals within the same 64-statement bound. Integer declarations must match
-  the homogeneous block signedness; names are unique and initializers are type
-  checked. Simple reassignment rebinds any local, and integer locals support all
+  locals within the same 64-statement bound, with an optional `const` qualifier.
+  Integer declarations must match the homogeneous block signedness; names are
+  unique and initializers are type checked. Simple reassignment rebinds a
+  mutable local, and integer locals support all
   ten compound assignments plus standalone prefix/postfix
   increment/decrement. Local stores capture or replace an SSA result ID and
   local loads reuse it, so no
@@ -414,10 +415,11 @@ Updated: 2026-08-19.
   produce only the one requested GPU store. A local followed by `*=` is also
   byte-identical to its fully inlined form. Forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
-  and local-only programs are checked failures. The live specialized shader now
-  prefix-increments, computes, and rebinds its integer and Boolean intermediates
-  before producing the same checked `tail = 6` and `output = 7` on OpenGL and
-  Vulkan.
+  every simple/compound/prefix/postfix mutation of a const local, and local-only
+  programs are checked failures. The live specialized shader now captures its
+  original value as const, prefix-increments and rebinds mutable integer/Boolean
+  intermediates, then produces the same checked `tail = 6` and `output = 7` on
+  OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a

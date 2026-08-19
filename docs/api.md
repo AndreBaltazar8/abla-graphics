@@ -1451,9 +1451,10 @@ and `|=`; each lowers to the byte-identical load/binary/store program produced
 by its expanded assignment.
 `main` may contain up to 64 ordered scalar declarations and assignments to
 members of that block. A declaration has the form `uint name = expression`,
-`int name = expression`, or `bool name = expression`; integer locals must match
-the homogeneous block signedness. Locals are declaration-before-use,
-uniquely named values. A later `name = expression` rebinds the local, and
+`int name = expression`, or `bool name = expression`, optionally preceded by
+`const`; integer locals must match the homogeneous block signedness. Locals are
+declaration-before-use, uniquely named values. A later `name = expression`
+rebinds a mutable local, while every mutation of a const local is rejected, and
 integer locals accept the same ten compound-assignment operators as block
 members. Standalone prefix or postfix integer updates such as `++name`,
 `name--`, or `block.member++` lower to the corresponding add/subtract-by-one
@@ -1487,7 +1488,8 @@ defaults use their `OpSpecConstantTrue`/`OpSpecConstantFalse` forms and the same
 typed common override API as other reflected constants.
 Integer logical operands, Boolean select branches, a non-Boolean condition, raw
 Boolean assignment, mismatched local initializers, forward local references,
-and function-call expressions are explicit subset failures.
+const-local mutation, and function-call expressions are explicit subset
+failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also
 reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without

@@ -1788,6 +1788,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     val programTokens: array<GlslStorageToken> = []
     val localNames: array<string> = []
     val localTypes: array<int> = []
+    val localWritable: array<bool> = []
     var firstMemberIndex = -1
     var statements = 0
     var mainClosed = false
@@ -1802,11 +1803,14 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 sourceTokens[index].kind == glslTokenOperator &&
                 (sourceTokens[index].text == "++" ||
                  sourceTokens[index].text == "--")
-            val localDeclaration = index < sourceTokens.size &&
-                sourceTokens[index].kind == glslTokenIdentifier &&
-                (sourceTokens[index].text == "int" ||
-                 sourceTokens[index].text == "uint" ||
-                 sourceTokens[index].text == "bool")
+            val localConst = index < sourceTokens.size &&
+                sourceTokens[index].is(glslTokenIdentifier, "const")
+            val localTypeIndex = index + if (localConst) 1 else 0
+            val localDeclaration = localTypeIndex < sourceTokens.size &&
+                sourceTokens[localTypeIndex].kind == glslTokenIdentifier &&
+                (sourceTokens[localTypeIndex].text == "int" ||
+                 sourceTokens[localTypeIndex].text == "uint" ||
+                 sourceTokens[localTypeIndex].text == "bool")
             val statementLocalIndex = if (
                 index < sourceTokens.size &&
                 sourceTokens[index].kind == glslTokenIdentifier
@@ -1826,8 +1830,10 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                     sourceTokens[index].text
                 ) else -1
                 if (prefixLocalIndex >= 0 &&
-                    prefixLocalIndex < localTypes.size) {
+                    prefixLocalIndex < localTypes.size &&
+                    prefixLocalIndex < localWritable.size) {
                     valid = localTypes[prefixLocalIndex] == 0 &&
+                        localWritable[prefixLocalIndex] &&
                         programTokens.size + 4 < 8192
                     if (valid) {
                         val updateTokens = glslStorageUpdateTokens(
@@ -1892,6 +1898,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                     expressionNext = index
                 }
             } else if (localDeclaration) {
+                if (localConst) index = index + 1
                 val localTypeName = sourceTokens[index].text
                 val localType = if (localTypeName == "bool") 1 else 0
                 valid = localType == 1 ||
@@ -1907,6 +1914,8 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 var duplicateLocal = localName == instanceName ||
                     localName == specializationName ||
                     localName == "true" || localName == "false" ||
+                    localName == "const" || localName == "int" ||
+                    localName == "uint" || localName == "bool" ||
                     glslStorageLocalIndex(localNames, localName) >= 0
                 valid = valid && !duplicateLocal
                 matched = glslStorageTokenTake(
@@ -1950,10 +1959,12 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                     ))
                     localNames.append(localName)
                     localTypes.append(localType)
+                    localWritable.append(!localConst)
                 }
                 expressionNext = expression.next
             } else if (statementLocalIndex >= 0 &&
-                statementLocalIndex < localTypes.size) {
+                statementLocalIndex < localTypes.size &&
+                statementLocalIndex < localWritable.size) {
                 val localType = localTypes[statementLocalIndex]
                 index = index + 1
                 val postfixUpdate = index < sourceTokens.size &&
@@ -1961,7 +1972,8 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                     (sourceTokens[index].text == "++" ||
                      sourceTokens[index].text == "--")
                 if (postfixUpdate) {
-                    valid = localType == 0 && programTokens.size + 4 < 8192
+                    valid = localWritable[statementLocalIndex] &&
+                        localType == 0 && programTokens.size + 4 < 8192
                     if (valid) {
                         val updateTokens = glslStorageUpdateTokens(
                             glslStorageTokenLocalLoad,
@@ -1984,11 +1996,12 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                         assignmentOperator = glslStorageTokenTextCopy(
                             sourceTokens[index]
                         )
-                        valid = assignmentOperator == "=" ||
-                            (localType == 0 && glslStorageTokenCompoundOpcode(
+                        valid = valid && localWritable[statementLocalIndex] &&
+                            (assignmentOperator == "=" ||
+                             (localType == 0 && glslStorageTokenCompoundOpcode(
                                 assignmentOperator,
                                 signed
-                            ) != 0)
+                            ) != 0))
                         index = index + 1
                     } else valid = false
                     val empty: array<GlslStorageToken> = []
