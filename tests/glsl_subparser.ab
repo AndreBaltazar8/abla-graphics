@@ -113,7 +113,35 @@ fun main: int {
     )
     val duplicateBinding = glslPackage(
         [shaderStageFragment],
-        ["layout(set=0,binding=1) uniform sampler2D first; layout(set=0,binding=1) uniform sampler2D second;"]
+        ["layout(set=0,binding=1) uniform sampler2D first; layout(set=0,binding=1) uniform samplerCube second;"]
+    )
+    val aliasedBindingDeclarators = glslPackage(
+        [shaderStageFragment],
+        ["layout(set=0,binding=1) uniform sampler2D first, second;"]
+    )
+    val overlappingDeclaratorLocations = glslPackage(
+        [shaderStageVertex],
+        ["layout(location=0) in vec4 first, second; void main() {}"]
+    )
+    val overlappingArrayLocation = glslPackage(
+        [shaderStageVertex],
+        ["layout(location=0) in vec4 first[2]; layout(location=1) in vec4 second; void main() {}"]
+    )
+    val overlappingMatrixLocation = glslPackage(
+        [shaderStageVertex],
+        ["layout(location=0) in mat3 transform; layout(location=2) in vec4 second; void main() {}"]
+    )
+    val separateMatrixLocation = glslPackage(
+        [shaderStageVertex],
+        ["layout(location=0) in mat3 transform; layout(location=3) in vec4 second; void main() {}"]
+    )
+    val duplicateTopLevelDeclarator = glslPackage(
+        [shaderStageFragment],
+        ["layout(binding=0) uniform sampler2D image, image; void main() {}"]
+    )
+    val trailingTopLevelComma = glslPackage(
+        [shaderStageFragment],
+        ["layout(binding=0) uniform sampler2D image,; void main() {}"]
     )
     val mismatchedInterface = glslPackage(
         [shaderStageVertex, shaderStageFragment],
@@ -568,6 +596,23 @@ fun main: int {
         !duplicate.valid && duplicate.error != "" &&
         !malformed.valid && malformed.error != "" &&
         !duplicateBinding.valid && duplicateBinding.error != "" &&
+        aliasedBindingDeclarators.valid &&
+        aliasedBindingDeclarators.bindings.size == 2 &&
+        aliasedBindingDeclarators.bindings[0].name == "first" &&
+        aliasedBindingDeclarators.bindings[1].name == "second" &&
+        aliasedBindingDeclarators.bindings[0].binding == 1 &&
+        aliasedBindingDeclarators.bindings[1].binding == 1 &&
+        !overlappingDeclaratorLocations.valid &&
+        overlappingDeclaratorLocations.error != "" &&
+        !overlappingArrayLocation.valid &&
+        overlappingArrayLocation.error != "" &&
+        !overlappingMatrixLocation.valid &&
+        overlappingMatrixLocation.error != "" &&
+        separateMatrixLocation.valid &&
+        separateMatrixLocation.locations.size == 2 &&
+        !duplicateTopLevelDeclarator.valid &&
+        duplicateTopLevelDeclarator.error != "" &&
+        !trailingTopLevelComma.valid && trailingTopLevelComma.error != "" &&
         !mismatchedInterface.valid && mismatchedInterface.error != "" &&
         !missingInterface.valid && missingInterface.error != "" &&
         missingWorkgroupX.valid && missingWorkgroupX.workgroups.size == 1 &&

@@ -596,7 +596,7 @@ three rejection paths are executable tests.
   cross-stage compatibility slice, push-constant reflection, and scalar
   specialization-constant reflection. It does not yet discover modules from
   filesystem/package search paths or parse nested structures, general
-  top-level multiple declarators, general declarations, composite constants,
+  declarations, composite constants,
   or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.

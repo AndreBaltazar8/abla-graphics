@@ -165,7 +165,17 @@ class GlslDeclaration(
     val name: string,
     val arraySize: int,
     val members: array<ShaderBlockMember>,
+    val declarators: array<GlslDeclarator>,
+    val next: int,
     val valid: bool
+)
+
+class GlslDeclarator(val name: string, val arraySize: int)
+
+class GlslDeclarators(
+    val valid: bool,
+    val values: array<GlslDeclarator>,
+    val next: int
 )
 
 class GlslArraySize(val valid: bool, val value: int, val next: int)
@@ -688,6 +698,36 @@ fun glslArraySizeAfterName(source: string, begin: int): GlslArraySize {
     GlslArraySize(valid, size, index)
 }
 
+fun glslParseDeclarators(source: string, begin: int): GlslDeclarators {
+    val values: array<GlslDeclarator> = []
+    var index = begin
+    var valid = true
+    var done = false
+    while (valid && !done && index < source.size) {
+        val name = glslReadName(source, index)
+        val arraySize = glslArraySizeAfterName(source, name.next)
+        valid = name.text != "" && arraySize.valid
+        var duplicate = false
+        var valueIndex = 0
+        while (valid && !duplicate && valueIndex < values.size) {
+            duplicate = values[valueIndex].name == name.text
+            valueIndex = valueIndex + 1
+        }
+        valid = valid && !duplicate
+        if (valid) {
+            values.append(GlslDeclarator(name.text, arraySize.value))
+            index = glslSkipTrivia(source, arraySize.next)
+            if (index < source.size && source[index] == 44) {
+                index = glslSkipTrivia(source, index + 1)
+            } else if (index < source.size && source[index] == 59) {
+                index = index + 1
+                done = true
+            } else valid = false
+        }
+    }
+    GlslDeclarators(valid && done && values.size > 0, values, index)
+}
+
 fun glslParseBlock(source: string, begin: int): GlslBlock {
     val members: array<ShaderBlockMember> = []
     var index = glslSkipTrivia(source, begin)
@@ -828,17 +868,78 @@ fun glslDeclarationAfterLayout(
         else glslArraySizeAfterName(source, variable.next)
     val parsedBlock = if (block) glslParseBlock(source, afterType)
         else GlslBlock(true, variable.text, arraySize.value, [], arraySize.next)
+    val declarators = if (!block && variable.text != "") {
+        glslParseDeclarators(source, index)
+    } else {
+        val values: array<GlslDeclarator> = []
+        if (parsedBlock.name != "") {
+            values.append(GlslDeclarator(
+                parsedBlock.name,
+                parsedBlock.arraySize
+            ))
+        }
+        GlslDeclarators(parsedBlock.valid, values, parsedBlock.next)
+    }
     GlslDeclaration(
         storage,
         type.text,
         parsedBlock.name,
         parsedBlock.arraySize,
         parsedBlock.members,
+        declarators.values,
+        declarators.next,
         storage != "" && type.text != "" &&
             (variable.text != "" || block) && arraySize.valid &&
-            parsedBlock.valid
+            parsedBlock.valid && declarators.valid
     )
 }
+
+fun glslMatrixColumns(dataType: string): int {
+    var columns = 0
+    if (dataType == "mat2" || dataType == "mat2x2" ||
+        dataType == "mat2x3" || dataType == "mat2x4" ||
+        dataType == "dmat2" || dataType == "dmat2x2" ||
+        dataType == "dmat2x3" || dataType == "dmat2x4") columns = 2
+    else if (dataType == "mat3" || dataType == "mat3x2" ||
+        dataType == "mat3x3" || dataType == "mat3x4" ||
+        dataType == "dmat3" || dataType == "dmat3x2" ||
+        dataType == "dmat3x3" || dataType == "dmat3x4") columns = 3
+    else if (dataType == "mat4" || dataType == "mat4x2" ||
+        dataType == "mat4x3" || dataType == "mat4x4" ||
+        dataType == "dmat4" || dataType == "dmat4x2" ||
+        dataType == "dmat4x3" || dataType == "dmat4x4") columns = 4
+    columns
+}
+
+fun glslDoubleMatrixRows(dataType: string): int {
+    var rows = 0
+    if (dataType == "dmat2" || dataType == "dmat2x2" ||
+        dataType == "dmat3x2" || dataType == "dmat4x2") rows = 2
+    else if (dataType == "dmat3" || dataType == "dmat2x3" ||
+        dataType == "dmat3x3" || dataType == "dmat4x3") rows = 3
+    else if (dataType == "dmat4" || dataType == "dmat2x4" ||
+        dataType == "dmat3x4" || dataType == "dmat4x4") rows = 4
+    rows
+}
+
+fun glslLocationSlots(dataType: string, arraySize: int): int {
+    val columns = glslMatrixColumns(dataType)
+    val doubleRows = glslDoubleMatrixRows(dataType)
+    var elementSlots = 1
+    if (columns > 0) {
+        elementSlots = columns * (if (doubleRows >= 3) 2 else 1)
+    } else if (dataType == "dvec3" || dataType == "dvec4") {
+        elementSlots = 2
+    }
+    elementSlots * arraySize
+}
+
+fun glslLocationsOverlap(
+    first: int,
+    firstSize: int,
+    second: int,
+    secondSize: int
+): bool = first < second + secondSize && second < first + firstSize
 
 fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     val includeReflection = glslReflectIncludes(stage, source)
@@ -940,28 +1041,53 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                         valid = false
                         error = "malformed GLSL $stage location declaration"
                     }
-                    var duplicate = false
-                    var locationIndex = 0
-                    while (valid && !duplicate &&
-                        locationIndex < locations.size) {
-                        duplicate =
-                            locations[locationIndex].location == layout.location &&
-                            locations[locationIndex].direction ==
-                                declaration.storage
-                        locationIndex = locationIndex + 1
+                    var declaratorIndex = 0
+                    var declaratorCount = declaration.declarators.size
+                    if (declaratorCount == 0 && declaration.members.size > 0) {
+                        declaratorCount = 1
                     }
-                    if (valid && duplicate) {
-                        valid = false
-                        error = "duplicate GLSL $stage ${declaration.storage} location ${layout.location}"
-                    } else if (valid) {
-                        locations.append(ShaderLocation(
-                            stage,
-                            layout.location,
-                            declaration.storage,
+                    while (valid && declaratorIndex < declaratorCount) {
+                        val declarator = if (declaration.declarators.size > 0)
+                            declaration.declarators[declaratorIndex]
+                            else GlslDeclarator(
+                                declaration.name,
+                                declaration.arraySize
+                            )
+                        val slots = glslLocationSlots(
                             declaration.dataType,
-                            declaration.name,
-                            declaration.arraySize
-                        ))
+                            declarator.arraySize
+                        )
+                        var duplicate = slots <= 0
+                        var locationIndex = 0
+                        while (valid && !duplicate &&
+                            locationIndex < locations.size) {
+                            val previous = locations[locationIndex]
+                            duplicate = previous.direction ==
+                                declaration.storage && glslLocationsOverlap(
+                                    previous.location,
+                                    glslLocationSlots(
+                                        previous.dataType,
+                                        previous.arraySize
+                                    ),
+                                    layout.location,
+                                    slots
+                                )
+                            locationIndex = locationIndex + 1
+                        }
+                        if (duplicate) {
+                            valid = false
+                            error = "overlapping GLSL $stage ${declaration.storage} location ${layout.location}"
+                        } else {
+                            locations.append(ShaderLocation(
+                                stage,
+                                layout.location,
+                                declaration.storage,
+                                declaration.dataType,
+                                declarator.name,
+                                declarator.arraySize
+                            ))
+                        }
+                        declaratorIndex = declaratorIndex + 1
                     }
                 }
                 if (valid && !layout.pushConstant &&
@@ -972,28 +1098,48 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                         valid = false
                         error = "malformed GLSL $stage binding declaration"
                     }
-                    var duplicate = false
-                    var bindingIndex = 0
-                    while (valid && !duplicate &&
-                        bindingIndex < bindings.size) {
-                        duplicate = bindings[bindingIndex].set == layout.set &&
-                            bindings[bindingIndex].binding == layout.binding
-                        bindingIndex = bindingIndex + 1
+                    var declaratorIndex = 0
+                    var declaratorCount = declaration.declarators.size
+                    if (declaratorCount == 0 && declaration.members.size > 0) {
+                        declaratorCount = 1
                     }
-                    if (valid && duplicate) {
-                        valid = false
-                        error = "duplicate GLSL $stage set ${layout.set} binding ${layout.binding}"
-                    } else if (valid) {
-                        bindings.append(ShaderBinding(
-                            stage,
-                            layout.set,
-                            layout.binding,
-                            declaration.storage,
-                            declaration.dataType,
-                            declaration.name,
-                            declaration.arraySize,
-                            declaration.members
-                        ))
+                    while (valid && declaratorIndex < declaratorCount) {
+                        val declarator = if (declaration.declarators.size > 0)
+                            declaration.declarators[declaratorIndex]
+                            else GlslDeclarator(
+                                declaration.name,
+                                declaration.arraySize
+                            )
+                        var bindingIndex = 0
+                        while (valid && bindingIndex < bindings.size) {
+                            val previous = bindings[bindingIndex]
+                            if (previous.set == layout.set &&
+                                previous.binding == layout.binding &&
+                                (previous.storage != declaration.storage ||
+                                 previous.dataType != declaration.dataType ||
+                                 previous.arraySize != declarator.arraySize ||
+                                 !glslBlockMembersEqual(
+                                     previous.members,
+                                     declaration.members
+                                 ))) {
+                                valid = false
+                                error = "incompatible GLSL $stage set ${layout.set} binding ${layout.binding} declarations"
+                            }
+                            bindingIndex = bindingIndex + 1
+                        }
+                        if (valid) {
+                            bindings.append(ShaderBinding(
+                                stage,
+                                layout.set,
+                                layout.binding,
+                                declaration.storage,
+                                declaration.dataType,
+                                declarator.name,
+                                declarator.arraySize,
+                                declaration.members
+                            ))
+                        }
+                        declaratorIndex = declaratorIndex + 1
                     }
                 }
                 if (valid && (layout.localSizeX >= 0 ||
@@ -1088,7 +1234,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                         else if (valid) workgroups.append(merged)
                     }
                 }
-                index = layout.next
+                index = if (declaration.next > layout.next)
+                    declaration.next else layout.next
             }
         } else if (name.text != "") index = name.next
         else {

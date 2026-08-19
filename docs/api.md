@@ -1229,8 +1229,15 @@ constant, and arrayed block instances are rejected. Scalar
 default literal. The initial typed literal grammar covers `bool`, `int`,
 `uint`, `float`, and `double`; duplicate IDs in one stage and type-incompatible
 literals are rejected. Duplicate recognized keys inside one layout qualifier
-are also errors. Duplicate
-input/output locations or descriptor slots in one stage invalidate the package.
+are also errors. Duplicate input/output location ranges in one stage invalidate
+the package. Standalone scalar/vector, matrix, and fixed-array declarators
+reserve the GLSL-defined number of consecutive locations, so overlaps are
+detected even when their base locations differ. A top-level declaration may
+contain multiple comma-separated names with independent array extents. Every
+name inherits the declaration's layout: this therefore reports overlapping
+explicit locations, while same-typed opaque-uniform names may intentionally
+alias one descriptor slot. Duplicate names, empty names, trailing commas, and
+incompatible descriptor aliases are rejected.
 Bindings shared across stages must agree on storage, data type, array extent,
 and complete ordered member structure. Each explicit
 input in an adjacent raster stage must have a preceding output at the same
@@ -1245,7 +1252,7 @@ declared IDs merge across compatible layout statements, matching Vulkan GLSL;
 at least one concrete dimension must be declared. Repeated concrete sizes/IDs
 must agree, dimension IDs must be distinct, and they cannot collide with an
 explicit specialization constant in the same stage. Nested structures,
-general top-level multiple declarators, composite specialization constants,
+composite specialization constants,
 computed host-layout validation, filesystem module discovery, and general
 push/scalar-specialization backend wiring are still forthcoming.
 
