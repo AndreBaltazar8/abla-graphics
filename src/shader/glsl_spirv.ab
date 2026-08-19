@@ -1339,7 +1339,7 @@ fun glslStorageLocalIndex(
     found
 }
 
-fun glslStoragePostfixUpdateTokens(
+fun glslStorageUpdateTokens(
     loadKind: int,
     storeKind: int,
     value: int,
@@ -1798,6 +1798,10 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             mainClosed = true
         } else {
             valid = statements < 64
+            val prefixUpdate = index < sourceTokens.size &&
+                sourceTokens[index].kind == glslTokenOperator &&
+                (sourceTokens[index].text == "++" ||
+                 sourceTokens[index].text == "--")
             val localDeclaration = index < sourceTokens.size &&
                 sourceTokens[index].kind == glslTokenIdentifier &&
                 (sourceTokens[index].text == "int" ||
@@ -1811,7 +1815,83 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 sourceTokens[index].text
             ) else -1
             var expressionNext = index
-            if (localDeclaration) {
+            if (prefixUpdate) {
+                val increment = sourceTokens[index].text == "++"
+                index = index + 1
+                val prefixLocalIndex = if (
+                    index < sourceTokens.size &&
+                    sourceTokens[index].kind == glslTokenIdentifier
+                ) glslStorageLocalIndex(
+                    localNames,
+                    sourceTokens[index].text
+                ) else -1
+                if (prefixLocalIndex >= 0 &&
+                    prefixLocalIndex < localTypes.size) {
+                    valid = localTypes[prefixLocalIndex] == 0 &&
+                        programTokens.size + 4 < 8192
+                    if (valid) {
+                        val updateTokens = glslStorageUpdateTokens(
+                            glslStorageTokenLocalLoad,
+                            glslStorageTokenLocalStore,
+                            prefixLocalIndex,
+                            0,
+                            increment
+                        )
+                        var updateIndex = 0
+                        while (updateIndex < updateTokens.size) {
+                            programTokens.append(updateTokens[updateIndex])
+                            updateIndex = updateIndex + 1
+                        }
+                    }
+                    expressionNext = index + 1
+                } else {
+                    matched = glslStorageTokenTake(
+                        sourceTokens,
+                        index,
+                        glslTokenIdentifier,
+                        instanceName
+                    )
+                    valid = matched.valid
+                    index = matched.next
+                    matched = glslStorageTokenTake(
+                        sourceTokens,
+                        index,
+                        glslTokenPunctuation,
+                        "."
+                    )
+                    valid = valid && matched.valid
+                    index = matched.next
+                    var memberIndex = -1
+                    if (valid && index < sourceTokens.size &&
+                        sourceTokens[index].kind == glslTokenIdentifier) {
+                        memberIndex = glslStorageLocalIndex(
+                            memberNames,
+                            sourceTokens[index].text
+                        )
+                        index = index + 1
+                    } else valid = false
+                    valid = valid && memberIndex >= 0 &&
+                        programTokens.size + 4 < 8192
+                    if (valid && firstMemberIndex < 0) {
+                        firstMemberIndex = memberIndex
+                    }
+                    if (valid) {
+                        val updateTokens = glslStorageUpdateTokens(
+                            glslStorageTokenLoad,
+                            glslStorageTokenStore,
+                            memberIndex,
+                            0,
+                            increment
+                        )
+                        var updateIndex = 0
+                        while (updateIndex < updateTokens.size) {
+                            programTokens.append(updateTokens[updateIndex])
+                            updateIndex = updateIndex + 1
+                        }
+                    }
+                    expressionNext = index
+                }
+            } else if (localDeclaration) {
                 val localTypeName = sourceTokens[index].text
                 val localType = if (localTypeName == "bool") 1 else 0
                 valid = localType == 1 ||
@@ -1883,7 +1963,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 if (postfixUpdate) {
                     valid = localType == 0 && programTokens.size + 4 < 8192
                     if (valid) {
-                        val updateTokens = glslStoragePostfixUpdateTokens(
+                        val updateTokens = glslStorageUpdateTokens(
                             glslStorageTokenLocalLoad,
                             glslStorageTokenLocalStore,
                             statementLocalIndex,
@@ -2021,7 +2101,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 if (valid && postfixUpdate) {
                     valid = programTokens.size + 4 < 8192
                     if (valid) {
-                        val updateTokens = glslStoragePostfixUpdateTokens(
+                        val updateTokens = glslStorageUpdateTokens(
                             glslStorageTokenLoad,
                             glslStorageTokenStore,
                             memberIndex,

@@ -1455,8 +1455,8 @@ members of that block. A declaration has the form `uint name = expression`,
 the homogeneous block signedness. Locals are declaration-before-use,
 uniquely named values. A later `name = expression` rebinds the local, and
 integer locals accept the same ten compound-assignment operators as block
-members. A standalone integer `name++`, `name--`, `block.member++`, or
-`block.member--` statement lowers to the corresponding add/subtract-by-one
+members. Standalone prefix or postfix integer updates such as `++name`,
+`name--`, or `block.member++` lower to the corresponding add/subtract-by-one
 token chain. Their token stores capture or replace the current result ID and
 subsequent reads reuse it directly, so they emit no SPIR-V function variable,
 load, or store. This avoids local-memory traffic while preserving snapshot
