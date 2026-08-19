@@ -1437,6 +1437,10 @@ The assignment expression reads and writes that same selected storage member and
 accepts typed integer literals,
 one matching scalar specialization constant, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, `&`, `^`, and `|`.
+The deterministic postfix/SSA lowering consumes the shared `GlslToken` stream;
+comments and whitespace cannot change its parse, and longest-match operator
+tokens keep unsupported logical or assignment operators from being mistaken
+for supported bitwise operations.
 Precedence follows GLSL: multiplicative, additive, shift, bitwise AND, XOR, then
 OR. Signed right shift emits arithmetic shift while unsigned right shift emits
 logical shift. Unary `+`, signed symbolic `-`, and integer `~` bind at the

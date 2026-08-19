@@ -385,6 +385,12 @@ Updated: 2026-08-19.
   tests update the third member while preserving the initialized prefix. Mixed
   member types, unknown targets, mismatched instances, and reads from a different
   member are rejected.
+  Storage-expression emission now consumes the shared source-spanned lexer via
+  one precedence-climbing parser. A comment-heavy form produces byte-identical
+  SPIR-V to the compact source, while lexer-level longest matching keeps `&&`,
+  `||`, increments, decrements, and compound assignments out of the supported
+  bitwise/arithmetic subset. This is the first deterministic emitter migrated
+  from a private character scanner onto the common GLSL token stream.
 - Deterministic `$glsl` emission test: a strictly parsed compute shader with a
   Vulkan-capable version, reflected `(8, 4, 1)` local size, and empty `main`
   emits SPIR-V entirely in Abla. Repeated emissions are word-identical and the

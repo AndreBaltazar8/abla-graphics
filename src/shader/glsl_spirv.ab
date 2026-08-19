@@ -1428,9 +1428,259 @@ fun glslStorageBitwiseOr(
     GlslStorageExpression(valid && tokens.size < 128, tokens, index)
 }
 
+fun glslStorageTokenIndexAtOrAfter(
+    tokens: array<GlslToken>,
+    begin: int
+): int {
+    var index = 0
+    while (index < tokens.size && tokens[index].begin < begin) {
+        index = index + 1
+    }
+    index
+}
+
+fun glslStorageTokenBinaryPrecedence(text: string): int {
+    var precedence = 0
+    if (text == "*" || text == "/" || text == "%") precedence = 7
+    else if (text == "+" || text == "-") precedence = 6
+    else if (text == "<<" || text == ">>") precedence = 5
+    else if (text == "&") precedence = 4
+    else if (text == "^") precedence = 3
+    else if (text == "|") precedence = 2
+    precedence
+}
+
+fun glslStorageTokenBinaryOpcode(text: string, signed: bool): int {
+    var opcode = 0
+    if (text == "+") opcode = 327808
+    else if (text == "-") opcode = 327810
+    else if (text == "*") opcode = 327812
+    else if (text == "/") opcode = if (signed) 327815 else 327814
+    else if (text == "%") opcode = if (signed) 327818 else 327817
+    else if (text == "<<") opcode = 327876
+    else if (text == ">>") opcode = if (signed) 327875 else 327874
+    else if (text == "|") opcode = 327877
+    else if (text == "^") opcode = 327878
+    else if (text == "&") opcode = 327879
+    opcode
+}
+
+fun glslStorageTokenExpression(
+    source: string,
+    sourceTokens: array<GlslToken>,
+    begin: int,
+    minimumPrecedence: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
+): GlslStorageExpression {
+    val first = glslStorageTokenUnary(
+        source,
+        sourceTokens,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId,
+        storageInstance,
+        storageMember
+    )
+    val tokens = glslStorageTokensCopy(first.tokens)
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && tokens.size < 128 &&
+        index < sourceTokens.size) {
+        val operator = sourceTokens[index]
+        val precedence = if (operator.kind == glslTokenOperator)
+            glslStorageTokenBinaryPrecedence(operator.text) else 0
+        if (precedence >= minimumPrecedence) {
+            val right = glslStorageTokenExpression(
+                source,
+                sourceTokens,
+                index + 1,
+                precedence + 1,
+                signed,
+                specializationName,
+                specializationDefault,
+                specializationId,
+                storageInstance,
+                storageMember
+            )
+            valid = right.valid
+            if (valid) {
+                val copied = glslStorageTokensCopy(right.tokens)
+                var copiedIndex = 0
+                while (copiedIndex < copied.size) {
+                    tokens.append(copied[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                tokens.append(GlslStorageToken(
+                    glslStorageTokenOperation,
+                    opcode = glslStorageTokenBinaryOpcode(
+                        operator.text,
+                        signed
+                    )
+                ))
+                index = right.next
+            }
+        } else done = true
+    }
+    GlslStorageExpression(valid && tokens.size < 128, tokens, index)
+}
+
+fun glslStorageTokenPrimary(
+    source: string,
+    sourceTokens: array<GlslToken>,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
+): GlslStorageExpression {
+    val tokens: array<GlslStorageToken> = []
+    var index = begin
+    var valid = index < sourceTokens.size
+    if (valid && sourceTokens[index].is(glslTokenPunctuation, "(")) {
+        val nested = glslStorageTokenExpression(
+            source,
+            sourceTokens,
+            index + 1,
+            1,
+            signed,
+            specializationName,
+            specializationDefault,
+            specializationId,
+            storageInstance,
+            storageMember
+        )
+        index = nested.next
+        valid = nested.valid && index < sourceTokens.size &&
+            sourceTokens[index].is(glslTokenPunctuation, ")")
+        if (valid) {
+            val copied = glslStorageTokensCopy(nested.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                tokens.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            index = index + 1
+        }
+    } else if (valid && sourceTokens[index].kind == glslTokenIdentifier) {
+        val name = sourceTokens[index].text
+        if (name == storageInstance) {
+            valid = index + 2 < sourceTokens.size &&
+                sourceTokens[index + 1].is(glslTokenPunctuation, ".") &&
+                sourceTokens[index + 2].is(
+                    glslTokenIdentifier,
+                    storageMember
+                )
+            if (valid) tokens.append(GlslStorageToken(
+                glslStorageTokenLoad
+            ))
+            index = index + 3
+        } else if (specializationName != "" && name == specializationName) {
+            tokens.append(GlslStorageToken(
+                glslStorageTokenSpecialization,
+                specializationDefault,
+                specializationId = specializationId
+            ))
+            index = index + 1
+        } else valid = false
+    } else if (valid && sourceTokens[index].kind == glslTokenInteger) {
+        val parsed = glslIntegerDefault(sourceTokens[index].text, signed)
+        valid = parsed.valid
+        if (valid) tokens.append(GlslStorageToken(
+            glslStorageTokenLiteral,
+            parsed.bits
+        ))
+        index = index + 1
+    } else valid = false
+    GlslStorageExpression(valid && tokens.size > 0, tokens, index)
+}
+
+fun glslStorageTokenUnary(
+    source: string,
+    sourceTokens: array<GlslToken>,
+    begin: int,
+    signed: bool,
+    specializationName: string,
+    specializationDefault: int,
+    specializationId: int,
+    storageInstance: string,
+    storageMember: string
+): GlslStorageExpression {
+    if (begin < sourceTokens.size &&
+        sourceTokens[begin].kind == glslTokenOperator &&
+        (sourceTokens[begin].text == "+" ||
+         sourceTokens[begin].text == "-" ||
+         sourceTokens[begin].text == "~")) {
+        val operator = sourceTokens[begin]
+        val numeric = (operator.text == "+" || operator.text == "-") &&
+            begin + 1 < sourceTokens.size &&
+            sourceTokens[begin + 1].kind == glslTokenInteger
+        if (numeric) {
+            val parsed = glslIntegerDefault(
+                source.slice(operator.begin, sourceTokens[begin + 1].end),
+                signed
+            )
+            val tokens: array<GlslStorageToken> = []
+            if (parsed.valid) tokens.append(GlslStorageToken(
+                glslStorageTokenLiteral,
+                parsed.bits
+            ))
+            return GlslStorageExpression(
+                parsed.valid,
+                tokens,
+                begin + 2
+            )
+        }
+        val operand = glslStorageTokenUnary(
+            source,
+            sourceTokens,
+            begin + 1,
+            signed,
+            specializationName,
+            specializationDefault,
+            specializationId,
+            storageInstance,
+            storageMember
+        )
+        val tokens = glslStorageTokensCopy(operand.tokens)
+        var valid = operand.valid && (operator.text != "-" || signed)
+        if (valid && operator.text != "+") tokens.append(GlslStorageToken(
+            glslStorageTokenOperation,
+            opcode = if (operator.text == "-") 262270 else 262344,
+            arity = 1
+        ))
+        return GlslStorageExpression(
+            valid && tokens.size < 128,
+            tokens,
+            operand.next
+        )
+    }
+    glslStorageTokenPrimary(
+        source,
+        sourceTokens,
+        begin,
+        signed,
+        specializationName,
+        specializationDefault,
+        specializationId,
+        storageInstance,
+        storageMember
+    )
+}
+
 fun glslComputeStorageWrite(source: string): GlslStorageWrite {
+    val lexical = glslLex(source)
     var index = glslSkipTrivia(source, 0)
-    var valid = index < source.size && source[index] == 35
+    var valid = lexical.valid && index < source.size && source[index] == 35
     var part = glslReadName(source, index + 1)
     valid = valid && part.text == "version"
     val version = glslReadUnsigned(source, part.next)
@@ -1552,9 +1802,15 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && memberIndex >= 0
     character = glslExpectCharacter(source, part.next, 61)
     valid = valid && character.valid
-    val expression = glslStorageBitwiseOr(
+    val expressionBegin = glslStorageTokenIndexAtOrAfter(
+        lexical.tokens,
+        character.next
+    )
+    val expression = glslStorageTokenExpression(
         source,
-        character.next,
+        lexical.tokens,
+        expressionBegin,
+        1,
         signed,
         specializationName,
         specializationDefault,
@@ -1563,11 +1819,15 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         memberName
     )
     valid = valid && expression.valid
-    character = glslExpectCharacter(source, expression.next, 59)
-    valid = valid && character.valid
-    character = glslExpectCharacter(source, character.next, 125)
-    valid = valid && character.valid &&
-        glslSkipTrivia(source, character.next) == source.size
+    var expressionEnd = expression.next
+    valid = valid && expressionEnd < lexical.tokens.size &&
+        lexical.tokens[expressionEnd].is(glslTokenPunctuation, ";")
+    if (valid) expressionEnd = expressionEnd + 1
+    valid = valid && expressionEnd < lexical.tokens.size &&
+        lexical.tokens[expressionEnd].is(glslTokenPunctuation, "}")
+    if (valid) expressionEnd = expressionEnd + 1
+    valid = valid && expressionEnd < lexical.tokens.size &&
+        lexical.tokens[expressionEnd].kind == glslTokenEnd
     GlslStorageWrite(
         valid,
         signed,
