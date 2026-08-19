@@ -30,6 +30,17 @@ if [[ $status -ne 42 ]]; then
     exit 1
 fi
 
+"$compiler" build "$project_root/tests/push_constants.ab" \
+    -o "$output_directory/push-constants" --no-cache
+set +e
+"$output_directory/push-constants"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'Push-constant value test returned %s, expected 42\n' "$status" >&2
+    exit 1
+fi
+
 if "$compiler" build "$project_root/tests/glsl_invalid.ab" \
     -o "$output_directory/glsl-invalid" --no-cache \
     >"$output_directory/glsl-invalid.log" 2>&1; then

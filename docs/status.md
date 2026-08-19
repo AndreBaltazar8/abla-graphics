@@ -944,6 +944,8 @@ validity gate unchanged.
   metadata is reflected and push-constant scalar/vector/matrix/fixed-array
   blocks now convert into a deterministic standard-layout byte contract with
   combined stage masks, offsets, sizes, alignments, and array/matrix strides.
+  A reusable affine `GraphicsPushConstants` value provides exact member writes
+  plus checked byte-offset and scalar hot paths without per-frame allocation.
   General uniform/storage host-structure offsets remain unverified. Reflected
   push constants are not yet wired into backend pipeline creation or command
   recording.

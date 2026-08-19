@@ -1,0 +1,100 @@
+// Reusable backend-neutral values for a reflected shader push-constant block.
+
+import "shader/glsl.ab"
+import "bytes.ab"
+
+resource class GraphicsPushConstants(
+    val layout: ShaderPushConstantLayout,
+    val bytes: BufferBytes,
+    val error: string
+) {
+    fun valid(): bool = this.error == "" && this.layout.valid &&
+        this.layout.size > 0 && this.bytes.valid() &&
+        this.bytes.size == this.layout.size
+
+    fun memberIndex(name: string): int {
+        var result = -1
+        var index = 0
+        while (result < 0 && index < this.layout.members.size) {
+            if (this.layout.members[index].name == name) result = index
+            index = index + 1
+        }
+        result
+    }
+
+    fun memberOffset(name: string): int {
+        val index = this.memberIndex(name)
+        if (index >= 0) this.layout.members[index].offset else -1
+    }
+
+    fun memberSize(name: string): int {
+        val index = this.memberIndex(name)
+        if (index >= 0) this.layout.members[index].size else -1
+    }
+
+    trusted fun writeBytes(
+        source: BufferBytes,
+        destinationOffset: int = 0,
+        sourceOffset: int = 0,
+        size: int = -1
+    ): bool {
+        val byteCount = if (size == -1 && sourceOffset >= 0 &&
+            sourceOffset <= source.size) source.size - sourceOffset else size
+        var accepted = this.valid() && source.valid() &&
+            sourceOffset >= 0 && sourceOffset <= source.size &&
+            destinationOffset >= 0 && destinationOffset <= this.bytes.size &&
+            byteCount >= 0 && byteCount <= source.size - sourceOffset &&
+            byteCount <= this.bytes.size - destinationOffset
+        if (accepted && byteCount > 0) {
+            ablaUnsafeCopyMemory(
+                this.bytes.storage.pointerAt(destinationOffset),
+                source.storage.pointerAt(sourceOffset),
+                byteCount
+            )
+        }
+        accepted
+    }
+
+    trusted fun writeMember(name: string, source: BufferBytes): bool {
+        val index = this.memberIndex(name)
+        index >= 0 && source.valid() &&
+            source.size == this.layout.members[index].size &&
+            this.writeBytes(
+                source,
+                this.layout.members[index].offset,
+                0,
+                source.size
+            )
+    }
+
+    trusted fun storeU32(value: int, offset: int = 0): bool =
+        this.valid() && offset >= 0 && offset <= this.bytes.size - 4 &&
+        this.bytes.storeU32(value, offset)
+
+    trusted fun storeF32(value: f64, offset: int = 0): bool =
+        this.valid() && offset >= 0 && offset <= this.bytes.size - 4 &&
+        this.bytes.storeF32(value, offset)
+
+    trusted fun fill(value: int = 0): bool =
+        this.valid() && this.bytes.fill(value)
+
+    trusted fun drop(): void {
+        this.bytes.storage.close()
+        return
+    }
+}
+
+trusted fun ShaderPackage.pushConstants(
+    maximumSize: int = 128
+): GraphicsPushConstants {
+    val layout = this.pushConstantLayout(maximumSize)
+    val size = if (layout.valid && layout.size > 0) layout.size else 0
+    val bytes = bufferBytes(size)
+    GraphicsPushConstants(
+        layout,
+        move(bytes),
+        if (!layout.valid) layout.error
+        else if (layout.size <= 0) "shader has no push-constant block"
+        else ""
+    )
+}

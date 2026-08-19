@@ -1569,6 +1569,14 @@ Opaque and user-defined structure members remain rejected by layout conversion
 until recursive structure layout is implemented; reflection itself continues
 to preserve them.
 
+`shader.pushConstants()` allocates that exact reflected size once and returns
+affine `GraphicsPushConstants`. Name-based `writeMember()` requires an exact
+member-sized `BufferBytes`, while `writeBytes()` and `storeU32()`/`storeF32()`
+provide checked offset-based hot paths. Member offsets and sizes are queryable;
+unknown names and all out-of-range writes fail without modifying memory. The
+same reusable native byte block is intended for OpenGL uniform-buffer uploads
+and Vulkan command recording, so updating values does not allocate per frame.
+
 Scalar
 `layout(constant_id = N) const` declarations produce stage-tagged
 `ShaderSpecializationConstant` values containing the ID, type, name, and exact

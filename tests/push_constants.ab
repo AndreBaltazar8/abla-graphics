@@ -1,0 +1,40 @@
+import "../src/push_constants.ab"
+
+fun main: int {
+    val shader = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(push_constant) uniform Draw { mat4 transform; vec4 tint; } draw; void main() {}",
+            "layout(push_constant) uniform Draw { mat4 transform; vec4 tint; } draw; void main() {}"
+        ]
+    )
+    val values = shader.pushConstants()
+    val tint = bufferBytes(16)
+    tint.storeF32(0.25, 0)
+    tint.storeF32(0.5, 4)
+    tint.storeF32(0.75, 8)
+    tint.storeF32(1.0, 12)
+    val shortTint = bufferBytes(12)
+    val noConstants = glslPackage(
+        [shaderStageVertex],
+        ["void main() {}"]
+    ).pushConstants()
+    val passed = values.valid() && values.layout.size == 80 &&
+        values.memberOffset("transform") == 0 &&
+        values.memberSize("transform") == 64 &&
+        values.memberOffset("tint") == 64 &&
+        values.memberSize("tint") == 16 &&
+        values.memberOffset("missing") == -1 &&
+        values.fill() && values.storeU32(4294967295, 0) &&
+        values.bytes.load(0) == 255 && values.bytes.load(3) == 255 &&
+        values.writeMember("tint", tint) &&
+        values.bytes.load(64) == 0 && values.bytes.load(65) == 0 &&
+        values.bytes.load(66) == 128 && values.bytes.load(67) == 62 &&
+        values.bytes.load(76) == 0 && values.bytes.load(77) == 0 &&
+        values.bytes.load(78) == 128 && values.bytes.load(79) == 63 &&
+        !values.writeMember("tint", shortTint) &&
+        !values.writeMember("missing", tint) &&
+        !values.writeBytes(tint, 70) &&
+        !values.storeU32(1, 78) && !noConstants.valid()
+    if (passed) 42 else 1
+}
