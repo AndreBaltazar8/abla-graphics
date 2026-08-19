@@ -8,6 +8,7 @@ import "abla/sys/linux/fs"
 import "abla/sys/linux/process"
 import "abla/unsafe/memory"
 import "../window.ab"
+import "xkb.ab"
 
 val waylandDisplayIdentifier = 1
 val waylandMaximumMessageBytes = 65532
@@ -813,6 +814,7 @@ resource class WaylandXdgWindow(
     var pointerY: int,
     var keymapFormat: int,
     var keymap: string,
+    var parsedKeymap: XkbKeymap,
     var repeatRate: int,
     var repeatDelay: int,
     var modifiersDepressed: int,
@@ -1078,6 +1080,9 @@ resource class WaylandXdgWindow(
     fun keyboardMapped(): bool = this.keymapFormat == 1 &&
         this.keymap != ""
 
+    fun keyboardTextMapped(): bool = this.keyboardMapped() &&
+        this.parsedKeymap.valid
+
     trusted fun receiveKeyboardKeymap(format: int, size: int): bool {
         val descriptor = this.receivedDescriptor
         var succeeded = descriptor >= 0 &&
@@ -1112,6 +1117,9 @@ resource class WaylandXdgWindow(
         if (succeeded) {
             this.keymapFormat = format
             this.keymap = parsed
+            this.parsedKeymap = if (format == 1)
+                xkbParseKeymap(parsed)
+            else XkbKeymap()
         }
         succeeded
     }
@@ -1320,13 +1328,32 @@ resource class WaylandXdgWindow(
                 waylandU32(message.payload, 12) <= 1) 1 else -1
             if (result > 0) {
                 val platformCode = waylandU32(message.payload, 8)
+                val pressed = waylandU32(message.payload, 12)
                 if (!this.enqueueInputEvent(WindowEvent(
                     windowEventKey,
                     waylandKeyFromEvdev(platformCode),
-                    waylandU32(message.payload, 12),
+                    pressed,
                     "",
                     platformCode
                 ))) result = -1
+                if (result > 0 && pressed != 0 &&
+                    this.modifierGroup == 0) {
+                    val text = this.parsedKeymap.textInput(
+                        platformCode,
+                        this.modifiersDepressed,
+                        this.modifiersLatched,
+                        this.modifiersLocked
+                    )
+                    if (text.text != "" && !this.enqueueInputEvent(
+                        WindowEvent(
+                            windowEventText,
+                            text.codepoint,
+                            0,
+                            text.text,
+                            platformCode
+                        )
+                    )) result = -1
+                }
             }
         } else if (message.objectIdentifier == this.keyboardIdentifier &&
             message.opcode == 4) {
@@ -2036,6 +2063,7 @@ fun waylandXdgWindow(
         0,
         0,
         "",
+        XkbKeymap(),
         0,
         0,
         0,

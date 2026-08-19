@@ -1205,9 +1205,19 @@ close-on-exec ancillary descriptors with Linux `recvmsg`, preserves the
 descriptor across any earlier messages from the same compositor batch, maps
 the version-seven keymap privately, validates its terminating NUL, copies up
 to 16 MiB into `keymap`, unmaps, and closes the descriptor. `keyboardMapped()`
-reports an owned XKB v1 keymap. Layout-aware symbols, UTF-8 text, dead keys,
-compose, and repeat synthesis await the pure-Abla XKB parser; no
-`libxkbcommon` code participates.
+reports an owned XKB v1 keymap; no `libxkbcommon` code participates.
+
+The first pure-Abla XKB parser is now part of that receipt path.
+`keyboardTextMapped()` reports that the owned map's numeric keycodes and
+group-one symbols were accepted into fixed 256-key lookup tables. Printable
+presses enqueue `windowEventText` after their physical `windowEventKey` using
+the compositor's primary/shifted symbols, live depressed/latched/locked
+modifier masks, and alphabetic Shift/Caps inversion. ASCII, the complete
+Latin-1 keysym name range, `Uxxxx` Unicode names, and numeric direct-Unicode
+keysyms become validated UTF-8. Control/Alt/Super/level-three combinations and
+nonzero groups are conservatively suppressed rather than emitting incorrect
+base text. Higher groups, level-three/four selection, dead-key compose, input
+methods, and repeat synthesis remain explicit future work.
 
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,

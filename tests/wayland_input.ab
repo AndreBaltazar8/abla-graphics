@@ -21,10 +21,12 @@ trusted fun main: int {
     var lastButtonCode = 0
     var sawWPress = false
     var sawWRelease = false
+    var sawWText = false
+    var sawUpperWText = false
     var attempts = 0
     while (succeeded && attempts < 100 &&
         !(window.keyboardMapped() && sawFocus && sawMotion &&
-          sawWPress && sawWRelease)) {
+          sawWPress && sawWRelease && sawWText && sawUpperWText)) {
         val event = window.pollInputEvent(50)
         if (event.kind == windowEventFocused && event.first != 0) {
             sawFocus = true
@@ -40,6 +42,14 @@ trusted fun main: int {
             event.platformCode == 17 && event.key() == keyW) {
             if (event.keyPressed()) sawWPress = true
             else sawWRelease = true
+        } else if (event.kind == windowEventText &&
+            event.platformCode == 17 && event.codepoint() == 119 &&
+            event.text == "w") {
+            sawWText = true
+        } else if (event.kind == windowEventText &&
+            event.platformCode == 17 && event.codepoint() == 87 &&
+            event.text == "W") {
+            sawUpperWText = true
         }
         succeeded = window.connection.valid()
         attempts = attempts + 1
@@ -71,11 +81,12 @@ trusted fun main: int {
         (window.seatCapabilities & waylandSeatCapabilityPointer) != 0 &&
         (window.seatCapabilities & waylandSeatCapabilityKeyboard) != 0 &&
         window.pointerIdentifier >= 2 && window.keyboardIdentifier >= 2 &&
-        window.keyboardMapped() && window.keymap.size > 100 &&
+        window.keyboardMapped() && window.keyboardTextMapped() &&
+        window.keymap.size > 100 && window.parsedKeymap.parsedKeys > 50 &&
         sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
-        sawWPress && sawWRelease
+        sawWPress && sawWRelease && sawWText && sawUpperWText
     println(
-        "wayland-input-test: succeeded=$succeeded seat=${window.seatName} caps=${window.seatCapabilities} keymap=${window.keymap.size} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRelease error=${window.connection.error}"
+        "wayland-input-test: succeeded=$succeeded seat=${window.seatName} caps=${window.seatCapabilities} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRelease text=$sawWText/$sawUpperWText error=${window.connection.error}"
     )
     if (succeeded) 42 else 1
 }

@@ -63,9 +63,13 @@ Updated: 2026-08-19.
   mapped, validated, copied into Abla ownership, unmapped, and closed. The
   portable event queue covers focus, evdev-to-Abla physical keys, repeat and
   modifier state, fixed-point pointer motion, five Linux buttons, and both
-  scroll axes. A nested Weston/Xvfb gate receives a real 65,553-byte keymap,
-  focus, pointer motion, and W press/release; exact BTN_LEFT wire packets prove
-  button press/release decoding. There is no libxkbcommon dependency.
+  scroll axes. A bounded pure-Abla XKB parser resolves group-one keycodes and
+  primary/shifted symbols, including ASCII, Latin-1, and direct Unicode, into
+  fixed 256-key tables and applies live Shift/Caps state. A nested Weston/Xvfb
+  gate receives a real 65,553-byte keymap, parses 230 keys, and receives focus,
+  pointer motion, W press/release, and lowercase/shifted uppercase text; exact
+  BTN_LEFT wire packets prove button press/release decoding. There is no
+  libxkbcommon dependency.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
@@ -796,7 +800,8 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland pure-Abla XKB layout/symbol/text/compose and repeat synthesis,
+- Wayland higher XKB groups/levels, dead-key compose, input methods, and repeat
+  synthesis,
   clipboard, output, fractional scaling, and Vulkan/EGL presentation
   integration. The current stable xdg-shell slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,

@@ -1,0 +1,332 @@
+// Bounded XKB text-keymap parsing used by direct platform protocols.
+// This is Abla code and does not depend on libxkbcommon.
+
+import "abla/text"
+
+val xkbLatin1Names = [
+    "nobreakspace", "exclamdown", "cent", "sterling", "currency", "yen",
+    "brokenbar", "section", "diaeresis", "copyright", "ordfeminine",
+    "guillemotleft", "notsign", "hyphen", "registered", "macron",
+    "degree", "plusminus", "twosuperior", "threesuperior", "acute", "mu",
+    "paragraph", "periodcentered", "cedilla", "onesuperior", "masculine",
+    "guillemotright", "onequarter", "onehalf", "threequarters",
+    "questiondown", "Agrave", "Aacute", "Acircumflex", "Atilde",
+    "Adiaeresis", "Aring", "AE", "Ccedilla", "Egrave", "Eacute",
+    "Ecircumflex", "Ediaeresis", "Igrave", "Iacute", "Icircumflex",
+    "Idiaeresis", "ETH", "Ntilde", "Ograve", "Oacute", "Ocircumflex",
+    "Otilde", "Odiaeresis", "multiply", "Oslash", "Ugrave", "Uacute",
+    "Ucircumflex", "Udiaeresis", "Yacute", "THORN", "ssharp", "agrave",
+    "aacute", "acircumflex", "atilde", "adiaeresis", "aring", "ae",
+    "ccedilla", "egrave", "eacute", "ecircumflex", "ediaeresis", "igrave",
+    "iacute", "icircumflex", "idiaeresis", "eth", "ntilde", "ograve",
+    "oacute", "ocircumflex", "otilde", "odiaeresis", "division", "oslash",
+    "ugrave", "uacute", "ucircumflex", "udiaeresis", "yacute", "thorn",
+    "ydiaeresis"
+]
+
+class XkbTextInput(
+    val codepoint: int = 0,
+    val text: string = ""
+)
+
+class XkbKeymap(
+    val valid: bool = false,
+    val primary: array<int> = [],
+    val shifted: array<int> = [],
+    val alphabetic: array<bool> = [],
+    val parsedKeys: int = 0,
+    val error: string = "XKB keymap has not been parsed"
+) {
+    fun codepoint(
+        evdevCode: int,
+        depressed: int = 0,
+        latched: int = 0,
+        locked: int = 0
+    ): int {
+        val code = evdevCode + 8
+        val active = depressed | latched | locked
+        var result = 0
+        // Control, Alt, Mod3, Super, and level-three selection require either
+        // command handling or a higher XKB level, not printable base text.
+        if (this.valid && code >= 0 && code < this.primary.size &&
+            (active & (4 | 8 | 32 | 64 | 128)) == 0) {
+            val shift = (active & 1) != 0
+            val caps = (active & 2) != 0 && this.alphabetic[code]
+            result = if (shift != caps) this.shifted[code]
+            else this.primary[code]
+        }
+        result
+    }
+
+    fun textInput(
+        evdevCode: int,
+        depressed: int = 0,
+        latched: int = 0,
+        locked: int = 0
+    ): XkbTextInput {
+        val codepoint = this.codepoint(
+            evdevCode,
+            depressed,
+            latched,
+            locked
+        )
+        XkbTextInput(codepoint, utf8Encode(codepoint))
+    }
+}
+
+fun xkbWhitespace(byte: int): bool =
+    byte == 32 || byte == 9 || byte == 10 || byte == 13
+
+fun xkbTrim(value: string): string {
+    var begin = 0
+    var end = value.size
+    while (begin < end && xkbWhitespace(value[begin])) begin = begin + 1
+    while (end > begin && xkbWhitespace(value[end - 1])) end = end - 1
+    value.slice(begin, end)
+}
+
+fun xkbDecimal(value: string): int {
+    val text = xkbTrim(value)
+    var valid = text != "" && text.size <= 3
+    var result = 0
+    var index = 0
+    while (valid && index < text.size) {
+        val digit = text[index] - 48
+        valid = digit >= 0 && digit <= 9 && result <= (255 - digit) / 10
+        if (valid) result = result * 10 + digit
+        index = index + 1
+    }
+    if (valid) result else -1
+}
+
+fun xkbHex(value: string, begin: int): int {
+    var valid = begin >= 0 && begin < value.size && value.size - begin <= 8
+    var result = 0
+    var index = begin
+    while (valid && index < value.size) {
+        val byte = value[index]
+        var digit = -1
+        if (byte >= 48 && byte <= 57) digit = byte - 48
+        else if (byte >= 65 && byte <= 70) digit = byte - 55
+        else if (byte >= 97 && byte <= 102) digit = byte - 87
+        valid = digit >= 0 && result <= (2147483647 - digit) / 16
+        if (valid) result = result * 16 + digit
+        index = index + 1
+    }
+    if (valid) result else -1
+}
+
+fun xkbAsciiSymbol(name: string): int {
+    var result = 0
+    if (name.size == 1 && ((name[0] >= 48 && name[0] <= 57) ||
+        (name[0] >= 65 && name[0] <= 90) ||
+        (name[0] >= 97 && name[0] <= 122))) result = name[0]
+    else if (name == "space") result = 32
+    else if (name == "exclam") result = 33
+    else if (name == "quotedbl") result = 34
+    else if (name == "numbersign") result = 35
+    else if (name == "dollar") result = 36
+    else if (name == "percent") result = 37
+    else if (name == "ampersand") result = 38
+    else if (name == "apostrophe") result = 39
+    else if (name == "parenleft") result = 40
+    else if (name == "parenright") result = 41
+    else if (name == "asterisk") result = 42
+    else if (name == "plus") result = 43
+    else if (name == "comma") result = 44
+    else if (name == "minus") result = 45
+    else if (name == "period") result = 46
+    else if (name == "slash") result = 47
+    else if (name == "colon") result = 58
+    else if (name == "semicolon") result = 59
+    else if (name == "less") result = 60
+    else if (name == "equal") result = 61
+    else if (name == "greater") result = 62
+    else if (name == "question") result = 63
+    else if (name == "at") result = 64
+    else if (name == "bracketleft") result = 91
+    else if (name == "backslash") result = 92
+    else if (name == "bracketright") result = 93
+    else if (name == "asciicircum") result = 94
+    else if (name == "underscore") result = 95
+    else if (name == "grave") result = 96
+    else if (name == "braceleft") result = 123
+    else if (name == "bar") result = 124
+    else if (name == "braceright") result = 125
+    else if (name == "asciitilde") result = 126
+    result
+}
+
+fun xkbSymbolCodepoint(rawName: string): int {
+    val name = xkbTrim(rawName)
+    var result = xkbAsciiSymbol(name)
+    if (result == 0 && name.size >= 5 && name.size <= 7 && name[0] == 85) {
+        val unicode = xkbHex(name, 1)
+        if (unicode >= 32 && unicode <= 1114111 &&
+            (unicode < 55296 || unicode > 57343)) result = unicode
+    }
+    if (result == 0 && name.size >= 3 && name[0] == 48 &&
+        (name[1] == 120 || name[1] == 88)) {
+        val symbol = xkbHex(name, 2)
+        if ((symbol >= 32 && symbol <= 126) ||
+            (symbol >= 160 && symbol <= 255)) result = symbol
+        else if ((symbol & 4278190080) == 16777216) {
+            val unicode = symbol & 16777215
+            if (unicode >= 32 && unicode <= 1114111 &&
+                (unicode < 55296 || unicode > 57343)) result = unicode
+        }
+    }
+    var index = 0
+    while (result == 0 && index < xkbLatin1Names.size) {
+        if (name == xkbLatin1Names[index]) result = 160 + index
+        index = index + 1
+    }
+    result
+}
+
+fun xkbKeycodeForName(names: array<string>, name: string): int {
+    var result = -1
+    var index = 8
+    while (result < 0 && index < names.size) {
+        if (names[index] == name) result = index
+        index = index + 1
+    }
+    result
+}
+
+fun xkbFirstTwoSymbols(
+    source: string,
+    begin: int,
+    end: int
+): array<int> {
+    val result: array<int> = []
+    var cursor = begin
+    while (cursor < end && result.size < 2) {
+        var separator = textFindByte(source, 44, cursor, end)
+        if (separator < 0) separator = end
+        result.append(xkbSymbolCodepoint(source.slice(cursor, separator)))
+        cursor = separator + 1
+    }
+    result
+}
+
+fun xkbParseKeymap(source: string): XkbKeymap {
+    val names: array<string> = []
+    val primary: array<int> = []
+    val shifted: array<int> = []
+    val alphabetic: array<bool> = []
+    var index = 0
+    while (index < 256) {
+        names.append("")
+        primary.append(0)
+        shifted.append(0)
+        alphabetic.append(false)
+        index = index + 1
+    }
+    val keycodesBegin = textFindSequence(source, "xkb_keycodes")
+    val typesBegin = if (keycodesBegin >= 0)
+        textFindSequence(source, "xkb_types", keycodesBegin, source.size)
+    else -1
+    val symbolsBegin = if (typesBegin >= 0)
+        textFindSequence(source, "xkb_symbols", typesBegin, source.size)
+    else -1
+    var valid = source.size > 0 && source.size <= 16777215 &&
+        textFindSequence(source, "xkb_keymap") >= 0 &&
+        keycodesBegin >= 0 && typesBegin > keycodesBegin &&
+        symbolsBegin > typesBegin
+    var cursor = keycodesBegin
+    while (valid && cursor < typesBegin) {
+        val nameBegin = textFindByte(source, 60, cursor, typesBegin)
+        if (nameBegin < 0) cursor = typesBegin
+        else {
+            val nameEnd = textFindByte(source, 62, nameBegin + 1, typesBegin)
+            val equals = if (nameEnd >= 0)
+                textFindByte(source, 61, nameEnd + 1, typesBegin)
+            else -1
+            val semicolon = if (equals >= 0)
+                textFindByte(source, 59, equals + 1, typesBegin)
+            else -1
+            if (nameEnd < 0 || equals < 0 || semicolon < 0) valid = false
+            else {
+                val code = xkbDecimal(source.slice(equals + 1, semicolon))
+                if (code >= 8 && code < names.size) {
+                    names[code] = source.slice(nameBegin + 1, nameEnd)
+                }
+                cursor = semicolon + 1
+            }
+        }
+    }
+    var parsedKeys = 0
+    cursor = symbolsBegin
+    while (valid && cursor < source.size && parsedKeys < 256) {
+        val key = textFindSequence(source, "key ", cursor, source.size)
+        if (key < 0) cursor = source.size
+        else {
+            val nameBegin = textFindByte(source, 60, key + 4, source.size)
+            val nameEnd = if (nameBegin >= 0)
+                textFindByte(source, 62, nameBegin + 1, source.size)
+            else -1
+            val blockBegin = if (nameEnd >= 0)
+                textFindByte(source, 123, nameEnd + 1, source.size)
+            else -1
+            val blockEnd = if (blockBegin >= 0)
+                textFindSequence(source, "};", blockBegin + 1, source.size)
+            else -1
+            if (nameEnd < 0 || blockBegin < 0 || blockEnd < 0) valid = false
+            else {
+                val name = source.slice(nameBegin + 1, nameEnd)
+                val code = xkbKeycodeForName(names, name)
+                val symbolsMarker = textFindSequence(
+                    source,
+                    "symbols[Group1]",
+                    blockBegin + 1,
+                    blockEnd
+                )
+                val listSearch = if (symbolsMarker >= 0)
+                    symbolsMarker + 15
+                else blockBegin + 1
+                val listBegin = textFindByte(
+                    source,
+                    91,
+                    listSearch,
+                    blockEnd
+                )
+                val listEnd = if (listBegin >= 0)
+                    textFindByte(source, 93, listBegin + 1, blockEnd)
+                else -1
+                if (code >= 8 && listBegin >= 0 && listEnd > listBegin) {
+                    val symbols = xkbFirstTwoSymbols(
+                        source,
+                        listBegin + 1,
+                        listEnd
+                    )
+                    if (symbols.size > 0) {
+                        primary[code] = symbols[0]
+                        shifted[code] = if (symbols.size > 1)
+                            symbols[1]
+                        else symbols[0]
+                        alphabetic[code] = textFindSequence(
+                            source,
+                            "ALPHABETIC",
+                            blockBegin + 1,
+                            blockEnd
+                        ) >= 0 || (primary[code] >= 97 &&
+                            primary[code] <= 122 && shifted[code] >= 65 &&
+                            shifted[code] <= 90)
+                        parsedKeys = parsedKeys + 1
+                    }
+                }
+                cursor = blockEnd + 2
+            }
+        }
+    }
+    valid = valid && parsedKeys > 0
+    XkbKeymap(
+        valid,
+        primary,
+        shifted,
+        alphabetic,
+        parsedKeys,
+        if (valid) "" else "Malformed or unsupported XKB keymap"
+    )
+}
