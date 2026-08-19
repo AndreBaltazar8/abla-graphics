@@ -751,6 +751,50 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=1u; while(values.value<3u){ local=true; values.value++; } }"]
     ).spirv(shaderStageCompute)
+    val storageLoopBreak = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<4u){ local++; if(local==2u){ break; } values.value=local; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageLoopBreakAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<4u){ local++; if(local==2u){ break; } values.value=local; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageLoopContinue = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<4u){ if(local<2u){ local++; continue; } local+=2u; values.value=local; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageNestedLoopBreak = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<2u){ while(values.value<2u){ values.value++; break; } local++; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageBooleanLoopJump = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool done=false; while(!done){ done=true; if(values.value==0u){ continue; } break; } values.value=done?1u:2u; }"]
+    ).spirv(shaderStageCompute)
+    val storageMultipleLoopBreaks = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<4u){ local++; if(local==1u){ break; } else if(local==2u){ break; } } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val storageMultipleLoopContinues = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint local=0u; while(local<3u){ if(local==0u){ local=1u; continue; } if(local==1u){ local=2u; continue; } local=3u; } values.value=local; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBreakOutsideLoop = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ break; values.value=1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidContinueOutsideLoop = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ continue; values.value=1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBreakMissingSemicolon = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<2u){ break } values.value=1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidStatementAfterBreak = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ while(values.value<2u){ break; values.value=1u; } values.value=2u; }"]
+    ).spirv(shaderStageCompute)
     val storageElseIf = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ if(values.value==0u){ values.value=1u; } else if(values.value==1u){ values.value=2u; } else if(values.value==2u){ values.value=3u; } else { values.value=4u; } }"]
@@ -1245,6 +1289,30 @@ fun main: int {
         spirvWordCount(storageNestedLoopLocal.module, 458997) == 1 &&
         !invalidLoopConstAssignment.succeeded &&
         !invalidLoopLocalType.succeeded
+    val structuredLoopJumpsPassed =
+        storageLoopBreak.succeeded && storageLoopBreak.module.valid() &&
+        spirvWordsEqual(storageLoopBreak.module, storageLoopBreakAgain.module) &&
+        spirvWordCount(storageLoopBreak.module, 458997) == 2 &&
+        storageLoopContinue.succeeded &&
+        storageLoopContinue.module.valid() &&
+        spirvWordCount(storageLoopContinue.module, 458997) == 2 &&
+        storageNestedLoopBreak.succeeded &&
+        storageNestedLoopBreak.module.valid() &&
+        spirvWordCount(storageNestedLoopBreak.module, 262390) == 2 &&
+        spirvWordCount(storageNestedLoopBreak.module, 458997) == 1 &&
+        storageBooleanLoopJump.succeeded &&
+        storageBooleanLoopJump.module.valid() &&
+        spirvWordCount(storageBooleanLoopJump.module, 458997) == 2 &&
+        storageMultipleLoopBreaks.succeeded &&
+        storageMultipleLoopBreaks.module.valid() &&
+        spirvWordCount(storageMultipleLoopBreaks.module, 590069) == 1 &&
+        storageMultipleLoopContinues.succeeded &&
+        storageMultipleLoopContinues.module.valid() &&
+        spirvWordCount(storageMultipleLoopContinues.module, 590069) == 1 &&
+        !invalidBreakOutsideLoop.succeeded &&
+        !invalidContinueOutsideLoop.succeeded &&
+        !invalidBreakMissingSemicolon.succeeded &&
+        !invalidStatementAfterBreak.succeeded
     if (interpolated.valid && interpolated.workgroups.size == 1 &&
         interpolated.workgroups[0].x == 6 &&
         interpolated.specializationConstants.size == 2 &&
@@ -1747,6 +1815,7 @@ fun main: int {
         spirvWordCount(storageElseIf.module, 131321) == 6 &&
         !invalidElseBody.succeeded &&
         structuredLoopPassed &&
+        structuredLoopJumpsPassed &&
         storageBooleanLiteral.succeeded &&
         storageBooleanLiteral.module.valid() &&
         spirvContainsWord(storageBooleanLiteral.module, 196649) &&

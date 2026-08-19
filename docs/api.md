@@ -1500,9 +1500,19 @@ scanned for local stores; only affected locals receive typed header `OpPhi`
 values. Their entry predecessor/value is emitted immediately, their forward
 back-edge value is patched when the body closes, and the header result remains
 the local value after the loop. Unmodified locals receive no phi. Declarations
-inside a loop remain rejected so no scope escapes. `for`, `do`/`while`,
-`break`, `continue`, `switch`, and early `return` remain explicit grammar
-failures rather than being ignored or miscompiled.
+inside a loop remain rejected so no scope escapes.
+
+`break;` and `continue;` target the nearest enclosing loop, including from
+nested selection arms. The emitter tracks whether each selection arm reaches
+its merge, records the SSA values and predecessor block for every early edge,
+and emits variable-width typed phis only when those incoming values differ.
+Continue-edge values merge in the loop's continue block before the single
+header back edge; break-edge values merge with the condition-false value in the
+loop merge block. This preserves zero-storage locals for multiple early edges
+and nested loops. A statement directly following an unconditional jump in the
+same block is a checked subset failure. `for`, `do`/`while`, `switch`, and early
+`return` remain explicit grammar failures rather than being ignored or
+miscompiled.
 The strict compute declaration grammar and deterministic postfix/SSA lowering
 consume the shared `GlslToken` stream end to end. Version, layout, specialization,
 block/member, entry-point, assignment, and expression tokens are advanced by

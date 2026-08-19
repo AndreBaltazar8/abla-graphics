@@ -29,6 +29,8 @@ val glslStorageTokenIfEnd = 9
 val glslStorageTokenWhileBegin = 10
 val glslStorageTokenWhileCondition = 11
 val glslStorageTokenWhileEnd = 12
+val glslStorageTokenBreak = 13
+val glslStorageTokenContinue = 14
 val glslStorageOperationInteger = 0
 val glslStorageOperationComparison = 1
 val glslStorageOperationLogical = 2
@@ -2141,6 +2143,29 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 parserLoopDepth = parserLoopDepth + 1
             }
             statements = statements + 1
+        } else if (index < sourceTokens.size &&
+            (sourceTokens[index].is(glslTokenIdentifier, "break") ||
+             sourceTokens[index].is(glslTokenIdentifier, "continue"))) {
+            val jumpToken = sourceTokens[index]
+            valid = statements < 64 && parserLoopDepth > 0 &&
+                programTokens.size + 1 < 8192
+            index = index + 1
+            matched = glslStorageTokenTake(
+                sourceTokens,
+                index,
+                glslTokenPunctuation,
+                ";"
+            )
+            valid = valid && matched.valid
+            index = matched.next
+            if (valid) programTokens.append(GlslStorageToken(
+                if (jumpToken.text == "break")
+                    glslStorageTokenBreak
+                else glslStorageTokenContinue,
+                line = jumpToken.line,
+                column = jumpToken.column
+            ))
+            statements = statements + 1
         } else {
             valid = statements < 64
             val statementLine = if (index < sourceTokens.size)
@@ -2734,8 +2759,16 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
     val loopLocalCounts: array<int> = []
     val loopLocalPhiIds: array<int> = []
     val loopLocalPatchIndices: array<int> = []
+    val loopEntryLocalIds: array<int> = []
+    val loopContinueEdgeCounts: array<int> = []
+    val loopContinuePredecessorIds: array<int> = []
+    val loopContinueLocalIds: array<int> = []
+    val loopBreakEdgeCounts: array<int> = []
+    val loopBreakPredecessorIds: array<int> = []
+    val loopBreakLocalIds: array<int> = []
     var loopDepth = 0
     var currentBlockId = labelId
+    var currentBlockTerminated = false
     var stackSize = 0
     var valid = write.valid
     var semanticError = ""
@@ -2744,7 +2777,13 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
         val token = write.tokens[tokenIndex]
         var resultId = tokenIds[tokenIndex]
         var pushesResult = true
-        if (token.kind == glslStorageTokenLoad) {
+        if (currentBlockTerminated &&
+            token.kind != glslStorageTokenElse &&
+            token.kind != glslStorageTokenIfEnd &&
+            token.kind != glslStorageTokenWhileEnd) {
+            pushesResult = false
+            valid = false
+        } else if (token.kind == glslStorageTokenLoad) {
             valid = token.value >= 0 &&
                 token.value < memberPointerIds.size &&
                 memberPointerIds[token.value] >= 0
@@ -2860,18 +2899,23 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     val localBase = controlIndex * 64
                     var local = 0
                     while (local < localIds.size) {
-                        controlThenLocalIds[localBase + local] = localIds[local]
+                        controlThenLocalIds[localBase + local] =
+                            if (currentBlockTerminated) -1 else localIds[local]
                         localIds[local] =
                             controlLocalSnapshots[localBase + local]
                         local = local + 1
                     }
-                    controlThenPredecessorIds[controlIndex] = currentBlockId
-                    body.append(131321)
-                    body.append(controlMergeIds[controlIndex])
+                    controlThenPredecessorIds[controlIndex] =
+                        if (currentBlockTerminated) -1 else currentBlockId
+                    if (!currentBlockTerminated) {
+                        body.append(131321)
+                        body.append(controlMergeIds[controlIndex])
+                    }
                     body.append(131320)
                     body.append(controlElseIds[controlIndex])
                     controlElseEmitted[controlIndex] = true
                     currentBlockId = controlElseIds[controlIndex]
+                    currentBlockTerminated = false
                 }
             }
         } else if (token.kind == glslStorageTokenIfEnd) {
@@ -2885,37 +2929,47 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     val localCount = controlLocalCounts[controlIndex]
                     val localBase = controlIndex * 64
                     valid = localIds.size == localCount
-                    val finalPredecessorId = currentBlockId
+                    val finalPredecessorId =
+                        if (currentBlockTerminated) -1 else currentBlockId
                     if (!controlHasElse[controlIndex]) {
                         controlThenPredecessorIds[controlIndex] =
                             finalPredecessorId
                         var local = 0
                         while (local < localCount) {
                             controlThenLocalIds[localBase + local] =
-                                localIds[local]
+                                if (currentBlockTerminated) -1
+                                else localIds[local]
                             local = local + 1
                         }
                     }
-                    body.append(131321)
-                    body.append(controlMergeIds[controlIndex])
+                    if (!currentBlockTerminated) {
+                        body.append(131321)
+                        body.append(controlMergeIds[controlIndex])
+                    }
                     body.append(131320)
                     body.append(controlMergeIds[controlIndex])
                     currentBlockId = controlMergeIds[controlIndex]
+                    val thenPredecessor =
+                        controlThenPredecessorIds[controlIndex]
+                    val elsePredecessor = if (
+                        controlHasElse[controlIndex]
+                    ) finalPredecessorId
+                    else controlConditionBlockIds[controlIndex]
+                    val thenBranchLive = thenPredecessor >= 0
+                    val elseBranchLive = elsePredecessor >= 0
+                    val mergeLive = thenBranchLive || elseBranchLive
+                    valid = valid && mergeLive
                     var local = 0
                     while (valid && local < localCount) {
                         val thenId = controlThenLocalIds[localBase + local]
-                        val elseId = if (controlHasElse[controlIndex])
-                            localIds[local]
-                        else controlLocalSnapshots[localBase + local]
-                        val thenPredecessor =
-                            controlThenPredecessorIds[controlIndex]
-                        val elsePredecessor = if (
-                            controlHasElse[controlIndex]
-                        ) finalPredecessorId
-                        else controlConditionBlockIds[controlIndex]
-                        valid = thenId >= 0 && elseId >= 0 &&
-                            thenPredecessor >= 0 && elsePredecessor >= 0
-                        if (valid && thenId != elseId) {
+                        val elseId = if (controlHasElse[controlIndex]) {
+                            if (finalPredecessorId >= 0) localIds[local]
+                            else -1
+                        } else controlLocalSnapshots[localBase + local]
+                        valid = (!thenBranchLive || thenId >= 0) &&
+                            (!elseBranchLive || elseId >= 0)
+                        if (valid && thenBranchLive && elseBranchLive &&
+                            thenId != elseId) {
                             val phiId = nextId
                             nextId = nextId + 1
                             body.append(458997)
@@ -2927,10 +2981,20 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                             body.append(elseId)
                             body.append(elsePredecessor)
                             localIds[local] = phiId
-                        } else if (valid) localIds[local] = thenId
+                        } else if (valid) {
+                            localIds[local] = if (thenBranchLive)
+                                thenId else elseId
+                        }
                         local = local + 1
                     }
-                    if (valid) controlDepth = controlDepth - 1
+                    if (valid) {
+                        currentBlockTerminated = false
+                        controlDepth = controlDepth - 1
+                    } else if (!mergeLive) {
+                        valid = true
+                        currentBlockTerminated = true
+                        controlDepth = controlDepth - 1
+                    }
                 }
             }
         } else if (token.kind == glslStorageTokenWhileBegin) {
@@ -2977,11 +3041,23 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                 while (loopLocalPhiIds.size < localBase + 64) {
                     loopLocalPhiIds.append(-1)
                     loopLocalPatchIndices.append(-1)
+                    loopEntryLocalIds.append(-1)
+                }
+                val edgeBase = loopDepth * 64
+                while (loopContinuePredecessorIds.size < edgeBase + 64) {
+                    loopContinuePredecessorIds.append(-1)
+                    loopBreakPredecessorIds.append(-1)
+                }
+                val edgeLocalBase = loopDepth * 4096
+                while (loopContinueLocalIds.size < edgeLocalBase + 4096) {
+                    loopContinueLocalIds.append(-1)
+                    loopBreakLocalIds.append(-1)
                 }
                 local = 0
                 while (valid && local < localIds.size) {
                     loopLocalPhiIds[localBase + local] = -1
                     loopLocalPatchIndices[localBase + local] = -1
+                    loopEntryLocalIds[localBase + local] = localIds[local]
                     if (mutated[local]) {
                         val phiId = nextId
                         nextId = nextId + 1
@@ -3007,6 +3083,8 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     loopMergeIds[loopDepth] = mergeId
                     loopConditionEmitted[loopDepth] = false
                     loopLocalCounts[loopDepth] = localIds.size
+                    loopContinueEdgeCounts[loopDepth] = 0
+                    loopBreakEdgeCounts[loopDepth] = 0
                 } else {
                     loopHeaderIds.append(headerId)
                     loopBodyIds.append(bodyId)
@@ -3014,6 +3092,8 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     loopMergeIds.append(mergeId)
                     loopConditionEmitted.append(false)
                     loopLocalCounts.append(localIds.size)
+                    loopContinueEdgeCounts.append(0)
+                    loopBreakEdgeCounts.append(0)
                 }
                 loopDepth = loopDepth + 1
             }
@@ -3038,6 +3118,46 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     loopConditionEmitted[loopIndex] = true
                     stackSize = 0
                     currentBlockId = loopBodyIds[loopIndex]
+                    currentBlockTerminated = false
+                }
+            }
+        } else if (token.kind == glslStorageTokenBreak ||
+            token.kind == glslStorageTokenContinue) {
+            pushesResult = false
+            valid = loopDepth > 0 && stackSize == 0
+            if (valid) {
+                val loopIndex = loopDepth - 1
+                val isContinue = token.kind == glslStorageTokenContinue
+                val edge = if (isContinue)
+                    loopContinueEdgeCounts[loopIndex]
+                else loopBreakEdgeCounts[loopIndex]
+                valid = edge >= 0 && edge < 64 &&
+                    localIds.size == loopLocalCounts[loopIndex]
+                if (valid) {
+                    val predecessorIndex = loopIndex * 64 + edge
+                    val edgeLocalBase = loopIndex * 4096 + edge * 64
+                    if (isContinue) {
+                        loopContinuePredecessorIds[predecessorIndex] =
+                            currentBlockId
+                    } else loopBreakPredecessorIds[predecessorIndex] =
+                        currentBlockId
+                    var local = 0
+                    while (local < localIds.size) {
+                        if (isContinue) {
+                            loopContinueLocalIds[edgeLocalBase + local] =
+                                localIds[local]
+                        } else loopBreakLocalIds[edgeLocalBase + local] =
+                            localIds[local]
+                        local = local + 1
+                    }
+                    if (isContinue) {
+                        loopContinueEdgeCounts[loopIndex] = edge + 1
+                    } else loopBreakEdgeCounts[loopIndex] = edge + 1
+                    body.append(131321)
+                    body.append(if (isContinue)
+                        loopContinueIds[loopIndex]
+                        else loopMergeIds[loopIndex])
+                    currentBlockTerminated = true
                 }
             }
         } else if (token.kind == glslStorageTokenWhileEnd) {
@@ -3049,6 +3169,28 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                     localIds.size == loopLocalCounts[loopIndex]
                 if (valid) {
                     val localBase = loopIndex * 64
+                    if (!currentBlockTerminated) {
+                        val edge = loopContinueEdgeCounts[loopIndex]
+                        valid = edge >= 0 && edge < 64
+                        if (valid) {
+                            val predecessorIndex = loopIndex * 64 + edge
+                            val edgeLocalBase =
+                                loopIndex * 4096 + edge * 64
+                            loopContinuePredecessorIds[predecessorIndex] =
+                                currentBlockId
+                            var local = 0
+                            while (local < localIds.size) {
+                                loopContinueLocalIds[edgeLocalBase + local] =
+                                    localIds[local]
+                                local = local + 1
+                            }
+                            loopContinueEdgeCounts[loopIndex] = edge + 1
+                            body.append(131321)
+                            body.append(loopContinueIds[loopIndex])
+                        }
+                    }
+                    body.append(131320)
+                    body.append(loopContinueIds[loopIndex])
                     var local = 0
                     while (valid && local < localIds.size) {
                         val phiId = loopLocalPhiIds[localBase + local]
@@ -3057,22 +3199,97 @@ fun glslStorageSpirv(write: GlslStorageWrite): GlslStorageSpirvEmission {
                         if (phiId >= 0) {
                             valid = patchIndex >= 0 && patchIndex < body.size
                             if (valid) {
-                                body[patchIndex] = localIds[local]
-                                localIds[local] = phiId
+                                val edgeCount =
+                                    loopContinueEdgeCounts[loopIndex]
+                                var backEdgeValue =
+                                    loopEntryLocalIds[localBase + local]
+                                var allSame = edgeCount > 0
+                                var edge = 0
+                                while (edge < edgeCount) {
+                                    val value = loopContinueLocalIds[
+                                        loopIndex * 4096 + edge * 64 + local
+                                    ]
+                                    if (edge == 0) backEdgeValue = value
+                                    else allSame = allSame &&
+                                        value == backEdgeValue
+                                    edge = edge + 1
+                                }
+                                if (edgeCount > 1 && !allSame) {
+                                    backEdgeValue = nextId
+                                    nextId = nextId + 1
+                                    body.append(
+                                        (3 + edgeCount * 2) * 65536 + 245
+                                    )
+                                    body.append(if (
+                                        emittedLocalTypes[local] == 1
+                                    ) booleanTypeId else 3)
+                                    body.append(backEdgeValue)
+                                    edge = 0
+                                    while (edge < edgeCount) {
+                                        body.append(loopContinueLocalIds[
+                                            loopIndex * 4096 +
+                                            edge * 64 + local
+                                        ])
+                                        body.append(
+                                            loopContinuePredecessorIds[
+                                                loopIndex * 64 + edge
+                                            ]
+                                        )
+                                        edge = edge + 1
+                                    }
+                                }
+                                body[patchIndex] = backEdgeValue
                             }
                         }
                         local = local + 1
                     }
                     body.append(131321)
-                    body.append(loopContinueIds[loopIndex])
-                    body.append(131320)
-                    body.append(loopContinueIds[loopIndex])
-                    body.append(131321)
                     body.append(loopHeaderIds[loopIndex])
                     body.append(131320)
                     body.append(loopMergeIds[loopIndex])
+                    val breakCount = loopBreakEdgeCounts[loopIndex]
+                    local = 0
+                    while (valid && local < localIds.size) {
+                        val phiId = loopLocalPhiIds[localBase + local]
+                        val headerValue = if (phiId >= 0) phiId
+                            else loopEntryLocalIds[localBase + local]
+                        var resultValue = headerValue
+                        var allSame = true
+                        var edge = 0
+                        while (edge < breakCount) {
+                            allSame = allSame && loopBreakLocalIds[
+                                loopIndex * 4096 + edge * 64 + local
+                            ] == headerValue
+                            edge = edge + 1
+                        }
+                        if (!allSame) {
+                            resultValue = nextId
+                            nextId = nextId + 1
+                            body.append(
+                                (5 + breakCount * 2) * 65536 + 245
+                            )
+                            body.append(if (emittedLocalTypes[local] == 1)
+                                booleanTypeId else 3)
+                            body.append(resultValue)
+                            body.append(headerValue)
+                            body.append(loopHeaderIds[loopIndex])
+                            edge = 0
+                            while (edge < breakCount) {
+                                body.append(loopBreakLocalIds[
+                                    loopIndex * 4096 + edge * 64 + local
+                                ])
+                                body.append(loopBreakPredecessorIds[
+                                    loopIndex * 64 + edge
+                                ])
+                                edge = edge + 1
+                            }
+                        }
+                        localIds[local] = resultValue
+                        local = local + 1
+                    }
                     loopDepth = loopDepth - 1
                     currentBlockId = loopMergeIds[loopIndex]
+                    currentBlockTerminated = false
                 }
             }
         } else if (token.kind == glslStorageTokenOperation) {

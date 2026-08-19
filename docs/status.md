@@ -432,6 +432,13 @@ Updated: 2026-08-19.
   phis for those locals, and patches their forward continue-edge values at loop
   close. Tests cover deterministic integer and Boolean loop phis, nested loops,
   const mutation, and type mismatch; unmodified locals add no phi.
+  Nearest-loop `break` and `continue` now preserve that contract across nested
+  selections. Selection merges retain only reachable arms, early edges retain
+  their local IDs and actual predecessor blocks, distinct continue values merge
+  before the single header back edge, and break values merge with the
+  condition-false path after the loop. Tests cover deterministic output,
+  integer and Boolean locals, nested-loop targeting, multiple early edges,
+  malformed/out-of-loop jumps, and statements after an unconditional jump.
   Missing initializers, forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   every simple/compound/prefix/postfix mutation of a const local, and local-only
@@ -455,9 +462,10 @@ Updated: 2026-08-19.
   Conditions execute in the header and therefore reload storage members after
   every back edge. Unit coverage verifies repeat-identical, nested-loop,
   loop-containing-selection, non-Boolean-condition, and missing-brace cases.
-  The live shader increments a zero-storage `iterations` local twice through a
-  loop-carried phi, folds the result into one final `tail = 8` buffer write, and
-  returns the exact packed value `34359738375` through both OpenGL and Vulkan.
+  The live shader advances a zero-storage `iterations` local through two static
+  continue edges, then takes one of two static break edges, folds the merged
+  result into one final `tail = 8` buffer write, and returns the exact packed
+  value `34359738375` through both OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
