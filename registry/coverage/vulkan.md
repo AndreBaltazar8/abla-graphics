@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 24/842
+- Classified commands: 25/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -210,7 +210,7 @@
 | `vkCmdNextSubpass2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdOpticalFlowExecuteNV` | definition | unclassified | - | - | - | - |
 | `vkCmdPipelineBarrier` | definition | common | src/driver/vulkan.ab image transitions | src/driver/vulkan.ab packed barrier ABI | tests/application/main.ab upload copy resolve and mip transitions | tests/application/main.ab usage validation before recording |
-| `vkCmdPipelineBarrier2` | definition | unclassified | - | - | - | - |
+| `vkCmdPipelineBarrier2` | definition | common | src/driver/vulkan.ab synchronization2 transfer barriers | src/driver/vulkan.ab packed DependencyInfo and barrier2 ABIs | tests/vulkan/main.ab validated GPU fill and barrier2 counter | src/driver/vulkan.ab legacy barrier fallback |
 | `vkCmdPipelineBarrier2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdPreprocessGeneratedCommandsEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdPreprocessGeneratedCommandsNV` | definition | unclassified | - | - | - | - |

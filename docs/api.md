@@ -54,9 +54,12 @@ encodes `VkCommandBufferSubmitInfo` and `VkSubmitInfo2` into its existing scratc
 block, signals a device-owned timeline semaphore, calls `vkQueueSubmit2`, and
 waits for only that transfer's monotonic completion value. The command buffer,
 semaphore, scratch storage, and counter survive repeated work without general
-allocation or queue-wide idle. `transferCompletedValue()` exposes the observed
-driver counter for diagnostics. Older devices retain the checked legacy submit
-and queue-wait encoding.
+allocation or queue-wide idle. Memory and image transitions on this path encode
+`VkDependencyInfo`, `VkMemoryBarrier2`, and `VkImageMemoryBarrier2` in the same
+scratch block and record `vkCmdPipelineBarrier2`; older devices retain the
+checked legacy barrier, submit, and queue-wait encoding.
+`transferCompletedValue()` exposes the observed driver counter and
+`transferBarrier2Count` proves advanced barrier recording in diagnostics.
 
 The first portable raster pipeline uses the same embedded shader package on
 both backends:

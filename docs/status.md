@@ -45,8 +45,9 @@ Updated: 2026-08-18.
   queue submission/wait, mapping/readback, queried/enabled Vulkan 1.2 timeline
   semaphores with allocation-free counter/signal/wait operations, queried and
   enabled Vulkan 1.3 synchronization2, real `vkQueueSubmit2` transfer work,
-  device-owned timeline completion without queue-wide idle, exact counter
-  verification, and reverse-order affine cleanup.
+  zero-allocation `vkCmdPipelineBarrier2` memory/image transitions,
+  device-owned timeline completion without queue-wide idle, exact submission
+  and barrier-path verification, and reverse-order affine cleanup.
 - Vulkan X11 surface test: required instance extensions, `VkXlibSurfaceKHR`
   creation for the direct Abla window, per-adapter graphics/presentation queue
   checks, surface capabilities/formats, a swapchain-enabled logical device,
@@ -480,7 +481,7 @@ byte-identical pure-Abla self-rebuild passed before this framework slice.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with the initial 39 exercised common commands classified; all other
+  exist, with the initial 40 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

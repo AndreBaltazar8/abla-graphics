@@ -451,6 +451,10 @@ noescape extern:"c" fun vkCmdPipelineBarrier(
     imageMemoryBarrierCount: i32,
     imageMemoryBarriers: i64*
 ): void
+noescape extern:"c" fun vkCmdPipelineBarrier2(
+    commandBuffer: i64*,
+    dependencyInfo: i64*
+): void
 noescape extern:"c" fun vkCmdResetQueryPool(
     commandBuffer: i64*,
     queryPool: int,
@@ -1403,6 +1407,7 @@ resource class VulkanDevice(
     val physicalDevice: i64*,
     val timelineSemaphores: bool,
     val synchronization2: bool,
+    var transferBarrier2Count: int,
     var transferTimeline: int,
     var transferTimelineValue: int,
     var transferPool: int,
@@ -1655,6 +1660,135 @@ resource class VulkanDevice(
         succeeded
     }
 
+    trusted fun recordTransferMemoryBarrier(
+        sourceStage: int,
+        destinationStage: int,
+        sourceAccess: int,
+        destinationAccess: int
+    ): void {
+        if (this.synchronization2) {
+            // VkDependencyInfo at 0 and VkMemoryBarrier2 at 80.
+            this.transferScratch.storeI64(80, 1000314000)
+            this.transferScratch.storePointer(88, nativeNullPointer())
+            this.transferScratch.storeI64(96, sourceStage)
+            this.transferScratch.storeI64(104, sourceAccess)
+            this.transferScratch.storeI64(112, destinationStage)
+            this.transferScratch.storeI64(120, destinationAccess)
+            this.transferScratch.storeI64(0, 1000314003)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 4294967296)
+            this.transferScratch.storePointer(
+                24,
+                this.transferScratch.pointerAt(80)
+            )
+            this.transferScratch.storeI64(32, 0)
+            this.transferScratch.storePointer(40, nativeNullPointer())
+            this.transferScratch.storeI64(48, 0)
+            this.transferScratch.storePointer(56, nativeNullPointer())
+            vkCmdPipelineBarrier2(
+                this.transferCommand.load(),
+                this.transferScratch.address
+            )
+            this.transferBarrier2Count = this.transferBarrier2Count + 1
+        } else {
+            this.transferScratch.storeI64(0, 46)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(
+                16,
+                destinationAccess * 4294967296 + sourceAccess
+            )
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                sourceStage,
+                destinationStage,
+                0,
+                1,
+                this.transferScratch.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+        }
+        return
+    }
+
+    trusted fun recordTransferImageBarrier(
+        image: int,
+        oldLayout: int,
+        newLayout: int,
+        sourceStage: int,
+        destinationStage: int,
+        sourceAccess: int,
+        destinationAccess: int,
+        aspect: int = 1,
+        baseMipLevel: int = 0,
+        mipLevels: int = 1
+    ): void {
+        if (this.synchronization2) {
+            // VkDependencyInfo at 0 and VkImageMemoryBarrier2 at 80.
+            this.transferScratch.storeI64(80, 1000314002)
+            this.transferScratch.storePointer(88, nativeNullPointer())
+            this.transferScratch.storeI64(96, sourceStage)
+            this.transferScratch.storeI64(104, sourceAccess)
+            this.transferScratch.storeI64(112, destinationStage)
+            this.transferScratch.storeI64(120, destinationAccess)
+            this.transferScratch.storeI64(
+                128,
+                newLayout * 4294967296 + oldLayout
+            )
+            this.transferScratch.storeI64(136, 18446744073709551615)
+            this.transferScratch.storeI64(144, image)
+            this.transferScratch.storeI64(
+                152,
+                baseMipLevel * 4294967296 + aspect
+            )
+            this.transferScratch.storeI64(160, mipLevels)
+            this.transferScratch.storeI64(168, 1)
+            this.transferScratch.storeI64(0, 1000314003)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 0)
+            this.transferScratch.storePointer(24, nativeNullPointer())
+            this.transferScratch.storeI64(32, 0)
+            this.transferScratch.storePointer(40, nativeNullPointer())
+            this.transferScratch.storeI64(48, 1)
+            this.transferScratch.storePointer(
+                56,
+                this.transferScratch.pointerAt(80)
+            )
+            vkCmdPipelineBarrier2(
+                this.transferCommand.load(),
+                this.transferScratch.address
+            )
+            this.transferBarrier2Count = this.transferBarrier2Count + 1
+        } else {
+            vulkanStoreImageBarrier(
+                this.transferScratch.address,
+                image,
+                oldLayout,
+                newLayout,
+                sourceAccess,
+                destinationAccess,
+                aspect,
+                baseMipLevel,
+                mipLevels
+            )
+            vkCmdPipelineBarrier(
+                this.transferCommand.load(),
+                sourceStage,
+                destinationStage,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.transferScratch.address
+            )
+        }
+        return
+    }
+
     trusted fun submitTransfer(): bool {
         var succeeded = this.transferValid() && vkEndCommandBuffer(
             this.transferCommand.load()
@@ -1780,20 +1914,11 @@ resource class VulkanDevice(
                 1,
                 this.transferScratch.address
             )
-            this.transferScratch.storeI64(0, 46)
-            this.transferScratch.storePointer(8, nativeNullPointer())
-            this.transferScratch.storeI64(16, 8192 * 4294967296 + 4096)
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
+            this.recordTransferMemoryBarrier(
                 4096,
                 16384,
-                0,
-                1,
-                this.transferScratch.address,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer()
+                4096,
+                8192
             )
             succeeded = this.submitTransfer()
         }
@@ -1815,20 +1940,11 @@ resource class VulkanDevice(
                 descriptor.resolvedSize(buffer.size),
                 descriptor.value
             )
-            this.transferScratch.storeI64(0, 46)
-            this.transferScratch.storePointer(8, nativeNullPointer())
-            this.transferScratch.storeI64(16, 8192 * 4294967296 + 4096)
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
+            this.recordTransferMemoryBarrier(
                 4096,
                 16384,
-                0,
-                1,
-                this.transferScratch.address,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer()
+                4096,
+                8192
             )
             succeeded = this.submitTransfer()
         }
@@ -1864,11 +1980,12 @@ resource class VulkanDevice(
             destinationFinalLayout = if (
                 (destinationDescriptor.usage & textureUsageSampled) != 0
             ) 5 else 1
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 source.image,
                 sourceOldLayout,
                 6,
+                if (sourceOldLayout == 0) 1 else 65536,
+                4096,
                 if (sourceOldLayout == 0) 0 else
                     vulkanTextureRestingAccess(
                         sourceDescriptor,
@@ -1878,23 +1995,12 @@ resource class VulkanDevice(
                 vulkanTextureAspect(sourceDescriptor.format, textureAspectAll),
                 copy.sourceMipLevel
             )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                if (sourceOldLayout == 0) 1 else 65536,
-                4096,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
-            )
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 destination.image,
                 destinationOldLayout,
                 7,
+                if (destinationOldLayout == 0) 1 else 65536,
+                4096,
                 if (destinationOldLayout == 0) 0 else
                     vulkanTextureRestingAccess(
                         destinationDescriptor,
@@ -1906,18 +2012,6 @@ resource class VulkanDevice(
                     textureAspectAll
                 ),
                 copy.destinationMipLevel
-            )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                if (destinationOldLayout == 0) 1 else 65536,
-                4096,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
             )
             val aspect = vulkanTextureAspect(
                 sourceDescriptor.format,
@@ -1954,11 +2048,12 @@ resource class VulkanDevice(
                 1,
                 this.transferScratch.address
             )
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 source.image,
                 6,
                 sourceFinalLayout,
+                4096,
+                65536,
                 2048,
                 vulkanTextureRestingAccess(
                     sourceDescriptor,
@@ -1967,23 +2062,12 @@ resource class VulkanDevice(
                 aspect,
                 copy.sourceMipLevel
             )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                4096,
-                65536,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
-            )
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 destination.image,
                 7,
                 destinationFinalLayout,
+                4096,
+                65536,
                 4096,
                 vulkanTextureRestingAccess(
                     destinationDescriptor,
@@ -1991,18 +2075,6 @@ resource class VulkanDevice(
                 ),
                 aspect,
                 copy.destinationMipLevel
-            )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                4096,
-                65536,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
             )
             succeeded = this.submitTransfer()
             if (succeeded) {
@@ -2050,11 +2122,12 @@ resource class VulkanDevice(
             destinationFinalLayout = if (
                 (destinationDescriptor.usage & textureUsageSampled) != 0
             ) 5 else 1
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 source.image,
                 sourceOldLayout,
                 6,
+                if (sourceOldLayout == 0) 1 else 65536,
+                4096,
                 if (sourceOldLayout == 0) 0 else
                     vulkanTextureRestingAccess(
                         sourceDescriptor,
@@ -2064,23 +2137,12 @@ resource class VulkanDevice(
                 1,
                 0
             )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                if (sourceOldLayout == 0) 1 else 65536,
-                4096,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
-            )
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 destination.image,
                 destinationOldLayout,
                 7,
+                if (destinationOldLayout == 0) 1 else 65536,
+                4096,
                 if (destinationOldLayout == 0) 0 else
                     vulkanTextureRestingAccess(
                         destinationDescriptor,
@@ -2089,18 +2151,6 @@ resource class VulkanDevice(
                 4096,
                 1,
                 0
-            )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                if (destinationOldLayout == 0) 1 else 65536,
-                4096,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
             )
             this.transferScratch.storeI64(0, 1)
             this.transferScratch.storeI64(8, 4294967296)
@@ -2124,11 +2174,12 @@ resource class VulkanDevice(
                 1,
                 this.transferScratch.address
             )
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 source.image,
                 6,
                 sourceFinalLayout,
+                4096,
+                65536,
                 2048,
                 vulkanTextureRestingAccess(
                     sourceDescriptor,
@@ -2137,23 +2188,12 @@ resource class VulkanDevice(
                 1,
                 0
             )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                4096,
-                65536,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
-            )
-            vulkanStoreImageBarrier(
-                this.transferScratch.address,
+            this.recordTransferImageBarrier(
                 destination.image,
                 7,
                 destinationFinalLayout,
+                4096,
+                65536,
                 4096,
                 vulkanTextureRestingAccess(
                     destinationDescriptor,
@@ -2161,18 +2201,6 @@ resource class VulkanDevice(
                 ),
                 1,
                 0
-            )
-            vkCmdPipelineBarrier(
-                this.transferCommand.load(),
-                4096,
-                65536,
-                0,
-                0,
-                nativeNullPointer(),
-                0,
-                nativeNullPointer(),
-                1,
-                this.transferScratch.address
             )
             succeeded = this.submitTransfer()
             if (succeeded) {
@@ -2293,6 +2321,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         this.handle,
         timelineSupported,
         synchronization2Supported,
+        0,
         0,
         0,
         0,
@@ -5579,6 +5608,7 @@ trusted fun VulkanAdapter.deviceForSurface(
         this.handle,
         timelineSupported,
         synchronization2Supported,
+        0,
         0,
         0,
         0,
