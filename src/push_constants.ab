@@ -3,6 +3,75 @@
 import "shader/glsl.ab"
 import "bytes.ab"
 
+val graphicsPushMemberFloat = 1
+val graphicsPushMemberSigned = 2
+val graphicsPushMemberUnsigned = 3
+val graphicsPushMemberBoolean = 4
+
+fun ShaderPushConstantLayout.memberIndex(name: string): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < this.members.size) {
+        if (this.members[index].name == name) result = index
+        index = index + 1
+    }
+    result
+}
+
+fun graphicsPushMemberComponents(dataType: string, family: int): int {
+    var components = 0
+    if ((family == graphicsPushMemberFloat && dataType == "float") ||
+        (family == graphicsPushMemberSigned && dataType == "int") ||
+        (family == graphicsPushMemberUnsigned && dataType == "uint") ||
+        (family == graphicsPushMemberBoolean && dataType == "bool")) {
+        components = 1
+    } else if ((family == graphicsPushMemberFloat && dataType == "vec2") ||
+        (family == graphicsPushMemberSigned && dataType == "ivec2") ||
+        (family == graphicsPushMemberUnsigned && dataType == "uvec2") ||
+        (family == graphicsPushMemberBoolean && dataType == "bvec2")) {
+        components = 2
+    } else if ((family == graphicsPushMemberFloat && dataType == "vec3") ||
+        (family == graphicsPushMemberSigned && dataType == "ivec3") ||
+        (family == graphicsPushMemberUnsigned && dataType == "uvec3") ||
+        (family == graphicsPushMemberBoolean && dataType == "bvec3")) {
+        components = 3
+    } else if ((family == graphicsPushMemberFloat && dataType == "vec4") ||
+        (family == graphicsPushMemberSigned && dataType == "ivec4") ||
+        (family == graphicsPushMemberUnsigned && dataType == "uvec4") ||
+        (family == graphicsPushMemberBoolean && dataType == "bvec4")) {
+        components = 4
+    }
+    components
+}
+
+fun graphicsPushMemberComponentOffset(
+    layout: ShaderPushConstantLayout,
+    name: string,
+    family: int,
+    component: int,
+    arrayIndex: int
+): int {
+    val memberIndex = layout.memberIndex(name)
+    var result = -1
+    if (layout.valid && memberIndex >= 0) {
+        val member = layout.members[memberIndex]
+        val components = graphicsPushMemberComponents(
+            member.dataType,
+            family
+        )
+        if (components > 0 && component >= 0 && component < components &&
+            arrayIndex >= 0 && arrayIndex < member.arraySize &&
+            (member.arraySize == 1 || member.arrayStride > 0)) {
+            val arrayOffset = if (member.arraySize > 1)
+                member.arrayStride * arrayIndex else 0
+            val offset = member.offset + arrayOffset + component * 4
+            if (offset >= member.offset && offset <= layout.size - 4 &&
+                offset <= member.offset + member.size - 4) result = offset
+        }
+    }
+    result
+}
+
 resource class GraphicsPushConstants(
     val layout: ShaderPushConstantLayout,
     val bytes: BufferBytes,
@@ -13,13 +82,7 @@ resource class GraphicsPushConstants(
         this.bytes.size == this.layout.size
 
     fun memberIndex(name: string): int {
-        var result = -1
-        var index = 0
-        while (result < 0 && index < this.layout.members.size) {
-            if (this.layout.members[index].name == name) result = index
-            index = index + 1
-        }
-        result
+        this.layout.memberIndex(name)
     }
 
     fun memberOffset(name: string): int {
@@ -65,6 +128,71 @@ resource class GraphicsPushConstants(
                 0,
                 source.size
             )
+    }
+
+    trusted fun storeMemberF32(
+        name: string,
+        value: f64,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberFloat,
+            component,
+            arrayIndex
+        )
+        this.valid() && offset >= 0 && this.bytes.storeF32(value, offset)
+    }
+
+    trusted fun storeMemberI32(
+        name: string,
+        value: int,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberSigned,
+            component,
+            arrayIndex
+        )
+        this.valid() && offset >= 0 && this.bytes.storeI32(value, offset)
+    }
+
+    trusted fun storeMemberU32(
+        name: string,
+        value: int,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberUnsigned,
+            component,
+            arrayIndex
+        )
+        this.valid() && offset >= 0 && this.bytes.storeU32(value, offset)
+    }
+
+    trusted fun storeMemberBool(
+        name: string,
+        value: bool,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberBoolean,
+            component,
+            arrayIndex
+        )
+        this.valid() && offset >= 0 &&
+            this.bytes.storeU32(if (value) 1 else 0, offset)
     }
 
     trusted fun storeU32(value: int, offset: int = 0): bool =
@@ -154,6 +282,88 @@ resource class GraphicsSubpassPushConstants(
         subpass < this.layouts.size && offset >= 0 &&
         offset <= this.layouts[subpass].size - 4 &&
         this.bytes.storeU32(value, this.offsets[subpass] + offset)
+
+    trusted fun storeMemberF32(
+        subpass: int,
+        name: string,
+        value: f64,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = if (subpass >= 0 && subpass < this.layouts.size)
+            graphicsPushMemberComponentOffset(
+                this.layouts[subpass],
+                name,
+                graphicsPushMemberFloat,
+                component,
+                arrayIndex
+            )
+        else -1
+        this.valid() && offset >= 0 &&
+            this.bytes.storeF32(value, this.offsets[subpass] + offset)
+    }
+
+    trusted fun storeMemberI32(
+        subpass: int,
+        name: string,
+        value: int,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = if (subpass >= 0 && subpass < this.layouts.size)
+            graphicsPushMemberComponentOffset(
+                this.layouts[subpass],
+                name,
+                graphicsPushMemberSigned,
+                component,
+                arrayIndex
+            )
+        else -1
+        this.valid() && offset >= 0 &&
+            this.bytes.storeI32(value, this.offsets[subpass] + offset)
+    }
+
+    trusted fun storeMemberU32(
+        subpass: int,
+        name: string,
+        value: int,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = if (subpass >= 0 && subpass < this.layouts.size)
+            graphicsPushMemberComponentOffset(
+                this.layouts[subpass],
+                name,
+                graphicsPushMemberUnsigned,
+                component,
+                arrayIndex
+            )
+        else -1
+        this.valid() && offset >= 0 &&
+            this.bytes.storeU32(value, this.offsets[subpass] + offset)
+    }
+
+    trusted fun storeMemberBool(
+        subpass: int,
+        name: string,
+        value: bool,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val offset = if (subpass >= 0 && subpass < this.layouts.size)
+            graphicsPushMemberComponentOffset(
+                this.layouts[subpass],
+                name,
+                graphicsPushMemberBoolean,
+                component,
+                arrayIndex
+            )
+        else -1
+        this.valid() && offset >= 0 && this.bytes.storeU32(
+            if (value) 1 else 0,
+            this.offsets[subpass] + offset
+        )
+    }
 
     trusted fun fill(value: int = 0): bool =
         this.valid() && this.bytes.fill(value)

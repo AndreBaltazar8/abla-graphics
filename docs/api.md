@@ -1571,11 +1571,17 @@ to preserve them.
 
 `shader.pushConstants()` allocates that exact reflected size once and returns
 affine `GraphicsPushConstants`. Name-based `writeMember()` requires an exact
-member-sized `BufferBytes`, while `writeBytes()` and `storeU32()`/`storeF32()`
-provide checked offset-based hot paths. Member offsets and sizes are queryable;
-unknown names and all out-of-range writes fail without modifying memory. The
-same reusable native byte block is intended for OpenGL uniform-buffer uploads
-and Vulkan command recording, so updating values does not allocate per frame.
+member-sized `BufferBytes`. Typed `storeMemberF32`, `storeMemberI32`,
+`storeMemberU32`, and `storeMemberBool` methods resolve a reflected name plus
+optional vector component and fixed-array index without allocation. They accept
+only the matching scalar/vector family, apply the reflected array stride, and
+reject missing names, wrong types, invalid components, array overflow, and
+integer range overflow without modifying memory. `writeBytes()` and
+`storeU32()`/`storeF32()` remain available as checked offset-based hot paths.
+`GraphicsSubpassPushConstants` exposes the same typed member methods with a
+leading subpass index. Member offsets and sizes remain queryable. The reusable
+native byte block feeds OpenGL uniform-buffer uploads and Vulkan command
+recording directly, so name-based updates do not allocate per frame.
 
 Scalar
 `layout(constant_id = N) const` declarations produce stage-tagged

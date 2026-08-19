@@ -944,8 +944,10 @@ validity gate unchanged.
   metadata is reflected and push-constant scalar/vector/matrix/fixed-array
   blocks now convert into a deterministic standard-layout byte contract with
   combined stage masks, offsets, sizes, alignments, and array/matrix strides.
-  A reusable affine `GraphicsPushConstants` value provides exact member writes
-  plus checked byte-offset and scalar hot paths without per-frame allocation.
+  A reusable affine `GraphicsPushConstants` value provides exact member writes,
+  typed name/component/array-index scalar and vector writes, plus checked raw
+  byte-offset hot paths without per-frame allocation. The same typed API is
+  available per subpass from one contiguous aggregate.
   General uniform/storage host-structure offsets remain unverified. Reflected
   compute push constants are wired to native Vulkan pipeline ranges and command
   recording plus persistent OpenGL UBO emulation for the strict observable

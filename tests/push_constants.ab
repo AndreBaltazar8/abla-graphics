@@ -19,6 +19,20 @@ fun main: int {
         [shaderStageVertex],
         ["void main() {}"]
     ).pushConstants()
+    val typedShader = glslPackage(
+        [shaderStageCompute],
+        ["layout(push_constant) uniform Typed { float scalar; vec3 floats; int signedValue; uvec2 unsigneds; bvec2 flags; vec2 samples[2]; } typed; void main() {}"]
+    )
+    val typedValues = typedShader.pushConstants()
+    val subpassBytes = bufferBytes(128)
+    val subpassValues = GraphicsSubpassPushConstants(
+        [typedValues.layout, typedValues.layout],
+        [0, 64],
+        [64, 64],
+        [shaderStageMaskCompute, shaderStageMaskCompute],
+        move(subpassBytes),
+        ""
+    )
     val passed = values.valid() && values.layout.size == 80 &&
         values.memberOffset("transform") == 0 &&
         values.memberSize("transform") == 64 &&
@@ -35,6 +49,50 @@ fun main: int {
         !values.writeMember("tint", shortTint) &&
         !values.writeMember("missing", tint) &&
         !values.writeBytes(tint, 70) &&
-        !values.storeU32(1, 78) && !noConstants.valid()
+        !values.storeU32(1, 78) && !noConstants.valid() &&
+        typedValues.valid() && typedValues.layout.size == 64 &&
+        typedValues.fill() &&
+        typedValues.storeMemberF32("scalar", 0.25) &&
+        typedValues.storeMemberF32("floats", 0.75, 2) &&
+        typedValues.storeMemberI32("signedValue", -2) &&
+        typedValues.storeMemberU32("unsigneds", 4294967295, 1) &&
+        typedValues.storeMemberBool("flags", true, 1) &&
+        typedValues.storeMemberF32("samples", 0.5, 1, 1) &&
+        typedValues.bytes.load(2) == 128 &&
+        typedValues.bytes.load(3) == 62 &&
+        typedValues.bytes.load(26) == 64 &&
+        typedValues.bytes.load(27) == 63 &&
+        typedValues.bytes.load(28) == 254 &&
+        typedValues.bytes.load(31) == 255 &&
+        typedValues.bytes.load(36) == 255 &&
+        typedValues.bytes.load(39) == 255 &&
+        typedValues.bytes.load(44) == 1 &&
+        typedValues.bytes.load(60) == 0 &&
+        typedValues.bytes.load(63) == 63 &&
+        !typedValues.storeMemberF32("signedValue", 1.0) &&
+        !typedValues.storeMemberI32("unsigneds", 1) &&
+        !typedValues.storeMemberU32("signedValue", 1) &&
+        !typedValues.storeMemberBool("flags", true, 2) &&
+        !typedValues.storeMemberF32("missing", 1.0) &&
+        !typedValues.storeMemberF32("floats", 1.0, 3) &&
+        !typedValues.storeMemberF32("samples", 1.0, 0, 2) &&
+        !typedValues.storeMemberF32("scalar", 1.0, 0, 1) &&
+        !typedValues.storeMemberU32("unsigneds", -1) &&
+        !typedValues.storeMemberI32("signedValue", 2147483648) &&
+        subpassValues.valid() && subpassValues.fill() &&
+        subpassValues.storeMemberF32(1, "samples", 0.5, 1, 1) &&
+        subpassValues.storeMemberI32(0, "signedValue", -2) &&
+        subpassValues.storeMemberU32(1, "unsigneds", 4294967295, 1) &&
+        subpassValues.storeMemberBool(0, "flags", true, 1) &&
+        subpassValues.bytes.load(124) == 0 &&
+        subpassValues.bytes.load(127) == 63 &&
+        subpassValues.bytes.load(28) == 254 &&
+        subpassValues.bytes.load(31) == 255 &&
+        subpassValues.bytes.load(100) == 255 &&
+        subpassValues.bytes.load(103) == 255 &&
+        subpassValues.bytes.load(44) == 1 &&
+        !subpassValues.storeMemberF32(2, "scalar", 1.0) &&
+        !subpassValues.storeMemberBool(0, "floats", true) &&
+        !subpassValues.storeMemberU32(1, "unsigneds", -1)
     if (passed) 42 else 1
 }
