@@ -1140,8 +1140,8 @@ dispatch.
 The wire codec uses native-order 32-bit words, validates the two-word header,
 message byte bounds/alignment, null-terminated padded strings, and complete
 registry payloads. `waylandXdgWindow(title, appId, width, height)` binds
-`wl_compositor` and stable `xdg_wm_base`, allocates dense IDs for one
-`wl_surface`, `xdg_surface`, and `xdg_toplevel`, sends title/application ID and
+`wl_compositor` up to version six and stable `xdg_wm_base`, allocates dense IDs
+for one `wl_surface`, `xdg_surface`, and `xdg_toplevel`, sends title/application ID and
 the required initial bufferless commit, then waits for and acknowledges the
 first configure sequence. The shell binding is deliberately capped at version
 one, so dispatch strictly covers ping/pong, toplevel size/state configure,
@@ -1179,6 +1179,14 @@ Presentation rejects buffers whose dimensions are not integer multiples of
 the active scale before sending an attachment that would trigger a compositor
 protocol error. These values are independent from fractional preferred scale
 and viewporter source/destination policy.
+
+With a version-six compositor binding, `preferredBufferScale` and
+`preferredBufferTransform` retain the latest validated per-surface preference.
+Preferred integer scale emits the same copied framebuffer-resize vocabulary as
+fractional scale when no fractional-scale object is active; its `platformCode`
+uses the common numerator-over-120 representation. Version-six preference
+events arriving on the dedicated cursor surface are validated independently
+without changing application-surface state.
 
 `setOpaqueRegion()` and `clearOpaqueRegion()` control the compositor overdraw
 hint. `setInputRegion()`, `setInputRegionEmpty()`, and `resetInputRegion()`

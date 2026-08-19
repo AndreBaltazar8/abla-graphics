@@ -150,6 +150,10 @@ fun waylandSignedU32(value: int): int =
 fun waylandFixedInteger(value: int): int =
     waylandSignedU32(value) / waylandFixedDenominator
 
+fun waylandSurfacePreferenceValid(opcode: int, value: int): bool =
+    (opcode == 2 && waylandSignedU32(value) > 0) ||
+    (opcode == 3 && value >= 0 && value <= 7)
+
 fun waylandKeyRepeatable(key: int): bool = key != keyUnknown &&
     key != keyCapsLock && key != keyScrollLock && key != keyNumLock &&
     key != keyPrintScreen && key != keyPause &&
@@ -1583,7 +1587,9 @@ resource class WaylandXdgWindow(
     var bufferScale: int,
     var bufferTransform: int,
     var opaqueRegionSet: bool,
-    var inputRegionMode: int
+    var inputRegionMode: int,
+    var preferredBufferScale: int,
+    var preferredBufferTransform: int
 ) {
     fun valid(): bool = this.connection.valid() &&
         this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
@@ -3664,6 +3670,29 @@ resource class WaylandXdgWindow(
         succeeded
     }
 
+    fun dispatchSurfacePreference(opcode: int, value: int): bool {
+        val signed = if (opcode == 2) waylandSignedU32(value) else value
+        var succeeded = waylandSurfacePreferenceValid(opcode, value)
+        if (succeeded && opcode == 2 &&
+            this.fractionalScaleIdentifier == 0) succeeded =
+                this.width <= waylandMaximumInteger / signed &&
+                this.height <= waylandMaximumInteger / signed &&
+                signed <= 2147483647 /
+                    waylandFractionalScaleDenominator
+        if (succeeded && opcode == 2) {
+            this.preferredBufferScale = signed
+            if (this.fractionalScaleIdentifier == 0) succeeded =
+                this.enqueueInputEvent(WindowEvent(
+                    windowEventFramebufferResized,
+                    this.width * signed,
+                    this.height * signed,
+                    "",
+                    signed * waylandFractionalScaleDenominator
+                ))
+        } else if (succeeded) this.preferredBufferTransform = value
+        succeeded
+    }
+
     fun dispatchOutput(message: WaylandMessage): int {
         val index = this.outputIndex(message.objectIdentifier)
         var result = 0
@@ -4732,8 +4761,16 @@ resource class WaylandXdgWindow(
             this.frameCallbackIdentifier = 0
             handled = true
         } else if (succeeded && objectIdentifier == this.surfaceIdentifier &&
-            (opcode == 0 || opcode == 1) && length == 12) {
-            succeeded = this.dispatchSurfaceOutput(
+            opcode >= 0 && opcode <= 3 && length == 12) {
+            val value = waylandNativeU32(this.wireScratch, 8)
+            succeeded = if (opcode <= 1)
+                this.dispatchSurfaceOutput(opcode, value)
+            else this.dispatchSurfacePreference(opcode, value)
+            handled = succeeded
+        } else if (succeeded && objectIdentifier ==
+            this.cursorSurfaceIdentifier && opcode >= 0 && opcode <= 3 &&
+            length == 12) {
+            succeeded = opcode <= 1 || waylandSurfacePreferenceValid(
                 opcode,
                 waylandNativeU32(this.wireScratch, 8)
             )
@@ -4854,16 +4891,22 @@ resource class WaylandXdgWindow(
             if (succeeded) this.bufferBusy[bufferIndex] = false
         } else if (core == 0 && message.objectIdentifier ==
             this.surfaceIdentifier &&
-            (message.opcode == 0 || message.opcode == 1)) {
+            message.opcode >= 0 && message.opcode <= 3) {
+            val value = if (message.payload.size == 4)
+                waylandU32(message.payload, 0) else 0
             succeeded = message.payload.size == 4 &&
-                this.dispatchSurfaceOutput(
+                (if (message.opcode <= 1) this.dispatchSurfaceOutput(
                     message.opcode,
-                    waylandU32(message.payload, 0)
-                )
+                    value
+                ) else this.dispatchSurfacePreference(message.opcode, value))
         } else if (core == 0 && message.objectIdentifier ==
             this.cursorSurfaceIdentifier &&
-            (message.opcode == 0 || message.opcode == 1)) {
-            succeeded = message.payload.size == 4
+            message.opcode >= 0 && message.opcode <= 3) {
+            succeeded = message.payload.size == 4 &&
+                (message.opcode <= 1 || waylandSurfacePreferenceValid(
+                    message.opcode,
+                    waylandU32(message.payload, 0)
+                ))
         } else if (core == 0 && message.objectIdentifier ==
             this.frameCallbackIdentifier && message.opcode == 0) {
             succeeded = message.payload.size == 4
@@ -5126,7 +5169,7 @@ fun waylandXdgWindow(
     height: int = 480
 ): WaylandXdgWindow {
     var connection = waylandConnection()
-    val compositor = connection.bind("wl_compositor", 4)
+    val compositor = connection.bind("wl_compositor", 6)
     val wmBase = connection.bind("xdg_wm_base", 1)
     var surfaceIdentifier = 0
     var xdgSurfaceIdentifier = 0
@@ -5286,7 +5329,9 @@ fun waylandXdgWindow(
         1,
         0,
         false,
-        waylandInputRegionDefault
+        waylandInputRegionDefault,
+        0,
+        -1
     )
     if (succeeded) succeeded = window.setTitle(title)
     if (succeeded) succeeded = window.setAppId(appId)

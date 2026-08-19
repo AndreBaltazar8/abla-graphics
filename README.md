@@ -32,8 +32,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   surface with serial-correct visibility control, mutually exclusive native
   pointer lock/confinement and fixed-point relative motion, hotplug-aware atomic
   output snapshots with optional xdg logical geometry and surface enter/leave
-  tracking, direct integer buffer scale/transform and copied opaque/input
-  regions, optional per-surface fractional-scale preferences,
+  tracking, direct integer buffer scale/transform with compositor preferences,
+  copied opaque/input regions, optional per-surface fractional-scale preferences,
   optional per-surface viewport source crops and destinations for presenting
   independently sized high-resolution buffers at the xdg-shell logical size,
   compositor-mediated UTF-8

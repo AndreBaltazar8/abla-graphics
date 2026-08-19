@@ -135,6 +135,12 @@ Updated: 2026-08-19.
   shared-buffer presentation rejects non-divisible scale inputs locally, and
   the live Weston gate accepts scale-two/90-degree commits followed by an exact
   normal/scale-one restoration before content presentation.
+- The window path now caps `wl_compositor` at version six and strictly handles
+  core preferred-buffer scale/transform events on application and cursor
+  surfaces. Preferred integer scale uses the portable framebuffer-resize
+  event when fractional scale is inactive. The live gate records real Weston
+  delivery separately and injects exact valid packets only for preferences
+  omitted by the compositor fixture.
 - Direct core `wl_region` ownership applies validated opaque rectangles and
   rectangular, empty, or default input policy using the protocol's copy
   semantics, then immediately destroys each temporary region. The same live

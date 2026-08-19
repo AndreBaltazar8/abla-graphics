@@ -94,6 +94,11 @@ Validated versioned requests stage a positive integer scale and one of the
 eight output transforms for the next commit; transformed buffer dimensions
 are exposed explicitly, and attachment rejects dimensions that the compositor
 would reject for not being integer multiples of the active scale.
+The version-six core surface preference events provide the inverse signal:
+validated compositor-preferred integer scale and transform are retained per
+application surface, while the cursor role's independent event stream cannot
+overwrite them. Fractional-scale preference takes precedence for framebuffer
+resize events when its optional object is active.
 Short-lived core `wl_region` objects define opaque rectangles and default,
 empty, or rectangular input policy. The surface copies each region before the
 object is destroyed and the state is committed, so no extra long-lived native
