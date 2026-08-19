@@ -27,6 +27,7 @@ val glslStorageOperationInteger = 0
 val glslStorageOperationComparison = 1
 val glslStorageOperationLogical = 2
 val glslStorageOperationSelect = 3
+val glslStorageOperationExtInst = 4
 
 class GlslStorageToken(
     val kind: int,
@@ -1161,7 +1162,61 @@ fun glslStorageTokenPrimary(
         }
     } else if (valid && sourceTokens[index].kind == glslTokenIdentifier) {
         val name = sourceTokens[index].text
-        if (name == storageInstance) {
+        if ((name == "min" || name == "max" || name == "clamp") &&
+            index + 1 < sourceTokens.size &&
+            sourceTokens[index + 1].is(glslTokenPunctuation, "(")) {
+            val arity = if (name == "clamp") 3 else 2
+            index = index + 2
+            var argument = 0
+            while (valid && argument < arity && tokens.size < 128) {
+                val parsed = glslStorageTokenExpression(
+                    source,
+                    sourceTokens,
+                    index,
+                    1,
+                    signed,
+                    specializationName,
+                    specializationDefault,
+                    specializationBoolean,
+                    specializationId,
+                    storageInstance,
+                    storageMembers,
+                    localNames,
+                    localTypes,
+                    depth + 1
+                )
+                valid = parsed.valid
+                if (valid) {
+                    var parsedIndex = 0
+                    while (parsedIndex < parsed.tokens.size) {
+                        tokens.append(parsed.tokens[parsedIndex])
+                        parsedIndex = parsedIndex + 1
+                    }
+                    index = parsed.next
+                    val separator = if (argument + 1 < arity) "," else ")"
+                    valid = index < sourceTokens.size &&
+                        sourceTokens[index].is(
+                            glslTokenPunctuation,
+                            separator
+                        )
+                    if (valid) index = index + 1
+                }
+                argument = argument + 1
+            }
+            if (valid && argument == arity) {
+                val instruction = if (name == "min") {
+                    if (signed) 39 else 38
+                } else if (name == "max") {
+                    if (signed) 42 else 41
+                } else if (signed) 45 else 44
+                tokens.append(GlslStorageToken(
+                    glslStorageTokenOperation,
+                    value = instruction,
+                    arity = arity,
+                    operationClass = glslStorageOperationExtInst
+                ))
+            }
+        } else if (name == storageInstance) {
             valid = index + 2 < sourceTokens.size &&
                 sourceTokens[index + 1].is(glslTokenPunctuation, ".") &&
                 sourceTokens[index + 2].kind == glslTokenIdentifier
@@ -2252,20 +2307,34 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
 fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     val tokenIds: array<int> = []
     var usesBoolean = false
+    var usesExtendedInstructions = false
     var tokenIndex = 0
     while (tokenIndex < write.tokens.size) {
         tokenIds.append(-1)
         usesBoolean = usesBoolean ||
             write.tokens[tokenIndex].valueType == 1 ||
             (write.tokens[tokenIndex].kind == glslStorageTokenOperation &&
-             write.tokens[tokenIndex].operationClass !=
-                glslStorageOperationInteger)
+             (write.tokens[tokenIndex].operationClass ==
+                glslStorageOperationComparison ||
+              write.tokens[tokenIndex].operationClass ==
+                glslStorageOperationLogical ||
+              write.tokens[tokenIndex].operationClass ==
+                glslStorageOperationSelect))
+        usesExtendedInstructions = usesExtendedInstructions ||
+            (write.tokens[tokenIndex].kind == glslStorageTokenOperation &&
+             write.tokens[tokenIndex].operationClass ==
+                glslStorageOperationExtInst)
         tokenIndex = tokenIndex + 1
     }
     var nextId = 8
     var booleanTypeId = -1
     if (usesBoolean) {
         booleanTypeId = nextId
+        nextId = nextId + 1
+    }
+    var extendedInstructionSetId = -1
+    if (usesExtendedInstructions) {
+        extendedInstructionSetId = nextId
         nextId = nextId + 1
     }
     var specializationResultId = -1
@@ -2374,7 +2443,11 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
             if (valid) resultId = localIds[token.value]
         } else if (token.kind == glslStorageTokenOperation) {
             var resultType = 0
-            valid = stackSize >= token.arity && token.opcode != 0
+            valid = stackSize >= token.arity &&
+                ((token.operationClass == glslStorageOperationExtInst &&
+                  token.value > 0 && extendedInstructionSetId >= 0) ||
+                 (token.operationClass != glslStorageOperationExtInst &&
+                  token.opcode != 0))
             if (valid && token.operationClass ==
                 glslStorageOperationInteger) {
                 valid = (token.arity == 1 || token.arity == 2) &&
@@ -2400,21 +2473,36 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
                     stackTypes[stackSize - 3] == 1 &&
                     stackTypes[stackSize - 2] == 0 &&
                     stackTypes[stackSize - 1] == 0
+            } else if (valid && token.operationClass ==
+                glslStorageOperationExtInst) {
+                valid = token.arity == 2 || token.arity == 3
+                var operandIndex = 0
+                while (valid && operandIndex < token.arity) {
+                    valid = stackTypes[
+                        stackSize - token.arity + operandIndex
+                    ] == 0
+                    operandIndex = operandIndex + 1
+                }
             } else valid = false
             if (valid) {
                 resultId = nextId
                 nextId = nextId + 1
-                body.append(token.opcode)
+                body.append(if (token.operationClass ==
+                    glslStorageOperationExtInst
+                ) (token.arity + 5) * 65536 + 12 else token.opcode)
                 body.append(if (resultType == 1) booleanTypeId else 3)
                 body.append(resultId)
-                if (token.arity == 3) {
-                    body.append(stack[stackSize - 3])
-                    body.append(stack[stackSize - 2])
-                    body.append(stack[stackSize - 1])
-                } else if (token.arity == 2) {
-                    body.append(stack[stackSize - 2])
-                    body.append(stack[stackSize - 1])
-                } else body.append(stack[stackSize - 1])
+                if (token.operationClass == glslStorageOperationExtInst) {
+                    body.append(extendedInstructionSetId)
+                    body.append(token.value)
+                }
+                var operandIndex = 0
+                while (operandIndex < token.arity) {
+                    body.append(stack[
+                        stackSize - token.arity + operandIndex
+                    ])
+                    operandIndex = operandIndex + 1
+                }
                 stackSize = stackSize - token.arity
             }
         }
@@ -2440,12 +2528,34 @@ fun glslStorageSpirv(write: GlslStorageWrite): array<int> {
     }
     val words: array<int> = [
         spirvMagic, spirvVersion10, 0, nextId, 0,
-        131089, 1,
+        131089, 1
+    ]
+    if (extendedInstructionSetId >= 0) {
+        val extendedImport: array<int> = [
+            393227,
+            extendedInstructionSetId,
+            1280527431,
+            1685353262,
+            808793134,
+            0
+        ]
+        var importIndex = 0
+        while (importIndex < extendedImport.size) {
+            words.append(extendedImport[importIndex])
+            importIndex = importIndex + 1
+        }
+    }
+    val modulePrefix: array<int> = [
         196622, 0, 1,
         327695, 5, mainId, 1852399981, 0,
         393232, mainId, 17, 1, 1, 1,
         196679, 4, 3
     ]
+    var prefixIndex = 0
+    while (prefixIndex < modulePrefix.size) {
+        words.append(modulePrefix[prefixIndex])
+        prefixIndex = prefixIndex + 1
+    }
     var memberDecoration = 0
     while (memberDecoration < write.memberCount) {
         words.append(327752)

@@ -39,6 +39,24 @@ fun spirvWordCount(module: SpirvModule, word: int): int {
     count
 }
 
+fun spirvInstructionOperand(
+    module: SpirvModule,
+    opcode: int,
+    operand: int,
+    value: int
+): bool {
+    var found = false
+    var index = 5
+    while (!found && index < module.words.size) {
+        val instruction = module.words[index]
+        val count = (instruction >> 16) & 65535
+        found = (instruction & 65535) == opcode && operand < count &&
+            module.words[index + operand] == value
+        index = index + if (count > 0) count else 1
+    }
+    found
+}
+
 fun spirvContainsWords(
     module: SpirvModule,
     wanted: array<int>
@@ -632,6 +650,30 @@ fun main: int {
     val storageNestedConditional = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value==0u?1u:values.value==1u?2u:3u; }"]
+    ).spirv(shaderStageCompute)
+    val storageUnsignedBuiltins = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=clamp(max(min(values.value,20u),3u),5u,15u); }"]
+    ).spirv(shaderStageCompute)
+    val storageUnsignedBuiltinsAgain = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=clamp(max(min(values.value,20u),3u),5u,15u); }"]
+    ).spirv(shaderStageCompute)
+    val storageSignedBuiltins = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=clamp(max(min(values.value,20),-3),-5,15); }"]
+    ).spirv(shaderStageCompute)
+    val storageBuiltinNameLocal = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint min=values.value; values.value=max(min,3u); }"]
+    ).spirv(shaderStageCompute)
+    val invalidBuiltinArity = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=min(values.value); }"]
+    ).spirv(shaderStageCompute)
+    val invalidBuiltinBoolean = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=min(true,false)?1u:2u; }"]
     ).spirv(shaderStageCompute)
     val storageBooleanLiteral = glslPackage(
         [shaderStageCompute],
@@ -1482,6 +1524,29 @@ fun main: int {
         spirvContainsWord(storageLogicalXor.module, 327845) &&
         storageNestedConditional.succeeded &&
         storageNestedConditional.module.valid() &&
+        storageUnsignedBuiltins.succeeded &&
+        storageUnsignedBuiltins.module.valid() &&
+        spirvWordsEqual(
+            storageUnsignedBuiltins.module,
+            storageUnsignedBuiltinsAgain.module
+        ) &&
+        spirvInstructionOperand(
+            storageUnsignedBuiltins.module,
+            11,
+            2,
+            1280527431
+        ) &&
+        spirvInstructionOperand(storageUnsignedBuiltins.module, 12, 4, 38) &&
+        spirvInstructionOperand(storageUnsignedBuiltins.module, 12, 4, 41) &&
+        spirvInstructionOperand(storageUnsignedBuiltins.module, 12, 4, 44) &&
+        storageSignedBuiltins.succeeded &&
+        storageSignedBuiltins.module.valid() &&
+        spirvInstructionOperand(storageSignedBuiltins.module, 12, 4, 39) &&
+        spirvInstructionOperand(storageSignedBuiltins.module, 12, 4, 42) &&
+        spirvInstructionOperand(storageSignedBuiltins.module, 12, 4, 45) &&
+        storageBuiltinNameLocal.succeeded &&
+        storageBuiltinNameLocal.module.valid() &&
+        !invalidBuiltinArity.succeeded && !invalidBuiltinBoolean.succeeded &&
         storageBooleanLiteral.succeeded &&
         storageBooleanLiteral.module.valid() &&
         spirvContainsWord(storageBooleanLiteral.module, 196649) &&

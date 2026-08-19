@@ -1446,9 +1446,12 @@ specialization constant in condition expressions, nested parentheses, and
 left-associative `+`, `-`, `*`, `/`, `%`, `<<`, `>>`, relational/equality,
 bitwise, and `&&`/`^^`/`||` operators. A Boolean condition may feed the
 right-associative integer `condition ? whenTrue : whenFalse` form. Integer
-targets also accept `+=`, `-=`, `*=`, `/=`, `%=`, `<<=`, `>>=`, `&=`, `^=`,
-and `|=`; each lowers to the byte-identical load/binary/store program produced
-by its expanded assignment.
+expressions also accept type-matched scalar `min(x, y)`, `max(x, y)`, and
+`clamp(x, minimum, maximum)`. The emitter imports `GLSL.std.450` once and selects
+its exact signed or unsigned extended instruction for the homogeneous block.
+Integer targets also accept `+=`, `-=`, `*=`, `/=`, `%=`, `<<=`, `>>=`, `&=`,
+`^=`, and `|=`; each lowers to the byte-identical load/binary/store program
+produced by its expanded assignment.
 `main` may contain up to 64 ordered scalar declarations and assignments to
 members of that block. A declaration has the form `uint name = expression`,
 `int name = expression`, or `bool name = expression`, optionally preceded by
@@ -1462,9 +1465,9 @@ token chain. One declaration may contain comma-separated same-type declarators;
 each requires an initializer, becomes visible to declarators on its right, and
 counts toward the 64-local bound. Local token stores capture or replace the
 current result ID and subsequent reads reuse it directly, so they emit no
-SPIR-V function variable,
-load, or store. This avoids local-memory traffic while preserving snapshot
-semantics for previously evaluated expressions and member reads.
+SPIR-V function variable, load, or store. This avoids local-memory traffic while
+preserving snapshot semantics for previously evaluated expressions and member
+reads.
 Each buffer assignment emits its store before the next statement's loads, so
 direct member reads still observe earlier writes. The flattened program is
 capped below 8,192 tokens and must contain at least one buffer store; empty
@@ -1491,8 +1494,8 @@ defaults use their `OpSpecConstantTrue`/`OpSpecConstantFalse` forms and the same
 typed common override API as other reflected constants.
 Integer logical operands, Boolean select branches, a non-Boolean condition, raw
 Boolean assignment, mismatched or missing local initializers, duplicate or
-forward local references, const-local mutation, and function-call expressions
-are explicit subset failures.
+forward local references, const-local mutation, wrong built-in arity/types, and
+other function-call expressions are explicit subset failures.
 Both paths execute the same parsed chain and common checked readback observes
 the result, including specialization overrides. Repeated storage dispatch also
 reuses the Vulkan descriptor handle and pipeline-owned ABI scratch without

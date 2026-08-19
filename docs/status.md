@@ -383,6 +383,12 @@ Updated: 2026-08-19.
   buffer output on OpenGL and Vulkan rather than merely proving pipeline
   creation. Integer conditions, Boolean branches, raw Boolean assignment, and
   mismatched logical operands are checked failures.
+  Scalar integer `min`, `max`, and `clamp` calls parse as nested primaries. The
+  emitter imports `GLSL.std.450` exactly once and emits the Khronos-defined
+  unsigned instructions 38/41/44 or signed instructions 39/42/45. Signed and
+  unsigned tests validate every instruction, deterministic repeat emission,
+  arity rejection, and Boolean-operand rejection. The live shader exercises all
+  three calls unchanged through real OpenGL and Vulkan dispatch.
   Literal `true`/`false` and a single reflected Boolean specialization constant
   are first-class condition values. Deterministic modules use typed Boolean
   constant/spec-constant instructions; a default-false specialization overridden
@@ -404,12 +410,11 @@ Updated: 2026-08-19.
   Compute `main` also accepts declaration-before-use `int`, `uint`, and `bool`
   locals within the same 64-statement bound, with an optional `const` qualifier.
   Integer declarations must match the homogeneous block signedness; names are
-  unique and initializers are type checked. Simple reassignment rebinds a
-  mutable local, and integer locals support all
-  ten compound assignments plus standalone prefix/postfix
-  increment/decrement. Local stores capture or replace an SSA result ID and
-  local loads reuse it, so no
-  SPIR-V function variable or memory instruction is emitted. Tests prove a
+  unique and initializers are type checked. Simple reassignment rebinds a mutable
+  local. Integer locals support all ten compound assignments plus standalone
+  prefix/postfix increment/decrement. Local stores capture or replace an SSA
+  result ID and local loads reuse it, so no SPIR-V function variable or memory
+  instruction is emitted. Tests prove a
   single-use local is byte-identical to its inlined expression, a captured
   member retains its value after a later buffer store, and three locals still
   produce only the one requested GPU store. A local followed by `*=` is also
@@ -419,10 +424,11 @@ Updated: 2026-08-19.
   Missing initializers, forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   every simple/compound/prefix/postfix mutation of a const local, and local-only
-  programs are checked failures. The live specialized shader now captures two
-  left-to-right immutable intermediates in one declaration, prefix-increments
-  and rebinds mutable integer/Boolean intermediates, then produces the same
-  checked `tail = 6` and `output = 7` on OpenGL and Vulkan.
+  programs are checked failures. The live specialized shader now captures
+  left-to-right immutable intermediates, computes signedness-correct bounds with
+  `min`/`max`/`clamp`, prefix-increments and rebinds mutable integer/Boolean
+  intermediates, then produces the same checked `tail = 6` and `output = 7` on
+  OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
