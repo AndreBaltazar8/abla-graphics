@@ -211,8 +211,10 @@ under `graphics/raw/opengl` and `graphics/raw/vulkan`.
 
 GPU/window resources are affine Abla `resource class` values. Frame command
 data will use reusable arenas and backend selection is kept out of inner draw
-loops. `$glsl` will be an Abla-defined compile-time subparser with source-span
-diagnostics and deterministic OpenGL GLSL/Vulkan SPIR-V output.
+loops. The optional `src/debug.ab` facade exposes one affine, allocation-free
+debug messenger over the native OpenGL and Vulkan callbacks. `$glsl` will be
+an Abla-defined compile-time subparser with source-span diagnostics and
+deterministic OpenGL GLSL/Vulkan SPIR-V output.
 
 The companion [Abla Doom](https://github.com/AndreBaltazar8/abla-doom) project
 is a complete all-Abla 2.5D raycasting homage built on this common pixel/input

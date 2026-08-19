@@ -492,6 +492,14 @@ counter deltas, rejects invalid input, proves an explicitly disabled path, and
 retains zero steady-state live-byte growth. The linked executable exposes only
 the requested callback symbol.
 
+The optional common `debug.ab` facade now specializes once to either backend
+for surfaced or headless applications. It normalizes four severity classes,
+retains the backend-specific affine owner, reports structured unsupported
+errors, and keeps repeated submissions allocation-free. Its headless
+conformance test exercises both real driver callbacks, exact normalized counter
+deltas, explicit destruction, and Vulkan's validation-disabled rejection. The
+combined executable exports precisely the two requested Abla callback symbols.
+
 ## Not yet claimed
 
 - General render-pass graphs with per-subpass input/preserve attachment lists,

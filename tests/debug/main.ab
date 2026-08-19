@@ -1,0 +1,58 @@
+import "abla/runtime/memory"
+import "../../src/debug.ab"
+
+trusted fun testDebugBackend(backend: int): bool {
+    val app = graphicsHeadlessApplication(GraphicsConfig(backend = backend))
+    val debug = app.debugMessenger()
+    val message = "Abla common debug message"
+    val warmup = debug.valid() && debug.submit(
+        graphicsDebugSeverityInfo,
+        message
+    )
+    val before = debug.counts()
+    val liveBefore = runtimeMemoryLiveBytes()
+    val submitted = warmup && debug.submit(
+        graphicsDebugSeverityVerbose,
+        message
+    ) && debug.submit(
+        graphicsDebugSeverityInfo,
+        message
+    ) && debug.submit(
+        graphicsDebugSeverityWarning,
+        message
+    ) && debug.submit(
+        graphicsDebugSeverityError,
+        message
+    ) && !debug.submit(0, message) &&
+        !debug.submit(graphicsDebugSeverityInfo, "")
+    val liveAfter = runtimeMemoryLiveBytes()
+    val after = debug.counts()
+    val passed = app.valid() && debug.backend == backend && submitted &&
+        liveAfter == liveBefore && after.total - before.total == 4 &&
+        after.verbose - before.verbose == 1 &&
+        after.info - before.info == 1 &&
+        after.warning - before.warning == 1 &&
+        after.error - before.error == 1
+    debug.drop()
+    passed && !debug.valid()
+}
+
+trusted fun testDisabledVulkanDebug(): bool {
+    val app = graphicsHeadlessApplication(GraphicsConfig(
+        backend = graphicsBackendVulkan,
+        validation = false
+    ))
+    val debug = app.debugMessenger()
+    app.valid() && !debug.valid() &&
+        debug.error.code == graphicsErrorUnsupportedFeature &&
+        !debug.submit(
+            graphicsDebugSeverityInfo,
+            "disabled common debug message"
+        )
+}
+
+fun main: int = if (
+    testDebugBackend(graphicsBackendOpenGl) &&
+    testDebugBackend(graphicsBackendVulkan) &&
+    testDisabledVulkanDebug()
+) 42 else 1

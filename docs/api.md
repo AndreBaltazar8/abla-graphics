@@ -996,6 +996,25 @@ extension objects remain planned API work.
 
 ### OpenGL and Vulkan debug utilities
 
+Applications that import the optional `debug.ab` module can use one normalized
+interface after backend selection:
+
+```abla
+val debug = app.debugMessenger()
+if (debug.valid()) {
+    debug.submit(graphicsDebugSeverityInfo, "loading scene")
+    val counts = debug.counts()
+}
+```
+
+`GraphicsDebugMessenger` is affine and works with surfaced and headless
+applications. It maps verbose, info, warning, and error intent to the selected
+backend once, preserves backend-specific callback ownership internally, and
+performs no allocation on repeated `submit` calls. It must be dropped before
+the application. If validation was disabled for a Vulkan application, creation
+returns `graphicsErrorUnsupportedFeature` instead of silently enabling the
+extension.
+
 OpenGL 4.3 or newer exposes an affine debug messenger after importing the
 optional `driver/opengl_debug.ab` module and calling
 `context.debugMessenger()`. The messenger enables synchronous core debug

@@ -1,0 +1,186 @@
+// Optional backend-neutral debug message ownership.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "application.ab"
+import "headless.ab"
+import "driver/opengl_debug.ab"
+import "driver/vulkan_debug.ab"
+
+val graphicsDebugSeverityVerbose = 1
+val graphicsDebugSeverityInfo = 2
+val graphicsDebugSeverityWarning = 3
+val graphicsDebugSeverityError = 4
+
+class GraphicsDebugMessageCounts(
+    val total: int,
+    val verbose: int,
+    val info: int,
+    val warning: int,
+    val error: int
+)
+
+resource class GraphicsDebugMessenger(
+    var openGl: OpenGlDebugMessenger,
+    var vulkan: VulkanDebugMessenger,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() && (
+        (this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
+        (this.backend == graphicsBackendVulkan && this.vulkan.valid())
+    )
+
+    trusted fun counts(): GraphicsDebugMessageCounts {
+        var total = 0
+        var verbose = 0
+        var info = 0
+        var warning = 0
+        var errors = 0
+        if (this.valid() && this.backend == graphicsBackendOpenGl) {
+            val counts = this.openGl.counts()
+            total = counts.total
+            verbose = counts.notification
+            info = counts.low
+            warning = counts.medium
+            errors = counts.high
+        } else if (this.valid() && this.backend == graphicsBackendVulkan) {
+            val counts = this.vulkan.counts()
+            total = counts.total
+            verbose = counts.verbose
+            info = counts.info
+            warning = counts.warning
+            errors = counts.error
+        }
+        GraphicsDebugMessageCounts(
+            total,
+            verbose,
+            info,
+            warning,
+            errors
+        )
+    }
+
+    trusted fun submit(severity: int, message: string): bool {
+        var submitted = false
+        if (this.valid() && this.backend == graphicsBackendOpenGl) {
+            val openGlSeverity = if (
+                severity == graphicsDebugSeverityVerbose
+            ) openGlDebugSeverityNotification else if (
+                severity == graphicsDebugSeverityInfo
+            ) openGlDebugSeverityLow else if (
+                severity == graphicsDebugSeverityWarning
+            ) openGlDebugSeverityMedium else if (
+                severity == graphicsDebugSeverityError
+            ) openGlDebugSeverityHigh else 0
+            if (openGlSeverity != 0) submitted = this.openGl.submit(
+                openGlDebugTypeMarker,
+                openGlSeverity,
+                message
+            )
+        } else if (this.valid() && this.backend == graphicsBackendVulkan) {
+            val vulkanSeverity = if (
+                severity == graphicsDebugSeverityVerbose
+            ) vulkanDebugSeverityVerbose else if (
+                severity == graphicsDebugSeverityInfo
+            ) vulkanDebugSeverityInfo else if (
+                severity == graphicsDebugSeverityWarning
+            ) vulkanDebugSeverityWarning else if (
+                severity == graphicsDebugSeverityError
+            ) vulkanDebugSeverityError else 0
+            if (vulkanSeverity != 0) submitted = this.vulkan.submit(
+                vulkanSeverity,
+                vulkanDebugTypeGeneral,
+                message
+            )
+        }
+        submitted
+    }
+
+    trusted fun drop(): void {
+        this.openGl.drop()
+        this.vulkan.drop()
+        return
+    }
+}
+
+trusted fun emptyGraphicsDebugMessenger(
+    backend: int,
+    error: GraphicsError = GraphicsError()
+): GraphicsDebugMessenger = GraphicsDebugMessenger(
+    OpenGlDebugMessenger(
+        false,
+        0,
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeNullPointer(),
+        nativeByteBuffer(0),
+        nativeByteBuffer(0)
+    ),
+    VulkanDebugMessenger(
+        0,
+        nativeNullPointer(),
+        0,
+        0,
+        nativeByteBuffer(0),
+        nativeByteBuffer(0)
+    ),
+    backend,
+    error
+)
+
+trusted fun GraphicsApplication.debugMessenger(): GraphicsDebugMessenger {
+    var messenger = emptyGraphicsDebugMessenger(this.backend)
+    if (!this.valid()) messenger = emptyGraphicsDebugMessenger(
+        this.backend,
+        GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.debugMessenger",
+            "debug output requires a valid graphics application"
+        )
+    )
+    else if (this.backend == graphicsBackendOpenGl) {
+        messenger.openGl = this.openGl.debugMessenger()
+    } else if (this.backend == graphicsBackendVulkan) {
+        messenger.vulkan = this.vulkanInstance.debugMessenger()
+    }
+    if (!messenger.error.occurred() && !messenger.valid()) {
+        messenger = emptyGraphicsDebugMessenger(
+            this.backend,
+            GraphicsError(
+                graphicsErrorUnsupportedFeature,
+                "GraphicsApplication.debugMessenger",
+                "the selected backend does not expose enabled debug output"
+            )
+        )
+    }
+    messenger
+}
+
+trusted fun GraphicsHeadlessApplication.debugMessenger(): GraphicsDebugMessenger {
+    var messenger = emptyGraphicsDebugMessenger(this.backend)
+    if (!this.valid()) messenger = emptyGraphicsDebugMessenger(
+        this.backend,
+        GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsHeadlessApplication.debugMessenger",
+            "debug output requires a valid headless application"
+        )
+    )
+    else if (this.backend == graphicsBackendOpenGl) {
+        messenger.openGl = this.openGl.debugMessenger()
+    } else if (this.backend == graphicsBackendVulkan) {
+        messenger.vulkan = this.vulkanInstance.debugMessenger()
+    }
+    if (!messenger.error.occurred() && !messenger.valid()) {
+        messenger = emptyGraphicsDebugMessenger(
+            this.backend,
+            GraphicsError(
+                graphicsErrorUnsupportedFeature,
+                "GraphicsHeadlessApplication.debugMessenger",
+                "the selected backend does not expose enabled debug output"
+            )
+        )
+    }
+    messenger
+}
