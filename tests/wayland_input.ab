@@ -157,6 +157,106 @@ trusted fun main: int {
             window.setPointerConfined(false) &&
             !window.pointerConfined && !window.pointerConfinementActive
     }
+    val syntheticTouch = window.touchIdentifier == 0
+    if (succeeded && syntheticTouch) window.touchIdentifier = 999
+    val queuedBeforeTouch = window.pendingInputEvents.size -
+        window.pendingInputIndex
+    if (succeeded) succeeded = window.dispatchTouchInput(
+        waylandDecodeMessage(waylandPacket(
+            window.touchIdentifier,
+            0,
+            waylandU32ArrayPayload([
+                501,
+                1000,
+                window.surfaceIdentifier,
+                7,
+                32896,
+                16448
+            ])
+        ))
+    ) == 1 && window.dispatchTouchInput(waylandDecodeMessage(waylandPacket(
+        window.touchIdentifier,
+        5,
+        waylandU32ArrayPayload([7, 3072, 2048])
+    ))) == 1 && window.dispatchTouchInput(waylandDecodeMessage(waylandPacket(
+        window.touchIdentifier,
+        6,
+        waylandU32PairPayload(7, -11520)
+    ))) == 1 && window.dispatchTouchInput(waylandDecodeMessage(waylandPacket(
+        window.touchIdentifier,
+        2,
+        waylandU32ArrayPayload([1001, 7, 33280, 16896])
+    ))) == 1 && window.pendingTouchEvents.size == 2 &&
+        window.pendingInputEvents.size - window.pendingInputIndex ==
+            queuedBeforeTouch &&
+        window.dispatchTouchInput(waylandDecodeMessage(waylandPacket(
+            window.touchIdentifier,
+            3
+        ))) == 1
+    val activeTouch = window.touchPoint(7)
+    var sawTouchBegin = false
+    var sawTouchMove = false
+    var sawTouchEnd = false
+    var sawTouchCancel = false
+    var touchEvent = window.nextInputEvent()
+    while (touchEvent.happened()) {
+        if (touchEvent.kind == windowEventTouchBegan &&
+            touchEvent.touchId() == 7 && touchEvent.touchX() == 128 &&
+            touchEvent.touchY() == 64) sawTouchBegin = true
+        else if (touchEvent.kind == windowEventTouchMoved &&
+            touchEvent.touchId() == 7 && touchEvent.touchX() == 130 &&
+            touchEvent.touchY() == 66) sawTouchMove = true
+        touchEvent = window.nextInputEvent()
+    }
+    if (succeeded) succeeded = sawTouchBegin && sawTouchMove &&
+        activeTouch.identifier == 7 && activeTouch.xFixed == 33280 &&
+        activeTouch.yFixed == 16896 && activeTouch.majorFixed == 3072 &&
+        activeTouch.minorFixed == 2048 &&
+        activeTouch.orientationFixed == -11520 &&
+        window.dispatchTouchInput(waylandDecodeMessage(waylandPacket(
+            window.touchIdentifier,
+            1,
+            waylandU32ArrayPayload([502, 1002, 7])
+        ))) == 1 && window.dispatchTouchInput(waylandDecodeMessage(
+            waylandPacket(window.touchIdentifier, 3)
+        )) == 1
+    touchEvent = window.nextInputEvent()
+    while (touchEvent.happened()) {
+        if (touchEvent.kind == windowEventTouchEnded &&
+            touchEvent.touchId() == 7 && touchEvent.touchX() == 130 &&
+            touchEvent.touchY() == 66) sawTouchEnd = true
+        touchEvent = window.nextInputEvent()
+    }
+    if (succeeded) succeeded = sawTouchEnd &&
+        window.touchPointIndex(7) < 0 &&
+        window.dispatchTouchInput(waylandDecodeMessage(waylandPacket(
+            window.touchIdentifier,
+            0,
+            waylandU32ArrayPayload([
+                503,
+                1003,
+                window.surfaceIdentifier,
+                9,
+                2560,
+                5120
+            ])
+        ))) == 1 && window.dispatchTouchInput(waylandDecodeMessage(
+            waylandPacket(window.touchIdentifier, 3)
+        )) == 1 && window.dispatchTouchInput(waylandDecodeMessage(
+            waylandPacket(window.touchIdentifier, 4)
+        )) == 1
+    touchEvent = window.nextInputEvent()
+    while (touchEvent.happened()) {
+        if (touchEvent.kind == windowEventTouchCancelled &&
+            touchEvent.touchId() == 9 && touchEvent.touchX() == 10 &&
+            touchEvent.touchY() == 20) sawTouchCancel = true
+        touchEvent = window.nextInputEvent()
+    }
+    val touchPassed = succeeded && sawTouchBegin && sawTouchMove &&
+        sawTouchEnd && sawTouchCancel && window.touchPoints.size == 0 &&
+        window.pendingTouchEvents.size == 0 && !window.touchFramePending &&
+        window.touchFrames == 3 && window.touchCancels == 1
+    if (syntheticTouch) window.touchIdentifier = 0
     succeeded = succeeded &&
         (window.seatCapabilities & waylandSeatCapabilityPointer) != 0 &&
         (window.seatCapabilities & waylandSeatCapabilityKeyboard) != 0 &&
@@ -170,7 +270,7 @@ trusted fun main: int {
         sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
         sawWPress && sawWRelease && sawWRepeat && sawWText && sawUpperWText &&
         window.repeatDeadlineNanoseconds < 0 && capturePassed &&
-        confinementPassed && cursorShown &&
+        confinementPassed && touchPassed && cursorShown &&
         window.cursorSurfaceIdentifier >= 2 &&
         window.cursorBufferIdentifier >= 2 &&
         window.cursorMappedLength ==
@@ -193,7 +293,7 @@ trusted fun main: int {
         window.retiredLockedPointerIdentifiers.size == 0 &&
         window.retiredConfinedPointerIdentifiers.size == 0
     println(
-        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} capture=$captureAvailable/$captureRequested/$capturePassed/${window.relativeMotionEvents}/${window.lastRelativeXFixed},${window.lastRelativeYFixed} confine=$confinementAvailable/$confinementRequested/$confinementActivatedByCompositor/$confinementPassed keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion/$sawRelativeMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
+        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} capture=$captureAvailable/$captureRequested/$capturePassed/${window.relativeMotionEvents}/${window.lastRelativeXFixed},${window.lastRelativeYFixed} confine=$confinementAvailable/$confinementRequested/$confinementActivatedByCompositor/$confinementPassed touch=$syntheticTouch/$touchPassed/${window.touchFrames}/${window.touchCancels} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion/$sawRelativeMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
     )
     if (succeeded) 42 else 1
 }

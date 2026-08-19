@@ -79,6 +79,14 @@ Updated: 2026-08-19.
   nested input gate begins hidden before focus, restores the cursor on enter,
   checks opaque and transparent mapped pixels, and proves repeated hide/show
   requests remain healthy. No cursor-theme or libwayland dependency is used.
+- Direct Wayland multi-touch creates/releases `wl_touch` with seat capability
+  changes and retains a bounded active-contact set with exact fixed-point
+  position, contact shape, and orientation. Begin/move/end values are withheld
+  until the protocol frame boundary; shape-only frames remain observable, and
+  cancellation emits one final portable value per active contact. The current
+  nested Weston seat has no touch device, so exact synthetic v7 down, shape,
+  orientation, motion, frame, up, and cancel packets prove the strict handler
+  and copied event API without claiming physical touchscreen coverage.
 - Direct Wayland capture binds the version-one pointer-constraints and
   relative-pointer globals, owns persistent lock/relative objects, tracks
   requested versus compositor-activated state, accumulates 24.8 motion into

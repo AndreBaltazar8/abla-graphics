@@ -45,6 +45,11 @@ and emits copied ASCII, Latin-1, or direct-Unicode UTF-8 text after key presses.
 One reusable clock block drives compositor-configured keyboard repeat by
 shortening the existing socket-poll deadline; late consumers resynchronize
 instead of accumulating repeat bursts.
+The capability-driven `wl_touch` object retains a bounded active-contact set
+with exact 24.8 positions, ellipse axes, and orientation. Begin, move, end, and
+cancel values enter the portable event queue only at the compositor's frame
+boundary; shape-only frames still publish an update, and cancellation discards
+superseded staged values before finalizing every active contact.
 The cursor path procedurally fills an owned ARGB8888 `wl_shm` mapping and keeps
 its role surface distinct from the application surface; visibility requests
 retain and use only the pointer-enter serial required by the protocol. The

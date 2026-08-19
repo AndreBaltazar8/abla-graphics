@@ -26,7 +26,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   title/application ID, ping/pong, close intent, Linux `SCM_RIGHTS` descriptor
   transfer, affine `memfd`-backed XRGB shared pixels, reusable triple
   buffering, allocation-stable frame callbacks, capability-driven seat,
-  pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
+  pointer, keyboard, and framed multi-touch objects, ancillary XKB keymap
+  receipt, pure-Abla group-1
   symbol/text parsing, deadline-driven keyboard repeat, a direct ARGB cursor
   surface with serial-correct visibility control, mutually exclusive native
   pointer lock/confinement and fixed-point relative motion, hotplug-aware atomic

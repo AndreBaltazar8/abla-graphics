@@ -1201,6 +1201,17 @@ pointer position, five portable buttons, and horizontal/vertical scrolling.
 `pointerX`, `pointerY`, modifier masks, and repeat rate/delay retain the latest
 protocol state.
 
+Touch-capable seats also own a version-seven `wl_touch`. Portable
+`windowEventTouchBegan`, `windowEventTouchMoved`, `windowEventTouchEnded`, and
+`windowEventTouchCancelled` values expose integer surface coordinates and the
+protocol contact ID through `touchX()`, `touchY()`, and `touchId()`. Updates are
+staged until `wl_touch.frame`, so consumers never observe a half-applied
+multi-contact frame. Active `WaylandTouchPoint` snapshots retain exact 24.8
+coordinates, major/minor ellipse axes, and orientation; `touchPointIndex()` and
+`touchPoint()` expose them without folding touch into mouse input. Capability
+loss and protocol cancellation finalize all contacts and discard superseded
+staged updates.
+
 `enableCursor()` builds a 16x24 ARGB8888 arrow entirely in Abla, backs it with
 a close-on-exec `memfd`, transfers the pool descriptor directly, and assigns
 the resulting `wl_surface` the pointer-cursor role. `setCursorVisible(false)`
