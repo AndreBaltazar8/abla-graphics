@@ -378,6 +378,10 @@ fun main: int {
         specializedStorage.spirv(shaderStageCompute)
     val specializedStorageOpenGlSpirv =
         specializedStorage.spirvOpenGl(shaderStageCompute)
+    val specializedSignedStorageSpirv = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=7) const int divisor=-3; layout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=values.value/divisor; }"]
+    ).spirv(shaderStageCompute)
     val mismatchedSpecializedStorage = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(constant_id=6) const int factor=3; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value*factor; }"]
@@ -393,6 +397,14 @@ fun main: int {
     val storageModulo = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value%5u; }"]
+    ).spirv(shaderStageCompute)
+    val signedStorageDivide = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=values.value/-2; }"]
+    ).spirv(shaderStageCompute)
+    val signedStorageModulo = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { int value; } values; void main(){ values.value=values.value%3; }"]
     ).spirv(shaderStageCompute)
     val unsupportedStorageBitwise = glslPackage(
         [shaderStageCompute],
@@ -870,6 +882,11 @@ fun main: int {
             specializedStorageSpirv.module,
             specializedStorageOpenGlSpirv.module
         ) &&
+        specializedSignedStorageSpirv.succeeded &&
+        specializedSignedStorageSpirv.module.valid() &&
+        specializedSignedStorageSpirv.module.words[49] == 1 &&
+        specializedSignedStorageSpirv.module.words[68] == 4294967293 &&
+        specializedSignedStorageSpirv.module.words[89] == 327815 &&
         !mismatchedSpecializedStorage.succeeded &&
         storageSubtract.succeeded && storageSubtract.module.valid() &&
         storageSubtract.module.words[85] == 327810 &&
@@ -877,6 +894,12 @@ fun main: int {
         storageDivide.module.words[85] == 327814 &&
         storageModulo.succeeded && storageModulo.module.valid() &&
         storageModulo.module.words[85] == 327817 &&
+        signedStorageDivide.succeeded && signedStorageDivide.module.valid() &&
+        signedStorageDivide.module.words[45] == 1 &&
+        signedStorageDivide.module.words[85] == 327815 &&
+        signedStorageDivide.module.words[64] == 4294967294 &&
+        signedStorageModulo.succeeded && signedStorageModulo.module.valid() &&
+        signedStorageModulo.module.words[85] == 327818 &&
         !unsupportedStorageBitwise.succeeded &&
         unsupportedStorageBitwise.error != "" &&
         triangle.valid && triangle.locations.size == 1 &&

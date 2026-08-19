@@ -25,7 +25,8 @@ class GlslStorageWrite(
     val specializationId: int = -1,
     val subtract: bool = false,
     val divide: bool = false,
-    val modulo: bool = false
+    val modulo: bool = false,
+    val signed: bool = false
 ) {
     fun arithmetic(): bool = this.add || this.subtract || this.multiply ||
         this.divide || this.modulo
@@ -35,8 +36,8 @@ class GlslStorageWrite(
         if (this.add) opcode = 327808
         else if (this.subtract) opcode = 327810
         else if (this.multiply) opcode = 327812
-        else if (this.divide) opcode = 327814
-        else if (this.modulo) opcode = 327817
+        else if (this.divide) opcode = if (this.signed) 327815 else 327814
+        else if (this.modulo) opcode = if (this.signed) 327818 else 327817
         opcode
     }
 }
@@ -879,6 +880,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     var specializationName = ""
     var specializationId = -1
     var specializationDefault = 0
+    var specializationType = ""
     part = glslReadName(source, index)
     if (part.text == "layout") {
         val specializationLayout = glslParseLayout(source, part.next)
@@ -888,14 +890,18 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
                 source,
                 specializationLayout.next
             )
-            val default = if (specialization.dataType == "uint")
-                glslIntegerDefault(specialization.defaultValue, false)
+            val default = if (specialization.dataType == "uint" ||
+                specialization.dataType == "int") glslIntegerDefault(
+                    specialization.defaultValue,
+                    specialization.dataType == "int"
+                )
                 else GlslSpirvDefault(false)
             valid = valid && specialization.valid && default.valid
             if (valid) {
                 specializationName = specialization.name
                 specializationId = specializationLayout.constantId
                 specializationDefault = default.bits
+                specializationType = specialization.dataType
                 index = specialization.next
                 part = glslReadName(source, index)
             }
@@ -924,7 +930,10 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     character = glslExpectCharacter(source, part.next, 123)
     valid = valid && character.valid
     part = glslReadName(source, character.next)
-    valid = valid && part.text == "uint"
+    val signed = part.text == "int"
+    valid = valid && (signed || part.text == "uint") &&
+        (specializationType == "" ||
+         specializationType == (if (signed) "int" else "uint"))
     part = glslReadName(source, part.next)
     valid = valid && part.text == "value"
     character = glslExpectCharacter(source, part.next, 59)
@@ -988,15 +997,21 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         specializationDefault,
         symbolic.next
     )
-    if (!specialized) value = glslReadUnsigned(source, operandBegin)
-    valid = valid && value.valid
-    if (specialized) {
-        character = glslExpectCharacter(source, value.next, 59)
-    } else {
-        part = glslReadName(source, value.next)
-        valid = valid && part.text == "u"
-        character = glslExpectCharacter(source, part.next, 59)
+    if (!specialized) {
+        val literal = glslNumericLiteral(
+            source,
+            operandBegin,
+            if (signed) "int" else "uint"
+        )
+        val parsed = glslIntegerDefault(literal.text, signed)
+        value = GlslInteger(
+            literal.text != "" && parsed.valid,
+            parsed.bits,
+            literal.next
+        )
     }
+    valid = valid && value.valid
+    character = glslExpectCharacter(source, value.next, 59)
     valid = valid && character.valid
     character = glslExpectCharacter(source, character.next, 125)
     valid = valid && character.valid &&
@@ -1010,7 +1025,8 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
         if (specialized) specializationId else -1,
         subtract,
         divide,
-        modulo
+        modulo,
+        signed
     )
 }
 
@@ -1286,7 +1302,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         val storageDeclarations: array<int> = [
             131091, 1,
             196641, 2, 1,
-            262165, 3, 32, 0,
+            262165, 3, 32, if (storageWrite.signed) 1 else 0,
             196638, 4, 3,
             262176, 5, 2, 4,
             262176, 6, 2, 3,

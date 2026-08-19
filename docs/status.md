@@ -369,7 +369,8 @@ Updated: 2026-08-19.
   packer also carries 64-bit double overrides, which OpenGL rejects explicitly.
   Scalar and workgroup specialization coexistence is word-repeatable and also
   creates and dispatches on both drivers. A reflected unsigned specialization
-  constant can additionally feed the executable storage assignment/addition/
+  signed or unsigned integer constant can additionally feed the executable
+  storage assignment/addition/
   subtraction/multiplication/division/modulo chain; a live override produces
   checked buffer output on
   OpenGL and Vulkan rather than merely proving pipeline creation.
