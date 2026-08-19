@@ -1,0 +1,372 @@
+// Shared pure-Abla lexical layer for GLSL source.
+
+val glslTokenEnd = 0
+val glslTokenIdentifier = 1
+val glslTokenInteger = 2
+val glslTokenFloating = 3
+val glslTokenOperator = 4
+val glslTokenPunctuation = 5
+val glslTokenPreprocessor = 6
+val glslTokenString = 7
+
+class GlslToken(
+    val kind: int,
+    val text: string,
+    val begin: int,
+    val end: int,
+    val line: int,
+    val column: int
+) {
+    fun is(kind: int, text: string = ""): bool = this.kind == kind &&
+        (text == "" || this.text == text)
+}
+
+class GlslTokenStream(
+    val tokens: array<GlslToken>,
+    val valid: bool,
+    val error: string = "",
+    val errorBegin: int = -1,
+    val errorEnd: int = -1,
+    val errorLine: int = -1,
+    val errorColumn: int = -1
+)
+
+fun glslLexWhitespace(value: int): bool =
+    value == 9 || value == 10 || value == 11 || value == 12 ||
+    value == 13 || value == 32
+
+fun glslLexNameStart(value: int): bool =
+    (value >= 65 && value <= 90) ||
+    (value >= 97 && value <= 122) || value == 95
+
+fun glslLexNameContinue(value: int): bool =
+    glslLexNameStart(value) || (value >= 48 && value <= 57)
+
+fun glslLexDigit(value: int): bool = value >= 48 && value <= 57
+
+fun glslLexHexDigit(value: int): bool = glslLexDigit(value) ||
+    (value >= 65 && value <= 70) || (value >= 97 && value <= 102)
+
+fun glslLexPunctuation(value: int): bool =
+    value == 40 || value == 41 || value == 91 || value == 93 ||
+    value == 123 || value == 125 || value == 44 || value == 59 ||
+    value == 58 || value == 46 || value == 63
+
+fun glslLexSingleOperator(value: int): bool =
+    value == 43 || value == 45 || value == 42 || value == 47 ||
+    value == 37 || value == 126 || value == 33 || value == 60 ||
+    value == 62 || value == 124 || value == 94 || value == 38 ||
+    value == 61
+
+fun glslLexOperatorLength(source: string, begin: int): int {
+    var length = 0
+    if (begin + 2 < source.size &&
+        ((source[begin] == 60 && source[begin + 1] == 60 &&
+          source[begin + 2] == 61) ||
+         (source[begin] == 62 && source[begin + 1] == 62 &&
+          source[begin + 2] == 61))) {
+        length = 3
+    } else if (begin + 1 < source.size) {
+        val first = source[begin]
+        val second = source[begin + 1]
+        if ((first == 43 && (second == 43 || second == 61)) ||
+            (first == 45 && (second == 45 || second == 61)) ||
+            (first == 42 && second == 61) ||
+            (first == 47 && second == 61) ||
+            (first == 37 && second == 61) ||
+            (first == 60 && (second == 60 || second == 61)) ||
+            (first == 62 && (second == 62 || second == 61)) ||
+            (first == 61 && second == 61) ||
+            (first == 33 && second == 61) ||
+            (first == 38 && (second == 38 || second == 61)) ||
+            (first == 124 && (second == 124 || second == 61)) ||
+            (first == 94 && (second == 94 || second == 61))) {
+            length = 2
+        }
+    }
+    if (length == 0 && begin < source.size &&
+        glslLexSingleOperator(source[begin])) length = 1
+    length
+}
+
+class GlslLexNumber(
+    val valid: bool,
+    val floating: bool,
+    val next: int
+)
+
+fun glslLexNumber(source: string, begin: int): GlslLexNumber {
+    var index = begin
+    var valid = begin < source.size
+    var floating = false
+    var hexadecimal = false
+    if (valid && source[index] == 46) {
+        floating = true
+        index = index + 1
+        valid = index < source.size && glslLexDigit(source[index])
+        while (index < source.size && glslLexDigit(source[index])) {
+            index = index + 1
+        }
+    } else if (valid && source[index] == 48 && index + 1 < source.size &&
+        (source[index + 1] == 88 || source[index + 1] == 120)) {
+        hexadecimal = true
+        index = index + 2
+        val digitsBegin = index
+        while (index < source.size && glslLexHexDigit(source[index])) {
+            index = index + 1
+        }
+        valid = index > digitsBegin
+    } else {
+        while (index < source.size && glslLexDigit(source[index])) {
+            index = index + 1
+        }
+        if (index < source.size && source[index] == 46) {
+            floating = true
+            index = index + 1
+            while (index < source.size && glslLexDigit(source[index])) {
+                index = index + 1
+            }
+        }
+    }
+    if (valid && !hexadecimal && index < source.size &&
+        (source[index] == 69 || source[index] == 101)) {
+        floating = true
+        index = index + 1
+        if (index < source.size &&
+            (source[index] == 43 || source[index] == 45)) {
+            index = index + 1
+        }
+        val exponentBegin = index
+        while (index < source.size && glslLexDigit(source[index])) {
+            index = index + 1
+        }
+        valid = index > exponentBegin
+    }
+    if (valid && index < source.size &&
+        (source[index] == 85 || source[index] == 117)) {
+        valid = !floating
+        index = index + 1
+    } else if (valid && index < source.size &&
+        (source[index] == 70 || source[index] == 102)) {
+        floating = true
+        index = index + 1
+    } else if (valid && index + 1 < source.size &&
+        (source[index] == 76 || source[index] == 108) &&
+        (source[index + 1] == 70 || source[index + 1] == 102)) {
+        floating = true
+        index = index + 2
+    }
+    if (index < source.size && glslLexNameContinue(source[index])) {
+        valid = false
+        while (index < source.size && glslLexNameContinue(source[index])) {
+            index = index + 1
+        }
+    }
+    GlslLexNumber(valid, floating, index)
+}
+
+fun glslLex(source: string): GlslTokenStream {
+    val tokens: array<GlslToken> = []
+    var valid = true
+    var error = ""
+    var errorBegin = -1
+    var errorEnd = -1
+    var errorLine = -1
+    var errorColumn = -1
+    var index = 0
+    var line = 1
+    var column = 1
+    while (valid && index < source.size && tokens.size < 1048576) {
+        if (glslLexWhitespace(source[index])) {
+            if (source[index] == 10) {
+                line = line + 1
+                column = 1
+                index = index + 1
+            } else if (source[index] == 13) {
+                line = line + 1
+                column = 1
+                index = index + 1
+                if (index < source.size && source[index] == 10) {
+                    index = index + 1
+                }
+            } else {
+                column = column + 1
+                index = index + 1
+            }
+        } else if (index + 1 < source.size && source[index] == 92 &&
+            (source[index + 1] == 10 || source[index + 1] == 13)) {
+            index = index + 1
+            if (source[index] == 13) {
+                index = index + 1
+                if (index < source.size && source[index] == 10) {
+                    index = index + 1
+                }
+            } else index = index + 1
+            line = line + 1
+            column = 1
+        } else if (index + 1 < source.size && source[index] == 47 &&
+            source[index + 1] == 47) {
+            index = index + 2
+            column = column + 2
+            while (index < source.size && source[index] != 10 &&
+                source[index] != 13) {
+                index = index + 1
+                column = column + 1
+            }
+        } else if (index + 1 < source.size && source[index] == 47 &&
+            source[index + 1] == 42) {
+            val begin = index
+            val beginLine = line
+            val beginColumn = column
+            index = index + 2
+            column = column + 2
+            var closed = false
+            while (!closed && index < source.size) {
+                if (index + 1 < source.size && source[index] == 42 &&
+                    source[index + 1] == 47) {
+                    index = index + 2
+                    column = column + 2
+                    closed = true
+                } else if (source[index] == 10) {
+                    index = index + 1
+                    line = line + 1
+                    column = 1
+                } else if (source[index] == 13) {
+                    index = index + 1
+                    if (index < source.size && source[index] == 10) {
+                        index = index + 1
+                    }
+                    line = line + 1
+                    column = 1
+                } else {
+                    index = index + 1
+                    column = column + 1
+                }
+            }
+            if (!closed) {
+                valid = false
+                error = "unterminated GLSL block comment"
+                errorBegin = begin
+                errorEnd = source.size
+                errorLine = beginLine
+                errorColumn = beginColumn
+            }
+        } else {
+            val begin = index
+            val beginLine = line
+            val beginColumn = column
+            var kind = -1
+            var positionAdvanced = false
+            if (glslLexNameStart(source[index])) {
+                kind = glslTokenIdentifier
+                index = index + 1
+                while (index < source.size &&
+                    glslLexNameContinue(source[index])) index = index + 1
+            } else if (glslLexDigit(source[index]) ||
+                (source[index] == 46 && index + 1 < source.size &&
+                 glslLexDigit(source[index + 1]))) {
+                val number = glslLexNumber(source, index)
+                valid = number.valid
+                kind = if (number.floating) glslTokenFloating
+                    else glslTokenInteger
+                index = number.next
+                if (!valid) error = "malformed GLSL numeric token"
+            } else if (source[index] == 34) {
+                kind = glslTokenString
+                index = index + 1
+                var quoteLine = line
+                var quoteColumn = column + 1
+                var closed = false
+                while (!closed && index < source.size &&
+                    source[index] != 10 && source[index] != 13) {
+                    if (source[index] == 92 && index + 1 < source.size) {
+                        if (source[index + 1] == 10) {
+                            index = index + 2
+                            quoteLine = quoteLine + 1
+                            quoteColumn = 1
+                        } else if (source[index + 1] == 13) {
+                            index = index + 2
+                            if (index < source.size && source[index] == 10) {
+                                index = index + 1
+                            }
+                            quoteLine = quoteLine + 1
+                            quoteColumn = 1
+                        } else {
+                            index = index + 2
+                            quoteColumn = quoteColumn + 2
+                        }
+                    } else if (source[index] == 34) {
+                        index = index + 1
+                        quoteColumn = quoteColumn + 1
+                        closed = true
+                    } else {
+                        index = index + 1
+                        quoteColumn = quoteColumn + 1
+                    }
+                }
+                line = quoteLine
+                column = quoteColumn
+                positionAdvanced = true
+                valid = closed
+                if (!valid) error = "unterminated GLSL quoted token"
+            } else if (source[index] == 35) {
+                kind = glslTokenPreprocessor
+                index = index + 1
+            } else {
+                val operatorLength = glslLexOperatorLength(source, index)
+                if (operatorLength > 0) {
+                    kind = glslTokenOperator
+                    index = index + operatorLength
+                } else if (glslLexPunctuation(source[index])) {
+                    kind = glslTokenPunctuation
+                    index = index + 1
+                } else {
+                    valid = false
+                    error = "invalid GLSL source byte"
+                    index = index + 1
+                }
+            }
+            if (valid) {
+                tokens.append(GlslToken(
+                    kind,
+                    source.slice(begin, index),
+                    begin,
+                    index,
+                    beginLine,
+                    beginColumn
+                ))
+            } else {
+                errorBegin = begin
+                errorEnd = index
+                errorLine = beginLine
+                errorColumn = beginColumn
+            }
+            if (!positionAdvanced) column = column + index - begin
+        }
+    }
+    if (valid && tokens.size >= 1048576 && index < source.size) {
+        valid = false
+        error = "GLSL token limit exceeded"
+        errorBegin = index
+        errorEnd = index + 1
+        errorLine = line
+        errorColumn = column
+    }
+    if (valid) tokens.append(GlslToken(
+        glslTokenEnd,
+        "",
+        source.size,
+        source.size,
+        line,
+        column
+    ))
+    GlslTokenStream(
+        tokens,
+        valid,
+        error,
+        errorBegin,
+        errorEnd,
+        errorLine,
+        errorColumn
+    )
+}

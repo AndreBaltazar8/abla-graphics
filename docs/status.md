@@ -607,6 +607,16 @@ source, and unsupported float interpolation has a precise subparser diagnostic
 instead of exposing an IEEE-bit integer. Runtime/frozen positive cases and all
 three rejection paths are executable tests.
 
+GLSL reflection now begins with one shared pure-Abla lexer rather than relying
+only on declaration-specific character scans. Tokens retain exact byte ranges
+and one-based line/column origins across comments, CRLF, and line continuations;
+operators use longest matching and decimal, hexadecimal, exponent, and suffix
+forms are classified explicitly. Standalone tests cover span round-tripping,
+malformed tokens, quoted continuations, and the operator inventory. Package
+integration rejects an invalid source byte with its exact `2:28` location. The
+existing `$glsl`, SPIR-V, and live application paths all consume this lexical
+validity gate unchanged.
+
 ## Not yet claimed
 
 - Render-graph execution with per-subpass input/preserve attachment lists,
@@ -633,7 +643,8 @@ three rejection paths are executable tests.
   The current common capability report covers the initial seven-feature mask
   and ten directly queried limits documented in the API contract.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
-  subparser owns stage structure/source preservation plus the initial explicit
+  subparser and shared source-spanned lexer own stage structure/source
+  preservation plus the initial explicit
   location/set/binding declaration, interface-block member subset, and
   cross-stage compatibility slice, named/nested structure reflection,
   push-constant reflection, and scalar specialization-constant reflection. It

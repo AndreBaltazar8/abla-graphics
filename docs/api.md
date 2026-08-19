@@ -1201,6 +1201,18 @@ Abla module identity plus exact body `begin`/`end` byte offsets; runtime-created
 packages use an empty identity and `-1` offsets. Hermetic include expansion
 retains the root stage span while replacing only its resolved source text.
 
+All reflection first passes through the shared pure-Abla `glslLex` layer. Its
+immutable `GlslToken` values classify identifiers, integer/floating literals,
+operators, punctuation, preprocessor markers, and quoted tokens while retaining
+exact half-open byte ranges plus one-based line/column origins. Whitespace and
+comments are skipped without losing position, operators use longest matching,
+and CRLF or backslash-newline continuations are normalized for position
+tracking. Malformed numbers, invalid bytes, unterminated comments, and
+unterminated quoted tokens invalidate the package before reflection; the public
+package error includes the lexical line and column. This token stream is the
+common foundation for replacing the remaining declaration-specific scanners
+with the full grammar and deterministic SPIR-V lowering.
+
 Embedded stages accept typed Abla constant interpolation outside comments and
 quoted text. `${expression}` and `${int: expression}` require an `int` and emit
 one signed decimal token; `${uint: expression}` requires an `int`, rejects

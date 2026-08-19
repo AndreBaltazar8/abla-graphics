@@ -30,7 +30,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a surfaced EGL/OpenGL context on the direct X11 window, including shader
   compile/link diagnostics, a full-screen triangle, readback, and swap;
 - an Abla-defined `$glsl`/`#$glsl` stage parser with reflected named/nested
-  structures and recursively checked interface-location ranges;
+  structures, recursively checked interface-location ranges, and a shared
+  pure-Abla GLSL lexer with exact byte/line/column spans;
 - a deterministic pure-Abla render-graph planner with explicit dependencies,
   read/write hazard ordering, transient lifetimes, cycle rejection, and
   compatible allocation-slot aliasing plus pruned synchronization records;
@@ -222,8 +223,8 @@ under `graphics/raw/opengl` and `graphics/raw/vulkan`.
 GPU/window resources are affine Abla `resource class` values. Frame command
 data will use reusable arenas and backend selection is kept out of inner draw
 loops. The optional `src/debug.ab` facade exposes one affine, allocation-free
-debug messenger over the native OpenGL and Vulkan callbacks. `$glsl` will be
-an Abla-defined compile-time subparser with source-span diagnostics and
+debug messenger over the native OpenGL and Vulkan callbacks. `$glsl` is an
+Abla-defined compile-time subparser with source-span diagnostics and
 deterministic OpenGL GLSL/Vulkan SPIR-V output.
 
 The companion [Abla Doom](https://github.com/AndreBaltazar8/abla-doom) project

@@ -1,0 +1,92 @@
+import "../src/shader/glsl_lexer.ab"
+
+fun tokenSpansMatch(source: string, stream: GlslTokenStream): bool {
+    var matches = stream.valid
+    var index = 0
+    while (matches && index < stream.tokens.size - 1) {
+        val token = stream.tokens[index]
+        matches = token.begin >= 0 && token.end > token.begin &&
+            token.end <= source.size &&
+            source.slice(token.begin, token.end) == token.text
+        index = index + 1
+    }
+    matches
+}
+
+fun main: int {
+    val source = "#version 460 core\n// ignored\nlayout(location=0) in vec3 position;\nconst uint mask=0x2Au<<2u;\nconst float scale=.5e+2F;\n/* ignored\nstill ignored */\n#include \"lighting/common.glsl\"\nvoid main(){ position.x += 1.; }"
+    val stream = glslLex(source)
+    val operators = glslLex(
+        "a<<=1;b>>=2;c++;d--;e<=f&&g>=h||i^^j;k+=l;m&=n;o|=p;q^=r;"
+    )
+    val continued = glslLex("#define VALUE \\\n  3u")
+    val carriageReturn = glslLex("first\r\nsecond")
+    val invalidHex = glslLex("0x;")
+    val invalidExponent = glslLex("1e+;")
+    val invalidByte = glslLex("value @ other")
+    val invalidComment = glslLex("value /* never closed")
+    val invalidString = glslLex("#include \"never closed")
+    val continuedString = glslLex("\"path\\\ncontinued\" end")
+    val punctuation = glslLex(". .25 1. 2LF [x] ? y : z")
+    val valid = stream.valid && stream.tokens.size == 44 &&
+        tokenSpansMatch(source, stream) &&
+        stream.tokens[0].is(glslTokenPreprocessor, "#") &&
+        stream.tokens[0].line == 1 && stream.tokens[0].column == 1 &&
+        stream.tokens[1].is(glslTokenIdentifier, "version") &&
+        stream.tokens[2].is(glslTokenInteger, "460") &&
+        stream.tokens[4].is(glslTokenIdentifier, "layout") &&
+        stream.tokens[4].line == 3 && stream.tokens[4].column == 1 &&
+        stream.tokens[18].is(glslTokenInteger, "0x2Au") &&
+        stream.tokens[19].is(glslTokenOperator, "<<") &&
+        stream.tokens[26].is(glslTokenFloating, ".5e+2F") &&
+        stream.tokens[28].is(glslTokenPreprocessor, "#") &&
+        stream.tokens[28].line == 8 &&
+        stream.tokens[30].is(
+            glslTokenString,
+            "\"lighting/common.glsl\""
+        ) &&
+        stream.tokens[37].is(glslTokenPunctuation, ".") &&
+        stream.tokens[39].is(glslTokenOperator, "+=") &&
+        stream.tokens[40].is(glslTokenFloating, "1.") &&
+        stream.tokens[43].kind == glslTokenEnd &&
+        operators.valid && operators.tokens[1].text == "<<=" &&
+        operators.tokens[5].text == ">>=" &&
+        operators.tokens[9].text == "++" &&
+        operators.tokens[12].text == "--" &&
+        operators.tokens[15].text == "<=" &&
+        operators.tokens[17].text == "&&" &&
+        operators.tokens[19].text == ">=" &&
+        operators.tokens[21].text == "||" &&
+        operators.tokens[23].text == "^^" &&
+        operators.tokens[27].text == "+=" &&
+        operators.tokens[31].text == "&=" &&
+        operators.tokens[35].text == "|=" &&
+        operators.tokens[39].text == "^=" &&
+        continued.valid && continued.tokens.size == 5 &&
+        continued.tokens[3].is(glslTokenInteger, "3u") &&
+        continued.tokens[3].line == 2 &&
+        carriageReturn.valid && carriageReturn.tokens.size == 3 &&
+        carriageReturn.tokens[1].line == 2 &&
+        carriageReturn.tokens[1].column == 1 &&
+        !invalidHex.valid && invalidHex.errorBegin == 0 &&
+        invalidHex.errorEnd == 2 && invalidHex.errorLine == 1 &&
+        !invalidExponent.valid && invalidExponent.errorBegin == 0 &&
+        invalidExponent.errorEnd == 3 &&
+        !invalidByte.valid && invalidByte.errorBegin == 6 &&
+        !invalidComment.valid &&
+        invalidComment.error == "unterminated GLSL block comment" &&
+        invalidComment.errorBegin == 6 &&
+        !invalidString.valid &&
+        invalidString.error == "unterminated GLSL quoted token" &&
+        continuedString.valid && continuedString.tokens.size == 3 &&
+        continuedString.tokens[0].line == 1 &&
+        continuedString.tokens[1].line == 2 &&
+        continuedString.tokens[1].column == 12 &&
+        punctuation.valid && punctuation.tokens[0].is(
+            glslTokenPunctuation,
+            "."
+        ) && punctuation.tokens[1].is(glslTokenFloating, ".25") &&
+        punctuation.tokens[2].is(glslTokenFloating, "1.") &&
+        punctuation.tokens[3].is(glslTokenFloating, "2LF")
+    if (valid) 42 else 1
+}

@@ -8,6 +8,17 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
+"$compiler" build "$project_root/tests/glsl_lexer.ab" \
+    -o "$output_directory/glsl-lexer" --no-cache
+set +e
+"$output_directory/glsl-lexer"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'GLSL lexer test returned %s, expected 42\n' "$status" >&2
+    exit 1
+fi
+
 "$compiler" build "$project_root/tests/glsl_subparser.ab" \
     -o "$output_directory/glsl" --no-cache
 set +e

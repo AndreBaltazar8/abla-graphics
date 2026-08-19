@@ -8,6 +8,7 @@
 // this module without changing the public ShaderPackage value.
 
 import "abla/compiler/parser"
+import "glsl_lexer.ab"
 
 val shaderStageVertex = "vertex"
 val shaderStageFragment = "fragment"
@@ -1170,6 +1171,7 @@ fun glslLocationsOverlap(
 
 fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     val includeReflection = glslReflectIncludes(stage, source)
+    val lexical = glslLex(source)
     val locations: array<ShaderLocation> = []
     val bindings: array<ShaderBinding> = []
     val workgroups: array<ShaderWorkgroup> = []
@@ -1177,8 +1179,11 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     val specializationConstants: array<ShaderSpecializationConstant> = []
     val structures: array<ShaderStructure> = []
     val includes = includeReflection.includes
-    var valid = includeReflection.valid
-    var error = includeReflection.error
+    var valid = includeReflection.valid && lexical.valid
+    var error = if (!includeReflection.valid) includeReflection.error
+        else if (!lexical.valid)
+            "${lexical.error} at ${lexical.errorLine}:${lexical.errorColumn}"
+        else ""
     var index = 0
     var scopeDepth = 0
     while (valid && index < source.size) {
