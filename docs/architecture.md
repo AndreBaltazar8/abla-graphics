@@ -109,6 +109,10 @@ The optional tearing-control object keeps synchronized versus low-latency
 asynchronous presentation as an explicit application hint. Its state is
 committed with the surface, never treated as a guarantee, and is destroyed
 before its reusable manager and the core surface.
+The adjacent optional content-type object classifies none, photo, video, or
+game content as another explicitly non-binding compositor optimization hint.
+It shares the same double-buffered state and ordered object/manager teardown
+model without coupling content policy to the rendering backend.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,

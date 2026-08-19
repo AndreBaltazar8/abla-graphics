@@ -164,6 +164,11 @@ Updated: 2026-08-19.
   teardown order, and exact wire packets are covered. The current Weston
   fixture advertises the manager and accepts real async, restored-vsync, and
   object-disable transitions while keeping the connection healthy.
+- Optional `wp_content_type_manager_v1` support owns an independent surface
+  classification and commits none/photo/video/game hints idempotently. Exact
+  creation/game packets, invalid values, transitions, disable/reuse, and
+  ordered teardown are covered; the live Weston gate distinguishes advertised
+  capability from the clean default-only fallback.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec

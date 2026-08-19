@@ -1368,6 +1368,16 @@ object restores vsync on the next commit and retains the manager for reuse.
 Requesting synchronized behavior succeeds without the optional extension;
 requesting asynchronous behavior fails cleanly when it is unavailable.
 
+`contentTypeAvailable()` reports the staging version-one content-type global.
+`enableContentType()` owns one classification object, and `setContentType()`
+idempotently commits `waylandContentTypeNone`, `waylandContentTypePhoto`,
+`waylandContentTypeVideo`, or `waylandContentTypeGame`.
+These are compositor optimization hints rather than behavioral guarantees;
+for example, video may favor timing and scaling while game may favor latency.
+`disableContentType()` restores none, destroys the per-surface object, and
+retains its manager. None remains a successful no-op without the extension,
+while non-default classifications fail cleanly when it is absent.
+
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,
 advertises UTF-8 and plain-text MIME types, and retains each affine source until
