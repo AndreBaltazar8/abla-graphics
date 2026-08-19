@@ -1201,6 +1201,17 @@ pointer position, five portable buttons, and horizontal/vertical scrolling.
 `pointerX`, `pointerY`, modifier masks, and repeat rate/delay retain the latest
 protocol state.
 
+`enableCursor()` builds a 16x24 ARGB8888 arrow entirely in Abla, backs it with
+a close-on-exec `memfd`, transfers the pool descriptor directly, and assigns
+the resulting `wl_surface` the pointer-cursor role. `setCursorVisible(false)`
+uses a null cursor surface; showing it restores the owned surface. A preference
+set before pointer focus is applied on the next enter, while focused changes
+use the dedicated enter serial rather than a later keyboard/button serial.
+Cursor-surface output events and the cursor SHM object's format events remain
+separate from application-surface monitor state. Teardown first clears the
+active pointer cursor, then releases the pointer and destroys/unmaps the cursor
+buffer and surface.
+
 Keyboard keymaps are not discarded: the direct stream receiver captures
 close-on-exec ancillary descriptors with Linux `recvmsg`, preserves the
 descriptor across any earlier messages from the same compositor batch, maps

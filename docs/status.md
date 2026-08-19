@@ -73,6 +73,12 @@ Updated: 2026-08-19.
   socket-poll deadline with allocation-free monotonic timing, emits a typed
   repeat plus text, and cancels on release/focus/capability loss. There is no
   libxkbcommon dependency.
+- Direct Wayland cursor ownership creates a 16x24 pure-Abla ARGB8888 arrow in
+  an affine `memfd` mapping, validates the cursor SHM/surface event streams, and
+  uses the pointer-enter serial for visible/null `set_cursor` requests. The
+  nested input gate begins hidden before focus, restores the cursor on enter,
+  checks opaque and transparent mapped pixels, and proves repeated hide/show
+  requests remain healthy. No cursor-theme or libwayland dependency is used.
 - Direct Wayland output discovery binds all initial `wl_output` version two
   through four globals and tracks signed position, physical size, transform,
   current/preferred mode, millihertz refresh, integer scale, stable name, and

@@ -14,7 +14,8 @@ trusted fun main: int {
         window.clearSharedPixels(14, 22, 40) &&
         window.fillSharedRect(100, 100, 400, 200, 44, 202, 224) &&
         window.presentSharedPixels() && window.waitFrame() &&
-        window.enableInput()
+        window.enableInput() && window.enableCursor() &&
+        window.setCursorVisible(false)
     var sawFocus = false
     var sawMonitor = false
     var sawMotion = false
@@ -26,6 +27,7 @@ trusted fun main: int {
     var sawWRepeat = false
     var sawWText = false
     var sawUpperWText = false
+    var cursorShown = false
     var attempts = 0
     while (succeeded && attempts < 100 &&
         !(window.keyboardMapped() && sawFocus && sawMotion &&
@@ -60,7 +62,12 @@ trusted fun main: int {
             event.text == "W") {
             sawUpperWText = true
         }
-        succeeded = window.connection.valid()
+        if (succeeded && window.pointerFocused && !cursorShown) {
+            succeeded = window.pointerEnterSerial > 0 &&
+                !window.cursorVisible && window.setCursorVisible(true)
+            if (succeeded) cursorShown = window.cursorVisible
+        }
+        succeeded = succeeded && window.connection.valid()
         attempts = attempts + 1
     }
     if (succeeded) succeeded = window.dispatchPointerButtonInput(
@@ -98,9 +105,19 @@ trusted fun main: int {
         window.primaryOutputScale() == 1 && sawMonitor &&
         sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
         sawWPress && sawWRelease && sawWRepeat && sawWText && sawUpperWText &&
-        window.repeatDeadlineNanoseconds < 0
+        window.repeatDeadlineNanoseconds < 0 && cursorShown &&
+        window.cursorSurfaceIdentifier >= 2 &&
+        window.cursorBufferIdentifier >= 2 &&
+        window.cursorMappedLength ==
+            waylandCursorWidth * waylandCursorHeight * 4 &&
+        window.cursorMappedBytes.load(3) == 255 &&
+        window.cursorMappedBytes.load(window.cursorMappedLength - 1) == 0 &&
+        window.setCursorVisible(false) && !window.cursorVisible &&
+        window.setCursorVisible(false) &&
+        window.setCursorVisible(true) && window.cursorVisible &&
+        window.setCursorVisible(true) && window.pollProtocol(20)
     println(
-        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
+        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
     )
     if (succeeded) 42 else 1
 }

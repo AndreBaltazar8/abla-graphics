@@ -27,7 +27,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   transfer, affine `memfd`-backed XRGB shared pixels, reusable triple
   buffering, allocation-stable frame callbacks, capability-driven seat,
   pointer and keyboard objects, ancillary XKB keymap receipt, pure-Abla group-1
-  symbol/text parsing, deadline-driven keyboard repeat, hotplug-aware atomic
+  symbol/text parsing, deadline-driven keyboard repeat, a direct ARGB cursor
+  surface with serial-correct visibility control, hotplug-aware atomic
   output snapshots with optional xdg logical geometry and surface enter/leave
   tracking, optional per-surface fractional-scale preferences,
   optional per-surface viewport source crops and destinations for presenting
@@ -195,8 +196,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   attach, damage, commit, and frame completion;
 - `examples/wayland-animation`: allocation-stable triple-buffered XRGB
   animation paced by compositor frame callbacks;
-- `examples/wayland-input`: direct seat capability, pointer, keyboard, and
-  keymap report using the portable window-event vocabulary;
+- `examples/wayland-input`: direct seat capability, pointer, keyboard, cursor,
+  and keymap report using the portable window-event vocabulary;
 - `examples/wayland-output`: direct output name, current mode, physical size,
   and integer scale report;
 - `examples/wayland-clipboard`: direct data-device UTF-8 copy/paste using C and
