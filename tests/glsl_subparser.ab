@@ -368,6 +368,20 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value*3u; }"]
     ).spirv(shaderStageCompute)
+    val specializedStorage = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=6) const uint factor=3u; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value*factor; }"]
+    )
+    val specializedStorageSpirv =
+        specializedStorage.spirv(shaderStageCompute)
+    val specializedStorageSpirvAgain =
+        specializedStorage.spirv(shaderStageCompute)
+    val specializedStorageOpenGlSpirv =
+        specializedStorage.spirvOpenGl(shaderStageCompute)
+    val mismatchedSpecializedStorage = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(constant_id=6) const int factor=3; layout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value*factor; }"]
+    ).spirv(shaderStageCompute)
     val unsupportedStorageSubtract = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value-1u; }"]
@@ -830,6 +844,21 @@ fun main: int {
         storageMultiply.succeeded && storageMultiply.module.valid() &&
         storageMultiply.module.words.size == 95 &&
         storageMultiply.module.words[85] == 327812 &&
+        specializedStorage.valid && specializedStorageSpirv.succeeded &&
+        specializedStorageSpirv.module.valid() &&
+        specializedStorageSpirv.module.words.size == 99 &&
+        specializedStorageSpirv.module.words[65] == 262194 &&
+        specializedStorageSpirv.module.words[68] == 3 &&
+        spirvWordsEqual(
+            specializedStorageSpirv.module,
+            specializedStorageSpirvAgain.module
+        ) &&
+        specializedStorageOpenGlSpirv.succeeded &&
+        spirvWordsEqual(
+            specializedStorageSpirv.module,
+            specializedStorageOpenGlSpirv.module
+        ) &&
+        !mismatchedSpecializedStorage.succeeded &&
         !unsupportedStorageSubtract.succeeded &&
         unsupportedStorageSubtract.error != "" &&
         triangle.valid && triangle.locations.size == 1 &&

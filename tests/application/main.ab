@@ -757,6 +757,30 @@ fun applicationBackendProbe(
         computeBuffer
     )
     val storageComputed = storageCompute.dispatch(1)
+    val specializedStorageShader = $glsl {
+        compute {
+            #version 450
+            layout(constant_id = 6) const uint factor = 3u;
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            void main() { values.value = values.value * factor; }
+        }
+    }
+    val specializedStorageBuffer = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val specializedStorageCleared = specializedStorageBuffer.writeI64(2)
+    val specializedStorageCompute = app.computeStoragePipeline(
+        specializedStorageShader,
+        specializedStorageBuffer,
+        ShaderSpecialization([shaderSpecializationUint(6, 5)])
+    )
+    val specializedStorageComputed = specializedStorageCompute.dispatch(1)
+    val specializedStorageValue = specializedStorageBuffer.readI64()
     val computeCommandPool = compute.vulkan.commandPool
     val computeCommand = if (app.backend == graphicsBackendVulkan)
         nativePointerAddress(compute.vulkan.command.load())
@@ -1458,6 +1482,9 @@ fun applicationBackendProbe(
         computeBuffer.valid() && computeBufferCleared &&
         storageCompute.valid() && storageComputed && computeRepeated &&
         computeNoGrowth && computeHandlesStable && computeValue == 486 &&
+        specializedStorageBuffer.valid() && specializedStorageCleared &&
+        specializedStorageCompute.valid() && specializedStorageComputed &&
+        specializedStorageValue == 10 &&
         resizePassed && renderPipeline.valid() && targetPipelineCompatible &&
         (app.backend != graphicsBackendVulkan ||
          (app.vulkanDevice.dynamicRendering &&

@@ -20,7 +20,9 @@ class GlslStorageWrite(
     val valid: bool,
     val value: int = 0,
     val add: bool = false,
-    val multiply: bool = false
+    val multiply: bool = false,
+    val specialized: bool = false,
+    val specializationId: int = -1
 )
 
 class GlslSpirvDefault(
@@ -797,6 +799,16 @@ fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
         this.bindings.size == 0 && this.pushConstants.size == 0 &&
         this.specializationConstants.size > 0 &&
         glslComputeGeneralSpecializedNoOpSource(this.stages[0].source)
+    val storageWrite = if (this.valid && stage == shaderStageCompute &&
+        this.stages.size == 1 && this.bindings.size == 1)
+        glslComputeStorageWrite(this.stages[0].source)
+        else GlslStorageWrite(false)
+    val specializedStorage = storageWrite.valid &&
+        storageWrite.specialized && this.workgroups.size == 1 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "buffer" &&
+        this.bindings[0].dataType == "Values" &&
+        this.specializationConstants.size == 1
     var words: array<int> = []
     if (specializedNoOp) {
         words = glslSpecializedWorkgroupOpenGlSpirv(this.workgroups[0])
@@ -811,14 +823,16 @@ fun ShaderPackage.spirvOpenGl(stage: string): GlslSpirvResult {
             this.specializationConstants,
             true
         )
+    } else if (specializedStorage) {
+        words = this.spirv(stage).module.words
     }
     val module = spirvModule(words)
     GlslSpirvResult(
         module,
         (specializedNoOp || scalarSpecializedNoOp ||
-         combinedSpecializedNoOp) && module.valid(),
+         combinedSpecializedNoOp || specializedStorage) && module.valid(),
         if (specializedNoOp || scalarSpecializedNoOp ||
-            combinedSpecializedNoOp) "" else
+            combinedSpecializedNoOp || specializedStorage) "" else
             "GLSL source is outside the deterministic OpenGL SPIR-V subset"
     )
 }
@@ -846,7 +860,31 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     valid = valid && version.valid && version.value == 450
     index = glslSkipLine(source, version.next)
 
+    var specializationName = ""
+    var specializationId = -1
+    var specializationDefault = 0
     part = glslReadName(source, index)
+    if (part.text == "layout") {
+        val specializationLayout = glslParseLayout(source, part.next)
+        if (specializationLayout.valid &&
+            specializationLayout.constantId >= 0) {
+            val specialization = glslParseSpecializationDeclaration(
+                source,
+                specializationLayout.next
+            )
+            val default = if (specialization.dataType == "uint")
+                glslIntegerDefault(specialization.defaultValue, false)
+                else GlslSpirvDefault(false)
+            valid = valid && specialization.valid && default.valid
+            if (valid) {
+                specializationName = specialization.name
+                specializationId = specializationLayout.constantId
+                specializationDefault = default.bits
+                index = specialization.next
+                part = glslReadName(source, index)
+            }
+        }
+    }
     valid = valid && part.text == "layout"
     val workgroup = glslParseLayout(source, part.next)
     valid = valid && workgroup.valid && workgroup.localSizeX == 1 &&
@@ -903,7 +941,7 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
     var add = false
     var multiply = false
     val expression = glslReadName(source, character.next)
-    var value = GlslInteger(false, 0, character.next)
+    var operandBegin = character.next
     if (expression.text == "values") {
         character = glslExpectCharacter(source, expression.next, 46)
         valid = valid && character.valid
@@ -916,20 +954,37 @@ fun glslComputeStorageWrite(source: string): GlslStorageWrite {
             add = source[operator] == 43
             multiply = source[operator] == 42
         }
-        character = GlslInteger(valid, 0, operator + 1)
-        value = glslReadUnsigned(source, character.next)
-    } else {
-        value = glslReadUnsigned(source, character.next)
+        operandBegin = operator + 1
     }
+    val symbolic = glslReadName(source, operandBegin)
+    val specialized = specializationName != "" &&
+        symbolic.text == specializationName
+    var value = GlslInteger(
+        specialized,
+        specializationDefault,
+        symbolic.next
+    )
+    if (!specialized) value = glslReadUnsigned(source, operandBegin)
     valid = valid && value.valid
-    part = glslReadName(source, value.next)
-    valid = valid && part.text == "u"
-    character = glslExpectCharacter(source, part.next, 59)
+    if (specialized) {
+        character = glslExpectCharacter(source, value.next, 59)
+    } else {
+        part = glslReadName(source, value.next)
+        valid = valid && part.text == "u"
+        character = glslExpectCharacter(source, part.next, 59)
+    }
     valid = valid && character.valid
     character = glslExpectCharacter(source, character.next, 125)
     valid = valid && character.valid &&
         glslSkipTrivia(source, character.next) == source.size
-    GlslStorageWrite(valid, value.value, add, multiply)
+    GlslStorageWrite(
+        valid,
+        value.value,
+        add,
+        multiply,
+        specialized,
+        if (specialized) specializationId else -1
+    )
 }
 
 fun glslSourceMatchesTokens(
@@ -1193,7 +1248,15 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             196679, 4, 3,
             327752, 4, 0, 35, 0,
             262215, 9, 34, 0,
-            262215, 9, 33, 0,
+            262215, 9, 33, 0
+        ]
+        if (storageWrite.specialized) {
+            words.append(262215)
+            words.append(8)
+            words.append(1)
+            words.append(storageWrite.specializationId)
+        }
+        val storageDeclarations: array<int> = [
             131091, 1,
             196641, 2, 1,
             262165, 3, 32, 0,
@@ -1201,12 +1264,18 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             262176, 5, 2, 4,
             262176, 6, 2, 3,
             262187, 3, 7, 0,
-            262187, 3, 8, storageWrite.value,
+            if (storageWrite.specialized) 262194 else 262187,
+            3, 8, storageWrite.value,
             262203, 5, 9, 2,
             327734, 1, 10, 0, 2,
             131320, 11,
             327745, 6, 12, 9, 7
         ]
+        var storageWord = 0
+        while (storageWord < storageDeclarations.size) {
+            words.append(storageDeclarations[storageWord])
+            storageWord = storageWord + 1
+        }
         if (storageWrite.add || storageWrite.multiply) {
             words.append(262205)
             words.append(3)

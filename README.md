@@ -36,8 +36,9 @@ proves the architecture rather than stopping at placeholder interfaces:
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets, with
-  composable typed scalar/workgroup specialization constants and unsupported
-  GLSL rejected rather than ignored;
+  composable typed scalar/workgroup specialization constants, observable
+  specialized storage arithmetic, and unsupported GLSL rejected rather than
+  ignored;
 - real Vulkan compute-pipeline creation and submitted dispatch from that
   Abla-emitted module;
 - one backend-neutral affine triangle render pipeline: the same `$glsl`
