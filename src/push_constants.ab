@@ -84,6 +84,86 @@ resource class GraphicsPushConstants(
     }
 }
 
+resource class GraphicsSubpassPushConstants(
+    val layouts: array<ShaderPushConstantLayout>,
+    val offsets: array<int>,
+    val sizes: array<int>,
+    val stageMasks: array<int>,
+    val bytes: BufferBytes,
+    val error: string
+) {
+    fun valid(): bool {
+        var valid = this.error == "" && this.layouts.size >= 2 &&
+            this.layouts.size <= 8 &&
+            this.offsets.size == this.layouts.size &&
+            this.sizes.size == this.layouts.size &&
+            this.stageMasks.size == this.layouts.size &&
+            this.bytes.valid()
+        var expectedOffset = 0
+        var index = 0
+        while (valid && index < this.layouts.size) {
+            val layout = this.layouts[index]
+            valid = layout.valid && layout.size > 0 &&
+                this.offsets[index] == expectedOffset &&
+                this.sizes[index] == layout.size &&
+                this.stageMasks[index] == layout.stageMask &&
+                this.stageMasks[index] != 0 &&
+                expectedOffset <= this.bytes.size - layout.size
+            if (valid) expectedOffset = expectedOffset + layout.size
+            index = index + 1
+        }
+        valid && expectedOffset == this.bytes.size
+    }
+
+    fun subpassCount(): int = this.layouts.size
+
+    fun subpassOffset(index: int): int =
+        if (index >= 0 && index < this.offsets.size)
+            this.offsets[index]
+        else -1
+
+    trusted fun writeSubpass(
+        index: int,
+        values: GraphicsPushConstants
+    ): bool {
+        var accepted = this.valid() && values.valid() && index >= 0 &&
+            index < this.layouts.size &&
+            values.layout.matches(this.layouts[index])
+        if (accepted) ablaUnsafeCopyMemory(
+            this.bytes.storage.pointerAt(this.offsets[index]),
+            values.bytes.storage.address,
+            values.bytes.size
+        )
+        accepted
+    }
+
+    trusted fun storeF32(
+        subpass: int,
+        value: f64,
+        offset: int = 0
+    ): bool = this.valid() && subpass >= 0 &&
+        subpass < this.layouts.size && offset >= 0 &&
+        offset <= this.layouts[subpass].size - 4 &&
+        this.bytes.storeF32(value, this.offsets[subpass] + offset)
+
+    trusted fun storeU32(
+        subpass: int,
+        value: int,
+        offset: int = 0
+    ): bool = this.valid() && subpass >= 0 &&
+        subpass < this.layouts.size && offset >= 0 &&
+        offset <= this.layouts[subpass].size - 4 &&
+        this.bytes.storeU32(value, this.offsets[subpass] + offset)
+
+    trusted fun fill(value: int = 0): bool =
+        this.valid() && this.bytes.fill(value)
+
+    trusted fun drop(): void {
+        this.bytes.storage.close()
+        return
+    }
+}
+
 trusted fun ShaderPackage.pushConstants(
     maximumSize: int = 128
 ): GraphicsPushConstants {

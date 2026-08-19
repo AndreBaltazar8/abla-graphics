@@ -952,9 +952,12 @@ validity gate unchanged.
   storage-add shader slice. Raster fragment `vec4` push color is wired through
   procedural, vertex, indexed, vertex-indirect, and indexed-indirect offscreen
   and presented commands plus matching reusable render-pass attachment
-  operation commands on both backends with exact pixels, stable handles, and
-  zero-growth repeated values. General compute/raster expressions and
-  subpass-wide push value sequences remain upcoming.
+  operation commands on both backends. Affine two-to-eight-stage procedural
+  subpass sequences now own one contiguous reflected value block; OpenGL binds
+  each persistent program UBO and Vulkan records each native subpass range
+  after its pipeline bind. Exact pixels, missing-value rejection, stable
+  handles, and zero-growth repeated values are verified on both backends.
+  General compute/raster expressions remain upcoming.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

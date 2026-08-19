@@ -247,10 +247,11 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   constants with exact output, stable handles, and zero-growth repeated
   dispatch;
 - `examples/push-color`: one reflected `vec4` push block drives the same
-  procedural or buffered triangle through all fifteen portable direct,
+  procedural or buffered triangle through all sixteen portable direct,
   indexed, GPU-indirect, reusable attachment-pass, offscreen, and window
-  presentation forms on OpenGL and Vulkan, with exact pixel proof, persistent
-  native handles, changing values, and zero-growth repeated frames;
+  presentation forms plus an affine two-subpass sequence on OpenGL and Vulkan,
+  with exact pixel proof, persistent native handles, changing values, and
+  zero-growth repeated frames;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted
   frames on explicit OpenGL and Vulkan, including counter-period conversion,
   stable native handles, and zero steady-state live-memory growth; and

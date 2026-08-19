@@ -1758,8 +1758,20 @@ discard-after mask, and Vulkan-compatible-render-pass checks remain unchanged;
 the reflected value layout is an additional mandatory condition. The sample
 exercises clear/store, load/store, and discard/discard operations before a
 stored exact-pixel pass, then repeats all five command forms allocation-free.
-General raster push-constant expressions and subpass-wide push value sequences
-remain future slices.
+
+For a prepared procedural subpass sequence,
+`sequence.pushConstants()` creates one affine contiguous value block with the
+reflected layout, byte offset, size, and stage mask of every pipeline.
+`writeSubpass(index, values)` copies an exactly matching reusable value block;
+the checked `storeF32` and `storeU32` methods update a subpass slice directly.
+`renderPushSubpassesToTarget(target, sequence, constants, pass)` validates every
+layout in order. OpenGL uploads each slice through its pipeline-owned persistent
+UBO, while Vulkan records `vkCmdPushConstants` after each native subpass
+pipeline bind. The ordinary `renderSubpassesToTarget` form rejects any sequence
+whose pipelines require push values. The `push-color` sample proves two native
+subpasses, missing-value rejection, exact output, stable handles, and zero
+steady-state allocation growth on both backends. General raster push-constant
+expressions remain a future slice.
 
 The overload
 `app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,

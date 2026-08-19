@@ -139,6 +139,31 @@ fun main: int {
             store = attachmentStoreOperationDiscard
         ))
     )
+    val subpassValues = renderPassClearValues(Color(0.0, 0.0, 0.0))
+    val subpassPass = app.renderPass(
+        target,
+        move(subpassValues),
+        RenderPassOperations(),
+        2
+    )
+    val firstSubpassPipeline = app.renderPassPipeline(
+        target,
+        subpassPass,
+        0,
+        shader
+    )
+    val secondSubpassPipeline = app.renderPassPipeline(
+        target,
+        subpassPass,
+        1,
+        shader
+    )
+    val subpassSequence = app.subpassPipelines(
+        target,
+        subpassPass,
+        [move(firstSubpassPipeline), move(secondSubpassPipeline)]
+    )
+    val subpassConstants = subpassSequence.pushConstants()
     val stored = values.storeF32(1.0, 0) &&
         values.storeF32(0.0, 4) && values.storeF32(0.0, 8) &&
         values.storeF32(1.0, 12)
@@ -165,14 +190,24 @@ fun main: int {
         vertices,
         3
     )
+    val subpassStored = subpassConstants.writeSubpass(0, values) &&
+        subpassConstants.writeSubpass(1, values)
+    val missingSubpassesRejected = !app.renderSubpassesToTarget(
+        target,
+        subpassSequence,
+        subpassPass
+    ) && !subpassConstants.writeSubpass(-1, values) &&
+        !subpassConstants.storeF32(2, 1.0)
     val warmed = app.valid() && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() && values.valid() &&
         targetBufferedPipeline.valid() && windowBufferedPipeline.valid() &&
         clearPass.valid() && loadPass.valid() && discardPass.valid() &&
+        subpassPass.valid() && subpassSequence.valid() &&
+        subpassConstants.valid() &&
         vertices.valid() && indices.valid() && direct.valid() &&
         indexed.valid() && verticesUploaded && indicesUploaded &&
         directUploaded && indexedUploaded && missingBufferedRejected &&
-        missingPassRejected &&
+        missingPassRejected && missingSubpassesRejected && subpassStored &&
         stored && app.renderPushToTarget(
             target,
             targetPipeline,
@@ -196,6 +231,9 @@ fun main: int {
         ) && app.renderPushPassIndexedIndirectToTarget(
             target, targetBufferedPipeline, values, clearPass, vertices,
             indices, indexed
+        ) && target.texture.rgba8(32, 32) == 4278190335 &&
+        app.renderPushSubpassesToTarget(
+            target, subpassSequence, subpassConstants, subpassPass
         ) && target.texture.rgba8(32, 32) == 4278190335 &&
         app.renderPushVerticesToTarget(
             target, targetBufferedPipeline, values, vertices, 3, clear
@@ -230,6 +268,12 @@ fun main: int {
     val windowBufferedHandle = if (app.backend == graphicsBackendOpenGl)
         windowBufferedPipeline.openGl.pushConstantBuffer
     else windowBufferedPipeline.vulkan.handle
+    val firstSubpassHandle = if (app.backend == graphicsBackendOpenGl)
+        subpassSequence.pipelines[0].openGl.pushConstantBuffer
+    else subpassSequence.pipelines[0].vulkan.handle
+    val secondSubpassHandle = if (app.backend == graphicsBackendOpenGl)
+        subpassSequence.pipelines[1].openGl.pushConstantBuffer
+    else subpassSequence.pipelines[1].vulkan.handle
     val liveBefore = runtimeMemoryLiveBytes()
     var repeated = warmed
     var frame = 0
@@ -237,7 +281,19 @@ fun main: int {
         val even = (frame & 1) == 0
         repeated = values.storeF32(if (even) 0.0 else 1.0, 0) &&
             values.storeF32(if (even) 1.0 else 0.0, 4) &&
+            subpassConstants.storeF32(
+                0, if (even) 0.0 else 1.0, 0
+            ) && subpassConstants.storeF32(
+                0, if (even) 1.0 else 0.0, 4
+            ) && subpassConstants.storeF32(
+                1, if (even) 0.0 else 1.0, 0
+            ) && subpassConstants.storeF32(
+                1, if (even) 1.0 else 0.0, 4
+            ) &&
             app.renderPushToTarget(target, targetPipeline, values, clear) &&
+            app.renderPushSubpassesToTarget(
+                target, subpassSequence, subpassConstants, subpassPass
+            ) &&
             app.renderPushPassToTarget(
                 target, targetPipeline, values, clearPass
             ) && app.renderPushPassVerticesToTarget(
@@ -286,18 +342,24 @@ fun main: int {
                 targetBufferedHandle &&
             windowBufferedPipeline.openGl.pushConstantBuffer ==
                 windowBufferedHandle &&
+            subpassSequence.pipelines[0].openGl.pushConstantBuffer ==
+                firstSubpassHandle &&
+            subpassSequence.pipelines[1].openGl.pushConstantBuffer ==
+                secondSubpassHandle &&
             targetHandle != 0 && windowHandle != 0 &&
             targetBufferedHandle != 0 && windowBufferedHandle != 0
     else targetPipeline.vulkan.handle == targetHandle &&
         windowPipeline.vulkan.handle == windowHandle &&
         targetBufferedPipeline.vulkan.handle == targetBufferedHandle &&
         windowBufferedPipeline.vulkan.handle == windowBufferedHandle &&
+        subpassSequence.pipelines[0].vulkan.handle == firstSubpassHandle &&
+        subpassSequence.pipelines[1].vulkan.handle == secondSubpassHandle &&
         targetPipeline.vulkan.pushConstantSize == 16 &&
         windowPipeline.vulkan.pushConstantSize == 16 &&
         targetBufferedPipeline.vulkan.pushConstantSize == 16 &&
         windowBufferedPipeline.vulkan.pushConstantSize == 16
     println(
-        "push-color backend=${graphicsBackendName(app.backend)} forms=15 pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+        "push-color backend=${graphicsBackendName(app.backend)} forms=16 pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
     )
     if (repeated && frame == 4 && finalPixel == 4278190335 &&
         liveAfter == liveBefore && handlesStable) 0 else 1

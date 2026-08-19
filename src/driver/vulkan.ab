@@ -4900,6 +4900,8 @@ trusted fun VulkanDevice.renderTargetProgram(
     succeeded
 }
 
+val vulkanNoSubpassPushConstants: array<int> = []
+
 trusted fun VulkanDevice.renderTargetSubpasses(
     target: VulkanRenderTarget,
     compatibleRenderPass: int,
@@ -4909,7 +4911,12 @@ trusted fun VulkanDevice.renderTargetSubpasses(
     pipelineDepthEnabled: array<bool>,
     pipelineRequiresBinding: array<bool>,
     descriptorSets: array<int>,
-    clearStorage: i64*
+    clearStorage: i64*,
+    pushConstantOffsets: array<int>,
+    pushConstantSizes: array<int>,
+    pushConstantStageMasks: array<int>,
+    pushConstantData: i64*,
+    pushConstantCapacity: int
 ): bool {
     val colorCount = 1 + target.additionalViews.size
     var succeeded = this.transferValid() && target.valid() &&
@@ -4920,14 +4927,30 @@ trusted fun VulkanDevice.renderTargetSubpasses(
         pipelineLayouts.size == pipelineHandles.size &&
         pipelineDepthEnabled.size == pipelineHandles.size &&
         pipelineRequiresBinding.size == pipelineHandles.size &&
-        descriptorSets.size == pipelineHandles.size
+        descriptorSets.size == pipelineHandles.size &&
+        ((pushConstantOffsets.size == 0 &&
+          pushConstantSizes.size == 0 &&
+          pushConstantStageMasks.size == 0 &&
+          pointerIsNull(pushConstantData) && pushConstantCapacity == 0) ||
+         (pushConstantOffsets.size == pipelineHandles.size &&
+          pushConstantSizes.size == pipelineHandles.size &&
+          pushConstantStageMasks.size == pipelineHandles.size &&
+          !pointerIsNull(pushConstantData) && pushConstantCapacity > 0))
+    val hasPushConstants = pushConstantSizes.size > 0
     var pipelineIndex = 0
     while (succeeded && pipelineIndex < pipelineHandles.size) {
         succeeded = pipelineHandles[pipelineIndex] != 0 &&
             pipelineLayouts[pipelineIndex] != 0 &&
             pipelineDepthEnabled[pipelineIndex] == target.hasDepth() &&
             pipelineRequiresBinding[pipelineIndex] ==
-                (descriptorSets[pipelineIndex] != 0)
+                (descriptorSets[pipelineIndex] != 0) &&
+            (!hasPushConstants ||
+             (pushConstantOffsets[pipelineIndex] >= 0 &&
+              pushConstantSizes[pipelineIndex] > 0 &&
+              pushConstantSizes[pipelineIndex] <= 128 &&
+              pushConstantStageMasks[pipelineIndex] != 0 &&
+              pushConstantOffsets[pipelineIndex] <=
+                pushConstantCapacity - pushConstantSizes[pipelineIndex]))
         pipelineIndex = pipelineIndex + 1
     }
     if (succeeded) succeeded = this.beginTransfer()
@@ -4982,6 +5005,17 @@ trusted fun VulkanDevice.renderTargetSubpasses(
                 this.transferCommand.load(),
                 0,
                 pipelineHandles[pipelineIndex]
+            )
+            if (hasPushConstants) vkCmdPushConstants(
+                this.transferCommand.load(),
+                pipelineLayouts[pipelineIndex],
+                pushConstantStageMasks[pipelineIndex],
+                0,
+                pushConstantSizes[pipelineIndex],
+                nativePointerFromAddress(
+                    nativePointerAddress(pushConstantData) +
+                        pushConstantOffsets[pipelineIndex]
+                )
             )
             if (descriptorSets[pipelineIndex] != 0) {
                 this.transferScratch.storeI64(

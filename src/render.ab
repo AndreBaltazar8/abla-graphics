@@ -72,6 +72,39 @@ resource class GraphicsSubpassPipelineSequence(
 
 }
 
+trusted fun GraphicsSubpassPipelineSequence.pushConstants(): GraphicsSubpassPushConstants {
+    val layouts: array<ShaderPushConstantLayout> = []
+    val offsets: array<int> = []
+    val sizes: array<int> = []
+    val stageMasks: array<int> = []
+    var valid = this.valid()
+    var totalSize = 0
+    var pipelineIndex = 0
+    while (valid && pipelineIndex < this.pipelines.size) {
+        val layout = this.pipelines[pipelineIndex].pushConstantLayout
+        valid = layout.valid && layout.size > 0 && layout.stageMask != 0 &&
+            totalSize <= 1024 - layout.size
+        if (valid) {
+            layouts.append(layout)
+            offsets.append(totalSize)
+            sizes.append(layout.size)
+            stageMasks.append(layout.stageMask)
+            totalSize = totalSize + layout.size
+        }
+        pipelineIndex = pipelineIndex + 1
+    }
+    val bytes = bufferBytes(if (valid) totalSize else 0)
+    GraphicsSubpassPushConstants(
+        layouts,
+        offsets,
+        sizes,
+        stageMasks,
+        move(bytes),
+        if (valid) ""
+        else "every subpass pipeline must have valid push constants"
+    )
+}
+
 trusted fun GraphicsApplication.renderPipeline(
     var shader: ShaderPackage,
     vertexLayout: VertexBufferLayout = VertexBufferLayout(),
@@ -639,7 +672,8 @@ trusted fun GraphicsApplication.renderSubpassesToTarget(
             pass,
             false,
             pipelineIndex
-        ) && (this.backend != graphicsBackendVulkan ||
+        ) && pipeline.pushConstantLayout.size == 0 &&
+            (this.backend != graphicsBackendVulkan ||
             pipeline.vulkan.renderPass == pass.vulkan.handle)
         pipelineIndex = pipelineIndex + 1
     }
@@ -686,7 +720,99 @@ trusted fun GraphicsApplication.renderSubpassesToTarget(
             sequence.vulkanDepthEnabled,
             sequence.vulkanRequiresBinding,
             sequence.vulkanDescriptorSets,
-            pass.clearAddress
+            pass.clearAddress,
+            vulkanNoSubpassPushConstants,
+            vulkanNoSubpassPushConstants,
+            vulkanNoSubpassPushConstants,
+            nativeNullPointer(),
+            0
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) succeeded = this.finishRenderTarget(target)
+    succeeded
+}
+
+trusted fun GraphicsApplication.renderPushSubpassesToTarget(
+    var target: GraphicsRenderTarget,
+    sequence: GraphicsSubpassPipelineSequence,
+    constants: GraphicsSubpassPushConstants,
+    pass: GraphicsRenderPass
+): bool {
+    var succeeded = sequence.valid() && constants.valid() && pass.valid() &&
+        sequence.backend == this.backend &&
+        sequence.targetHandle == pass.targetHandle &&
+        sequence.pipelines.size == pass.subpassCount &&
+        constants.subpassCount() == sequence.pipelines.size &&
+        (this.backend != graphicsBackendVulkan ||
+         sequence.renderPassHandle == pass.vulkan.handle)
+    var pipelineIndex = 0
+    while (succeeded && pipelineIndex < sequence.pipelines.size) {
+        val pipeline = sequence.pipelines[pipelineIndex]
+        succeeded = this.renderPassMatchesTarget(
+            target,
+            pipeline,
+            pass,
+            false,
+            pipelineIndex
+        ) && constants.layouts[pipelineIndex].matches(
+            pipeline.pushConstantLayout
+        ) && (this.backend != graphicsBackendVulkan ||
+            pipeline.vulkan.renderPass == pass.vulkan.handle)
+        pipelineIndex = pipelineIndex + 1
+    }
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        pipelineIndex = 0
+        while (succeeded && pipelineIndex < sequence.pipelines.size) {
+            val pipeline = sequence.pipelines[pipelineIndex]
+            succeeded = this.openGl.renderProgramTarget(
+                target.openGl,
+                pipeline.openGl,
+                pass.red,
+                pass.green,
+                pass.blue,
+                pass.alpha,
+                pipeline.raster,
+                pipeline.depth,
+                pipeline.vertexLayout,
+                0,
+                3,
+                0,
+                0,
+                1,
+                pipeline.binding.openGlKinds,
+                pipeline.binding.openGlBindings,
+                pipeline.binding.openGlResources,
+                pipeline.binding.openGlSamplers,
+                0,
+                false,
+                pass.clearAddress,
+                if (pipelineIndex == 0) pass.clearMask else 0,
+                if (pipelineIndex == 0) pass.discardBeforeMask else 0,
+                if (pipelineIndex + 1 == sequence.pipelines.size)
+                    pass.discardAfterMask else 0,
+                constants.bytes.storage.pointerAt(
+                    constants.offsets[pipelineIndex]
+                ),
+                constants.sizes[pipelineIndex]
+            )
+            pipelineIndex = pipelineIndex + 1
+        }
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.renderTargetSubpasses(
+            target.vulkan,
+            pass.vulkan.handle,
+            pass.vulkan.framebuffer,
+            sequence.vulkanHandles,
+            sequence.vulkanLayouts,
+            sequence.vulkanDepthEnabled,
+            sequence.vulkanRequiresBinding,
+            sequence.vulkanDescriptorSets,
+            pass.clearAddress,
+            constants.offsets,
+            constants.sizes,
+            constants.stageMasks,
+            constants.bytes.storage.address,
+            constants.bytes.size
         )
     } else if (succeeded) succeeded = false
     if (succeeded) succeeded = this.finishRenderTarget(target)
