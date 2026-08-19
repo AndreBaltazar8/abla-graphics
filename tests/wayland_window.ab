@@ -34,13 +34,50 @@ fun main: int {
         succeeded = window.pollProtocol(50)
         attempts = attempts + 1
     }
+    val fractionalAvailable = window.connection.global(
+        "wp_fractional_scale_manager_v1"
+    ).valid
+    val fractionalEnabled = if (succeeded)
+        window.enableFractionalScale()
+    else false
+    succeeded = succeeded && fractionalEnabled == fractionalAvailable &&
+        window.connection.valid()
+    attempts = 0
+    while (succeeded && fractionalEnabled &&
+        window.preferredFractionalScale == 0 && attempts < 100) {
+        succeeded = window.pollProtocol(50)
+        attempts = attempts + 1
+    }
+    if (succeeded && fractionalEnabled) succeeded =
+        window.preferredFractionalScale > 0 &&
+        window.preferredFramebufferWidth() > 0 &&
+        window.preferredFramebufferHeight() > 0
+    if (succeeded && !fractionalAvailable) {
+        window.fractionalScaleIdentifier = 999
+        succeeded = window.dispatchFractionalScale(waylandDecodeMessage(
+            waylandPacket(999, 0, waylandU32Payload(180))
+        )) == 1
+        val framebufferEvent = window.nextInputEvent()
+        succeeded = succeeded &&
+            framebufferEvent.kind == windowEventFramebufferResized &&
+            framebufferEvent.first == 1536 &&
+            framebufferEvent.second == 1152 &&
+            framebufferEvent.platformCode == 180
+        window.fractionalScaleIdentifier = 0
+        window.preferredFractionalScale = 0
+    }
     succeeded = succeeded &&
         !window.hasToplevelState(waylandToplevelStateFullscreen) &&
         window.setResizable(false) && window.setResizable(true) &&
-        window.requestClose() &&
-        window.nextInputEvent().kind == windowEventCloseRequested
+        window.requestClose()
+    var closeEvent = window.nextInputEvent()
+    while (closeEvent.happened() &&
+        closeEvent.kind != windowEventCloseRequested) {
+        closeEvent = window.nextInputEvent()
+    }
+    succeeded = succeeded && closeEvent.kind == windowEventCloseRequested
     println(
-        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
+        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
     )
     if (succeeded &&
         window.width > 0 && window.height > 0 &&

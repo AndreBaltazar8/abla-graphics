@@ -25,6 +25,8 @@ val waylandToplevelStateMaximized = 1
 val waylandToplevelStateFullscreen = 2
 val waylandToplevelStateResizing = 3
 val waylandToplevelStateActivated = 4
+val waylandFractionalScaleDenominator = 120
+val waylandMaximumFractionalScale = 7680
 val waylandNanosecondsPerMillisecond = 1000000
 val waylandNanosecondsPerSecond = 1000000000
 val waylandMaximumInteger = 9223372036854775807
@@ -172,6 +174,13 @@ fun waylandContainsState(states: array<int>, state: int): bool {
     }
     found
 }
+
+fun waylandScaledDimension(logical: int, scale: int): int =
+    if (logical > 0 && logical <= 65536 && scale >= 1 &&
+        scale <= waylandMaximumFractionalScale)
+        (logical * scale + waylandFractionalScaleDenominator / 2) /
+            waylandFractionalScaleDenominator
+    else 0
 
 fun waylandU32(value: string, offset: int): int =
     value[offset] + value[offset + 1] * 256 +
@@ -1359,6 +1368,9 @@ resource class WaylandXdgWindow(
     var receivedDescriptor: int,
     var pendingInputEvents: array<WindowEvent>,
     var pendingInputIndex: int,
+    var fractionalScaleManagerIdentifier: int,
+    var fractionalScaleIdentifier: int,
+    var preferredFractionalScale: int,
     var xdgOutputManagerIdentifier: int,
     var xdgOutputManagerVersion: int,
     var outputsEnabled: bool,
@@ -1461,6 +1473,46 @@ resource class WaylandXdgWindow(
         val succeeded = this.valid() && !this.closeRequested &&
             this.enqueueInputEvent(WindowEvent(windowEventCloseRequested))
         if (succeeded) this.closeRequested = true
+        succeeded
+    }
+
+    fun preferredFramebufferWidth(): int = waylandScaledDimension(
+        this.width,
+        if (this.preferredFractionalScale > 0)
+            this.preferredFractionalScale
+        else waylandFractionalScaleDenominator
+    )
+
+    fun preferredFramebufferHeight(): int = waylandScaledDimension(
+        this.height,
+        if (this.preferredFractionalScale > 0)
+            this.preferredFractionalScale
+        else waylandFractionalScaleDenominator
+    )
+
+    fun enableFractionalScale(): bool {
+        var succeeded = this.valid() &&
+            this.fractionalScaleManagerIdentifier == 0 &&
+            this.fractionalScaleIdentifier == 0
+        val manager = if (succeeded) this.connection.bind(
+            "wp_fractional_scale_manager_v1",
+            1
+        ) else WaylandBinding()
+        succeeded = succeeded && manager.valid
+        val identifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        if (succeeded) succeeded = identifier >= 2 && this.connection.send(
+            waylandPacket(
+                manager.identifier,
+                1,
+                waylandU32PairPayload(identifier, this.surfaceIdentifier)
+            )
+        )
+        if (succeeded) {
+            this.fractionalScaleManagerIdentifier = manager.identifier
+            this.fractionalScaleIdentifier = identifier
+        }
         succeeded
     }
 
@@ -2362,6 +2414,32 @@ resource class WaylandXdgWindow(
         result
     }
 
+    fun dispatchFractionalScale(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.fractionalScaleIdentifier &&
+            message.opcode == 0) {
+            val scale = if (message.payload.size == 4)
+                waylandU32(message.payload, 0)
+            else 0
+            result = if (scale >= 1 &&
+                scale <= waylandMaximumFractionalScale) 1 else -1
+            if (result > 0) {
+                this.preferredFractionalScale = scale
+                val framebufferWidth = this.preferredFramebufferWidth()
+                val framebufferHeight = this.preferredFramebufferHeight()
+                result = if (framebufferWidth > 0 && framebufferHeight > 0 &&
+                    this.enqueueInputEvent(WindowEvent(
+                        windowEventFramebufferResized,
+                        framebufferWidth,
+                        framebufferHeight,
+                        "",
+                        scale
+                    ))) 1 else -1
+            }
+        }
+        result
+    }
+
     trusted fun enableOutputs(): bool {
         var succeeded = this.valid() && !this.outputsEnabled &&
             this.outputs.size == 0
@@ -2837,6 +2915,9 @@ resource class WaylandXdgWindow(
             result = this.dispatchOutput(message)
         } else if (this.xdgOutputIndex(message.objectIdentifier) >= 0) {
             result = this.dispatchXdgOutput(message)
+        } else if (message.objectIdentifier ==
+            this.fractionalScaleIdentifier) {
+            result = this.dispatchFractionalScale(message)
         }
         if (result == 0) result = this.dispatchClipboard(message)
         result
@@ -3447,6 +3528,18 @@ resource class WaylandXdgWindow(
                     waylandPacket(this.dataDeviceIdentifier, 2)
                 )
             }
+            if (this.fractionalScaleIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.fractionalScaleIdentifier, 0)
+                )
+            }
+            if (this.fractionalScaleManagerIdentifier >= 2) {
+                waylandWriteAll(
+                    this.connection.descriptor,
+                    waylandPacket(this.fractionalScaleManagerIdentifier, 0)
+                )
+            }
             var outputIndex = 0
             while (outputIndex < this.outputs.size) {
                 val output = this.outputs[outputIndex]
@@ -3621,6 +3714,9 @@ fun waylandXdgWindow(
         nativeByteBuffer(0),
         -1,
         [],
+        0,
+        0,
+        0,
         0,
         0,
         0,

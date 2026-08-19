@@ -1248,7 +1248,12 @@ logical size, fallback name, and description merge into the same immutable
 snapshot and honor the extension's version-two `done` or version-three
 `wl_output.done` atomic boundary. `primaryLogicalX/Y/Width/Height` expose those
 coordinates without conflating them with hardware pixels. Fractional-scale
-surface negotiation and automatic buffer-scale changes remain future work.
+preferences are independently optional: `enableFractionalScale()` binds the
+standard version-one manager when advertised and queues a framebuffer-resized
+event from each preferred numerator over 120. `preferredFramebufferWidth` and
+`preferredFramebufferHeight` use the protocol's half-away rounding rule.
+`wp_viewport` destination setup and automatic buffer replacement remain future
+work, so this does not over-claim complete fractional presentation.
 
 `enableClipboard()` binds `wl_data_device_manager` version three for the
 active seat. `setClipboard(text)` requires a real pointer or keyboard serial,

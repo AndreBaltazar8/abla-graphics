@@ -87,6 +87,12 @@ Updated: 2026-08-19.
   position/size and fallback identity into each immutable snapshot using the
   version-correct atomic `done`; the live logical region is 0,0/1024x768.
   Teardown destroys xdg objects before versioned core-output release.
+- Optional `wp_fractional_scale_manager_v1` support owns one preference object
+  per surface, validates its numerator over 120, computes half-away rounded
+  framebuffer extents, and emits copied framebuffer-resize events. The current
+  Weston gate verifies the capability-missing path leaves the direct connection
+  healthy; deterministic tests cover 1.5x and half-pixel rounding. Viewport
+  destination/buffer replacement remains explicitly separate.
 - Direct Wayland clipboard support binds `wl_data_device_manager` version three,
   records real input serials, owns bounded UTF-8/plain-text sources, tracks
   immutable compositor offers, and transfers at most 1 MiB through close-on-exec
@@ -830,7 +836,7 @@ validity gate unchanged.
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
 - Wayland higher XKB groups/levels, dead-key compose, and input methods,
-  fractional-scale surface negotiation, and Vulkan/EGL presentation
+  fractional-scale viewport/buffer application, and Vulkan/EGL presentation
   integration. The current stable xdg-shell/xdg-output slice has reusable
   one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,
   allocation-stable hot-path wire I/O, continuous callback-driven frames, and

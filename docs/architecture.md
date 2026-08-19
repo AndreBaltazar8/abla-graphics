@@ -62,6 +62,9 @@ snapshot, surface membership, and primary selection; a real compositor gate
 proves removal and rebinding use distinct protocol identifiers. The optional
 xdg-output manager attaches logical position/size and versioned atomic completion
 to each core object, keeping compositor coordinates separate from pixel modes.
+The independent fractional-scale object reports a per-surface numerator over
+120 and emits the preferred framebuffer extent without changing buffers behind
+the application's back.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,
