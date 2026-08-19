@@ -519,6 +519,14 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value+1u; }"]
     ).spirv(shaderStageCompute)
+    val storagePostfixIncrement = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value++; }"]
+    ).spirv(shaderStageCompute)
+    val storagePostfixDecrement = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value--; }"]
+    ).spirv(shaderStageCompute)
     val storageExpandedAddTwo = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ values.value=values.value+2u; }"]
@@ -709,6 +717,10 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint next=values.value+2u; next*=3u; values.value=next; }"]
     ).spirv(shaderStageCompute)
+    val storageLocalPostfixIncrement = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ uint next=values.value; next++; values.value=next; }"]
+    ).spirv(shaderStageCompute)
     val storageBooleanLocalReassignment = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool enabled=values.value>0u; enabled=enabled&&values.value<10u; values.value=enabled?1u:2u; }"]
@@ -748,6 +760,10 @@ fun main: int {
     val invalidBooleanLocalCompound = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool local=true; local&=false; values.value=1u; }"]
+    ).spirv(shaderStageCompute)
+    val invalidBooleanLocalPostfix = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) buffer Values { uint value; } values; void main(){ bool local=true; local++; values.value=1u; }"]
     ).spirv(shaderStageCompute)
     val localOnlyMain = glslPackage(
         [shaderStageCompute],
@@ -1312,6 +1328,13 @@ fun main: int {
         storage77.succeeded && storage77.module.words[64] == 77 &&
         storageIncrement.succeeded && storageIncrement.module.valid() &&
         storageIncrement.module.words.size == 95 &&
+        storagePostfixIncrement.succeeded &&
+        spirvWordsEqual(
+            storagePostfixIncrement.module,
+            storageIncrement.module
+        ) &&
+        storagePostfixDecrement.succeeded &&
+        spirvWordsEqual(storagePostfixDecrement.module, storageSubtract.module) &&
         storageAddAssign.succeeded && storageAddAssign.module.valid() &&
         spirvWordsEqual(
             storageExpandedAddTwo.module,
@@ -1477,6 +1500,11 @@ fun main: int {
             storageLocalReassignment.module,
             storageLocalAliasExpanded.module
         ) &&
+        storageLocalPostfixIncrement.succeeded &&
+        spirvWordsEqual(
+            storageLocalPostfixIncrement.module,
+            storageIncrement.module
+        ) &&
         storageBooleanLocalReassignment.succeeded &&
         storageBooleanLocalReassignment.module.valid() &&
         storageSignedLocal.succeeded && storageSignedLocal.module.valid() &&
@@ -1488,7 +1516,8 @@ fun main: int {
         !duplicateLocal.succeeded && !mismatchedLocalSignedness.succeeded &&
         !invalidLocalBooleanStore.succeeded &&
         !invalidLocalReassignmentType.succeeded &&
-        !invalidBooleanLocalCompound.succeeded && !localOnlyMain.succeeded &&
+        !invalidBooleanLocalCompound.succeeded &&
+        !invalidBooleanLocalPostfix.succeeded && !localOnlyMain.succeeded &&
         !unknownStorageReadMember.succeeded &&
         !mismatchedStorageInstance.succeeded &&
         mismatchedStorageInstance.error != "" &&

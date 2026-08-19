@@ -1455,7 +1455,9 @@ members of that block. A declaration has the form `uint name = expression`,
 the homogeneous block signedness. Locals are declaration-before-use,
 uniquely named values. A later `name = expression` rebinds the local, and
 integer locals accept the same ten compound-assignment operators as block
-members. Their token stores capture or replace the current result ID and
+members. A standalone integer `name++`, `name--`, `block.member++`, or
+`block.member--` statement lowers to the corresponding add/subtract-by-one
+token chain. Their token stores capture or replace the current result ID and
 subsequent reads reuse it directly, so they emit no SPIR-V function variable,
 load, or store. This avoids local-memory traffic while preserving snapshot
 semantics for previously evaluated expressions and member reads.
@@ -1475,7 +1477,8 @@ multiplicative through conditional selection. Signed right shift emits
 arithmetic shift while unsigned right shift emits logical shift. Unary `+`,
 signed symbolic `-`, integer `~`, and Boolean `!` bind at the primary-expression
 level; negative numeric literals preserve their direct constant representation,
-while unsigned symbolic negation and `++`/`--` are rejected. The parser emits a
+while unsigned symbolic negation and side-effecting `++`/`--` inside an
+expression are rejected. The parser emits a
 bounded postfix program of fewer than 128 tokens. The Abla emitter tracks integer
 and Boolean stack types, emits `OpTypeBool`, typed comparison/logical SSA values,
 and `OpSelect`, and requires the final stored value to remain an integer.

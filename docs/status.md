@@ -376,7 +376,8 @@ Updated: 2026-08-19.
   negation, and right-associative integer ternary selection. Tests prove the
   GLSL precedence order,
   signed-arithmetic versus unsigned-logical right shift, direct negative-literal
-  constants, unary arity, and increment/decrement rejection. The bounded
+  constants, unary arity, and side-effecting increment/decrement expression
+  rejection. The bounded
   postfix form emits deterministic typed SSA operations plus `OpSelect`; a live
   override in an arithmetic/comparison/logical/select chain produces checked
   buffer output on OpenGL and Vulkan rather than merely proving pipeline
@@ -389,8 +390,10 @@ Updated: 2026-08-19.
   Boolean arithmetic remains a checked type failure.
   All ten integer compound-assignment operators lower through the same typed
   token program. Tests prove `value += 2u` is byte-identical to its expanded
-  form and cover shift/bitwise compound opcodes; increment/decrement and logical
-  assignment remain rejected.
+  form and cover shift/bitwise compound opcodes. Standalone postfix `++` and
+  `--` statements on block members lower to the same add/subtract-by-one chain
+  and are byte-identical to their expanded forms; logical assignment remains
+  rejected.
   A storage `main` now accepts a bounded sequence of up to 64 member assignments.
   Store tokens consume each typed postfix result before the next statement,
   retaining byte-identical output for every previous one-statement module. A
@@ -402,17 +405,17 @@ Updated: 2026-08-19.
   locals within the same 64-statement bound. Integer declarations must match
   the homogeneous block signedness; names are unique and initializers are type
   checked. Simple reassignment rebinds any local, and integer locals support all
-  ten compound assignments. Local stores capture or replace an SSA result ID
-  and local loads reuse it, so no SPIR-V function variable or memory instruction
-  is emitted. Tests prove a single-use local is byte-identical to its inlined
-  expression, a captured
+  ten compound assignments plus standalone postfix increment/decrement. Local
+  stores capture or replace an SSA result ID and local loads reuse it, so no
+  SPIR-V function variable or memory instruction is emitted. Tests prove a
+  single-use local is byte-identical to its inlined expression, a captured
   member retains its value after a later buffer store, and three locals still
   produce only the one requested GPU store. A local followed by `*=` is also
   byte-identical to its fully inlined form. Forward references, duplicate names,
   signedness mismatch, Boolean/integer reassignment, Boolean compound assignment,
   and local-only programs are checked failures. The live specialized shader now
-  computes and rebinds its integer and Boolean intermediates before producing
-  the same checked `tail = 6` and `output = 7` on OpenGL and Vulkan.
+  increments, computes, and rebinds its integer and Boolean intermediates before
+  producing the same checked `tail = 6` and `output = 7` on OpenGL and Vulkan.
   The storage block may contain up to 64 homogeneous signed or unsigned scalar
   members. Block, instance, and target-member names come from the parsed source
   rather than a naming convention. The selected LHS member receives a
