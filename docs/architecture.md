@@ -26,7 +26,10 @@ The current Wayland layer owns the AF_UNIX transport, core wire codec, display
 registry bootstrap, synchronization, and global binding directly. It also
 constructs an affine `wl_surface`/stable `xdg_surface`/`xdg_toplevel` object
 tree, handles the version-one shell event set, acknowledges the initial
-configure, and destroys that tree in protocol order. Shared pixel buffers,
+configure, and destroys that tree in protocol order. The first content path
+marshals Linux x86-64 `sendmsg`/`SCM_RIGHTS` in Abla, maps an affine
+`memfd_create` allocation, creates `wl_shm_pool`/`wl_buffer` objects, and uses
+buffer-coordinate damage plus frame callbacks. Reusable double buffering,
 input, clipboard, outputs, and driver presentation build on this object
 foundation in later slices. No `libwayland-client` ABI participates in this
 path.

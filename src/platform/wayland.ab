@@ -92,6 +92,60 @@ fun waylandU32PairPayload(first: int, second: int): string {
     payload.adoptString(8)
 }
 
+fun waylandU32ArrayPayload(values: array<int>): string {
+    var result = ""
+    if (values.size <= (waylandMaximumMessageBytes - 8) / 4) {
+        val payload = nativeByteBuffer(values.size * 4 + 1)
+        var index = 0
+        while (index < values.size) {
+            waylandStoreU32(payload, index * 4, values[index])
+            index = index + 1
+        }
+        result = payload.adoptString(values.size * 4)
+    }
+    result
+}
+
+// Linux x86-64 sendmsg with one SCM_RIGHTS descriptor. Wayland file
+// descriptor arguments travel out-of-band and consume no wire payload bytes.
+fun waylandSendDescriptor(
+    socketDescriptor: int,
+    packet: string,
+    passedDescriptor: int
+): bool {
+    var succeeded = socketDescriptor >= 0 && packet != "" &&
+        passedDescriptor >= 0
+    var sent = -1
+    if (succeeded) {
+        // iovec[0..15], cmsghdr/control[16..39], msghdr[40..95].
+        val workspace = nativeByteBuffer(96)
+        val address = nativePointerAddress(workspace.address)
+        workspace.storeI64(0, nativeCStringAddress(packet))
+        workspace.storeI64(8, packet.size)
+        workspace.storeI64(16, 20)
+        workspace.storeI64(24, 4294967297)
+        workspace.storeI64(32, passedDescriptor)
+        workspace.storeI64(40, 0)
+        workspace.storeI64(48, 0)
+        workspace.storeI64(56, address)
+        workspace.storeI64(64, 1)
+        workspace.storeI64(72, address + 16)
+        workspace.storeI64(80, 24)
+        workspace.storeI64(88, 0)
+        sent = linuxSyscall3(46, socketDescriptor, address + 40, 16384)
+        while (sent == -4) {
+            sent = linuxSyscall3(46, socketDescriptor, address + 40, 16384)
+        }
+        workspace.close()
+        succeeded = sent > 0 && sent <= packet.size
+    }
+    if (succeeded && sent < packet.size) succeeded = waylandWriteAll(
+        socketDescriptor,
+        packet.slice(sent, packet.size)
+    )
+    succeeded
+}
+
 fun waylandStringPayload(value: string): string {
     var valid = value.size <= 4096
     var index = 0
@@ -548,7 +602,19 @@ resource class WaylandXdgWindow(
     var closeRequested: bool,
     var lastConfigureSerial: int,
     var title: string,
-    var appId: string
+    var appId: string,
+    var shmIdentifier: int,
+    var bufferIdentifier: int,
+    var mappedAddress: int,
+    var mappedLength: int,
+    var mappedBytes: NativeByteBuffer,
+    var bufferWidth: int,
+    var bufferHeight: int,
+    var bufferStride: int,
+    var frameCallbackIdentifier: int,
+    var bufferBusy: bool,
+    var frameComplete: bool,
+    var shmFormats: array<int>
 ) {
     fun valid(): bool = this.connection.valid() &&
         this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
@@ -573,6 +639,201 @@ resource class WaylandXdgWindow(
         ))
         if (succeeded) this.appId = value
         succeeded
+    }
+
+    fun createSharedBuffer(width: int, height: int): bool {
+        var length = 0
+        var succeeded = this.valid() && this.bufferIdentifier == 0 &&
+            this.mappedAddress == 0 && width > 0 && width <= 16384 &&
+            height > 0 && height <= 16384 &&
+            width <= 268435455 / height
+        if (succeeded) length = width * height * 4
+        val sharedMemory = if (succeeded)
+            this.connection.bind("wl_shm", 1)
+        else WaylandBinding()
+        succeeded = succeeded && sharedMemory.valid
+        var descriptor = -1
+        var address = 0
+        var poolIdentifier = 0
+        var bufferIdentifier = 0
+        if (succeeded) {
+            descriptor = linuxSyscall2(
+                319,
+                nativeCStringAddress("abla-wayland-shm"),
+                1
+            )
+            succeeded = descriptor >= 0 &&
+                linuxSyscall2(77, descriptor, length) == 0
+        }
+        if (succeeded) {
+            address = linuxSyscall6(9, 0, length, 3, 1, descriptor, 0)
+            succeeded = address > 0
+        }
+        if (succeeded) {
+            poolIdentifier = this.connection.allocateIdentifier()
+            bufferIdentifier = this.connection.allocateIdentifier()
+            succeeded = poolIdentifier >= 2 && bufferIdentifier >= 2
+        }
+        if (succeeded) succeeded = waylandSendDescriptor(
+            this.connection.descriptor,
+            waylandPacket(
+                sharedMemory.identifier,
+                0,
+                waylandU32ArrayPayload([poolIdentifier, length])
+            ),
+            descriptor
+        )
+        if (!succeeded && !this.connection.failed) this.connection.fail(
+            "Wayland shared-memory pool creation failed"
+        )
+        if (succeeded) succeeded = this.connection.send(waylandPacket(
+            poolIdentifier,
+            0,
+            waylandU32ArrayPayload([
+                bufferIdentifier,
+                0,
+                width,
+                height,
+                width * 4,
+                1
+            ])
+        ))
+        if (poolIdentifier >= 2 && this.connection.descriptor >= 0) {
+            val destroyed = waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(poolIdentifier, 1)
+            )
+            if (!destroyed) succeeded = false
+        }
+        if (descriptor >= 0) linuxSyscall1(3, descriptor)
+        if (succeeded) {
+            this.shmIdentifier = sharedMemory.identifier
+            this.bufferIdentifier = bufferIdentifier
+            this.mappedAddress = address
+            this.mappedLength = length
+            this.mappedBytes = NativeByteBuffer(
+                nativePointerFromAddress(address),
+                length,
+                false
+            )
+            this.bufferWidth = width
+            this.bufferHeight = height
+            this.bufferStride = width * 4
+        } else if (address > 0) linuxSyscall2(11, address, length)
+        succeeded
+    }
+
+    trusted fun setSharedPixel(
+        x: int,
+        y: int,
+        red: int,
+        green: int,
+        blue: int
+    ): bool {
+        val valid = this.mappedAddress > 0 &&
+            this.mappedLength == this.bufferStride * this.bufferHeight &&
+            x >= 0 && x < this.bufferWidth &&
+            y >= 0 && y < this.bufferHeight &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && !this.bufferBusy
+        if (valid) {
+            val offset = y * this.bufferStride + x * 4
+            this.mappedBytes.store(offset, blue)
+            this.mappedBytes.store(offset + 1, green)
+            this.mappedBytes.store(offset + 2, red)
+            this.mappedBytes.store(offset + 3, 255)
+        }
+        valid
+    }
+
+    trusted fun fillSharedRect(
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        red: int,
+        green: int,
+        blue: int
+    ): bool {
+        val valid = this.mappedAddress > 0 && !this.mappedBytes.closed &&
+            this.mappedLength == this.bufferStride * this.bufferHeight &&
+            x >= 0 && y >= 0 && width >= 0 && height >= 0 &&
+            x + width <= this.bufferWidth &&
+            y + height <= this.bufferHeight &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && !this.bufferBusy
+        var row = 0
+        while (valid && row < height) {
+            var column = 0
+            var offset = (y + row) * this.bufferStride + x * 4
+            while (column < width) {
+                this.mappedBytes.store(offset, blue)
+                this.mappedBytes.store(offset + 1, green)
+                this.mappedBytes.store(offset + 2, red)
+                this.mappedBytes.store(offset + 3, 255)
+                offset = offset + 4
+                column = column + 1
+            }
+            row = row + 1
+        }
+        valid
+    }
+
+    trusted fun clearSharedPixels(red: int, green: int, blue: int): bool =
+        this.fillSharedRect(
+            0,
+            0,
+            this.bufferWidth,
+            this.bufferHeight,
+            red,
+            green,
+            blue
+        )
+
+    fun presentSharedPixels(): bool {
+        val callbackIdentifier = this.connection.allocateIdentifier()
+        var succeeded = this.valid() && this.bufferIdentifier >= 2 &&
+            this.mappedAddress > 0 && !this.bufferBusy &&
+            callbackIdentifier >= 2 && this.connection.send(
+                waylandNewIdentifierRequest(
+                    this.surfaceIdentifier,
+                    3,
+                    callbackIdentifier
+                )
+            )
+        if (succeeded) succeeded = this.connection.send(waylandPacket(
+            this.surfaceIdentifier,
+            1,
+            waylandU32ArrayPayload([this.bufferIdentifier, 0, 0])
+        ))
+        if (succeeded) succeeded = this.connection.send(waylandPacket(
+            this.surfaceIdentifier,
+            9,
+            waylandU32ArrayPayload([
+                0,
+                0,
+                this.bufferWidth,
+                this.bufferHeight
+            ])
+        ))
+        if (succeeded) succeeded = this.commit()
+        if (succeeded) {
+            this.frameCallbackIdentifier = callbackIdentifier
+            this.frameComplete = false
+            this.bufferBusy = true
+        }
+        succeeded
+    }
+
+    fun waitFrame(): bool {
+        var succeeded = this.connection.valid() &&
+            this.frameCallbackIdentifier >= 2
+        var messages = 0
+        while (succeeded && !this.frameComplete && messages < 16384) {
+            succeeded = this.dispatch(this.connection.read())
+            messages = messages + 1
+        }
+        succeeded && this.frameComplete
     }
 
     fun dispatch(message: WaylandMessage): bool {
@@ -618,6 +879,28 @@ resource class WaylandXdgWindow(
             this.toplevelIdentifier && message.opcode == 1) {
             succeeded = message.payload.size == 0
             if (succeeded) this.closeRequested = true
+        } else if (core == 0 && message.objectIdentifier ==
+            this.shmIdentifier && message.opcode == 0) {
+            succeeded = message.payload.size == 4 &&
+                this.shmFormats.size < 4096
+            if (succeeded) this.shmFormats.append(
+                waylandU32(message.payload, 0)
+            )
+        } else if (core == 0 && message.objectIdentifier ==
+            this.bufferIdentifier && message.opcode == 0) {
+            succeeded = message.payload.size == 0
+            if (succeeded) this.bufferBusy = false
+        } else if (core == 0 && message.objectIdentifier ==
+            this.surfaceIdentifier &&
+            (message.opcode == 0 || message.opcode == 1)) {
+            succeeded = message.payload.size == 4
+        } else if (core == 0 && message.objectIdentifier ==
+            this.frameCallbackIdentifier && message.opcode == 0) {
+            succeeded = message.payload.size == 4
+            if (succeeded) {
+                this.frameComplete = true
+                this.frameCallbackIdentifier = 0
+            }
         } else if (core == 0) succeeded = false
         if (!succeeded && !this.connection.failed) this.connection.fail(
             "Unknown or malformed Wayland xdg-shell event"
@@ -645,6 +928,10 @@ resource class WaylandXdgWindow(
 
     fun drop(): void {
         if (this.connection.descriptor >= 0) {
+            if (this.bufferIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.bufferIdentifier, 0)
+            )
             if (this.toplevelIdentifier >= 2) waylandWriteAll(
                 this.connection.descriptor,
                 waylandPacket(this.toplevelIdentifier, 0)
@@ -662,6 +949,12 @@ resource class WaylandXdgWindow(
                 waylandPacket(this.wmBaseIdentifier, 0)
             )
         }
+        if (this.mappedAddress > 0 && this.mappedLength > 0) {
+            this.mappedBytes.closed = true
+            linuxSyscall2(11, this.mappedAddress, this.mappedLength)
+            this.mappedAddress = 0
+            this.mappedLength = 0
+        } else this.mappedBytes.close()
         this.connection.drop()
         return
     }
@@ -718,7 +1011,19 @@ fun waylandXdgWindow(
         false,
         0,
         "",
-        ""
+        "",
+        0,
+        0,
+        0,
+        0,
+        nativeByteBuffer(0),
+        0,
+        0,
+        0,
+        0,
+        false,
+        false,
+        []
     )
     if (succeeded) succeeded = window.setTitle(title)
     if (succeeded) succeeded = window.setAppId(appId)

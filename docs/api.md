@@ -1149,14 +1149,33 @@ surface serial configure/ack, and close intent. `setTitle()`, `setAppId()`, and
 `commit()` remain available after construction; callers can feed subsequent
 `connection.read()` values through `dispatch()`.
 
-`WaylandXdgWindow` is affine. Its drop path destroys the toplevel role before
-the xdg surface and core surface, then destroys the shell binding and closes
+`WaylandXdgWindow` is affine. Its drop path destroys any shared buffer, then
+the toplevel role, xdg surface, core surface, and shell binding before closing
 the connection. Deterministic codec tests cover strings, object-ID pairs,
 state arrays, and malformed inputs. Live headless-Weston gates separately prove
 registry binding and the real xdg-shell configure/ack handshake without
-linking `libwayland-client`. This is a real shell-window object foundation, but
-it does not yet attach a shared pixel buffer or provide input, clipboard,
-output discovery, or Vulkan/EGL Wayland presentation.
+linking `libwayland-client`. Input, clipboard, output discovery, and
+Vulkan/EGL Wayland presentation are not yet provided.
+
+`createSharedBuffer(width, height)` adds the first pure-Abla content path. It
+binds `wl_shm` version one, creates and sizes a close-on-exec Linux `memfd`,
+maps it read/write and shared, and transfers its descriptor with an explicitly
+marshalled x86-64 `sendmsg`/`SCM_RIGHTS` control message. It then creates one
+XRGB8888 `wl_buffer`, destroys the temporary pool object, and closes the local
+descriptor while retaining the affine mapping. `setSharedPixel()`,
+`fillSharedRect()`, and `clearSharedPixels()` write B,G,R,X bytes with checked
+bounds. `presentSharedPixels()` requests a frame callback, attaches the
+buffer, issues buffer-coordinate damage, and commits; `waitFrame()` continues
+strict dispatch through the compositor's completion event.
+
+The mapping is unmapped during window teardown and writes are rejected while
+`bufferBusy` says the compositor owns the buffer. A `wl_buffer.release` event
+clears that state. This first content slice owns one buffer; production
+animation still needs a bounded two-or-three-buffer ring so rendering can
+continue while another buffer is scanned out. The live gate uses Weston's
+Pixman renderer, waits for a real frame callback, and captures a deterministic
+1024x768 compositor PNG in `build/tests/wayland_pixels.png` for visual
+inspection.
 
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,

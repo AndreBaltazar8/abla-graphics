@@ -20,7 +20,8 @@ trap cleanup EXIT
 mkdir -p "$output_directory"
 chmod 700 "$wayland_runtime"
 
-for sample in x11-window wayland-info wayland-window vulkan-info vulkan-surface headless-opengl \
+for sample in x11-window wayland-info wayland-window wayland-pixels \
+    vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \
     common-textured indexed-textured-cube render-to-texture \
@@ -34,6 +35,9 @@ done
 
 XDG_RUNTIME_DIR="$wayland_runtime" weston \
     --backend=headless-backend.so \
+    --renderer=pixman \
+    --width=1024 \
+    --height=768 \
     --socket=wayland-abla-samples \
     --idle-time=0 \
     --log="$output_directory/weston-samples.log" &
@@ -48,6 +52,8 @@ XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
     "$output_directory/wayland-info"
 XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
     timeout 10s "$output_directory/wayland-window"
+XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
+    timeout 10s "$output_directory/wayland-pixels"
 
 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/x11-window"

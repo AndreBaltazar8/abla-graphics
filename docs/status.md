@@ -44,8 +44,14 @@ Updated: 2026-08-19.
   affine `wl_surface`, `xdg_surface`, and `xdg_toplevel` objects, sends title
   and application ID, commits the initial bufferless surface, consumes the
   toplevel size/state sequence, acknowledges the surface configure serial, and
-  tears down in protocol order. Ping/pong and close-intent dispatch are strict;
-  the whole path uses no libwayland, GLFW, or SDL.
+  tears down in protocol order. A third client marshals Linux x86-64
+  `sendmsg`/`SCM_RIGHTS`, creates and maps an affine close-on-exec `memfd`,
+  creates `wl_shm_pool` and XRGB8888 `wl_buffer` objects, fills a checked
+  checkerboard through reusable rectangle writes, attaches/damages/commits it,
+  and waits for a real frame callback. A test-only 1024x768 Pixman Weston run
+  captures the visibly rendered window to `build/tests/wayland_pixels.png`.
+  Ping/pong, buffer release, surface enter/leave, and close-intent dispatch are
+  strict; the whole path uses no libwayland, GLFW, or SDL.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
@@ -776,10 +782,11 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland shared-buffer mapping, reusable frame callbacks, input, clipboard,
-  output, and Vulkan/EGL presentation integration; the current stable
-  xdg-shell slice constructs and configures a real toplevel but deliberately
-  attaches no content buffer yet. Windows and macOS platform modules.
+- Wayland reusable double/triple buffering, continuous frame scheduling,
+  input, clipboard, output, and Vulkan/EGL presentation integration. The
+  current stable xdg-shell slice attaches one real affine XRGB8888 shared
+  buffer, tracks compositor ownership, and completes one frame. Windows and
+  macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional

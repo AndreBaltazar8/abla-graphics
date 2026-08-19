@@ -1,0 +1,41 @@
+import "../src/platform/wayland.ab"
+import "abla/sys/linux/process"
+
+trusted fun drawWaylandTestFrame(var window: WaylandXdgWindow): bool {
+    var succeeded = window.clearSharedPixels(16, 24, 40)
+    var y = 40
+    while (succeeded && y < 160) {
+        var x = 60
+        while (x < 260) {
+            val alternate = ((x / 20) + (y / 20)) & 1
+            succeeded = window.fillSharedRect(
+                x,
+                y,
+                20,
+                20,
+                if (alternate == 0) 38 else 234,
+                if (alternate == 0) 198 else 88,
+                if (alternate == 0) 218 else 122
+            )
+            x = x + 20
+        }
+        y = y + 20
+    }
+    succeeded
+}
+
+trusted fun main: int {
+    val window = waylandXdgWindow(
+        "Abla Graphics pixels",
+        "io.abla.graphics.pixels",
+        320,
+        200
+    )
+    var succeeded = window.valid() && window.createSharedBuffer(320, 200)
+    if (succeeded) succeeded = drawWaylandTestFrame(window)
+    if (succeeded) succeeded = window.presentSharedPixels()
+    if (succeeded) succeeded = window.waitFrame()
+    if (succeeded) linuxSleepMillisecondsChecked(1500)
+    if (succeeded && window.frameComplete && window.mappedLength == 256000 &&
+        window.bufferWidth == 320 && window.bufferHeight == 200) 42 else 1
+}
