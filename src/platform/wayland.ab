@@ -1576,7 +1576,9 @@ resource class WaylandXdgWindow(
     var bufferStride: int,
     var frameCallbackIdentifier: int,
     var frameComplete: bool,
-    var shmFormats: array<int>
+    var shmFormats: array<int>,
+    var bufferScale: int,
+    var bufferTransform: int
 ) {
     fun valid(): bool = this.connection.valid() &&
         this.compositorIdentifier >= 2 && this.wmBaseIdentifier >= 2 &&
@@ -1673,6 +1675,43 @@ resource class WaylandXdgWindow(
             this.preferredFractionalScale
         else waylandFractionalScaleDenominator
     )
+
+    fun bufferTransformRotated(): bool =
+        this.bufferTransform == 1 || this.bufferTransform == 3 ||
+        this.bufferTransform == 5 || this.bufferTransform == 7
+
+    fun bufferSurfaceWidth(): int = if (this.bufferScale > 0)
+        (if (this.bufferTransformRotated())
+            this.bufferHeight else this.bufferWidth) / this.bufferScale
+    else 0
+
+    fun bufferSurfaceHeight(): int = if (this.bufferScale > 0)
+        (if (this.bufferTransformRotated())
+            this.bufferWidth else this.bufferHeight) / this.bufferScale
+    else 0
+
+    fun setBufferScale(scale: int): bool {
+        val succeeded = this.valid() && scale > 0 &&
+            scale <= 2147483647 &&
+            this.connection.send(waylandPacket(
+                this.surfaceIdentifier,
+                8,
+                waylandU32Payload(scale)
+            ))
+        if (succeeded) this.bufferScale = scale
+        succeeded
+    }
+
+    fun setBufferTransform(transform: int): bool {
+        val succeeded = this.valid() && transform >= 0 && transform <= 7 &&
+            this.connection.send(waylandPacket(
+                this.surfaceIdentifier,
+                7,
+                waylandU32Payload(transform)
+            ))
+        if (succeeded) this.bufferTransform = transform
+        succeeded
+    }
 
     fun enableFractionalScale(): bool {
         var succeeded = this.valid() &&
@@ -4434,6 +4473,11 @@ resource class WaylandXdgWindow(
         var succeeded = this.valid() && this.sharedBufferAvailable() &&
             this.frameCallbackIdentifier == 0 &&
             this.bufferIdentifiers[index] >= 2 && this.mappedAddress > 0 &&
+            this.bufferScale > 0 &&
+            (this.bufferWidth / this.bufferScale) * this.bufferScale ==
+                this.bufferWidth &&
+            (this.bufferHeight / this.bufferScale) * this.bufferScale ==
+                this.bufferHeight &&
             callbackIdentifier >= 2 && !this.wireScratch.closed &&
             this.wireScratch.capacity >= 64
         if (succeeded) {
@@ -5126,7 +5170,9 @@ fun waylandXdgWindow(
         0,
         0,
         false,
-        []
+        [],
+        1,
+        0
     )
     if (succeeded) succeeded = window.setTitle(title)
     if (succeeded) succeeded = window.setAppId(appId)

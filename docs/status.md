@@ -130,6 +130,11 @@ Updated: 2026-08-19.
   destination through a 1024x768 configure, rejects malformed reset/value
   tuples, then unsets and commits both states. Physical shared-buffer
   allocation/replacement remains explicit.
+- Core Wayland surface state stages validated integer buffer scale and all
+  eight output transforms directly. Rotated logical dimensions swap axes,
+  shared-buffer presentation rejects non-divisible scale inputs locally, and
+  the live Weston gate accepts scale-two/90-degree commits followed by an exact
+  normal/scale-one restoration before content presentation.
 - Optional `zxdg_decoration_manager_v1` support owns one decoration object
   before content attachment, distinguishes preferred from effective mode, and
   waits for both decoration and xdg-surface configure boundaries. The current

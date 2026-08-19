@@ -89,6 +89,11 @@ xdg-decoration object is created before content attachment and keeps requested
 policy separate from the compositor's configured client/server mode; its
 configure is paired with the following xdg-surface serial before the method
 returns.
+Core `wl_surface` scale and transform remain separate from both extensions.
+Validated versioned requests stage a positive integer scale and one of the
+eight output transforms for the next commit; transformed buffer dimensions
+are exposed explicitly, and attachment rejects dimensions that the compositor
+would reject for not being integer multiples of the active scale.
 The idle-inhibit manager similarly owns a replaceable per-surface inhibitor,
 keeping application policy explicit without background services.
 

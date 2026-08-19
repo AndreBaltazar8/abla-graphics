@@ -44,6 +44,16 @@ fun main: int {
         window.decorationMode = 0
         window.decorationConfigured = false
     }
+    val surfaceStatePassed = succeeded &&
+        !window.setBufferScale(0) && !window.setBufferScale(2147483648) &&
+        !window.setBufferTransform(-1) && !window.setBufferTransform(8) &&
+        window.setBufferScale(2) && window.bufferScale == 2 &&
+        window.setBufferTransform(1) && window.bufferTransform == 1 &&
+        window.bufferTransformRotated() && window.commit() &&
+        window.setBufferScale(1) && window.setBufferTransform(0) &&
+        !window.bufferTransformRotated() && window.commit() &&
+        window.connection.valid()
+    succeeded = succeeded && surfaceStatePassed
     val viewporterAvailable = window.connection.global(
         "wp_viewporter"
     ).valid
@@ -58,6 +68,8 @@ fun main: int {
         window.viewportSourceSet()
     succeeded = succeeded &&
         window.createSharedBuffers(bufferWidth, bufferHeight, 2) &&
+        window.bufferSurfaceWidth() == bufferWidth &&
+        window.bufferSurfaceHeight() == bufferHeight &&
         window.clearSharedPixels(32, 48, 72) &&
         window.presentSharedPixels() && window.waitFrame()
     val firstSerial = window.lastConfigureSerial
@@ -146,7 +158,7 @@ fun main: int {
     }
     succeeded = succeeded && closeEvent.kind == windowEventCloseRequested
     println(
-        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} buffer=${window.bufferWidth}x${window.bufferHeight} idle=$idleInhibitAvailable/$idleInhibitEnabled/${window.idleInhibited} decoration=$decorationAvailable/$decorationEnabled/${window.decorationMode} viewport=$viewporterAvailable/$viewportEnabled/${window.viewportDestinationWidth}x${window.viewportDestinationHeight}/${window.viewportSourceWidthFixed}x${window.viewportSourceHeightFixed} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
+        "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} buffer=${window.bufferWidth}x${window.bufferHeight} surfaceState=$surfaceStatePassed/${window.bufferScale}/${window.bufferTransform}/${window.bufferSurfaceWidth()}x${window.bufferSurfaceHeight()} idle=$idleInhibitAvailable/$idleInhibitEnabled/${window.idleInhibited} decoration=$decorationAvailable/$decorationEnabled/${window.decorationMode} viewport=$viewporterAvailable/$viewportEnabled/${window.viewportDestinationWidth}x${window.viewportDestinationHeight}/${window.viewportSourceWidthFixed}x${window.viewportSourceHeightFixed} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
     )
     if (succeeded &&
         window.width > 0 && window.height > 0 &&

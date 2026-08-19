@@ -1169,6 +1169,17 @@ bounds. `presentSharedPixels()` requests a frame callback, attaches the
 buffer, issues buffer-coordinate damage, and commits; `waitFrame()` continues
 strict dispatch through the compositor's completion event.
 
+`setBufferScale(scale)` and `setBufferTransform(transform)` marshal the core
+version-three/version-two `wl_surface` requests and stage their state for the
+next `commit()` or pixel presentation. Scale accepts the positive signed wire
+range and transform the eight `wl_output.transform` values. `bufferSurfaceWidth()`
+and `bufferSurfaceHeight()` apply rotation and scale to the owned buffer
+dimensions; 90/270-degree and flipped 90/270-degree transforms swap axes.
+Presentation rejects buffers whose dimensions are not integer multiples of
+the active scale before sending an attachment that would trigger a compositor
+protocol error. These values are independent from fractional preferred scale
+and viewporter source/destination policy.
+
 `createSharedBuffers(width, height, count = 3)` provides the sustained-frame
 path for one, two, or three buffers. All slots occupy fixed offsets in one
 mapping and one temporary pool. `acquireSharedBuffer()` performs a bounded
