@@ -341,7 +341,8 @@ Updated: 2026-08-19.
   binding reflection including declaration types/names, duplicate location and
   binding rejection, cross-stage binding compatibility, adjacent raster-stage
   missing/type-mismatched interface rejection, fixed/unsized declaration array
-  extents, ordered interface-block members, checked push-constant blocks,
+  extents, ordered interface-block members including comma-separated member
+  declarators and their rejection cases, checked push-constant blocks,
   typed scalar specialization constants, checked compute workgroup
   sizes/defaults and specialized dimension IDs, and compile-time rejection of
   invalid stage names. The surfaced triangle is compiled from this package
@@ -594,8 +595,9 @@ three rejection paths are executable tests.
   location/set/binding declaration, interface-block member subset, and
   cross-stage compatibility slice, push-constant reflection, and scalar
   specialization-constant reflection. It does not yet discover modules from
-  filesystem/package search paths or parse nested structures, multiple declarators, general
-  declarations, composite constants, or expressions. Explicit member layout
+  filesystem/package search paths or parse nested structures, general
+  top-level multiple declarators, general declarations, composite constants,
+  or expressions. Explicit member layout
   metadata is reflected but not yet converted into compiler-verified host
   structure offsets.
   Reflected push constants and general scalar specialization constants are not

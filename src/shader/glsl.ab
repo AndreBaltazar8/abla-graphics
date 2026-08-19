@@ -729,30 +729,47 @@ fun glslParseBlock(source: string, begin: int): GlslBlock {
                 }
                 attempts = attempts + 1
             }
-            val member = glslReadName(source, index)
-            val arraySize = glslArraySizeAfterName(source, member.next)
-            index = glslSkipTrivia(source, arraySize.next)
-            valid = valid && type.text != "" && member.text != "" &&
-                arraySize.valid && index < source.size &&
-                source[index] == 59
-            var duplicate = false
-            var memberIndex = 0
-            while (valid && !duplicate && memberIndex < members.size) {
-                duplicate = members[memberIndex].name == member.text
-                memberIndex = memberIndex + 1
+            var declarationDone = false
+            var declarationCount = 0
+            while (valid && !declarationDone && index < source.size) {
+                val member = glslReadName(source, index)
+                val arraySize = glslArraySizeAfterName(
+                    source,
+                    member.next
+                )
+                index = glslSkipTrivia(source, arraySize.next)
+                valid = type.text != "" && member.text != "" &&
+                    arraySize.valid
+                var duplicate = false
+                var memberIndex = 0
+                while (valid && !duplicate && memberIndex < members.size) {
+                    duplicate = members[memberIndex].name == member.text
+                    memberIndex = memberIndex + 1
+                }
+                valid = valid && !duplicate
+                if (valid) {
+                    members.append(ShaderBlockMember(
+                        type.text,
+                        member.text,
+                        arraySize.value,
+                        memberLayout.offset,
+                        memberLayout.align,
+                        memberLayout.rowMajor,
+                        memberLayout.columnMajor
+                    ))
+                    declarationCount = declarationCount + 1
+                }
+                if (valid && index < source.size && source[index] == 44) {
+                    index = glslSkipTrivia(source, index + 1)
+                } else if (valid && index < source.size &&
+                    source[index] == 59) {
+                    index = index + 1
+                    declarationDone = true
+                } else valid = false
             }
-            valid = valid && !duplicate
-            if (valid) {
-                members.append(ShaderBlockMember(
-                    type.text,
-                    member.text,
-                    arraySize.value,
-                    memberLayout.offset,
-                    memberLayout.align,
-                    memberLayout.rowMajor,
-                    memberLayout.columnMajor
-                ))
-                index = index + 1
+            if (valid && declarationCount > 1 &&
+                (memberLayout.offset >= 0 || memberLayout.align >= 0)) {
+                valid = false
             }
         }
     }

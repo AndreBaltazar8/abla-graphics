@@ -180,6 +180,25 @@ fun main: int {
             "layout(std140,set=2,binding=3) uniform Camera { highp mat4 viewProjection; vec4 eye[2]; } camera[2]; void main() {}"
         ]
     )
+    val multipleBlockMembers = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "layout(binding=6) uniform Material { vec4 color, weights[2]; layout(row_major) mat4 model, previousModel; } material; void main() {}",
+            "layout(binding=6) uniform Material { vec4 color, weights[2]; layout(row_major) mat4 model, previousModel; } material; void main() {}"
+        ]
+    )
+    val duplicateMultipleBlockMember = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=6) uniform Material { vec4 color, color; } material; void main() {}"]
+    )
+    val explicitLayoutMultipleBlockMember = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=6) uniform Material { layout(offset=0) vec4 color, tint; } material; void main() {}"]
+    )
+    val malformedMultipleBlockMember = glslPackage(
+        [shaderStageVertex],
+        ["layout(binding=6) uniform Material { vec4 color,; } material; void main() {}"]
+    )
     val mismatchedBlock = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -607,6 +626,24 @@ fun main: int {
         reflectedBlock.bindings[0].members[1].dataType == "vec4" &&
         reflectedBlock.bindings[0].members[1].name == "eye" &&
         reflectedBlock.bindings[0].members[1].arraySize == 2 &&
+        multipleBlockMembers.valid &&
+        multipleBlockMembers.bindings.size == 2 &&
+        multipleBlockMembers.bindings[0].members.size == 4 &&
+        multipleBlockMembers.bindings[0].members[0].name == "color" &&
+        multipleBlockMembers.bindings[0].members[0].arraySize == 1 &&
+        multipleBlockMembers.bindings[0].members[1].name == "weights" &&
+        multipleBlockMembers.bindings[0].members[1].arraySize == 2 &&
+        multipleBlockMembers.bindings[0].members[2].name == "model" &&
+        multipleBlockMembers.bindings[0].members[2].rowMajor &&
+        multipleBlockMembers.bindings[0].members[3].name ==
+            "previousModel" &&
+        multipleBlockMembers.bindings[0].members[3].rowMajor &&
+        !duplicateMultipleBlockMember.valid &&
+        duplicateMultipleBlockMember.error != "" &&
+        !explicitLayoutMultipleBlockMember.valid &&
+        explicitLayoutMultipleBlockMember.error != "" &&
+        !malformedMultipleBlockMember.valid &&
+        malformedMultipleBlockMember.error != "" &&
         !mismatchedBlock.valid && mismatchedBlock.error != "" &&
         !duplicateBlockMember.valid && duplicateBlockMember.error != "" &&
         !malformedBlockMember.valid && malformedBlockMember.error != "" &&

@@ -1211,10 +1211,15 @@ numeric coordinates plus the declared data type, identifier, and fixed/unsized
 array extent. Uniform and storage interface blocks additionally expose ordered
 `ShaderBlockMember` values with each member's type, name, and array extent, plus
 the block instance name and array extent. Precision and memory qualifiers are
-accepted on members. A leading member `layout(...)` additionally retains
+accepted on members. Comma-separated member declarations expand into ordered
+reflection entries with independent array extents; duplicate and empty
+declarators are rejected. A leading member `layout(...)` additionally retains
 explicit `offset`, power-of-two `align`, and mutually exclusive `row_major` or
-`column_major` metadata. Empty, malformed, duplicate-name, duplicate-layout-key,
-and conflicting-major member declarations are rejected.
+`column_major` metadata. Major-order metadata may cover several declarators,
+while explicit `offset` or `align` on a multi-declarator statement is rejected
+until computed host-layout validation can assign unambiguous values. Empty,
+malformed, duplicate-name, duplicate-layout-key, and conflicting-major member
+declarations are rejected.
 `layout(push_constant)` uniform blocks are reflected separately as
 stage-tagged `ShaderPushConstant` values. One block is accepted per stage;
 incompatible member structures across stages, descriptor coordinates on a push
@@ -1240,9 +1245,9 @@ declared IDs merge across compatible layout statements, matching Vulkan GLSL;
 at least one concrete dimension must be declared. Repeated concrete sizes/IDs
 must agree, dimension IDs must be distinct, and they cannot collide with an
 explicit specialization constant in the same stage. Nested structures,
-multiple declarators, composite specialization constants, computed host-layout
-validation, filesystem module discovery, and backend pipeline specialization
-wiring are still forthcoming.
+general top-level multiple declarators, composite specialization constants,
+computed host-layout validation, filesystem module discovery, and general
+push/scalar-specialization backend wiring are still forthcoming.
 
 `spirvModule(words)` copies and structurally validates precompiled SPIR-V:
 magic/version/bound/schema fields, unsigned 32-bit word domains, and every
