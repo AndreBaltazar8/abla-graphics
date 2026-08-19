@@ -1,0 +1,96 @@
+import "../../src/graphics.ab"
+import "abla/io"
+import "abla/process/time"
+import "abla/runtime/memory"
+
+trusted fun main: int {
+    val window = waylandXdgWindow(
+        "Abla Graphics triple-buffered animation",
+        "io.abla.graphics.wayland-animation",
+        320,
+        200
+    )
+    var succeeded = window.valid() &&
+        window.createSharedBuffers(320, 200, 3)
+    val clock = monotonicClock()
+    succeeded = succeeded && clock.valid()
+    var frame = 0
+    var position = 0
+    var usedBuffers = 0
+    while (succeeded && frame < 6) {
+        succeeded = window.acquireSharedBuffer()
+        if (!succeeded) succeeded = window.waitSharedBuffer()
+        if (succeeded) {
+            usedBuffers = usedBuffers |
+                (1 << window.currentSharedBufferIndex())
+            succeeded = window.clearSharedPixels(14, 22, 40)
+        }
+        if (succeeded) succeeded = window.fillSharedRect(
+            position,
+            72,
+            48,
+            56,
+            44,
+            202,
+            224
+        )
+        if (succeeded) succeeded = window.fillSharedRect(
+            271 - position,
+            136,
+            48,
+            24,
+            238,
+            94,
+            126
+        )
+        if (succeeded) succeeded = window.presentSharedPixels()
+        if (succeeded) succeeded = window.waitFrame()
+        position = position + 5
+        if (position > 271) position = 0
+        frame = frame + 1
+    }
+    val started = clock.nanoseconds()
+    val baseline = runtimeMemoryLiveBytes()
+    while (succeeded && frame < 126) {
+        succeeded = window.waitSharedBuffer()
+        if (succeeded) {
+            usedBuffers = usedBuffers |
+                (1 << window.currentSharedBufferIndex())
+            succeeded = window.clearSharedPixels(14, 22, 40)
+        }
+        if (succeeded) succeeded = window.fillSharedRect(
+            position,
+            72,
+            48,
+            56,
+            44,
+            202,
+            224
+        )
+        if (succeeded) succeeded = window.fillSharedRect(
+            271 - position,
+            136,
+            48,
+            24,
+            238,
+            94,
+            126
+        )
+        if (succeeded) succeeded = window.presentSharedPixels()
+        if (succeeded) succeeded = window.waitFrame()
+        position = position + 5
+        if (position > 271) position = 0
+        frame = frame + 1
+    }
+    val elapsed = clock.nanoseconds() - started
+    val liveAfterFrames = runtimeMemoryLiveBytes()
+    val measuredFrames = frame - 6
+    val framesPerSecond = if (elapsed > 0)
+        measuredFrames * graphicsNanosecondsPerSecond / elapsed
+    else 0
+    if (succeeded) println(
+        "wayland-animation: frames=$measuredFrames buffers=${window.sharedBufferCount()} usedMask=$usedBuffers fps=$framesPerSecond liveDelta=${liveAfterFrames - baseline}"
+    )
+    if (succeeded && measuredFrames == 120 && usedBuffers == 7 &&
+        liveAfterFrames == baseline) 0 else 1
+}

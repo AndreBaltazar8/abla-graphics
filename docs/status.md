@@ -46,10 +46,14 @@ Updated: 2026-08-19.
   toplevel size/state sequence, acknowledges the surface configure serial, and
   tears down in protocol order. A third client marshals Linux x86-64
   `sendmsg`/`SCM_RIGHTS`, creates and maps an affine close-on-exec `memfd`,
-  creates `wl_shm_pool` and XRGB8888 `wl_buffer` objects, fills a checked
-  checkerboard through reusable rectangle writes, attaches/damages/commits it,
-  and waits for a real frame callback. A test-only 1024x768 Pixman Weston run
-  captures the visibly rendered window to `build/tests/wayland_pixels.png`.
+  creates one `wl_shm_pool` and up to three offset XRGB8888 `wl_buffer`
+  objects, fills checked pixels through reusable rectangle writes,
+  attaches/damages/commits them, and waits for real frame callbacks. Frame
+  submission is one allocation-free 64-byte native write and routine events
+  decode in reusable scratch storage. A 66-frame gate rotates all three slots
+  with zero managed-live-byte growth after warm-up. A test-only 1024x768
+  Pixman Weston run captures the visibly rendered window to
+  `build/tests/wayland_pixels.png`.
   Ping/pong, buffer release, surface enter/leave, and close-intent dispatch are
   strict; the whole path uses no libwayland, GLFW, or SDL.
 - Common headless test: with `DISPLAY` removed, explicit surfaceless EGL/OpenGL
@@ -782,11 +786,11 @@ validity gate unchanged.
   fence-guarded slots and have no per-frame queue-wide idle. Clear and pixel
   and render presentation recover once from suboptimal/out-of-date swapchains;
   render recovery rebuilds surface-dependent pipeline objects automatically.
-- Wayland reusable double/triple buffering, continuous frame scheduling,
-  input, clipboard, output, and Vulkan/EGL presentation integration. The
-  current stable xdg-shell slice attaches one real affine XRGB8888 shared
-  buffer, tracks compositor ownership, and completes one frame. Windows and
-  macOS platform modules.
+- Wayland input, clipboard, output, fractional scaling, and Vulkan/EGL
+  presentation integration. The current stable xdg-shell slice has reusable
+  one-to-three-buffer XRGB8888 presentation, compositor-ownership tracking,
+  allocation-stable hot-path wire I/O, and continuous callback-driven frames.
+  Windows and macOS platform modules.
 - X11 compose/dead-key sequences, input methods, and additional XKB groups.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional

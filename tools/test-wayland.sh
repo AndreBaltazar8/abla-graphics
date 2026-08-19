@@ -34,6 +34,8 @@ cd "$compiler_root"
     -o "$output_directory/wayland_window" --no-cache
 "$compiler" build "$project_root/tests/wayland_pixels.ab" \
     -o "$output_directory/wayland_pixels" --no-cache
+"$compiler" build "$project_root/tests/wayland_animation.ab" \
+    -o "$output_directory/wayland_animation" --no-cache
 
 set +e
 "$output_directory/wayland_protocol"
@@ -124,6 +126,19 @@ if [[ $status -ne 42 || $screenshot_status -ne 0 ||
       ! -s "$output_directory/wayland_pixels.png" ]]; then
     printf 'Wayland pixel/screenshot test returned %s/%s, expected 42/0\n' \
         "$status" "$screenshot_status" >&2
+    sed -n '1,240p' "$runtime_directory/weston.log" >&2
+    exit 1
+fi
+
+set +e
+XDG_RUNTIME_DIR="$runtime_directory" \
+WAYLAND_DISPLAY=wayland-abla-test \
+    timeout 10s "$output_directory/wayland_animation"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'Wayland animation test returned %s, expected 42\n' \
+        "$status" >&2
     sed -n '1,240p' "$runtime_directory/weston.log" >&2
     exit 1
 fi

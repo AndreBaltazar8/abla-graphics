@@ -1168,14 +1168,25 @@ bounds. `presentSharedPixels()` requests a frame callback, attaches the
 buffer, issues buffer-coordinate damage, and commits; `waitFrame()` continues
 strict dispatch through the compositor's completion event.
 
-The mapping is unmapped during window teardown and writes are rejected while
-`bufferBusy` says the compositor owns the buffer. A `wl_buffer.release` event
-clears that state. This first content slice owns one buffer; production
-animation still needs a bounded two-or-three-buffer ring so rendering can
-continue while another buffer is scanned out. The live gate uses Weston's
-Pixman renderer, waits for a real frame callback, and captures a deterministic
-1024x768 compositor PNG in `build/tests/wayland_pixels.png` for visual
-inspection.
+`createSharedBuffers(width, height, count = 3)` provides the sustained-frame
+path for one, two, or three buffers. All slots occupy fixed offsets in one
+mapping and one temporary pool. `acquireSharedBuffer()` performs a bounded
+non-blocking round-robin scan; `waitSharedBuffer()` dispatches until a release
+makes a slot writable. `currentSharedBufferIndex()`, `sharedBufferCount()`,
+`sharedBufferAvailable()`, and `availableSharedBufferCount()` expose state
+without transferring ownership. Writes are rejected unless a slot has been
+acquired, presentation marks that slot compositor-owned, and the matching
+`wl_buffer.release` event makes it reusable.
+
+Frame submission uses reusable 64 KiB native scratch storage. The frame
+callback, attach, buffer-coordinate damage, and commit requests are packed
+into one 64-byte stream write. Routine delete-ID, buffer-release, surface, and
+callback events are read and decoded in place; uncommon shell traffic falls
+back to the complete strict codec. The 66-frame live gate rotates all three
+slots and proves zero managed-live-byte growth after warm-up. The mapping and
+scratch storage are released during window teardown. A separate live gate uses
+Weston's Pixman renderer and captures a deterministic 1024x768 compositor PNG
+in `build/tests/wayland_pixels.png` for visual inspection.
 
 `WindowConfig` controls title, logical size, resizability, visibility, initial
 cursor visibility, decorations, transparency, fullscreen/monitor selection,

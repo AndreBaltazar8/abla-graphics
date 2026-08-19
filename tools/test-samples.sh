@@ -21,6 +21,7 @@ mkdir -p "$output_directory"
 chmod 700 "$wayland_runtime"
 
 for sample in x11-window wayland-info wayland-window wayland-pixels \
+    wayland-animation \
     vulkan-info vulkan-surface headless-opengl \
     common-headless \
     opengl-window common-clear common-triangle common-buffer common-texture \
@@ -54,6 +55,8 @@ XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
     timeout 10s "$output_directory/wayland-window"
 XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
     timeout 10s "$output_directory/wayland-pixels"
+XDG_RUNTIME_DIR="$wayland_runtime" WAYLAND_DISPLAY=wayland-abla-samples \
+    timeout 10s "$output_directory/wayland-animation"
 
 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/x11-window"

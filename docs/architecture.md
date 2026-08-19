@@ -29,10 +29,13 @@ tree, handles the version-one shell event set, acknowledges the initial
 configure, and destroys that tree in protocol order. The first content path
 marshals Linux x86-64 `sendmsg`/`SCM_RIGHTS` in Abla, maps an affine
 `memfd_create` allocation, creates `wl_shm_pool`/`wl_buffer` objects, and uses
-buffer-coordinate damage plus frame callbacks. Reusable double buffering,
-input, clipboard, outputs, and driver presentation build on this object
-foundation in later slices. No `libwayland-client` ABI participates in this
-path.
+buffer-coordinate damage plus frame callbacks. A bounded one-to-three-buffer
+ring uses one mapping and fixed frame offsets. The hot path batches frame,
+attach, damage, and commit requests into one 64-byte native write and decodes
+routine callback/release traffic in reusable scratch storage, so steady-state
+animation has no managed-allocation growth. Input, clipboard, outputs, and
+driver presentation build on this object foundation in later slices. No
+`libwayland-client` ABI participates in this path.
 
 Vulkan and OpenGL are driver specifications, so their installed system/driver
 entry points remain external by definition. All loading, structure layout,
