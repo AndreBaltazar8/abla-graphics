@@ -1212,6 +1212,19 @@ separate from application-surface monitor state. Teardown first clears the
 active pointer cursor, then releases the pointer and destroys/unmaps the cursor
 buffer and surface.
 
+`pointerCaptureAvailable()` requires both version-one
+`zwp_pointer_constraints_v1` and `zwp_relative_pointer_manager_v1` globals.
+`setPointerCaptured(true)` creates a persistent lock for the application
+surface and one relative pointer for the seat; `pointerCaptured` records the
+request while `pointerCaptureActive` follows the compositor's asynchronous
+locked/unlocked events. Relative 24.8 accelerated deltas accumulate into the
+existing virtual `pointerX/Y` coordinates and enqueue `windowEventPointerMoved`
+with `platformCode == 1`; the latest accelerated and unaccelerated fixed values
+remain available independently. `setPointerPositionHint()` commits the logical
+unlock position. Disabling capture destroys only the lock, retaining the
+managers and relative pointer for cheap recapture; retired lock events remain
+valid until the display returns their IDs.
+
 Keyboard keymaps are not discarded: the direct stream receiver captures
 close-on-exec ancillary descriptors with Linux `recvmsg`, preserves the
 descriptor across any earlier messages from the same compositor batch, maps

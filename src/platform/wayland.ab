@@ -21,6 +21,7 @@ val waylandMaximumClipboardBytes = 1048576
 val waylandClipboardTransferTimeoutMilliseconds = 5000
 val waylandCursorWidth = 16
 val waylandCursorHeight = 24
+val waylandPointerConstraintPersistent = 2
 val waylandClipboardMimeUtf8 = "text/plain;charset=utf-8"
 val waylandClipboardMimeText = "text/plain"
 val waylandToplevelStateMaximized = 1
@@ -394,6 +395,42 @@ fun waylandPointerCursorRequest(
                 surfaceIdentifier,
                 hotspotX,
                 hotspotY
+            ])
+        )
+    else ""
+
+fun waylandRelativePointerRequest(
+    managerIdentifier: int,
+    relativePointerIdentifier: int,
+    pointerIdentifier: int
+): string = if (managerIdentifier >= 2 &&
+    relativePointerIdentifier >= 2 && pointerIdentifier >= 2)
+        waylandPacket(
+            managerIdentifier,
+            1,
+            waylandU32PairPayload(
+                relativePointerIdentifier,
+                pointerIdentifier
+            )
+        )
+    else ""
+
+fun waylandPointerLockRequest(
+    managerIdentifier: int,
+    lockIdentifier: int,
+    surfaceIdentifier: int,
+    pointerIdentifier: int
+): string = if (managerIdentifier >= 2 && lockIdentifier >= 2 &&
+    surfaceIdentifier >= 2 && pointerIdentifier >= 2)
+        waylandPacket(
+            managerIdentifier,
+            1,
+            waylandU32ArrayPayload([
+                lockIdentifier,
+                surfaceIdentifier,
+                pointerIdentifier,
+                0,
+                waylandPointerConstraintPersistent
             ])
         )
     else ""
@@ -1378,6 +1415,20 @@ resource class WaylandXdgWindow(
     var cursorMappedAddress: int,
     var cursorMappedLength: int,
     var cursorMappedBytes: NativeByteBuffer,
+    var relativePointerManagerIdentifier: int,
+    var relativePointerIdentifier: int,
+    var pointerConstraintsIdentifier: int,
+    var lockedPointerIdentifier: int,
+    var retiredLockedPointerIdentifiers: array<int>,
+    var pointerCaptured: bool,
+    var pointerCaptureActive: bool,
+    var relativePointerXFixed: int,
+    var relativePointerYFixed: int,
+    var lastRelativeXFixed: int,
+    var lastRelativeYFixed: int,
+    var lastRelativeUnacceleratedXFixed: int,
+    var lastRelativeUnacceleratedYFixed: int,
+    var relativeMotionEvents: int,
     var dataDeviceManagerIdentifier: int,
     var dataDeviceManagerVersion: int,
     var dataDeviceIdentifier: int,
@@ -1993,10 +2044,239 @@ resource class WaylandXdgWindow(
         succeeded
     }
 
+    fun pointerCaptureAvailable(): bool = this.connection.global(
+        "zwp_relative_pointer_manager_v1"
+    ).valid && this.connection.global(
+        "zwp_pointer_constraints_v1"
+    ).valid
+
+    fun retiredLockedPointerIndex(identifier: int): int {
+        var result = -1
+        var index = 0
+        while (result < 0 &&
+            index < this.retiredLockedPointerIdentifiers.size) {
+            if (this.retiredLockedPointerIdentifiers[index] == identifier) {
+                result = index
+            }
+            index = index + 1
+        }
+        result
+    }
+
+    fun removeRetiredLockedPointer(identifier: int): void {
+        val retained: array<int> = []
+        var index = 0
+        while (index < this.retiredLockedPointerIdentifiers.size) {
+            if (this.retiredLockedPointerIdentifiers[index] != identifier) {
+                retained.append(this.retiredLockedPointerIdentifiers[index])
+            }
+            index = index + 1
+        }
+        this.retiredLockedPointerIdentifiers = retained
+        return
+    }
+
+    fun enablePointerCaptureProtocol(): bool {
+        var succeeded = this.valid() && this.pointerIdentifier >= 2 &&
+            this.relativePointerManagerIdentifier == 0 &&
+            this.relativePointerIdentifier == 0 &&
+            this.pointerConstraintsIdentifier == 0 &&
+            this.pointerCaptureAvailable()
+        val relativeManager = if (succeeded) this.connection.bind(
+            "zwp_relative_pointer_manager_v1",
+            1
+        ) else WaylandBinding()
+        val constraints = if (succeeded) this.connection.bind(
+            "zwp_pointer_constraints_v1",
+            1
+        ) else WaylandBinding()
+        succeeded = succeeded && relativeManager.valid && constraints.valid
+        val relativeIdentifier = if (succeeded)
+            this.connection.allocateIdentifier()
+        else -1
+        val request = if (succeeded) waylandRelativePointerRequest(
+            relativeManager.identifier,
+            relativeIdentifier,
+            this.pointerIdentifier
+        ) else ""
+        if (succeeded) succeeded = request != "" &&
+            this.connection.send(request)
+        if (succeeded) {
+            this.relativePointerManagerIdentifier = relativeManager.identifier
+            this.relativePointerIdentifier = relativeIdentifier
+            this.pointerConstraintsIdentifier = constraints.identifier
+        }
+        succeeded
+    }
+
+    fun setPointerCaptured(captured: bool): bool {
+        var succeeded = this.valid() && this.pointerIdentifier >= 2
+        if (succeeded && captured != this.pointerCaptured && captured) {
+            if (this.relativePointerIdentifier == 0) {
+                succeeded = this.enablePointerCaptureProtocol()
+            }
+            val identifier = if (succeeded)
+                this.connection.allocateIdentifier()
+            else -1
+            val request = if (succeeded) waylandPointerLockRequest(
+                this.pointerConstraintsIdentifier,
+                identifier,
+                this.surfaceIdentifier,
+                this.pointerIdentifier
+            ) else ""
+            if (succeeded) succeeded = request != "" &&
+                this.connection.send(request)
+            if (succeeded) succeeded = this.commit()
+            if (succeeded) {
+                this.lockedPointerIdentifier = identifier
+                this.pointerCaptured = true
+                this.pointerCaptureActive = false
+                this.relativePointerXFixed =
+                    this.pointerX * waylandFixedDenominator
+                this.relativePointerYFixed =
+                    this.pointerY * waylandFixedDenominator
+            }
+        } else if (succeeded && captured != this.pointerCaptured) {
+            succeeded = this.lockedPointerIdentifier >= 2 &&
+                this.retiredLockedPointerIdentifiers.size < 4096 &&
+                this.connection.send(waylandPacket(
+                    this.lockedPointerIdentifier,
+                    0
+                ))
+            if (succeeded) {
+                this.retiredLockedPointerIdentifiers.append(
+                    this.lockedPointerIdentifier
+                )
+                this.lockedPointerIdentifier = 0
+                this.pointerCaptured = false
+                this.pointerCaptureActive = false
+            }
+        }
+        succeeded
+    }
+
+    fun disablePointerCaptureProtocol(): bool {
+        var succeeded = this.connection.valid()
+        if (succeeded && this.pointerCaptured) {
+            succeeded = this.setPointerCaptured(false)
+        }
+        if (succeeded && this.relativePointerIdentifier >= 2) {
+            succeeded = this.connection.send(waylandPacket(
+                this.relativePointerIdentifier,
+                0
+            ))
+        }
+        if (succeeded && this.pointerConstraintsIdentifier >= 2) {
+            succeeded = this.connection.send(waylandPacket(
+                this.pointerConstraintsIdentifier,
+                0
+            ))
+        }
+        if (succeeded && this.relativePointerManagerIdentifier >= 2) {
+            succeeded = this.connection.send(waylandPacket(
+                this.relativePointerManagerIdentifier,
+                0
+            ))
+        }
+        if (succeeded) {
+            this.relativePointerIdentifier = 0
+            this.pointerConstraintsIdentifier = 0
+            this.relativePointerManagerIdentifier = 0
+        }
+        succeeded
+    }
+
+    fun setPointerPositionHint(x: int, y: int): bool {
+        val valid = x >= 0 && x <= waylandFixedMaximumInteger &&
+            y >= 0 && y <= waylandFixedMaximumInteger
+        var succeeded = this.valid() && this.pointerCaptured &&
+            this.lockedPointerIdentifier >= 2 && valid &&
+            this.connection.send(waylandPacket(
+                this.lockedPointerIdentifier,
+                1,
+                waylandU32PairPayload(
+                    x * waylandFixedDenominator,
+                    y * waylandFixedDenominator
+                )
+            ))
+        if (succeeded) succeeded = this.commit()
+        succeeded
+    }
+
+    fun dispatchRelativePointer(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.relativePointerIdentifier &&
+            message.opcode == 0) {
+            result = if (message.payload.size == 24) 1 else -1
+            if (result > 0 && this.pointerCaptureActive) {
+                val dx = waylandSignedU32(waylandU32(message.payload, 8))
+                val dy = waylandSignedU32(waylandU32(message.payload, 12))
+                val xSafe = if (dx >= 0)
+                    this.relativePointerXFixed <= waylandMaximumInteger - dx
+                else this.relativePointerXFixed >=
+                    -waylandMaximumInteger - dx
+                val ySafe = if (dy >= 0)
+                    this.relativePointerYFixed <= waylandMaximumInteger - dy
+                else this.relativePointerYFixed >=
+                    -waylandMaximumInteger - dy
+                result = if (xSafe && ySafe &&
+                    this.relativeMotionEvents < waylandMaximumInteger) 1
+                else -1
+                if (result > 0) {
+                    this.lastRelativeXFixed = dx
+                    this.lastRelativeYFixed = dy
+                    this.lastRelativeUnacceleratedXFixed = waylandSignedU32(
+                        waylandU32(message.payload, 16)
+                    )
+                    this.lastRelativeUnacceleratedYFixed = waylandSignedU32(
+                        waylandU32(message.payload, 20)
+                    )
+                    this.relativePointerXFixed =
+                        this.relativePointerXFixed + dx
+                    this.relativePointerYFixed =
+                        this.relativePointerYFixed + dy
+                    this.pointerX = this.relativePointerXFixed /
+                        waylandFixedDenominator
+                    this.pointerY = this.relativePointerYFixed /
+                        waylandFixedDenominator
+                    this.relativeMotionEvents = this.relativeMotionEvents + 1
+                    if (!this.enqueueInputEvent(WindowEvent(
+                        windowEventPointerMoved,
+                        this.pointerX,
+                        this.pointerY,
+                        "",
+                        1
+                    ))) result = -1
+                }
+            }
+        }
+        result
+    }
+
+    fun dispatchLockedPointer(message: WaylandMessage): int {
+        var result = 0
+        if (message.objectIdentifier == this.lockedPointerIdentifier &&
+            (message.opcode == 0 || message.opcode == 1)) {
+            result = if (message.payload.size == 0) 1 else -1
+            if (result > 0) this.pointerCaptureActive = message.opcode == 0
+        } else if (this.retiredLockedPointerIndex(
+            message.objectIdentifier
+        ) >= 0 && (message.opcode == 0 || message.opcode == 1)) {
+            result = if (message.payload.size == 0) 1 else -1
+        }
+        result
+    }
+
     fun updateSeatCapabilities(capabilities: int): bool {
         var succeeded = this.connection.valid() &&
             this.seatIdentifier >= 2 && capabilities >= 0 &&
             capabilities <= 7
+        if (succeeded && this.pointerIdentifier >= 2 &&
+            (capabilities & waylandSeatCapabilityPointer) == 0) {
+            if (this.relativePointerIdentifier >= 2) {
+                succeeded = this.disablePointerCaptureProtocol()
+            }
+        }
         if (succeeded && this.pointerIdentifier >= 2 &&
             (capabilities & waylandSeatCapabilityPointer) == 0) {
             succeeded = this.connection.send(
@@ -3286,6 +3566,13 @@ resource class WaylandXdgWindow(
             message.opcode == 0) {
             result = if (message.payload.size == 0) 1 else -1
             if (result > 0) this.cursorBufferReleased = true
+        } else if (message.objectIdentifier ==
+            this.relativePointerIdentifier) {
+            result = this.dispatchRelativePointer(message)
+        } else if (message.objectIdentifier ==
+            this.lockedPointerIdentifier ||
+            this.retiredLockedPointerIndex(message.objectIdentifier) >= 0) {
+            result = this.dispatchLockedPointer(message)
         }
         if (result == 0) result = this.dispatchClipboard(message)
         result
@@ -3702,6 +3989,9 @@ resource class WaylandXdgWindow(
             handled = succeeded
         } else if (succeeded && objectIdentifier == waylandDisplayIdentifier &&
             opcode == 1 && length == 12) {
+            this.removeRetiredLockedPointer(
+                waylandNativeU32(this.wireScratch, 8)
+            )
             handled = true
         } else if (succeeded && bufferIndex >= 0 && opcode == 0 &&
             length == 8) {
@@ -3760,6 +4050,13 @@ resource class WaylandXdgWindow(
         val core = if (succeeded)
             this.connection.dispatchCore(message)
         else -1
+        if (succeeded && core > 0 && message.objectIdentifier ==
+            waylandDisplayIdentifier && message.opcode == 1 &&
+            message.payload.size == 4) {
+            this.removeRetiredLockedPointer(
+                waylandU32(message.payload, 0)
+            )
+        }
         val bufferIndex = if (succeeded)
             this.sharedBufferIndex(message.objectIdentifier)
         else -1
@@ -3966,6 +4263,22 @@ resource class WaylandXdgWindow(
                 this.connection.descriptor,
                 waylandPacket(this.keyboardIdentifier, 0)
             )
+            if (this.lockedPointerIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.lockedPointerIdentifier, 0)
+            )
+            if (this.relativePointerIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.relativePointerIdentifier, 0)
+            )
+            if (this.pointerConstraintsIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.pointerConstraintsIdentifier, 0)
+            )
+            if (this.relativePointerManagerIdentifier >= 2) waylandWriteAll(
+                this.connection.descriptor,
+                waylandPacket(this.relativePointerManagerIdentifier, 0)
+            )
             if (this.pointerIdentifier >= 2) waylandWriteAll(
                 this.connection.descriptor,
                 waylandPacket(this.pointerIdentifier, 1)
@@ -4115,6 +4428,20 @@ fun waylandXdgWindow(
         0,
         0,
         nativeByteBuffer(0),
+        0,
+        0,
+        0,
+        0,
+        [],
+        false,
+        false,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
         0,
         0,
         0,

@@ -61,12 +61,14 @@ fi
 sleep 0.4
 xdotool windowfocus "$window_id"
 xdotool mousemove --window "$window_id" 400 360
+xdotool click 1
 xdotool key w
 xdotool key W
 xdotool keydown w
 sleep 0.75
 xdotool keyup w
 xdotool mousemove --window "$window_id" 420 340
+xdotool mousemove_relative -- 24 -16
 
 set +e
 wait "$client_pid"

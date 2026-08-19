@@ -79,6 +79,14 @@ Updated: 2026-08-19.
   nested input gate begins hidden before focus, restores the cursor on enter,
   checks opaque and transparent mapped pixels, and proves repeated hide/show
   requests remain healthy. No cursor-theme or libwayland dependency is used.
+- Direct Wayland capture binds the version-one pointer-constraints and
+  relative-pointer globals, owns persistent lock/relative objects, tracks
+  requested versus compositor-activated state, accumulates 24.8 motion into
+  virtual pointer coordinates, and retains accelerated/unaccelerated deltas.
+  Nested Weston accepts the real request but, as the protocol permits, its X11
+  backend does not activate it in this fixture; exact synthetic locked and
+  fractional relative-motion packets then prove the strict handler, position
+  hint, release, and retired-ID path without claiming a real activation.
 - Direct Wayland output discovery binds all initial `wl_output` version two
   through four globals and tracks signed position, physical size, transform,
   current/preferred mode, millihertz refresh, integer scale, stable name, and

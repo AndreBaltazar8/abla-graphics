@@ -28,6 +28,9 @@ trusted fun main: int {
     var sawWText = false
     var sawUpperWText = false
     var cursorShown = false
+    val captureAvailable = window.pointerCaptureAvailable()
+    var captureRequested = false
+    var sawRelativeMotion = false
     var attempts = 0
     while (succeeded && attempts < 100 &&
         !(window.keyboardMapped() && sawFocus && sawMotion &&
@@ -41,7 +44,8 @@ trusted fun main: int {
         } else if (event.kind == windowEventFocused && event.first != 0) {
             sawFocus = true
         } else if (event.kind == windowEventPointerMoved) {
-            sawMotion = true
+            if (event.platformCode == 1) sawRelativeMotion = true
+            else sawMotion = true
         } else if (event.kind == windowEventPointerButton) {
             lastButtonCode = event.platformCode
             if (event.platformCode == 272) {
@@ -67,9 +71,27 @@ trusted fun main: int {
                 !window.cursorVisible && window.setCursorVisible(true)
             if (succeeded) cursorShown = window.cursorVisible
         }
+        if (succeeded && captureAvailable && cursorShown &&
+            !captureRequested) {
+            succeeded = window.setPointerCaptured(true)
+            if (succeeded) captureRequested = window.pointerCaptured
+        }
         succeeded = succeeded && window.connection.valid()
         attempts = attempts + 1
     }
+    if (succeeded && captureAvailable && captureRequested &&
+        !window.pointerCaptureActive) succeeded =
+        window.dispatchLockedPointer(waylandDecodeMessage(waylandPacket(
+            window.lockedPointerIdentifier,
+            0
+        ))) == 1
+    if (succeeded && captureAvailable && captureRequested &&
+        window.relativeMotionEvents == 0) succeeded =
+        window.dispatchRelativePointer(waylandDecodeMessage(waylandPacket(
+            window.relativePointerIdentifier,
+            0,
+            waylandU32ArrayPayload([1, 2, 384, -256, 512, -128])
+        ))) == 1
     if (succeeded) succeeded = window.dispatchPointerButtonInput(
         waylandDecodeMessage(waylandPacket(
             window.pointerIdentifier,
@@ -90,9 +112,20 @@ trusted fun main: int {
             lastButtonCode = queued.platformCode
             if (queued.pointerButtonPressed()) sawButtonPress = true
             else sawButtonRelease = true
+        } else if (queued.kind == windowEventPointerMoved &&
+            queued.platformCode == 1) {
+            sawRelativeMotion = true
         }
         queued = window.nextInputEvent()
     }
+    val capturePassed = if (captureAvailable)
+        captureRequested && window.pointerCaptured &&
+        window.pointerCaptureActive && sawRelativeMotion &&
+        window.relativeMotionEvents > 0 &&
+        window.setPointerPositionHint(window.width / 2, window.height / 2) &&
+        window.setPointerCaptured(false) && !window.pointerCaptured &&
+        !window.pointerCaptureActive
+    else !captureRequested && !window.pointerCaptured
     succeeded = succeeded &&
         (window.seatCapabilities & waylandSeatCapabilityPointer) != 0 &&
         (window.seatCapabilities & waylandSeatCapabilityKeyboard) != 0 &&
@@ -105,7 +138,7 @@ trusted fun main: int {
         window.primaryOutputScale() == 1 && sawMonitor &&
         sawFocus && sawMotion && sawButtonPress && sawButtonRelease &&
         sawWPress && sawWRelease && sawWRepeat && sawWText && sawUpperWText &&
-        window.repeatDeadlineNanoseconds < 0 && cursorShown &&
+        window.repeatDeadlineNanoseconds < 0 && capturePassed && cursorShown &&
         window.cursorSurfaceIdentifier >= 2 &&
         window.cursorBufferIdentifier >= 2 &&
         window.cursorMappedLength ==
@@ -115,9 +148,17 @@ trusted fun main: int {
         window.setCursorVisible(false) && !window.cursorVisible &&
         window.setCursorVisible(false) &&
         window.setCursorVisible(true) && window.cursorVisible &&
-        window.setCursorVisible(true) && window.pollProtocol(20)
+        window.setCursorVisible(true)
+    attempts = 0
+    while (succeeded &&
+        window.retiredLockedPointerIdentifiers.size > 0 && attempts < 100) {
+        succeeded = window.pollProtocol(10)
+        attempts = attempts + 1
+    }
+    succeeded = succeeded &&
+        window.retiredLockedPointerIdentifiers.size == 0
     println(
-        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
+        "wayland-input-test: succeeded=$succeeded output=${window.primaryMonitor().name}/${window.primaryMonitor().width}x${window.primaryMonitor().height}@${window.primaryOutputScale()} monitorEvent=$sawMonitor seat=${window.seatName} caps=${window.seatCapabilities} cursor=$cursorShown/${window.cursorVisible}/${window.cursorSurfaceIdentifier}/${window.cursorBufferReleased} capture=$captureAvailable/$captureRequested/$capturePassed/${window.relativeMotionEvents}/${window.lastRelativeXFixed},${window.lastRelativeYFixed} keymap=${window.keymap.size}/${window.parsedKeymap.parsedKeys} focus=$sawFocus motion=$sawMotion/$sawRelativeMotion button=$sawButtonPress/$sawButtonRelease/$lastButtonCode key=$sawWPress/$sawWRepeat/$sawWRelease text=$sawWText/$sawUpperWText repeat=${window.repeatRate}/${window.repeatDelay} error=${window.connection.error}"
     )
     if (succeeded) 42 else 1
 }
