@@ -24,6 +24,11 @@ resource class GraphicsBuffer(
          (this.backend == graphicsBackendVulkan &&
           this.vulkan.mappedActive()))
 
+    trusted fun persistentlyMapped(): bool = this.mapped() &&
+        this.descriptor.persistentMapping &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.persistent) ||
+         (this.backend == graphicsBackendVulkan && this.vulkan.persistent))
+
     trusted noescape fun mapWrite(
         descriptor: BufferMapDescriptor = BufferMapDescriptor()
     ): bool = this.mapWriteRange(descriptor.offset, descriptor.size)
@@ -243,7 +248,8 @@ resource class GraphicsBuffer(
 }
 
 fun GraphicsApplication.ownsBuffer(buffer: GraphicsBuffer): bool =
-    this.backend == buffer.backend && !buffer.mapped() &&
+    this.backend == buffer.backend &&
+    (!buffer.mapped() || buffer.persistentlyMapped()) &&
     ((this.backend == graphicsBackendOpenGl &&
       this.openGl.display == buffer.openGl.display &&
       this.openGl.context == buffer.openGl.context) ||
@@ -301,7 +307,8 @@ trusted fun GraphicsApplication.buffer(
         nativePointerCell(nativeNullPointer()),
         0,
         0,
-        0
+        0,
+        false
     )
     var vulkan = VulkanBuffer(
         nativeNullPointer(),
@@ -314,7 +321,8 @@ trusted fun GraphicsApplication.buffer(
         nativePointerCell(nativeNullPointer()),
         0,
         0,
-        0
+        0,
+        false
     )
     var error = GraphicsError()
     val validation = descriptor.validation()
@@ -337,6 +345,13 @@ trusted fun GraphicsApplication.buffer(
             "GraphicsApplication.buffer.usage",
             "storage buffers are unavailable on the selected device"
         )
+    } else if (descriptor.persistentMapping &&
+        !this.capabilities.supports(graphicsFeaturePersistentMapping)) {
+        error = GraphicsError(
+            graphicsErrorUnsupportedFeature,
+            "GraphicsApplication.buffer.persistentMapping",
+            "persistent coherent buffer mapping is unavailable on the selected device"
+        )
     } else if ((descriptor.usage & bufferUsageStorage) != 0 &&
         descriptor.size >
             this.capabilities.limits.maximumStorageBufferBytes) {
@@ -348,7 +363,8 @@ trusted fun GraphicsApplication.buffer(
     } else if (this.backend == graphicsBackendOpenGl) {
         openGl = this.openGl.buffer(
             descriptor.size,
-            descriptor.mappedAtCreation
+            descriptor.mappedAtCreation,
+            descriptor.persistentMapping
         )
         if (!openGl.valid()) {
             error = GraphicsError(
@@ -361,7 +377,8 @@ trusted fun GraphicsApplication.buffer(
         vulkan = this.vulkanDevice.buffer(
             descriptor.size,
             descriptor.usage,
-            descriptor.mappedAtCreation
+            descriptor.mappedAtCreation,
+            descriptor.persistentMapping
         )
         if (!vulkan.valid()) {
             error = GraphicsError(

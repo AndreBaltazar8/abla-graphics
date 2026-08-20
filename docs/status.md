@@ -370,6 +370,13 @@ Updated: 2026-08-20.
   preserve both native buffer handles and produce zero Abla runtime live-byte
   growth. Invalid mapped usage, access mode, logical range, nested map,
   repeated unmap, mapped GPU use, and deterministic destruction also pass.
+  A separate capability-gated persistent mapping mode keeps a coherent
+  map-write/copy-source upload buffer mapped through synchronous GPU copies.
+  OpenGL 4.4+ uses immutable `glBufferStorage`, persistent/coherent map flags,
+  and a client-mapped barrier; Vulkan uses coherent host memory. Four repeated
+  write/copy/readback cycles preserve all handles and live bytes. Because copy
+  completion is synchronous, each range is safe to overwrite after return;
+  asynchronous ring ownership is not claimed.
 - Common GPU buffer-copy test: `GraphicsApplication.copyBuffer` validates
   distinct same-backend resources, source/destination copy usages, and both
   ranges before dispatch. A partial 31-byte copy between different offsets is
@@ -390,10 +397,10 @@ Updated: 2026-08-20.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same partial reusable-byte upload/readback on a 256-byte storage
   buffer plus mapped-at-creation upload/unmap, post-creation write/read maps,
-  and GPU copy/fill/readback under explicit OpenGL and Vulkan in the software-
-  driver sample matrix. Four complete mapped transfer cycles preserve both
-  mapped buffer handles and produce zero Abla runtime live-byte growth on both
-  backends.
+  coherent persistent upload, and GPU copy/fill/readback under explicit OpenGL
+  and Vulkan in the software-driver sample matrix. Four complete mapped
+  transfer cycles preserve all mapped buffer handles and produce zero Abla
+  runtime live-byte growth on both backends.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -739,7 +746,7 @@ Updated: 2026-08-20.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 112 Vulkan and 92 OpenGL commands as
+  A strict audit join currently classifies 112 Vulkan and 93 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -1132,12 +1139,12 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 204 exercised common commands classified; all other
+  exist, with 205 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  persistently concurrent mapped
-  buffer ranges, queued uploads, device-local suballocation policy, command
+  asynchronous persistent upload rings, queued uploads, device-local
+  suballocation policy, command
   encoders/render
   graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
@@ -1146,8 +1153,9 @@ validity gate unchanged.
   Same-format synchronous 2D image copies are present. General reusable buffer
   byte-range upload/readback is present, including
   distinct source and destination offsets; synchronous GPU buffer copies and
-  aligned 32-bit pattern fills reuse backend command state. Persistent mapping
-  and asynchronous transfers are not. Common buffers, textures, views,
+  aligned 32-bit pattern fills reuse backend command state. Synchronous
+  coherent persistent uploads are present; asynchronous transfers are not.
+  Common buffers, textures, views,
   samplers, and immutable structural
   descriptors are present;
   the wider resource surface is not yet claimed.

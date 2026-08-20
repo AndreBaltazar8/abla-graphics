@@ -13,7 +13,7 @@ tests, samples, documentation, and relevant performance/validation gates pass.
 Current verified checkpoint: the Abla-only direct X11 foundation, surfaced and
 headless OpenGL/Vulkan selection, common buffers/textures/views/samplers,
 mapped-at-creation and checked post-creation buffer range mapping,
-reusable copies/fills/pixel
+coherent persistent upload mapping, reusable copies/fills/pixel
 presentation, compute pipelines, strict initial
 `$glsl`-to-SPIR-V subsets, and the first procedural, common-vertex-buffer, and
 multi-attribute vertex, `uint32` indexed, and instanced render paths with

@@ -21,7 +21,7 @@ fun main: int {
         GraphicsBackendSupport(true, true)
     )
     val invalidFeatureMask = graphicsSelectBackend(
-        GraphicsConfig(requiredFeatures = 256),
+        GraphicsConfig(requiredFeatures = 512),
         GraphicsBackendSupport(true, true)
     )
     val featureFallback = graphicsSelectBackend(
@@ -46,6 +46,18 @@ fun main: int {
             true,
             openGlFeatures = graphicsFeatureAll &
                 ~graphicsFeatureViewFormatReinterpretation
+        )
+    )
+    val persistentUnsupported = graphicsSelectBackend(
+        GraphicsConfig(
+            backend = graphicsBackendOpenGl,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        GraphicsBackendSupport(
+            true,
+            true,
+            openGlFeatures = graphicsFeatureAll &
+                ~graphicsFeaturePersistentMapping
         )
     )
     val automaticUnsupported = graphicsSelectBackend(
@@ -121,6 +133,17 @@ fun main: int {
     val invalidMappedBuffer = BufferDescriptor(
         size = 64,
         usage = bufferUsageMapRead | bufferUsageVertex
+    ).validation()
+    val persistentBuffer = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapWrite | bufferUsageCopySource,
+        mappedAtCreation = true,
+        persistentMapping = true
+    )
+    val invalidPersistentBuffer = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapWrite | bufferUsageCopySource,
+        persistentMapping = true
     ).validation()
     val bytes = bufferBytes(24)
     val bytesFilled = bytes.fill(9)
@@ -588,6 +611,8 @@ fun main: int {
         featureFallback.backend == graphicsBackendVulkan &&
         !explicitUnsupported.succeeded &&
         explicitUnsupported.error.code == graphicsErrorUnsupportedFeature &&
+        !persistentUnsupported.succeeded &&
+        persistentUnsupported.error.code == graphicsErrorUnsupportedFeature &&
         !automaticUnsupported.succeeded &&
         automaticUnsupported.error.code == graphicsErrorUnsupportedFeature &&
         capabilities.valid() &&
@@ -732,6 +757,9 @@ fun main: int {
         pixels.rgba8(0, 0) == 185009411 &&
         pixels.rgba8(1, 1) == 387125517 &&
         vertexBuffer.valid() && readbackBuffer.valid() &&
+        persistentBuffer.valid() &&
+        !invalidPersistentBuffer.succeeded &&
+        invalidPersistentBuffer.field == "persistentMapping" &&
         !invalidMappedBuffer.succeeded &&
         invalidMappedBuffer.field == "usage" &&
         bytes.valid() && bytesFilled && byteStored &&

@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 92/2892
+- Classified commands: 93/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -164,7 +164,7 @@
 | `glBufferPageCommitmentARB` | definition | unclassified | - | - | - | - |
 | `glBufferPageCommitmentMemNV` | definition | unclassified | - | - | - | - |
 | `glBufferParameteriAPPLE` | definition | unclassified | - | - | - | - |
-| `glBufferStorage` | definition | unclassified | - | - | - | - |
+| `glBufferStorage` | definition | common | src/driver/opengl.ab immutable coherent persistent upload storage | src/driver/opengl.ab typed size data pointer and storage flags ABI | examples/common-buffer/main.ab repeated mapped GPU copies with zero growth | tests/core.ab persistent capability and descriptor rejection |
 | `glBufferStorageExternalEXT` | definition | unclassified | - | - | - | - |
 | `glBufferStorageMemEXT` | definition | unclassified | - | - | - | - |
 | `glBufferSubData` | definition | common | src/driver/opengl.ab checked buffer upload | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole uploads | tests/application/main.ab range and usage rejection |

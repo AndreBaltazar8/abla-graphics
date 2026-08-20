@@ -571,6 +571,32 @@ zero live-byte growth. OpenGL maps the exact native range. Vulkan maps its
 host-coherent allocation from alignment-safe offset zero and enforces the same
 logical subrange in Abla.
 
+For synchronous streaming uploads, `persistentMapping = true` keeps a coherent
+map-write/copy-source buffer mapped while `copyBuffer` consumes it:
+
+```abla
+val upload = app.buffer(BufferDescriptor(
+    size = 65536,
+    usage = bufferUsageMapWrite | bufferUsageCopySource,
+    mappedAtCreation = true,
+    persistentMapping = true
+))
+
+upload.writeMappedRange(frameBytes, 0, 0, frameBytes.size)
+app.copyBuffer(upload, deviceBuffer, copy)
+```
+
+`graphicsFeaturePersistentMapping` advertises this path. OpenGL requires core
+4.4, allocates immutable storage with `glBufferStorage`, maps it persistent and
+coherent, and issues the client-mapped visibility barrier before copying.
+Vulkan uses its host-visible coherent allocation and alignment-safe whole-memory
+map. The current `copyBuffer` is synchronous on both backends, so it completes
+before the method returns and the application may safely overwrite the upload
+range for the next call. A persistently mapped buffer remains restricted to
+map-write plus copy-source usage; it cannot silently enter vertex, index,
+uniform, storage, or copy-destination work. `unmap()` ends the persistent
+lifecycle explicitly, and affine drop does so automatically.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -602,7 +628,7 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Persistently mapped concurrent GPU use, queued transfers, and device-local
+Asynchronous persistent upload rings, queued transfers, and device-local
 selection remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 

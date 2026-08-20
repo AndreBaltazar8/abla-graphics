@@ -354,6 +354,12 @@ noescape extern:"c" fun glBufferData(
     data: i64*,
     usage: i32
 ): void
+noescape extern:"c" fun glBufferStorage(
+    target: i32,
+    size: i64,
+    data: i64*,
+    flags: i32
+): void
 noescape extern:"c" fun glBufferSubData(
     target: i32,
     offset: int,
@@ -633,6 +639,9 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     if (maximumAnisotropy > 1) {
         features = features | graphicsFeatureSamplerAnisotropy
     }
+    if (majorValue > 4 || (majorValue == 4 && minorValue >= 4)) {
+        features = features | graphicsFeaturePersistentMapping
+    }
     GraphicsCapabilities(
         features,
         GraphicsLimits(
@@ -886,7 +895,8 @@ resource class OpenGlBuffer(
     val mappedAddress: NativePointerCell,
     var mappedOffset: int,
     var mappedSize: int,
-    var mappedAccess: int
+    var mappedAccess: int,
+    val persistent: bool
 ) {
     fun valid(): bool = this.handle != 0 && this.size > 0 &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
@@ -1000,11 +1010,12 @@ resource class OpenGlBuffer(
         copy: BufferCopyDescriptor
     ): bool {
         var succeeded = this.valid() && destination.valid() &&
-            !this.mapped() && !destination.mapped() &&
+            (!this.mapped() || this.persistent) && !destination.mapped() &&
             this.context == destination.context &&
             this.display == destination.display &&
             copy.valid(this.size, destination.size) && this.makeCurrent()
         if (succeeded) {
+            if (this.mapped() && this.persistent) glMemoryBarrier(16384)
             glBindBuffer(36662, this.handle)
             glBindBuffer(36663, destination.handle)
             glCopyBufferSubData(
@@ -1156,7 +1167,8 @@ resource class OpenGlBuffer(
 
 trusted fun OpenGlWindowContext.buffer(
     size: int,
-    mappedAtCreation: bool = false
+    mappedAtCreation: bool = false,
+    persistentMapping: bool = false
 ): OpenGlBuffer {
     var handle = 0
     val mappedAddress = nativePointerCell(nativeNullPointer())
@@ -1169,10 +1181,21 @@ trusted fun OpenGlWindowContext.buffer(
         handle = output.load()
         if (handle != 0) {
             glBindBuffer(34962, handle)
-            glBufferData(34962, size, nativeNullPointer(), 35048)
+            if (persistentMapping) glBufferStorage(
+                34962,
+                size,
+                nativeNullPointer(),
+                450
+            )
+            else glBufferData(34962, size, nativeNullPointer(), 35048)
             var succeeded = glGetError() == 0
             if (succeeded && mappedAtCreation) {
-                val address = glMapBufferRange(34962, 0, size, 2)
+                val address = glMapBufferRange(
+                    34962,
+                    0,
+                    size,
+                    if (persistentMapping) 194 else 2
+                )
                 succeeded = !pointerIsNull(address) &&
                     mappedAddress.store(address) && glGetError() == 0
                 if (succeeded) {
@@ -1202,7 +1225,8 @@ trusted fun OpenGlWindowContext.buffer(
         move(mappedAddress),
         mappedOffset,
         mappedSize,
-        mappedAccess
+        mappedAccess,
+        persistentMapping
     )
 }
 

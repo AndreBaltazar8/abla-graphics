@@ -584,7 +584,8 @@ class BufferDescriptor(
     val label: string = "",
     val size: int = 0,
     val usage: int = 0,
-    val mappedAtCreation: bool = false
+    val mappedAtCreation: bool = false,
+    val persistentMapping: bool = false
 ) {
     fun validation(): GraphicsDescriptorValidation {
         var result = graphicsDescriptorValid()
@@ -596,6 +597,11 @@ class BufferDescriptor(
             result = graphicsDescriptorInvalid(
                 "usage",
                 "buffer usage is empty or contains unknown flags"
+            )
+        } else if (this.persistentMapping && !this.mappedAtCreation) {
+            result = graphicsDescriptorInvalid(
+                "persistentMapping",
+                "persistent mapping requires mapped-at-creation"
             )
         } else if (this.mappedAtCreation &&
             (this.usage & bufferUsageMapWrite) == 0) {
@@ -621,6 +627,7 @@ class BufferDescriptor(
 
     fun valid(): bool = this.size > 0 &&
         graphicsUsageValid(this.usage, bufferUsageAll) &&
+        (!this.persistentMapping || this.mappedAtCreation) &&
         (!this.mappedAtCreation ||
          (this.usage & bufferUsageMapWrite) != 0) &&
         ((this.usage & bufferUsageMapRead) == 0 ||

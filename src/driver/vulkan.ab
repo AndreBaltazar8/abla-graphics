@@ -1214,14 +1214,29 @@ trusted fun VulkanAdapter.queueFamilyTimestampValidBits(
 trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     val properties = nativeByteBuffer(1024)
     val deviceFeatures = nativeByteBuffer(224)
+    val memoryProperties = nativeByteBuffer(1024)
     vkGetPhysicalDeviceProperties(this.handle, properties.address)
     vkGetPhysicalDeviceFeatures(this.handle, deviceFeatures.address)
+    vkGetPhysicalDeviceMemoryProperties(this.handle, memoryProperties.address)
     val queueFamily = this.graphicsQueueFamily()
     val queueFlags = this.queueFamilyFlags(queueFamily)
     val timestampValidBits = this.queueFamilyTimestampValidBits(queueFamily)
     var features = graphicsFeatureSampledTextures |
         graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers |
         graphicsFeatureViewFormatReinterpretation
+    val memoryTypeCount = memoryProperties.loadI64(0) & 4294967295
+    var memoryTypeIndex = 0
+    var coherentHostMemory = false
+    while (!coherentHostMemory && memoryTypeIndex < memoryTypeCount &&
+        memoryTypeIndex < 32) {
+        val flags = memoryProperties.loadI64(4 + memoryTypeIndex * 8) &
+            4294967295
+        coherentHostMemory = (flags & 6) == 6
+        memoryTypeIndex = memoryTypeIndex + 1
+    }
+    if (coherentHostMemory) {
+        features = features | graphicsFeaturePersistentMapping
+    }
     if ((queueFlags & 2) != 0) {
         features = features | graphicsFeatureCompute |
             graphicsFeatureStorageBuffers
@@ -2500,7 +2515,8 @@ resource class VulkanBuffer(
     val mapped: NativePointerCell,
     var mappedOffset: int,
     var mappedSize: int,
-    var mappedAccess: int
+    var mappedAccess: int,
+    val persistent: bool
 ) {
     fun valid(): bool =
         this.handle != 0 && this.memory != 0 && this.size > 0 &&
@@ -5177,7 +5193,8 @@ trusted fun VulkanDevice.texture(
         nativePointerCell(nativeNullPointer()),
         0,
         0,
-        0
+        0,
+        false
     )
     var commandPool = 0
     var command = nativePointerCell(nativeNullPointer())
@@ -5741,7 +5758,8 @@ trusted fun VulkanDevice.buffer(
     size: int,
     usage: int = bufferUsageCopySource |
         bufferUsageCopyDestination | bufferUsageStorage,
-    mappedAtCreation: bool = false
+    mappedAtCreation: bool = false,
+    persistentMapping: bool = false
 ): VulkanBuffer {
     var handle = 0
     var memory = 0
@@ -5852,7 +5870,8 @@ trusted fun VulkanDevice.buffer(
         move(mapped),
         mappedOffset,
         mappedSize,
-        mappedAccess
+        mappedAccess,
+        persistentMapping
     )
 }
 
