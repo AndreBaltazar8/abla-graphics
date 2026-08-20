@@ -308,7 +308,39 @@ fun glslRasterExtResultType(
 ): int {
     var resultType = glslRasterTypeInvalid
     val begin = stackSize - arity
-    if (begin >= 0 && (instruction == 37 || instruction == 40)) {
+    if (begin >= 0 && instruction == 46) {
+        if (arity == 3 && stack[begin] == stack[begin + 1] &&
+            (stack[begin] == glslRasterTypeScalar ||
+             stack[begin] == glslRasterTypeVector) &&
+            (stack[begin + 2] == stack[begin] ||
+             (stack[begin] == glslRasterTypeVector &&
+              stack[begin + 2] == glslRasterTypeScalar))) {
+            resultType = stack[begin]
+        }
+    } else if (begin >= 0 && instruction == 48) {
+        if (arity == 2 && stack[begin + 1] == glslRasterTypeScalar &&
+            stack[begin] == glslRasterTypeScalar) {
+            resultType = glslRasterTypeScalar
+        } else if (arity == 2 &&
+            stack[begin + 1] == glslRasterTypeVector &&
+            (stack[begin] == glslRasterTypeVector ||
+             stack[begin] == glslRasterTypeScalar)) {
+            resultType = glslRasterTypeVector
+        }
+    } else if (begin >= 0 && instruction == 49) {
+        if (arity == 3 && stack[begin + 2] == glslRasterTypeScalar &&
+            stack[begin] == glslRasterTypeScalar &&
+            stack[begin + 1] == glslRasterTypeScalar) {
+            resultType = glslRasterTypeScalar
+        } else if (arity == 3 &&
+            stack[begin + 2] == glslRasterTypeVector &&
+            ((stack[begin] == glslRasterTypeVector &&
+              stack[begin + 1] == glslRasterTypeVector) ||
+             (stack[begin] == glslRasterTypeScalar &&
+              stack[begin + 1] == glslRasterTypeScalar))) {
+            resultType = glslRasterTypeVector
+        }
+    } else if (begin >= 0 && (instruction == 37 || instruction == 40)) {
         if (arity == 2 && stack[begin] == glslRasterTypeScalar &&
             stack[begin + 1] == glslRasterTypeScalar) {
             resultType = glslRasterTypeScalar
@@ -1805,7 +1837,8 @@ fun glslRasterFragmentSpirv(
                         stackTypes[stackSize - arity + argument] ==
                             glslRasterTypeScalar &&
                         (token.memberIndex == 37 || token.memberIndex == 40 ||
-                         token.memberIndex == 43)
+                         token.memberIndex == 43 || token.memberIndex == 46 ||
+                         token.memberIndex == 48 || token.memberIndex == 49)
                     if (scalarSplat) {
                         val splat = nextId
                         nextId = nextId + 1

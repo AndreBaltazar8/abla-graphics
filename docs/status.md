@@ -1040,8 +1040,10 @@ validity gate unchanged.
   byte-identical import-free modules. Homogeneous scalar/vector
   `abs`, `floor`, `ceil`, `sqrt`, and `inversesqrt` share that import and retain
   their operand type; nested instruction-number coverage and arity rejection
-  pass. Homogeneous scalar/vector `mix`, `step`, and `smoothstep` now share the
-  same import and typed emission; mixed forms and wrong arities reject. The
+  pass. Scalar/vector `mix`, `step`, and `smoothstep` share the same import and
+  typed emission. Their vector-result overloads accept, respectively, a scalar
+  factor, scalar edge, or two scalar edges and materialize typed splats;
+  reversed value typing, partially mixed edges, and wrong arities reject. The
   reflected `.w`/`.bgra`, interpolated `sqrt(abs(dot(...)))` projection,
   runtime-denominator, comma-local postfix-`--`, prefix-`++`, and `+=` push-
   expression sample retains exact OpenGL/Vulkan pixels, stable handles, and
@@ -1063,6 +1065,8 @@ validity gate unchanged.
   while ignoring separators inside nested calls; mixed types and third
   arguments reject, and the live phase executes the scalar overload on both
   backends without changing its exact output.
+  The live source-vector path also executes scalar-factor `mix` before its
+  downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through
   validation and emission: `length`/`distance` return scalars, while
   `normalize`/`faceforward`/`reflect`/`refract` return vectors and `refract`

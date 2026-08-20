@@ -1764,11 +1764,32 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 value; } draw; void main(){ color=mix(step(vec4(0.25),draw.value),smoothstep(vec4(0.0),vec4(1.0),draw.value),vec4(0.5)); }"
         ]
     ).spirv(shaderStageFragment)
-    val rasterInterpolationTypeRejected = glslPackage(
+    val rasterVectorScalarInterpolationExtInst = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 value; } draw; void main(){ color=mix(draw.value,vec4(1.0),0.5); }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 value; } draw; void main(){ color=mix(step(0.25,draw.value),smoothstep(0.0,1.0,draw.value),0.5); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMixScalarVectorRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=mix(0.0,1.0,vec4(0.5)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterStepVectorScalarRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(step(vec4(0.5),0.5)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSmoothstepMixedBoundsRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 value; } draw; void main(){ color=smoothstep(0.0,vec4(1.0),draw.value); }"
         ]
     ).spirv(shaderStageFragment)
     val rasterStepArityRejected = glslPackage(
@@ -3433,8 +3454,32 @@ fun main: int {
             12,
             4,
             49
-        ) && !rasterInterpolationTypeRejected.succeeded &&
-        rasterInterpolationTypeRejected.error != "" &&
+        ) && rasterVectorScalarInterpolationExtInst.succeeded &&
+        rasterVectorScalarInterpolationExtInst.module.valid() &&
+        spirvWordCount(
+            rasterVectorScalarInterpolationExtInst.module,
+            458832
+        ) == 4 && spirvInstructionOperand(
+            rasterVectorScalarInterpolationExtInst.module,
+            12,
+            4,
+            46
+        ) && spirvInstructionOperand(
+            rasterVectorScalarInterpolationExtInst.module,
+            12,
+            4,
+            48
+        ) && spirvInstructionOperand(
+            rasterVectorScalarInterpolationExtInst.module,
+            12,
+            4,
+            49
+        ) && !rasterMixScalarVectorRejected.succeeded &&
+        rasterMixScalarVectorRejected.error != "" &&
+        !rasterStepVectorScalarRejected.succeeded &&
+        rasterStepVectorScalarRejected.error != "" &&
+        !rasterSmoothstepMixedBoundsRejected.succeeded &&
+        rasterSmoothstepMixedBoundsRejected.error != "" &&
         !rasterStepArityRejected.succeeded &&
         rasterStepArityRejected.error != "" &&
         !rasterMixArityRejected.succeeded &&

@@ -1794,8 +1794,11 @@ uses the matching `GLSL.std.450` instruction, and composes with other calls
 under the existing depth/token bounds. Missing or extra arguments reject.
 Homogeneous scalar/vector `mix(x, y, amount)`, `step(edge, value)`, and
 `smoothstep(low, high, value)` use `FMix`, `Step`, and `SmoothStep` through that
-same import. Their result type matches their operands; mixed scalar/vector
-forms and wrong arities reject in this strict slice.
+same import. Their result type matches the value operands. Vector `mix` accepts
+a scalar amount, vector `step` accepts a scalar edge, and vector `smoothstep`
+accepts two scalar edges; the emitter splats those scalar operands before the
+homogeneous extended instruction. Scalar values with vector parameters,
+partially mixed smoothstep edges, and wrong arities reject.
 The table also covers homogeneous scalar/vector `round`, `roundEven`, `trunc`,
 `sign`, `fract`, `radians`, `degrees`, `sin`, `cos`, `tan`, `asin`, `acos`,
 unary `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`,
@@ -1884,7 +1887,8 @@ uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
 changing either output.
 `push-expression` loads a reflected scalar gain and the `.w` component of a
 reflected vector, permutes another reflected vector from `.bgra` into logical
-RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
+RGBA through a scalar-factor vector `mix`, applies postfix `--` to a
+comma-declared mutable divisor, and increments its
 sibling unit scalar after projecting the reflected vector onto a normalized
 alpha axis with `dot`, applying `sqrt(abs(...))`, and clamping that projection
 to `[0, 1]`,
