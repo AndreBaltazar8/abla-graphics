@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 90/2892
+- Classified commands: 91/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -497,7 +497,7 @@
 | `glDrawCommandsStatesNV` | definition | unclassified | - | - | - | - |
 | `glDrawElementArrayAPPLE` | definition | unclassified | - | - | - | - |
 | `glDrawElementArrayATI` | definition | unclassified | - | - | - | - |
-| `glDrawElements` | definition | unclassified | - | - | - | - |
+| `glDrawElements` | definition | common | src/driver/opengl.ab optimized single-instance indexed drawing | src/driver/opengl.ab typed mode count index-type and pointer ABI | examples/common-textured/main.ab repeated direct indexed textured rendering | examples/common-triangle/main.ab invalid index count rejection |
 | `glDrawElementsBaseVertex` | definition | unclassified | - | - | - | - |
 | `glDrawElementsIndirect` | definition | common | src/driver/opengl.ab indirect indexed rendering | src/driver/opengl.ab typed mode index-type and indirect-pointer ABI | examples/common-triangle/main.ab repeated two-instance indexed-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
 | `glDrawElementsInstanced` | definition | common | src/driver/opengl.ab direct indexed instanced rendering | src/driver/opengl.ab typed mode count index-type pointer and instances ABI | examples/common-triangle/main.ab live indexed two-instance rendering | examples/common-triangle/main.ab invalid index count and instances rejection |
