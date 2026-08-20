@@ -1768,7 +1768,10 @@ typed raster parser accepts up to eight reflected non-array `vec4` inputs in
 source order before one to eight reflected non-array `vec4` outputs, an optional
 reflected block of up to eight non-array `float` or `vec4` members,
 scalar/`vec4` literals, four-component or scalar-splat `vec4` constructors,
-parentheses, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence.
+parentheses, single-component vector selectors `.x`/`.y`/`.z`/`.w` and their
+`rgba`/`stpq` aliases, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL
+precedence. A selector may follow an input, push member, local, literal, or
+parenthesized expression and emits typed scalar `OpCompositeExtract`.
 Prefix `+` is an identity and prefix `-` emits typed scalar or vector
 `OpFNegate`; unary nesting is included in the same 64-level/token bounds.
 Inputs and the push block may both be absent for a constant-only expression; a
@@ -1827,12 +1830,12 @@ expression, vector lane, and scalar literal in the module. Signed zero and other
 distinct bit patterns remain distinct. The red/green MRT module consequently
 uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
 changing either output.
-`push-expression` loads a reflected scalar gain, applies postfix `--` to a
-comma-declared mutable divisor, increments its sibling unit scalar, executes
-vector/scalar division after vector negation into a mutable vector, then
-rebinds it with `+=` and the second vector. It proves its 48-byte mixed layout
-plus exact red/green output, stable handles, and zero steady-state allocation
-growth on both real backends.
+`push-expression` loads a reflected scalar gain and the `.w` component of a
+reflected vector, applies postfix `--` to a comma-declared mutable divisor,
+increments its sibling unit scalar, executes vector/scalar division after
+vector negation into a mutable vector, then rebinds it with `+=` and the second
+vector. It proves its 48-byte mixed layout plus exact red/green output, stable
+handles, and zero steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

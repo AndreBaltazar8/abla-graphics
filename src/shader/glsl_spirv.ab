@@ -87,6 +87,7 @@ val glslRasterTokenVectorLiteral = 1
 val glslRasterTokenOperation = 2
 val glslRasterTokenScalarLiteral = 3
 val glslRasterTokenInput = 4
+val glslRasterTokenComponent = 5
 
 val glslRasterTypeInvalid = 0
 val glslRasterTypeScalar = 1
@@ -179,6 +180,13 @@ fun glslRasterCompoundOpcode(text: string): int {
     else if (text == "-=") 327811
     else if (text == "*=") 327813
     else if (text == "/=") 327816 else 0
+}
+
+fun glslRasterComponentIndex(text: string): int {
+    if (text == "x" || text == "r" || text == "s") 0
+    else if (text == "y" || text == "g" || text == "t") 1
+    else if (text == "z" || text == "b" || text == "p") 2
+    else if (text == "w" || text == "a" || text == "q") 3 else -1
 }
 
 fun glslRasterPrimary(
@@ -349,6 +357,19 @@ fun glslRasterPrimary(
             }
         }
     }
+    if (valid && index + 1 < sourceTokens.size &&
+        sourceTokens[index].text == ".") {
+        val component =
+            glslRasterComponentIndex(sourceTokens[index + 1].text)
+        valid = component >= 0
+        if (valid) {
+            tokens.append(GlslRasterToken(
+                glslRasterTokenComponent,
+                memberIndex = component
+            ))
+            index = index + 2
+        }
+    }
     GlslRasterExpression(valid && tokens.size > 0, tokens, index)
 }
 
@@ -431,6 +452,14 @@ fun glslRasterExpressionType(
             if (valid) valueType = if (
                 push.members[token.memberIndex].dataType == "float"
             ) glslRasterTypeScalar else glslRasterTypeVector
+        } else if (token.kind == glslRasterTokenComponent) {
+            valid = stackSize >= 1 && token.memberIndex >= 0 &&
+                token.memberIndex < 4 &&
+                stack[stackSize - 1] == glslRasterTypeVector
+            if (valid) {
+                stackSize = stackSize - 1
+                valueType = glslRasterTypeScalar
+            }
         } else if (token.kind == glslRasterTokenOperation &&
             token.opcode == 262271) {
             valid = stackSize >= 1
@@ -1246,6 +1275,22 @@ fun glslRasterFragmentSpirv(
                 words.append(valueId)
                 words.append(inputVariables[token.memberIndex])
                 tokenTypes[tokenIndex] = glslRasterTypeVector
+            }
+        } else if (token.kind == glslRasterTokenComponent) {
+            valid = stackSize >= 1 && token.memberIndex >= 0 &&
+                token.memberIndex < 4 &&
+                stackTypes[stackSize - 1] == glslRasterTypeVector
+            if (valid) {
+                val composite = stack[stackSize - 1]
+                stackSize = stackSize - 1
+                valueId = nextId
+                nextId = nextId + 1
+                words.append(327761)
+                words.append(floatType)
+                words.append(valueId)
+                words.append(composite)
+                words.append(token.memberIndex)
+                tokenTypes[tokenIndex] = glslRasterTypeScalar
             }
         } else if (token.kind == glslRasterTokenOperation) {
             if (token.opcode == 262271) {

@@ -1018,9 +1018,13 @@ validity gate unchanged.
   separate inline expressions. Const mutation, type changes, undeclared
   assignment/update, unsupported `%=`, malformed updates, duplicate/forward
   comma names, and a ninth declarator reject. Namespace-collision and exact
-  32-statement boundary coverage remain. The comma-local postfix-`--`, prefix-
-  `++`, and `+=` push-expression sample retains exact OpenGL/Vulkan pixels,
-  stable handles, and zero-growth repeated frames.
+  32-statement boundary coverage remain. Single-component `.xyzw`, `rgba`, and
+  `stpq` selectors now lower vector inputs, push members, locals, literals, and
+  parenthesized expressions to scalar `OpCompositeExtract`. Alias forms are
+  byte-identical; scalar bases, unknown selectors, and multi-component swizzles
+  reject. The reflected-`.w`, comma-local postfix-`--`, prefix-`++`, and `+=`
+  push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
+  and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
