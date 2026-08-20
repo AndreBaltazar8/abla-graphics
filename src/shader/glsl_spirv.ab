@@ -308,7 +308,28 @@ fun glslRasterExtResultType(
 ): int {
     var resultType = glslRasterTypeInvalid
     val begin = stackSize - arity
-    if (begin >= 0 && (instruction == 66 || instruction == 67)) {
+    if (begin >= 0 && (instruction == 37 || instruction == 40)) {
+        if (arity == 2 && stack[begin] == glslRasterTypeScalar &&
+            stack[begin + 1] == glslRasterTypeScalar) {
+            resultType = glslRasterTypeScalar
+        } else if (arity == 2 && stack[begin] == glslRasterTypeVector &&
+            (stack[begin + 1] == glslRasterTypeVector ||
+             stack[begin + 1] == glslRasterTypeScalar)) {
+            resultType = glslRasterTypeVector
+        }
+    } else if (begin >= 0 && instruction == 43) {
+        if (arity == 3 && stack[begin] == glslRasterTypeScalar &&
+            stack[begin + 1] == glslRasterTypeScalar &&
+            stack[begin + 2] == glslRasterTypeScalar) {
+            resultType = glslRasterTypeScalar
+        } else if (arity == 3 && stack[begin] == glslRasterTypeVector &&
+            ((stack[begin + 1] == glslRasterTypeVector &&
+              stack[begin + 2] == glslRasterTypeVector) ||
+             (stack[begin + 1] == glslRasterTypeScalar &&
+              stack[begin + 2] == glslRasterTypeScalar))) {
+            resultType = glslRasterTypeVector
+        }
+    } else if (begin >= 0 && (instruction == 66 || instruction == 67)) {
         var valid = stack[begin] == glslRasterTypeVector
         var argument = 1
         while (valid && argument < arity) {
@@ -1776,6 +1797,30 @@ fun glslRasterFragmentSpirv(
             ) else glslRasterTypeInvalid
             valid = valid && resultType != glslRasterTypeInvalid
             if (valid) {
+                val operands: array<int> = []
+                var argument = 0
+                while (argument < arity) {
+                    var operand = stack[stackSize - arity + argument]
+                    val scalarSplat = resultType == glslRasterTypeVector &&
+                        stackTypes[stackSize - arity + argument] ==
+                            glslRasterTypeScalar &&
+                        (token.memberIndex == 37 || token.memberIndex == 40 ||
+                         token.memberIndex == 43)
+                    if (scalarSplat) {
+                        val splat = nextId
+                        nextId = nextId + 1
+                        words.append(458832)
+                        words.append(vectorType)
+                        words.append(splat)
+                        words.append(operand)
+                        words.append(operand)
+                        words.append(operand)
+                        words.append(operand)
+                        operand = splat
+                    }
+                    operands.append(operand)
+                    argument = argument + 1
+                }
                 valueId = nextId
                 nextId = nextId + 1
                 words.append((arity + 5) * 65536 + 12)
@@ -1784,9 +1829,9 @@ fun glslRasterFragmentSpirv(
                 words.append(valueId)
                 words.append(extendedInstructionSet)
                 words.append(token.memberIndex)
-                var argument = 0
+                argument = 0
                 while (argument < arity) {
-                    words.append(stack[stackSize - arity + argument])
+                    words.append(operands[argument])
                     argument = argument + 1
                 }
                 stackSize = stackSize - arity

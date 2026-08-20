@@ -1780,11 +1780,14 @@ results remain checked failures until the raster IR gains `vec2`/`vec3` types.
 vector/scalar operations. Calls nest within the same expression-depth bound;
 wrong arity or scalar operands reject.
 `min(left, right)`, `max(left, right)`, and `clamp(value, low, high)` accept
-homogeneous scalar or `vec4` expressions and retain that type. They emit
-`GLSL.std.450` `FMin`, `FMax`, and `FClamp` extended instructions. The import is
+homogeneous scalar or `vec4` expressions and retain that type. `min` and `max`
+also accept `vec4, float`; `clamp` accepts `vec4, float, float`. Each scalar
+argument is expanded to a four-lane runtime splat before the homogeneous
+`GLSL.std.450` `FMin`, `FMax`, or `FClamp` instruction. The import is
 allocated and written only when at least one output expression uses one of
 these built-ins, so every existing shader without them retains identical IDs,
-words, and bounds. Wrong arity and mixed scalar/vector calls reject.
+words, and bounds. The inverse `float, vec4` form, partially mixed clamp bounds,
+and wrong arities reject.
 The same conditional import supports homogeneous scalar/vector `abs`, `floor`,
 `ceil`, `sqrt`, and `inversesqrt`. Each unary call preserves its operand type,
 uses the matching `GLSL.std.450` instruction, and composes with other calls
@@ -1889,9 +1892,9 @@ then shapes it with `smoothstep` and selects the unit scale through nested
 `step`/`mix`, multiplied by a
 `cos(radians(length(vec4(0))) + atan(0, 1))` phase. It constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
-into a mutable vector, applies vector/scalar `mod`, then rebinds it with `+=`
-and the second vector. Its reflected alpha component also passes through scalar
-`mod`. It
+into a mutable vector, applies vector/scalar `mod`, clamps it with scalar
+bounds, then rebinds it with `+=` and the second vector. Its reflected alpha
+component also passes through scalar `mod`. It
 proves its 48-byte mixed layout plus exact red/green output, stable handles, and
 zero steady-state allocation growth on both real backends.
 

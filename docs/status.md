@@ -1031,11 +1031,13 @@ validity gate unchanged.
   byte-identical interned constant composites. Dynamic push/component/local
   forms validate; two, three, five, or vector arguments reject. Typed
   `dot(vec4, vec4)` now lowers push, input, local, literal, and nested operands
-  to scalar `OpDot`; scalar operands and wrong arity reject. Homogeneous scalar
-  or vector `min`, `max`, and `clamp` now emit `GLSL.std.450` `FMin`, `FMax`,
-  and `FClamp` through one conditional import. Nested calls and push/input/local
-  operands validate; mixed types and wrong arities reject; shaders not using
-  them retain byte-identical import-free modules. Homogeneous scalar/vector
+  to scalar `OpDot`; scalar operands and wrong arity reject. Scalar/vector
+  `min`, `max`, and `clamp` emit `GLSL.std.450` `FMin`, `FMax`, and `FClamp`
+  through one conditional import. Their GLSL `vec4,float` and
+  `vec4,float,float` overloads materialize operand splats; reverse ordering,
+  partially mixed clamp bounds, and wrong arities reject. Nested calls and
+  push/input/local operands validate; shaders not using them retain
+  byte-identical import-free modules. Homogeneous scalar/vector
   `abs`, `floor`, `ceil`, `sqrt`, and `inversesqrt` share that import and retain
   their operand type; nested instruction-number coverage and arity rejection
   pass. Homogeneous scalar/vector `mix`, `step`, and `smoothstep` now share the
@@ -1054,7 +1056,8 @@ validity gate unchanged.
   counts, scalar/vector mismatch, and wrong arities are covered; `%` and `%=`
   remain correctly reserved to unsupported integer raster expressions. The
   live sample executes scalar and vector/scalar forms with unchanged pixels,
-  handles, frame count, and allocation proof.
+  handles, frame count, and allocation proof, then clamps the vector result
+  through scalar bounds with the same proof.
   Unary `atan(x)` now coexists with homogeneous scalar/vector `atan(y, x)`.
   A bounded top-level call scan resolves the latter to `Atan2` instruction 25
   while ignoring separators inside nested calls; mixed types and third

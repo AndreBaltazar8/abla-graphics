@@ -1680,11 +1680,25 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ vec4 low=vec4(0.0), high=vec4(1.0); color=clamp(draw.tint,low,high); }"
         ]
     ).spirv(shaderStageFragment)
-    val rasterExtInstTypeRejected = glslPackage(
+    val rasterVectorScalarExtInst = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 tint; } draw; void main(){ color=min(draw.tint,draw.gain); }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float low; float high; vec4 tint; } draw; void main(){ color=clamp(max(min(draw.tint,draw.high),draw.low),draw.low,draw.high); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarVectorExtInstRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 tint; } draw; void main(){ color=min(draw.gain,draw.tint); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMixedClampBoundsRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=clamp(draw.tint,vec4(0.0),1.0); }"
         ]
     ).spirv(shaderStageFragment)
     val rasterMinArityRejected = glslPackage(
@@ -3354,8 +3368,16 @@ fun main: int {
         spirvInstructionOperand(rasterVectorExtInst.module, 12, 4, 43) &&
         rasterInputExtInst.succeeded && rasterInputExtInst.module.valid() &&
         rasterLocalExtInst.succeeded && rasterLocalExtInst.module.valid() &&
-        !rasterExtInstTypeRejected.succeeded &&
-        rasterExtInstTypeRejected.error != "" &&
+        rasterVectorScalarExtInst.succeeded &&
+        rasterVectorScalarExtInst.module.valid() &&
+        spirvWordCount(rasterVectorScalarExtInst.module, 458832) == 4 &&
+        spirvInstructionOperand(rasterVectorScalarExtInst.module, 12, 4, 37) &&
+        spirvInstructionOperand(rasterVectorScalarExtInst.module, 12, 4, 40) &&
+        spirvInstructionOperand(rasterVectorScalarExtInst.module, 12, 4, 43) &&
+        !rasterScalarVectorExtInstRejected.succeeded &&
+        rasterScalarVectorExtInstRejected.error != "" &&
+        !rasterMixedClampBoundsRejected.succeeded &&
+        rasterMixedClampBoundsRejected.error != "" &&
         !rasterMinArityRejected.succeeded &&
         rasterMinArityRejected.error != "" &&
         !rasterClampArityRejected.succeeded &&
