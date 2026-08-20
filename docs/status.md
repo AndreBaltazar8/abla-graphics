@@ -223,12 +223,15 @@ Updated: 2026-08-20.
   four warmed frames with stable program/pipeline/framebuffer/command handles
   and zero runtime live-byte growth. Vulkan validation is silent.
 - Common multi-attribute triangle: `VertexBufferLayout` validates an interleaved
-  24-byte record containing reflected location-zero `vec2` position and
-  location-one `vec4` tint inputs. Reusable `BufferBytes.storeF32` encodes three
-  colored vertices in Abla and uploads them to the common affine buffer. The
+  28-byte record containing reflected location-zero `vec2` position,
+  location-one `vec4` tint, and location-two `uint` tag inputs. Reusable
+  `BufferBytes.storeF32`/`storeU32` encode three colored vertices in Abla and
+  upload them to the common affine buffer. The
   strict pure-Abla `$glsl` emitter passes the color through a location-zero
-  varying. OpenGL configures both attributes and draws from that buffer; Vulkan
-  creates matching binding/attribute pipeline state and records
+  varying while retaining the unused integer input in the exact SPIR-V entry
+  interface. OpenGL configures floating attributes with `glVertexAttribPointer`
+  and the integer attribute with `glVertexAttribIPointer`; Vulkan creates the
+  matching `R32_UINT` binding/attribute pipeline state and records
   `vkCmdBindVertexBuffers`. Explicit OpenGL and Lavapipe Vulkan runs preserve
   buffer/pipeline/command handles and live bytes across four warmed draws; the
   Vulkan run is also clean with `VK_LAYER_KHRONOS_validation` forced on.
@@ -727,7 +730,7 @@ Updated: 2026-08-20.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 112 Vulkan and 91 OpenGL commands as
+  A strict audit join currently classifies 112 Vulkan and 92 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -1120,7 +1123,7 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 203 exercised common commands classified; all other
+  exist, with 204 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

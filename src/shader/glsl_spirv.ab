@@ -6171,6 +6171,114 @@ fun glslColoredVertexSource(source: string): bool =
         "vertexTint", "=", "tint", ";", "}"
     ])
 
+fun glslColoredUintVertexSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "location", "=", "0", ")",
+        "in", "vec2", "position", ";",
+        "layout", "(", "location", "=", "1", ")",
+        "in", "vec4", "tint", ";",
+        "layout", "(", "location", "=", "2", ")",
+        "in", "uint", "tag", ";",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec4", "vertexTint", ";",
+        "void", "main", "(", ")", "{",
+        "gl_Position", "=", "vec4", "(",
+        "position", ",", "0.0", ",", "1.0", ")", ";",
+        "vertexTint", "=", "tint", ";", "}"
+    ])
+
+fun glslColoredVertexSpirv(uintInput: bool): array<int> {
+    val words: array<int> = [
+        119734787, 65536, 524299, if (uintInput) 33 else 31, 0,
+        131089, 1,
+        393227, 1, 1280527431, 1685353262, 808793134, 0,
+        196622, 0, 1,
+        if (uintInput) 655375 else 589839,
+        0, 4, 1852399981, 0, 13, 18, 27, 29
+    ]
+    if (uintInput) words.append(32)
+    val decorations: array<int> = [
+        196679, 11, 2,
+        327752, 11, 0, 11, 0,
+        327752, 11, 1, 11, 1,
+        327752, 11, 2, 11, 3,
+        327752, 11, 3, 11, 4,
+        262215, 18, 30, 0,
+        262215, 27, 30, 0,
+        262215, 29, 30, 1
+    ]
+    var index = 0
+    while (index < decorations.size) {
+        words.append(decorations[index])
+        index = index + 1
+    }
+    if (uintInput) {
+        words.append(262215)
+        words.append(32)
+        words.append(30)
+        words.append(2)
+    }
+    val declarations: array<int> = [
+        131091, 2,
+        196641, 3, 2,
+        196630, 6, 32,
+        262167, 7, 6, 4,
+        262165, 8, 32, 0,
+        262187, 8, 9, 1,
+        262172, 10, 6, 9,
+        393246, 11, 7, 6, 10, 10,
+        262176, 12, 3, 11,
+        262203, 12, 13, 3,
+        262165, 14, 32, 1,
+        262187, 14, 15, 0,
+        262167, 16, 6, 2,
+        262176, 17, 1, 16,
+        262203, 17, 18, 1,
+        262187, 6, 20, 0,
+        262187, 6, 21, 1065353216,
+        262176, 25, 3, 7,
+        262203, 25, 27, 3,
+        262176, 28, 1, 7,
+        262203, 28, 29, 1
+    ]
+    index = 0
+    while (index < declarations.size) {
+        words.append(declarations[index])
+        index = index + 1
+    }
+    if (uintInput) {
+        words.append(262176)
+        words.append(31)
+        words.append(1)
+        words.append(8)
+        words.append(262203)
+        words.append(31)
+        words.append(32)
+        words.append(1)
+    }
+    val body: array<int> = [
+        327734, 2, 4, 0, 3,
+        131320, 5,
+        262205, 16, 19, 18,
+        327761, 6, 22, 19, 0,
+        327761, 6, 23, 19, 1,
+        458832, 7, 24, 22, 23, 20, 21,
+        327745, 25, 26, 13, 15,
+        196670, 26, 24,
+        262205, 7, 30, 29,
+        196670, 27, 30,
+        65789,
+        65592
+    ]
+    index = 0
+    while (index < body.size) {
+        words.append(body[index])
+        index = index + 1
+    }
+    words
+}
+
 fun glslTexturedVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
@@ -6332,6 +6440,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslVertexBufferTriangleSource(this.source(shaderStageVertex))
     val coloredVertex = graphicsCommon && stage == shaderStageVertex &&
         glslColoredVertexSource(this.source(shaderStageVertex))
+    val coloredUintVertex = graphicsCommon && stage == shaderStageVertex &&
+        glslColoredUintVertexSource(this.source(shaderStageVertex))
     val texturedVertex = graphicsCommon && stage == shaderStageVertex &&
         glslTexturedVertexSource(this.source(shaderStageVertex))
     val texturedCubeVertex = graphicsCommon && stage == shaderStageVertex &&
@@ -6346,7 +6456,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         combinedSpecializedNoOp || storage || pushStorage || vertex ||
         pushTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
-        coloredVertex || texturedVertex ||
+        coloredVertex || coloredUintVertex || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
@@ -6501,55 +6611,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65789,
             65592
         ]
-    } else if (coloredVertex) {
-        words = [
-            119734787, 65536, 524299, 31, 0,
-            131089, 1,
-            393227, 1, 1280527431, 1685353262, 808793134, 0,
-            196622, 0, 1,
-            589839, 0, 4, 1852399981, 0, 13, 18, 27, 29,
-            196679, 11, 2,
-            327752, 11, 0, 11, 0,
-            327752, 11, 1, 11, 1,
-            327752, 11, 2, 11, 3,
-            327752, 11, 3, 11, 4,
-            262215, 18, 30, 0,
-            262215, 27, 30, 0,
-            262215, 29, 30, 1,
-            131091, 2,
-            196641, 3, 2,
-            196630, 6, 32,
-            262167, 7, 6, 4,
-            262165, 8, 32, 0,
-            262187, 8, 9, 1,
-            262172, 10, 6, 9,
-            393246, 11, 7, 6, 10, 10,
-            262176, 12, 3, 11,
-            262203, 12, 13, 3,
-            262165, 14, 32, 1,
-            262187, 14, 15, 0,
-            262167, 16, 6, 2,
-            262176, 17, 1, 16,
-            262203, 17, 18, 1,
-            262187, 6, 20, 0,
-            262187, 6, 21, 1065353216,
-            262176, 25, 3, 7,
-            262203, 25, 27, 3,
-            262176, 28, 1, 7,
-            262203, 28, 29, 1,
-            327734, 2, 4, 0, 3,
-            131320, 5,
-            262205, 16, 19, 18,
-            327761, 6, 22, 19, 0,
-            327761, 6, 23, 19, 1,
-            458832, 7, 24, 22, 23, 20, 21,
-            327745, 25, 26, 13, 15,
-            196670, 26, 24,
-            262205, 7, 30, 29,
-            196670, 27, 30,
-            65789,
-            65592
-        ]
+    } else if (coloredVertex || coloredUintVertex) {
+        words = glslColoredVertexSpirv(coloredUintVertex)
     } else if (texturedVertex) {
         words = [
             119734787, 65536, 524299, 31, 0,

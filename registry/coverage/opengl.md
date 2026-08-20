@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 91/2892
+- Classified commands: 92/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -2713,7 +2713,7 @@
 | `glVertexAttribI4usvEXT` | definition | unclassified | - | - | - | - |
 | `glVertexAttribIFormat` | definition | unclassified | - | - | - | - |
 | `glVertexAttribIFormatNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribIPointer` | definition | unclassified | - | - | - | - |
+| `glVertexAttribIPointer` | definition | common | src/driver/opengl.ab reflected unsigned integer vertex layout | src/driver/opengl.ab typed location width type stride and offset ABI | examples/common-triangle/main.ab live interleaved uint vertex input on both backends | examples/common-triangle/main.ab missing or mismatched integer attribute rejection |
 | `glVertexAttribIPointerEXT` | definition | unclassified | - | - | - | - |
 | `glVertexAttribL1d` | definition | unclassified | - | - | - | - |
 | `glVertexAttribL1dEXT` | definition | unclassified | - | - | - | - |

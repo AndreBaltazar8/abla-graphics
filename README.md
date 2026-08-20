@@ -213,9 +213,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
-  pipeline plus an interleaved `vec2` position/`vec4` color vertex buffer and
-  common index buffer rendered unchanged on explicit OpenGL and Vulkan, with
-  repeated no-growth and stable-handle assertions; its reflected location-zero
+  pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
+  buffer and common index buffer rendered unchanged on explicit OpenGL and
+  Vulkan, with repeated no-growth and stable-handle assertions; its reflected location-zero
   `vec4` fragment input is loaded by the typed raster IR rather than a fixed
   SPIR-V fragment table;
 - `examples/common-buffer`: one affine descriptor/resource plus reusable byte

@@ -2390,6 +2390,30 @@ fun main: int {
     val coloredFragment = coloredTriangle.spirv(shaderStageFragment)
     val coloredFragmentAgain = coloredTriangle.spirv(shaderStageFragment)
     val coloredFragmentProgram = coloredTriangle.rasterFragmentProgram()
+    val coloredUintTriangle = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec4 tint;
+            layout(location = 2) in uint tag;
+            layout(location = 0) out vec4 vertexTint;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                vertexTint = tint;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec4 vertexTint;
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vertexTint;
+            }
+        }
+    }
+    val coloredUintVertex = coloredUintTriangle.spirv(shaderStageVertex)
+    val coloredUintVertexAgain =
+        coloredUintTriangle.spirv(shaderStageVertex)
     val rasterInputPush = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3923,6 +3947,27 @@ fun main: int {
         coloredVertex.module.words.size == 187 &&
         coloredVertex.module.bound() == 31 &&
         spirvWordsEqual(coloredVertex.module, coloredVertexAgain.module) &&
+        coloredUintTriangle.valid &&
+        coloredUintTriangle.locations.size == 6 &&
+        coloredUintVertex.succeeded && coloredUintVertex.module.valid() &&
+        coloredUintVertex.module.words.size == 200 &&
+        coloredUintVertex.module.bound() == 33 &&
+        spirvContainsWords(
+            coloredUintVertex.module,
+            [262215, 32, 30, 2]
+        ) &&
+        spirvContainsWords(
+            coloredUintVertex.module,
+            [262176, 31, 1, 8]
+        ) &&
+        spirvContainsWords(
+            coloredUintVertex.module,
+            [262203, 31, 32, 1]
+        ) &&
+        spirvWordsEqual(
+            coloredUintVertex.module,
+            coloredUintVertexAgain.module
+        ) &&
         coloredFragmentProgram.valid &&
         coloredFragmentProgram.inputs.size == 1 &&
         coloredFragmentProgram.expression.tokens.size == 1 &&

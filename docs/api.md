@@ -178,6 +178,11 @@ command's native instance field. Zero instances are rejected before dispatch.
 Vertex/index buffers and backend command state remain stable with zero live-byte
 growth across the repeated sample draw loop.
 
+Unsigned integer vertex inputs use `vertexFormatUint32` in the same reflected
+layout. They map to `glVertexAttribIPointer` on OpenGL and `R32_UINT` pipeline
+attributes on Vulkan; the common-triangle sample proves an interleaved
+`vec2`/`vec4`/`uint` record without backend-specific shader or buffer code.
+
 GPU-authored draw parameters use buffers created with `bufferUsageIndirect`:
 
 ```abla
