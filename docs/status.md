@@ -727,7 +727,7 @@ Updated: 2026-08-19.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 18 Vulkan and 15 OpenGL commands as
+  A strict audit join currently classifies 43 Vulkan and 28 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -1120,7 +1120,7 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with the initial 50 exercised common commands classified; all other
+  exist, with 71 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

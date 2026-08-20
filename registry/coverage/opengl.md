@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 18/2892
+- Classified commands: 28/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -65,7 +65,7 @@
 | `glBeginVideoCaptureNV` | definition | unclassified | - | - | - | - |
 | `glBindAttribLocation` | definition | unclassified | - | - | - | - |
 | `glBindAttribLocationARB` | definition | unclassified | - | - | - | - |
-| `glBindBuffer` | definition | unclassified | - | - | - | - |
+| `glBindBuffer` | definition | common | src/driver/opengl.ab buffer target binding | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact buffer upload readback copy and fill | tests/application/main.ab range and usage rejection |
 | `glBindBufferARB` | definition | unclassified | - | - | - | - |
 | `glBindBufferBase` | definition | unclassified | - | - | - | - |
 | `glBindBufferBaseEXT` | definition | unclassified | - | - | - | - |
@@ -159,7 +159,7 @@
 | `glBlitNamedFramebuffer` | definition | unclassified | - | - | - | - |
 | `glBufferAddressRangeNV` | definition | unclassified | - | - | - | - |
 | `glBufferAttachMemoryNV` | definition | unclassified | - | - | - | - |
-| `glBufferData` | definition | unclassified | - | - | - | - |
+| `glBufferData` | definition | common | src/driver/opengl.ab affine buffer storage allocation | src/driver/opengl.ab typed size and pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab zero-size and oversized buffer rejection |
 | `glBufferDataARB` | definition | unclassified | - | - | - | - |
 | `glBufferPageCommitmentARB` | definition | unclassified | - | - | - | - |
 | `glBufferPageCommitmentMemNV` | definition | unclassified | - | - | - | - |
@@ -167,7 +167,7 @@
 | `glBufferStorage` | definition | unclassified | - | - | - | - |
 | `glBufferStorageExternalEXT` | definition | unclassified | - | - | - | - |
 | `glBufferStorageMemEXT` | definition | unclassified | - | - | - | - |
-| `glBufferSubData` | definition | unclassified | - | - | - | - |
+| `glBufferSubData` | definition | common | src/driver/opengl.ab checked buffer upload | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole uploads | tests/application/main.ab range and usage rejection |
 | `glBufferSubDataARB` | definition | unclassified | - | - | - | - |
 | `glCallCommandListNV` | definition | unclassified | - | - | - | - |
 | `glCallList` | definition | unclassified | - | - | - | - |
@@ -182,7 +182,7 @@
 | `glClearAccum` | definition | unclassified | - | - | - | - |
 | `glClearAccumxOES` | definition | unclassified | - | - | - | - |
 | `glClearBufferData` | definition | unclassified | - | - | - | - |
-| `glClearBufferSubData` | definition | unclassified | - | - | - | - |
+| `glClearBufferSubData` | definition | common | src/driver/opengl.ab GPU buffer fill | src/driver/opengl.ab typed clear-subrange ABI | tests/application/main.ab exact partial fill readback | tests/application/main.ab alignment range and usage rejection |
 | `glClearBufferfi` | definition | unclassified | - | - | - | - |
 | `glClearBufferfv` | definition | common | src/driver/opengl.ab render-target clear | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact MRT clear | tests/application/main.ab attachment bounds rejection |
 | `glClearBufferiv` | definition | unclassified | - | - | - | - |
@@ -332,7 +332,7 @@
 | `glConvolutionParameterivEXT` | definition | unclassified | - | - | - | - |
 | `glConvolutionParameterxOES` | definition | unclassified | - | - | - | - |
 | `glConvolutionParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glCopyBufferSubData` | definition | unclassified | - | - | - | - |
+| `glCopyBufferSubData` | definition | common | src/driver/opengl.ab GPU buffer copy | src/driver/opengl.ab typed range ABI | tests/application/main.ab exact copied range readback | tests/application/main.ab range and usage rejection |
 | `glCopyColorSubTableEXT` | definition | unclassified | - | - | - | - |
 | `glCopyColorTableSGI` | definition | unclassified | - | - | - | - |
 | `glCopyConvolutionFilter1DEXT` | definition | unclassified | - | - | - | - |
@@ -410,7 +410,7 @@
 | `glDeformationMap3dSGIX` | definition | unclassified | - | - | - | - |
 | `glDeformationMap3fSGIX` | definition | unclassified | - | - | - | - |
 | `glDeleteAsyncMarkersSGIX` | definition | unclassified | - | - | - | - |
-| `glDeleteBuffers` | definition | unclassified | - | - | - | - |
+| `glDeleteBuffers` | definition | common | src/driver/opengl.ab affine buffer lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
 | `glDeleteBuffersARB` | definition | unclassified | - | - | - | - |
 | `glDeleteCommandListsNV` | definition | unclassified | - | - | - | - |
 | `glDeleteFencesAPPLE` | definition | unclassified | - | - | - | - |
@@ -674,7 +674,7 @@
 | `glFrustumfOES` | definition | unclassified | - | - | - | - |
 | `glFrustumxOES` | definition | unclassified | - | - | - | - |
 | `glGenAsyncMarkersSGIX` | definition | unclassified | - | - | - | - |
-| `glGenBuffers` | definition | unclassified | - | - | - | - |
+| `glGenBuffers` | definition | common | src/driver/opengl.ab affine buffer creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab invalid buffer descriptor rejection |
 | `glGenBuffersARB` | definition | unclassified | - | - | - | - |
 | `glGenFencesAPPLE` | definition | unclassified | - | - | - | - |
 | `glGenFencesNV` | definition | unclassified | - | - | - | - |
@@ -737,7 +737,7 @@
 | `glGetBufferParameterui64vNV` | definition | unclassified | - | - | - | - |
 | `glGetBufferPointerv` | definition | unclassified | - | - | - | - |
 | `glGetBufferPointervARB` | definition | unclassified | - | - | - | - |
-| `glGetBufferSubData` | definition | unclassified | - | - | - | - |
+| `glGetBufferSubData` | definition | common | src/driver/opengl.ab checked buffer readback | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole readback | tests/application/main.ab range and usage rejection |
 | `glGetBufferSubDataARB` | definition | unclassified | - | - | - | - |
 | `glGetClipPlane` | definition | unclassified | - | - | - | - |
 | `glGetClipPlanefOES` | definition | unclassified | - | - | - | - |
@@ -1290,7 +1290,7 @@
 | `glMap2xOES` | definition | unclassified | - | - | - | - |
 | `glMapBuffer` | definition | unclassified | - | - | - | - |
 | `glMapBufferARB` | definition | unclassified | - | - | - | - |
-| `glMapBufferRange` | definition | unclassified | - | - | - | - |
+| `glMapBufferRange` | definition | common | src/driver/opengl.ab persistent transfer mapping | src/driver/opengl.ab typed mapped-pointer ABI | tests/application/main.ab exact mapped transfer paths | tests/application/main.ab range and usage rejection |
 | `glMapControlPointsNV` | definition | unclassified | - | - | - | - |
 | `glMapGrid1d` | definition | unclassified | - | - | - | - |
 | `glMapGrid1f` | definition | unclassified | - | - | - | - |
@@ -2451,7 +2451,7 @@
 | `glUniformui64NV` | definition | unclassified | - | - | - | - |
 | `glUniformui64vNV` | definition | unclassified | - | - | - | - |
 | `glUnlockArraysEXT` | definition | unclassified | - | - | - | - |
-| `glUnmapBuffer` | definition | unclassified | - | - | - | - |
+| `glUnmapBuffer` | definition | common | src/driver/opengl.ab mapped transfer completion | src/driver/opengl.ab typed result ABI | tests/application/main.ab exact mapped transfer paths | tests/application/main.ab range and usage rejection |
 | `glUnmapBufferARB` | definition | unclassified | - | - | - | - |
 | `glUnmapNamedBuffer` | definition | unclassified | - | - | - | - |
 | `glUnmapNamedBufferEXT` | definition | unclassified | - | - | - | - |

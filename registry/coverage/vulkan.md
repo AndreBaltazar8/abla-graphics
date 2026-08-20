@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 33/842
+- Classified commands: 43/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -28,11 +28,11 @@
 | `vkAcquireXlibDisplayEXT` | definition | unclassified | - | - | - | - |
 | `vkAllocateCommandBuffers` | definition | unclassified | - | - | - | - |
 | `vkAllocateDescriptorSets` | definition | unclassified | - | - | - | - |
-| `vkAllocateMemory` | definition | unclassified | - | - | - | - |
+| `vkAllocateMemory` | definition | common | src/driver/vulkan.ab buffer memory allocation | src/driver/vulkan.ab packed allocation and memory-properties ABIs | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid and oversized buffer rejection |
 | `vkAntiLagUpdateAMD` | definition | unclassified | - | - | - | - |
 | `vkBeginCommandBuffer` | definition | unclassified | - | - | - | - |
 | `vkBindAccelerationStructureMemoryNV` | definition | unclassified | - | - | - | - |
-| `vkBindBufferMemory` | definition | unclassified | - | - | - | - |
+| `vkBindBufferMemory` | definition | common | src/driver/vulkan.ab buffer memory binding | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid buffer descriptor rejection |
 | `vkBindBufferMemory2` | definition | unclassified | - | - | - | - |
 | `vkBindBufferMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkBindDataGraphPipelineSessionMemoryARM` | definition | unclassified | - | - | - | - |
@@ -104,7 +104,7 @@
 | `vkCmdCopyAccelerationStructureKHR` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyAccelerationStructureNV` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyAccelerationStructureToMemoryKHR` | definition | unclassified | - | - | - | - |
-| `vkCmdCopyBuffer` | definition | unclassified | - | - | - | - |
+| `vkCmdCopyBuffer` | definition | common | src/driver/vulkan.ab GPU buffer copy recording | src/driver/vulkan.ab packed BufferCopy ABI | tests/application/main.ab exact copied range readback | tests/application/main.ab range and usage rejection |
 | `vkCmdCopyBuffer2` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyBuffer2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdCopyBufferToImage` | definition | common | src/driver/vulkan.ab texture upload | src/driver/vulkan.ab packed buffer image copy ABI | tests/application/main.ab exact texture upload | tests/application/main.ab upload range rejection |
@@ -201,7 +201,7 @@
 | `vkCmdExecuteCommands` | definition | unclassified | - | - | - | - |
 | `vkCmdExecuteGeneratedCommandsEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdExecuteGeneratedCommandsNV` | definition | unclassified | - | - | - | - |
-| `vkCmdFillBuffer` | definition | unclassified | - | - | - | - |
+| `vkCmdFillBuffer` | definition | common | src/driver/vulkan.ab GPU buffer fill recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact partial fill readback | tests/application/main.ab alignment range and usage rejection |
 | `vkCmdFillMemoryKHR` | definition | unclassified | - | - | - | - |
 | `vkCmdInitializeGraphScratchMemoryAMDX` | definition | unclassified | - | - | - | - |
 | `vkCmdInsertDebugUtilsLabelEXT` | definition | unclassified | - | - | - | - |
@@ -379,7 +379,7 @@
 | `vkCreateAccelerationStructureKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateAccelerationStructureNV` | definition | unclassified | - | - | - | - |
 | `vkCreateAndroidSurfaceKHR` | definition | unclassified | - | - | - | - |
-| `vkCreateBuffer` | definition | unclassified | - | - | - | - |
+| `vkCreateBuffer` | definition | common | src/driver/vulkan.ab affine buffer creation | src/driver/vulkan.ab packed BufferCreateInfo ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab zero-size and oversized buffer rejection |
 | `vkCreateBufferCollectionFUCHSIA` | definition | unclassified | - | - | - | - |
 | `vkCreateBufferView` | definition | unclassified | - | - | - | - |
 | `vkCreateCommandPool` | definition | unclassified | - | - | - | - |
@@ -461,7 +461,7 @@
 | `vkDeferredOperationJoinKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroyAccelerationStructureKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroyAccelerationStructureNV` | definition | unclassified | - | - | - | - |
-| `vkDestroyBuffer` | definition | unclassified | - | - | - | - |
+| `vkDestroyBuffer` | definition | common | src/driver/vulkan.ab affine buffer lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
 | `vkDestroyBufferCollectionFUCHSIA` | definition | unclassified | - | - | - | - |
 | `vkDestroyBufferView` | definition | unclassified | - | - | - | - |
 | `vkDestroyCommandPool` | definition | unclassified | - | - | - | - |
@@ -531,7 +531,7 @@
 | `vkFlushMappedMemoryRanges` | definition | unclassified | - | - | - | - |
 | `vkFreeCommandBuffers` | definition | unclassified | - | - | - | - |
 | `vkFreeDescriptorSets` | definition | unclassified | - | - | - | - |
-| `vkFreeMemory` | definition | unclassified | - | - | - | - |
+| `vkFreeMemory` | definition | common | src/driver/vulkan.ab affine buffer memory lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
 | `vkGetAccelerationStructureBuildSizesKHR` | definition | unclassified | - | - | - | - |
 | `vkGetAccelerationStructureDeviceAddressKHR` | definition | unclassified | - | - | - | - |
 | `vkGetAccelerationStructureHandleNV` | definition | unclassified | - | - | - | - |
@@ -542,7 +542,7 @@
 | `vkGetBufferDeviceAddress` | definition | unclassified | - | - | - | - |
 | `vkGetBufferDeviceAddressEXT` | alias | unclassified | - | - | - | - |
 | `vkGetBufferDeviceAddressKHR` | alias | unclassified | - | - | - | - |
-| `vkGetBufferMemoryRequirements` | definition | unclassified | - | - | - | - |
+| `vkGetBufferMemoryRequirements` | definition | common | src/driver/vulkan.ab buffer requirement query | src/driver/vulkan.ab packed MemoryRequirements ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab oversized buffer rejection |
 | `vkGetBufferMemoryRequirements2` | definition | unclassified | - | - | - | - |
 | `vkGetBufferMemoryRequirements2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetBufferOpaqueCaptureAddress` | definition | unclassified | - | - | - | - |
@@ -780,7 +780,7 @@
 | `vkInvalidateMappedMemoryRanges` | definition | unclassified | - | - | - | - |
 | `vkLatencySleepLegacyNV` | definition | unclassified | - | - | - | - |
 | `vkLatencySleepNV` | definition | unclassified | - | - | - | - |
-| `vkMapMemory` | definition | unclassified | - | - | - | - |
+| `vkMapMemory` | definition | common | src/driver/vulkan.ab checked buffer upload and readback | src/driver/vulkan.ab typed mapped-pointer ABI | tests/application/main.ab exact partial and whole range transfer | tests/application/main.ab range and usage rejection |
 | `vkMapMemory2` | definition | unclassified | - | - | - | - |
 | `vkMapMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkMergePipelineCaches` | definition | unclassified | - | - | - | - |
@@ -841,7 +841,7 @@
 | `vkTrimCommandPool` | definition | unclassified | - | - | - | - |
 | `vkTrimCommandPoolKHR` | alias | unclassified | - | - | - | - |
 | `vkUninitializePerformanceApiINTEL` | definition | unclassified | - | - | - | - |
-| `vkUnmapMemory` | definition | unclassified | - | - | - | - |
+| `vkUnmapMemory` | definition | common | src/driver/vulkan.ab checked buffer transfer completion | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact partial and whole range transfer | tests/application/main.ab range and usage rejection |
 | `vkUnmapMemory2` | definition | unclassified | - | - | - | - |
 | `vkUnmapMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkUnregisterCustomBorderColorEXT` | definition | unclassified | - | - | - | - |
