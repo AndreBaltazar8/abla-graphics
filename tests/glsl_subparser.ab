@@ -1652,6 +1652,41 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(clamp(1.0,0.0)); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterScalarUnaryExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vec4(ceil(floor(abs(draw.gain)))); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVectorUnaryExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=sqrt(abs(draw.tint)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterInverseSqrtExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=inversesqrt(max(draw.tint,vec4(1.0))); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnaryExtExtraArgumentRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(abs(1.0,2.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnaryExtMissingArgumentRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(sqrt()); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3072,6 +3107,23 @@ fun main: int {
         rasterMinArityRejected.error != "" &&
         !rasterClampArityRejected.succeeded &&
         rasterClampArityRejected.error != "" &&
+        rasterScalarUnaryExtInst.succeeded &&
+        rasterScalarUnaryExtInst.module.valid() &&
+        spirvWordCount(rasterScalarUnaryExtInst.module, 393227) == 1 &&
+        spirvInstructionOperand(rasterScalarUnaryExtInst.module, 12, 4, 4) &&
+        spirvInstructionOperand(rasterScalarUnaryExtInst.module, 12, 4, 8) &&
+        spirvInstructionOperand(rasterScalarUnaryExtInst.module, 12, 4, 9) &&
+        rasterVectorUnaryExtInst.succeeded &&
+        rasterVectorUnaryExtInst.module.valid() &&
+        spirvInstructionOperand(rasterVectorUnaryExtInst.module, 12, 4, 4) &&
+        spirvInstructionOperand(rasterVectorUnaryExtInst.module, 12, 4, 31) &&
+        rasterInverseSqrtExtInst.succeeded &&
+        rasterInverseSqrtExtInst.module.valid() &&
+        spirvInstructionOperand(rasterInverseSqrtExtInst.module, 12, 4, 32) &&
+        !rasterUnaryExtExtraArgumentRejected.succeeded &&
+        rasterUnaryExtExtraArgumentRejected.error != "" &&
+        !rasterUnaryExtMissingArgumentRejected.succeeded &&
+        rasterUnaryExtMissingArgumentRejected.error != "" &&
         spirvWordCount(pushColorFragment.module, 393227) == 0 &&
         !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&

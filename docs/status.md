@@ -1035,10 +1035,13 @@ validity gate unchanged.
   or vector `min`, `max`, and `clamp` now emit `GLSL.std.450` `FMin`, `FMax`,
   and `FClamp` through one conditional import. Nested calls and push/input/local
   operands validate; mixed types and wrong arities reject; shaders not using
-  them retain byte-identical import-free modules. The reflected `.w`/`.bgra`,
-  clamped dot projection, runtime-denominator, comma-local postfix-`--`, prefix-
-  `++`, and `+=` push-expression sample retains exact OpenGL/Vulkan pixels,
-  stable handles, and zero-growth repeated frames.
+  them retain byte-identical import-free modules. Homogeneous scalar/vector
+  `abs`, `floor`, `ceil`, `sqrt`, and `inversesqrt` share that import and retain
+  their operand type; nested instruction-number coverage and arity rejection
+  pass. The reflected `.w`/`.bgra`, `sqrt(abs(dot(...)))` clamped projection,
+  runtime-denominator, comma-local postfix-`--`, prefix-`++`, and `+=` push-
+  expression sample retains exact OpenGL/Vulkan pixels, stable handles, and
+  zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
