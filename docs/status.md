@@ -1004,10 +1004,13 @@ validity gate unchanged.
   vector component, and scalar literal. The MRT module drops from 117 to 93
   words with two constants, while vector/scalar reuse, deterministic bytes, all
   exact pixels, stable handles, and zero-growth behavior remain verified.
-  Up to eight ordered immutable `const float`/`const vec4` locals now expand
-  into the typed postfix IR without function storage. Declared-type checking,
-  earlier-local chaining, inline byte equivalence, and duplicate, forward,
-  mismatch, and namespace-collision rejection are covered. The local-backed
+  Up to eight ordered `float`/`vec4` locals, optionally `const`, now expand into
+  the typed postfix IR without function storage across at most 32 local
+  statements. Mutable reassignment replaces the current SSA expression while
+  preserving the declared type; const mutation, type changes, and undeclared
+  assignments reject. Reassigned-local byte equivalence to the fully inlined
+  expression is covered alongside earlier-local chaining and duplicate,
+  forward, mismatch, and namespace-collision rejection. The mutable-local
   push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
   and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are

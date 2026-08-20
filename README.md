@@ -267,7 +267,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   on both backends;
 - `examples/push-expression`: a typed fragment expression combines two
   reflected `vec4` push members with a reflected scalar gain and
-  an immutable `const vec4` local, typed vector negation, and
+  a mutable `vec4` local rebound in storage-free SSA form, typed vector
+  negation, and
   precedence-ordered vector/scalar division plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;

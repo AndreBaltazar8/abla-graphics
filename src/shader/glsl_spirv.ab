@@ -111,7 +111,8 @@ class GlslRasterExpression(
 class GlslRasterLocal(
     val name: string,
     val valueType: int,
-    val tokens: array<GlslRasterToken>
+    val tokens: array<GlslRasterToken>,
+    val canAssign: bool = false
 )
 
 class GlslRasterFragmentProgram(
@@ -616,58 +617,111 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         expectedIndex = expectedIndex + 1
     }
     val locals: array<GlslRasterLocal> = []
-    while (valid && locals.size < 8 &&
-        glslRasterTokenText(lexical.tokens, index, "const")) {
-        index = index + 1
-        val dataType = if (index < lexical.tokens.size)
+    var localStatementCount = 0
+    var localDone = false
+    while (valid && !localDone && localStatementCount < 32) {
+        val tokenText = if (index < lexical.tokens.size)
             lexical.tokens[index].text else ""
-        val valueType = if (dataType == "float") glslRasterTypeScalar
-            else if (dataType == "vec4") glslRasterTypeVector
-            else glslRasterTypeInvalid
-        valid = valueType != glslRasterTypeInvalid
-        if (valid) index = index + 1
-        val name = if (index < lexical.tokens.size)
-            lexical.tokens[index].text else ""
-        var duplicate = name == "" || name == push.name
-        var localIndex = 0
-        while (!duplicate && localIndex < locals.size) {
-            duplicate = locals[localIndex].name == name
-            localIndex = localIndex + 1
-        }
-        var interfaceIndex = 0
-        while (!duplicate && interfaceIndex < inputs.size) {
-            duplicate = inputs[interfaceIndex].name == name
-            interfaceIndex = interfaceIndex + 1
-        }
-        interfaceIndex = 0
-        while (!duplicate && interfaceIndex < outputs.size) {
-            duplicate = outputs[interfaceIndex].name == name
-            interfaceIndex = interfaceIndex + 1
-        }
-        valid = valid && !duplicate &&
-            glslRasterTokenText(lexical.tokens, index + 1, "=")
-        if (valid) index = index + 2
-        val localExpression = if (valid) glslRasterExpression(
-            lexical.tokens,
-            index,
-            1,
-            push,
-            inputs,
-            locals,
-            0
-        ) else GlslRasterExpression(false, [], index)
-        index = localExpression.next
-        valid = valid && localExpression.valid &&
-            glslRasterExpressionType(localExpression, push, inputs) ==
-                valueType &&
-            glslRasterTokenText(lexical.tokens, index, ";")
-        if (valid) {
-            locals.append(GlslRasterLocal(
-                name,
-                valueType,
-                glslRasterTokensCopy(localExpression.tokens)
-            ))
-            index = index + 1
+        val constantDeclaration = tokenText == "const"
+        val declaration = constantDeclaration || tokenText == "float" ||
+            tokenText == "vec4"
+        if (declaration) {
+            val dataTypeIndex = if (constantDeclaration) index + 1
+                else index
+            val dataType = if (dataTypeIndex < lexical.tokens.size)
+                lexical.tokens[dataTypeIndex].text else ""
+            val valueType = if (dataType == "float") glslRasterTypeScalar
+                else if (dataType == "vec4") glslRasterTypeVector
+                else glslRasterTypeInvalid
+            index = dataTypeIndex + 1
+            val name = if (index < lexical.tokens.size)
+                lexical.tokens[index].text else ""
+            var duplicate = name == "" || name == push.name ||
+                locals.size >= 8
+            var localIndex = 0
+            while (!duplicate && localIndex < locals.size) {
+                duplicate = locals[localIndex].name == name
+                localIndex = localIndex + 1
+            }
+            var interfaceIndex = 0
+            while (!duplicate && interfaceIndex < inputs.size) {
+                duplicate = inputs[interfaceIndex].name == name
+                interfaceIndex = interfaceIndex + 1
+            }
+            interfaceIndex = 0
+            while (!duplicate && interfaceIndex < outputs.size) {
+                duplicate = outputs[interfaceIndex].name == name
+                interfaceIndex = interfaceIndex + 1
+            }
+            valid = valueType != glslRasterTypeInvalid && !duplicate &&
+                glslRasterTokenText(lexical.tokens, index + 1, "=")
+            if (valid) index = index + 2
+            val localExpression = if (valid) glslRasterExpression(
+                lexical.tokens,
+                index,
+                1,
+                push,
+                inputs,
+                locals,
+                0
+            ) else GlslRasterExpression(false, [], index)
+            index = localExpression.next
+            valid = valid && localExpression.valid &&
+                glslRasterExpressionType(localExpression, push, inputs) ==
+                    valueType &&
+                glslRasterTokenText(lexical.tokens, index, ";")
+            if (valid) {
+                locals.append(GlslRasterLocal(
+                    name,
+                    valueType,
+                    glslRasterTokensCopy(localExpression.tokens),
+                    !constantDeclaration
+                ))
+                index = index + 1
+                localStatementCount = localStatementCount + 1
+            }
+        } else {
+            var localIndex = -1
+            var candidate = 0
+            while (localIndex < 0 && candidate < locals.size) {
+                if (locals[candidate].name == tokenText) {
+                    localIndex = candidate
+                }
+                candidate = candidate + 1
+            }
+            if (localIndex < 0) localDone = true
+            else {
+                valid = locals[localIndex].canAssign &&
+                    glslRasterTokenText(lexical.tokens, index + 1, "=")
+                if (valid) index = index + 2
+                val localExpression = if (valid) glslRasterExpression(
+                    lexical.tokens,
+                    index,
+                    1,
+                    push,
+                    inputs,
+                    locals,
+                    0
+                ) else GlslRasterExpression(false, [], index)
+                index = localExpression.next
+                valid = valid && localExpression.valid &&
+                    glslRasterExpressionType(
+                        localExpression,
+                        push,
+                        inputs
+                    ) == locals[localIndex].valueType &&
+                    glslRasterTokenText(lexical.tokens, index, ";")
+                if (valid) {
+                    locals[localIndex] = GlslRasterLocal(
+                        locals[localIndex].name,
+                        locals[localIndex].valueType,
+                        glslRasterTokensCopy(localExpression.tokens),
+                        true
+                    )
+                    index = index + 1
+                    localStatementCount = localStatementCount + 1
+                }
+            }
         }
     }
     val expressions: array<GlslRasterExpression> = []
