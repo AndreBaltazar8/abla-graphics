@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 58/842
+- Classified commands: 62/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -69,7 +69,7 @@
 | `vkCmdBindDescriptorSets` | definition | common | src/driver/vulkan.ab render and compute descriptor binding | src/driver/vulkan.ab typed bind-point layout set and offset ABI | examples/common-textured/main.ab repeated indexed sampled rendering | examples/common-textured/main.ab missing shader binding rejection |
 | `vkCmdBindDescriptorSets2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindDescriptorSets2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdBindIndexBuffer` | definition | unclassified | - | - | - | - |
+| `vkCmdBindIndexBuffer` | definition | common | src/driver/vulkan.ab indexed draw buffer binding | src/driver/vulkan.ab typed command buffer handle offset and index-type ABI | examples/common-triangle/main.ab repeated indexed instanced and indirect rendering | examples/common-triangle/main.ab invalid index count rejection |
 | `vkCmdBindIndexBuffer2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindIndexBuffer2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdBindIndexBuffer3KHR` | definition | unclassified | - | - | - | - |
@@ -83,7 +83,7 @@
 | `vkCmdBindTileMemoryQCOM` | definition | unclassified | - | - | - | - |
 | `vkCmdBindTransformFeedbackBuffers2EXT` | definition | unclassified | - | - | - | - |
 | `vkCmdBindTransformFeedbackBuffersEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdBindVertexBuffers` | definition | unclassified | - | - | - | - |
+| `vkCmdBindVertexBuffers` | definition | common | src/driver/vulkan.ab raster vertex-buffer binding | src/driver/vulkan.ab typed buffer and offset array ABI | examples/common-triangle/main.ab direct indexed and indirect vertex rendering | examples/common-triangle/main.ab invalid vertex layout rejection |
 | `vkCmdBindVertexBuffers2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindVertexBuffers2EXT` | alias | unclassified | - | - | - | - |
 | `vkCmdBindVertexBuffers3KHR` | definition | unclassified | - | - | - | - |
@@ -155,13 +155,13 @@
 | `vkCmdDrawClusterHUAWEI` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawClusterIndirectHUAWEI` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexed` | definition | common | src/driver/vulkan.ab indexed render recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact indexed output | tests/application/main.ab invalid index range rejection |
-| `vkCmdDrawIndexedIndirect` | definition | unclassified | - | - | - | - |
+| `vkCmdDrawIndexedIndirect` | definition | common | src/driver/vulkan.ab indexed indirect command recording | src/driver/vulkan.ab typed buffer offset count and stride ABI | examples/common-triangle/main.ab repeated two-instance indexed-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
 | `vkCmdDrawIndexedIndirect2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCount` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCount2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCountAMD` | alias | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCountKHR` | alias | unclassified | - | - | - | - |
-| `vkCmdDrawIndirect` | definition | unclassified | - | - | - | - |
+| `vkCmdDrawIndirect` | definition | common | src/driver/vulkan.ab non-indexed indirect command recording | src/driver/vulkan.ab typed buffer offset count and stride ABI | examples/common-triangle/main.ab live vertex-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
 | `vkCmdDrawIndirect2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndirectByteCount2EXT` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndirectByteCountEXT` | definition | unclassified | - | - | - | - |

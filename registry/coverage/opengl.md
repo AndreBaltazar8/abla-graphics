@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 56/2892
+- Classified commands: 66/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -106,7 +106,7 @@
 | `glBindTextures` | definition | unclassified | - | - | - | - |
 | `glBindTransformFeedback` | definition | unclassified | - | - | - | - |
 | `glBindTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glBindVertexArray` | definition | unclassified | - | - | - | - |
+| `glBindVertexArray` | definition | common | src/driver/opengl.ab raster vertex-state binding | src/driver/opengl.ab typed vertex-array name ABI | examples/common-triangle/main.ab repeated direct indexed and indirect rendering | examples/common-triangle/main.ab invalid layout pipeline rejection |
 | `glBindVertexArrayAPPLE` | definition | unclassified | - | - | - | - |
 | `glBindVertexBuffer` | definition | unclassified | - | - | - | - |
 | `glBindVertexBuffers` | definition | unclassified | - | - | - | - |
@@ -445,7 +445,7 @@
 | `glDeleteTexturesEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteTransformFeedbacks` | definition | unclassified | - | - | - | - |
 | `glDeleteTransformFeedbacksNV` | definition | unclassified | - | - | - | - |
-| `glDeleteVertexArrays` | definition | unclassified | - | - | - | - |
+| `glDeleteVertexArrays` | definition | common | src/driver/opengl.ab affine raster vertex-state lifetime | src/driver/opengl.ab typed name-array ABI | examples/common-triangle/main.ab alternate pipeline drop and stable primary state | examples/common-triangle/main.ab invalid pipeline cleanup |
 | `glDeleteVertexArraysAPPLE` | definition | unclassified | - | - | - | - |
 | `glDeleteVertexShaderEXT` | definition | unclassified | - | - | - | - |
 | `glDepthBoundsEXT` | definition | unclassified | - | - | - | - |
@@ -480,10 +480,10 @@
 | `glDispatchCompute` | definition | unclassified | - | - | - | - |
 | `glDispatchComputeGroupSizeARB` | definition | unclassified | - | - | - | - |
 | `glDispatchComputeIndirect` | definition | unclassified | - | - | - | - |
-| `glDrawArrays` | definition | unclassified | - | - | - | - |
+| `glDrawArrays` | definition | common | src/driver/opengl.ab allocation-free pixel and simple triangle drawing | src/driver/opengl.ab typed mode first and count ABI | tests/application/main.ab exact repeated pixel and triangle presentation | tests/application/main.ab invalid vertex range rejection |
 | `glDrawArraysEXT` | definition | unclassified | - | - | - | - |
-| `glDrawArraysIndirect` | definition | unclassified | - | - | - | - |
-| `glDrawArraysInstanced` | definition | unclassified | - | - | - | - |
+| `glDrawArraysIndirect` | definition | common | src/driver/opengl.ab indirect non-indexed rendering | src/driver/opengl.ab typed mode and indirect-pointer ABI | examples/common-triangle/main.ab live vertex-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
+| `glDrawArraysInstanced` | definition | common | src/driver/opengl.ab direct instanced vertex rendering | src/driver/opengl.ab typed mode range and instance-count ABI | tests/application/main.ab repeated direct triangle presentation | examples/common-triangle/main.ab zero instance-count rejection |
 | `glDrawArraysInstancedARB` | definition | unclassified | - | - | - | - |
 | `glDrawArraysInstancedBaseInstance` | definition | unclassified | - | - | - | - |
 | `glDrawArraysInstancedEXT` | definition | unclassified | - | - | - | - |
@@ -499,8 +499,8 @@
 | `glDrawElementArrayATI` | definition | unclassified | - | - | - | - |
 | `glDrawElements` | definition | unclassified | - | - | - | - |
 | `glDrawElementsBaseVertex` | definition | unclassified | - | - | - | - |
-| `glDrawElementsIndirect` | definition | unclassified | - | - | - | - |
-| `glDrawElementsInstanced` | definition | unclassified | - | - | - | - |
+| `glDrawElementsIndirect` | definition | common | src/driver/opengl.ab indirect indexed rendering | src/driver/opengl.ab typed mode index-type and indirect-pointer ABI | examples/common-triangle/main.ab repeated two-instance indexed-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
+| `glDrawElementsInstanced` | definition | common | src/driver/opengl.ab direct indexed instanced rendering | src/driver/opengl.ab typed mode count index-type pointer and instances ABI | examples/common-triangle/main.ab live indexed two-instance rendering | examples/common-triangle/main.ab invalid index count and instances rejection |
 | `glDrawElementsInstancedARB` | definition | unclassified | - | - | - | - |
 | `glDrawElementsInstancedBaseInstance` | definition | unclassified | - | - | - | - |
 | `glDrawElementsInstancedBaseVertex` | definition | unclassified | - | - | - | - |
@@ -544,7 +544,7 @@
 | `glEnableVertexArrayAttribEXT` | definition | unclassified | - | - | - | - |
 | `glEnableVertexArrayEXT` | definition | unclassified | - | - | - | - |
 | `glEnableVertexAttribAPPLE` | definition | unclassified | - | - | - | - |
-| `glEnableVertexAttribArray` | definition | unclassified | - | - | - | - |
+| `glEnableVertexAttribArray` | definition | common | src/driver/opengl.ab reflected vertex attribute enablement | src/driver/opengl.ab typed location ABI | examples/common-triangle/main.ab interleaved position and color attributes | examples/common-triangle/main.ab mismatched vertex layout rejection |
 | `glEnableVertexAttribArrayARB` | definition | unclassified | - | - | - | - |
 | `glEnablei` | definition | unclassified | - | - | - | - |
 | `glEnd` | definition | unclassified | - | - | - | - |
@@ -701,7 +701,7 @@
 | `glGenTexturesEXT` | definition | unclassified | - | - | - | - |
 | `glGenTransformFeedbacks` | definition | unclassified | - | - | - | - |
 | `glGenTransformFeedbacksNV` | definition | unclassified | - | - | - | - |
-| `glGenVertexArrays` | definition | unclassified | - | - | - | - |
+| `glGenVertexArrays` | definition | common | src/driver/opengl.ab affine raster vertex-state creation | src/driver/opengl.ab typed output-pointer ABI | examples/common-triangle/main.ab live pipeline creation with stable vertex array | examples/common-triangle/main.ab invalid pipeline cleanup |
 | `glGenVertexArraysAPPLE` | definition | unclassified | - | - | - | - |
 | `glGenVertexShadersEXT` | definition | unclassified | - | - | - | - |
 | `glGenerateMipmap` | definition | unclassified | - | - | - | - |
@@ -2762,7 +2762,7 @@
 | `glVertexAttribP4ui` | definition | unclassified | - | - | - | - |
 | `glVertexAttribP4uiv` | definition | unclassified | - | - | - | - |
 | `glVertexAttribParameteriAMD` | definition | unclassified | - | - | - | - |
-| `glVertexAttribPointer` | definition | unclassified | - | - | - | - |
+| `glVertexAttribPointer` | definition | common | src/driver/opengl.ab reflected floating vertex layout | src/driver/opengl.ab typed location width type stride and offset ABI | examples/common-triangle/main.ab exact interleaved float position and color rendering | examples/common-triangle/main.ab mismatched stride and attribute rejection |
 | `glVertexAttribPointerARB` | definition | unclassified | - | - | - | - |
 | `glVertexAttribPointerNV` | definition | unclassified | - | - | - | - |
 | `glVertexAttribs1dvNV` | definition | unclassified | - | - | - | - |
