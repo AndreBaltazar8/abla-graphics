@@ -115,6 +115,14 @@ fun glslRasterTypeForVectorWidth(width: int): int {
     else if (width == 4) glslRasterTypeVector else glslRasterTypeInvalid
 }
 
+fun glslRasterDataType(dataType: string): int {
+    if (dataType == "float") glslRasterTypeScalar
+    else if (dataType == "vec2") glslRasterTypeVector2
+    else if (dataType == "vec3") glslRasterTypeVector3
+    else if (dataType == "vec4") glslRasterTypeVector
+    else glslRasterTypeInvalid
+}
+
 fun glslRasterSpirvType(
     valueType: int,
     floatType: int,
@@ -768,8 +776,9 @@ fun glslRasterPrimary(
         var candidate = 0
         while (memberIndex < 0 && candidate < push.members.size) {
             if (push.members[candidate].name == memberName &&
-                (push.members[candidate].dataType == "vec4" ||
-                 push.members[candidate].dataType == "float") &&
+                glslRasterDataType(
+                    push.members[candidate].dataType
+                ) != glslRasterTypeInvalid &&
                 push.members[candidate].arraySize == 1) {
                 memberIndex = candidate
             }
@@ -939,20 +948,25 @@ fun glslRasterExpressionType(
     while (valid && tokenIndex < expression.tokens.size) {
         val token = expression.tokens[tokenIndex]
         var valueType = glslRasterTypeInvalid
-        if (token.kind == glslRasterTokenVectorLiteral ||
-            token.kind == glslRasterTokenInput) {
+        if (token.kind == glslRasterTokenVectorLiteral) {
+            valueType = glslRasterTypeVector
+        } else if (token.kind == glslRasterTokenInput) {
             valid = token.kind != glslRasterTokenInput ||
                 (token.memberIndex >= 0 &&
                  token.memberIndex < inputs.size)
-            valueType = glslRasterTypeVector
+            if (valid) valueType = glslRasterDataType(
+                inputs[token.memberIndex].dataType
+            )
+            valid = valid && valueType != glslRasterTypeInvalid
         } else if (token.kind == glslRasterTokenScalarLiteral) {
             valueType = glslRasterTypeScalar
         } else if (token.kind == glslRasterTokenPushMember) {
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < push.members.size
-            if (valid) valueType = if (
-                push.members[token.memberIndex].dataType == "float"
-            ) glslRasterTypeScalar else glslRasterTypeVector
+            if (valid) valueType = glslRasterDataType(
+                push.members[token.memberIndex].dataType
+            )
+            valid = valid && valueType != glslRasterTypeInvalid
         } else if (token.kind == glslRasterTokenConstruct) {
             val arity = token.memberIndex
             val constructedType = glslRasterTypeForVectorWidth(token.first)
@@ -1180,8 +1194,8 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
     var memberIndex = 0
     while (valid && memberIndex < push.members.size) {
         val member = push.members[memberIndex]
-        valid = (member.dataType == "vec4" ||
-                 member.dataType == "float") &&
+        valid = glslRasterDataType(member.dataType) !=
+                glslRasterTypeInvalid &&
             member.arraySize == 1 &&
             glslRasterTokenText(lexical.tokens, index, member.dataType) &&
             glslRasterTokenText(lexical.tokens, index + 1, member.name) &&
@@ -1512,18 +1526,22 @@ fun glslRasterFragmentSpirv(
         outputIndex = outputIndex + 1
     }
     var hasScalarMember = false
+    var hasVector2Member = false
+    var hasVector3Member = false
     var memberIndex = 0
     while (valid && memberIndex < program.memberCount) {
         val dataType = layout.members[memberIndex].dataType
-        valid = (dataType == "vec4" || dataType == "float") &&
+        valid = glslRasterDataType(dataType) != glslRasterTypeInvalid &&
             layout.members[memberIndex].arraySize == 1
         if (dataType == "float") hasScalarMember = true
+        if (dataType == "vec2") hasVector2Member = true
+        if (dataType == "vec3") hasVector3Member = true
         memberIndex = memberIndex + 1
     }
     var usesExtendedInstructions = false
     var usesDerivativeControl = false
-    var usesVector2 = false
-    var usesVector3 = false
+    var usesVector2 = hasVector2Member
+    var usesVector3 = hasVector3Member
     var scanExpression = 0
     while (valid && scanExpression < program.expressions.size) {
         var scanToken = 0
@@ -1591,6 +1609,16 @@ fun glslRasterFragmentSpirv(
     var vector3Type = 0
     if (valid && usesVector3) {
         vector3Type = nextId
+        nextId = nextId + 1
+    }
+    var pushVector2PointerType = 0
+    if (valid && hasVector2Member) {
+        pushVector2PointerType = nextId
+        nextId = nextId + 1
+    }
+    var pushVector3PointerType = 0
+    if (valid && hasVector3Member) {
+        pushVector3PointerType = nextId
         nextId = nextId + 1
     }
     if (valid) {
@@ -1720,9 +1748,15 @@ fun glslRasterFragmentSpirv(
             words.append(pushStructure)
             memberIndex = 0
             while (memberIndex < program.memberCount) {
-                words.append(if (
-                    layout.members[memberIndex].dataType == "float"
-                ) floatType else vectorType)
+                words.append(glslRasterSpirvType(
+                    glslRasterDataType(
+                        layout.members[memberIndex].dataType
+                    ),
+                    floatType,
+                    vector2Type,
+                    vector3Type,
+                    vectorType
+                ))
                 memberIndex = memberIndex + 1
             }
             words.append(262176)
@@ -1737,6 +1771,18 @@ fun glslRasterFragmentSpirv(
             words.append(pushVectorPointerType)
             words.append(9)
             words.append(vectorType)
+            if (pushVector2PointerType != 0) {
+                words.append(262176)
+                words.append(pushVector2PointerType)
+                words.append(9)
+                words.append(vector2Type)
+            }
+            if (pushVector3PointerType != 0) {
+                words.append(262176)
+                words.append(pushVector3PointerType)
+                words.append(9)
+                words.append(vector3Type)
+            }
         }
     }
     var pushScalarPointerType = 0
@@ -1873,24 +1919,39 @@ fun glslRasterFragmentSpirv(
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < memberConstants.size
             if (valid) {
-                val scalarMember = layout.members[
+                val memberType = glslRasterDataType(layout.members[
                     token.memberIndex
-                ].dataType == "float"
+                ].dataType)
+                val memberSpirvType = glslRasterSpirvType(
+                    memberType,
+                    floatType,
+                    vector2Type,
+                    vector3Type,
+                    vectorType
+                )
+                val memberPointerType = if (
+                    memberType == glslRasterTypeScalar
+                ) pushScalarPointerType else if (
+                    memberType == glslRasterTypeVector2
+                ) pushVector2PointerType else if (
+                    memberType == glslRasterTypeVector3
+                ) pushVector3PointerType else pushVectorPointerType
+                valid = memberSpirvType != 0 && memberPointerType != 0
                 val pointer = nextId
                 valueId = nextId + 1
                 nextId = nextId + 2
-                words.append(327745)
-                words.append(if (scalarMember) pushScalarPointerType
-                    else pushVectorPointerType)
-                words.append(pointer)
-                words.append(pushVariable)
-                words.append(memberConstants[token.memberIndex])
-                words.append(262205)
-                words.append(if (scalarMember) floatType else vectorType)
-                words.append(valueId)
-                words.append(pointer)
-                tokenTypes[tokenIndex] = if (scalarMember)
-                    glslRasterTypeScalar else glslRasterTypeVector
+                if (valid) {
+                    words.append(327745)
+                    words.append(memberPointerType)
+                    words.append(pointer)
+                    words.append(pushVariable)
+                    words.append(memberConstants[token.memberIndex])
+                    words.append(262205)
+                    words.append(memberSpirvType)
+                    words.append(valueId)
+                    words.append(pointer)
+                    tokenTypes[tokenIndex] = memberType
+                }
             }
         } else if (token.kind == glslRasterTokenInput) {
             valid = token.memberIndex >= 0 &&

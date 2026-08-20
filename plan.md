@@ -82,7 +82,9 @@ without perturbing established `vec4` modules. Their exact-width and scalar-spla
 constructors, equal-width arithmetic and dot products, scalar mixed operations,
 derivatives, checked components, width-preserving extended operations, and
 `vec3`-only `cross` compose into existing `vec4` outputs. Narrow fragment
-interfaces and reflected push members remain milestone work.
+push members preserve reflected alignment and feed typed loads; the live
+`push-color` proof uses `vec3` plus scalar data across all 16 render forms.
+Narrow fragment location inputs remain milestone work.
 
 ## Non-negotiable design rules
 

@@ -1589,6 +1589,24 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ vec2 axis=cross(vec2(1.0),vec2(0.0)); color=vec4(axis.x,axis.y,0.0,1.0); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterNarrowPushPackage = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec2 uv; vec3 tint; } draw; void main(){ color=vec4(draw.uv.x,draw.uv.y,draw.tint.z,1.0); }"
+        ]
+    )
+    val rasterNarrowPush = rasterNarrowPushPackage.spirv(
+        shaderStageFragment
+    )
+    val rasterNarrowPushLayout = rasterNarrowPushPackage.pushConstantLayout()
+    val rasterNarrowPushTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec2 uv; vec3 tint; } draw; void main(){ vec3 value=draw.uv; color=vec4(value.x,value.y,value.z,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterVec2ComponentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3468,6 +3486,17 @@ fun main: int {
         spirvInstructionOperand(rasterCrossExtInst.module, 12, 4, 68) &&
         !rasterCrossVec2Rejected.succeeded &&
         rasterCrossVec2Rejected.error != "" &&
+        rasterNarrowPush.succeeded && rasterNarrowPush.module.valid() &&
+        rasterNarrowPushLayout.valid && rasterNarrowPushLayout.size == 32 &&
+        rasterNarrowPushLayout.members.size == 2 &&
+        rasterNarrowPushLayout.members[0].dataType == "vec2" &&
+        rasterNarrowPushLayout.members[0].offset == 0 &&
+        rasterNarrowPushLayout.members[0].size == 8 &&
+        rasterNarrowPushLayout.members[1].dataType == "vec3" &&
+        rasterNarrowPushLayout.members[1].offset == 16 &&
+        rasterNarrowPushLayout.members[1].size == 12 &&
+        !rasterNarrowPushTypeRejected.succeeded &&
+        rasterNarrowPushTypeRejected.error != "" &&
         !rasterVec2ComponentRejected.succeeded &&
         rasterVec2ComponentRejected.error != "" &&
         !rasterNarrowVectorTypeRejected.succeeded &&

@@ -249,7 +249,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   comparison/logical/ternary mutation and readback plus reusable reflected push
   constants with exact output, stable handles, and zero-growth repeated
   dispatch;
-- `examples/push-color`: one reflected `vec4` push block drives the same
+- `examples/push-color`: one reflected 16-byte `vec3` tint plus scalar alpha
+  push block drives the same
   procedural or buffered triangle through all sixteen portable direct,
   indexed, GPU-indirect, reusable attachment-pass, offscreen, and window
   presentation forms plus an affine two-subpass sequence on OpenGL and Vulkan,

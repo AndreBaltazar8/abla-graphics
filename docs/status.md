@@ -1081,8 +1081,13 @@ validity gate unchanged.
   Narrow type declarations are conditional, so
   existing `vec4` modules retain their established IDs and bytes. Module-valid
   positive coverage includes both narrow widths, while out-of-range components
-  and mixed-width arithmetic reject. Fragment interfaces and push members remain
-  `vec4`-only pending their dedicated reflected-layout slice.
+  and mixed-width arithmetic reject. Reflected raster push blocks now accept
+  scalar, `vec2`, `vec3`, and `vec4` members with their existing checked layout.
+  A mixed narrow block validates byte offsets and typed SPIR-V loads. The live
+  `push-color` sample uses `vec3 tint` at byte 0 plus `float alpha` at byte 12
+  across all 16 OpenGL/Vulkan render forms, retaining exact pixels, four frames,
+  stable handles, and zero live-byte growth. Fragment location inputs remain
+  `vec4`-only pending their dedicated interface slice.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through

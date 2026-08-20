@@ -1766,7 +1766,8 @@ steady-state allocation growth on both backends.
 Typed fragment expressions are no longer limited to fixed word templates. The
 typed raster parser accepts up to eight reflected non-array `vec4` inputs in
 source order before one to eight reflected non-array `vec4` outputs, an optional
-reflected block of up to eight non-array `float` or `vec4` members,
+reflected block of up to eight non-array `float`, `vec2`, `vec3`, or `vec4`
+members,
 scalar/`vec4` literals, width-exact or scalar-splat `vec2`/`vec3`/`vec4`
 constructors,
 parentheses, single-component vector selectors `.x`/`.y`/`.z`/`.w` and their
@@ -1926,9 +1927,10 @@ surface exactly:
 vertex/index/indirect usage, byte-size, count, ownership, target, depth, and
 swapchain-recovery rules while additionally requiring an exact reflected value
 layout. OpenGL reuses the program-owned UBO for every draw form; Vulkan records
-the range before direct or indirect drawing. The `push-color` sample executes
-all eight buffered forms plus both procedural forms for changing values across
-four allocation-free frames on each backend.
+the range before direct or indirect drawing. The `push-color` sample uses a
+layout-equivalent 16-byte block containing a `vec3` tint at byte 0 and scalar
+alpha at byte 12. It executes all eight buffered forms plus both procedural
+forms for changing values across four allocation-free frames on each backend.
 
 Reusable attachment-operation passes have the matching
 `renderPushPassToTarget`, `renderPushPassVerticesToTarget`,
@@ -1952,8 +1954,7 @@ UBO, while Vulkan records `vkCmdPushConstants` after each native subpass
 pipeline bind. The ordinary `renderSubpassesToTarget` form rejects any sequence
 whose pipelines require push values. The `push-color` sample proves two native
 subpasses, missing-value rejection, exact output, stable handles, and zero
-steady-state allocation growth on both backends. General raster push-constant
-expressions remain a future slice.
+steady-state allocation growth on both backends.
 
 The overload
 `app.computePipeline(shader, ShaderSpecialization(values))` applies immutable,
