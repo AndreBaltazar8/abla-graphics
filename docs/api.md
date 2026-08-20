@@ -1816,6 +1816,11 @@ rule: `length(vec4)` and `distance(vec4, vec4)` return `float`;
 `vec4`. They map to `Length`, `Distance`, `Normalize`, `FaceForward`, `Reflect`,
 and `Refract` instructions 66, 67, and 69 through 72. Scalar vector operands,
 mixed distance operands, a vector refraction ratio, and wrong arities reject.
+Fragment-only `dFdx(value)`, `dFdy(value)`, and `fwidth(value)` preserve a
+supported scalar or `vec4` operand type and emit core SPIR-V `OpDPdx`, `OpDPdy`,
+and `OpFwidth` opcodes 207 through 209. They compose with push members, inputs,
+locals, arithmetic, and constructors under the same expression bounds; missing
+or extra arguments reject.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1894,7 +1899,7 @@ alpha axis with `dot`, applying `sqrt(abs(...))`, and clamping that projection
 to `[0, 1]`,
 then shapes it with `smoothstep` and selects the unit scale through nested
 `step`/`mix`, multiplied by a
-`cos(radians(length(vec4(0))) + atan(0, 1))` phase. It constructs a runtime
+`cos(atan(0, 1)) + fwidth(0)` phase. It constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
 into a mutable vector, applies vector/scalar `mod`, clamps it with scalar
 bounds, then rebinds it with `+=` and the second vector. Its reflected alpha

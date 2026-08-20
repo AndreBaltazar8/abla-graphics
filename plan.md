@@ -70,8 +70,9 @@ geometry `length`/`distance`/`normalize`/`faceforward`/`reflect`/`refract` calls
 use exact scalar/vector result and operand rules; scalar/vector floating `mod`
 emits core `OpFMod` with vector/scalar divisor splatting. `min`/`max` and `clamp`
 also support exact vector/scalar overloads through typed splats, as do
-scalar-factor/edge `mix`/`step`/`smoothstep` forms. Repeated clear, pixel,
-transfer, compute, event-poll, and triangle hot paths have stable native
+scalar-factor/edge `mix`/`step`/`smoothstep` forms. Core fragment
+`dFdx`/`dFdy`/`fwidth` derivatives preserve scalar/vector types. Repeated clear,
+pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.
 

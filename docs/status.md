@@ -1065,6 +1065,11 @@ validity gate unchanged.
   while ignoring separators inside nested calls; mixed types and third
   arguments reject, and the live phase executes the scalar overload on both
   backends without changing its exact output.
+  Core fragment derivatives `dFdx`, `dFdy`, and `fwidth` now preserve scalar or
+  vector operand type and emit opcodes 207-209 without an extended-instruction
+  import. Nested scalar/vector, push, input, and local paths plus exact arity
+  rejection pass; the live phase adds constant `fwidth(0)` with unchanged
+  dual-backend pixels, handles, frame count, and allocation behavior.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through
@@ -1073,9 +1078,9 @@ validity gate unchanged.
   alone requires a scalar third operand. Instruction numbers 66, 67, and
   69-72, push/input/local operands, every result shape, wrong arity, and mixed
   operand rejection are covered. Its input/local proof uses a matching
-  vertex-to-fragment interface. The live sample now normalizes its alpha axis
-  and derives its zero phase through `length`; both live backends retain the
-  exact pixel, stable handles, four frames, and zero live-byte growth.
+  vertex-to-fragment interface. The live sample normalizes its alpha axis;
+  scalar-returning `length` remains module-validated. Both live backends retain
+  the exact pixel, stable handles, four frames, and zero live-byte growth.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

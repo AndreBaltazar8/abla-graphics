@@ -1652,6 +1652,41 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(mod(1.0,2.0,3.0)); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterScalarDerivatives = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float value; } draw; void main(){ color=vec4(fwidth(dFdx(draw.value)+dFdy(draw.value))); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVectorDerivatives = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 value; } draw; void main(){ color=fwidth(dFdx(draw.value)+dFdy(draw.value)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterInputLocalDerivatives = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec4 tint; layout(location=0) out vec4 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
+            "#version 450\nlayout(location=0) in vec4 vertexTint; layout(location=0) out vec4 color; void main(){ vec4 horizontal=dFdx(vertexTint); color=horizontal+dFdy(vertexTint); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterDerivativeMissingArgumentRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(fwidth()); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterDerivativeExtraArgumentRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(dFdx(1.0,2.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterScalarExtInst = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3377,6 +3412,22 @@ fun main: int {
         rasterModOneArgumentRejected.error != "" &&
         !rasterModThreeArgumentsRejected.succeeded &&
         rasterModThreeArgumentsRejected.error != "" &&
+        rasterScalarDerivatives.succeeded &&
+        rasterScalarDerivatives.module.valid() &&
+        spirvWordCount(rasterScalarDerivatives.module, 262351) == 1 &&
+        spirvWordCount(rasterScalarDerivatives.module, 262352) == 1 &&
+        spirvWordCount(rasterScalarDerivatives.module, 262353) == 1 &&
+        rasterVectorDerivatives.succeeded &&
+        rasterVectorDerivatives.module.valid() &&
+        spirvWordCount(rasterVectorDerivatives.module, 262351) == 1 &&
+        spirvWordCount(rasterVectorDerivatives.module, 262352) == 1 &&
+        spirvWordCount(rasterVectorDerivatives.module, 262353) == 1 &&
+        rasterInputLocalDerivatives.succeeded &&
+        rasterInputLocalDerivatives.module.valid() &&
+        !rasterDerivativeMissingArgumentRejected.succeeded &&
+        rasterDerivativeMissingArgumentRejected.error != "" &&
+        !rasterDerivativeExtraArgumentRejected.succeeded &&
+        rasterDerivativeExtraArgumentRejected.error != "" &&
         rasterScalarExtInst.succeeded && rasterScalarExtInst.module.valid() &&
         spirvWordCount(rasterScalarExtInst.module, 393227) == 1 &&
         spirvInstructionOperand(rasterScalarExtInst.module, 12, 4, 37) &&
