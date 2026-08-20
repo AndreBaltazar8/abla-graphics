@@ -19,6 +19,36 @@ resource class GraphicsBuffer(
         ((this.backend == graphicsBackendOpenGl && this.openGl.valid()) ||
          (this.backend == graphicsBackendVulkan && this.vulkan.valid()))
 
+    trusted fun mapped(): bool = this.valid() &&
+        ((this.backend == graphicsBackendOpenGl && this.openGl.mapped()) ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkan.mappedActive()))
+
+    trusted fun writeMappedBytes(
+        source: BufferBytes,
+        copy: BufferCopyDescriptor = BufferCopyDescriptor()
+    ): bool {
+        var succeeded = this.valid() && this.mapped() && source.valid() &&
+            copy.valid(source.size, this.descriptor.size) &&
+            (this.descriptor.usage & bufferUsageMapWrite) != 0
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.writeMappedBytes(source, copy)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.writeMappedBytes(source, copy)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
+    trusted fun unmap(): bool {
+        var succeeded = this.valid() && this.mapped()
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.unmap()
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.unmap()
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
     trusted fun readI64(offset: int = 0): int {
         var result = 0
         if (this.backend == graphicsBackendOpenGl) {
@@ -103,7 +133,7 @@ resource class GraphicsBuffer(
 }
 
 fun GraphicsApplication.ownsBuffer(buffer: GraphicsBuffer): bool =
-    this.backend == buffer.backend &&
+    this.backend == buffer.backend && !buffer.mapped() &&
     ((this.backend == graphicsBackendOpenGl &&
       this.openGl.display == buffer.openGl.display &&
       this.openGl.context == buffer.openGl.context) ||
@@ -157,7 +187,8 @@ trusted fun GraphicsApplication.buffer(
         nativeNullPointer(),
         nativeNullPointer(),
         nativeNullPointer(),
-        nativeByteBuffer(0)
+        nativeByteBuffer(0),
+        nativePointerCell(nativeNullPointer())
     )
     var vulkan = VulkanBuffer(
         nativeNullPointer(),
@@ -183,12 +214,6 @@ trusted fun GraphicsApplication.buffer(
             "GraphicsApplication.buffer.${validation.field}",
             validation.message
         )
-    } else if (descriptor.mappedAtCreation) {
-        error = GraphicsError(
-            graphicsErrorInvalidConfiguration,
-            "GraphicsApplication.buffer.mappedAtCreation",
-            "mapped-at-creation buffers require the forthcoming mapped-range API"
-        )
     } else if ((descriptor.usage & bufferUsageStorage) != 0 &&
         !this.capabilities.supports(graphicsFeatureStorageBuffers)) {
         error = GraphicsError(
@@ -205,7 +230,10 @@ trusted fun GraphicsApplication.buffer(
             "storage buffer size exceeds the selected device limit"
         )
     } else if (this.backend == graphicsBackendOpenGl) {
-        openGl = this.openGl.buffer(descriptor.size)
+        openGl = this.openGl.buffer(
+            descriptor.size,
+            descriptor.mappedAtCreation
+        )
         if (!openGl.valid()) {
             error = GraphicsError(
                 graphicsErrorDriverFailure,
@@ -214,7 +242,11 @@ trusted fun GraphicsApplication.buffer(
             )
         }
     } else if (this.backend == graphicsBackendVulkan) {
-        vulkan = this.vulkanDevice.buffer(descriptor.size, descriptor.usage)
+        vulkan = this.vulkanDevice.buffer(
+            descriptor.size,
+            descriptor.usage,
+            descriptor.mappedAtCreation
+        )
         if (!vulkan.valid()) {
             error = GraphicsError(
                 graphicsErrorDriverFailure,

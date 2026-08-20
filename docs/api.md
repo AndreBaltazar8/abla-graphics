@@ -515,6 +515,31 @@ map-read or copy-source usage. `writeAllBytes` and `readAllBytes` are convenient
 whole-range operations; performance-sensitive loops should construct one
 `BufferCopyDescriptor` and reuse it with `writeBytes`/`readBytes`.
 
+A map-write/copy-source buffer may start mapped without an intermediate upload:
+
+```abla
+val staging = app.buffer(BufferDescriptor(
+    size = 4096,
+    usage = bufferUsageMapWrite | bufferUsageCopySource,
+    mappedAtCreation = true
+))
+val initial = bufferBytes(256)
+// Fill initial once, then copy any checked subrange into the live mapping.
+staging.writeMappedBytes(initial, BufferCopyDescriptor(
+    sourceOffset = 0,
+    destinationOffset = 128,
+    size = 256
+))
+staging.unmap()
+```
+
+`mapped()` exposes the lifecycle state. Normal CPU transfers and every common
+GPU operation reject the buffer while it is mapped. `unmap()` is explicit and
+one-shot; afterward the buffer is a normal copy source. Dropping a still-mapped
+buffer unmaps it before native destruction. Vulkan uses host-coherent memory,
+so the portable unmap boundary also makes the written bytes visible without a
+backend-specific flush call.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -546,8 +571,8 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Persistent mapped-at-creation ranges, queued transfers, and device-local
-selection remain upcoming APIs.
+Post-creation remapping, persistently mapped concurrent GPU use, queued
+transfers, and device-local selection remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:

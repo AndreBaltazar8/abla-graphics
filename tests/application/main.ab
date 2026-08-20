@@ -296,6 +296,43 @@ fun applicationBackendProbe(
         usage = bufferUsageMapWrite | bufferUsageCopySource,
         mappedAtCreation = true
     ))
+    val mappedUpload = bufferBytes(16)
+    val mappedValue = 1234605616436508552
+    val mappedUploadReady = mappedUpload.fill(0) &&
+        mappedUpload.storeI64(mappedValue, 4)
+    val mappedStarted = mappedBuffer.valid() && mappedBuffer.mapped()
+    val mappedWritten = mappedUploadReady && mappedBuffer.writeMappedBytes(
+        mappedUpload,
+        BufferCopyDescriptor(4, 12, 8)
+    )
+    val mappedOrdinaryWriteRejected = !mappedBuffer.writeBytes(
+        mappedUpload,
+        BufferCopyDescriptor(4, 12, 8)
+    )
+    val mappedGpuUseRejected = !app.copyBuffer(
+        mappedBuffer,
+        gpuCopyDestination,
+        BufferCopyDescriptor(12, 40, 8)
+    )
+    val mappedUnmapped = mappedBuffer.unmap() && !mappedBuffer.mapped()
+    val repeatedUnmapRejected = !mappedBuffer.unmap()
+    val mappedGpuCopied = app.copyBuffer(
+        mappedBuffer,
+        gpuCopyDestination,
+        BufferCopyDescriptor(12, 40, 8)
+    )
+    val mappedReadback = bufferBytes(12)
+    val mappedGpuRead = mappedReadback.fill(0) &&
+        gpuCopyDestination.readBytes(
+            mappedReadback,
+            BufferCopyDescriptor(40, 2, 8)
+        )
+    val mappedGpuMatches = mappedReadback.loadI64(2) == mappedValue
+    val invalidMappedBuffer = app.buffer(BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapRead,
+        mappedAtCreation = true
+    ))
     val readbackBuffer = app.buffer(BufferDescriptor(
         size = 64,
         usage = bufferUsageMapRead
@@ -1542,7 +1579,7 @@ fun applicationBackendProbe(
         nativePointerAddress(app.vulkanPixels.frames[0].command.load()) ==
             renderCommand0
     println(
-        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable computeSpecialized=${specializedCompute.valid()}/$specializedComputed scalarSpecialized=${scalarSpecializedCompute.valid()}/$scalarSpecializedComputed/'${scalarSpecializedCompute.error.message}' push=${pushStorageCompute.valid()}/$pushDispatched/$pushFirstValue/$pushValue/${pushLiveAfter - pushLiveBefore} pushColor=${pushColorPipeline.valid()}/$pushColorRendered/$pushColorPixel/$pushColorFinalPixel/${pushColorLiveAfter - pushColorLiveBefore}/$pushPresented depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
+        "${graphicsBackendName(requestedBackend)}: selected=${graphicsBackendName(app.backend)} valid=$valid version=${app.capabilities.version.text()} features=${app.capabilities.features} texture2d=${app.capabilities.limits.maximumTextureDimension2D} storage=${app.capabilities.limits.maximumStorageBufferBytes} groups=${app.capabilities.limits.maximumComputeWorkgroupsX}x${app.capabilities.limits.maximumComputeWorkgroupsY}x${app.capabilities.limits.maximumComputeWorkgroupsZ} local=${app.capabilities.limits.maximumComputeWorkgroupSizeX}x${app.capabilities.limits.maximumComputeWorkgroupSizeY}x${app.capabilities.limits.maximumComputeWorkgroupSizeZ} invocations=${app.capabilities.limits.maximumComputeInvocations} anisotropy=${app.capabilities.limits.maximumSamplerAnisotropy} presented=$presented wait=$waited waitLiveDelta=${waitLiveAfter - waitLiveBefore} timestamps=$timestampsPassed/${timestampLiveAfter - timestampLiveBefore} pixels=$pixelsPresented pixelLiveDelta=${pixelLiveAfter - pixelLiveBefore} pixelHandlesStable=$pixelHandlesStable render=$rendered renderLiveDelta=${renderLiveAfter - renderLiveBefore} renderHandlesStable=$renderHandlesStable computeSpecialized=${specializedCompute.valid()}/$specializedComputed scalarSpecialized=${scalarSpecializedCompute.valid()}/$scalarSpecializedComputed/'${scalarSpecializedCompute.error.message}' push=${pushStorageCompute.valid()}/$pushDispatched/$pushFirstValue/$pushValue/${pushLiveAfter - pushLiveBefore} pushColor=${pushColorPipeline.valid()}/$pushColorRendered/$pushColorPixel/$pushColorFinalPixel/${pushColorLiveAfter - pushColorLiveBefore}/$pushPresented depthTarget=${depthRenderTarget.valid()}/${depthTargetPipeline.valid()}/$depthTargetRendered/$depthTargetPixel multisample=${multisampleTarget.valid()}/${multisamplePipeline.valid()}/$multisampleRendered/$multisampleResolved/$multisampleRepeated/$multisampleRepeat/$multisamplePixel/$multisampleNoGrowth/$multisampleHandlesStable/${multisampleLiveAfter - multisampleLiveBefore}/${unsupportedMultisampleSampled.valid()}/${unsupportedMultisampleSampled.error.code} multipleColor=${multipleColorTarget.valid()}/${multipleColorPipeline.valid()}/$multipleColorRendered/$multipleColorPixelZero/$multipleColorPixelOne/$multipleColorClearPixelZero/$multipleColorClearPixelOne/$multipleColorNoGrowth/${multipleColorLiveAfter - multipleColorLiveBefore} subpasses=$subpassCreationPassed/$subpassExecutionPassed/${subpassLiveAfter - subpassLiveBefore} mapped=$mappedStarted/$mappedWritten/$mappedUnmapped/$mappedGpuMatches frames=${app.vulkanPixels.frames.size} resize=$resizePassed size=${app.window.width}x${app.window.height} recovery='$recoveryDetail' buffer=${buffer.valid()} adapter='${app.adapterName}' error='${app.error.message}'"
     )
     valid && cursorPassed && presented && waited && waitNoGrowth &&
         timestampsPassed &&
@@ -1554,8 +1591,11 @@ fun applicationBackendProbe(
         invalidBuffer.error.code == graphicsErrorInvalidConfiguration &&
         !oversizedBuffer.valid() &&
         oversizedBuffer.error.code == graphicsErrorLimitExceeded &&
-        !mappedBuffer.valid() &&
-        mappedBuffer.error.operation ==
+        mappedStarted && mappedWritten && mappedOrdinaryWriteRejected &&
+        mappedGpuUseRejected && mappedUnmapped && repeatedUnmapRejected &&
+        mappedGpuCopied && mappedGpuRead && mappedGpuMatches &&
+        !invalidMappedBuffer.valid() &&
+        invalidMappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
         readbackBuffer.valid() && rangeUploaded && rangeRead && rangeMatches &&
         invalidBufferRangeRejected && wholeBufferTransferred &&

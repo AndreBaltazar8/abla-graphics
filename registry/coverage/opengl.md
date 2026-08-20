@@ -1290,7 +1290,7 @@
 | `glMap2xOES` | definition | unclassified | - | - | - | - |
 | `glMapBuffer` | definition | unclassified | - | - | - | - |
 | `glMapBufferARB` | definition | unclassified | - | - | - | - |
-| `glMapBufferRange` | definition | common | src/driver/opengl.ab persistent transfer mapping | src/driver/opengl.ab typed mapped-pointer ABI | tests/application/main.ab exact mapped transfer paths | tests/application/main.ab range and usage rejection |
+| `glMapBufferRange` | definition | common | src/driver/opengl.ab mapped-at-creation and diagnostic transfer mapping | src/driver/opengl.ab typed offset length flags and mapped-pointer ABI | examples/common-buffer/main.ab exact mapped write unmap and GPU copy | tests/application/main.ab mapped use range and usage rejection |
 | `glMapControlPointsNV` | definition | unclassified | - | - | - | - |
 | `glMapGrid1d` | definition | unclassified | - | - | - | - |
 | `glMapGrid1f` | definition | unclassified | - | - | - | - |
@@ -2451,7 +2451,7 @@
 | `glUniformui64NV` | definition | unclassified | - | - | - | - |
 | `glUniformui64vNV` | definition | unclassified | - | - | - | - |
 | `glUnlockArraysEXT` | definition | unclassified | - | - | - | - |
-| `glUnmapBuffer` | definition | common | src/driver/opengl.ab mapped transfer completion | src/driver/opengl.ab typed result ABI | tests/application/main.ab exact mapped transfer paths | tests/application/main.ab range and usage rejection |
+| `glUnmapBuffer` | definition | common | src/driver/opengl.ab explicit and affine mapped transfer completion | src/driver/opengl.ab typed result ABI | examples/common-buffer/main.ab exact one-shot unmap and post-unmap copy | tests/application/main.ab repeated unmap and mapped GPU use rejection |
 | `glUnmapBufferARB` | definition | unclassified | - | - | - | - |
 | `glUnmapNamedBuffer` | definition | unclassified | - | - | - | - |
 | `glUnmapNamedBufferEXT` | definition | unclassified | - | - | - | - |

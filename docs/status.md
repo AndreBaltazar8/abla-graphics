@@ -359,9 +359,13 @@ Updated: 2026-08-20.
   missing copy usage and an overflowing range. OpenGL uses direct buffer-subdata
   calls. Vulkan maps coherent memory from aligned offset zero and uses one
   buffer-owned output cell plus the Abla compiler's LLVM copy intrinsic, so
-  repeated range transfers allocate no general memory. Four repeated
+  repeated range transfers allocate no general memory. Map-write/copy-source
+  descriptors may now start mapped; checked partial writes target that live
+  range, normal CPU and GPU operations reject it until explicit one-shot
+  `unmap()`, and affine destruction unmaps any still-active range. Both drivers
+  then GPU-copy the exact bytes into a readback buffer. Four repeated
   upload/readback pairs on each backend produce zero Abla runtime live-byte
-  growth. Invalid descriptors, mapped-at-creation rejection, and deterministic
+  growth. Invalid mapped usage, repeated unmap, mapped GPU use, and deterministic
   destruction also pass.
 - Common GPU buffer-copy test: `GraphicsApplication.copyBuffer` validates
   distinct same-backend resources, source/destination copy usages, and both
@@ -382,9 +386,11 @@ Updated: 2026-08-20.
   Khronos validation on Lavapipe.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same partial reusable-byte upload/readback on a 256-byte storage
-  buffer plus GPU copy/fill/readback under explicit OpenGL and Vulkan in the
-  software-driver sample matrix. Four repeated upload, copy, fill, and readback
-  cycles produce zero Abla runtime live-byte growth on both backends.
+  buffer plus mapped-at-creation upload/unmap, GPU copy/fill/readback under
+  explicit OpenGL and Vulkan in the software-driver sample matrix. Four
+  repeated upload, mapped-source copy, fill, and readback cycles preserve the
+  mapped buffer handle and produce zero Abla runtime live-byte growth on both
+  backends.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1127,7 +1133,7 @@ validity gate unchanged.
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  persistent mapped-at-creation
+  post-creation or persistently concurrent mapped
   buffer ranges, queued uploads, device-local suballocation policy, command
   encoders/render
   graph,

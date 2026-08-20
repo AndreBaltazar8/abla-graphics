@@ -61,9 +61,48 @@ fun main: int {
             gpuFillReadback,
             gpuFillReadbackRange
         )
+    val mappedSource = app.buffer(BufferDescriptor(
+        label = "sample-mapped-source",
+        size = 32,
+        usage = bufferUsageMapWrite | bufferUsageCopySource,
+        mappedAtCreation = true
+    ))
+    val mappedUpload = bufferBytes(16)
+    val mappedValue = 1234605616436508552
+    val mappedUploadReady = mappedUpload.fill(0) &&
+        mappedUpload.storeI64(mappedValue, 4)
+    val mappingStarted = mappedSource.valid() && mappedSource.mapped()
+    val mappedWritten = mappedUploadReady &&
+        mappedSource.writeMappedBytes(
+            mappedUpload,
+            BufferCopyDescriptor(4, 8, 8)
+        )
+    val mappedOrdinaryWriteRejected = !mappedSource.writeBytes(
+        mappedUpload,
+        BufferCopyDescriptor(4, 8, 8)
+    )
+    val mappedGpuUseRejected = !app.copyBuffer(
+        mappedSource,
+        copiedBuffer,
+        BufferCopyDescriptor(8, 128, 8)
+    )
+    val mappingFinished = mappedSource.unmap() && !mappedSource.mapped() &&
+        !mappedSource.unmap()
+    val mappedCopyRange = BufferCopyDescriptor(8, 128, 8)
+    val mappedCopied = app.copyBuffer(
+        mappedSource,
+        copiedBuffer,
+        mappedCopyRange
+    )
+    val mappedReadback = bufferBytes(12)
+    val mappedReadbackRange = BufferCopyDescriptor(128, 2, 8)
+    val mappedDownloaded = mappedReadback.fill(0) &&
+        copiedBuffer.readBytes(mappedReadback, mappedReadbackRange)
+    val mappedOpenGlHandle = mappedSource.openGl.handle
+    val mappedVulkanHandle = mappedSource.vulkan.handle
     val liveBeforeRepeats = runtimeMemoryLiveBytes()
     var repeated = uploaded && downloaded && gpuCopied && gpuDownloaded &&
-        gpuFilled && gpuFillDownloaded
+        gpuFilled && gpuFillDownloaded && mappedCopied && mappedDownloaded
     var repeat = 0
     while (repeated && repeat < 4) {
         repeated = buffer.writeBytes(upload, uploadRange) &&
@@ -74,15 +113,29 @@ fun main: int {
             copiedBuffer.readBytes(
                 gpuFillReadback,
                 gpuFillReadbackRange
+            ) && app.copyBuffer(
+                mappedSource,
+                copiedBuffer,
+                mappedCopyRange
+            ) && copiedBuffer.readBytes(
+                mappedReadback,
+                mappedReadbackRange
             )
         repeat = repeat + 1
     }
     val liveAfterRepeats = runtimeMemoryLiveBytes()
     val noTransferAllocations = liveAfterRepeats == liveBeforeRepeats
+    val mappedHandleStable = if (app.backend == graphicsBackendOpenGl)
+        mappedSource.openGl.handle == mappedOpenGlHandle
+    else mappedSource.vulkan.handle == mappedVulkanHandle
     val passed = app.valid() && buffer.valid() && copiedBuffer.valid() &&
         buffer.writeI64(expected, 24) && buffer.readI64(24) == expected &&
         uploaded && downloaded && gpuCopied && gpuDownloaded &&
         gpuFilled && gpuFillDownloaded &&
+        mappingStarted && mappedWritten && mappedOrdinaryWriteRejected &&
+        mappedGpuUseRejected && mappingFinished && mappedCopied &&
+        mappedDownloaded && mappedReadback.loadI64(2) == mappedValue &&
+        mappedHandleStable &&
         repeated && noTransferAllocations &&
         readback.load(3) == 23 &&
         readback.loadI64(6) == 72623859790382856 &&
@@ -103,7 +156,7 @@ fun main: int {
             0.4375
         ))
     println(
-        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, mapped=${mappingStarted && mappedWritten && mappingFinished && mappedCopied && mappedDownloaded}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, mappedHandleStable=$mappedHandleStable, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

@@ -218,8 +218,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   Vulkan, with repeated no-growth and stable-handle assertions; its reflected location-zero
   `vec4` fragment input is loaded by the typed raster IR rather than a fixed
   SPIR-V fragment table;
-- `examples/common-buffer`: one affine descriptor/resource plus reusable byte
-  ranges and GPU copies exercised unchanged on explicit OpenGL and Vulkan; and
+- `examples/common-buffer`: affine buffers with reusable byte ranges,
+  mapped-at-creation upload/unmap, GPU copies, and stable zero-allocation
+  repeats exercised unchanged on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and
