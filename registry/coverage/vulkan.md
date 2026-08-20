@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 75/842
+- Classified commands: 84/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -26,11 +26,11 @@
 | `vkAcquireProfilingLockKHR` | definition | unclassified | - | - | - | - |
 | `vkAcquireWinrtDisplayNV` | definition | unclassified | - | - | - | - |
 | `vkAcquireXlibDisplayEXT` | definition | unclassified | - | - | - | - |
-| `vkAllocateCommandBuffers` | definition | unclassified | - | - | - | - |
+| `vkAllocateCommandBuffers` | definition | common | src/driver/vulkan.ab reusable transfer compute render and query command allocation | src/driver/vulkan.ab packed CommandBufferAllocateInfo ABI | tests/application/main.ab stable command handles across repeated operations | tests/application/main.ab invalid resources rejected before allocation |
 | `vkAllocateDescriptorSets` | definition | common | src/driver/vulkan.ab affine bind-group descriptor allocation | src/driver/vulkan.ab packed DescriptorSetAllocateInfo ABI | examples/common-textured/main.ab stable descriptor set across repeated rendering | tests/application/main.ab duplicate binding rejection |
 | `vkAllocateMemory` | definition | common | src/driver/vulkan.ab buffer memory allocation | src/driver/vulkan.ab packed allocation and memory-properties ABIs | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid and oversized buffer rejection |
 | `vkAntiLagUpdateAMD` | definition | unclassified | - | - | - | - |
-| `vkBeginCommandBuffer` | definition | unclassified | - | - | - | - |
+| `vkBeginCommandBuffer` | definition | common | src/driver/vulkan.ab reusable command recording begin | src/driver/vulkan.ab packed CommandBufferBeginInfo ABI | examples/common-compute/main.ab repeated compute command recording | tests/application/main.ab invalid dispatch and transfer rejection before recording |
 | `vkBindAccelerationStructureMemoryNV` | definition | unclassified | - | - | - | - |
 | `vkBindBufferMemory` | definition | common | src/driver/vulkan.ab buffer memory binding | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid buffer descriptor rejection |
 | `vkBindBufferMemory2` | definition | unclassified | - | - | - | - |
@@ -141,7 +141,7 @@
 | `vkCmdDecompressMemoryIndirectCountEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdDecompressMemoryIndirectCountNV` | definition | unclassified | - | - | - | - |
 | `vkCmdDecompressMemoryNV` | definition | unclassified | - | - | - | - |
-| `vkCmdDispatch` | definition | unclassified | - | - | - | - |
+| `vkCmdDispatch` | definition | common | src/driver/vulkan.ab compute workgroup command recording | src/driver/vulkan.ab typed three-axis group-count ABI | examples/common-compute/main.ab exact storage and push compute output | tests/application/main.ab zero and limit-exceeding dispatch rejection |
 | `vkCmdDispatchBase` | definition | unclassified | - | - | - | - |
 | `vkCmdDispatchBaseKHR` | alias | unclassified | - | - | - | - |
 | `vkCmdDispatchDataGraphARM` | definition | unclassified | - | - | - | - |
@@ -382,7 +382,7 @@
 | `vkCreateBuffer` | definition | common | src/driver/vulkan.ab affine buffer creation | src/driver/vulkan.ab packed BufferCreateInfo ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab zero-size and oversized buffer rejection |
 | `vkCreateBufferCollectionFUCHSIA` | definition | unclassified | - | - | - | - |
 | `vkCreateBufferView` | definition | unclassified | - | - | - | - |
-| `vkCreateCommandPool` | definition | unclassified | - | - | - | - |
+| `vkCreateCommandPool` | definition | common | src/driver/vulkan.ab affine reusable command-state creation | src/driver/vulkan.ab packed CommandPoolCreateInfo ABI | tests/application/main.ab transfer compute render query and presentation command pools | tests/application/main.ab invalid application rejection |
 | `vkCreateComputePipelines` | definition | common | src/driver/vulkan.ab reflected compute pipeline creation | src/driver/vulkan.ab packed ComputePipelineCreateInfo and specialization ABIs | tests/application/main.ab exact specialized compute dispatch | tests/application/main.ab unsupported and oversized workgroup rejection |
 | `vkCreateCuFunctionNVX` | definition | unclassified | - | - | - | - |
 | `vkCreateCuModuleNVX` | definition | unclassified | - | - | - | - |
@@ -464,7 +464,7 @@
 | `vkDestroyBuffer` | definition | common | src/driver/vulkan.ab affine buffer lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
 | `vkDestroyBufferCollectionFUCHSIA` | definition | unclassified | - | - | - | - |
 | `vkDestroyBufferView` | definition | unclassified | - | - | - | - |
-| `vkDestroyCommandPool` | definition | unclassified | - | - | - | - |
+| `vkDestroyCommandPool` | definition | common | src/driver/vulkan.ab affine command-pool and owned-buffer lifetime | src/driver/vulkan.ab typed extern signature | examples/common-compute/main.ab repeated compute pipeline lifecycle | tests/application/main.ab invalid operation cleanup |
 | `vkDestroyCuFunctionNVX` | definition | unclassified | - | - | - | - |
 | `vkDestroyCuModuleNVX` | definition | unclassified | - | - | - | - |
 | `vkDestroyCudaFunctionNV` | definition | unclassified | - | - | - | - |
@@ -515,7 +515,7 @@
 | `vkDestroyVideoSessionParametersKHR` | definition | unclassified | - | - | - | - |
 | `vkDeviceWaitIdle` | definition | common | src/driver/vulkan.ab portable idle wait | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
 | `vkDisplayPowerControlEXT` | definition | unclassified | - | - | - | - |
-| `vkEndCommandBuffer` | definition | unclassified | - | - | - | - |
+| `vkEndCommandBuffer` | definition | common | src/driver/vulkan.ab reusable command recording completion | src/driver/vulkan.ab typed command-buffer result ABI | examples/common-compute/main.ab repeated compute command completion | tests/application/main.ab invalid operation rejected before completion |
 | `vkEnumerateDeviceExtensionProperties` | definition | unclassified | - | - | - | - |
 | `vkEnumerateDeviceLayerProperties` | definition | unclassified | - | - | - | - |
 | `vkEnumerateInstanceExtensionProperties` | definition | common | src/driver/vulkan.ab debug-utils extension discovery | src/driver/vulkan.ab bounded ExtensionProperties ABI | tests/vulkan/main.ab negotiated extension availability | tests/vulkan/main.ab explicitly disabled extension path |
@@ -794,10 +794,10 @@
 | `vkQueuePresentKHR` | definition | unclassified | - | - | - | - |
 | `vkQueueSetPerfHintQCOM` | definition | unclassified | - | - | - | - |
 | `vkQueueSetPerformanceConfigurationINTEL` | definition | unclassified | - | - | - | - |
-| `vkQueueSubmit` | definition | unclassified | - | - | - | - |
+| `vkQueueSubmit` | definition | common | src/driver/vulkan.ab legacy transfer compute render and presentation submission | src/driver/vulkan.ab packed SubmitInfo ABI | tests/application/main.ab exact repeated compute transfer and render results | tests/application/main.ab validation failure before queue submission |
 | `vkQueueSubmit2` | definition | common | src/driver/vulkan.ab synchronization2 transfer submission | src/driver/vulkan.ab packed SubmitInfo2 ABI | tests/vulkan/main.ab GPU fill and readback with synchronization2 | src/driver/vulkan.ab legacy submit fallback |
 | `vkQueueSubmit2KHR` | alias | unclassified | - | - | - | - |
-| `vkQueueWaitIdle` | definition | unclassified | - | - | - | - |
+| `vkQueueWaitIdle` | definition | common | src/driver/vulkan.ab bounded legacy queue completion | src/driver/vulkan.ab typed queue result ABI | examples/common-compute/main.ab exact storage readback after completion | tests/application/main.ab invalid application rejection |
 | `vkRegisterCustomBorderColorEXT` | definition | unclassified | - | - | - | - |
 | `vkRegisterDeviceEventEXT` | definition | unclassified | - | - | - | - |
 | `vkRegisterDisplayEventEXT` | definition | unclassified | - | - | - | - |
@@ -809,7 +809,7 @@
 | `vkReleaseSwapchainImagesEXT` | alias | unclassified | - | - | - | - |
 | `vkReleaseSwapchainImagesKHR` | definition | unclassified | - | - | - | - |
 | `vkResetCommandBuffer` | definition | unclassified | - | - | - | - |
-| `vkResetCommandPool` | definition | unclassified | - | - | - | - |
+| `vkResetCommandPool` | definition | common | src/driver/vulkan.ab allocation-free command-state reuse | src/driver/vulkan.ab typed pool and flags ABI | examples/common-compute/main.ab four repeated zero-growth dispatch rounds | tests/application/main.ab invalid operation rejected before reset |
 | `vkResetDescriptorPool` | definition | unclassified | - | - | - | - |
 | `vkResetEvent` | definition | unclassified | - | - | - | - |
 | `vkResetFences` | definition | unclassified | - | - | - | - |

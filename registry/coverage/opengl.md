@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 82/2892
+- Classified commands: 84/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -477,7 +477,7 @@
 | `glDisableVertexAttribArray` | definition | unclassified | - | - | - | - |
 | `glDisableVertexAttribArrayARB` | definition | unclassified | - | - | - | - |
 | `glDisablei` | definition | unclassified | - | - | - | - |
-| `glDispatchCompute` | definition | unclassified | - | - | - | - |
+| `glDispatchCompute` | definition | common | src/driver/opengl.ab reflected compute workgroup dispatch | src/driver/opengl.ab typed three-axis group-count ABI | examples/common-compute/main.ab repeated storage and push compute output | tests/application/main.ab zero and limit-exceeding dispatch rejection |
 | `glDispatchComputeGroupSizeARB` | definition | unclassified | - | - | - | - |
 | `glDispatchComputeIndirect` | definition | unclassified | - | - | - | - |
 | `glDrawArrays` | definition | common | src/driver/opengl.ab allocation-free pixel and simple triangle drawing | src/driver/opengl.ab typed mode first and count ABI | tests/application/main.ab exact repeated pixel and triangle presentation | tests/application/main.ab invalid vertex range rejection |
@@ -1348,7 +1348,7 @@
 | `glMatrixTranslatefEXT` | definition | unclassified | - | - | - | - |
 | `glMaxShaderCompilerThreadsARB` | definition | unclassified | - | - | - | - |
 | `glMaxShaderCompilerThreadsKHR` | definition | unclassified | - | - | - | - |
-| `glMemoryBarrier` | definition | unclassified | - | - | - | - |
+| `glMemoryBarrier` | definition | common | src/driver/opengl.ab storage visibility after compute dispatch | src/driver/opengl.ab typed barrier-mask ABI | examples/common-compute/main.ab exact storage readback after repeated dispatch | tests/application/main.ab missing storage binding rejection |
 | `glMemoryBarrierByRegion` | definition | unclassified | - | - | - | - |
 | `glMemoryBarrierEXT` | definition | unclassified | - | - | - | - |
 | `glMemoryObjectParameterivEXT` | definition | unclassified | - | - | - | - |
