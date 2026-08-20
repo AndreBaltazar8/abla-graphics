@@ -1025,8 +1025,13 @@ validity gate unchanged.
   `stpq` naming family now lower the same source kinds to `OpVectorShuffle`;
   `.bgra` emits selectors 2/1/0/3 and is byte-identical to `.zyxw`. Scalar
   bases, unknown or mixed-family selectors, and two-/three-component results
-  reject. The reflected `.w`/`.bgra`, comma-local postfix-`--`, prefix-`++`,
-  and `+=` push-expression sample retains exact OpenGL/Vulkan pixels, stable
+  reject. One- and four-scalar runtime `vec4` constructors now consume arbitrary
+  supported scalar expressions and emit `OpCompositeConstruct`, with a single
+  scalar ID reused across all splat lanes. Signed constant constructors retain
+  byte-identical interned constant composites. Dynamic push/component/local
+  forms validate; two, three, five, or vector arguments reject. The reflected
+  `.w`/`.bgra`, runtime-denominator, comma-local postfix-`--`, prefix-`++`, and
+  `+=` push-expression sample retains exact OpenGL/Vulkan pixels, stable
   handles, and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission

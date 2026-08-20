@@ -61,8 +61,8 @@ writes, exact-bit module-wide float constant interning, and storage-free ordered
 immutable or SSA-rebound mutable scalar/vector locals with typed floating
 compound assignment, standalone prefix/postfix updates, left-to-right comma
 declarators, typed single-component vector selection, and four-component vector
-permutation. Repeated clear, pixel, transfer, compute, event-poll, and triangle
-hot paths have stable native
+permutation plus runtime one-/four-scalar `vec4` construction. Repeated clear,
+pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.
 

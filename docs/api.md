@@ -1767,7 +1767,7 @@ Typed fragment expressions are no longer limited to fixed word templates. The
 typed raster parser accepts up to eight reflected non-array `vec4` inputs in
 source order before one to eight reflected non-array `vec4` outputs, an optional
 reflected block of up to eight non-array `float` or `vec4` members,
-scalar/`vec4` literals, four-component or scalar-splat `vec4` constructors,
+scalar/`vec4` literals, one- or four-scalar `vec4` constructors,
 parentheses, single-component vector selectors `.x`/`.y`/`.z`/`.w` and their
 `rgba`/`stpq` aliases, four-component `vec4` swizzles such as `.bgra`, and
 scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence. A selector may
@@ -1775,6 +1775,12 @@ follow an input, push member, local, literal, or parenthesized expression.
 Single components emit typed scalar `OpCompositeExtract`; four components from
 one naming family emit a typed `OpVectorShuffle`. Two- and three-component
 results remain checked failures until the raster IR gains `vec2`/`vec3` types.
+Constructor arguments may be arbitrary supported scalar expressions. A single
+runtime scalar emits one `OpCompositeConstruct` with its result reused in all
+four lanes; four runtime scalars retain source order. Constant-only signed
+constructors continue to fold into the existing interned `OpConstantComposite`
+path, so their established module bytes and sizes do not change. Constructor
+arities other than one or four, and vector-valued arguments, reject.
 Prefix `+` is an identity and prefix `-` emits typed scalar or vector
 `OpFNegate`; unary nesting is included in the same 64-level/token bounds.
 Inputs and the push block may both be absent for a constant-only expression; a
@@ -1836,10 +1842,11 @@ changing either output.
 `push-expression` loads a reflected scalar gain and the `.w` component of a
 reflected vector, permutes another reflected vector from `.bgra` into logical
 RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
-sibling unit scalar, executes vector/scalar division after vector negation into
-a mutable vector, then rebinds it with `+=` and the second vector. It proves its
-48-byte mixed layout plus exact red/green output, stable handles, and zero
-steady-state allocation growth on both real backends.
+sibling unit scalar, constructs a runtime scalar-splat `vec4` denominator,
+executes vector division after vector negation into a mutable vector, then
+rebinds it with `+=` and the second vector. It proves its 48-byte mixed layout
+plus exact red/green output, stable handles, and zero steady-state allocation
+growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

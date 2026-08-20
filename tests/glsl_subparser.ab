@@ -1491,6 +1491,69 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=draw.tint.xgba; }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterDynamicSplat = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vec4(draw.gain+1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterDynamicComponents = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=vec4(draw.tint.b,draw.tint.g,draw.tint.r,draw.tint.a); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterDynamicLocalSplat = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ float value=draw.gain*2.0; color=vec4(value); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterNegativeSplat = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(-1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterNegativeExplicit = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(-1.0,-1.0,-1.0,-1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterConstructorTwoRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0,0.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterConstructorThreeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0,0.0,0.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterConstructorFiveRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0,0.0,0.0,1.0,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterConstructorVectorRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=vec4(draw.tint); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2857,6 +2920,28 @@ fun main: int {
         rasterScalarSwizzleRejected.error != "" &&
         !rasterMixedSwizzleRejected.succeeded &&
         rasterMixedSwizzleRejected.error != "" &&
+        rasterDynamicSplat.succeeded && rasterDynamicSplat.module.valid() &&
+        spirvWordCount(rasterDynamicSplat.module, 458832) == 1 &&
+        rasterDynamicComponents.succeeded &&
+        rasterDynamicComponents.module.valid() &&
+        spirvWordCount(rasterDynamicComponents.module, 327761) == 4 &&
+        spirvWordCount(rasterDynamicComponents.module, 458832) == 1 &&
+        rasterDynamicLocalSplat.succeeded &&
+        rasterDynamicLocalSplat.module.valid() &&
+        spirvWordCount(rasterDynamicLocalSplat.module, 458832) == 1 &&
+        rasterNegativeSplat.succeeded && rasterNegativeExplicit.succeeded &&
+        spirvWordsEqual(
+            rasterNegativeSplat.module,
+            rasterNegativeExplicit.module
+        ) && spirvWordCount(rasterNegativeSplat.module, 458832) == 0 &&
+        !rasterConstructorTwoRejected.succeeded &&
+        rasterConstructorTwoRejected.error != "" &&
+        !rasterConstructorThreeRejected.succeeded &&
+        rasterConstructorThreeRejected.error != "" &&
+        !rasterConstructorFiveRejected.succeeded &&
+        rasterConstructorFiveRejected.error != "" &&
+        !rasterConstructorVectorRejected.succeeded &&
+        rasterConstructorVectorRejected.error != "" &&
         !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&
         !rasterConstCompoundRejected.succeeded &&
