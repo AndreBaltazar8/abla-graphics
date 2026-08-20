@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 43/842
+- Classified commands: 45/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -432,7 +432,7 @@
 | `vkCreateRenderPass` | definition | common | src/driver/vulkan.ab render-pass creation | src/driver/vulkan.ab packed render-pass ABI | tests/application/main.ab native multisample resolve pass | tests/application/main.ab invalid render operation rejection |
 | `vkCreateRenderPass2` | definition | unclassified | - | - | - | - |
 | `vkCreateRenderPass2KHR` | alias | unclassified | - | - | - | - |
-| `vkCreateSampler` | definition | unclassified | - | - | - | - |
+| `vkCreateSampler` | definition | common | src/driver/vulkan.ab affine sampler creation | src/driver/vulkan.ab packed SamplerCreateInfo ABI | tests/application/main.ab comparison and anisotropic sampler creation | src/sampler.ab unsupported comparison and anisotropy rejection |
 | `vkCreateSamplerYcbcrConversion` | definition | unclassified | - | - | - | - |
 | `vkCreateSamplerYcbcrConversionKHR` | alias | unclassified | - | - | - | - |
 | `vkCreateScreenSurfaceQNX` | definition | unclassified | - | - | - | - |
@@ -499,7 +499,7 @@
 | `vkDestroyPrivateDataSlotEXT` | alias | unclassified | - | - | - | - |
 | `vkDestroyQueryPool` | definition | common | src/driver/vulkan.ab timestamp query lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
 | `vkDestroyRenderPass` | definition | unclassified | - | - | - | - |
-| `vkDestroySampler` | definition | unclassified | - | - | - | - |
+| `vkDestroySampler` | definition | common | src/driver/vulkan.ab affine sampler lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
 | `vkDestroySamplerYcbcrConversion` | definition | unclassified | - | - | - | - |
 | `vkDestroySamplerYcbcrConversionKHR` | alias | unclassified | - | - | - | - |
 | `vkDestroySemaphore` | definition | unclassified | - | - | - | - |

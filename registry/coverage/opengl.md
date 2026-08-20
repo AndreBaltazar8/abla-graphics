@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 28/2892
+- Classified commands: 32/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -436,7 +436,7 @@
 | `glDeleteQueryResourceTagNV` | definition | unclassified | - | - | - | - |
 | `glDeleteRenderbuffers` | definition | unclassified | - | - | - | - |
 | `glDeleteRenderbuffersEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteSamplers` | definition | unclassified | - | - | - | - |
+| `glDeleteSamplers` | definition | common | src/driver/opengl.ab affine sampler lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
 | `glDeleteSemaphoresEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteShader` | definition | unclassified | - | - | - | - |
 | `glDeleteStatesNV` | definition | unclassified | - | - | - | - |
@@ -694,7 +694,7 @@
 | `glGenQueryResourceTagNV` | definition | unclassified | - | - | - | - |
 | `glGenRenderbuffers` | definition | unclassified | - | - | - | - |
 | `glGenRenderbuffersEXT` | definition | unclassified | - | - | - | - |
-| `glGenSamplers` | definition | unclassified | - | - | - | - |
+| `glGenSamplers` | definition | common | src/driver/opengl.ab affine sampler creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab comparison and anisotropic sampler creation | src/sampler.ab unsupported comparison and anisotropy rejection |
 | `glGenSemaphoresEXT` | definition | unclassified | - | - | - | - |
 | `glGenSymbolsEXT` | definition | unclassified | - | - | - | - |
 | `glGenTextures` | definition | unclassified | - | - | - | - |
@@ -1994,8 +1994,8 @@
 | `glSamplerParameterIiv` | definition | unclassified | - | - | - | - |
 | `glSamplerParameterIuiv` | definition | unclassified | - | - | - | - |
 | `glSamplerParameterf` | definition | unclassified | - | - | - | - |
-| `glSamplerParameterfv` | definition | unclassified | - | - | - | - |
-| `glSamplerParameteri` | definition | unclassified | - | - | - | - |
+| `glSamplerParameterfv` | definition | common | src/driver/opengl.ab anisotropy configuration | src/driver/opengl.ab typed float-pointer ABI | tests/application/main.ab maximum anisotropy sampler creation | src/sampler.ab unsupported anisotropy rejection |
+| `glSamplerParameteri` | definition | common | src/driver/opengl.ab address filter LOD and comparison configuration | src/driver/opengl.ab typed integer parameter ABI | tests/application/main.ab repeat mirror linear and comparison sampler creation | src/resources.ab invalid address filter LOD and comparison rejection |
 | `glSamplerParameteriv` | definition | unclassified | - | - | - | - |
 | `glScaled` | definition | unclassified | - | - | - | - |
 | `glScalef` | definition | unclassified | - | - | - | - |
