@@ -94,6 +94,11 @@ Raster selectors now emit width-matched `vec2`, `vec3`, or `vec4`
 checks reject invalid lanes while permitting repetition; the live narrow-input
 sample executes `.yx` without changing its dual-backend proof.
 
+Fragment color outputs now emit width-specific `vec2`, `vec3`, or `vec4`
+Output pointer, variable, and store types, including mixed narrow MRT modules
+and exact expression-width rejection. Native attachment semantics for omitted
+components remain milestone work rather than an inferred guarantee.
+
 ## Non-negotiable design rules
 
 1. Application state, rendering policy, resource ownership, shader declarations,

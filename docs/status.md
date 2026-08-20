@@ -1094,7 +1094,10 @@ validity gate unchanged.
   emission; mixed narrow inputs validate as one module. The `narrow-input`
   sample interpolates `vec2` into a composed `vec4` color with the same exact
   dual-backend pixel, four-frame, stable-handle, and zero-growth proof.
-  Fragment color outputs remain `vec4`.
+  Fragment color outputs now emit deterministic `vec2`, `vec3`, or `vec4`
+  Output pointer, variable, and store types. Mixed narrow MRT modules validate,
+  and expression widths must match exactly. Native missing-component attachment
+  semantics remain unclaimed pending a dedicated driver proof.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through

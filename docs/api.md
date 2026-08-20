@@ -1765,8 +1765,8 @@ steady-state allocation growth on both backends.
 
 Typed fragment expressions are no longer limited to fixed word templates. The
 typed raster parser accepts up to eight reflected non-array `vec2`, `vec3`, or
-`vec4` inputs in source order before one to eight reflected non-array `vec4`
-outputs, an optional
+`vec4` inputs in source order before one to eight reflected non-array `vec2`,
+`vec3`, or `vec4` outputs, an optional
 reflected block of up to eight non-array `float`, `vec2`, `vec3`, or `vec4`
 members,
 scalar/`vec4` literals, width-exact or scalar-splat `vec2`/`vec3`/`vec4`
@@ -1882,7 +1882,10 @@ constants, loads, composites, typed operations, and one store per output
 deterministically.
 Output declarations and assignments use the same reflected source order, so
 missing, duplicated, or reordered writes reject rather than being silently
-reassociated.
+reassociated. Each final expression must exactly match its output width.
+Width-specific Output pointer and variable types support mixed narrow MRT
+modules; native attachment behavior for missing color components remains a
+separate validation milestone.
 Unknown or array members, mismatched addition/subtraction such as `vec4 +
 float`, scalar final outputs, extra statements/declarations, malformed
 expressions, and unsupported operators fail before pipeline creation. Existing

@@ -2304,6 +2304,34 @@ fun main: int {
         rasterMultipleOutputExpressions.rasterFragmentProgram()
     val rasterMultipleOutputFragment =
         rasterMultipleOutputExpressions.spirv(shaderStageFragment)
+    val rasterVec2Output = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec2 color; void main(){ color=vec2(1.0,0.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVec3Output = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec3 color; void main(){ color=vec3(1.0,0.0,0.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMixedNarrowOutputs = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec2 first; layout(location=1) out vec3 second; void main(){ first=vec2(1.0); second=vec3(0.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterNarrowOutputTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec3 color; void main(){ color=vec2(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterReorderedOutputRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3868,6 +3896,15 @@ fun main: int {
         spirvContainsWord(rasterMultipleOutputFragment.module, 327809) &&
         spirvContainsWord(rasterMultipleOutputFragment.module, 327811) &&
         spirvWordCount(rasterMultipleOutputFragment.module, 196670) == 2 &&
+        rasterVec2Output.succeeded && rasterVec2Output.module.valid() &&
+        spirvInstructionOperand(rasterVec2Output.module, 23, 3, 2) &&
+        rasterVec3Output.succeeded && rasterVec3Output.module.valid() &&
+        spirvInstructionOperand(rasterVec3Output.module, 23, 3, 3) &&
+        rasterMixedNarrowOutputs.succeeded &&
+        rasterMixedNarrowOutputs.module.valid() &&
+        spirvWordCount(rasterMixedNarrowOutputs.module, 262176) == 2 &&
+        !rasterNarrowOutputTypeRejected.succeeded &&
+        rasterNarrowOutputTypeRejected.error != "" &&
         !rasterReorderedOutputRejected.succeeded &&
         rasterReorderedOutputRejected.error != "" &&
         !rasterMissingOutputRejected.succeeded &&
