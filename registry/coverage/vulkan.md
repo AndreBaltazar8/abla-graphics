@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 45/842
+- Classified commands: 49/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -36,7 +36,7 @@
 | `vkBindBufferMemory2` | definition | unclassified | - | - | - | - |
 | `vkBindBufferMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkBindDataGraphPipelineSessionMemoryARM` | definition | unclassified | - | - | - | - |
-| `vkBindImageMemory` | definition | unclassified | - | - | - | - |
+| `vkBindImageMemory` | definition | common | src/driver/vulkan.ab texture memory binding | src/driver/vulkan.ab typed device image memory and offset ABI | tests/application/main.ab exact texture upload and readback | tests/application/main.ab invalid texture descriptor rejection |
 | `vkBindImageMemory2` | definition | unclassified | - | - | - | - |
 | `vkBindImageMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkBindOpticalFlowSessionImageNV` | definition | unclassified | - | - | - | - |
@@ -483,8 +483,8 @@
 | `vkDestroyFence` | definition | unclassified | - | - | - | - |
 | `vkDestroyFramebuffer` | definition | unclassified | - | - | - | - |
 | `vkDestroyGpaSessionAMD` | definition | unclassified | - | - | - | - |
-| `vkDestroyImage` | definition | unclassified | - | - | - | - |
-| `vkDestroyImageView` | definition | unclassified | - | - | - | - |
+| `vkDestroyImage` | definition | common | src/driver/vulkan.ab affine texture image lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab sampled transfer and target texture lifecycle | tests/application/main.ab invalid texture descriptor rejection |
+| `vkDestroyImageView` | definition | common | src/driver/vulkan.ab affine texture-view lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab valid default reinterpret and target views | tests/application/main.ab incompatible and out-of-range view rejection |
 | `vkDestroyIndirectCommandsLayoutEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyIndirectCommandsLayoutNV` | definition | unclassified | - | - | - | - |
 | `vkDestroyIndirectExecutionSetEXT` | definition | unclassified | - | - | - | - |
@@ -614,7 +614,7 @@
 | `vkGetGpaSessionResultsAMD` | definition | unclassified | - | - | - | - |
 | `vkGetGpaSessionStatusAMD` | definition | unclassified | - | - | - | - |
 | `vkGetImageDrmFormatModifierPropertiesEXT` | definition | unclassified | - | - | - | - |
-| `vkGetImageMemoryRequirements` | definition | unclassified | - | - | - | - |
+| `vkGetImageMemoryRequirements` | definition | common | src/driver/vulkan.ab texture memory requirement query | src/driver/vulkan.ab packed MemoryRequirements output ABI | tests/application/main.ab sampled transfer depth and multisample images | tests/application/main.ab invalid size and sample-count rejection |
 | `vkGetImageMemoryRequirements2` | definition | unclassified | - | - | - | - |
 | `vkGetImageMemoryRequirements2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetImageOpaqueCaptureDataEXT` | definition | unclassified | - | - | - | - |

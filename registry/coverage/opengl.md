@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 32/2892
+- Classified commands: 38/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -99,7 +99,7 @@
 | `glBindSamplers` | definition | unclassified | - | - | - | - |
 | `glBindShadingRateImageNV` | definition | unclassified | - | - | - | - |
 | `glBindTexGenParameterEXT` | definition | unclassified | - | - | - | - |
-| `glBindTexture` | definition | unclassified | - | - | - | - |
+| `glBindTexture` | definition | common | src/driver/opengl.ab texture allocation and checked upload binding | src/driver/opengl.ab typed target and name ABI | tests/application/main.ab exact texture upload and reupload readback | tests/application/main.ab upload range and texture validity rejection |
 | `glBindTextureEXT` | definition | unclassified | - | - | - | - |
 | `glBindTextureUnit` | definition | unclassified | - | - | - | - |
 | `glBindTextureUnitParameterEXT` | definition | unclassified | - | - | - | - |
@@ -441,7 +441,7 @@
 | `glDeleteShader` | definition | unclassified | - | - | - | - |
 | `glDeleteStatesNV` | definition | unclassified | - | - | - | - |
 | `glDeleteSync` | definition | unclassified | - | - | - | - |
-| `glDeleteTextures` | definition | unclassified | - | - | - | - |
+| `glDeleteTextures` | definition | common | src/driver/opengl.ab affine texture lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab texture target and upload lifecycle | tests/application/main.ab invalid texture descriptor rejection |
 | `glDeleteTexturesEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteTransformFeedbacks` | definition | unclassified | - | - | - | - |
 | `glDeleteTransformFeedbacksNV` | definition | unclassified | - | - | - | - |
@@ -697,7 +697,7 @@
 | `glGenSamplers` | definition | common | src/driver/opengl.ab affine sampler creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab comparison and anisotropic sampler creation | src/sampler.ab unsupported comparison and anisotropy rejection |
 | `glGenSemaphoresEXT` | definition | unclassified | - | - | - | - |
 | `glGenSymbolsEXT` | definition | unclassified | - | - | - | - |
-| `glGenTextures` | definition | unclassified | - | - | - | - |
+| `glGenTextures` | definition | common | src/driver/opengl.ab affine texture creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid sampled transfer and render-target textures | tests/application/main.ab invalid texture descriptor rejection |
 | `glGenTexturesEXT` | definition | unclassified | - | - | - | - |
 | `glGenTransformFeedbacks` | definition | unclassified | - | - | - | - |
 | `glGenTransformFeedbacksNV` | definition | unclassified | - | - | - | - |
@@ -2221,7 +2221,7 @@
 | `glTexGenxOES` | definition | unclassified | - | - | - | - |
 | `glTexGenxvOES` | definition | unclassified | - | - | - | - |
 | `glTexImage1D` | definition | unclassified | - | - | - | - |
-| `glTexImage2D` | definition | unclassified | - | - | - | - |
+| `glTexImage2D` | definition | common | src/driver/opengl.ab per-mip texture storage allocation | src/driver/opengl.ab typed size format and data-pointer ABI | tests/application/main.ab exact multi-level texture upload and readback | tests/core.ab overflowing size and invalid multisample descriptor rejection |
 | `glTexImage2DMultisample` | definition | common | src/driver/opengl.ab multisample allocation | src/driver/opengl.ab typed extern signature | tests/application/main.ab four-sample render target | tests/application/main.ab sample count rejection |
 | `glTexImage2DMultisampleCoverageNV` | definition | unclassified | - | - | - | - |
 | `glTexImage3D` | definition | unclassified | - | - | - | - |
@@ -2237,7 +2237,7 @@
 | `glTexParameterIuivEXT` | definition | unclassified | - | - | - | - |
 | `glTexParameterf` | definition | unclassified | - | - | - | - |
 | `glTexParameterfv` | definition | unclassified | - | - | - | - |
-| `glTexParameteri` | definition | unclassified | - | - | - | - |
+| `glTexParameteri` | definition | common | src/driver/opengl.ab allocated mip range configuration | src/driver/opengl.ab typed target parameter and value ABI | tests/application/main.ab four-level mip generation and readback | tests/core.ab invalid multisample mip-count rejection |
 | `glTexParameteriv` | definition | unclassified | - | - | - | - |
 | `glTexParameterxOES` | definition | unclassified | - | - | - | - |
 | `glTexParameterxvOES` | definition | unclassified | - | - | - | - |
@@ -2258,7 +2258,7 @@
 | `glTexStorageSparseAMD` | definition | unclassified | - | - | - | - |
 | `glTexSubImage1D` | definition | unclassified | - | - | - | - |
 | `glTexSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTexSubImage2D` | definition | unclassified | - | - | - | - |
+| `glTexSubImage2D` | definition | common | src/driver/opengl.ab checked pixel-region upload | src/driver/opengl.ab typed region format and pixel-pointer ABI | tests/application/main.ab exact partial upload and reupload readback | tests/application/main.ab out-of-range upload rejection |
 | `glTexSubImage2DEXT` | definition | unclassified | - | - | - | - |
 | `glTexSubImage3D` | definition | unclassified | - | - | - | - |
 | `glTexSubImage3DEXT` | definition | unclassified | - | - | - | - |
