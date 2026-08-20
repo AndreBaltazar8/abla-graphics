@@ -1847,10 +1847,15 @@ Equal-type operations emit floating scalar or vector instructions; `vec4 *
 float` and `float * vec4` emit `OpVectorTimesScalar` with normalized SPIR-V
 operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
 `OpFDiv`, preserving division semantics without a reciprocal-multiply rewrite;
-`float / vec4` is rejected. The parser produces bounded postfix IR and emits a
-mixed-type push structure, reflected member offsets, scalar/vector pointer
-types, entry-point interfaces, input locations/variables, constants, loads,
-composites, typed operations, and one store per output deterministically.
+`float / vec4` is rejected. `mod(float, float)`, `mod(vec4, vec4)`, and
+`mod(vec4, float)` emit core `OpFMod` instruction 141; the vector/scalar form
+constructs the required runtime divisor splat. `mod(float, vec4)`, wrong
+arities, and floating `%`/`%=` reject, matching GLSL's separate integer
+operator and floating built-in rules. The parser produces bounded postfix IR
+and emits a mixed-type push structure, reflected member offsets,
+scalar/vector pointer types, entry-point interfaces, input locations/variables,
+constants, loads, composites, typed operations, and one store per output
+deterministically.
 Output declarations and assignments use the same reflected source order, so
 missing, duplicated, or reordered writes reject rather than being silently
 reassociated.
@@ -1884,7 +1889,9 @@ then shapes it with `smoothstep` and selects the unit scale through nested
 `step`/`mix`, multiplied by a
 `cos(radians(length(vec4(0))) + atan(0, 1))` phase. It constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
-into a mutable vector, then rebinds it with `+=` and the second vector. It
+into a mutable vector, applies vector/scalar `mod`, then rebinds it with `+=`
+and the second vector. Its reflected alpha component also passes through scalar
+`mod`. It
 proves its 48-byte mixed layout plus exact red/green output, stable handles, and
 zero steady-state allocation growth on both real backends.
 

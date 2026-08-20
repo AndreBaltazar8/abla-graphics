@@ -496,6 +496,54 @@ fun glslRasterPrimary(
             tokens.append(GlslRasterToken(glslRasterTokenDot))
             index = index + 1
         }
+    } else if (valid && sourceTokens[index].text == "mod") {
+        index = index + 1
+        valid = glslRasterTokenText(sourceTokens, index, "(")
+        if (valid) index = index + 1
+        val left = if (valid) glslRasterExpression(
+            sourceTokens,
+            index,
+            1,
+            push,
+            inputs,
+            locals,
+            depth + 1
+        ) else GlslRasterExpression(false, [], index)
+        index = left.next
+        valid = valid && left.valid &&
+            glslRasterTokenText(sourceTokens, index, ",")
+        if (valid) index = index + 1
+        val right = if (valid) glslRasterExpression(
+            sourceTokens,
+            index,
+            1,
+            push,
+            inputs,
+            locals,
+            depth + 1
+        ) else GlslRasterExpression(false, [], index)
+        index = right.next
+        valid = valid && right.valid &&
+            glslRasterTokenText(sourceTokens, index, ")")
+        if (valid) {
+            val leftTokens = glslRasterTokensCopy(left.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < leftTokens.size) {
+                tokens.append(leftTokens[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            val rightTokens = glslRasterTokensCopy(right.tokens)
+            copiedIndex = 0
+            while (copiedIndex < rightTokens.size) {
+                tokens.append(rightTokens[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            tokens.append(GlslRasterToken(
+                glslRasterTokenOperation,
+                opcode = 327821
+            ))
+            index = index + 1
+        }
     } else if (valid && sourceTokens[index].text == "vec4") {
         index = index + 1
         valid = index < sourceTokens.size && sourceTokens[index].text == "("
@@ -850,7 +898,8 @@ fun glslRasterExpressionType(
                     valueType = if (leftType == glslRasterTypeVector ||
                         rightType == glslRasterTypeVector)
                         glslRasterTypeVector else glslRasterTypeScalar
-                } else if (token.opcode == 327816) {
+                } else if (token.opcode == 327816 ||
+                    token.opcode == 327821) {
                     valid = leftType == rightType ||
                         (leftType == glslRasterTypeVector &&
                          rightType == glslRasterTypeScalar)
@@ -1802,7 +1851,7 @@ fun glslRasterFragmentSpirv(
             } else {
                 valid = stackSize >= 2 && (token.opcode == 327809 ||
                     token.opcode == 327811 || token.opcode == 327813 ||
-                    token.opcode == 327816)
+                    token.opcode == 327816 || token.opcode == 327821)
             }
             if (valid && token.opcode != 262271) {
                 var right = stack[stackSize - 1]
@@ -1824,7 +1873,7 @@ fun glslRasterFragmentSpirv(
                         left = right
                         right = scalar
                     }
-                } else if (operation == 327816 &&
+                } else if ((operation == 327816 || operation == 327821) &&
                     leftType != rightType) {
                     valid = leftType == glslRasterTypeVector &&
                         rightType == glslRasterTypeScalar

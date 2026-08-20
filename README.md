@@ -274,7 +274,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   `normalize`d alpha axis clamped through nested
   `abs`/`sqrt`/`smoothstep`/`step`/`mix` `GLSL.std.450` calls, vector negation,
   a `cos(radians(length(...)) + atan(y, x))` phase, and precedence-ordered
-  vector/scalar division plus addition,
+  vector/scalar division, scalar and vector/scalar `mod`, plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted

@@ -1048,6 +1048,13 @@ validity gate unchanged.
   logarithmic functions, homogeneous `pow`, and `fma`; every mapped instruction
   number has positive module-validity coverage, with vector typing and arity/
   mismatch rejection.
+  Floating `mod` now accepts scalar/scalar, vector/vector, and vector/scalar
+  signatures and emits core `OpFMod` instruction 141, including the required
+  divisor splat for vector/scalar input. Push/input/local operands, exact opcode
+  counts, scalar/vector mismatch, and wrong arities are covered; `%` and `%=`
+  remain correctly reserved to unsupported integer raster expressions. The
+  live sample executes scalar and vector/scalar forms with unchanged pixels,
+  handles, frame count, and allocation proof.
   Unary `atan(x)` now coexists with homogeneous scalar/vector `atan(y, x)`.
   A bounded top-level call scan resolves the latter to `Atan2` instruction 25
   while ignoring separators inside nested calls; mixed types and third

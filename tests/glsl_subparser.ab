@@ -1603,6 +1603,55 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(dot(vec4(1.0),vec4(1.0),vec4(1.0))); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterScalarMod = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float first; float second; } draw; void main(){ color=vec4(mod(draw.first,draw.second)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVectorMod = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=mod(draw.first,draw.second); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVectorScalarMod = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; float second; } draw; void main(){ color=mod(draw.first,draw.second); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterInputLocalMod = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec4 tint; layout(location=0) out vec4 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
+            "#version 450\nlayout(location=0) in vec4 vertexTint; layout(location=0) out vec4 color; void main(){ vec4 divisor=vec4(0.5); color=mod(vertexTint,divisor); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterModTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float first; vec4 second; } draw; void main(){ color=mod(draw.first,draw.second); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterModOneArgumentRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(mod(1.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterModThreeArgumentsRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(mod(1.0,2.0,3.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterScalarExtInst = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3278,6 +3327,21 @@ fun main: int {
         rasterDotOneArgumentRejected.error != "" &&
         !rasterDotThreeArgumentsRejected.succeeded &&
         rasterDotThreeArgumentsRejected.error != "" &&
+        rasterScalarMod.succeeded && rasterScalarMod.module.valid() &&
+        spirvWordCount(rasterScalarMod.module, 327821) == 1 &&
+        rasterVectorMod.succeeded && rasterVectorMod.module.valid() &&
+        spirvWordCount(rasterVectorMod.module, 327821) == 1 &&
+        rasterVectorScalarMod.succeeded &&
+        rasterVectorScalarMod.module.valid() &&
+        spirvWordCount(rasterVectorScalarMod.module, 458832) == 1 &&
+        spirvWordCount(rasterVectorScalarMod.module, 327821) == 1 &&
+        rasterInputLocalMod.succeeded && rasterInputLocalMod.module.valid() &&
+        !rasterModTypeRejected.succeeded &&
+        rasterModTypeRejected.error != "" &&
+        !rasterModOneArgumentRejected.succeeded &&
+        rasterModOneArgumentRejected.error != "" &&
+        !rasterModThreeArgumentsRejected.succeeded &&
+        rasterModThreeArgumentsRejected.error != "" &&
         rasterScalarExtInst.succeeded && rasterScalarExtInst.module.valid() &&
         spirvWordCount(rasterScalarExtInst.module, 393227) == 1 &&
         spirvInstructionOperand(rasterScalarExtInst.module, 12, 4, 37) &&
