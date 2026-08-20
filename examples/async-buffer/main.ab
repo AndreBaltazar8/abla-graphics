@@ -1,0 +1,106 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(
+            title = "Abla Graphics asynchronous buffers",
+            width = 480,
+            height = 270
+        )
+    )
+    val deviceBuffer = app.buffer(BufferDescriptor(
+        label = "sample-device-buffer",
+        size = 64,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val source = bufferBytes(16)
+    val expected = 1234605616436508552
+    val sourceReady = source.fill(0) && source.storeI64(expected, 4)
+    val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "sample-async-uploads",
+        direction = bufferTransferDirectionUpload,
+        slotCapacity = 16,
+        slotCount = 3,
+        alignment = 16
+    ))
+
+    // These three copies are submitted before any CPU wait.
+    val upload0 = app.enqueueUploadBufferRange(
+        uploads, source, deviceBuffer, 4, 0, 8
+    )
+    val upload1 = app.enqueueUploadBufferRange(
+        uploads, source, deviceBuffer, 4, 8, 8
+    )
+    val upload2 = app.enqueueUploadBufferRange(
+        uploads, source, deviceBuffer, 4, 16, 8
+    )
+    val uploadTicketsValid = bufferTransferTicketValid(upload0) &&
+        bufferTransferTicketValid(upload1) &&
+        bufferTransferTicketValid(upload2)
+    val uploadsComplete = uploads.wait(upload0) && uploads.wait(upload1) &&
+        uploads.wait(upload2)
+
+    val downloads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "sample-async-readbacks",
+        direction = bufferTransferDirectionReadback,
+        slotCapacity = 16,
+        slotCount = 3,
+        alignment = 16
+    ))
+
+    // Readback is also submitted first and copied into CPU bytes only after
+    // the matching ticket completes.
+    val download0 = app.enqueueReadbackBufferRange(
+        downloads, deviceBuffer, 0, 8
+    )
+    val download1 = app.enqueueReadbackBufferRange(
+        downloads, deviceBuffer, 8, 8
+    )
+    val download2 = app.enqueueReadbackBufferRange(
+        downloads, deviceBuffer, 16, 8
+    )
+    val result = bufferBytes(24)
+    val readbacksComplete = result.fill(0) && app.waitReadback(
+        downloads, download0, result, 0
+    ) && app.waitReadback(
+        downloads, download1, result, 8
+    ) && app.waitReadback(
+        downloads, download2, result, 16
+    )
+    val exact = result.loadI64(0) == expected &&
+        result.loadI64(8) == expected && result.loadI64(16) == expected
+
+    // Reusing the fixed slots keeps the hot path allocation-free.
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = true
+    var iteration = 0
+    while (repeated && iteration < 6) {
+        val ticket = app.enqueueUploadBufferRange(
+            uploads, source, deviceBuffer, 4, 24, 8
+        )
+        repeated = bufferTransferTicketValid(ticket) && uploads.wait(ticket)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val passed = app.valid() && deviceBuffer.valid() && sourceReady &&
+        uploads.valid() && downloads.valid() && uploadTicketsValid &&
+        uploadsComplete && readbacksComplete && exact && repeated &&
+        iteration == 6 && liveAfter == liveBefore
+    println(
+        "async-buffer ${graphicsBackendName(app.backend)}: queued=${uploads.queuedCount}/${downloads.queuedCount} completed=${uploads.completedCount}/${downloads.completedCount} exact=$exact live=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}

@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 112/842
+- Classified commands: 113/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -104,7 +104,7 @@
 | `vkCmdCopyAccelerationStructureKHR` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyAccelerationStructureNV` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyAccelerationStructureToMemoryKHR` | definition | unclassified | - | - | - | - |
-| `vkCmdCopyBuffer` | definition | common | src/driver/vulkan.ab GPU buffer copy recording | src/driver/vulkan.ab packed BufferCopy ABI | tests/application/main.ab exact copied range readback | tests/application/main.ab range and usage rejection |
+| `vkCmdCopyBuffer` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab synchronous and queued buffer copies | src/driver/vulkan.ab packed BufferCopy ABI | tests/transfer/main.ab exact three-slot upload and readback | tests/transfer/main.ab invalid queued range rejection |
 | `vkCmdCopyBuffer2` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyBuffer2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdCopyBufferToImage` | definition | common | src/driver/vulkan.ab texture upload | src/driver/vulkan.ab packed buffer image copy ABI | tests/application/main.ab exact texture upload | tests/application/main.ab upload range rejection |
@@ -404,7 +404,7 @@
 | `vkCreateEvent` | definition | unclassified | - | - | - | - |
 | `vkCreateExecutionGraphPipelinesAMDX` | definition | unclassified | - | - | - | - |
 | `vkCreateExternalComputeQueueNV` | definition | unclassified | - | - | - | - |
-| `vkCreateFence` | definition | common | src/driver/vulkan.ab affine per-frame completion fence creation | src/driver/vulkan.ab packed FenceCreateInfo ABI | tests/application/main.ab three stable frames in flight | src/driver/vulkan.ab partial frame creation cleanup |
+| `vkCreateFence` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab affine frame and transfer completion fences | src/driver/vulkan.ab packed FenceCreateInfo ABI | tests/transfer/main.ab three stable asynchronous transfer fences | src/driver/vulkan_transfer.ab partial slot creation cleanup |
 | `vkCreateFramebuffer` | definition | common | src/driver/vulkan.ab target creation | src/driver/vulkan.ab packed framebuffer ABI | tests/application/main.ab MRT multisample framebuffer | tests/application/main.ab incompatible attachment rejection |
 | `vkCreateGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkCreateGraphicsPipelines` | definition | common | src/driver/vulkan.ab reflected graphics pipeline creation | src/driver/vulkan.ab packed shader vertex raster blend depth and dynamic-state ABIs | examples/common-triangle/main.ab live blended depth-tested raster pipelines | examples/common-triangle/main.ab invalid raster depth and vertex layout rejection |
@@ -480,7 +480,7 @@
 | `vkDestroyDevice` | definition | common | src/driver/vulkan.ab affine logical-device lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan/main.ab complete device resource lifecycle | src/driver/vulkan.ab partial device creation cleanup |
 | `vkDestroyEvent` | definition | unclassified | - | - | - | - |
 | `vkDestroyExternalComputeQueueNV` | definition | unclassified | - | - | - | - |
-| `vkDestroyFence` | definition | common | src/driver/vulkan.ab affine per-frame fence lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab three-frame presenter lifecycle | src/driver/vulkan.ab partial frame cleanup |
+| `vkDestroyFence` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab affine fence lifetime | src/driver/vulkan.ab typed extern signature | tests/transfer/main.ab complete three-slot queue lifecycle | src/driver/vulkan_transfer.ab partial slot cleanup |
 | `vkDestroyFramebuffer` | definition | common | src/driver/vulkan.ab affine legacy framebuffer lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab stable target and subpass framebuffer lifecycle | tests/application/main.ab failed target cleanup |
 | `vkDestroyGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkDestroyImage` | definition | common | src/driver/vulkan.ab affine texture image lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab sampled transfer and target texture lifecycle | tests/application/main.ab invalid texture descriptor rejection |
@@ -605,7 +605,7 @@
 | `vkGetExecutionGraphPipelineScratchSizeAMDX` | definition | unclassified | - | - | - | - |
 | `vkGetExternalComputeQueueDataNV` | definition | unclassified | - | - | - | - |
 | `vkGetFenceFdKHR` | definition | unclassified | - | - | - | - |
-| `vkGetFenceStatus` | definition | unclassified | - | - | - | - |
+| `vkGetFenceStatus` | definition | common | src/driver/vulkan_transfer.ab nonblocking transfer-slot completion query | src/driver/vulkan_transfer.ab typed device and fence ABI | tests/transfer/main.ab three queued upload and readback slots | tests/transfer/main.ab stale generation rejection before slot access |
 | `vkGetFenceWin32HandleKHR` | definition | unclassified | - | - | - | - |
 | `vkGetFramebufferTilePropertiesQCOM` | definition | unclassified | - | - | - | - |
 | `vkGetGeneratedCommandsMemoryRequirementsEXT` | definition | unclassified | - | - | - | - |
@@ -812,7 +812,7 @@
 | `vkResetCommandPool` | definition | common | src/driver/vulkan.ab allocation-free command-state reuse | src/driver/vulkan.ab typed pool and flags ABI | examples/common-compute/main.ab four repeated zero-growth dispatch rounds | tests/application/main.ab invalid operation rejected before reset |
 | `vkResetDescriptorPool` | definition | unclassified | - | - | - | - |
 | `vkResetEvent` | definition | unclassified | - | - | - | - |
-| `vkResetFences` | definition | common | src/driver/vulkan.ab reusable per-frame fence reset | src/driver/vulkan.ab typed fence-array ABI | tests/application/main.ab stable three-frame repeated presentation | src/driver/vulkan.ab reset only after successful acquisition |
+| `vkResetFences` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab reusable frame and transfer fence reset | src/driver/vulkan.ab typed fence-array ABI | tests/transfer/main.ab stable repeated slot submissions | src/driver/vulkan_transfer.ab reset only before validated submission |
 | `vkResetGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkResetQueryPool` | definition | unclassified | - | - | - | - |
 | `vkResetQueryPoolEXT` | alias | unclassified | - | - | - | - |
@@ -851,7 +851,7 @@
 | `vkUpdateIndirectExecutionSetPipelineEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateIndirectExecutionSetShaderEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateVideoSessionParametersKHR` | definition | unclassified | - | - | - | - |
-| `vkWaitForFences` | definition | common | src/driver/vulkan.ab bounded frame completion wait | src/driver/vulkan.ab typed fence-array wait-all and timeout ABI | tests/application/main.ab repeated three-frame synchronization | src/driver/vulkan.ab failed or timed-out wait rejection |
+| `vkWaitForFences` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab bounded frame and transfer completion wait | src/driver/vulkan.ab typed fence-array wait-all and timeout ABI | tests/transfer/main.ab explicit queued upload and readback waits | tests/transfer/main.ab stale and invalid ticket rejection |
 | `vkWaitForPresent2KHR` | definition | unclassified | - | - | - | - |
 | `vkWaitForPresentKHR` | definition | unclassified | - | - | - | - |
 | `vkWaitSemaphores` | definition | common | src/driver/vulkan.ab timeline host wait | src/driver/vulkan.ab packed semaphore wait ABI | tests/vulkan/main.ab repeated bounded timeline waits | tests/vulkan/main.ab negative value and timeout rejection |

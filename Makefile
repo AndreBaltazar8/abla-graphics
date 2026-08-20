@@ -3,7 +3,8 @@ export ABLA_MAX_MEMORY_MB ?= 4096
 
 .PHONY: all test test-core test-x11 test-wayland test-headless test-vulkan test-opengl \
 	test-vulkan-window test-opengl-window test-glsl test-samples test-toolchain \
-	test-application test-debug test-registry update-registry check-abla-only clean
+	test-application test-transfer test-debug test-registry update-registry \
+	check-abla-only clean
 
 all: check-abla-only test
 
@@ -11,7 +12,7 @@ check-abla-only:
 	./tools/check-abla-only.sh
 
 test: test-core test-x11 test-wayland test-headless test-vulkan test-vulkan-window test-opengl \
-	test-opengl-window test-glsl test-application test-debug test-registry
+	test-opengl-window test-glsl test-application test-transfer test-debug test-registry
 
 test-core:
 	./tools/test-core.sh
@@ -42,6 +43,9 @@ test-glsl:
 
 test-application:
 	./tools/test-application.sh
+
+test-transfer:
+	./tools/test-transfer.sh
 
 test-debug:
 	./tools/test-debug.sh

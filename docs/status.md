@@ -412,6 +412,18 @@ Updated: 2026-08-20.
   Vulkan in the software-driver sample matrix. Four complete mapped transfer
   cycles preserve all mapped buffer handles and produce zero Abla runtime
   live-byte growth on both backends.
+- Common asynchronous buffer transfers: a direction-specific affine queue owns
+  one coherent persistent staging allocation split into one to eight fixed
+  aligned slots. Compact integer tickets carry slot generations without heap
+  allocation. OpenGL owns a `GLsync` per slot and polls it with zero-timeout
+  `glClientWaitSync`; Vulkan owns a reusable command pool, command buffer,
+  fence, and ABI scratch block per slot and polls with `vkGetFenceStatus`.
+  Targeted waits use only the selected sync/fence, never `glFinish`,
+  `vkQueueWaitIdle`, or `vkDeviceWaitIdle`. The separate live transfer gate and
+  `examples/async-buffer` submit three uploads and three readbacks before
+  waiting, recover exact bytes on explicit OpenGL and Vulkan, reject stale and
+  invalid tickets, preserve native handles, and report zero live-byte growth in
+  repeated operations. Auto selection is covered by the focused gate.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1150,12 +1162,11 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 208 exercised common commands classified; all other
+  exist, with 209 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  asynchronous in-flight upload/readback rings, queued uploads, device-local
-  suballocation policy, command
+  asynchronous texture transfers, device-local suballocation policy, command
   encoders/render
   graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
@@ -1165,8 +1176,9 @@ validity gate unchanged.
   byte-range upload/readback is present, including
   distinct source and destination offsets; synchronous GPU buffer copies and
   aligned 32-bit pattern fills reuse backend command state. Synchronous
-  coherent persistent transfers and bounded aligned buffer upload/readback
-  rings are present; asynchronous transfers are not.
+  coherent persistent transfers, bounded aligned synchronous buffer rings, and
+  fixed-slot asynchronous buffer upload/readback queues are present;
+  asynchronous image transfers are not.
   Common buffers, textures, views,
   samplers, and immutable structural
   descriptors are present;

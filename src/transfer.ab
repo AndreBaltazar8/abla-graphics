@@ -1,0 +1,487 @@
+// Fixed-capacity, allocation-free asynchronous buffer transfer queues.
+
+import "core.ab"
+import "resources.ab"
+import "bytes.ab"
+import "application.ab"
+import "buffer.ab"
+import "upload.ab"
+import "driver/opengl_transfer.ab"
+import "driver/vulkan_transfer.ab"
+
+val bufferTransferDirectionUpload = 1
+val bufferTransferDirectionReadback = 2
+val graphicsMaximumTransferQueueSlots = 8
+val graphicsMaximumTransferTicketGeneration = graphicsMaximumInt >>> 3
+
+class BufferTransferQueueDescriptor(
+    val label: string = "buffer-transfer-queue",
+    val direction: int = bufferTransferDirectionUpload,
+    val slotCapacity: int = 1048576,
+    val slotCount: int = 3,
+    val alignment: int = 256
+) {
+    fun slotStride(): int = bufferTransferAlignedOffset(
+        this.slotCapacity,
+        this.alignment
+    )
+
+    fun totalCapacity(): int {
+        val stride = this.slotStride()
+        if (stride > 0 && this.slotCount > 0 &&
+            stride <= graphicsMaximumTransferRingBytes / this.slotCount)
+            stride * this.slotCount
+        else 0
+    }
+
+    fun validation(): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        val stride = this.slotStride()
+        val total = this.totalCapacity()
+        if (this.direction != bufferTransferDirectionUpload &&
+            this.direction != bufferTransferDirectionReadback) {
+            result = graphicsDescriptorInvalid(
+                "direction",
+                "transfer-queue direction must be upload or readback"
+            )
+        } else if (this.slotCapacity <= 0 ||
+            this.slotCapacity > graphicsMaximumTransferRingBytes) {
+            result = graphicsDescriptorInvalid(
+                "slotCapacity",
+                "transfer-queue slot capacity must be between one byte and one GiB"
+            )
+        } else if (this.slotCount <= 0 ||
+            this.slotCount > graphicsMaximumTransferQueueSlots) {
+            result = graphicsDescriptorInvalid(
+                "slotCount",
+                "transfer queues require between one and eight slots"
+            )
+        } else if (!bufferTransferAlignmentValid(this.alignment) ||
+            this.alignment > this.slotCapacity) {
+            result = graphicsDescriptorInvalid(
+                "alignment",
+                "transfer-queue alignment must be a power of two no larger than a slot"
+            )
+        } else if (stride <= 0 || total <= 0 ||
+            total > graphicsMaximumTransferRingBytes) {
+            result = graphicsDescriptorInvalid(
+                "slotCapacity",
+                "aligned transfer-queue storage must not exceed one GiB"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool {
+        val stride = this.slotStride()
+        val total = this.totalCapacity()
+        this.direction >= bufferTransferDirectionUpload &&
+            this.direction <= bufferTransferDirectionReadback &&
+            this.slotCapacity > 0 &&
+            this.slotCapacity <= graphicsMaximumTransferRingBytes &&
+            this.slotCount > 0 &&
+            this.slotCount <= graphicsMaximumTransferQueueSlots &&
+            bufferTransferAlignmentValid(this.alignment) &&
+            this.alignment <= this.slotCapacity && stride > 0 && total > 0 &&
+            total <= graphicsMaximumTransferRingBytes
+    }
+}
+
+fun bufferTransferTicket(
+    slot: int,
+    generation: int
+): int = if (slot >= 0 && slot < graphicsMaximumTransferQueueSlots &&
+    generation > 0 && generation <= graphicsMaximumTransferTicketGeneration)
+    (generation << 3) | slot
+else 0
+
+fun bufferTransferTicketValid(ticket: int): bool = ticket >= 8
+
+fun bufferTransferTicketSlot(ticket: int): int = if (
+    bufferTransferTicketValid(ticket)
+) ticket & 7 else -1
+
+fun bufferTransferTicketGeneration(ticket: int): int = if (
+    bufferTransferTicketValid(ticket)
+) ticket >>> 3 else 0
+
+resource class GraphicsBufferTransferQueue(
+    val staging: GraphicsBuffer,
+    val descriptor: BufferTransferQueueDescriptor,
+    val backend: int,
+    val openGlSlots: array<OpenGlTransferSlot>,
+    val vulkanSlots: array<VulkanTransferSlot>,
+    val generations: array<int>,
+    val sizes: array<int>,
+    var nextSlot: int,
+    var queuedCount: int,
+    var completedCount: int,
+    val error: GraphicsError
+) {
+    trusted fun valid(): bool {
+        var slotsValid = this.descriptor.valid() &&
+            this.generations.size == this.descriptor.slotCount &&
+            this.sizes.size == this.descriptor.slotCount
+        var index = 0
+        while (slotsValid && index < this.descriptor.slotCount) {
+            slotsValid = this.generations[index] >= 0 &&
+                this.sizes[index] >= 0 &&
+                ((this.backend == graphicsBackendOpenGl &&
+                  this.openGlSlots[index].valid()) ||
+                 (this.backend == graphicsBackendVulkan &&
+                  this.vulkanSlots[index].valid()))
+            index = index + 1
+        }
+        !this.error.occurred() && this.staging.valid() &&
+            this.staging.backend == this.backend &&
+            this.staging.descriptor.size == this.descriptor.totalCapacity() &&
+            this.staging.persistentlyMapped() &&
+            ((this.backend == graphicsBackendOpenGl &&
+              this.openGlSlots.size == this.descriptor.slotCount &&
+              this.vulkanSlots.size == 0) ||
+             (this.backend == graphicsBackendVulkan &&
+              this.vulkanSlots.size == this.descriptor.slotCount &&
+              this.openGlSlots.size == 0)) &&
+            slotsValid && this.nextSlot >= 0 &&
+            this.nextSlot < this.descriptor.slotCount &&
+            this.queuedCount >= 0 && this.completedCount >= 0 &&
+            this.completedCount <= this.queuedCount
+    }
+
+    fun slotOffset(slot: int): int = if (this.descriptor.valid() &&
+        slot >= 0 && slot < this.descriptor.slotCount)
+        slot * this.descriptor.slotStride()
+    else -1
+
+    trusted fun ticketMatches(ticket: int): bool {
+        val slot = bufferTransferTicketSlot(ticket)
+        this.valid() && slot >= 0 && slot < this.descriptor.slotCount &&
+            this.generations[slot] ==
+                bufferTransferTicketGeneration(ticket) &&
+            this.sizes[slot] > 0
+    }
+
+    trusted fun ticketSize(ticket: int): int {
+        val slot = bufferTransferTicketSlot(ticket)
+        if (this.ticketMatches(ticket)) this.sizes[slot] else 0
+    }
+
+    trusted fun slotCompleted(slot: int): bool {
+        var completed = this.valid() && slot >= 0 &&
+            slot < this.descriptor.slotCount
+        if (completed && this.backend == graphicsBackendOpenGl) {
+            val wasInFlight = this.openGlSlots[slot].inFlight()
+            completed = this.openGlSlots[slot].poll()
+            if (completed && wasInFlight) {
+                this.completedCount = this.completedCount + 1
+            }
+        } else if (completed && this.backend == graphicsBackendVulkan) {
+            val wasInFlight = this.vulkanSlots[slot].inFlight()
+            completed = this.vulkanSlots[slot].poll()
+            if (completed && wasInFlight) {
+                this.completedCount = this.completedCount + 1
+            }
+        } else if (completed) completed = false
+        completed
+    }
+
+    trusted fun poll(ticket: int): bool = this.ticketMatches(ticket) &&
+        this.slotCompleted(bufferTransferTicketSlot(ticket))
+
+    trusted fun wait(
+        ticket: int,
+        timeoutNanoseconds: int = -1
+    ): bool {
+        var completed = this.ticketMatches(ticket) &&
+            timeoutNanoseconds >= -1
+        val slot = bufferTransferTicketSlot(ticket)
+        if (completed && this.backend == graphicsBackendOpenGl) {
+            val wasInFlight = this.openGlSlots[slot].inFlight()
+            completed = this.openGlSlots[slot].wait(
+                timeoutNanoseconds
+            )
+            if (completed && wasInFlight) {
+                this.completedCount = this.completedCount + 1
+            }
+        } else if (completed && this.backend == graphicsBackendVulkan) {
+            val wasInFlight = this.vulkanSlots[slot].inFlight()
+            completed = this.vulkanSlots[slot].wait(
+                timeoutNanoseconds
+            )
+            if (completed && wasInFlight) {
+                this.completedCount = this.completedCount + 1
+            }
+        } else if (completed) completed = false
+        completed
+    }
+
+    trusted fun waitAll(): bool {
+        var succeeded = this.valid()
+        var slot = 0
+        while (succeeded && slot < this.descriptor.slotCount) {
+            if (this.generations[slot] > 0) {
+                succeeded = this.wait(bufferTransferTicket(
+                    slot,
+                    this.generations[slot]
+                ))
+            }
+            slot = slot + 1
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        var slot = 0
+        while (slot < this.openGlSlots.size) {
+            this.openGlSlots[slot].drop()
+            slot = slot + 1
+        }
+        slot = 0
+        while (slot < this.vulkanSlots.size) {
+            this.vulkanSlots[slot].drop()
+            slot = slot + 1
+        }
+        this.staging.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.bufferTransferQueue(
+    descriptor: BufferTransferQueueDescriptor =
+        BufferTransferQueueDescriptor()
+): GraphicsBufferTransferQueue {
+    val validation = descriptor.validation()
+    val upload = descriptor.direction == bufferTransferDirectionUpload
+    val staging = this.buffer(BufferDescriptor(
+        label = descriptor.label,
+        size = if (validation.succeeded) descriptor.totalCapacity() else 0,
+        usage = if (upload)
+            bufferUsageMapWrite | bufferUsageCopySource
+        else bufferUsageMapRead | bufferUsageCopyDestination,
+        mappedAtCreation = true,
+        persistentMapping = true
+    ))
+    val openGlSlots: array<OpenGlTransferSlot> = []
+    val vulkanSlots: array<VulkanTransferSlot> = []
+    val generations: array<int> = []
+    val sizes: array<int> = []
+    var succeeded = this.valid() && validation.succeeded && staging.valid()
+    var slot = 0
+    while (succeeded && slot < descriptor.slotCount) {
+        if (this.backend == graphicsBackendOpenGl) {
+            val nativeSlot = this.openGl.transferSlot()
+            succeeded = nativeSlot.valid()
+            openGlSlots.append(move(nativeSlot))
+        } else if (this.backend == graphicsBackendVulkan) {
+            val nativeSlot = this.vulkanDevice.transferSlot()
+            succeeded = nativeSlot.valid()
+            vulkanSlots.append(move(nativeSlot))
+        } else succeeded = false
+        if (succeeded) {
+            generations.append(0)
+            sizes.append(0)
+        }
+        slot = slot + 1
+    }
+    var error = GraphicsError()
+    if (!this.valid()) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bufferTransferQueue",
+        "buffer transfer queues require a valid graphics application"
+    )
+    else if (!validation.succeeded) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bufferTransferQueue.${validation.field}",
+        validation.message
+    )
+    else if (!staging.valid()) error = GraphicsError(
+        staging.error.code,
+        "GraphicsApplication.bufferTransferQueue",
+        staging.error.message
+    )
+    else if (!succeeded) error = GraphicsError(
+        graphicsErrorDriverFailure,
+        "GraphicsApplication.bufferTransferQueue",
+        "native transfer-slot creation failed"
+    )
+    GraphicsBufferTransferQueue(
+        move(staging),
+        descriptor,
+        this.backend,
+        move(openGlSlots),
+        move(vulkanSlots),
+        generations,
+        sizes,
+        0,
+        0,
+        0,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.enqueueUploadBufferRange(
+    var queue: GraphicsBufferTransferQueue,
+    source: BufferBytes,
+    destination: GraphicsBuffer,
+    sourceOffset: int = 0,
+    destinationOffset: int = 0,
+    size: int = -1
+): int {
+    val byteCount = bufferCopyResolvedSize(sourceOffset, size, source.size)
+    var ticket = 0
+    var succeeded = this.valid() && queue.valid() && source.valid() &&
+        destination.valid() &&
+        queue.descriptor.direction == bufferTransferDirectionUpload &&
+        queue.backend == this.backend && this.ownsBuffer(queue.staging) &&
+        this.ownsBuffer(destination) &&
+        !queue.staging.sameResource(destination) &&
+        bufferCopyRangeValid(
+            sourceOffset,
+            destinationOffset,
+            size,
+            source.size,
+            destination.descriptor.size
+        ) && byteCount <= queue.descriptor.slotCapacity &&
+        bufferUsageAllowsGpuCopyDestination(destination.descriptor.usage) &&
+        queue.queuedCount < graphicsMaximumInt
+    val slot = if (succeeded) queue.nextSlot else -1
+    if (succeeded) succeeded = queue.slotCompleted(slot) &&
+        queue.generations[slot] <
+            graphicsMaximumTransferTicketGeneration
+    val stagingOffset = if (succeeded) queue.slotOffset(slot) else -1
+    if (succeeded) succeeded = queue.staging.writeMappedRange(
+        source,
+        sourceOffset,
+        stagingOffset,
+        byteCount
+    )
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = queue.openGlSlots[slot].submitBufferCopy(
+            queue.staging.openGl,
+            destination.openGl,
+            stagingOffset,
+            destinationOffset,
+            byteCount
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = queue.vulkanSlots[slot].submitBufferCopy(
+            queue.staging.vulkan,
+            destination.vulkan,
+            stagingOffset,
+            destinationOffset,
+            byteCount
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) {
+        val generation = queue.generations[slot] + 1
+        queue.generations[slot] = generation
+        queue.sizes[slot] = byteCount
+        queue.nextSlot = if (slot + 1 == queue.descriptor.slotCount)
+            0 else slot + 1
+        queue.queuedCount = queue.queuedCount + 1
+        ticket = bufferTransferTicket(slot, generation)
+    }
+    ticket
+}
+
+trusted fun GraphicsApplication.enqueueReadbackBufferRange(
+    var queue: GraphicsBufferTransferQueue,
+    source: GraphicsBuffer,
+    sourceOffset: int = 0,
+    size: int = -1
+): int {
+    val byteCount = bufferCopyResolvedSize(
+        sourceOffset,
+        size,
+        source.descriptor.size
+    )
+    var ticket = 0
+    var succeeded = this.valid() && queue.valid() && source.valid() &&
+        queue.descriptor.direction == bufferTransferDirectionReadback &&
+        queue.backend == this.backend && this.ownsBuffer(source) &&
+        this.ownsBuffer(queue.staging) &&
+        !source.sameResource(queue.staging) &&
+        bufferCopyRangeValid(
+            sourceOffset,
+            0,
+            size,
+            source.descriptor.size,
+            queue.descriptor.slotCapacity
+        ) && byteCount <= queue.descriptor.slotCapacity &&
+        bufferUsageAllowsGpuCopySource(source.descriptor.usage) &&
+        queue.queuedCount < graphicsMaximumInt
+    val slot = if (succeeded) queue.nextSlot else -1
+    if (succeeded) succeeded = queue.slotCompleted(slot) &&
+        queue.generations[slot] <
+            graphicsMaximumTransferTicketGeneration
+    val stagingOffset = if (succeeded) queue.slotOffset(slot) else -1
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = queue.openGlSlots[slot].submitBufferCopy(
+            source.openGl,
+            queue.staging.openGl,
+            sourceOffset,
+            stagingOffset,
+            byteCount
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = queue.vulkanSlots[slot].submitBufferCopy(
+            source.vulkan,
+            queue.staging.vulkan,
+            sourceOffset,
+            stagingOffset,
+            byteCount
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) {
+        val generation = queue.generations[slot] + 1
+        queue.generations[slot] = generation
+        queue.sizes[slot] = byteCount
+        queue.nextSlot = if (slot + 1 == queue.descriptor.slotCount)
+            0 else slot + 1
+        queue.queuedCount = queue.queuedCount + 1
+        ticket = bufferTransferTicket(slot, generation)
+    }
+    ticket
+}
+
+trusted fun GraphicsApplication.resolveReadback(
+    var queue: GraphicsBufferTransferQueue,
+    ticket: int,
+    var destination: BufferBytes,
+    destinationOffset: int = 0
+): bool {
+    val size = queue.ticketSize(ticket)
+    val slot = bufferTransferTicketSlot(ticket)
+    this.valid() && queue.ticketMatches(ticket) &&
+        queue.descriptor.direction == bufferTransferDirectionReadback &&
+        destination.valid() && destinationOffset >= 0 && size > 0 &&
+        destinationOffset <= destination.size - size &&
+        queue.poll(ticket) && queue.staging.readMappedRange(
+            destination,
+            queue.slotOffset(slot),
+            destinationOffset,
+            size
+        )
+}
+
+trusted fun GraphicsApplication.waitReadback(
+    var queue: GraphicsBufferTransferQueue,
+    ticket: int,
+    var destination: BufferBytes,
+    destinationOffset: int = 0,
+    timeoutNanoseconds: int = -1
+): bool {
+    val size = queue.ticketSize(ticket)
+    val slot = bufferTransferTicketSlot(ticket)
+    this.valid() && queue.ticketMatches(ticket) &&
+        queue.descriptor.direction == bufferTransferDirectionReadback &&
+        destination.valid() && destinationOffset >= 0 && size > 0 &&
+        destinationOffset <= destination.size - size &&
+        queue.wait(ticket, timeoutNanoseconds) &&
+        queue.staging.readMappedRange(
+            destination,
+            queue.slotOffset(slot),
+            destinationOffset,
+            size
+        )
+}

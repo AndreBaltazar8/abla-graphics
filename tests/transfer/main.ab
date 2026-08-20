@@ -1,0 +1,242 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun transferQueueProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = requestedBackend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(title = "Abla asynchronous transfers", width = 96,
+            height = 64)
+    )
+    val destination = app.buffer(BufferDescriptor(
+        label = "async-destination",
+        size = 64,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val source = bufferBytes(16)
+    val expected = 1234605616436508552
+    val sourceReady = source.fill(0) && source.storeI64(expected, 4)
+    val upload = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "async-upload",
+        direction = bufferTransferDirectionUpload,
+        slotCapacity = 16,
+        slotCount = 3,
+        alignment = 16
+    ))
+    val uploadStagingHandle = if (app.backend == graphicsBackendOpenGl)
+        upload.staging.openGl.handle
+    else upload.staging.vulkan.handle
+    val uploadPool0 = if (app.backend == graphicsBackendVulkan)
+        upload.vulkanSlots[0].commandPool else 0
+    val uploadPool1 = if (app.backend == graphicsBackendVulkan)
+        upload.vulkanSlots[1].commandPool else 0
+    val uploadPool2 = if (app.backend == graphicsBackendVulkan)
+        upload.vulkanSlots[2].commandPool else 0
+    val uploadCommand0 = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(upload.vulkanSlots[0].command.load()) else 0
+    val uploadCommand1 = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(upload.vulkanSlots[1].command.load()) else 0
+    val uploadCommand2 = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(upload.vulkanSlots[2].command.load()) else 0
+    val uploadTicket0 = app.enqueueUploadBufferRange(
+        upload,
+        source,
+        destination,
+        4,
+        0,
+        8
+    )
+    val uploadTicket1 = app.enqueueUploadBufferRange(
+        upload,
+        source,
+        destination,
+        4,
+        8,
+        8
+    )
+    val uploadTicket2 = app.enqueueUploadBufferRange(
+        upload,
+        source,
+        destination,
+        4,
+        16,
+        8
+    )
+    val uploadInFlight = bufferTransferTicketValid(uploadTicket0) &&
+        bufferTransferTicketValid(uploadTicket1) &&
+        bufferTransferTicketValid(uploadTicket2) &&
+        (if (app.backend == graphicsBackendOpenGl)
+            upload.openGlSlots[0].inFlight() &&
+            upload.openGlSlots[1].inFlight() &&
+            upload.openGlSlots[2].inFlight()
+         else upload.vulkanSlots[0].inFlight() &&
+            upload.vulkanSlots[1].inFlight() &&
+            upload.vulkanSlots[2].inFlight())
+    val uploadsCompleted = upload.wait(uploadTicket0) &&
+        upload.wait(uploadTicket1) && upload.wait(uploadTicket2)
+    val uploadedBytes = bufferBytes(24)
+    val uploadedExact = uploadedBytes.fill(0) && destination.readBytes(
+        uploadedBytes,
+        BufferCopyDescriptor(0, 0, 24)
+    ) && uploadedBytes.loadI64(0) == expected &&
+        uploadedBytes.loadI64(8) == expected &&
+        uploadedBytes.loadI64(16) == expected
+    val queuedBeforeInvalid = upload.queuedCount
+    val invalidUploadTicket = app.enqueueUploadBufferRange(
+        upload,
+        source,
+        destination,
+        12,
+        60,
+        8
+    )
+    val invalidUploadRejected = !bufferTransferTicketValid(
+        invalidUploadTicket
+    ) &&
+        upload.queuedCount == queuedBeforeInvalid
+    val uploadLiveBefore = runtimeMemoryLiveBytes()
+    var uploadRepeated = true
+    var uploadRepeat = 0
+    while (uploadRepeated && uploadRepeat < 6) {
+        val ticket = app.enqueueUploadBufferRange(
+            upload,
+            source,
+            destination,
+            4,
+            24,
+            8
+        )
+        uploadRepeated = bufferTransferTicketValid(ticket) &&
+            upload.wait(ticket)
+        uploadRepeat = uploadRepeat + 1
+    }
+    val uploadLiveAfter = runtimeMemoryLiveBytes()
+    val uploadHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        upload.staging.openGl.handle == uploadStagingHandle
+    else upload.staging.vulkan.handle == uploadStagingHandle &&
+        upload.vulkanSlots[0].commandPool == uploadPool0 &&
+        upload.vulkanSlots[1].commandPool == uploadPool1 &&
+        upload.vulkanSlots[2].commandPool == uploadPool2 &&
+        nativePointerAddress(upload.vulkanSlots[0].command.load()) ==
+            uploadCommand0 &&
+        nativePointerAddress(upload.vulkanSlots[1].command.load()) ==
+            uploadCommand1 &&
+        nativePointerAddress(upload.vulkanSlots[2].command.load()) ==
+            uploadCommand2
+    val readback = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "async-readback",
+        direction = bufferTransferDirectionReadback,
+        slotCapacity = 16,
+        slotCount = 3,
+        alignment = 16
+    ))
+    val readbackStagingHandle = if (app.backend == graphicsBackendOpenGl)
+        readback.staging.openGl.handle
+    else readback.staging.vulkan.handle
+    val readbackTicket0 = app.enqueueReadbackBufferRange(
+        readback,
+        destination,
+        0,
+        8
+    )
+    val readbackTicket1 = app.enqueueReadbackBufferRange(
+        readback,
+        destination,
+        8,
+        8
+    )
+    val readbackTicket2 = app.enqueueReadbackBufferRange(
+        readback,
+        destination,
+        16,
+        8
+    )
+    val readbackInFlight = bufferTransferTicketValid(readbackTicket0) &&
+        bufferTransferTicketValid(readbackTicket1) &&
+        bufferTransferTicketValid(readbackTicket2) &&
+        (if (app.backend == graphicsBackendOpenGl)
+            readback.openGlSlots[0].inFlight() &&
+            readback.openGlSlots[1].inFlight() &&
+            readback.openGlSlots[2].inFlight()
+         else readback.vulkanSlots[0].inFlight() &&
+            readback.vulkanSlots[1].inFlight() &&
+            readback.vulkanSlots[2].inFlight())
+    val result = bufferBytes(24)
+    val readbacksCompleted = result.fill(0) && app.waitReadback(
+        readback,
+        readbackTicket0,
+        result,
+        0
+    ) && app.waitReadback(
+        readback,
+        readbackTicket1,
+        result,
+        8
+    ) && app.waitReadback(
+        readback,
+        readbackTicket2,
+        result,
+        16
+    )
+    val readbackExact = result.loadI64(0) == expected &&
+        result.loadI64(8) == expected && result.loadI64(16) == expected
+    val replacement = app.enqueueReadbackBufferRange(
+        readback,
+        destination,
+        0,
+        8
+    )
+    val staleRejected = bufferTransferTicketValid(replacement) &&
+        bufferTransferTicketSlot(replacement) ==
+            bufferTransferTicketSlot(readbackTicket0) &&
+        bufferTransferTicketGeneration(replacement) ==
+            bufferTransferTicketGeneration(readbackTicket0) + 1 &&
+        !readback.poll(readbackTicket0) &&
+        app.waitReadback(readback, replacement, result)
+    val readbackLiveBefore = runtimeMemoryLiveBytes()
+    var readbackRepeated = true
+    var readbackRepeat = 0
+    while (readbackRepeated && readbackRepeat < 6) {
+        val ticket = app.enqueueReadbackBufferRange(
+            readback,
+            destination,
+            24,
+            8
+        )
+        readbackRepeated = bufferTransferTicketValid(ticket) &&
+            app.waitReadback(readback, ticket, result)
+        readbackRepeat = readbackRepeat + 1
+    }
+    val readbackLiveAfter = runtimeMemoryLiveBytes()
+    val readbackHandleStable = if (app.backend == graphicsBackendOpenGl)
+        readback.staging.openGl.handle == readbackStagingHandle
+    else readback.staging.vulkan.handle == readbackStagingHandle
+    val passed = app.valid() && destination.valid() && sourceReady &&
+        upload.valid() && readback.valid() && uploadInFlight &&
+        uploadsCompleted && uploadedExact && invalidUploadRejected &&
+        uploadRepeated && uploadRepeat == 6 &&
+        uploadLiveAfter == uploadLiveBefore && uploadHandlesStable &&
+        readbackInFlight && readbacksCompleted && readbackExact &&
+        staleRejected && readbackRepeated && readbackRepeat == 6 &&
+        readbackLiveAfter == readbackLiveBefore && readbackHandleStable &&
+        upload.queuedCount == 9 && upload.completedCount == 9 &&
+        readback.queuedCount == 10 && readback.completedCount == 10
+    println(
+        "async-transfer ${graphicsBackendName(app.backend)}: upload=$uploadInFlight/$uploadsCompleted/$uploadRepeated readback=$readbackInFlight/$readbacksCompleted/$readbackRepeated live=${uploadLiveAfter - uploadLiveBefore}/${readbackLiveAfter - readbackLiveBefore} stable=$uploadHandlesStable/$readbackHandleStable"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (transferQueueProbe(backend)) 42 else 1
+}

@@ -1,0 +1,248 @@
+// Reusable fence-backed asynchronous Vulkan buffer-transfer slots.
+
+import "abla/unsafe/memory"
+import "../core.ab"
+import "../resources.ab"
+import "vulkan.ab"
+
+noescape extern:"c" fun vkGetFenceStatus(
+    device: i64*,
+    fence: int
+): i32
+
+resource class VulkanTransferSlot(
+    val device: i64*,
+    val queue: i64*,
+    var commandPool: int,
+    val command: NativePointerCell,
+    val scratch: NativeByteBuffer,
+    var fence: int,
+    var submitted: bool
+) {
+    trusted fun valid(): bool = !pointerIsNull(this.device) &&
+        !pointerIsNull(this.queue) && this.commandPool != 0 &&
+        !this.command.closed && !pointerIsNull(this.command.load()) &&
+        !this.scratch.closed && this.scratch.capacity >= 144 &&
+        this.fence != 0
+
+    trusted fun inFlight(): bool = this.valid() && this.submitted
+
+    trusted fun poll(): bool {
+        var completed = this.valid() && !this.submitted
+        if (this.valid() && this.submitted) {
+            val status = vkGetFenceStatus(this.device, this.fence)
+            completed = status == vulkanSuccess
+            if (completed) this.submitted = false
+        }
+        completed
+    }
+
+    trusted fun wait(timeoutNanoseconds: int = -1): bool {
+        var completed = this.valid() && timeoutNanoseconds >= -1 &&
+            !this.submitted
+        if (this.valid() && timeoutNanoseconds >= -1 && this.submitted) {
+            this.scratch.storeI64(136, this.fence)
+            val status = vkWaitForFences(
+                this.device,
+                1,
+                this.scratch.pointerAt(136),
+                1,
+                timeoutNanoseconds
+            )
+            completed = status == vulkanSuccess
+            if (completed) this.submitted = false
+        }
+        completed
+    }
+
+    trusted fun submitBufferCopy(
+        source: VulkanBuffer,
+        destination: VulkanBuffer,
+        sourceOffset: int,
+        destinationOffset: int,
+        size: int
+    ): bool {
+        val byteCount = bufferCopyResolvedSize(
+            sourceOffset,
+            size,
+            source.size
+        )
+        var succeeded = this.valid() && !this.submitted && source.valid() &&
+            destination.valid() && source.device == this.device &&
+            destination.device == this.device &&
+            bufferCopyRangeValid(
+                sourceOffset,
+                destinationOffset,
+                size,
+                source.size,
+                destination.size
+            ) && vkResetCommandPool(
+                this.device,
+                this.commandPool,
+                0
+            ) == vulkanSuccess
+        if (succeeded) {
+            this.scratch.storeI64(0, 42)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 1)
+            this.scratch.storePointer(24, nativeNullPointer())
+            succeeded = vkBeginCommandBuffer(
+                this.command.load(),
+                this.scratch.address
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            this.scratch.storeI64(0, sourceOffset)
+            this.scratch.storeI64(8, destinationOffset)
+            this.scratch.storeI64(16, byteCount)
+            vkCmdCopyBuffer(
+                this.command.load(),
+                source.handle,
+                destination.handle,
+                1,
+                this.scratch.address
+            )
+            this.scratch.storeI64(0, 46)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(
+                16,
+                (if (destination.persistent) 8192 else 98304) *
+                    4294967296 + 4096
+            )
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                4096,
+                if (destination.persistent) 16384 else 65536,
+                0,
+                1,
+                this.scratch.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+            succeeded = vkEndCommandBuffer(this.command.load()) ==
+                vulkanSuccess
+        }
+        if (succeeded) {
+            this.scratch.storeI64(136, this.fence)
+            succeeded = vkResetFences(
+                this.device,
+                1,
+                this.scratch.pointerAt(136)
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            this.scratch.storeI64(64, 4)
+            this.scratch.storePointer(72, nativeNullPointer())
+            this.scratch.storeI64(80, 0)
+            this.scratch.storePointer(88, nativeNullPointer())
+            this.scratch.storePointer(96, nativeNullPointer())
+            this.scratch.storeI64(104, 1)
+            this.scratch.storePointer(112, this.command.address)
+            this.scratch.storeI64(120, 0)
+            this.scratch.storePointer(128, nativeNullPointer())
+            succeeded = vkQueueSubmit(
+                this.queue,
+                1,
+                this.scratch.pointerAt(64),
+                this.fence
+            ) == vulkanSuccess
+            if (succeeded) this.submitted = true
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        if (this.submitted) {
+            val completed = this.wait(-1)
+        }
+        if (this.fence != 0 && !pointerIsNull(this.device)) {
+            vkDestroyFence(this.device, this.fence, nativeNullPointer())
+            this.fence = 0
+        }
+        if (this.commandPool != 0 && !pointerIsNull(this.device)) {
+            vkDestroyCommandPool(
+                this.device,
+                this.commandPool,
+                nativeNullPointer()
+            )
+            this.commandPool = 0
+            this.command.store(nativeNullPointer())
+        }
+        this.command.close()
+        this.scratch.close()
+        this.submitted = false
+        return
+    }
+}
+
+trusted fun VulkanDevice.transferSlot(): VulkanTransferSlot {
+    var commandPool = 0
+    val command = nativePointerCell(nativeNullPointer())
+    val scratch = nativeByteBuffer(144)
+    var fence = 0
+    var succeeded = this.valid()
+    if (succeeded) {
+        scratch.storeI64(0, 39)
+        scratch.storePointer(8, nativeNullPointer())
+        scratch.storeI64(
+            16,
+            (this.queueFamily & 4294967295) * 4294967296 + 2
+        )
+        succeeded = vkCreateCommandPool(
+            this.handle,
+            scratch.address,
+            nativeNullPointer(),
+            scratch.pointerAt(136)
+        ) == vulkanSuccess
+        if (succeeded) commandPool = scratch.loadI64(136)
+    }
+    if (succeeded) {
+        scratch.storeI64(0, 40)
+        scratch.storePointer(8, nativeNullPointer())
+        scratch.storeI64(16, commandPool)
+        scratch.storeI64(24, 4294967296)
+        succeeded = vkAllocateCommandBuffers(
+            this.handle,
+            scratch.address,
+            command.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        scratch.storeI64(0, 8)
+        scratch.storePointer(8, nativeNullPointer())
+        scratch.storeI64(16, 0)
+        succeeded = vkCreateFence(
+            this.handle,
+            scratch.address,
+            nativeNullPointer(),
+            scratch.pointerAt(136)
+        ) == vulkanSuccess
+        if (succeeded) fence = scratch.loadI64(136)
+    }
+    if (!succeeded) {
+        if (fence != 0) vkDestroyFence(
+            this.handle,
+            fence,
+            nativeNullPointer()
+        )
+        if (commandPool != 0) vkDestroyCommandPool(
+            this.handle,
+            commandPool,
+            nativeNullPointer()
+        )
+        commandPool = 0
+        fence = 0
+        command.store(nativeNullPointer())
+    }
+    VulkanTransferSlot(
+        this.handle,
+        this.queue,
+        commandPool,
+        move(command),
+        move(scratch),
+        fence,
+        false
+    )
+}

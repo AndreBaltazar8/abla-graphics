@@ -655,6 +655,73 @@ Failed copy or read validation leaves `cursor`, `downloadCount`, and `wrapCount`
 unchanged. Repeated wrapped downloads preserve the staging handle and allocate
 no live Abla memory.
 
+For work that must remain in flight, `GraphicsBufferTransferQueue` owns a fixed
+set of reusable staging slots and returns compact integer tickets:
+
+```abla
+val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+    direction = bufferTransferDirectionUpload,
+    slotCapacity = 65536,
+    slotCount = 3,
+    alignment = 256
+))
+
+val ticket = app.enqueueUploadBufferRange(
+    uploads,
+    frameBytes,
+    deviceBuffer,
+    0,
+    destinationOffset,
+    frameBytes.size
+)
+if (bufferTransferTicketValid(ticket)) {
+    // Do independent CPU work before waiting for this specific copy.
+    uploads.wait(ticket)
+}
+```
+
+A queue has one to eight slots and one persistent coherent staging buffer split
+into aligned, fixed-capacity ranges. Enqueue submits immediately and never waits
+for a busy selected slot; it returns zero on validation, submission, or
+availability failure without advancing queue state. `poll(ticket)` is a
+zero-timeout query, `wait(ticket, timeoutNanoseconds)` waits only for that
+operation, and `waitAll()` is an explicit queue-wide convenience. Tickets pack
+the slot and generation into an `int`, so enqueue, poll, and wait allocate no
+Abla heap memory and an old ticket is rejected after its slot is reused.
+
+OpenGL owns one `GLsync` per slot and uses zero-timeout `glClientWaitSync` for
+polling. Vulkan owns one command pool, command buffer, fence, and ABI scratch
+block per slot and polls with `vkGetFenceStatus`. Neither backend calls
+`glFinish`, `vkQueueWaitIdle`, or `vkDeviceWaitIdle` for these queue operations.
+
+Readback uses a separate direction so a slot never changes mapping semantics:
+
+```abla
+val downloads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+    direction = bufferTransferDirectionReadback,
+    slotCapacity = 65536,
+    slotCount = 3,
+    alignment = 256
+))
+val ticket = app.enqueueReadbackBufferRange(
+    downloads,
+    deviceBuffer,
+    sourceOffset,
+    resultBytes.size
+)
+
+// resolveReadback is non-blocking; waitReadback waits only for this ticket.
+if (!app.resolveReadback(downloads, ticket, resultBytes)) {
+    app.waitReadback(downloads, ticket, resultBytes)
+}
+```
+
+CPU readback bytes are copied only after native completion. The async-buffer
+sample submits three uploads and three downloads before their waits, checks the
+exact bytes on both backends, and reports zero live-byte growth in repeated
+upload operations. The focused transfer gate additionally proves that staging,
+Vulkan command-pool, and Vulkan command-buffer handles remain stable.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -689,8 +756,8 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Asynchronous in-flight upload/readback rings, queued transfers, and device-local
-selection remain upcoming APIs.
+Asynchronous texture/image transfers and device-local suballocation policy
+remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:

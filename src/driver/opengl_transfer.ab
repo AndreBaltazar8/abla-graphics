@@ -1,0 +1,133 @@
+// Reusable asynchronous OpenGL buffer-transfer completion slots.
+
+import "abla/unsafe/memory"
+import "../core.ab"
+import "../resources.ab"
+import "opengl.ab"
+
+resource class OpenGlTransferSlot(
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*,
+    var sync: i64*
+) {
+    trusted fun valid(): bool = !pointerIsNull(this.display) &&
+        !pointerIsNull(this.surface) && !pointerIsNull(this.context)
+
+    trusted fun inFlight(): bool = this.valid() &&
+        !pointerIsNull(this.sync)
+
+    trusted fun makeCurrent(): bool = this.valid() && eglMakeCurrent(
+        this.display,
+        this.surface,
+        this.surface,
+        this.context
+    ) == eglTrue
+
+    trusted fun poll(): bool {
+        var completed = this.valid() && !this.inFlight()
+        if (this.valid() && this.inFlight() && this.makeCurrent()) {
+            val status = glClientWaitSync(this.sync, 1, 0)
+            completed = status == 37146 || status == 37148
+            if (completed) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+                completed = glGetError() == 0
+            }
+        }
+        completed
+    }
+
+    trusted fun wait(timeoutNanoseconds: int = -1): bool {
+        var completed = this.valid() && timeoutNanoseconds >= -1 &&
+            !this.inFlight()
+        if (this.valid() && timeoutNanoseconds >= -1 && this.inFlight() &&
+            this.makeCurrent()) {
+            val status = glClientWaitSync(
+                this.sync,
+                1,
+                timeoutNanoseconds
+            )
+            completed = status == 37146 || status == 37148
+            if (completed) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+                completed = glGetError() == 0
+            }
+        }
+        completed
+    }
+
+    trusted fun submitBufferCopy(
+        source: OpenGlBuffer,
+        destination: OpenGlBuffer,
+        sourceOffset: int,
+        destinationOffset: int,
+        size: int
+    ): bool {
+        val byteCount = bufferCopyResolvedSize(
+            sourceOffset,
+            size,
+            source.size
+        )
+        var succeeded = this.valid() && !this.inFlight() && source.valid() &&
+            destination.valid() &&
+            (!source.mapped() || source.persistent) &&
+            (!destination.mapped() || destination.persistent) &&
+            source.context == this.context &&
+            destination.context == this.context &&
+            source.display == this.display &&
+            destination.display == this.display &&
+            bufferCopyRangeValid(
+                sourceOffset,
+                destinationOffset,
+                size,
+                source.size,
+                destination.size
+            ) && this.makeCurrent()
+        if (succeeded) {
+            if (source.mapped() && source.persistent) glMemoryBarrier(16384)
+            glBindBuffer(36662, source.handle)
+            glBindBuffer(36663, destination.handle)
+            glCopyBufferSubData(
+                36662,
+                36663,
+                sourceOffset,
+                destinationOffset,
+                byteCount
+            )
+            if (destination.mapped() && destination.persistent) {
+                glMemoryBarrier(16384)
+            }
+            succeeded = glGetError() == 0
+            if (succeeded) {
+                this.sync = glFenceSync(37143, 0)
+                succeeded = !pointerIsNull(this.sync) && glGetError() == 0
+            }
+            if (!succeeded && !pointerIsNull(this.sync)) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+            }
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        if (this.inFlight()) {
+            val completed = this.wait(-1)
+            if (!completed && this.makeCurrent() && this.inFlight()) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+            }
+        }
+        return
+    }
+}
+
+trusted fun OpenGlWindowContext.transferSlot(): OpenGlTransferSlot =
+    OpenGlTransferSlot(
+        this.display,
+        this.surface,
+        this.context,
+        nativeNullPointer()
+    )

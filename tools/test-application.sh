@@ -8,7 +8,10 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
-ABLA_MAX_MEMORY_MB=${ABLA_APPLICATION_TEST_MEMORY_MB:-4096} \
+# The complete public composition root plus this intentionally broad 83 KiB
+# conformance source exceeds the generic four-GiB compiler address-space guard.
+# Keep the larger limit scoped to this gate rather than raising every build.
+ABLA_MAX_MEMORY_MB=${ABLA_APPLICATION_TEST_MEMORY_MB:-6144} \
     ABLA_SYSROOT="$compiler_root" "$compiler" \
     build --project "$project_root/tests/application" \
     -o "$output_directory/application" --no-cache

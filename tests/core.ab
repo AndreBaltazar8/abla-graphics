@@ -177,6 +177,30 @@ fun main: int {
         capacity = 256,
         alignment = 24
     ).validation()
+    val uploadTransferQueue = BufferTransferQueueDescriptor(
+        direction = bufferTransferDirectionUpload,
+        slotCapacity = 256,
+        slotCount = 3,
+        alignment = 64
+    )
+    val readbackTransferQueue = BufferTransferQueueDescriptor(
+        direction = bufferTransferDirectionReadback,
+        slotCapacity = 257,
+        slotCount = 2,
+        alignment = 64
+    )
+    val invalidTransferQueueDirection = BufferTransferQueueDescriptor(
+        direction = 3
+    ).validation()
+    val invalidTransferQueueSlots = BufferTransferQueueDescriptor(
+        slotCount = graphicsMaximumTransferQueueSlots + 1
+    ).validation()
+    val oversizedTransferQueue = BufferTransferQueueDescriptor(
+        slotCapacity = 536870912,
+        slotCount = 3,
+        alignment = 256
+    ).validation()
+    val transferTicket = bufferTransferTicket(2, 7)
     val bytes = bufferBytes(24)
     val bytesFilled = bytes.fill(9)
     val byteStored = bytes.store(3, 255)
@@ -806,6 +830,24 @@ fun main: int {
         readbackRingDescriptor.valid() &&
         !invalidReadbackRingAlignment.succeeded &&
         invalidReadbackRingAlignment.field == "alignment" &&
+        uploadTransferQueue.valid() &&
+        uploadTransferQueue.slotStride() == 256 &&
+        uploadTransferQueue.totalCapacity() == 768 &&
+        readbackTransferQueue.valid() &&
+        readbackTransferQueue.slotStride() == 320 &&
+        readbackTransferQueue.totalCapacity() == 640 &&
+        !invalidTransferQueueDirection.succeeded &&
+        invalidTransferQueueDirection.field == "direction" &&
+        !invalidTransferQueueSlots.succeeded &&
+        invalidTransferQueueSlots.field == "slotCount" &&
+        !oversizedTransferQueue.succeeded &&
+        oversizedTransferQueue.field == "slotCapacity" &&
+        bufferTransferTicketValid(transferTicket) &&
+        bufferTransferTicketSlot(transferTicket) == 2 &&
+        bufferTransferTicketGeneration(transferTicket) == 7 &&
+        !bufferTransferTicketValid(bufferTransferTicket(-1, 7)) &&
+        !bufferTransferTicketValid(bufferTransferTicket(8, 7)) &&
+        !bufferTransferTicketValid(bufferTransferTicket(2, 0)) &&
         !invalidMappedBuffer.succeeded &&
         invalidMappedBuffer.field == "usage" &&
         bytes.valid() && bytesFilled && byteStored &&

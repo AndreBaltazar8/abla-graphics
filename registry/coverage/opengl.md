@@ -213,7 +213,7 @@
 | `glClientActiveVertexStreamATI` | definition | unclassified | - | - | - | - |
 | `glClientAttribDefaultEXT` | definition | unclassified | - | - | - | - |
 | `glClientWaitSemaphoreui64NVX` | definition | unclassified | - | - | - | - |
-| `glClientWaitSync` | definition | common | src/driver/opengl.ab targeted synchronous buffer-copy completion | src/driver/opengl.ab typed sync flags and unsigned-timeout ABI | examples/common-buffer/main.ab immediate wrapped upload reuse with exact readback | tests/application/main.ab invalid GPU copy and upload range rejection |
+| `glClientWaitSync` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab targeted copy completion | src/driver/opengl.ab typed sync flags and unsigned-timeout ABI | tests/transfer/main.ab nonblocking poll and explicit three-slot completion | tests/transfer/main.ab stale ticket and invalid range rejection |
 | `glClipControl` | definition | unclassified | - | - | - | - |
 | `glClipPlane` | definition | unclassified | - | - | - | - |
 | `glClipPlanefOES` | definition | unclassified | - | - | - | - |
@@ -332,7 +332,7 @@
 | `glConvolutionParameterivEXT` | definition | unclassified | - | - | - | - |
 | `glConvolutionParameterxOES` | definition | unclassified | - | - | - | - |
 | `glConvolutionParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glCopyBufferSubData` | definition | common | src/driver/opengl.ab GPU buffer copy | src/driver/opengl.ab typed range ABI | tests/application/main.ab exact copied range readback | tests/application/main.ab range and usage rejection |
+| `glCopyBufferSubData` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab synchronous and queued GPU copies | src/driver/opengl.ab typed range ABI | tests/transfer/main.ab exact three-slot upload and readback | tests/transfer/main.ab invalid queued range rejection |
 | `glCopyColorSubTableEXT` | definition | unclassified | - | - | - | - |
 | `glCopyColorTableSGI` | definition | unclassified | - | - | - | - |
 | `glCopyConvolutionFilter1DEXT` | definition | unclassified | - | - | - | - |
@@ -440,7 +440,7 @@
 | `glDeleteSemaphoresEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteShader` | definition | common | src/driver/opengl.ab affine attached-shader lifetime | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab linked source shader cleanup | tests/opengl/main.ab failed compile cleanup |
 | `glDeleteStatesNV` | definition | unclassified | - | - | - | - |
-| `glDeleteSync` | definition | common | src/driver/opengl.ab targeted buffer-copy fence lifetime | src/driver/opengl.ab typed opaque sync-pointer ABI | examples/common-buffer/main.ab repeated synchronous ring copies with zero live growth | tests/application/main.ab invalid GPU copy and upload range rejection |
+| `glDeleteSync` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab affine copy-fence lifetime | src/driver/opengl.ab typed opaque sync-pointer ABI | tests/transfer/main.ab repeated queued copies with zero live growth | src/driver/opengl_transfer.ab failed submit and slot-drop cleanup |
 | `glDeleteTextures` | definition | common | src/driver/opengl.ab affine texture lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab texture target and upload lifecycle | tests/application/main.ab invalid texture descriptor rejection |
 | `glDeleteTexturesEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteTransformFeedbacks` | definition | unclassified | - | - | - | - |
@@ -586,7 +586,7 @@
 | `glExtractComponentEXT` | definition | unclassified | - | - | - | - |
 | `glFeedbackBuffer` | definition | unclassified | - | - | - | - |
 | `glFeedbackBufferxOES` | definition | unclassified | - | - | - | - |
-| `glFenceSync` | definition | common | src/driver/opengl.ab targeted synchronous buffer-copy fence | src/driver/opengl.ab typed condition flags and opaque result ABI | examples/common-buffer/main.ab immediate wrapped upload reuse with exact readback | tests/application/main.ab invalid GPU copy and upload range rejection |
+| `glFenceSync` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab synchronous and queued copy fences | src/driver/opengl.ab typed condition flags and opaque result ABI | tests/transfer/main.ab three simultaneous native in-flight slots | tests/transfer/main.ab invalid queued range rejection |
 | `glFinalCombinerInputNV` | definition | unclassified | - | - | - | - |
 | `glFinish` | definition | common | src/driver/opengl.ab portable idle wait | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
 | `glFinishAsyncSGIX` | definition | unclassified | - | - | - | - |
