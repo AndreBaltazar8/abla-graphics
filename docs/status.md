@@ -1075,7 +1075,10 @@ validity gate unchanged.
   Width-aware local raster vectors now cover `vec2`, `vec3`, and `vec4`
   scalar-splat and width-exact construction, equal-width arithmetic and dot,
   vector/scalar multiply, divide, and floating mod, width-checked component
-  extraction, and derivatives. Narrow type declarations are conditional, so
+  extraction, derivatives, and width-preserving extended math/interpolation/
+  geometry operations. `cross` is restricted to equal `vec3` operands and emits
+  `GLSL.std.450` instruction 68; its result composes into a `vec4` output.
+  Narrow type declarations are conditional, so
   existing `vec4` modules retain their established IDs and bytes. Module-valid
   positive coverage includes both narrow widths, while out-of-range components
   and mixed-width arithmetic reject. Fragment interfaces and push members remain

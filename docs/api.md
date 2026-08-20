@@ -1782,10 +1782,11 @@ core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same
 expression-depth bound; wrong arity or scalar operands reject.
 `min(left, right)`, `max(left, right)`, and `clamp(value, low, high)` accept
-homogeneous scalar or `vec4` expressions and retain that type. `min` and `max`
-also accept `vec4, float`; `clamp` accepts `vec4, float, float`. Each scalar
-argument is expanded to a four-lane runtime splat before the homogeneous
-`GLSL.std.450` `FMin`, `FMax`, or `FClamp` instruction. The import is
+homogeneous scalar or equal-width vector expressions and retain that type.
+`min` and `max` also accept vector/scalar; `clamp` accepts a vector with two
+scalar bounds. Each scalar argument is expanded to a width-matched runtime
+splat before the homogeneous `GLSL.std.450` `FMin`, `FMax`, or `FClamp`
+instruction. The import is
 allocated and written only when at least one output expression uses one of
 these built-ins, so every existing shader without them retains identical IDs,
 words, and bounds. The inverse `float, vec4` form, partially mixed clamp bounds,
@@ -1807,17 +1808,18 @@ unary `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`,
 `exp2`, and `log2`, plus homogeneous binary `pow` and ternary `fma`. Each maps
 to its exact `GLSL.std.450` instruction and shares the same arity/type checks.
 The overloaded `atan(y, x)` form resolves from its top-level argument separator
-without mistaking commas inside nested calls. Homogeneous scalar or `vec4`
-operands emit `Atan2` instruction 25, while the unary form retains `Atan`
-instruction 18 and identical module output. Mixed operand types and a third
-argument reject.
+without mistaking commas inside nested calls. Homogeneous scalar or equal-width
+vector operands emit `Atan2` instruction 25, while the unary form retains
+`Atan` instruction 18 and identical module output. Mixed operand types and a
+third argument reject.
 Vector geometry calls use their GLSL result rules rather than that homogeneous
-rule: `length(vec4)` and `distance(vec4, vec4)` return `float`;
-`normalize(vec4)`, `faceforward(vec4, vec4, vec4)`, and
-`reflect(vec4, vec4)` return `vec4`; and `refract(vec4, vec4, float)` returns
-`vec4`. They map to `Length`, `Distance`, `Normalize`, `FaceForward`, `Reflect`,
-and `Refract` instructions 66, 67, and 69 through 72. Scalar vector operands,
-mixed distance operands, a vector refraction ratio, and wrong arities reject.
+rule: `length(vector)` and equal-width `distance` return `float`; `normalize`,
+equal-width `faceforward` and `reflect`, and equal-width vector/vector/scalar
+`refract` return the input vector width. `cross(vec3, vec3)` returns `vec3` and
+rejects every other width. They map to `Length`, `Distance`, `Cross`,
+`Normalize`, `FaceForward`, `Reflect`, and `Refract` instructions 66 through
+72. Scalar operands where vectors are required, mixed widths, a vector
+refraction ratio, and wrong arities reject.
 Fragment-only `dFdx(value)`, `dFdy(value)`, and `fwidth(value)` preserve a
 supported scalar or vector operand type and emit core SPIR-V `OpDPdx`, `OpDPdy`,
 and `OpFwidth` opcodes 207 through 209. They compose with push members, inputs,

@@ -297,6 +297,7 @@ fun glslRasterExtInstruction(text: string): int {
     else if (text == "fma") 50
     else if (text == "length") 66
     else if (text == "distance") 67
+    else if (text == "cross") 68
     else if (text == "normalize") 69
     else if (text == "faceforward") 70
     else if (text == "reflect") 71
@@ -309,8 +310,8 @@ fun glslRasterExtArity(instruction: int): int {
         (instruction >= 27 && instruction <= 32) || instruction == 66 ||
         instruction == 69) 1
     else if (instruction == 25 || instruction == 26 || instruction == 37 ||
-        instruction == 40 ||
-        instruction == 48 || instruction == 67 || instruction == 71) 2
+        instruction == 40 || instruction == 48 || instruction == 67 ||
+        instruction == 68 || instruction == 71) 2
     else if (instruction == 43 || instruction == 46 || instruction == 49 ||
         instruction == 50 || instruction == 70 || instruction == 72) 3
     else 0
@@ -354,9 +355,9 @@ fun glslRasterExtResultType(
     if (begin >= 0 && instruction == 46) {
         if (arity == 3 && stack[begin] == stack[begin + 1] &&
             (stack[begin] == glslRasterTypeScalar ||
-             stack[begin] == glslRasterTypeVector) &&
+             glslRasterTypeIsVector(stack[begin])) &&
             (stack[begin + 2] == stack[begin] ||
-             (stack[begin] == glslRasterTypeVector &&
+             (glslRasterTypeIsVector(stack[begin]) &&
               stack[begin + 2] == glslRasterTypeScalar))) {
             resultType = stack[begin]
         }
@@ -364,73 +365,76 @@ fun glslRasterExtResultType(
         if (arity == 2 && stack[begin + 1] == glslRasterTypeScalar &&
             stack[begin] == glslRasterTypeScalar) {
             resultType = glslRasterTypeScalar
-        } else if (arity == 2 &&
-            stack[begin + 1] == glslRasterTypeVector &&
-            (stack[begin] == glslRasterTypeVector ||
+        } else if (arity == 2 && glslRasterTypeIsVector(stack[begin + 1]) &&
+            (stack[begin] == stack[begin + 1] ||
              stack[begin] == glslRasterTypeScalar)) {
-            resultType = glslRasterTypeVector
+            resultType = stack[begin + 1]
         }
     } else if (begin >= 0 && instruction == 49) {
         if (arity == 3 && stack[begin + 2] == glslRasterTypeScalar &&
             stack[begin] == glslRasterTypeScalar &&
             stack[begin + 1] == glslRasterTypeScalar) {
             resultType = glslRasterTypeScalar
-        } else if (arity == 3 &&
-            stack[begin + 2] == glslRasterTypeVector &&
-            ((stack[begin] == glslRasterTypeVector &&
-              stack[begin + 1] == glslRasterTypeVector) ||
+        } else if (arity == 3 && glslRasterTypeIsVector(stack[begin + 2]) &&
+            ((stack[begin] == stack[begin + 2] &&
+              stack[begin + 1] == stack[begin + 2]) ||
              (stack[begin] == glslRasterTypeScalar &&
               stack[begin + 1] == glslRasterTypeScalar))) {
-            resultType = glslRasterTypeVector
+            resultType = stack[begin + 2]
         }
     } else if (begin >= 0 && (instruction == 37 || instruction == 40)) {
         if (arity == 2 && stack[begin] == glslRasterTypeScalar &&
             stack[begin + 1] == glslRasterTypeScalar) {
             resultType = glslRasterTypeScalar
-        } else if (arity == 2 && stack[begin] == glslRasterTypeVector &&
-            (stack[begin + 1] == glslRasterTypeVector ||
+        } else if (arity == 2 && glslRasterTypeIsVector(stack[begin]) &&
+            (stack[begin + 1] == stack[begin] ||
              stack[begin + 1] == glslRasterTypeScalar)) {
-            resultType = glslRasterTypeVector
+            resultType = stack[begin]
         }
     } else if (begin >= 0 && instruction == 43) {
         if (arity == 3 && stack[begin] == glslRasterTypeScalar &&
             stack[begin + 1] == glslRasterTypeScalar &&
             stack[begin + 2] == glslRasterTypeScalar) {
             resultType = glslRasterTypeScalar
-        } else if (arity == 3 && stack[begin] == glslRasterTypeVector &&
-            ((stack[begin + 1] == glslRasterTypeVector &&
-              stack[begin + 2] == glslRasterTypeVector) ||
+        } else if (arity == 3 && glslRasterTypeIsVector(stack[begin]) &&
+            ((stack[begin + 1] == stack[begin] &&
+              stack[begin + 2] == stack[begin]) ||
              (stack[begin + 1] == glslRasterTypeScalar &&
               stack[begin + 2] == glslRasterTypeScalar))) {
-            resultType = glslRasterTypeVector
+            resultType = stack[begin]
         }
     } else if (begin >= 0 && (instruction == 66 || instruction == 67)) {
-        var valid = stack[begin] == glslRasterTypeVector
+        var valid = glslRasterTypeIsVector(stack[begin])
         var argument = 1
         while (valid && argument < arity) {
-            valid = stack[begin + argument] == glslRasterTypeVector
+            valid = stack[begin + argument] == stack[begin]
             argument = argument + 1
         }
         if (valid) resultType = glslRasterTypeScalar
+    } else if (begin >= 0 && instruction == 68) {
+        if (arity == 2 && stack[begin] == glslRasterTypeVector3 &&
+            stack[begin + 1] == glslRasterTypeVector3) {
+            resultType = glslRasterTypeVector3
+        }
     } else if (begin >= 0 && (instruction == 69 || instruction == 70 ||
         instruction == 71)) {
-        var valid = stack[begin] == glslRasterTypeVector
+        var valid = glslRasterTypeIsVector(stack[begin])
         var argument = 1
         while (valid && argument < arity) {
-            valid = stack[begin + argument] == glslRasterTypeVector
+            valid = stack[begin + argument] == stack[begin]
             argument = argument + 1
         }
-        if (valid) resultType = glslRasterTypeVector
+        if (valid) resultType = stack[begin]
     } else if (begin >= 0 && instruction == 72) {
-        if (arity == 3 && stack[begin] == glslRasterTypeVector &&
-            stack[begin + 1] == glslRasterTypeVector &&
+        if (arity == 3 && glslRasterTypeIsVector(stack[begin]) &&
+            stack[begin + 1] == stack[begin] &&
             stack[begin + 2] == glslRasterTypeScalar) {
-            resultType = glslRasterTypeVector
+            resultType = stack[begin]
         }
     } else if (begin >= 0) {
         val candidate = stack[begin]
         var valid = candidate == glslRasterTypeScalar ||
-            candidate == glslRasterTypeVector
+            glslRasterTypeIsVector(candidate)
         var argument = 1
         while (valid && argument < arity) {
             valid = stack[begin + argument] == candidate
@@ -1965,46 +1969,57 @@ fun glslRasterFragmentSpirv(
             ) else glslRasterTypeInvalid
             valid = valid && resultType != glslRasterTypeInvalid
             if (valid) {
+                val resultSpirvType = glslRasterSpirvType(
+                    resultType,
+                    floatType,
+                    vector2Type,
+                    vector3Type,
+                    vectorType
+                )
+                valid = resultSpirvType != 0
                 val operands: array<int> = []
                 var argument = 0
-                while (argument < arity) {
+                while (valid && argument < arity) {
                     var operand = stack[stackSize - arity + argument]
-                    val scalarSplat = resultType == glslRasterTypeVector &&
+                    val scalarSplat = glslRasterTypeIsVector(resultType) &&
                         stackTypes[stackSize - arity + argument] ==
                             glslRasterTypeScalar &&
                         (token.memberIndex == 37 || token.memberIndex == 40 ||
                          token.memberIndex == 43 || token.memberIndex == 46 ||
                          token.memberIndex == 48 || token.memberIndex == 49)
                     if (scalarSplat) {
+                        val width = glslRasterTypeVectorWidth(resultType)
                         val splat = nextId
                         nextId = nextId + 1
-                        words.append(458832)
-                        words.append(vectorType)
+                        words.append((width + 3) * 65536 + 80)
+                        words.append(resultSpirvType)
                         words.append(splat)
-                        words.append(operand)
-                        words.append(operand)
-                        words.append(operand)
-                        words.append(operand)
+                        var component = 0
+                        while (component < width) {
+                            words.append(operand)
+                            component = component + 1
+                        }
                         operand = splat
                     }
                     operands.append(operand)
                     argument = argument + 1
                 }
-                valueId = nextId
-                nextId = nextId + 1
-                words.append((arity + 5) * 65536 + 12)
-                words.append(if (resultType == glslRasterTypeVector)
-                    vectorType else floatType)
-                words.append(valueId)
-                words.append(extendedInstructionSet)
-                words.append(token.memberIndex)
-                argument = 0
-                while (argument < arity) {
-                    words.append(operands[argument])
-                    argument = argument + 1
+                if (valid) {
+                    valueId = nextId
+                    nextId = nextId + 1
+                    words.append((arity + 5) * 65536 + 12)
+                    words.append(resultSpirvType)
+                    words.append(valueId)
+                    words.append(extendedInstructionSet)
+                    words.append(token.memberIndex)
+                    argument = 0
+                    while (argument < arity) {
+                        words.append(operands[argument])
+                        argument = argument + 1
+                    }
+                    stackSize = stackSize - arity
+                    tokenTypes[tokenIndex] = resultType
                 }
-                stackSize = stackSize - arity
-                tokenTypes[tokenIndex] = resultType
             }
         } else if (token.kind == glslRasterTokenDerivative) {
             valid = stackSize >= 1 &&

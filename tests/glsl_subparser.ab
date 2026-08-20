@@ -1568,6 +1568,27 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ vec3 value=vec3(1.0,2.0,3.0); color=vec4(value.x,value.y,value.z,1.0); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterNarrowExtendedInstructions = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ vec2 value=mix(vec2(0.0),vec2(1.0),0.5); color=vec4(value.x,value.y,length(normalize(value)),1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCrossExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ vec3 axis=cross(vec3(1.0,0.0,0.0),vec3(0.0,1.0,0.0)); color=vec4(axis.x,axis.y,axis.z,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCrossVec2Rejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ vec2 axis=cross(vec2(1.0),vec2(0.0)); color=vec4(axis.x,axis.y,0.0,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterVec2ComponentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3425,6 +3446,28 @@ fun main: int {
         spirvContainsWord(rasterNarrowVectorLocals.module, 327822) &&
         rasterVec3Locals.succeeded && rasterVec3Locals.module.valid() &&
         spirvInstructionOperand(rasterVec3Locals.module, 23, 3, 3) &&
+        rasterNarrowExtendedInstructions.succeeded &&
+        rasterNarrowExtendedInstructions.module.valid() &&
+        spirvInstructionOperand(
+            rasterNarrowExtendedInstructions.module,
+            12,
+            4,
+            46
+        ) && spirvInstructionOperand(
+            rasterNarrowExtendedInstructions.module,
+            12,
+            4,
+            66
+        ) && spirvInstructionOperand(
+            rasterNarrowExtendedInstructions.module,
+            12,
+            4,
+            69
+        ) && rasterCrossExtInst.succeeded &&
+        rasterCrossExtInst.module.valid() &&
+        spirvInstructionOperand(rasterCrossExtInst.module, 12, 4, 68) &&
+        !rasterCrossVec2Rejected.succeeded &&
+        rasterCrossVec2Rejected.error != "" &&
         !rasterVec2ComponentRejected.succeeded &&
         rasterVec2ComponentRejected.error != "" &&
         !rasterNarrowVectorTypeRejected.succeeded &&
