@@ -1783,11 +1783,15 @@ local is rejected. Mutable locals also accept `+=`, `-=`, `*=`, and `/=` under
 the same scalar/vector rules as the corresponding binary operation. A compound
 assignment combines the current SSA expression with its right operand and
 rebinds the result; it does not emit a load, store, or function variable. The
-parser checks every initializer and reassignment against the declared type,
-rejects forward or undeclared references, duplicates, interface/push-instance
-name collisions, unsupported compound operators, and type-changing compound
-results, then expands the current local tokens into later expressions. This
-produces the same SPIR-V bytes as writing the expression inline.
+standalone prefix/postfix forms `++name`, `name++`, `--name`, and `name--` also
+rebind a mutable scalar or vector local by adding or subtracting typed one.
+Because the statement result is unused, prefix and postfix forms have the same
+zero-storage lowering. The parser checks every initializer and reassignment
+against the declared type, rejects forward or undeclared references,
+duplicates, interface/push-instance name collisions, unsupported compound
+operators, malformed updates, and type-changing results, then expands the
+current local tokens into later expressions. This produces the same SPIR-V
+bytes as writing the expression inline.
 Equal-type operations emit floating scalar or vector instructions; `vec4 *
 float` and `float * vec4` emit `OpVectorTimesScalar` with normalized SPIR-V
 operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
@@ -1819,10 +1823,11 @@ expression, vector lane, and scalar literal in the module. Signed zero and other
 distinct bit patterns remain distinct. The red/green MRT module consequently
 uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
 changing either output.
-`push-expression` loads a reflected scalar gain, executes vector/scalar division
-after vector negation into a mutable local, rebinds it with `+=` and the second
-vector, and proves its 48-byte mixed layout plus exact red/green output, stable
-handles, and zero steady-state allocation growth on both real backends.
+`push-expression` loads a reflected scalar gain, applies postfix `--` to a
+mutable divisor, executes vector/scalar division after vector negation into a
+mutable vector, then rebinds it with `+=` and the second vector. It proves its
+48-byte mixed layout plus exact red/green output, stable handles, and zero
+steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

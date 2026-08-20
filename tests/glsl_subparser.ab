@@ -1323,6 +1323,20 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; } draw; void main(){ color=draw.first*((draw.gain+1.0-1.0)*2.0/2.0); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterLocalUpdates = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; } draw; void main(){ float divisor=draw.gain; ++divisor; divisor--; vec4 value=draw.first; value++; --value; color=value/divisor; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterLocalUpdatesExpanded = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; } draw; void main(){ color=(draw.first+vec4(1.0)-vec4(1.0))/(draw.gain+1.0-1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -1335,6 +1349,27 @@ fun main: int {
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
             "#version 450\nlayout(location=0) out vec4 color; void main(){ const vec4 value=vec4(1.0); value+=vec4(0.5); color=value; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterConstUpdateRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ const float value=1.0; value++; color=vec4(value); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnknownUpdateRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ ++missing; color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMalformedUpdateRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ float value=1.0; value++++; color=vec4(value); }"
         ]
     ).spirv(shaderStageFragment)
     val rasterCompoundTypeRejected = glslPackage(
@@ -2608,6 +2643,11 @@ fun main: int {
         spirvWordsEqual(
             rasterScalarCompoundLocals.module,
             rasterScalarCompoundExpanded.module
+        ) && rasterLocalUpdates.succeeded &&
+        rasterLocalUpdates.module.valid() &&
+        spirvWordsEqual(
+            rasterLocalUpdates.module,
+            rasterLocalUpdatesExpanded.module
         ) && !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&
         !rasterConstCompoundRejected.succeeded &&
@@ -2616,6 +2656,12 @@ fun main: int {
         rasterCompoundTypeRejected.error != "" &&
         !rasterUnsupportedCompoundRejected.succeeded &&
         rasterUnsupportedCompoundRejected.error != "" &&
+        !rasterConstUpdateRejected.succeeded &&
+        rasterConstUpdateRejected.error != "" &&
+        !rasterUnknownUpdateRejected.succeeded &&
+        rasterUnknownUpdateRejected.error != "" &&
+        !rasterMalformedUpdateRejected.succeeded &&
+        rasterMalformedUpdateRejected.error != "" &&
         !rasterMutableTypeRejected.succeeded &&
         rasterMutableTypeRejected.error != "" &&
         !rasterUndeclaredAssignmentRejected.succeeded &&

@@ -1010,12 +1010,14 @@ validity gate unchanged.
   preserving the declared type. The four floating compound forms `+=`, `-=`,
   `*=`, and `/=` combine that expression with a typed right operand and rebind
   it under the same scalar/vector rules, still without local storage. Scalar
-  and vector compound programs are byte-identical to their fully inlined forms;
-  const mutation, type changes, undeclared assignment, and unsupported `%=`
-  reject. Earlier-local chaining and duplicate, forward, mismatch, namespace-
-  collision, and exact 32-statement boundary coverage remain. The mutable-local
-  `+=` push-expression sample retains exact OpenGL/Vulkan pixels, stable
-  handles, and zero-growth repeated frames.
+  and vector standalone prefix/postfix `++`/`--` likewise append typed one and
+  add/subtract before rebinding. Compound and update programs are byte-identical
+  to their fully inlined forms; const mutation, type changes, undeclared
+  assignment/update, unsupported `%=`, and malformed updates reject. Earlier-
+  local chaining and duplicate, forward, mismatch, namespace-collision, and
+  exact 32-statement boundary coverage remain. The postfix-`--` and `+=`
+  push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
+  and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

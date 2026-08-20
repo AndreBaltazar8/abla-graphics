@@ -59,7 +59,7 @@ typed unary signs, and deduplicated scalar-splat `vec4` constructors without
 fixed SPIR-V templates, plus one-to-eight independently typed fragment output
 writes, exact-bit module-wide float constant interning, and storage-free ordered
 immutable or SSA-rebound mutable scalar/vector locals with typed floating
-compound assignment. Repeated clear,
+compound assignment and standalone prefix/postfix updates. Repeated clear,
 pixel, transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.
