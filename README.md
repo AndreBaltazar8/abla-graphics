@@ -272,8 +272,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   locals including a runtime scalar-splat `vec4` denominator and `+=`
   rebinding in storage-free SSA form, a typed `dot` product clamped through
   nested `abs`/`sqrt`/`smoothstep`/`step`/`mix` `GLSL.std.450` calls, vector
-  negation, and
-  precedence-ordered vector/scalar division plus addition,
+  negation, a `cos(radians(...))` phase, and precedence-ordered vector/scalar
+  division plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted

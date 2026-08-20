@@ -1043,7 +1043,12 @@ validity gate unchanged.
   reflected `.w`/`.bgra`, interpolated `sqrt(abs(dot(...)))` projection,
   runtime-denominator, comma-local postfix-`--`, prefix-`++`, and `+=` push-
   expression sample retains exact OpenGL/Vulkan pixels, stable handles, and
-  zero-growth repeated frames.
+  zero-growth repeated frames. The same table now covers scalar/vector
+  rounding/fraction/sign, angle/trigonometric, inverse/hyperbolic, exponential/
+  logarithmic functions, homogeneous `pow`, and `fma`; every mapped instruction
+  number has positive module-validity coverage, with vector typing and arity/
+  mismatch rejection. The live sample additionally executes
+  `cos(radians(0))` on both drivers.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

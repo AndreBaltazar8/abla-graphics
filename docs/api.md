@@ -1793,6 +1793,11 @@ Homogeneous scalar/vector `mix(x, y, amount)`, `step(edge, value)`, and
 `smoothstep(low, high, value)` use `FMix`, `Step`, and `SmoothStep` through that
 same import. Their result type matches their operands; mixed scalar/vector
 forms and wrong arities reject in this strict slice.
+The table also covers homogeneous scalar/vector `round`, `roundEven`, `trunc`,
+`sign`, `fract`, `radians`, `degrees`, `sin`, `cos`, `tan`, `asin`, `acos`,
+unary `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`,
+`exp2`, and `log2`, plus homogeneous binary `pow` and ternary `fma`. Each maps
+to its exact `GLSL.std.450` instruction and shares the same arity/type checks.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1863,11 +1868,11 @@ RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
 sibling unit scalar after projecting the reflected vector onto the alpha axis
 with `dot`, applying `sqrt(abs(...))`, and clamping that projection to `[0, 1]`,
 then shapes it with `smoothstep` and selects the unit scale through nested
-`step`/`mix`. It constructs a runtime scalar-splat `vec4` denominator, executes
-vector division after vector negation into a mutable vector, then rebinds it
-with `+=` and the second vector. It proves its 48-byte mixed layout plus exact
-red/green output, stable handles, and zero steady-state allocation growth on
-both real backends.
+`step`/`mix`, multiplied by a `cos(radians(0))` phase. It constructs a runtime
+scalar-splat `vec4` denominator, executes vector division after vector negation
+into a mutable vector, then rebinds it with `+=` and the second vector. It
+proves its 48-byte mixed layout plus exact red/green output, stable handles, and
+zero steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:
