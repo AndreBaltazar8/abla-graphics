@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 95/842
+- Classified commands: 112/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -21,7 +21,7 @@
 | `vkAcquireDrmDisplayEXT` | definition | unclassified | - | - | - | - |
 | `vkAcquireFullScreenExclusiveModeEXT` | definition | unclassified | - | - | - | - |
 | `vkAcquireNextImage2KHR` | definition | unclassified | - | - | - | - |
-| `vkAcquireNextImageKHR` | definition | unclassified | - | - | - | - |
+| `vkAcquireNextImageKHR` | definition | common | src/driver/vulkan.ab bounded per-frame swapchain image acquisition | src/driver/vulkan.ab typed swapchain timeout semaphore fence and index ABI | tests/vulkan_window/main.ab repeated surfaced frame acquisition | tests/application/main.ab out-of-date acquisition resize recovery |
 | `vkAcquirePerformanceConfigurationINTEL` | definition | unclassified | - | - | - | - |
 | `vkAcquireProfilingLockKHR` | definition | unclassified | - | - | - | - |
 | `vkAcquireWinrtDisplayNV` | definition | unclassified | - | - | - | - |
@@ -404,7 +404,7 @@
 | `vkCreateEvent` | definition | unclassified | - | - | - | - |
 | `vkCreateExecutionGraphPipelinesAMDX` | definition | unclassified | - | - | - | - |
 | `vkCreateExternalComputeQueueNV` | definition | unclassified | - | - | - | - |
-| `vkCreateFence` | definition | unclassified | - | - | - | - |
+| `vkCreateFence` | definition | common | src/driver/vulkan.ab affine per-frame completion fence creation | src/driver/vulkan.ab packed FenceCreateInfo ABI | tests/application/main.ab three stable frames in flight | src/driver/vulkan.ab partial frame creation cleanup |
 | `vkCreateFramebuffer` | definition | common | src/driver/vulkan.ab target creation | src/driver/vulkan.ab packed framebuffer ABI | tests/application/main.ab MRT multisample framebuffer | tests/application/main.ab incompatible attachment rejection |
 | `vkCreateGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkCreateGraphicsPipelines` | definition | common | src/driver/vulkan.ab reflected graphics pipeline creation | src/driver/vulkan.ab packed shader vertex raster blend depth and dynamic-state ABIs | examples/common-triangle/main.ab live blended depth-tested raster pipelines | examples/common-triangle/main.ab invalid raster depth and vertex layout rejection |
@@ -436,14 +436,14 @@
 | `vkCreateSamplerYcbcrConversion` | definition | unclassified | - | - | - | - |
 | `vkCreateSamplerYcbcrConversionKHR` | alias | unclassified | - | - | - | - |
 | `vkCreateScreenSurfaceQNX` | definition | unclassified | - | - | - | - |
-| `vkCreateSemaphore` | definition | unclassified | - | - | - | - |
+| `vkCreateSemaphore` | definition | common | src/driver/vulkan.ab affine binary and timeline semaphore creation | src/driver/vulkan.ab packed SemaphoreCreateInfo and timeline-type ABIs | tests/vulkan_window/main.ab repeated acquire render present synchronization | tests/vulkan/main.ab invalid timeline value rejection |
 | `vkCreateShaderInstrumentationARM` | definition | unclassified | - | - | - | - |
 | `vkCreateShaderModule` | definition | common | src/driver/vulkan.ab emitted SPIR-V module creation | src/driver/vulkan.ab packed ShaderModuleCreateInfo and little-endian code ABI | tests/application/main.ab exact compute vertex and fragment pipelines | tests/core.ab invalid SPIR-V module rejection |
 | `vkCreateShadersEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateSharedSwapchainsKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateStreamDescriptorSurfaceGGP` | definition | unclassified | - | - | - | - |
 | `vkCreateSurfaceOHOS` | definition | unclassified | - | - | - | - |
-| `vkCreateSwapchainKHR` | definition | unclassified | - | - | - | - |
+| `vkCreateSwapchainKHR` | definition | common | src/driver/vulkan.ab negotiated surfaced swapchain creation | src/driver/vulkan.ab packed SwapchainCreateInfoKHR ABI | tests/vulkan_window/main.ab live minimum-image dynamic and legacy presentation | tests/application/main.ab stale swapchain recreation |
 | `vkCreateTensorARM` | definition | unclassified | - | - | - | - |
 | `vkCreateTensorViewARM` | definition | unclassified | - | - | - | - |
 | `vkCreateUbmSurfaceSEC` | definition | unclassified | - | - | - | - |
@@ -454,7 +454,7 @@
 | `vkCreateWaylandSurfaceKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateWin32SurfaceKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateXcbSurfaceKHR` | definition | unclassified | - | - | - | - |
-| `vkCreateXlibSurfaceKHR` | definition | unclassified | - | - | - | - |
+| `vkCreateXlibSurfaceKHR` | definition | common | src/driver/vulkan.ab pure-Abla X11 Vulkan surface creation | src/driver/vulkan.ab packed XlibSurfaceCreateInfoKHR ABI | tests/vulkan_window/main.ab live visible X11 surface | src/driver/vulkan.ab invalid instance display or window rejection |
 | `vkDebugMarkerSetObjectNameEXT` | definition | unclassified | - | - | - | - |
 | `vkDebugMarkerSetObjectTagEXT` | definition | unclassified | - | - | - | - |
 | `vkDebugReportMessageEXT` | definition | unclassified | - | - | - | - |
@@ -480,7 +480,7 @@
 | `vkDestroyDevice` | definition | common | src/driver/vulkan.ab affine logical-device lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan/main.ab complete device resource lifecycle | src/driver/vulkan.ab partial device creation cleanup |
 | `vkDestroyEvent` | definition | unclassified | - | - | - | - |
 | `vkDestroyExternalComputeQueueNV` | definition | unclassified | - | - | - | - |
-| `vkDestroyFence` | definition | unclassified | - | - | - | - |
+| `vkDestroyFence` | definition | common | src/driver/vulkan.ab affine per-frame fence lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab three-frame presenter lifecycle | src/driver/vulkan.ab partial frame cleanup |
 | `vkDestroyFramebuffer` | definition | common | src/driver/vulkan.ab affine legacy framebuffer lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab stable target and subpass framebuffer lifecycle | tests/application/main.ab failed target cleanup |
 | `vkDestroyGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkDestroyImage` | definition | common | src/driver/vulkan.ab affine texture image lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab sampled transfer and target texture lifecycle | tests/application/main.ab invalid texture descriptor rejection |
@@ -502,12 +502,12 @@
 | `vkDestroySampler` | definition | common | src/driver/vulkan.ab affine sampler lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
 | `vkDestroySamplerYcbcrConversion` | definition | unclassified | - | - | - | - |
 | `vkDestroySamplerYcbcrConversionKHR` | alias | unclassified | - | - | - | - |
-| `vkDestroySemaphore` | definition | unclassified | - | - | - | - |
+| `vkDestroySemaphore` | definition | common | src/driver/vulkan.ab affine binary and timeline semaphore lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan_window/main.ab repeated presenter and timeline lifecycle | src/driver/vulkan.ab partial synchronization cleanup |
 | `vkDestroyShaderEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyShaderInstrumentationARM` | definition | unclassified | - | - | - | - |
 | `vkDestroyShaderModule` | definition | common | src/driver/vulkan.ab affine shader-module lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab compute and render pipeline shader lifecycle | tests/core.ab invalid SPIR-V rejected before creation |
-| `vkDestroySurfaceKHR` | definition | unclassified | - | - | - | - |
-| `vkDestroySwapchainKHR` | definition | unclassified | - | - | - | - |
+| `vkDestroySurfaceKHR` | definition | common | src/driver/vulkan.ab affine X11 surface lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan_window/main.ab complete surfaced application lifecycle | src/driver/vulkan.ab invalid surface cleanup guard |
+| `vkDestroySwapchainKHR` | definition | common | src/driver/vulkan.ab affine swapchain image-set lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab two resize-driven swapchain recreations | src/driver/vulkan.ab failed swapchain cleanup |
 | `vkDestroyTensorARM` | definition | unclassified | - | - | - | - |
 | `vkDestroyTensorViewARM` | definition | unclassified | - | - | - | - |
 | `vkDestroyValidationCacheEXT` | definition | unclassified | - | - | - | - |
@@ -707,12 +707,12 @@
 | `vkGetPhysicalDeviceSupportedFramebufferMixedSamplesCombinationsNV` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceSurfaceCapabilities2EXT` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceSurfaceCapabilities2KHR` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceSurfaceCapabilitiesKHR` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceSurfaceCapabilitiesKHR` | definition | common | src/driver/vulkan.ab surface extent image-count transform and usage query | src/driver/vulkan.ab packed SurfaceCapabilitiesKHR ABI | tests/vulkan_window/main.ab valid minimum images and supported usage | src/driver/vulkan.ab invalid surface capability rejection |
 | `vkGetPhysicalDeviceSurfaceFormats2KHR` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceSurfaceFormatsKHR` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceSurfaceFormatsKHR` | definition | common | src/driver/vulkan.ab bounded surface format and color-space enumeration | src/driver/vulkan.ab two-call count and SurfaceFormatKHR array ABI | tests/vulkan_window/main.ab selected live swapchain format | src/driver/vulkan.ab unavailable format rejection |
 | `vkGetPhysicalDeviceSurfacePresentModes2EXT` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceSurfacePresentModesKHR` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceSurfaceSupportKHR` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceSurfaceSupportKHR` | definition | common | src/driver/vulkan.ab queue-family surface support query | src/driver/vulkan.ab typed adapter family surface and output ABI | tests/vulkan_window/main.ab supported graphics presentation family | src/driver/vulkan.ab unsupported family rejection |
 | `vkGetPhysicalDeviceToolProperties` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceToolPropertiesEXT` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceUbmPresentationSupportSEC` | definition | unclassified | - | - | - | - |
@@ -722,7 +722,7 @@
 | `vkGetPhysicalDeviceWaylandPresentationSupportKHR` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceWin32PresentationSupportKHR` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceXcbPresentationSupportKHR` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceXlibPresentationSupportKHR` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceXlibPresentationSupportKHR` | definition | common | src/driver/vulkan.ab Xlib visual presentation compatibility query | src/driver/vulkan.ab typed adapter family display and visual ABI | tests/vulkan_window/main.ab live X11 presentation support | src/driver/vulkan.ab invalid display visual or family rejection |
 | `vkGetPipelineBinaryDataKHR` | definition | unclassified | - | - | - | - |
 | `vkGetPipelineCacheData` | definition | unclassified | - | - | - | - |
 | `vkGetPipelineExecutableInternalRepresentationsKHR` | definition | unclassified | - | - | - | - |
@@ -760,7 +760,7 @@
 | `vkGetShaderModuleIdentifierEXT` | definition | unclassified | - | - | - | - |
 | `vkGetSleepStatusLegacyNV` | definition | unclassified | - | - | - | - |
 | `vkGetSwapchainCounterEXT` | definition | unclassified | - | - | - | - |
-| `vkGetSwapchainImagesKHR` | definition | unclassified | - | - | - | - |
+| `vkGetSwapchainImagesKHR` | definition | common | src/driver/vulkan.ab bounded swapchain image enumeration | src/driver/vulkan.ab two-call count and image-array ABI | tests/vulkan_window/main.ab image count at least surface minimum | src/driver/vulkan.ab empty image inventory rejection |
 | `vkGetSwapchainStatusKHR` | definition | unclassified | - | - | - | - |
 | `vkGetSwapchainTimeDomainPropertiesEXT` | definition | unclassified | - | - | - | - |
 | `vkGetSwapchainTimingPropertiesEXT` | definition | unclassified | - | - | - | - |
@@ -791,7 +791,7 @@
 | `vkQueueInsertDebugUtilsLabelEXT` | definition | unclassified | - | - | - | - |
 | `vkQueueNotifyOutOfBandLegacyNV` | definition | unclassified | - | - | - | - |
 | `vkQueueNotifyOutOfBandNV` | definition | unclassified | - | - | - | - |
-| `vkQueuePresentKHR` | definition | unclassified | - | - | - | - |
+| `vkQueuePresentKHR` | definition | common | src/driver/vulkan.ab synchronized surfaced presentation | src/driver/vulkan.ab packed PresentInfoKHR ABI | tests/vulkan_window/main.ab repeated dynamic and legacy presentation | tests/application/main.ab suboptimal and out-of-date recovery |
 | `vkQueueSetPerfHintQCOM` | definition | unclassified | - | - | - | - |
 | `vkQueueSetPerformanceConfigurationINTEL` | definition | unclassified | - | - | - | - |
 | `vkQueueSubmit` | definition | common | src/driver/vulkan.ab legacy transfer compute render and presentation submission | src/driver/vulkan.ab packed SubmitInfo ABI | tests/application/main.ab exact repeated compute transfer and render results | tests/application/main.ab validation failure before queue submission |
@@ -812,7 +812,7 @@
 | `vkResetCommandPool` | definition | common | src/driver/vulkan.ab allocation-free command-state reuse | src/driver/vulkan.ab typed pool and flags ABI | examples/common-compute/main.ab four repeated zero-growth dispatch rounds | tests/application/main.ab invalid operation rejected before reset |
 | `vkResetDescriptorPool` | definition | unclassified | - | - | - | - |
 | `vkResetEvent` | definition | unclassified | - | - | - | - |
-| `vkResetFences` | definition | unclassified | - | - | - | - |
+| `vkResetFences` | definition | common | src/driver/vulkan.ab reusable per-frame fence reset | src/driver/vulkan.ab typed fence-array ABI | tests/application/main.ab stable three-frame repeated presentation | src/driver/vulkan.ab reset only after successful acquisition |
 | `vkResetGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkResetQueryPool` | definition | unclassified | - | - | - | - |
 | `vkResetQueryPoolEXT` | alias | unclassified | - | - | - | - |
@@ -851,7 +851,7 @@
 | `vkUpdateIndirectExecutionSetPipelineEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateIndirectExecutionSetShaderEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateVideoSessionParametersKHR` | definition | unclassified | - | - | - | - |
-| `vkWaitForFences` | definition | unclassified | - | - | - | - |
+| `vkWaitForFences` | definition | common | src/driver/vulkan.ab bounded frame completion wait | src/driver/vulkan.ab typed fence-array wait-all and timeout ABI | tests/application/main.ab repeated three-frame synchronization | src/driver/vulkan.ab failed or timed-out wait rejection |
 | `vkWaitForPresent2KHR` | definition | unclassified | - | - | - | - |
 | `vkWaitForPresentKHR` | definition | unclassified | - | - | - | - |
 | `vkWaitSemaphores` | definition | common | src/driver/vulkan.ab timeline host wait | src/driver/vulkan.ab packed semaphore wait ABI | tests/vulkan/main.ab repeated bounded timeline waits | tests/vulkan/main.ab negative value and timeout rejection |
