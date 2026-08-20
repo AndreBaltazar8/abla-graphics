@@ -273,7 +273,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   rebinding in storage-free SSA form, a typed `dot` product against a
   `normalize`d alpha axis clamped through nested
   `abs`/`sqrt`/`smoothstep`/`step`/`mix` `GLSL.std.450` calls, vector negation,
-  a `cos(atan(y, x)) + fwidthFine(...)` phase, and precedence-ordered
+  a `cos(atan(y, x)) + fwidthFine(vec2(...)).x` phase, and precedence-ordered
   vector/scalar division, scalar and vector/scalar `mod`, vector clamp with
   scalar bounds, scalar-factor vector `mix`, plus addition,
   producing exact alternating red/green pixels with stable handles and

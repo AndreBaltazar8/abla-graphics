@@ -1767,18 +1767,20 @@ Typed fragment expressions are no longer limited to fixed word templates. The
 typed raster parser accepts up to eight reflected non-array `vec4` inputs in
 source order before one to eight reflected non-array `vec4` outputs, an optional
 reflected block of up to eight non-array `float` or `vec4` members,
-scalar/`vec4` literals, one- or four-scalar `vec4` constructors,
+scalar/`vec4` literals, width-exact or scalar-splat `vec2`/`vec3`/`vec4`
+constructors,
 parentheses, single-component vector selectors `.x`/`.y`/`.z`/`.w` and their
 `rgba`/`stpq` aliases, four-component `vec4` swizzles such as `.bgra`, and
-scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence. A selector may
-follow an input, push member, local, literal, or parenthesized expression.
-Single components emit typed scalar `OpCompositeExtract`; four components from
-one naming family emit a typed `OpVectorShuffle`. Two- and three-component
-results remain checked failures until the raster IR gains `vec2`/`vec3` types.
-`dot(left, right)` accepts two supported `vec4` expressions, emits core SPIR-V
-`OpDot`, and returns a scalar usable by constructors, locals, or later mixed
-vector/scalar operations. Calls nest within the same expression-depth bound;
-wrong arity or scalar operands reject.
+supported scalar or equal-width vector `*`, `/`, `+`, and `-` with GLSL
+precedence. A selector may follow an input, push member, local, literal, or
+parenthesized expression.
+Single components emit width-checked scalar `OpCompositeExtract`; four
+components from one naming family emit a typed `OpVectorShuffle`. Two- and
+three-component swizzle results remain checked failures.
+`dot(left, right)` accepts two supported equal-width vector expressions, emits
+core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
+later mixed vector/scalar operations. Calls nest within the same
+expression-depth bound; wrong arity or scalar operands reject.
 `min(left, right)`, `max(left, right)`, and `clamp(value, low, high)` accept
 homogeneous scalar or `vec4` expressions and retain that type. `min` and `max`
 also accept `vec4, float`; `clamp` accepts `vec4, float, float`. Each scalar
@@ -1817,7 +1819,7 @@ rule: `length(vec4)` and `distance(vec4, vec4)` return `float`;
 and `Refract` instructions 66, 67, and 69 through 72. Scalar vector operands,
 mixed distance operands, a vector refraction ratio, and wrong arities reject.
 Fragment-only `dFdx(value)`, `dFdy(value)`, and `fwidth(value)` preserve a
-supported scalar or `vec4` operand type and emit core SPIR-V `OpDPdx`, `OpDPdy`,
+supported scalar or vector operand type and emit core SPIR-V `OpDPdx`, `OpDPdy`,
 and `OpFwidth` opcodes 207 through 209. They compose with push members, inputs,
 locals, arithmetic, and constructors under the same expression bounds; missing
 or extra arguments reject. The `dFdxFine`/`dFdyFine`/`fwidthFine` and
@@ -1825,19 +1827,20 @@ or extra arguments reject. The `dFdxFine`/`dFdyFine`/`fwidthFine` and
 and conditionally add `DerivativeControl`; shaders using only ordinary
 derivatives retain their prior capability list and module bytes.
 Constructor arguments may be arbitrary supported scalar expressions. A single
-runtime scalar emits one `OpCompositeConstruct` with its result reused in all
-four lanes; four runtime scalars retain source order. Constant-only signed
-constructors continue to fold into the existing interned `OpConstantComposite`
-path, so their established module bytes and sizes do not change. Constructor
-arities other than one or four, and vector-valued arguments, reject.
+runtime scalar emits one width-matched `OpCompositeConstruct` with its result
+reused in every lane; explicit constructors require exactly two, three, or four
+scalars in source order. Constant-only signed `vec4` constructors continue to
+fold into the existing interned `OpConstantComposite` path, so their established
+module bytes and sizes do not change. Other arities and vector-valued arguments
+reject.
 Prefix `+` is an identity and prefix `-` emits typed scalar or vector
 `OpFNegate`; unary nesting is included in the same 64-level/token bounds.
 Inputs and the push block may both be absent for a constant-only expression; a
 push block reflected only in another stage does not become a fragment interface
 requirement.
 Before the ordered output writes, a body may declare up to eight ordered
-`float` or `vec4` locals, optionally qualified with `const`, across at most 32
-declaration and reassignment statements. Each initializer may use earlier
+`float`, `vec2`, `vec3`, or `vec4` locals, optionally qualified with `const`,
+across at most 32 declaration and reassignment statements. Each initializer may use earlier
 locals, inputs, push members, literals, and the same typed operators. A later
 `name = expression` rebinds a mutable local; every assignment to a `const`
 local is rejected. A declaration may contain comma-separated same-type
@@ -1857,13 +1860,14 @@ duplicates, interface/push-instance name collisions, unsupported compound
 operators, malformed updates, and type-changing results, then expands the
 current local tokens into later expressions. This produces the same SPIR-V
 bytes as writing the expression inline.
-Equal-type operations emit floating scalar or vector instructions; `vec4 *
-float` and `float * vec4` emit `OpVectorTimesScalar` with normalized SPIR-V
-operand order. `vec4 / float` constructs a runtime scalar splat and emits vector
+Equal-type operations emit floating scalar or vector instructions; vector by
+scalar multiplication in either operand order emits `OpVectorTimesScalar` with
+normalized SPIR-V operand order. Vector/scalar division constructs a
+width-matched runtime scalar splat and emits vector
 `OpFDiv`, preserving division semantics without a reciprocal-multiply rewrite;
-`float / vec4` is rejected. `mod(float, float)`, `mod(vec4, vec4)`, and
-`mod(vec4, float)` emit core `OpFMod` instruction 141; the vector/scalar form
-constructs the required runtime divisor splat. `mod(float, vec4)`, wrong
+scalar/vector division is rejected. Equal-width vector and vector/scalar
+`mod` forms emit core `OpFMod` instruction 141; the vector/scalar form
+constructs the required runtime divisor splat. Scalar/vector `mod`, wrong
 arities, and floating `%`/`%=` reject, matching GLSL's separate integer
 operator and floating built-in rules. The parser produces bounded postfix IR
 and emits a mixed-type push structure, reflected member offsets,
@@ -1902,7 +1906,7 @@ alpha axis with `dot`, applying `sqrt(abs(...))`, and clamping that projection
 to `[0, 1]`,
 then shapes it with `smoothstep` and selects the unit scale through nested
 `step`/`mix`, multiplied by a
-`cos(atan(0, 1)) + fwidthFine(0)` phase. It constructs a runtime
+`cos(atan(0, 1)) + fwidthFine(vec2(0)).x` phase. It constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
 into a mutable vector, applies vector/scalar `mod`, clamps it with scalar
 bounds, then rebinds it with `+=` and the second vector. Its reflected alpha

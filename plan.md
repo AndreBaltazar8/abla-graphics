@@ -77,6 +77,12 @@ transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.
 
+Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
+without perturbing established `vec4` modules. Their exact-width and scalar-splat
+constructors, equal-width arithmetic and dot products, scalar mixed operations,
+derivatives, and checked components compose into existing `vec4` outputs. Narrow
+fragment interfaces and reflected push members remain milestone work.
+
 ## Non-negotiable design rules
 
 1. Application state, rendering policy, resource ownership, shader declarations,

@@ -1070,8 +1070,16 @@ validity gate unchanged.
   import. Nested scalar/vector, push, input, and local paths plus exact arity
   rejection pass. Fine/coarse variants emit opcodes 210-215 and conditionally
   declare `DerivativeControl`; ordinary modules remain capability-free and
-  byte-stable. The live phase adds constant `fwidthFine(0)` with unchanged
+  byte-stable. The live phase adds `fwidthFine(vec2(0)).x` with unchanged
   dual-backend pixels, handles, frame count, and allocation behavior.
+  Width-aware local raster vectors now cover `vec2`, `vec3`, and `vec4`
+  scalar-splat and width-exact construction, equal-width arithmetic and dot,
+  vector/scalar multiply, divide, and floating mod, width-checked component
+  extraction, and derivatives. Narrow type declarations are conditional, so
+  existing `vec4` modules retain their established IDs and bytes. Module-valid
+  positive coverage includes both narrow widths, while out-of-range components
+  and mixed-width arithmetic reject. Fragment interfaces and push members remain
+  `vec4`-only pending their dedicated reflected-layout slice.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through
