@@ -1008,12 +1008,35 @@ resource class OpenGlBuffer(
     trusted fun copyTo(
         destination: OpenGlBuffer,
         copy: BufferCopyDescriptor
+    ): bool = this.copyRangeTo(
+        destination,
+        copy.sourceOffset,
+        copy.destinationOffset,
+        copy.size
+    )
+
+    trusted fun copyRangeTo(
+        destination: OpenGlBuffer,
+        sourceOffset: int,
+        destinationOffset: int,
+        size: int
     ): bool {
+        val byteCount = bufferCopyResolvedSize(
+            sourceOffset,
+            size,
+            this.size
+        )
         var succeeded = this.valid() && destination.valid() &&
             (!this.mapped() || this.persistent) && !destination.mapped() &&
             this.context == destination.context &&
             this.display == destination.display &&
-            copy.valid(this.size, destination.size) && this.makeCurrent()
+            bufferCopyRangeValid(
+                sourceOffset,
+                destinationOffset,
+                size,
+                this.size,
+                destination.size
+            ) && this.makeCurrent()
         if (succeeded) {
             if (this.mapped() && this.persistent) glMemoryBarrier(16384)
             glBindBuffer(36662, this.handle)
@@ -1021,9 +1044,9 @@ resource class OpenGlBuffer(
             glCopyBufferSubData(
                 36662,
                 36663,
-                copy.sourceOffset,
-                copy.destinationOffset,
-                copy.resolvedSize(this.size)
+                sourceOffset,
+                destinationOffset,
+                byteCount
             )
             succeeded = glGetError() == 0
         }

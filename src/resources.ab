@@ -637,27 +637,48 @@ class BufferDescriptor(
          (this.usage & ~(bufferUsageMapWrite | bufferUsageCopySource)) == 0)
 }
 
+fun bufferCopyResolvedSize(
+    sourceOffset: int,
+    size: int,
+    sourceSize: int
+): int = if (size == -1 && sourceOffset >= 0 && sourceOffset <= sourceSize)
+    sourceSize - sourceOffset
+else size
+
+fun bufferCopyRangeValid(
+    sourceOffset: int,
+    destinationOffset: int,
+    size: int,
+    sourceSize: int,
+    destinationSize: int
+): bool {
+    val byteCount = bufferCopyResolvedSize(sourceOffset, size, sourceSize)
+    sourceSize > 0 && destinationSize > 0 && sourceOffset >= 0 &&
+        sourceOffset < sourceSize && destinationOffset >= 0 &&
+        destinationOffset < destinationSize && byteCount > 0 &&
+        byteCount <= sourceSize - sourceOffset &&
+        byteCount <= destinationSize - destinationOffset
+}
+
 class BufferCopyDescriptor(
     val sourceOffset: int = 0,
     val destinationOffset: int = 0,
     val size: int = -1
 ) {
-    fun resolvedSize(sourceSize: int): int =
-        if (this.size == -1 && this.sourceOffset >= 0 &&
-            this.sourceOffset <= sourceSize)
-            sourceSize - this.sourceOffset
-        else this.size
+    fun resolvedSize(sourceSize: int): int = bufferCopyResolvedSize(
+        this.sourceOffset,
+        this.size,
+        sourceSize
+    )
 
-    fun valid(sourceSize: int, destinationSize: int): bool {
-        val byteCount = this.resolvedSize(sourceSize)
-        sourceSize > 0 && destinationSize > 0 &&
-            this.sourceOffset >= 0 && this.sourceOffset < sourceSize &&
-            this.destinationOffset >= 0 &&
-            this.destinationOffset < destinationSize &&
-            byteCount > 0 &&
-            byteCount <= sourceSize - this.sourceOffset &&
-            byteCount <= destinationSize - this.destinationOffset
-    }
+    fun valid(sourceSize: int, destinationSize: int): bool =
+        bufferCopyRangeValid(
+            this.sourceOffset,
+            this.destinationOffset,
+            this.size,
+            sourceSize,
+            destinationSize
+        )
 
     fun validation(
         sourceSize: int,

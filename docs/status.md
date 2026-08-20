@@ -377,6 +377,12 @@ Updated: 2026-08-20.
   write/copy/readback cycles preserve all handles and live bytes. Because copy
   completion is synchronous, each range is safe to overwrite after return;
   asynchronous ring ownership is not claimed.
+  `GraphicsBufferUploadRing` now owns one such mapping and provides aligned,
+  bounded, wrap-counted staging through descriptor and primitive-range APIs.
+  Five live sample uploads force two wraps; four application-gate uploads force
+  one wrap. Both backends preserve the staging handle, reject an invalid range
+  without advancing state, read back exact bytes, and add zero live bytes in
+  the measured loops.
 - Common GPU buffer-copy test: `GraphicsApplication.copyBuffer` validates
   distinct same-backend resources, source/destination copy usages, and both
   ranges before dispatch. A partial 31-byte copy between different offsets is
@@ -397,10 +403,11 @@ Updated: 2026-08-20.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same partial reusable-byte upload/readback on a 256-byte storage
   buffer plus mapped-at-creation upload/unmap, post-creation write/read maps,
-  coherent persistent upload, and GPU copy/fill/readback under explicit OpenGL
-  and Vulkan in the software-driver sample matrix. Four complete mapped
-  transfer cycles preserve all mapped buffer handles and produce zero Abla
-  runtime live-byte growth on both backends.
+  coherent persistent upload, a 32-byte aligned upload ring forced through two
+  wraps, and GPU copy/fill/readback under explicit OpenGL and Vulkan in the
+  software-driver sample matrix. Four complete mapped transfer cycles preserve
+  all mapped buffer handles and produce zero Abla runtime live-byte growth on
+  both backends.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1143,18 +1150,19 @@ validity gate unchanged.
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  asynchronous persistent upload rings, queued uploads, device-local
+  asynchronous in-flight upload/readback rings, queued uploads, device-local
   suballocation policy, command
   encoders/render
   graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
   `PixelBuffer` uploads and synchronous diagnostic readback are present;
-  general byte layouts, asynchronous image copies, and streaming are not.
+  general byte layouts and asynchronous image copies are not.
   Same-format synchronous 2D image copies are present. General reusable buffer
   byte-range upload/readback is present, including
   distinct source and destination offsets; synchronous GPU buffer copies and
   aligned 32-bit pattern fills reuse backend command state. Synchronous
-  coherent persistent uploads are present; asynchronous transfers are not.
+  coherent persistent uploads and a bounded aligned buffer upload ring are
+  present; asynchronous transfers are not.
   Common buffers, textures, views,
   samplers, and immutable structural
   descriptors are present;

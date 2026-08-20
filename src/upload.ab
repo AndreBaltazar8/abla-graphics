@@ -1,0 +1,199 @@
+// Allocation-free synchronous uploads through one coherent mapped staging ring.
+
+import "core.ab"
+import "resources.ab"
+import "bytes.ab"
+import "application.ab"
+import "buffer.ab"
+
+val graphicsMaximumUploadRingBytes = 1073741824
+
+fun bufferUploadAlignmentValid(alignment: int): bool =
+    alignment > 0 && alignment <= graphicsMaximumUploadRingBytes &&
+    (alignment & (alignment - 1)) == 0
+
+fun bufferUploadAlignedOffset(value: int, alignment: int): int {
+    var result = -1
+    if (value >= 0 && bufferUploadAlignmentValid(alignment) &&
+        value <= graphicsMaximumInt - (alignment - 1)) {
+        result = ((value + alignment - 1) / alignment) * alignment
+    }
+    result
+}
+
+class BufferUploadRingDescriptor(
+    val label: string = "buffer-upload-ring",
+    val capacity: int = 1048576,
+    val alignment: int = 16
+) {
+    fun validation(): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (this.capacity <= 0 ||
+            this.capacity > graphicsMaximumUploadRingBytes) {
+            result = graphicsDescriptorInvalid(
+                "capacity",
+                "upload-ring capacity must be between one byte and one GiB"
+            )
+        } else if (!bufferUploadAlignmentValid(this.alignment) ||
+            this.alignment > this.capacity) {
+            result = graphicsDescriptorInvalid(
+                "alignment",
+                "upload-ring alignment must be a power of two no larger than capacity"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool = this.capacity > 0 &&
+        this.capacity <= graphicsMaximumUploadRingBytes &&
+        bufferUploadAlignmentValid(this.alignment) &&
+        this.alignment <= this.capacity
+}
+
+resource class GraphicsBufferUploadRing(
+    val staging: GraphicsBuffer,
+    val descriptor: BufferUploadRingDescriptor,
+    val backend: int,
+    var cursor: int,
+    var lastOffset: int,
+    var uploadCount: int,
+    var wrapCount: int,
+    val error: GraphicsError
+) {
+    trusted fun valid(): bool = !this.error.occurred() &&
+        this.descriptor.valid() && this.staging.valid() &&
+        this.staging.backend == this.backend &&
+        this.staging.descriptor.size == this.descriptor.capacity &&
+        this.staging.persistentlyMapped() && this.cursor >= 0 &&
+        this.cursor <= this.descriptor.capacity && this.lastOffset >= -1 &&
+        this.lastOffset < this.descriptor.capacity && this.uploadCount >= 0 &&
+        this.wrapCount >= 0
+
+    fun remainingBytes(): int = if (this.valid())
+        this.descriptor.capacity - this.cursor
+    else 0
+
+    trusted fun rewind(): bool {
+        val succeeded = this.valid()
+        if (succeeded) {
+            this.cursor = 0
+            this.lastOffset = -1
+        }
+        succeeded
+    }
+
+    trusted fun drop(): void {
+        this.staging.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.bufferUploadRing(
+    descriptor: BufferUploadRingDescriptor = BufferUploadRingDescriptor()
+): GraphicsBufferUploadRing {
+    val validation = descriptor.validation()
+    val staging = this.buffer(BufferDescriptor(
+        label = descriptor.label,
+        size = if (validation.succeeded) descriptor.capacity else 0,
+        usage = bufferUsageMapWrite | bufferUsageCopySource,
+        mappedAtCreation = true,
+        persistentMapping = true
+    ))
+    var error = GraphicsError()
+    if (!this.valid()) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bufferUploadRing",
+        "buffer upload rings require a valid graphics application"
+    )
+    else if (!validation.succeeded) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bufferUploadRing.${validation.field}",
+        validation.message
+    )
+    else if (!staging.valid()) error = GraphicsError(
+        staging.error.code,
+        "GraphicsApplication.bufferUploadRing",
+        staging.error.message
+    )
+    GraphicsBufferUploadRing(
+        move(staging),
+        descriptor,
+        this.backend,
+        0,
+        -1,
+        0,
+        0,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.uploadBuffer(
+    var ring: GraphicsBufferUploadRing,
+    source: BufferBytes,
+    destination: GraphicsBuffer,
+    copy: BufferCopyDescriptor = BufferCopyDescriptor()
+): bool = this.uploadBufferRange(
+    ring,
+    source,
+    destination,
+    copy.sourceOffset,
+    copy.destinationOffset,
+    copy.size
+)
+
+trusted fun GraphicsApplication.uploadBufferRange(
+    var ring: GraphicsBufferUploadRing,
+    source: BufferBytes,
+    destination: GraphicsBuffer,
+    sourceOffset: int = 0,
+    destinationOffset: int = 0,
+    size: int = -1
+): bool {
+    val byteCount = bufferCopyResolvedSize(sourceOffset, size, source.size)
+    var succeeded = this.valid() && ring.valid() && source.valid() &&
+        destination.valid() && ring.backend == this.backend &&
+        this.ownsBuffer(ring.staging) && this.ownsBuffer(destination) &&
+        !ring.staging.sameResource(destination) &&
+        bufferCopyRangeValid(
+            sourceOffset,
+            destinationOffset,
+            size,
+            source.size,
+            destination.descriptor.size
+        ) && byteCount <= ring.descriptor.capacity &&
+        bufferUsageAllowsGpuCopyDestination(destination.descriptor.usage)
+    var ringOffset = -1
+    var wrapped = false
+    if (succeeded) {
+        ringOffset = bufferUploadAlignedOffset(
+            ring.cursor,
+            ring.descriptor.alignment
+        )
+        if (ringOffset < 0 ||
+            ringOffset > ring.descriptor.capacity - byteCount) {
+            ringOffset = 0
+            wrapped = true
+        }
+        succeeded = ring.uploadCount < graphicsMaximumInt &&
+            (!wrapped || ring.wrapCount < graphicsMaximumInt) &&
+            ring.staging.writeMappedRange(
+                source,
+                sourceOffset,
+                ringOffset,
+                byteCount
+            ) && this.copyBufferRange(
+                ring.staging,
+                destination,
+                ringOffset,
+                destinationOffset,
+                byteCount
+            )
+    }
+    if (succeeded) {
+        ring.cursor = ringOffset + byteCount
+        ring.lastOffset = ringOffset
+        ring.uploadCount = ring.uploadCount + 1
+        if (wrapped) ring.wrapCount = ring.wrapCount + 1
+    }
+    succeeded
+}

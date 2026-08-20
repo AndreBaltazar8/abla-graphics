@@ -421,6 +421,55 @@ fun applicationBackendProbe(
         readMappedDestination,
         BufferCopyDescriptor(16, 2, 20)
     ) && readbackBuffer.unmap()
+    val uploadRing = app.bufferUploadRing(BufferUploadRingDescriptor(
+        label = "application-upload-ring",
+        capacity = 32,
+        alignment = 16
+    ))
+    val uploadRingHandle = if (app.backend == graphicsBackendOpenGl)
+        uploadRing.staging.openGl.handle
+    else uploadRing.staging.vulkan.handle
+    val uploadRingLiveBefore = runtimeMemoryLiveBytes()
+    var uploadRingRepeated = uploadRing.valid()
+    var uploadRingRepeat = 0
+    while (uploadRingRepeated && uploadRingRepeat < 4) {
+        uploadRingRepeated = app.uploadBufferRange(
+            uploadRing,
+            mappedUpload,
+            gpuCopyDestination,
+            4,
+            56,
+            8
+        )
+        uploadRingRepeat = uploadRingRepeat + 1
+    }
+    val uploadRingLiveAfter = runtimeMemoryLiveBytes()
+    val uploadRingReadback = bufferBytes(8)
+    val uploadRingRead = uploadRingReadback.fill(0) &&
+        gpuCopyDestination.readBytes(
+            uploadRingReadback,
+            BufferCopyDescriptor(56, 0, 8)
+        )
+    val uploadRingStateBeforeInvalid = uploadRing.cursor
+    val invalidUploadRingRangeRejected = !app.uploadBufferRange(
+        uploadRing,
+        mappedUpload,
+        gpuCopyDestination,
+        12,
+        56,
+        8
+    ) && uploadRing.cursor == uploadRingStateBeforeInvalid &&
+        uploadRing.uploadCount == 4
+    val uploadRingHandleStable = if (app.backend == graphicsBackendOpenGl)
+        uploadRing.staging.openGl.handle == uploadRingHandle
+    else uploadRing.staging.vulkan.handle == uploadRingHandle
+    val uploadRingPassed = uploadRingRepeated && uploadRingRepeat == 4 &&
+        uploadRing.uploadCount == 4 && uploadRing.wrapCount == 1 &&
+        uploadRing.lastOffset == 16 && uploadRing.cursor == 24 &&
+        uploadRingLiveAfter == uploadRingLiveBefore &&
+        uploadRingHandleStable && uploadRingRead &&
+        uploadRingReadback.loadI64() == mappedValue &&
+        invalidUploadRingRangeRejected
     val sampler = app.sampler(SamplerDescriptor(
         addressU = samplerAddressRepeat,
         addressV = samplerAddressMirrorRepeat,
@@ -1691,6 +1740,7 @@ fun applicationBackendProbe(
         writeToReadMapRejected && readMapGpuUseRejected &&
         readRangeUnmapped && mapWriteUsageRejected &&
         invalidReadRangeRejected && readRangeRemapped &&
+        uploadRingPassed &&
         rangeUploaded && rangeRead && rangeMatches &&
         invalidBufferRangeRejected && wholeBufferTransferred &&
         gpuCopyDestination.valid() && gpuRangeCopied && gpuCopyRead &&

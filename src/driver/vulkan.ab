@@ -2066,15 +2066,40 @@ resource class VulkanDevice(
         source: VulkanBuffer,
         destination: VulkanBuffer,
         copy: BufferCopyDescriptor
+    ): bool = this.copyBufferRange(
+        source,
+        destination,
+        copy.sourceOffset,
+        copy.destinationOffset,
+        copy.size
+    )
+
+    trusted fun copyBufferRange(
+        source: VulkanBuffer,
+        destination: VulkanBuffer,
+        sourceOffset: int,
+        destinationOffset: int,
+        size: int
     ): bool {
+        val byteCount = bufferCopyResolvedSize(
+            sourceOffset,
+            size,
+            source.size
+        )
         var succeeded = this.transferValid() && source.valid() &&
             destination.valid() && source.device == this.handle &&
             destination.device == this.handle &&
-            copy.valid(source.size, destination.size) && this.beginTransfer()
+            bufferCopyRangeValid(
+                sourceOffset,
+                destinationOffset,
+                size,
+                source.size,
+                destination.size
+            ) && this.beginTransfer()
         if (succeeded) {
-            this.transferScratch.storeI64(0, copy.sourceOffset)
-            this.transferScratch.storeI64(8, copy.destinationOffset)
-            this.transferScratch.storeI64(16, copy.resolvedSize(source.size))
+            this.transferScratch.storeI64(0, sourceOffset)
+            this.transferScratch.storeI64(8, destinationOffset)
+            this.transferScratch.storeI64(16, byteCount)
             vkCmdCopyBuffer(
                 this.transferCommand.load(),
                 source.handle,

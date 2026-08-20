@@ -597,6 +597,35 @@ map-write plus copy-source usage; it cannot silently enter vertex, index,
 uniform, storage, or copy-destination work. `unmap()` ends the persistent
 lifecycle explicitly, and affine drop does so automatically.
 
+`GraphicsBufferUploadRing` packages that mechanism into one affine staging
+resource:
+
+```abla
+val uploads = app.bufferUploadRing(BufferUploadRingDescriptor(
+    capacity = 1048576,
+    alignment = 256
+))
+
+app.uploadBufferRange(
+    uploads,
+    frameBytes,
+    deviceBuffer,
+    0,
+    destinationOffset,
+    frameBytes.size
+)
+```
+
+Each successful upload aligns the next staging offset, wraps to zero when the
+tail no longer fits, writes the coherent mapping, and completes the GPU copy
+before advancing `cursor`, `uploadCount`, and `wrapCount`. Invalid input changes
+none of that state. `uploadBuffer` is the descriptor convenience API;
+`uploadBufferRange` is its allocation-free primitive hot path. `rewind()` is
+safe because all current copies finish before returning. The ring owns and
+drops its staging buffer, and `graphicsFeaturePersistentMapping` gates creation.
+This is synchronous streaming with bounded reusable storage, not an in-flight
+asynchronous ownership scheme.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -608,7 +637,8 @@ available for small diagnostics.
 `app.copyBuffer(source, destination, descriptor)` performs a GPU-side copy
 between distinct buffers owned by the same application. Source and destination
 copy usages are mandatory, and the same overflow-safe descriptor validates both
-ranges. OpenGL binds copy-read/copy-write targets and calls
+ranges. `copyBufferRange` exposes the identical primitive-offset operation for
+allocation-critical loops. OpenGL binds copy-read/copy-write targets and calls
 `glCopyBufferSubData`. Vulkan owns one transfer command pool, command buffer,
 and scratch ABI block with the device, resets and reuses them, emits
 `vkCmdCopyBuffer` plus a transfer-to-host barrier, and waits for queue completion.
@@ -628,7 +658,7 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Asynchronous persistent upload rings, queued transfers, and device-local
+Asynchronous in-flight upload/readback rings, queued transfers, and device-local
 selection remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 

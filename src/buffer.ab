@@ -260,20 +260,47 @@ trusted fun GraphicsApplication.copyBuffer(
     source: GraphicsBuffer,
     destination: GraphicsBuffer,
     copy: BufferCopyDescriptor
+): bool = this.copyBufferRange(
+    source,
+    destination,
+    copy.sourceOffset,
+    copy.destinationOffset,
+    copy.size
+)
+
+trusted fun GraphicsApplication.copyBufferRange(
+    source: GraphicsBuffer,
+    destination: GraphicsBuffer,
+    sourceOffset: int = 0,
+    destinationOffset: int = 0,
+    size: int = -1
 ): bool {
     var succeeded = this.valid() && source.valid() && destination.valid() &&
         this.ownsBuffer(source) && this.ownsBuffer(destination) &&
         !source.sameResource(destination) &&
-        copy.valid(source.descriptor.size, destination.descriptor.size) &&
+        bufferCopyRangeValid(
+            sourceOffset,
+            destinationOffset,
+            size,
+            source.descriptor.size,
+            destination.descriptor.size
+        ) &&
         bufferUsageAllowsGpuCopySource(source.descriptor.usage) &&
         bufferUsageAllowsGpuCopyDestination(destination.descriptor.usage)
     if (succeeded && this.backend == graphicsBackendOpenGl) {
-        succeeded = source.openGl.copyTo(destination.openGl, copy)
+        succeeded = source.openGl.copyRangeTo(
+            destination.openGl,
+            sourceOffset,
+            destinationOffset,
+            size
+        )
     } else if (succeeded && this.backend == graphicsBackendVulkan) {
-        succeeded = this.vulkanDevice.copyBuffer(
+        succeeded = this.vulkanDevice.copyBufferRange(
             source.vulkan,
             destination.vulkan,
-            copy
+            sourceOffset,
+            destinationOffset,
+            size
         )
     } else if (succeeded) succeeded = false
     succeeded
