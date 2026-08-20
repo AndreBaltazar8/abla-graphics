@@ -219,8 +219,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   `vec4` fragment input is loaded by the typed raster IR rather than a fixed
   SPIR-V fragment table;
 - `examples/common-buffer`: affine buffers with reusable byte ranges,
-  mapped-at-creation upload/unmap, GPU copies, and stable zero-allocation
-  repeats exercised unchanged on explicit OpenGL and Vulkan; and
+  mapped-at-creation upload, post-creation write/read remapping, GPU copies,
+  and stable zero-allocation repeats exercised unchanged on explicit OpenGL
+  and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and

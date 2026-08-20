@@ -328,6 +328,45 @@ fun applicationBackendProbe(
             BufferCopyDescriptor(40, 2, 8)
         )
     val mappedGpuMatches = mappedReadback.loadI64(2) == mappedValue
+    val remappedUpload = bufferBytes(12)
+    val remappedValue = 72623859790382856
+    val remappedUploadReady = remappedUpload.fill(0) &&
+        remappedUpload.storeI64(remappedValue, 2)
+    val writeRangeMapped = mappedBuffer.mapWrite(
+        BufferMapDescriptor(24, 8)
+    )
+    val remappedWritten = remappedUploadReady &&
+        mappedBuffer.writeMappedBytes(
+            remappedUpload,
+            BufferCopyDescriptor(2, 24, 8)
+        )
+    val remappedOutsideRejected = !mappedBuffer.writeMappedBytes(
+        remappedUpload,
+        BufferCopyDescriptor(2, 23, 8)
+    )
+    val readFromWriteMapRejected = !mappedBuffer.readMappedBytes(
+        mappedReadback,
+        BufferCopyDescriptor(24, 2, 8)
+    )
+    val nestedMapRejected = !mappedBuffer.mapWrite(
+        BufferMapDescriptor(32, 8)
+    )
+    val writeRangeUnmapped = mappedBuffer.unmap()
+    val invalidWriteRangeRejected = !mappedBuffer.mapWrite(
+        BufferMapDescriptor(60, 8)
+    )
+    val mapReadUsageRejected = !mappedBuffer.mapRead()
+    val remappedGpuCopied = app.copyBuffer(
+        mappedBuffer,
+        gpuCopyDestination,
+        BufferCopyDescriptor(24, 48, 8)
+    )
+    val remappedGpuRead = mappedReadback.fill(0) &&
+        gpuCopyDestination.readBytes(
+            mappedReadback,
+            BufferCopyDescriptor(48, 2, 8)
+        )
+    val remappedGpuMatches = mappedReadback.loadI64(2) == remappedValue
     val invalidMappedBuffer = app.buffer(BufferDescriptor(
         size = 64,
         usage = bufferUsageMapRead,
@@ -335,8 +374,53 @@ fun applicationBackendProbe(
     ))
     val readbackBuffer = app.buffer(BufferDescriptor(
         size = 64,
-        usage = bufferUsageMapRead
+        usage = bufferUsageMapRead | bufferUsageCopyDestination
     ))
+    val readMapGpuCopied = app.copyBuffer(
+        buffer,
+        readbackBuffer,
+        BufferCopyDescriptor(7, 16, 20)
+    )
+    val readRangeMapped = readbackBuffer.mapRead(
+        BufferMapDescriptor(16, 20)
+    )
+    val readMappedDestination = bufferBytes(24)
+    val readMapped = readMappedDestination.fill(0) &&
+        readbackBuffer.readMappedBytes(
+            readMappedDestination,
+            BufferCopyDescriptor(16, 2, 20)
+        )
+    val readMappedMatches = bufferRangesEqual(
+        wholeUploadBytes,
+        7,
+        readMappedDestination,
+        2,
+        20
+    )
+    val readOutsideMapRejected = !readbackBuffer.readMappedBytes(
+        readMappedDestination,
+        BufferCopyDescriptor(15, 2, 20)
+    )
+    val writeToReadMapRejected = !readbackBuffer.writeMappedBytes(
+        mappedUpload,
+        BufferCopyDescriptor(4, 16, 8)
+    )
+    val readMapGpuUseRejected = !app.copyBuffer(
+        buffer,
+        readbackBuffer,
+        BufferCopyDescriptor(7, 16, 20)
+    )
+    val readRangeUnmapped = readbackBuffer.unmap()
+    val mapWriteUsageRejected = !readbackBuffer.mapWrite()
+    val invalidReadRangeRejected = !readbackBuffer.mapRead(
+        BufferMapDescriptor(63, 2)
+    )
+    val readRangeRemapped = readbackBuffer.mapRead(
+        BufferMapDescriptor(16, 20)
+    ) && readbackBuffer.readMappedBytes(
+        readMappedDestination,
+        BufferCopyDescriptor(16, 2, 20)
+    ) && readbackBuffer.unmap()
     val sampler = app.sampler(SamplerDescriptor(
         addressU = samplerAddressRepeat,
         addressV = samplerAddressMirrorRepeat,
@@ -1594,10 +1678,20 @@ fun applicationBackendProbe(
         mappedStarted && mappedWritten && mappedOrdinaryWriteRejected &&
         mappedGpuUseRejected && mappedUnmapped && repeatedUnmapRejected &&
         mappedGpuCopied && mappedGpuRead && mappedGpuMatches &&
+        writeRangeMapped && remappedWritten && remappedOutsideRejected &&
+        readFromWriteMapRejected && nestedMapRejected &&
+        writeRangeUnmapped && invalidWriteRangeRejected &&
+        mapReadUsageRejected && remappedGpuCopied && remappedGpuRead &&
+        remappedGpuMatches &&
         !invalidMappedBuffer.valid() &&
         invalidMappedBuffer.error.operation ==
             "GraphicsApplication.buffer.mappedAtCreation" &&
-        readbackBuffer.valid() && rangeUploaded && rangeRead && rangeMatches &&
+        readbackBuffer.valid() && readMapGpuCopied && readRangeMapped &&
+        readMapped && readMappedMatches && readOutsideMapRejected &&
+        writeToReadMapRejected && readMapGpuUseRejected &&
+        readRangeUnmapped && mapWriteUsageRejected &&
+        invalidReadRangeRejected && readRangeRemapped &&
+        rangeUploaded && rangeRead && rangeMatches &&
         invalidBufferRangeRejected && wholeBufferTransferred &&
         gpuCopyDestination.valid() && gpuRangeCopied && gpuCopyRead &&
         gpuCopyMatches && transferStateStable && invalidGpuCopyRejected &&

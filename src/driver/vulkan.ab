@@ -2497,14 +2497,40 @@ resource class VulkanBuffer(
     var handle: int,
     var memory: int,
     val size: int,
-    val mapped: NativePointerCell
+    val mapped: NativePointerCell,
+    var mappedOffset: int,
+    var mappedSize: int,
+    var mappedAccess: int
 ) {
     fun valid(): bool =
         this.handle != 0 && this.memory != 0 && this.size > 0 &&
         !this.mapped.closed
 
     trusted fun mappedActive(): bool = this.valid() &&
-        !pointerIsNull(this.mapped.load())
+        !pointerIsNull(this.mapped.load()) && this.mappedOffset >= 0 &&
+        this.mappedSize > 0 &&
+        (this.mappedAccess == 1 || this.mappedAccess == 2)
+
+    fun mappedReadable(): bool = this.mappedActive() &&
+        this.mappedAccess == 1
+
+    fun mappedWritable(): bool = this.mappedActive() &&
+        this.mappedAccess == 2
+
+    fun mappedContains(offset: int, size: int): bool =
+        this.mappedActive() && offset >= this.mappedOffset && size > 0 &&
+        offset <= this.size - size &&
+        offset - this.mappedOffset <= this.mappedSize - size
+
+    trusted fun clearMappedState(): bool {
+        val cleared = this.mapped.store(nativeNullPointer())
+        if (cleared) {
+            this.mappedOffset = 0
+            this.mappedSize = 0
+            this.mappedAccess = 0
+        }
+        cleared
+    }
 
     trusted fun readI64(offset: int = 0): int {
         var result = 0
@@ -2522,7 +2548,7 @@ resource class VulkanBuffer(
                     ablaUnsafePointerOffset(this.mapped.load(), offset)
                 )
                 vkUnmapMemory(this.device, this.memory)
-                this.mapped.store(nativeNullPointer())
+                this.clearMappedState()
             }
         }
         result
@@ -2545,7 +2571,7 @@ resource class VulkanBuffer(
                     value
                 )
                 vkUnmapMemory(this.device, this.memory)
-                this.mapped.store(nativeNullPointer())
+                this.clearMappedState()
                 succeeded = true
             }
         }
@@ -2599,7 +2625,7 @@ resource class VulkanBuffer(
         }
         if (succeeded) {
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         succeeded
     }
@@ -2634,7 +2660,7 @@ resource class VulkanBuffer(
             result = red + green * 256 + blue * 65536 +
                 alpha * 16777216
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         result
     }
@@ -2665,7 +2691,7 @@ resource class VulkanBuffer(
                 copy.resolvedSize(source.size)
             )
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         succeeded
     }
@@ -2688,7 +2714,7 @@ resource class VulkanBuffer(
                 this.size
             )
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         succeeded
     }
@@ -2720,25 +2746,71 @@ resource class VulkanBuffer(
                 copy.resolvedSize(this.size)
             )
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         succeeded
     }
 
-    trusted fun writeMappedBytes(
+    trusted fun writeMappedRange(
         source: BufferBytes,
-        copy: BufferCopyDescriptor
+        sourceOffset: int,
+        destinationOffset: int,
+        byteCount: int
     ): bool {
-        val succeeded = this.mappedActive() && source.valid() &&
-            copy.valid(source.size, this.size)
+        val succeeded = this.mappedWritable() && source.valid() &&
+            sourceOffset >= 0 && sourceOffset < source.size &&
+            byteCount > 0 && byteCount <= source.size - sourceOffset &&
+            this.mappedContains(destinationOffset, byteCount)
         if (succeeded) ablaUnsafeCopyMemory(
             ablaUnsafePointerOffset(
                 this.mapped.load(),
-                copy.destinationOffset
+                destinationOffset
             ),
-            source.storage.pointerAt(copy.sourceOffset),
-            copy.resolvedSize(source.size)
+            source.storage.pointerAt(sourceOffset),
+            byteCount
         )
+        succeeded
+    }
+
+    trusted fun readMappedRange(
+        var destination: BufferBytes,
+        sourceOffset: int,
+        destinationOffset: int,
+        byteCount: int
+    ): bool {
+        val succeeded = this.mappedReadable() && destination.valid() &&
+            destinationOffset >= 0 && destinationOffset < destination.size &&
+            byteCount > 0 && byteCount <= destination.size - destinationOffset &&
+            this.mappedContains(sourceOffset, byteCount)
+        if (succeeded) ablaUnsafeCopyMemory(
+            destination.storage.pointerAt(destinationOffset),
+            ablaUnsafePointerOffset(this.mapped.load(), sourceOffset),
+            byteCount
+        )
+        succeeded
+    }
+
+    trusted fun mapRange(
+        offset: int,
+        size: int,
+        access: int
+    ): bool {
+        var succeeded = !this.mappedActive() &&
+            bufferMapRangeValid(offset, size, this.size) &&
+            (access == 1 || access == 2)
+        if (succeeded) succeeded = vkMapMemory(
+            this.device,
+            this.memory,
+            0,
+            this.size,
+            0,
+            this.mapped.address
+        ) == vulkanSuccess
+        if (succeeded) {
+            this.mappedOffset = offset
+            this.mappedSize = bufferMapResolvedSize(offset, size, this.size)
+            this.mappedAccess = access
+        }
         succeeded
     }
 
@@ -2746,7 +2818,7 @@ resource class VulkanBuffer(
         val succeeded = this.mappedActive()
         if (succeeded) {
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         succeeded
     }
@@ -2754,7 +2826,7 @@ resource class VulkanBuffer(
     trusted fun drop(): void {
         if (this.mappedActive()) {
             vkUnmapMemory(this.device, this.memory)
-            this.mapped.store(nativeNullPointer())
+            this.clearMappedState()
         }
         if (this.handle != 0) {
             vkDestroyBuffer(
@@ -5102,7 +5174,10 @@ trusted fun VulkanDevice.texture(
         0,
         0,
         0,
-        nativePointerCell(nativeNullPointer())
+        nativePointerCell(nativeNullPointer()),
+        0,
+        0,
+        0
     )
     var commandPool = 0
     var command = nativePointerCell(nativeNullPointer())
@@ -5671,6 +5746,9 @@ trusted fun VulkanDevice.buffer(
     var handle = 0
     var memory = 0
     val mapped = nativePointerCell(nativeNullPointer())
+    var mappedOffset = 0
+    var mappedSize = 0
+    var mappedAccess = 0
     val nativeUsage = vulkanBufferUsage(usage)
     if (this.valid() && size > 0 && size <= 1073741824 && nativeUsage != 0) {
         val createInfo = nativeByteBuffer(56)
@@ -5759,6 +5837,10 @@ trusted fun VulkanDevice.buffer(
         handle = 0
         memory = 0
     }
+    if (handle != 0 && memory != 0 && mappedAtCreation) {
+        mappedSize = size
+        mappedAccess = 2
+    }
     VulkanBuffer(
         this.handle,
         this.physicalDevice,
@@ -5767,7 +5849,10 @@ trusted fun VulkanDevice.buffer(
         handle,
         memory,
         size,
-        move(mapped)
+        move(mapped),
+        mappedOffset,
+        mappedSize,
+        mappedAccess
     )
 }
 

@@ -24,17 +24,127 @@ resource class GraphicsBuffer(
          (this.backend == graphicsBackendVulkan &&
           this.vulkan.mappedActive()))
 
+    trusted noescape fun mapWrite(
+        descriptor: BufferMapDescriptor = BufferMapDescriptor()
+    ): bool = this.mapWriteRange(descriptor.offset, descriptor.size)
+
+    trusted fun mapWriteRange(offset: int = 0, size: int = -1): bool {
+        var succeeded = this.valid() && !this.mapped() &&
+            bufferMapRangeValid(offset, size, this.descriptor.size) &&
+            (this.descriptor.usage & bufferUsageMapWrite) != 0
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.mapRange(offset, size, 2)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.mapRange(offset, size, 2)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
+    trusted noescape fun mapRead(
+        descriptor: BufferMapDescriptor = BufferMapDescriptor()
+    ): bool = this.mapReadRange(descriptor.offset, descriptor.size)
+
+    trusted fun mapReadRange(offset: int = 0, size: int = -1): bool {
+        var succeeded = this.valid() && !this.mapped() &&
+            bufferMapRangeValid(offset, size, this.descriptor.size) &&
+            (this.descriptor.usage & bufferUsageMapRead) != 0
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.mapRange(offset, size, 1)
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.mapRange(offset, size, 1)
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
     trusted fun writeMappedBytes(
         source: BufferBytes,
         copy: BufferCopyDescriptor = BufferCopyDescriptor()
+    ): bool = this.writeMappedRange(
+        source,
+        copy.sourceOffset,
+        copy.destinationOffset,
+        copy.size
+    )
+
+    trusted fun writeMappedRange(
+        source: BufferBytes,
+        sourceOffset: int = 0,
+        destinationOffset: int = 0,
+        size: int = -1
     ): bool {
+        val byteCount = bufferMapResolvedSize(
+            sourceOffset,
+            size,
+            source.size
+        )
         var succeeded = this.valid() && this.mapped() && source.valid() &&
-            copy.valid(source.size, this.descriptor.size) &&
+            sourceOffset >= 0 && sourceOffset < source.size &&
+            destinationOffset >= 0 &&
+            destinationOffset < this.descriptor.size && byteCount > 0 &&
+            byteCount <= source.size - sourceOffset &&
+            byteCount <= this.descriptor.size - destinationOffset &&
             (this.descriptor.usage & bufferUsageMapWrite) != 0
         if (succeeded && this.backend == graphicsBackendOpenGl) {
-            succeeded = this.openGl.writeMappedBytes(source, copy)
+            succeeded = this.openGl.writeMappedRange(
+                source,
+                sourceOffset,
+                destinationOffset,
+                byteCount
+            )
         } else if (succeeded && this.backend == graphicsBackendVulkan) {
-            succeeded = this.vulkan.writeMappedBytes(source, copy)
+            succeeded = this.vulkan.writeMappedRange(
+                source,
+                sourceOffset,
+                destinationOffset,
+                byteCount
+            )
+        } else if (succeeded) succeeded = false
+        succeeded
+    }
+
+    trusted fun readMappedBytes(
+        var destination: BufferBytes,
+        copy: BufferCopyDescriptor = BufferCopyDescriptor()
+    ): bool = this.readMappedRange(
+        destination,
+        copy.sourceOffset,
+        copy.destinationOffset,
+        copy.size
+    )
+
+    trusted fun readMappedRange(
+        var destination: BufferBytes,
+        sourceOffset: int = 0,
+        destinationOffset: int = 0,
+        size: int = -1
+    ): bool {
+        val byteCount = bufferMapResolvedSize(
+            sourceOffset,
+            size,
+            this.descriptor.size
+        )
+        var succeeded = this.valid() && this.mapped() &&
+            destination.valid() &&
+            sourceOffset >= 0 && sourceOffset < this.descriptor.size &&
+            destinationOffset >= 0 && destinationOffset < destination.size &&
+            byteCount > 0 &&
+            byteCount <= this.descriptor.size - sourceOffset &&
+            byteCount <= destination.size - destinationOffset &&
+            (this.descriptor.usage & bufferUsageMapRead) != 0
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
+            succeeded = this.openGl.readMappedRange(
+                destination,
+                sourceOffset,
+                destinationOffset,
+                byteCount
+            )
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
+            succeeded = this.vulkan.readMappedRange(
+                destination,
+                sourceOffset,
+                destinationOffset,
+                byteCount
+            )
         } else if (succeeded) succeeded = false
         succeeded
     }
@@ -188,7 +298,10 @@ trusted fun GraphicsApplication.buffer(
         nativeNullPointer(),
         nativeNullPointer(),
         nativeByteBuffer(0),
-        nativePointerCell(nativeNullPointer())
+        nativePointerCell(nativeNullPointer()),
+        0,
+        0,
+        0
     )
     var vulkan = VulkanBuffer(
         nativeNullPointer(),
@@ -198,7 +311,10 @@ trusted fun GraphicsApplication.buffer(
         0,
         0,
         0,
-        nativePointerCell(nativeNullPointer())
+        nativePointerCell(nativeNullPointer()),
+        0,
+        0,
+        0
     )
     var error = GraphicsError()
     val validation = descriptor.validation()

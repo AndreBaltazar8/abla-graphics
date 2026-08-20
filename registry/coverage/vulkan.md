@@ -780,7 +780,7 @@
 | `vkInvalidateMappedMemoryRanges` | definition | unclassified | - | - | - | - |
 | `vkLatencySleepLegacyNV` | definition | unclassified | - | - | - | - |
 | `vkLatencySleepNV` | definition | unclassified | - | - | - | - |
-| `vkMapMemory` | definition | common | src/driver/vulkan.ab mapped-at-creation plus checked buffer transfer | src/driver/vulkan.ab typed device memory range flags and mapped-pointer ABI | examples/common-buffer/main.ab exact mapped write unmap and GPU copy | tests/application/main.ab mapped use range and usage rejection |
+| `vkMapMemory` | definition | common | src/driver/vulkan.ab mapped-at-creation and reusable coherent read-write mapping | src/driver/vulkan.ab typed aligned memory range flags and mapped-pointer ABI | examples/common-buffer/main.ab allocation-free repeated write and read maps | tests/application/main.ab access nested mapped-use and logical-range rejection |
 | `vkMapMemory2` | definition | unclassified | - | - | - | - |
 | `vkMapMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkMergePipelineCaches` | definition | unclassified | - | - | - | - |
@@ -841,7 +841,7 @@
 | `vkTrimCommandPool` | definition | unclassified | - | - | - | - |
 | `vkTrimCommandPoolKHR` | alias | unclassified | - | - | - | - |
 | `vkUninitializePerformanceApiINTEL` | definition | unclassified | - | - | - | - |
-| `vkUnmapMemory` | definition | common | src/driver/vulkan.ab explicit affine and temporary mapping completion | src/driver/vulkan.ab typed device and memory ABI | examples/common-buffer/main.ab exact one-shot unmap and post-unmap copy | tests/application/main.ab repeated unmap and mapped GPU use rejection |
+| `vkUnmapMemory` | definition | common | src/driver/vulkan.ab explicit reusable affine and temporary mapping completion | src/driver/vulkan.ab typed device and memory ABI | examples/common-buffer/main.ab repeated write-read unmap with zero growth | tests/application/main.ab repeated unmap and mapped GPU use rejection |
 | `vkUnmapMemory2` | definition | unclassified | - | - | - | - |
 | `vkUnmapMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkUnregisterCustomBorderColorEXT` | definition | unclassified | - | - | - | - |

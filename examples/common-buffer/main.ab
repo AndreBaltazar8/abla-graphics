@@ -98,8 +98,45 @@ fun main: int {
     val mappedReadbackRange = BufferCopyDescriptor(128, 2, 8)
     val mappedDownloaded = mappedReadback.fill(0) &&
         copiedBuffer.readBytes(mappedReadback, mappedReadbackRange)
+    val remapRange = BufferMapDescriptor(16, 8)
+    val remapWriteRange = BufferCopyDescriptor(4, 16, 8)
+    val remapStarted = mappedSource.mapWrite(remapRange)
+    val remapWritten = mappedSource.writeMappedBytes(
+        mappedUpload,
+        remapWriteRange
+    )
+    val remapOutsideRejected = !mappedSource.writeMappedBytes(
+        mappedUpload,
+        BufferCopyDescriptor(4, 15, 8)
+    )
+    val remapFinished = mappedSource.unmap()
+    val mappedReadSource = app.buffer(BufferDescriptor(
+        label = "sample-mapped-readback",
+        size = 32,
+        usage = bufferUsageMapRead | bufferUsageCopyDestination
+    ))
+    val remapCopyRange = BufferCopyDescriptor(16, 8, 8)
+    val remapCopied = app.copyBuffer(
+        mappedSource,
+        mappedReadSource,
+        remapCopyRange
+    )
+    val readMapRange = BufferMapDescriptor(8, 8)
+    val readMappedRange = BufferCopyDescriptor(8, 2, 8)
+    val readMapStarted = mappedReadSource.mapRead(readMapRange)
+    val readMapped = mappedReadSource.readMappedBytes(
+        mappedReadback,
+        readMappedRange
+    )
+    val readOutsideRejected = !mappedReadSource.readMappedBytes(
+        mappedReadback,
+        BufferCopyDescriptor(7, 2, 8)
+    )
+    val readMapFinished = mappedReadSource.unmap()
     val mappedOpenGlHandle = mappedSource.openGl.handle
     val mappedVulkanHandle = mappedSource.vulkan.handle
+    val readOpenGlHandle = mappedReadSource.openGl.handle
+    val readVulkanHandle = mappedReadSource.vulkan.handle
     val liveBeforeRepeats = runtimeMemoryLiveBytes()
     var repeated = uploaded && downloaded && gpuCopied && gpuDownloaded &&
         gpuFilled && gpuFillDownloaded && mappedCopied && mappedDownloaded
@@ -120,14 +157,32 @@ fun main: int {
             ) && copiedBuffer.readBytes(
                 mappedReadback,
                 mappedReadbackRange
-            )
+            ) && mappedSource.mapWriteRange(16, 8) &&
+            mappedSource.writeMappedRange(
+                mappedUpload,
+                4,
+                16,
+                8
+            ) && mappedSource.unmap() && app.copyBuffer(
+                mappedSource,
+                mappedReadSource,
+                remapCopyRange
+            ) && mappedReadSource.mapReadRange(8, 8) &&
+            mappedReadSource.readMappedRange(
+                mappedReadback,
+                8,
+                2,
+                8
+            ) && mappedReadSource.unmap()
         repeat = repeat + 1
     }
     val liveAfterRepeats = runtimeMemoryLiveBytes()
     val noTransferAllocations = liveAfterRepeats == liveBeforeRepeats
     val mappedHandleStable = if (app.backend == graphicsBackendOpenGl)
-        mappedSource.openGl.handle == mappedOpenGlHandle
-    else mappedSource.vulkan.handle == mappedVulkanHandle
+        mappedSource.openGl.handle == mappedOpenGlHandle &&
+            mappedReadSource.openGl.handle == readOpenGlHandle
+    else mappedSource.vulkan.handle == mappedVulkanHandle &&
+        mappedReadSource.vulkan.handle == readVulkanHandle
     val passed = app.valid() && buffer.valid() && copiedBuffer.valid() &&
         buffer.writeI64(expected, 24) && buffer.readI64(24) == expected &&
         uploaded && downloaded && gpuCopied && gpuDownloaded &&
@@ -135,6 +190,10 @@ fun main: int {
         mappingStarted && mappedWritten && mappedOrdinaryWriteRejected &&
         mappedGpuUseRejected && mappingFinished && mappedCopied &&
         mappedDownloaded && mappedReadback.loadI64(2) == mappedValue &&
+        remapStarted && remapWritten && remapOutsideRejected &&
+        remapFinished && mappedReadSource.valid() && remapCopied &&
+        readMapStarted && readMapped && readOutsideRejected &&
+        readMapFinished &&
         mappedHandleStable &&
         repeated && noTransferAllocations &&
         readback.load(3) == 23 &&
@@ -156,7 +215,7 @@ fun main: int {
             0.4375
         ))
     println(
-        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, mapped=${mappingStarted && mappedWritten && mappingFinished && mappedCopied && mappedDownloaded}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, mappedHandleStable=$mappedHandleStable, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, mapped=${mappingStarted && mappedWritten && mappingFinished && mappedCopied && mappedDownloaded}, remap=${remapStarted && remapWritten && remapFinished && remapCopied}, readMap=${readMapStarted && readMapped && readMapFinished}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, mappedHandleStable=$mappedHandleStable, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

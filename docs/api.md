@@ -540,6 +540,37 @@ buffer unmaps it before native destruction. Vulkan uses host-coherent memory,
 so the portable unmap boundary also makes the written bytes visible without a
 backend-specific flush call.
 
+Map-read and map-write buffers may also map checked subranges after creation:
+
+```abla
+val range = BufferMapDescriptor(offset = 128, size = 256)
+staging.mapWrite(range)
+staging.writeMappedBytes(initial, BufferCopyDescriptor(
+    sourceOffset = 0,
+    destinationOffset = 128,
+    size = 256
+))
+staging.unmap()
+
+readback.mapRead(BufferMapDescriptor(offset = 512, size = 256))
+readback.readMappedBytes(cpuBytes, BufferCopyDescriptor(
+    sourceOffset = 512,
+    destinationOffset = 0,
+    size = 256
+))
+readback.unmap()
+```
+
+The descriptor API is intended for ordinary application code. Allocation-
+critical loops can call `mapWriteRange`/`mapReadRange` and
+`writeMappedRange`/`readMappedRange` with primitive offsets and sizes; these
+have identical checks without promoting descriptor aggregates across call
+boundaries. The common-buffer sample reuses both mappings for four complete
+write-map/unmap/GPU-copy/read-map/unmap cycles with stable native handles and
+zero live-byte growth. OpenGL maps the exact native range. Vulkan maps its
+host-coherent allocation from alignment-safe offset zero and enforces the same
+logical subrange in Abla.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -571,8 +602,8 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Post-creation remapping, persistently mapped concurrent GPU use, queued
-transfers, and device-local selection remain upcoming APIs.
+Persistently mapped concurrent GPU use, queued transfers, and device-local
+selection remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:

@@ -883,7 +883,10 @@ resource class OpenGlBuffer(
     val surface: i64*,
     val context: i64*,
     val scratch: NativeByteBuffer,
-    val mappedAddress: NativePointerCell
+    val mappedAddress: NativePointerCell,
+    var mappedOffset: int,
+    var mappedSize: int,
+    var mappedAccess: int
 ) {
     fun valid(): bool = this.handle != 0 && this.size > 0 &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
@@ -891,7 +894,18 @@ resource class OpenGlBuffer(
         !this.mappedAddress.closed
 
     trusted fun mapped(): bool = this.valid() &&
-        !pointerIsNull(this.mappedAddress.load())
+        !pointerIsNull(this.mappedAddress.load()) &&
+        this.mappedOffset >= 0 && this.mappedSize > 0 &&
+        (this.mappedAccess == 1 || this.mappedAccess == 2)
+
+    fun mappedReadable(): bool = this.mapped() && this.mappedAccess == 1
+
+    fun mappedWritable(): bool = this.mapped() && this.mappedAccess == 2
+
+    fun mappedContains(offset: int, size: int): bool = this.mapped() &&
+        offset >= this.mappedOffset && size > 0 &&
+        offset <= this.size - size &&
+        offset - this.mappedOffset <= this.mappedSize - size
 
     trusted fun makeCurrent(): bool = this.valid() && eglMakeCurrent(
         this.display,
@@ -1026,20 +1040,76 @@ resource class OpenGlBuffer(
         succeeded
     }
 
-    trusted fun writeMappedBytes(
+    trusted fun writeMappedRange(
         source: BufferBytes,
-        copy: BufferCopyDescriptor
+        sourceOffset: int,
+        destinationOffset: int,
+        byteCount: int
     ): bool {
-        val succeeded = this.mapped() && source.valid() &&
-            copy.valid(source.size, this.size)
+        val succeeded = this.mappedWritable() && source.valid() &&
+            sourceOffset >= 0 && sourceOffset < source.size &&
+            byteCount > 0 && byteCount <= source.size - sourceOffset &&
+            this.mappedContains(destinationOffset, byteCount)
         if (succeeded) ablaUnsafeCopyMemory(
             ablaUnsafePointerOffset(
                 this.mappedAddress.load(),
-                copy.destinationOffset
+                destinationOffset - this.mappedOffset
             ),
-            source.storage.pointerAt(copy.sourceOffset),
-            copy.resolvedSize(source.size)
+            source.storage.pointerAt(sourceOffset),
+            byteCount
         )
+        succeeded
+    }
+
+    trusted fun readMappedRange(
+        var destination: BufferBytes,
+        sourceOffset: int,
+        destinationOffset: int,
+        byteCount: int
+    ): bool {
+        val succeeded = this.mappedReadable() && destination.valid() &&
+            destinationOffset >= 0 && destinationOffset < destination.size &&
+            byteCount > 0 && byteCount <= destination.size - destinationOffset &&
+            this.mappedContains(sourceOffset, byteCount)
+        if (succeeded) ablaUnsafeCopyMemory(
+            destination.storage.pointerAt(destinationOffset),
+            ablaUnsafePointerOffset(
+                this.mappedAddress.load(),
+                sourceOffset - this.mappedOffset
+            ),
+            byteCount
+        )
+        succeeded
+    }
+
+    trusted fun mapRange(
+        offset: int,
+        size: int,
+        access: int
+    ): bool {
+        var succeeded = !this.mapped() &&
+            bufferMapRangeValid(offset, size, this.size) &&
+            (access == 1 || access == 2) && this.makeCurrent()
+        if (succeeded) {
+            val byteCount = bufferMapResolvedSize(offset, size, this.size)
+            glBindBuffer(34962, this.handle)
+            val address = glMapBufferRange(
+                34962,
+                offset,
+                byteCount,
+                access
+            )
+            succeeded = !pointerIsNull(address) &&
+                this.mappedAddress.store(address) && glGetError() == 0
+            if (succeeded) {
+                this.mappedOffset = offset
+                this.mappedSize = byteCount
+                this.mappedAccess = access
+            } else if (!pointerIsNull(address)) {
+                glUnmapBuffer(34962)
+                this.mappedAddress.store(nativeNullPointer())
+            }
+        }
         succeeded
     }
 
@@ -1049,6 +1119,9 @@ resource class OpenGlBuffer(
             glBindBuffer(34962, this.handle)
             succeeded = glUnmapBuffer(34962) == 1 && glGetError() == 0
             this.mappedAddress.store(nativeNullPointer())
+            this.mappedOffset = 0
+            this.mappedSize = 0
+            this.mappedAccess = 0
         }
         succeeded
     }
@@ -1067,6 +1140,9 @@ resource class OpenGlBuffer(
                 glBindBuffer(34962, this.handle)
                 glUnmapBuffer(34962)
                 this.mappedAddress.store(nativeNullPointer())
+                this.mappedOffset = 0
+                this.mappedSize = 0
+                this.mappedAccess = 0
             }
             val output = nativeI64Cell(this.handle)
             glDeleteBuffers(1, output.address)
@@ -1084,6 +1160,9 @@ trusted fun OpenGlWindowContext.buffer(
 ): OpenGlBuffer {
     var handle = 0
     val mappedAddress = nativePointerCell(nativeNullPointer())
+    var mappedOffset = 0
+    var mappedSize = 0
+    var mappedAccess = 0
     if (size > 0 && size <= 1073741824 && this.makeCurrent()) {
         val output = nativeI64Cell(0)
         glGenBuffers(1, output.address)
@@ -1096,11 +1175,17 @@ trusted fun OpenGlWindowContext.buffer(
                 val address = glMapBufferRange(34962, 0, size, 2)
                 succeeded = !pointerIsNull(address) &&
                     mappedAddress.store(address) && glGetError() == 0
+                if (succeeded) {
+                    mappedSize = size
+                    mappedAccess = 2
+                }
             }
             if (!succeeded) {
                 if (!pointerIsNull(mappedAddress.load())) {
                     glUnmapBuffer(34962)
                     mappedAddress.store(nativeNullPointer())
+                    mappedSize = 0
+                    mappedAccess = 0
                 }
                 glDeleteBuffers(1, output.address)
                 handle = 0
@@ -1114,7 +1199,10 @@ trusted fun OpenGlWindowContext.buffer(
         this.surface,
         this.context,
         nativeByteBuffer(8),
-        move(mappedAddress)
+        move(mappedAddress),
+        mappedOffset,
+        mappedSize,
+        mappedAccess
     )
 }
 
