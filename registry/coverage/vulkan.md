@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 49/842
+- Classified commands: 56/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -27,7 +27,7 @@
 | `vkAcquireWinrtDisplayNV` | definition | unclassified | - | - | - | - |
 | `vkAcquireXlibDisplayEXT` | definition | unclassified | - | - | - | - |
 | `vkAllocateCommandBuffers` | definition | unclassified | - | - | - | - |
-| `vkAllocateDescriptorSets` | definition | unclassified | - | - | - | - |
+| `vkAllocateDescriptorSets` | definition | common | src/driver/vulkan.ab affine bind-group descriptor allocation | src/driver/vulkan.ab packed DescriptorSetAllocateInfo ABI | examples/common-textured/main.ab stable descriptor set across repeated rendering | tests/application/main.ab duplicate binding rejection |
 | `vkAllocateMemory` | definition | common | src/driver/vulkan.ab buffer memory allocation | src/driver/vulkan.ab packed allocation and memory-properties ABIs | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid and oversized buffer rejection |
 | `vkAntiLagUpdateAMD` | definition | unclassified | - | - | - | - |
 | `vkBeginCommandBuffer` | definition | unclassified | - | - | - | - |
@@ -66,7 +66,7 @@
 | `vkCmdBindDescriptorBufferEmbeddedSamplers2EXT` | definition | unclassified | - | - | - | - |
 | `vkCmdBindDescriptorBufferEmbeddedSamplersEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdBindDescriptorBuffersEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdBindDescriptorSets` | definition | unclassified | - | - | - | - |
+| `vkCmdBindDescriptorSets` | definition | common | src/driver/vulkan.ab render and compute descriptor binding | src/driver/vulkan.ab typed bind-point layout set and offset ABI | examples/common-textured/main.ab repeated indexed sampled rendering | examples/common-textured/main.ab missing shader binding rejection |
 | `vkCmdBindDescriptorSets2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindDescriptorSets2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdBindIndexBuffer` | definition | unclassified | - | - | - | - |
@@ -393,8 +393,8 @@
 | `vkCreateDebugReportCallbackEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateDebugUtilsMessengerEXT` | definition | common | src/driver/vulkan_debug.ab negotiated debug-utils messenger | src/driver/vulkan_debug.ab packed messenger create ABI and typed indirect call | tests/vulkan/main.ab live messenger and exact submitted message counts | tests/vulkan/main.ab explicitly disabled extension path |
 | `vkCreateDeferredOperationKHR` | definition | unclassified | - | - | - | - |
-| `vkCreateDescriptorPool` | definition | unclassified | - | - | - | - |
-| `vkCreateDescriptorSetLayout` | definition | unclassified | - | - | - | - |
+| `vkCreateDescriptorPool` | definition | common | src/driver/vulkan.ab affine descriptor-pool creation | src/driver/vulkan.ab packed DescriptorPoolSize and DescriptorPoolCreateInfo ABIs | examples/common-textured/main.ab live sampled bind-group creation | tests/application/main.ab duplicate and wrong-usage binding rejection |
+| `vkCreateDescriptorSetLayout` | definition | common | src/driver/vulkan.ab reflected bind-group layout creation | src/driver/vulkan.ab packed DescriptorSetLayoutBinding and create-info ABIs | tests/application/main.ab sampled uniform and storage layout validation | tests/application/main.ab duplicate binding rejection |
 | `vkCreateDescriptorUpdateTemplate` | definition | unclassified | - | - | - | - |
 | `vkCreateDescriptorUpdateTemplateKHR` | alias | unclassified | - | - | - | - |
 | `vkCreateDevice` | definition | unclassified | - | - | - | - |
@@ -473,8 +473,8 @@
 | `vkDestroyDebugReportCallbackEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyDebugUtilsMessengerEXT` | definition | common | src/driver/vulkan_debug.ab affine debug messenger lifetime | src/driver/vulkan_debug.ab typed indirect destroy call | tests/vulkan/main.ab stable owned messenger handle | tests/vulkan/main.ab invalid messenger idempotent drop |
 | `vkDestroyDeferredOperationKHR` | definition | unclassified | - | - | - | - |
-| `vkDestroyDescriptorPool` | definition | unclassified | - | - | - | - |
-| `vkDestroyDescriptorSetLayout` | definition | unclassified | - | - | - | - |
+| `vkDestroyDescriptorPool` | definition | common | src/driver/vulkan.ab affine descriptor-pool lifetime | src/driver/vulkan.ab typed extern signature | examples/common-textured/main.ab repeated bind-group render lifecycle | tests/application/main.ab invalid bind-group rejection before allocation |
+| `vkDestroyDescriptorSetLayout` | definition | common | src/driver/vulkan.ab affine descriptor-layout lifetime | src/driver/vulkan.ab typed extern signature | examples/common-textured/main.ab repeated bind-group render lifecycle | tests/application/main.ab invalid bind-group rejection before allocation |
 | `vkDestroyDescriptorUpdateTemplate` | definition | unclassified | - | - | - | - |
 | `vkDestroyDescriptorUpdateTemplateKHR` | alias | unclassified | - | - | - | - |
 | `vkDestroyDevice` | definition | unclassified | - | - | - | - |
@@ -847,7 +847,7 @@
 | `vkUnregisterCustomBorderColorEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateDescriptorSetWithTemplate` | definition | unclassified | - | - | - | - |
 | `vkUpdateDescriptorSetWithTemplateKHR` | alias | unclassified | - | - | - | - |
-| `vkUpdateDescriptorSets` | definition | unclassified | - | - | - | - |
+| `vkUpdateDescriptorSets` | definition | common | src/driver/vulkan.ab sampled uniform and storage descriptor writes | src/driver/vulkan.ab packed WriteDescriptorSet image-info and buffer-info ABIs | examples/common-textured/main.ab exact sampled texture binding render | tests/application/main.ab wrong usage and duplicate binding rejection |
 | `vkUpdateIndirectExecutionSetPipelineEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateIndirectExecutionSetShaderEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateVideoSessionParametersKHR` | definition | unclassified | - | - | - | - |

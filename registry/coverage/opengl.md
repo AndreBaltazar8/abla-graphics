@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 38/2892
+- Classified commands: 41/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -24,7 +24,7 @@
 | `glActiveProgramEXT` | definition | unclassified | - | - | - | - |
 | `glActiveShaderProgram` | definition | unclassified | - | - | - | - |
 | `glActiveStencilFaceEXT` | definition | unclassified | - | - | - | - |
-| `glActiveTexture` | definition | unclassified | - | - | - | - |
+| `glActiveTexture` | definition | common | src/driver/opengl.ab sampled-texture slot activation | src/driver/opengl.ab typed texture-unit ABI | examples/common-textured/main.ab repeated sampled rendering with stable binding | examples/common-textured/main.ab missing shader binding rejection |
 | `glActiveTextureARB` | definition | unclassified | - | - | - | - |
 | `glActiveVaryingNV` | definition | unclassified | - | - | - | - |
 | `glAddClientPointerRangeMESA` | definition | unclassified | - | - | - | - |
@@ -67,7 +67,7 @@
 | `glBindAttribLocationARB` | definition | unclassified | - | - | - | - |
 | `glBindBuffer` | definition | common | src/driver/opengl.ab buffer target binding | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact buffer upload readback copy and fill | tests/application/main.ab range and usage rejection |
 | `glBindBufferARB` | definition | unclassified | - | - | - | - |
-| `glBindBufferBase` | definition | unclassified | - | - | - | - |
+| `glBindBufferBase` | definition | common | src/driver/opengl.ab uniform and storage binding slots | src/driver/opengl.ab typed target index and name ABI | tests/application/main.ab exact storage compute and bind-group validation | tests/application/main.ab wrong buffer usage rejection |
 | `glBindBufferBaseEXT` | definition | unclassified | - | - | - | - |
 | `glBindBufferBaseNV` | definition | unclassified | - | - | - | - |
 | `glBindBufferOffsetEXT` | definition | unclassified | - | - | - | - |
@@ -95,7 +95,7 @@
 | `glBindProgramPipeline` | definition | unclassified | - | - | - | - |
 | `glBindRenderbuffer` | definition | unclassified | - | - | - | - |
 | `glBindRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glBindSampler` | definition | unclassified | - | - | - | - |
+| `glBindSampler` | definition | common | src/driver/opengl.ab sampled-texture sampler binding | src/driver/opengl.ab typed unit and sampler-name ABI | examples/common-textured/main.ab repeated sampled rendering with stable binding | examples/common-textured/main.ab missing shader binding rejection |
 | `glBindSamplers` | definition | unclassified | - | - | - | - |
 | `glBindShadingRateImageNV` | definition | unclassified | - | - | - | - |
 | `glBindTexGenParameterEXT` | definition | unclassified | - | - | - | - |
