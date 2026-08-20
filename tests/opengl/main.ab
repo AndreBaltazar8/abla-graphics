@@ -5,6 +5,38 @@ import "../../src/driver/opengl_debug.ab"
 fun main: int {
     val context = openGlHeadlessContext()
     val capabilities = context.capabilities()
+    val invalidShader = openGlCompileShader(
+        35633,
+        "#version 450\nvoid main( { gl_Position = vec4(0.0); }"
+    )
+    val emptyProgram = glCreateProgram()
+    var emptyProgramError = ""
+    var emptyProgramRejected = false
+    if (emptyProgram != 0) {
+        glLinkProgram(emptyProgram)
+        val linked = nativeI64Cell(1)
+        glGetProgramiv(emptyProgram, 35714, linked.address)
+        emptyProgramRejected = (linked.load() & 4294967295) == 0
+        emptyProgramError = openGlProgramLog(emptyProgram)
+        glDeleteProgram(emptyProgram)
+    }
+    val validProgram = openGlProgram(
+        "#version 450\nlayout(location=0) in vec2 position; void main(){ gl_Position=vec4(position,0.0,1.0); }",
+        "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0); }"
+    )
+    val validProgramHandle = validProgram.handle
+    var shaderLifecyclePassed = invalidShader.handle == 0 &&
+        invalidShader.error != "" && emptyProgram != 0 &&
+        emptyProgramRejected && validProgram.valid()
+    if (shaderLifecyclePassed) {
+        glUseProgram(validProgram.handle)
+        shaderLifecyclePassed = glGetError() == 0
+        glUseProgram(0)
+        shaderLifecyclePassed = shaderLifecyclePassed && glGetError() == 0
+    }
+    validProgram.drop()
+    shaderLifecyclePassed = shaderLifecyclePassed &&
+        validProgramHandle != 0 && !validProgram.valid()
     val debug = context.debugMessenger()
     val debugCallbackAddress = debug.callbackAddress
     val debugMessage = "Abla OpenGL debug message"
@@ -81,8 +113,12 @@ fun main: int {
         capabilities.limits.maximumComputeWorkgroupSizeZ <= 0 ||
         capabilities.limits.maximumSamplerAnisotropy < 16) result = 6
     else if (!debugPassed) result = 7
+    else if (!shaderLifecyclePassed) result = 8
     if (result == 7) println(
         "OpenGL debug failure valid=${debug.valid()} live=$debugLiveBefore/$debugLiveAfter counts=${debugBefore.total}/${debugAfter.total},${debugBefore.high}/${debugAfter.high},${debugBefore.medium}/${debugAfter.medium},${debugBefore.low}/${debugAfter.low},${debugBefore.notification}/${debugAfter.notification}"
+    )
+    if (result == 8) println(
+        "OpenGL shader lifecycle failure invalid=${invalidShader.handle}/'${invalidShader.error}' emptyRejected=$emptyProgramRejected emptyLog='$emptyProgramError' valid=$validProgramHandle/${validProgram.valid()}"
     )
     result
 }

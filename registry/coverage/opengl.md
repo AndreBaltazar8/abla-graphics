@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 41/2892
+- Classified commands: 56/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -46,7 +46,7 @@
 | `glAsyncCopyImageSubDataNVX` | definition | unclassified | - | - | - | - |
 | `glAsyncMarkerSGIX` | definition | unclassified | - | - | - | - |
 | `glAttachObjectARB` | definition | unclassified | - | - | - | - |
-| `glAttachShader` | definition | unclassified | - | - | - | - |
+| `glAttachShader` | definition | common | src/driver/opengl.ab render and compute program assembly | src/driver/opengl.ab typed program and shader-name ABI | tests/opengl/main.ab valid vertex and fragment program link | tests/opengl/main.ab empty program link rejection |
 | `glBegin` | definition | unclassified | - | - | - | - |
 | `glBeginConditionalRender` | definition | unclassified | - | - | - | - |
 | `glBeginConditionalRenderNV` | definition | unclassified | - | - | - | - |
@@ -292,7 +292,7 @@
 | `glCombinerStageParameterfvNV` | definition | unclassified | - | - | - | - |
 | `glCommandListSegmentsNV` | definition | unclassified | - | - | - | - |
 | `glCompileCommandListNV` | definition | unclassified | - | - | - | - |
-| `glCompileShader` | definition | unclassified | - | - | - | - |
+| `glCompileShader` | definition | common | src/driver/opengl.ab GLSL source compilation | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab valid vertex and fragment compilation | tests/opengl/main.ab malformed source compiler rejection |
 | `glCompileShaderARB` | definition | unclassified | - | - | - | - |
 | `glCompileShaderIncludeARB` | definition | unclassified | - | - | - | - |
 | `glCompressedMultiTexImage1DEXT` | definition | unclassified | - | - | - | - |
@@ -376,7 +376,7 @@
 | `glCreateFramebuffers` | definition | unclassified | - | - | - | - |
 | `glCreateMemoryObjectsEXT` | definition | unclassified | - | - | - | - |
 | `glCreatePerfQueryINTEL` | definition | unclassified | - | - | - | - |
-| `glCreateProgram` | definition | unclassified | - | - | - | - |
+| `glCreateProgram` | definition | common | src/driver/opengl.ab affine render and compute program creation | src/driver/opengl.ab typed result ABI | tests/opengl/main.ab valid linked program creation | tests/opengl/main.ab empty program link rejection |
 | `glCreateProgramObjectARB` | definition | unclassified | - | - | - | - |
 | `glCreateProgramPipelines` | definition | unclassified | - | - | - | - |
 | `glCreateProgressFenceNVX` | definition | unclassified | - | - | - | - |
@@ -384,7 +384,7 @@
 | `glCreateRenderbuffers` | definition | unclassified | - | - | - | - |
 | `glCreateSamplers` | definition | unclassified | - | - | - | - |
 | `glCreateSemaphoresNV` | definition | unclassified | - | - | - | - |
-| `glCreateShader` | definition | unclassified | - | - | - | - |
+| `glCreateShader` | definition | common | src/driver/opengl.ab affine source and SPIR-V shader creation | src/driver/opengl.ab typed stage result ABI | tests/application/main.ab render and specialized compute shader creation | tests/opengl/main.ab malformed source rejection |
 | `glCreateShaderObjectARB` | definition | unclassified | - | - | - | - |
 | `glCreateShaderProgramEXT` | definition | unclassified | - | - | - | - |
 | `glCreateShaderProgramv` | definition | unclassified | - | - | - | - |
@@ -427,7 +427,7 @@
 | `glDeletePathsNV` | definition | unclassified | - | - | - | - |
 | `glDeletePerfMonitorsAMD` | definition | unclassified | - | - | - | - |
 | `glDeletePerfQueryINTEL` | definition | unclassified | - | - | - | - |
-| `glDeleteProgram` | definition | unclassified | - | - | - | - |
+| `glDeleteProgram` | definition | common | src/driver/opengl.ab affine program lifetime | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid program drop invalidates wrapper | tests/opengl/main.ab rejected empty program cleanup |
 | `glDeleteProgramPipelines` | definition | unclassified | - | - | - | - |
 | `glDeleteProgramsARB` | definition | unclassified | - | - | - | - |
 | `glDeleteProgramsNV` | definition | unclassified | - | - | - | - |
@@ -438,7 +438,7 @@
 | `glDeleteRenderbuffersEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteSamplers` | definition | common | src/driver/opengl.ab affine sampler lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
 | `glDeleteSemaphoresEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteShader` | definition | unclassified | - | - | - | - |
+| `glDeleteShader` | definition | common | src/driver/opengl.ab affine attached-shader lifetime | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab linked source shader cleanup | tests/opengl/main.ab failed compile cleanup |
 | `glDeleteStatesNV` | definition | unclassified | - | - | - | - |
 | `glDeleteSync` | definition | unclassified | - | - | - | - |
 | `glDeleteTextures` | definition | common | src/driver/opengl.ab affine texture lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab texture target and upload lifecycle | tests/application/main.ab invalid texture descriptor rejection |
@@ -934,7 +934,7 @@
 | `glGetProgramEnvParameterIuivNV` | definition | unclassified | - | - | - | - |
 | `glGetProgramEnvParameterdvARB` | definition | unclassified | - | - | - | - |
 | `glGetProgramEnvParameterfvARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramInfoLog` | definition | unclassified | - | - | - | - |
+| `glGetProgramInfoLog` | definition | common | src/driver/opengl.ab bounded link diagnostic capture | src/driver/opengl.ab typed length and byte-output ABI | tests/opengl/main.ab empty-program link diagnostic path | src/driver/opengl.ab 4096-byte bounded adoption |
 | `glGetProgramInterfaceiv` | definition | unclassified | - | - | - | - |
 | `glGetProgramLocalParameterIivNV` | definition | unclassified | - | - | - | - |
 | `glGetProgramLocalParameterIuivNV` | definition | unclassified | - | - | - | - |
@@ -956,7 +956,7 @@
 | `glGetProgramStringARB` | definition | unclassified | - | - | - | - |
 | `glGetProgramStringNV` | definition | unclassified | - | - | - | - |
 | `glGetProgramSubroutineParameteruivNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramiv` | definition | unclassified | - | - | - | - |
+| `glGetProgramiv` | definition | common | src/driver/opengl.ab program link-status query | src/driver/opengl.ab typed parameter output ABI | tests/opengl/main.ab valid and empty program link status | tests/opengl/main.ab empty program rejection |
 | `glGetProgramivARB` | definition | unclassified | - | - | - | - |
 | `glGetProgramivNV` | definition | unclassified | - | - | - | - |
 | `glGetQueryBufferObjecti64v` | definition | unclassified | - | - | - | - |
@@ -983,11 +983,11 @@
 | `glGetSemaphoreParameterivNV` | definition | unclassified | - | - | - | - |
 | `glGetSemaphoreParameterui64vEXT` | definition | unclassified | - | - | - | - |
 | `glGetSeparableFilterEXT` | definition | unclassified | - | - | - | - |
-| `glGetShaderInfoLog` | definition | unclassified | - | - | - | - |
+| `glGetShaderInfoLog` | definition | common | src/driver/opengl.ab bounded compile diagnostic capture | src/driver/opengl.ab typed length and byte-output ABI | tests/opengl/main.ab exact malformed-source driver diagnostic | src/driver/opengl.ab 4096-byte bounded adoption |
 | `glGetShaderPrecisionFormat` | definition | unclassified | - | - | - | - |
 | `glGetShaderSource` | definition | unclassified | - | - | - | - |
 | `glGetShaderSourceARB` | definition | unclassified | - | - | - | - |
-| `glGetShaderiv` | definition | unclassified | - | - | - | - |
+| `glGetShaderiv` | definition | common | src/driver/opengl.ab source and specialized compile-status query | src/driver/opengl.ab typed parameter output ABI | tests/opengl/main.ab valid and malformed source status | tests/opengl/main.ab malformed source rejection |
 | `glGetShadingRateImagePaletteNV` | definition | unclassified | - | - | - | - |
 | `glGetShadingRateSampleLocationivNV` | definition | unclassified | - | - | - | - |
 | `glGetSharpenTexFuncSGIS` | definition | unclassified | - | - | - | - |
@@ -1248,7 +1248,7 @@
 | `glLineStipple` | definition | unclassified | - | - | - | - |
 | `glLineWidth` | definition | unclassified | - | - | - | - |
 | `glLineWidthxOES` | definition | unclassified | - | - | - | - |
-| `glLinkProgram` | definition | unclassified | - | - | - | - |
+| `glLinkProgram` | definition | common | src/driver/opengl.ab render and compute program linking | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid vertex-fragment link | tests/opengl/main.ab empty program link rejection |
 | `glLinkProgramARB` | definition | unclassified | - | - | - | - |
 | `glListBase` | definition | unclassified | - | - | - | - |
 | `glListDrawCommandsStatesClientNV` | definition | unclassified | - | - | - | - |
@@ -2056,11 +2056,11 @@
 | `glSetLocalConstantEXT` | definition | unclassified | - | - | - | - |
 | `glSetMultisamplefvAMD` | definition | unclassified | - | - | - | - |
 | `glShadeModel` | definition | unclassified | - | - | - | - |
-| `glShaderBinary` | definition | unclassified | - | - | - | - |
+| `glShaderBinary` | definition | common | src/driver/opengl.ab emitted SPIR-V shader upload | src/driver/opengl.ab typed shader-array format byte-buffer and length ABI | tests/application/main.ab specialized compute and raster SPIR-V pipelines | src/driver/opengl.ab binary upload error rejection |
 | `glShaderOp1EXT` | definition | unclassified | - | - | - | - |
 | `glShaderOp2EXT` | definition | unclassified | - | - | - | - |
 | `glShaderOp3EXT` | definition | unclassified | - | - | - | - |
-| `glShaderSource` | definition | unclassified | - | - | - | - |
+| `glShaderSource` | definition | common | src/driver/opengl.ab bounded GLSL source submission | src/driver/opengl.ab typed source-pointer array ABI | tests/opengl/main.ab valid source program creation | tests/opengl/main.ab malformed source rejection |
 | `glShaderSourceARB` | definition | unclassified | - | - | - | - |
 | `glShaderStorageBlockBinding` | definition | unclassified | - | - | - | - |
 | `glShadingRateCombinerOpsEXT` | definition | unclassified | - | - | - | - |
@@ -2074,7 +2074,7 @@
 | `glSignalSemaphoreui64NVX` | definition | unclassified | - | - | - | - |
 | `glSignalVkFenceNV` | definition | unclassified | - | - | - | - |
 | `glSignalVkSemaphoreNV` | definition | unclassified | - | - | - | - |
-| `glSpecializeShader` | definition | unclassified | - | - | - | - |
+| `glSpecializeShader` | definition | common | src/driver/opengl.ab scalar-specialized SPIR-V entry point | src/driver/opengl.ab typed entry-name index and value arrays ABI | tests/application/main.ab exact bool int uint and float specialization | tests/application/main.ab mismatched specialization rejection |
 | `glSpecializeShaderARB` | definition | unclassified | - | - | - | - |
 | `glSpriteParameterfSGIX` | definition | unclassified | - | - | - | - |
 | `glSpriteParameterfvSGIX` | definition | unclassified | - | - | - | - |
@@ -2459,7 +2459,7 @@
 | `glUnmapTexture2DINTEL` | definition | unclassified | - | - | - | - |
 | `glUpdateObjectBufferATI` | definition | unclassified | - | - | - | - |
 | `glUploadGpuMaskNVX` | definition | unclassified | - | - | - | - |
-| `glUseProgram` | definition | unclassified | - | - | - | - |
+| `glUseProgram` | definition | common | src/driver/opengl.ab render and compute program binding | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid program bind and unbind | tests/application/main.ab invalid pipeline rejection before binding |
 | `glUseProgramObjectARB` | definition | unclassified | - | - | - | - |
 | `glUseProgramStages` | definition | unclassified | - | - | - | - |
 | `glUseShaderProgramEXT` | definition | unclassified | - | - | - | - |

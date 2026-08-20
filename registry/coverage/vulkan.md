@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 56/842
+- Classified commands: 58/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -438,7 +438,7 @@
 | `vkCreateScreenSurfaceQNX` | definition | unclassified | - | - | - | - |
 | `vkCreateSemaphore` | definition | unclassified | - | - | - | - |
 | `vkCreateShaderInstrumentationARM` | definition | unclassified | - | - | - | - |
-| `vkCreateShaderModule` | definition | unclassified | - | - | - | - |
+| `vkCreateShaderModule` | definition | common | src/driver/vulkan.ab emitted SPIR-V module creation | src/driver/vulkan.ab packed ShaderModuleCreateInfo and little-endian code ABI | tests/application/main.ab exact compute vertex and fragment pipelines | tests/core.ab invalid SPIR-V module rejection |
 | `vkCreateShadersEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateSharedSwapchainsKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateStreamDescriptorSurfaceGGP` | definition | unclassified | - | - | - | - |
@@ -505,7 +505,7 @@
 | `vkDestroySemaphore` | definition | unclassified | - | - | - | - |
 | `vkDestroyShaderEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyShaderInstrumentationARM` | definition | unclassified | - | - | - | - |
-| `vkDestroyShaderModule` | definition | unclassified | - | - | - | - |
+| `vkDestroyShaderModule` | definition | common | src/driver/vulkan.ab affine shader-module lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab compute and render pipeline shader lifecycle | tests/core.ab invalid SPIR-V rejected before creation |
 | `vkDestroySurfaceKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroySwapchainKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroyTensorARM` | definition | unclassified | - | - | - | - |
