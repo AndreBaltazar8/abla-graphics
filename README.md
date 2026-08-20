@@ -270,8 +270,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   comma-declared mutable scalar locals updated with prefix/postfix `++`/`--`,
   including reflected `.w` extraction and `.bgra` permutation, plus vector
   locals including a runtime scalar-splat `vec4` denominator and `+=`
-  rebinding in storage-free SSA form, a typed `dot` product, vector negation,
-  and
+  rebinding in storage-free SSA form, a typed `dot` product clamped through
+  `GLSL.std.450`, vector negation, and
   precedence-ordered vector/scalar division plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;

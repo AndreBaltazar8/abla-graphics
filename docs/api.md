@@ -1779,6 +1779,12 @@ results remain checked failures until the raster IR gains `vec2`/`vec3` types.
 `OpDot`, and returns a scalar usable by constructors, locals, or later mixed
 vector/scalar operations. Calls nest within the same expression-depth bound;
 wrong arity or scalar operands reject.
+`min(left, right)`, `max(left, right)`, and `clamp(value, low, high)` accept
+homogeneous scalar or `vec4` expressions and retain that type. They emit
+`GLSL.std.450` `FMin`, `FMax`, and `FClamp` extended instructions. The import is
+allocated and written only when at least one output expression uses one of
+these built-ins, so every existing shader without them retains identical IDs,
+words, and bounds. Wrong arity and mixed scalar/vector calls reject.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1847,11 +1853,11 @@ changing either output.
 reflected vector, permutes another reflected vector from `.bgra` into logical
 RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
 sibling unit scalar after projecting the reflected vector onto the alpha axis
-with `dot`, constructs a runtime scalar-splat `vec4` denominator, executes
-vector division after vector negation into a mutable vector, then rebinds it
-with `+=` and the second vector. It proves its 48-byte mixed layout plus exact
-red/green output, stable handles, and zero steady-state allocation growth on
-both real backends.
+with `dot` and clamping that projection to `[0, 1]`, constructs a runtime
+scalar-splat `vec4` denominator, executes vector division after vector negation
+into a mutable vector, then rebinds it with `+=` and the second vector. It
+proves its 48-byte mixed layout plus exact red/green output, stable handles, and
+zero steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

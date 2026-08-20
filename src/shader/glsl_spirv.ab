@@ -91,6 +91,7 @@ val glslRasterTokenComponent = 5
 val glslRasterTokenSwizzle = 6
 val glslRasterTokenConstruct = 7
 val glslRasterTokenDot = 8
+val glslRasterTokenExtInst = 9
 
 val glslRasterTypeInvalid = 0
 val glslRasterTypeScalar = 1
@@ -271,6 +272,56 @@ fun glslRasterPrimary(
                 copiedIndex = copiedIndex + 1
             }
             index = index + 1
+        }
+    } else if (valid && (sourceTokens[index].text == "min" ||
+        sourceTokens[index].text == "max" ||
+        sourceTokens[index].text == "clamp")) {
+        val functionName = sourceTokens[index].text
+        val arity = if (functionName == "clamp") 3 else 2
+        val instruction = if (functionName == "min") 37
+            else if (functionName == "max") 40 else 43
+        index = index + 1
+        valid = glslRasterTokenText(sourceTokens, index, "(")
+        if (valid) index = index + 1
+        val arguments: array<GlslRasterExpression> = []
+        var argumentIndex = 0
+        while (valid && argumentIndex < arity) {
+            val argument = glslRasterExpression(
+                sourceTokens,
+                index,
+                1,
+                push,
+                inputs,
+                locals,
+                depth + 1
+            )
+            valid = argument.valid
+            index = argument.next
+            if (valid) {
+                arguments.append(argument)
+                val separator = if (argumentIndex + 1 < arity) "," else ")"
+                valid = glslRasterTokenText(sourceTokens, index, separator)
+                if (valid) index = index + 1
+            }
+            argumentIndex = argumentIndex + 1
+        }
+        if (valid) {
+            argumentIndex = 0
+            while (argumentIndex < arguments.size) {
+                val copied =
+                    glslRasterTokensCopy(arguments[argumentIndex].tokens)
+                var copiedIndex = 0
+                while (copiedIndex < copied.size) {
+                    tokens.append(copied[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                argumentIndex = argumentIndex + 1
+            }
+            tokens.append(GlslRasterToken(
+                glslRasterTokenExtInst,
+                memberIndex = instruction,
+                first = arity
+            ))
         }
     } else if (valid && sourceTokens[index].text == "dot") {
         index = index + 1
@@ -610,6 +661,24 @@ fun glslRasterExpressionType(
             if (valid) {
                 stackSize = stackSize - 2
                 valueType = glslRasterTypeScalar
+            }
+        } else if (token.kind == glslRasterTokenExtInst) {
+            val arity = token.first
+            valid = (arity == 2 || arity == 3) && stackSize >= arity &&
+                (token.memberIndex == 37 || token.memberIndex == 40 ||
+                 token.memberIndex == 43)
+            val resultType = if (valid) stack[stackSize - arity]
+                else glslRasterTypeInvalid
+            var argument = 0
+            while (valid && argument < arity) {
+                valid = stack[stackSize - arity + argument] == resultType
+                argument = argument + 1
+            }
+            valid = valid && (resultType == glslRasterTypeScalar ||
+                resultType == glslRasterTypeVector)
+            if (valid) {
+                stackSize = stackSize - arity
+                valueType = resultType
             }
         } else if (token.kind == glslRasterTokenComponent) {
             valid = stackSize >= 1 && token.memberIndex >= 0 &&
@@ -1127,6 +1196,19 @@ fun glslRasterFragmentSpirv(
         if (dataType == "float") hasScalarMember = true
         memberIndex = memberIndex + 1
     }
+    var usesExtendedInstructions = false
+    var scanExpression = 0
+    while (valid && scanExpression < program.expressions.size) {
+        var scanToken = 0
+        while (!usesExtendedInstructions &&
+            scanToken < program.expressions[scanExpression].tokens.size) {
+            usesExtendedInstructions = program.expressions[
+                scanExpression
+            ].tokens[scanToken].kind == glslRasterTokenExtInst
+            scanToken = scanToken + 1
+        }
+        scanExpression = scanExpression + 1
+    }
     val voidType = 1
     val functionType = 2
     val floatType = 3
@@ -1159,9 +1241,22 @@ fun glslRasterFragmentSpirv(
             inputIndex = inputIndex + 1
         }
     }
+    var extendedInstructionSet = 0
+    if (valid && usesExtendedInstructions) {
+        extendedInstructionSet = nextId
+        nextId = nextId + 1
+    }
     if (valid) {
         words.append(131089)
         words.append(1)
+        if (extendedInstructionSet != 0) {
+            words.append(393227)
+            words.append(extendedInstructionSet)
+            words.append(1280527431)
+            words.append(1685353262)
+            words.append(808793134)
+            words.append(0)
+        }
         words.append(196622)
         words.append(0)
         words.append(1)
@@ -1491,6 +1586,39 @@ fun glslRasterFragmentSpirv(
                 words.append(left)
                 words.append(right)
                 tokenTypes[tokenIndex] = glslRasterTypeScalar
+            }
+        } else if (token.kind == glslRasterTokenExtInst) {
+            val arity = token.first
+            valid = extendedInstructionSet != 0 &&
+                (arity == 2 || arity == 3) && stackSize >= arity &&
+                (token.memberIndex == 37 || token.memberIndex == 40 ||
+                 token.memberIndex == 43)
+            val resultType = if (valid) stackTypes[stackSize - arity]
+                else glslRasterTypeInvalid
+            var argument = 0
+            while (valid && argument < arity) {
+                valid = stackTypes[stackSize - arity + argument] ==
+                    resultType
+                argument = argument + 1
+            }
+            valid = valid && (resultType == glslRasterTypeScalar ||
+                resultType == glslRasterTypeVector)
+            if (valid) {
+                valueId = nextId
+                nextId = nextId + 1
+                words.append((arity + 5) * 65536 + 12)
+                words.append(if (resultType == glslRasterTypeVector)
+                    vectorType else floatType)
+                words.append(valueId)
+                words.append(extendedInstructionSet)
+                words.append(token.memberIndex)
+                argument = 0
+                while (argument < arity) {
+                    words.append(stack[stackSize - arity + argument])
+                    argument = argument + 1
+                }
+                stackSize = stackSize - arity
+                tokenTypes[tokenIndex] = resultType
             }
         } else if (token.kind == glslRasterTokenComponent) {
             valid = stackSize >= 1 && token.memberIndex >= 0 &&

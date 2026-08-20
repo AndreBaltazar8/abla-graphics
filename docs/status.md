@@ -1031,10 +1031,14 @@ validity gate unchanged.
   byte-identical interned constant composites. Dynamic push/component/local
   forms validate; two, three, five, or vector arguments reject. Typed
   `dot(vec4, vec4)` now lowers push, input, local, literal, and nested operands
-  to scalar `OpDot`; scalar operands and wrong arity reject. The reflected
-  `.w`/`.bgra`, dot projection, runtime-denominator, comma-local postfix-`--`,
-  prefix-`++`, and `+=` push-expression sample retains exact OpenGL/Vulkan
-  pixels, stable handles, and zero-growth repeated frames.
+  to scalar `OpDot`; scalar operands and wrong arity reject. Homogeneous scalar
+  or vector `min`, `max`, and `clamp` now emit `GLSL.std.450` `FMin`, `FMax`,
+  and `FClamp` through one conditional import. Nested calls and push/input/local
+  operands validate; mixed types and wrong arities reject; shaders not using
+  them retain byte-identical import-free modules. The reflected `.w`/`.bgra`,
+  clamped dot projection, runtime-denominator, comma-local postfix-`--`, prefix-
+  `++`, and `+=` push-expression sample retains exact OpenGL/Vulkan pixels,
+  stable handles, and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

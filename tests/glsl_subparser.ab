@@ -1603,6 +1603,55 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(dot(vec4(1.0),vec4(1.0),vec4(1.0))); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterScalarExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vec4(clamp(max(min(draw.gain,2.0),0.0),0.25,1.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVectorExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=clamp(max(min(draw.tint,vec4(1.0)),vec4(0.0)),vec4(0.25),vec4(0.75)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterInputExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec4 tint; layout(location=0) out vec4 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
+            "#version 450\nlayout(location=0) in vec4 vertexTint; layout(location=0) out vec4 color; void main(){ color=max(vertexTint,vec4(0.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterLocalExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ vec4 low=vec4(0.0), high=vec4(1.0); color=clamp(draw.tint,low,high); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterExtInstTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 tint; } draw; void main(){ color=min(draw.tint,draw.gain); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMinArityRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(min(1.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterClampArityRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(clamp(1.0,0.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -3005,6 +3054,25 @@ fun main: int {
         rasterDotOneArgumentRejected.error != "" &&
         !rasterDotThreeArgumentsRejected.succeeded &&
         rasterDotThreeArgumentsRejected.error != "" &&
+        rasterScalarExtInst.succeeded && rasterScalarExtInst.module.valid() &&
+        spirvWordCount(rasterScalarExtInst.module, 393227) == 1 &&
+        spirvInstructionOperand(rasterScalarExtInst.module, 12, 4, 37) &&
+        spirvInstructionOperand(rasterScalarExtInst.module, 12, 4, 40) &&
+        spirvInstructionOperand(rasterScalarExtInst.module, 12, 4, 43) &&
+        rasterVectorExtInst.succeeded && rasterVectorExtInst.module.valid() &&
+        spirvWordCount(rasterVectorExtInst.module, 393227) == 1 &&
+        spirvInstructionOperand(rasterVectorExtInst.module, 12, 4, 37) &&
+        spirvInstructionOperand(rasterVectorExtInst.module, 12, 4, 40) &&
+        spirvInstructionOperand(rasterVectorExtInst.module, 12, 4, 43) &&
+        rasterInputExtInst.succeeded && rasterInputExtInst.module.valid() &&
+        rasterLocalExtInst.succeeded && rasterLocalExtInst.module.valid() &&
+        !rasterExtInstTypeRejected.succeeded &&
+        rasterExtInstTypeRejected.error != "" &&
+        !rasterMinArityRejected.succeeded &&
+        rasterMinArityRejected.error != "" &&
+        !rasterClampArityRejected.succeeded &&
+        rasterClampArityRejected.error != "" &&
+        spirvWordCount(pushColorFragment.module, 393227) == 0 &&
         !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&
         !rasterConstCompoundRejected.succeeded &&
