@@ -641,51 +641,75 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
                 else if (dataType == "vec4") glslRasterTypeVector
                 else glslRasterTypeInvalid
             index = dataTypeIndex + 1
-            val name = if (index < lexical.tokens.size)
-                lexical.tokens[index].text else ""
-            var duplicate = name == "" || name == push.name ||
-                locals.size >= 8
-            var localIndex = 0
-            while (!duplicate && localIndex < locals.size) {
-                duplicate = locals[localIndex].name == name
-                localIndex = localIndex + 1
-            }
-            var interfaceIndex = 0
-            while (!duplicate && interfaceIndex < inputs.size) {
-                duplicate = inputs[interfaceIndex].name == name
-                interfaceIndex = interfaceIndex + 1
-            }
-            interfaceIndex = 0
-            while (!duplicate && interfaceIndex < outputs.size) {
-                duplicate = outputs[interfaceIndex].name == name
-                interfaceIndex = interfaceIndex + 1
-            }
-            valid = valueType != glslRasterTypeInvalid && !duplicate &&
-                glslRasterTokenText(lexical.tokens, index + 1, "=")
-            if (valid) index = index + 2
-            val localExpression = if (valid) glslRasterExpression(
-                lexical.tokens,
-                index,
-                1,
-                push,
-                inputs,
-                locals,
-                0
-            ) else GlslRasterExpression(false, [], index)
-            index = localExpression.next
-            valid = valid && localExpression.valid &&
-                glslRasterExpressionType(localExpression, push, inputs) ==
-                    valueType &&
-                glslRasterTokenText(lexical.tokens, index, ";")
-            if (valid) {
-                locals.append(GlslRasterLocal(
-                    name,
-                    valueType,
-                    glslRasterTokensCopy(localExpression.tokens),
-                    !constantDeclaration
-                ))
-                index = index + 1
-                localStatementCount = localStatementCount + 1
+            valid = valueType != glslRasterTypeInvalid
+            var declarationDone = false
+            while (valid && !declarationDone) {
+                val name = if (index < lexical.tokens.size)
+                    lexical.tokens[index].text else ""
+                var duplicate = name == "" || name == push.name ||
+                    locals.size >= 8
+                var localIndex = 0
+                while (!duplicate && localIndex < locals.size) {
+                    duplicate = locals[localIndex].name == name
+                    localIndex = localIndex + 1
+                }
+                var interfaceIndex = 0
+                while (!duplicate && interfaceIndex < inputs.size) {
+                    duplicate = inputs[interfaceIndex].name == name
+                    interfaceIndex = interfaceIndex + 1
+                }
+                interfaceIndex = 0
+                while (!duplicate && interfaceIndex < outputs.size) {
+                    duplicate = outputs[interfaceIndex].name == name
+                    interfaceIndex = interfaceIndex + 1
+                }
+                valid = !duplicate && glslRasterTokenText(
+                    lexical.tokens,
+                    index + 1,
+                    "="
+                )
+                if (valid) index = index + 2
+                val localExpression = if (valid) glslRasterExpression(
+                    lexical.tokens,
+                    index,
+                    1,
+                    push,
+                    inputs,
+                    locals,
+                    0
+                ) else GlslRasterExpression(false, [], index)
+                index = localExpression.next
+                valid = valid && localExpression.valid &&
+                    glslRasterExpressionType(
+                        localExpression,
+                        push,
+                        inputs
+                    ) == valueType
+                if (valid) {
+                    locals.append(GlslRasterLocal(
+                        name,
+                        valueType,
+                        glslRasterTokensCopy(localExpression.tokens),
+                        !constantDeclaration
+                    ))
+                    if (glslRasterTokenText(
+                        lexical.tokens,
+                        index,
+                        ","
+                    )) index = index + 1
+                    else {
+                        valid = glslRasterTokenText(
+                            lexical.tokens,
+                            index,
+                            ";"
+                        )
+                        if (valid) {
+                            index = index + 1
+                            localStatementCount = localStatementCount + 1
+                            declarationDone = true
+                        }
+                    }
+                }
             }
         } else {
             val prefixUpdate = tokenText == "++" || tokenText == "--"

@@ -1779,8 +1779,12 @@ Before the ordered output writes, a body may declare up to eight ordered
 declaration and reassignment statements. Each initializer may use earlier
 locals, inputs, push members, literals, and the same typed operators. A later
 `name = expression` rebinds a mutable local; every assignment to a `const`
-local is rejected. Mutable locals also accept `+=`, `-=`, `*=`, and `/=` under
-the same scalar/vector rules as the corresponding binary operation. A compound
+local is rejected. A declaration may contain comma-separated same-type
+declarators; they are initialized and exposed from left to right, share the
+declaration's optional `const`, count as one statement, and still count
+individually toward the eight-local cap. Mutable locals also accept `+=`, `-=`,
+`*=`, and `/=` under the same scalar/vector rules as the corresponding binary
+operation. A compound
 assignment combines the current SSA expression with its right operand and
 rebinds the result; it does not emit a load, store, or function variable. The
 standalone prefix/postfix forms `++name`, `name++`, `--name`, and `name--` also
@@ -1824,10 +1828,11 @@ distinct bit patterns remain distinct. The red/green MRT module consequently
 uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
 changing either output.
 `push-expression` loads a reflected scalar gain, applies postfix `--` to a
-mutable divisor, executes vector/scalar division after vector negation into a
-mutable vector, then rebinds it with `+=` and the second vector. It proves its
-48-byte mixed layout plus exact red/green output, stable handles, and zero
-steady-state allocation growth on both real backends.
+comma-declared mutable divisor, increments its sibling unit scalar, executes
+vector/scalar division after vector negation into a mutable vector, then
+rebinds it with `+=` and the second vector. It proves its 48-byte mixed layout
+plus exact red/green output, stable handles, and zero steady-state allocation
+growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

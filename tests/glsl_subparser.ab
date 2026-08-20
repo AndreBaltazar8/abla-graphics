@@ -1337,6 +1337,48 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; } draw; void main(){ color=(draw.first+vec4(1.0)-vec4(1.0))/(draw.gain+1.0-1.0); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterCommaLocals = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ float divisor=draw.gain, half=1.0/divisor; vec4 combined=draw.first+draw.second, result=combined*half; color=result; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCommaLocalsExpanded = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=(draw.first+draw.second)*(1.0/draw.gain); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCommaDuplicateRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ float value=1.0, value=2.0; color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCommaForwardRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ float first=second, second=1.0; color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCommaTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ float first=1.0, second=draw.tint; color=draw.tint; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCommaLimitRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ float a=1.0,b=1.0,c=1.0,d=1.0,e=1.0,f=1.0,g=1.0,h=1.0,i=1.0; color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2648,7 +2690,20 @@ fun main: int {
         spirvWordsEqual(
             rasterLocalUpdates.module,
             rasterLocalUpdatesExpanded.module
-        ) && !rasterConstAssignmentRejected.succeeded &&
+        ) && rasterCommaLocals.succeeded &&
+        rasterCommaLocals.module.valid() &&
+        spirvWordsEqual(
+            rasterCommaLocals.module,
+            rasterCommaLocalsExpanded.module
+        ) && !rasterCommaDuplicateRejected.succeeded &&
+        rasterCommaDuplicateRejected.error != "" &&
+        !rasterCommaForwardRejected.succeeded &&
+        rasterCommaForwardRejected.error != "" &&
+        !rasterCommaTypeRejected.succeeded &&
+        rasterCommaTypeRejected.error != "" &&
+        !rasterCommaLimitRejected.succeeded &&
+        rasterCommaLimitRejected.error != "" &&
+        !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&
         !rasterConstCompoundRejected.succeeded &&
         rasterConstCompoundRejected.error != "" &&

@@ -1012,12 +1012,15 @@ validity gate unchanged.
   it under the same scalar/vector rules, still without local storage. Scalar
   and vector standalone prefix/postfix `++`/`--` likewise append typed one and
   add/subtract before rebinding. Compound and update programs are byte-identical
-  to their fully inlined forms; const mutation, type changes, undeclared
-  assignment/update, unsupported `%=`, and malformed updates reject. Earlier-
-  local chaining and duplicate, forward, mismatch, namespace-collision, and
-  exact 32-statement boundary coverage remain. The postfix-`--` and `+=`
-  push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
-  and zero-growth repeated frames.
+  to their fully inlined forms. Comma-separated same-type declarators share
+  mutability, expose initializers left to right, consume one statement, and
+  individually obey the eight-local cap; their output is also byte-identical to
+  separate inline expressions. Const mutation, type changes, undeclared
+  assignment/update, unsupported `%=`, malformed updates, duplicate/forward
+  comma names, and a ninth declarator reject. Namespace-collision and exact
+  32-statement boundary coverage remain. The comma-local postfix-`--`, prefix-
+  `++`, and `+=` push-expression sample retains exact OpenGL/Vulkan pixels,
+  stable handles, and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
