@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 70/842
+- Classified commands: 75/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -54,7 +54,7 @@
 | `vkCmdBeginPerTileExecutionQCOM` | definition | unclassified | - | - | - | - |
 | `vkCmdBeginQuery` | definition | unclassified | - | - | - | - |
 | `vkCmdBeginQueryIndexedEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdBeginRenderPass` | definition | unclassified | - | - | - | - |
+| `vkCmdBeginRenderPass` | definition | common | src/driver/vulkan.ab legacy offscreen and subpass recording | src/driver/vulkan.ab packed RenderPassBeginInfo and clear-value ABIs | tests/application/main.ab exact MRT multisample and two-subpass rendering | tests/application/main.ab invalid pass and attachment rejection |
 | `vkCmdBeginRenderPass2` | definition | unclassified | - | - | - | - |
 | `vkCmdBeginRenderPass2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdBeginRendering` | definition | common | src/driver/vulkan.ab surfaced dynamic rendering | src/driver/vulkan.ab packed RenderingInfo and attachment ABIs | tests/vulkan_window/main.ab repeated dynamic color rendering | tests/vulkan_window/main.ab forced legacy render-pass fallback |
@@ -97,7 +97,7 @@
 | `vkCmdBuildMicromapsEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdBuildPartitionedAccelerationStructuresNV` | definition | unclassified | - | - | - | - |
 | `vkCmdClearAttachments` | definition | unclassified | - | - | - | - |
-| `vkCmdClearColorImage` | definition | unclassified | - | - | - | - |
+| `vkCmdClearColorImage` | definition | common | src/driver/vulkan.ab transfer clear command recording | src/driver/vulkan.ab packed clear color and image-subresource range ABIs | tests/application/main.ab exact repeated render-target and MRT clears | tests/application/main.ab invalid clear attachment rejection |
 | `vkCmdClearDepthStencilImage` | definition | unclassified | - | - | - | - |
 | `vkCmdControlVideoCodingKHR` | definition | unclassified | - | - | - | - |
 | `vkCmdConvertCooperativeVectorMatrixNV` | definition | unclassified | - | - | - | - |
@@ -187,7 +187,7 @@
 | `vkCmdEndPerTileExecutionQCOM` | definition | unclassified | - | - | - | - |
 | `vkCmdEndQuery` | definition | unclassified | - | - | - | - |
 | `vkCmdEndQueryIndexedEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdEndRenderPass` | definition | unclassified | - | - | - | - |
+| `vkCmdEndRenderPass` | definition | common | src/driver/vulkan.ab legacy render-pass completion | src/driver/vulkan.ab typed command-buffer ABI | tests/application/main.ab repeated MRT multisample and subpass completion | tests/application/main.ab invalid pass rejected before recording |
 | `vkCmdEndRenderPass2` | definition | unclassified | - | - | - | - |
 | `vkCmdEndRenderPass2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdEndRendering` | definition | common | src/driver/vulkan.ab surfaced dynamic rendering completion | src/driver/vulkan.ab typed extern signature | tests/vulkan_window/main.ab repeated dynamic presentation | tests/vulkan_window/main.ab forced legacy render-pass fallback |
@@ -481,7 +481,7 @@
 | `vkDestroyEvent` | definition | unclassified | - | - | - | - |
 | `vkDestroyExternalComputeQueueNV` | definition | unclassified | - | - | - | - |
 | `vkDestroyFence` | definition | unclassified | - | - | - | - |
-| `vkDestroyFramebuffer` | definition | unclassified | - | - | - | - |
+| `vkDestroyFramebuffer` | definition | common | src/driver/vulkan.ab affine legacy framebuffer lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab stable target and subpass framebuffer lifecycle | tests/application/main.ab failed target cleanup |
 | `vkDestroyGpaSessionAMD` | definition | unclassified | - | - | - | - |
 | `vkDestroyImage` | definition | common | src/driver/vulkan.ab affine texture image lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab sampled transfer and target texture lifecycle | tests/application/main.ab invalid texture descriptor rejection |
 | `vkDestroyImageView` | definition | common | src/driver/vulkan.ab affine texture-view lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab valid default reinterpret and target views | tests/application/main.ab incompatible and out-of-range view rejection |
@@ -498,7 +498,7 @@
 | `vkDestroyPrivateDataSlot` | definition | unclassified | - | - | - | - |
 | `vkDestroyPrivateDataSlotEXT` | alias | unclassified | - | - | - | - |
 | `vkDestroyQueryPool` | definition | common | src/driver/vulkan.ab timestamp query lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
-| `vkDestroyRenderPass` | definition | unclassified | - | - | - | - |
+| `vkDestroyRenderPass` | definition | common | src/driver/vulkan.ab affine legacy render-pass lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab stable multisample and subpass render-pass lifecycle | tests/application/main.ab invalid render operation cleanup |
 | `vkDestroySampler` | definition | common | src/driver/vulkan.ab affine sampler lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
 | `vkDestroySamplerYcbcrConversion` | definition | unclassified | - | - | - | - |
 | `vkDestroySamplerYcbcrConversionKHR` | alias | unclassified | - | - | - | - |

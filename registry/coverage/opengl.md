@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 75/2892
+- Classified commands: 82/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -81,7 +81,7 @@
 | `glBindFragDataLocationEXT` | definition | unclassified | - | - | - | - |
 | `glBindFragDataLocationIndexed` | definition | unclassified | - | - | - | - |
 | `glBindFragmentShaderATI` | definition | unclassified | - | - | - | - |
-| `glBindFramebuffer` | definition | unclassified | - | - | - | - |
+| `glBindFramebuffer` | definition | common | src/driver/opengl.ab draw read resolve and default framebuffer binding | src/driver/opengl.ab typed target and framebuffer-name ABI | tests/application/main.ab repeated offscreen MRT resolve and surfaced rendering | tests/application/main.ab incompatible target rejection |
 | `glBindFramebufferEXT` | definition | unclassified | - | - | - | - |
 | `glBindImageTexture` | definition | unclassified | - | - | - | - |
 | `glBindImageTextureEXT` | definition | unclassified | - | - | - | - |
@@ -172,13 +172,13 @@
 | `glCallCommandListNV` | definition | unclassified | - | - | - | - |
 | `glCallList` | definition | unclassified | - | - | - | - |
 | `glCallLists` | definition | unclassified | - | - | - | - |
-| `glCheckFramebufferStatus` | definition | unclassified | - | - | - | - |
+| `glCheckFramebufferStatus` | definition | common | src/driver/opengl.ab framebuffer completeness validation | src/driver/opengl.ab typed target result ABI | tests/application/main.ab color depth multisample and MRT target creation | tests/application/main.ab incompatible and missing attachment rejection |
 | `glCheckFramebufferStatusEXT` | definition | unclassified | - | - | - | - |
 | `glCheckNamedFramebufferStatus` | definition | unclassified | - | - | - | - |
 | `glCheckNamedFramebufferStatusEXT` | definition | unclassified | - | - | - | - |
 | `glClampColor` | definition | unclassified | - | - | - | - |
 | `glClampColorARB` | definition | unclassified | - | - | - | - |
-| `glClear` | definition | unclassified | - | - | - | - |
+| `glClear` | definition | common | src/driver/opengl.ab surfaced color and depth clear execution | src/driver/opengl.ab typed mask ABI | tests/application/main.ab exact repeated color and depth output | tests/application/main.ab invalid clear descriptor rejection |
 | `glClearAccum` | definition | unclassified | - | - | - | - |
 | `glClearAccumxOES` | definition | unclassified | - | - | - | - |
 | `glClearBufferData` | definition | unclassified | - | - | - | - |
@@ -191,7 +191,7 @@
 | `glClearColorIiEXT` | definition | unclassified | - | - | - | - |
 | `glClearColorIuiEXT` | definition | unclassified | - | - | - | - |
 | `glClearColorxOES` | definition | unclassified | - | - | - | - |
-| `glClearDepth` | definition | unclassified | - | - | - | - |
+| `glClearDepth` | definition | common | src/driver/opengl.ab depth clear state | src/driver/opengl.ab typed binary64 ABI | tests/application/main.ab exact depth-tested target output | tests/application/main.ab invalid depth target rejection |
 | `glClearDepthdNV` | definition | unclassified | - | - | - | - |
 | `glClearDepthf` | definition | unclassified | - | - | - | - |
 | `glClearDepthfOES` | definition | unclassified | - | - | - | - |
@@ -416,7 +416,7 @@
 | `glDeleteFencesAPPLE` | definition | unclassified | - | - | - | - |
 | `glDeleteFencesNV` | definition | unclassified | - | - | - | - |
 | `glDeleteFragmentShaderATI` | definition | unclassified | - | - | - | - |
-| `glDeleteFramebuffers` | definition | unclassified | - | - | - | - |
+| `glDeleteFramebuffers` | definition | common | src/driver/opengl.ab affine framebuffer and resolve lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab stable repeated target lifecycle | tests/application/main.ab failed target cleanup |
 | `glDeleteFramebuffersEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteLists` | definition | unclassified | - | - | - | - |
 | `glDeleteMemoryObjectsEXT` | definition | unclassified | - | - | - | - |
@@ -679,7 +679,7 @@
 | `glGenFencesAPPLE` | definition | unclassified | - | - | - | - |
 | `glGenFencesNV` | definition | unclassified | - | - | - | - |
 | `glGenFragmentShadersATI` | definition | unclassified | - | - | - | - |
-| `glGenFramebuffers` | definition | unclassified | - | - | - | - |
+| `glGenFramebuffers` | definition | common | src/driver/opengl.ab affine framebuffer and resolve creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab color depth multisample and MRT targets | tests/application/main.ab incompatible attachment rejection |
 | `glGenFramebuffersEXT` | definition | unclassified | - | - | - | - |
 | `glGenLists` | definition | unclassified | - | - | - | - |
 | `glGenNamesAMD` | definition | unclassified | - | - | - | - |
@@ -1923,7 +1923,7 @@
 | `glRasterSamplesEXT` | definition | unclassified | - | - | - | - |
 | `glReadBuffer` | definition | common | src/driver/opengl.ab MRT resolve selection | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact second attachment resolve | tests/application/main.ab attachment bounds rejection |
 | `glReadInstrumentsSGIX` | definition | unclassified | - | - | - | - |
-| `glReadPixels` | definition | unclassified | - | - | - | - |
+| `glReadPixels` | definition | common | src/driver/opengl.ab bounded framebuffer pixel readback | src/driver/opengl.ab typed region format type and output-pointer ABI | tests/application/main.ab exact surfaced and render-target RGBA8 pixels | tests/application/main.ab out-of-range texture readback rejection |
 | `glReadnPixels` | definition | unclassified | - | - | - | - |
 | `glReadnPixelsARB` | definition | unclassified | - | - | - | - |
 | `glRectd` | definition | unclassified | - | - | - | - |
