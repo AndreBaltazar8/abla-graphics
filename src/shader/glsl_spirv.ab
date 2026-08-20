@@ -90,6 +90,7 @@ val glslRasterTokenInput = 4
 val glslRasterTokenComponent = 5
 val glslRasterTokenSwizzle = 6
 val glslRasterTokenConstruct = 7
+val glslRasterTokenDot = 8
 
 val glslRasterTypeInvalid = 0
 val glslRasterTypeScalar = 1
@@ -269,6 +270,51 @@ fun glslRasterPrimary(
                 tokens.append(copied[copiedIndex])
                 copiedIndex = copiedIndex + 1
             }
+            index = index + 1
+        }
+    } else if (valid && sourceTokens[index].text == "dot") {
+        index = index + 1
+        valid = glslRasterTokenText(sourceTokens, index, "(")
+        if (valid) index = index + 1
+        val left = if (valid) glslRasterExpression(
+            sourceTokens,
+            index,
+            1,
+            push,
+            inputs,
+            locals,
+            depth + 1
+        ) else GlslRasterExpression(false, [], index)
+        index = left.next
+        valid = valid && left.valid &&
+            glslRasterTokenText(sourceTokens, index, ",")
+        if (valid) index = index + 1
+        val right = if (valid) glslRasterExpression(
+            sourceTokens,
+            index,
+            1,
+            push,
+            inputs,
+            locals,
+            depth + 1
+        ) else GlslRasterExpression(false, [], index)
+        index = right.next
+        valid = valid && right.valid &&
+            glslRasterTokenText(sourceTokens, index, ")")
+        if (valid) {
+            val leftTokens = glslRasterTokensCopy(left.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < leftTokens.size) {
+                tokens.append(leftTokens[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            val rightTokens = glslRasterTokensCopy(right.tokens)
+            copiedIndex = 0
+            while (copiedIndex < rightTokens.size) {
+                tokens.append(rightTokens[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            tokens.append(GlslRasterToken(glslRasterTokenDot))
             index = index + 1
         }
     } else if (valid && sourceTokens[index].text == "vec4") {
@@ -556,6 +602,14 @@ fun glslRasterExpressionType(
             if (valid) {
                 stackSize = stackSize - arity
                 valueType = glslRasterTypeVector
+            }
+        } else if (token.kind == glslRasterTokenDot) {
+            valid = stackSize >= 2 &&
+                stack[stackSize - 2] == glslRasterTypeVector &&
+                stack[stackSize - 1] == glslRasterTypeVector
+            if (valid) {
+                stackSize = stackSize - 2
+                valueType = glslRasterTypeScalar
             }
         } else if (token.kind == glslRasterTokenComponent) {
             valid = stackSize >= 1 && token.memberIndex >= 0 &&
@@ -1420,6 +1474,23 @@ fun glslRasterFragmentSpirv(
                 words.append(thirdValue)
                 words.append(fourthValue)
                 tokenTypes[tokenIndex] = glslRasterTypeVector
+            }
+        } else if (token.kind == glslRasterTokenDot) {
+            valid = stackSize >= 2 &&
+                stackTypes[stackSize - 2] == glslRasterTypeVector &&
+                stackTypes[stackSize - 1] == glslRasterTypeVector
+            if (valid) {
+                val left = stack[stackSize - 2]
+                val right = stack[stackSize - 1]
+                stackSize = stackSize - 2
+                valueId = nextId
+                nextId = nextId + 1
+                words.append(327828)
+                words.append(floatType)
+                words.append(valueId)
+                words.append(left)
+                words.append(right)
+                tokenTypes[tokenIndex] = glslRasterTypeScalar
             }
         } else if (token.kind == glslRasterTokenComponent) {
             valid = stackSize >= 1 && token.memberIndex >= 0 &&

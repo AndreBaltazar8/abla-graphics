@@ -1775,6 +1775,10 @@ follow an input, push member, local, literal, or parenthesized expression.
 Single components emit typed scalar `OpCompositeExtract`; four components from
 one naming family emit a typed `OpVectorShuffle`. Two- and three-component
 results remain checked failures until the raster IR gains `vec2`/`vec3` types.
+`dot(left, right)` accepts two supported `vec4` expressions, emits core SPIR-V
+`OpDot`, and returns a scalar usable by constructors, locals, or later mixed
+vector/scalar operations. Calls nest within the same expression-depth bound;
+wrong arity or scalar operands reject.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1842,11 +1846,12 @@ changing either output.
 `push-expression` loads a reflected scalar gain and the `.w` component of a
 reflected vector, permutes another reflected vector from `.bgra` into logical
 RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
-sibling unit scalar, constructs a runtime scalar-splat `vec4` denominator,
-executes vector division after vector negation into a mutable vector, then
-rebinds it with `+=` and the second vector. It proves its 48-byte mixed layout
-plus exact red/green output, stable handles, and zero steady-state allocation
-growth on both real backends.
+sibling unit scalar after projecting the reflected vector onto the alpha axis
+with `dot`, constructs a runtime scalar-splat `vec4` denominator, executes
+vector division after vector negation into a mutable vector, then rebinds it
+with `+=` and the second vector. It proves its 48-byte mixed layout plus exact
+red/green output, stable handles, and zero steady-state allocation growth on
+both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:
