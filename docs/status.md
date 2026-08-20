@@ -1007,12 +1007,15 @@ validity gate unchanged.
   Up to eight ordered `float`/`vec4` locals, optionally `const`, now expand into
   the typed postfix IR without function storage across at most 32 local
   statements. Mutable reassignment replaces the current SSA expression while
-  preserving the declared type; const mutation, type changes, and undeclared
-  assignments reject. Reassigned-local byte equivalence to the fully inlined
-  expression is covered alongside earlier-local chaining and duplicate,
-  forward, mismatch, and namespace-collision rejection. The mutable-local
-  push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
-  and zero-growth repeated frames.
+  preserving the declared type. The four floating compound forms `+=`, `-=`,
+  `*=`, and `/=` combine that expression with a typed right operand and rebind
+  it under the same scalar/vector rules, still without local storage. Scalar
+  and vector compound programs are byte-identical to their fully inlined forms;
+  const mutation, type changes, undeclared assignment, and unsupported `%=`
+  reject. Earlier-local chaining and duplicate, forward, mismatch, namespace-
+  collision, and exact 32-statement boundary coverage remain. The mutable-local
+  `+=` push-expression sample retains exact OpenGL/Vulkan pixels, stable
+  handles, and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar

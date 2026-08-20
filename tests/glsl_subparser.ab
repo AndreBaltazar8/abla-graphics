@@ -1295,11 +1295,60 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=-draw.first/draw.gain+draw.second; }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterCompoundLocals = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ vec4 value=draw.first; value+=draw.second; value*=draw.gain; value/=draw.gain; value-=draw.second; color=value; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCompoundExpanded = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; vec4 second; } draw; void main(){ color=((draw.first+draw.second)*draw.gain)/draw.gain-draw.second; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarCompoundLocals = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; } draw; void main(){ float weight=draw.gain; weight+=1.0; weight-=1.0; weight*=2.0; weight/=2.0; color=draw.first*weight; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarCompoundExpanded = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; vec4 first; } draw; void main(){ color=draw.first*((draw.gain+1.0-1.0)*2.0/2.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
             "#version 450\nlayout(location=0) out vec4 color; void main(){ const vec4 value=vec4(1.0); value=vec4(0.0); color=value; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterConstCompoundRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ const vec4 value=vec4(1.0); value+=vec4(0.5); color=value; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterCompoundTypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ float weight=0.5; weight*=draw.tint; color=draw.tint; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterUnsupportedCompoundRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ float value=1.0; value%=1.0; color=vec4(value); }"
         ]
     ).spirv(shaderStageFragment)
     val rasterMutableTypeRejected = glslPackage(
@@ -2549,8 +2598,24 @@ fun main: int {
         spirvWordsEqual(
             rasterMutableLocalsFragment.module,
             rasterMutableExpanded.module
+        ) && rasterCompoundLocals.succeeded &&
+        rasterCompoundLocals.module.valid() &&
+        spirvWordsEqual(
+            rasterCompoundLocals.module,
+            rasterCompoundExpanded.module
+        ) && rasterScalarCompoundLocals.succeeded &&
+        rasterScalarCompoundLocals.module.valid() &&
+        spirvWordsEqual(
+            rasterScalarCompoundLocals.module,
+            rasterScalarCompoundExpanded.module
         ) && !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&
+        !rasterConstCompoundRejected.succeeded &&
+        rasterConstCompoundRejected.error != "" &&
+        !rasterCompoundTypeRejected.succeeded &&
+        rasterCompoundTypeRejected.error != "" &&
+        !rasterUnsupportedCompoundRejected.succeeded &&
+        rasterUnsupportedCompoundRejected.error != "" &&
         !rasterMutableTypeRejected.succeeded &&
         rasterMutableTypeRejected.error != "" &&
         !rasterUndeclaredAssignmentRejected.succeeded &&
