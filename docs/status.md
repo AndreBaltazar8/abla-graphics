@@ -1068,7 +1068,9 @@ validity gate unchanged.
   Core fragment derivatives `dFdx`, `dFdy`, and `fwidth` now preserve scalar or
   vector operand type and emit opcodes 207-209 without an extended-instruction
   import. Nested scalar/vector, push, input, and local paths plus exact arity
-  rejection pass; the live phase adds constant `fwidth(0)` with unchanged
+  rejection pass. Fine/coarse variants emit opcodes 210-215 and conditionally
+  declare `DerivativeControl`; ordinary modules remain capability-free and
+  byte-stable. The live phase adds constant `fwidthFine(0)` with unchanged
   dual-backend pixels, handles, frame count, and allocation behavior.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.

@@ -1820,7 +1820,10 @@ Fragment-only `dFdx(value)`, `dFdy(value)`, and `fwidth(value)` preserve a
 supported scalar or `vec4` operand type and emit core SPIR-V `OpDPdx`, `OpDPdy`,
 and `OpFwidth` opcodes 207 through 209. They compose with push members, inputs,
 locals, arithmetic, and constructors under the same expression bounds; missing
-or extra arguments reject.
+or extra arguments reject. The `dFdxFine`/`dFdyFine`/`fwidthFine` and
+`dFdxCoarse`/`dFdyCoarse`/`fwidthCoarse` variants emit opcodes 210 through 215
+and conditionally add `DerivativeControl`; shaders using only ordinary
+derivatives retain their prior capability list and module bytes.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1899,7 +1902,7 @@ alpha axis with `dot`, applying `sqrt(abs(...))`, and clamping that projection
 to `[0, 1]`,
 then shapes it with `smoothstep` and selects the unit scale through nested
 `step`/`mix`, multiplied by a
-`cos(atan(0, 1)) + fwidth(0)` phase. It constructs a runtime
+`cos(atan(0, 1)) + fwidthFine(0)` phase. It constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
 into a mutable vector, applies vector/scalar `mod`, clamps it with scalar
 bounds, then rebinds it with `+=` and the second vector. Its reflected alpha

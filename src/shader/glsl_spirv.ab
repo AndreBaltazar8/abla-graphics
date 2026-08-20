@@ -205,7 +205,13 @@ fun glslRasterCompoundOpcode(text: string): int {
 fun glslRasterDerivativeOpcode(text: string): int {
     if (text == "dFdx") 262351
     else if (text == "dFdy") 262352
-    else if (text == "fwidth") 262353 else 0
+    else if (text == "fwidth") 262353
+    else if (text == "dFdxFine") 262354
+    else if (text == "dFdyFine") 262355
+    else if (text == "fwidthFine") 262356
+    else if (text == "dFdxCoarse") 262357
+    else if (text == "dFdyCoarse") 262358
+    else if (text == "fwidthCoarse") 262359 else 0
 }
 
 fun glslRasterComponentIndex(text: string): int {
@@ -947,8 +953,7 @@ fun glslRasterExpressionType(
             }
         } else if (token.kind == glslRasterTokenDerivative) {
             valid = stackSize >= 1 &&
-                (token.opcode == 262351 || token.opcode == 262352 ||
-                 token.opcode == 262353)
+                token.opcode >= 262351 && token.opcode <= 262359
             if (valid) {
                 valueType = stack[stackSize - 1]
                 stackSize = stackSize - 1
@@ -1471,14 +1476,19 @@ fun glslRasterFragmentSpirv(
         memberIndex = memberIndex + 1
     }
     var usesExtendedInstructions = false
+    var usesDerivativeControl = false
     var scanExpression = 0
     while (valid && scanExpression < program.expressions.size) {
         var scanToken = 0
-        while (!usesExtendedInstructions &&
-            scanToken < program.expressions[scanExpression].tokens.size) {
-            usesExtendedInstructions = program.expressions[
+        while (scanToken < program.expressions[scanExpression].tokens.size) {
+            val scanned = program.expressions[
                 scanExpression
-            ].tokens[scanToken].kind == glslRasterTokenExtInst
+            ].tokens[scanToken]
+            usesExtendedInstructions = usesExtendedInstructions ||
+                scanned.kind == glslRasterTokenExtInst
+            usesDerivativeControl = usesDerivativeControl ||
+                (scanned.kind == glslRasterTokenDerivative &&
+                 scanned.opcode >= 262354 && scanned.opcode <= 262359)
             scanToken = scanToken + 1
         }
         scanExpression = scanExpression + 1
@@ -1523,6 +1533,10 @@ fun glslRasterFragmentSpirv(
     if (valid) {
         words.append(131089)
         words.append(1)
+        if (usesDerivativeControl) {
+            words.append(131089)
+            words.append(4427)
+        }
         if (extendedInstructionSet != 0) {
             words.append(393227)
             words.append(extendedInstructionSet)
@@ -1918,8 +1932,7 @@ fun glslRasterFragmentSpirv(
             }
         } else if (token.kind == glslRasterTokenDerivative) {
             valid = stackSize >= 1 &&
-                (token.opcode == 262351 || token.opcode == 262352 ||
-                 token.opcode == 262353)
+                token.opcode >= 262351 && token.opcode <= 262359
             if (valid) {
                 val operand = stack[stackSize - 1]
                 val operandType = stackTypes[stackSize - 1]
