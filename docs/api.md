@@ -1772,13 +1772,15 @@ members,
 scalar/`vec4` literals, width-exact or scalar-splat `vec2`/`vec3`/`vec4`
 constructors,
 parentheses, single-component vector selectors `.x`/`.y`/`.z`/`.w` and their
-`rgba`/`stpq` aliases, four-component `vec4` swizzles such as `.bgra`, and
+`rgba`/`stpq` aliases, two- to four-component swizzles such as `.yx`, `.bgr`,
+and `.bgra`, and
 supported scalar or equal-width vector `*`, `/`, `+`, and `-` with GLSL
 precedence. A selector may follow an input, push member, local, literal, or
 parenthesized expression.
-Single components emit width-checked scalar `OpCompositeExtract`; four
-components from one naming family emit a typed `OpVectorShuffle`. Two- and
-three-component swizzle results remain checked failures.
+Single components emit width-checked scalar `OpCompositeExtract`; two- to
+four-component selectors from one naming family emit a width-matched
+`OpVectorShuffle`. Every selected component must exist in the source width;
+repetition is supported.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same
@@ -1920,7 +1922,8 @@ zero steady-state allocation growth on both real backends.
 
 `narrow-input` uses the existing interleaved `vec2` vertex-output form and the
 typed raster emitter for its matching `vec2` fragment input. The fragment
-extracts both checked components into a `vec4` color. Exact red offscreen pixels,
+performs a `.yx` shuffle and extracts both checked components into a `vec4`
+color. Exact red offscreen pixels,
 presented rendering, stable native pipeline handles, four repeated frames, and
 zero live-byte growth pass on both backends. Deterministic module tests also
 cover `vec3` and mixed `vec2`/`vec3` fragment inputs with distinct pointer types.

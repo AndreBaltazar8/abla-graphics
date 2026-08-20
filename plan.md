@@ -89,6 +89,11 @@ variable, and load types, including mixed-width modules. The live
 `narrow-input` sample proves interpolated `vec2` data on both backends; fragment
 color outputs remain `vec4`.
 
+Raster selectors now emit width-matched `vec2`, `vec3`, or `vec4`
+`OpVectorShuffle` results for two- to four-component selectors. Source-width
+checks reject invalid lanes while permitting repetition; the live narrow-input
+sample executes `.yx` without changing its dual-backend proof.
+
 ## Non-negotiable design rules
 
 1. Application state, rendering policy, resource ownership, shader declarations,

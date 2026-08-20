@@ -1023,9 +1023,12 @@ validity gate unchanged.
   parenthesized expressions to scalar `OpCompositeExtract`. Alias forms are
   byte-identical. Four-component permutations from one `xyzw`, `rgba`, or
   `stpq` naming family now lower the same source kinds to `OpVectorShuffle`;
-  `.bgra` emits selectors 2/1/0/3 and is byte-identical to `.zyxw`. Scalar
-  bases, unknown or mixed-family selectors, and two-/three-component results
-  reject. One- and four-scalar runtime `vec4` constructors now consume arbitrary
+  `.bgra` emits selectors 2/1/0/3 and is byte-identical to `.zyxw`. Two- and
+  three-component selectors now produce `vec2` and `vec3` with width-specific
+  shuffle instructions, including repetition from narrow sources. Scalar bases,
+  unknown or mixed-family selectors, and source-out-of-range components reject.
+  The live narrow-input path executes `.yx` with its exact dual-backend proof.
+  One- and four-scalar runtime `vec4` constructors now consume arbitrary
   supported scalar expressions and emit `OpCompositeConstruct`, with a single
   scalar ID reused across all splat lanes. Signed constant constructors retain
   byte-identical interned constant composites. Dynamic push/component/local
