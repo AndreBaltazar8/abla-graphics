@@ -97,6 +97,13 @@ noescape extern:"c" fun glClearBufferfv(
     value: i64*
 ): void
 noescape extern:"c" fun glFinish(): void
+noescape extern:"c" fun glFenceSync(condition: i32, flags: i32): i64*
+noescape extern:"c" fun glClientWaitSync(
+    sync: i64*,
+    flags: i32,
+    timeout: i64
+): i32
+noescape extern:"c" fun glDeleteSync(sync: i64*): void
 noescape extern:"c" fun glGenQueries(count: i32, queries: i64*): void
 noescape extern:"c" fun glDeleteQueries(count: i32, queries: i64*): void
 noescape extern:"c" fun glQueryCounter(query: i32, target: i32): void
@@ -546,6 +553,18 @@ trusted fun openGlConfigureVertexLayout(
         }
     }
     succeeded && glGetError() == 0
+}
+
+trusted fun openGlWaitForCommands(): bool {
+    val sync = glFenceSync(37143, 0)
+    var succeeded = !pointerIsNull(sync)
+    if (succeeded) {
+        val status = glClientWaitSync(sync, 1, -1)
+        glDeleteSync(sync)
+        succeeded = (status == 37146 || status == 37148) &&
+            glGetError() == 0
+    }
+    succeeded
 }
 
 trusted fun openGlApplyBindGroup(
@@ -1049,6 +1068,7 @@ resource class OpenGlBuffer(
                 byteCount
             )
             succeeded = glGetError() == 0
+            if (succeeded) succeeded = openGlWaitForCommands()
         }
         succeeded
     }

@@ -373,10 +373,11 @@ Updated: 2026-08-20.
   A separate capability-gated persistent mapping mode keeps a coherent
   map-write/copy-source upload buffer mapped through synchronous GPU copies.
   OpenGL 4.4+ uses immutable `glBufferStorage`, persistent/coherent map flags,
-  and a client-mapped barrier; Vulkan uses coherent host memory. Four repeated
+  a client-mapped barrier, and a targeted fence/client wait; Vulkan uses
+  coherent host memory and waits for transfer submission. Four repeated
   write/copy/readback cycles preserve all handles and live bytes. Because copy
-  completion is synchronous, each range is safe to overwrite after return;
-  asynchronous ring ownership is not claimed.
+  completion is genuinely synchronous, each range is safe to overwrite after
+  return; asynchronous ring ownership is not claimed.
   `GraphicsBufferUploadRing` now owns one such mapping and provides aligned,
   bounded, wrap-counted staging through descriptor and primitive-range APIs.
   Five live sample uploads force two wraps; four application-gate uploads force
@@ -387,8 +388,9 @@ Updated: 2026-08-20.
   distinct same-backend resources, source/destination copy usages, and both
   ranges before dispatch. A partial 31-byte copy between different offsets is
   read back exactly on OpenGL and Vulkan; crossing bounds and missing usages are
-  rejected. OpenGL uses `glCopyBufferSubData`. Vulkan reuses one device-owned
-  transfer pool, command buffer, and scratch ABI block, records
+  rejected. OpenGL uses `glCopyBufferSubData` and waits on an explicit
+  copy-local sync object instead of calling `glFinish`. Vulkan reuses one
+  device-owned transfer pool, command buffer, and scratch ABI block, records
   `vkCmdCopyBuffer` plus a transfer-to-host barrier, and preserves native handles
   across repeated copies. Khronos validation is silent on the Lavapipe path.
 - Common GPU buffer-fill test: `GraphicsApplication.fillBuffer` validates
@@ -753,7 +755,7 @@ Updated: 2026-08-20.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 112 Vulkan and 93 OpenGL commands as
+  A strict audit join currently classifies 112 Vulkan and 96 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -1146,7 +1148,7 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 205 exercised common commands classified; all other
+  exist, with 208 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

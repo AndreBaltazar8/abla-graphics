@@ -590,10 +590,11 @@ app.copyBuffer(upload, deviceBuffer, copy)
 4.4, allocates immutable storage with `glBufferStorage`, maps it persistent and
 coherent, and issues the client-mapped visibility barrier before copying.
 Vulkan uses its host-visible coherent allocation and alignment-safe whole-memory
-map. The current `copyBuffer` is synchronous on both backends, so it completes
-before the method returns and the application may safely overwrite the upload
-range for the next call. A persistently mapped buffer remains restricted to
-map-write plus copy-source usage; it cannot silently enter vertex, index,
+map. OpenGL fences each copy and waits only for that fence; Vulkan waits for its
+transfer submission. The current `copyBuffer` therefore completes before the
+method returns on both backends, and the application may safely overwrite the
+upload range for the next call. A persistently mapped buffer remains restricted
+to map-write plus copy-source usage; it cannot silently enter vertex, index,
 uniform, storage, or copy-destination work. `unmap()` ends the persistent
 lifecycle explicitly, and affine drop does so automatically.
 
@@ -639,7 +640,9 @@ between distinct buffers owned by the same application. Source and destination
 copy usages are mandatory, and the same overflow-safe descriptor validates both
 ranges. `copyBufferRange` exposes the identical primitive-offset operation for
 allocation-critical loops. OpenGL binds copy-read/copy-write targets and calls
-`glCopyBufferSubData`. Vulkan owns one transfer command pool, command buffer,
+`glCopyBufferSubData`, then uses `glFenceSync`/`glClientWaitSync`/`glDeleteSync`
+as an explicit completion point instead of calling `glFinish`. Vulkan owns one
+transfer command pool, command buffer,
 and scratch ABI block with the device, resets and reuses them, emits
 `vkCmdCopyBuffer` plus a transfer-to-host barrier, and waits for queue completion.
 Repeated copies preserve those handles and show zero Abla runtime live-byte

@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 93/2892
+- Classified commands: 96/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -213,7 +213,7 @@
 | `glClientActiveVertexStreamATI` | definition | unclassified | - | - | - | - |
 | `glClientAttribDefaultEXT` | definition | unclassified | - | - | - | - |
 | `glClientWaitSemaphoreui64NVX` | definition | unclassified | - | - | - | - |
-| `glClientWaitSync` | definition | unclassified | - | - | - | - |
+| `glClientWaitSync` | definition | common | src/driver/opengl.ab targeted synchronous buffer-copy completion | src/driver/opengl.ab typed sync flags and unsigned-timeout ABI | examples/common-buffer/main.ab immediate wrapped upload reuse with exact readback | tests/application/main.ab invalid GPU copy and upload range rejection |
 | `glClipControl` | definition | unclassified | - | - | - | - |
 | `glClipPlane` | definition | unclassified | - | - | - | - |
 | `glClipPlanefOES` | definition | unclassified | - | - | - | - |
@@ -440,7 +440,7 @@
 | `glDeleteSemaphoresEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteShader` | definition | common | src/driver/opengl.ab affine attached-shader lifetime | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab linked source shader cleanup | tests/opengl/main.ab failed compile cleanup |
 | `glDeleteStatesNV` | definition | unclassified | - | - | - | - |
-| `glDeleteSync` | definition | unclassified | - | - | - | - |
+| `glDeleteSync` | definition | common | src/driver/opengl.ab targeted buffer-copy fence lifetime | src/driver/opengl.ab typed opaque sync-pointer ABI | examples/common-buffer/main.ab repeated synchronous ring copies with zero live growth | tests/application/main.ab invalid GPU copy and upload range rejection |
 | `glDeleteTextures` | definition | common | src/driver/opengl.ab affine texture lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab texture target and upload lifecycle | tests/application/main.ab invalid texture descriptor rejection |
 | `glDeleteTexturesEXT` | definition | unclassified | - | - | - | - |
 | `glDeleteTransformFeedbacks` | definition | unclassified | - | - | - | - |
@@ -586,7 +586,7 @@
 | `glExtractComponentEXT` | definition | unclassified | - | - | - | - |
 | `glFeedbackBuffer` | definition | unclassified | - | - | - | - |
 | `glFeedbackBufferxOES` | definition | unclassified | - | - | - | - |
-| `glFenceSync` | definition | unclassified | - | - | - | - |
+| `glFenceSync` | definition | common | src/driver/opengl.ab targeted synchronous buffer-copy fence | src/driver/opengl.ab typed condition flags and opaque result ABI | examples/common-buffer/main.ab immediate wrapped upload reuse with exact readback | tests/application/main.ab invalid GPU copy and upload range rejection |
 | `glFinalCombinerInputNV` | definition | unclassified | - | - | - | - |
 | `glFinish` | definition | common | src/driver/opengl.ab portable idle wait | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
 | `glFinishAsyncSGIX` | definition | unclassified | - | - | - | - |
