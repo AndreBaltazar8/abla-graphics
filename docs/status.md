@@ -1086,8 +1086,12 @@ validity gate unchanged.
   A mixed narrow block validates byte offsets and typed SPIR-V loads. The live
   `push-color` sample uses `vec3 tint` at byte 0 plus `float alpha` at byte 12
   across all 16 OpenGL/Vulkan render forms, retaining exact pixels, four frames,
-  stable handles, and zero live-byte growth. Fragment location inputs remain
-  `vec4`-only pending their dedicated interface slice.
+  stable handles, and zero live-byte growth. Fragment location inputs now accept
+  `vec2`, `vec3`, and `vec4` with width-specific pointer, variable, and load
+  emission; mixed narrow inputs validate as one module. The `narrow-input`
+  sample interpolates `vec2` into a composed `vec4` color with the same exact
+  dual-backend pixel, four-frame, stable-handle, and zero-growth proof.
+  Fragment color outputs remain `vec4`.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through

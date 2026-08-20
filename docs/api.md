@@ -1764,8 +1764,9 @@ and color, with exact pixels, missing-value rejection, stable handles, and zero
 steady-state allocation growth on both backends.
 
 Typed fragment expressions are no longer limited to fixed word templates. The
-typed raster parser accepts up to eight reflected non-array `vec4` inputs in
-source order before one to eight reflected non-array `vec4` outputs, an optional
+typed raster parser accepts up to eight reflected non-array `vec2`, `vec3`, or
+`vec4` inputs in source order before one to eight reflected non-array `vec4`
+outputs, an optional
 reflected block of up to eight non-array `float`, `vec2`, `vec3`, or `vec4`
 members,
 scalar/`vec4` literals, width-exact or scalar-splat `vec2`/`vec3`/`vec4`
@@ -1916,6 +1917,13 @@ bounds, then rebinds it with `+=` and the second vector. Its reflected alpha
 component also passes through scalar `mod`. It
 proves its 48-byte mixed layout plus exact red/green output, stable handles, and
 zero steady-state allocation growth on both real backends.
+
+`narrow-input` uses the existing interleaved `vec2` vertex-output form and the
+typed raster emitter for its matching `vec2` fragment input. The fragment
+extracts both checked components into a `vec4` color. Exact red offscreen pixels,
+presented rendering, stable native pipeline handles, four repeated frames, and
+zero live-byte growth pass on both backends. Deterministic module tests also
+cover `vec3` and mixed `vec2`/`vec3` fragment inputs with distinct pointer types.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

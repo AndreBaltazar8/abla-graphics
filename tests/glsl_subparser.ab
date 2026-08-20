@@ -2357,11 +2357,25 @@ fun main: int {
         rasterMultipleInputs.spirv(shaderStageFragment)
     val rasterMultipleInputsFragmentAgain =
         rasterMultipleInputs.spirv(shaderStageFragment)
-    val rasterVec3InputRejected = glslPackage(
+    val rasterVec3Input = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec3 tint; layout(location=0) out vec3 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
-            "#version 450\nlayout(location=0) in vec3 vertexTint; layout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vertexTint*draw.gain; }"
+            "#version 450\nlayout(location=0) in vec3 vertexTint; layout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ vec3 scaled=vertexTint*draw.gain; color=vec4(scaled.x,scaled.y,scaled.z,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVec2Input = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec2 uv; layout(location=0) out vec2 texCoord; void main(){ gl_Position=vec4(position,0.0,1.0); texCoord=uv; }",
+            "#version 450\nlayout(location=0) in vec2 texCoord; layout(location=0) out vec4 color; void main(){ color=vec4(texCoord.x,texCoord.y,0.0,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMixedNarrowInputs = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) out vec2 first; layout(location=1) out vec3 second; void main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); first=vec2(1.0); second=vec3(1.0); }",
+            "#version 450\nlayout(location=0) in vec2 first; layout(location=1) in vec3 second; layout(location=0) out vec4 color; void main(){ color=vec4(first.x,first.y,second.z,1.0); }"
         ]
     ).spirv(shaderStageFragment)
     val texturedTriangle = $glsl {
@@ -3865,8 +3879,13 @@ fun main: int {
             rasterMultipleInputsFragment.module,
             rasterMultipleInputsFragmentAgain.module
         ) &&
-        !rasterVec3InputRejected.succeeded &&
-        rasterVec3InputRejected.error != "" &&
+        rasterVec3Input.succeeded && rasterVec3Input.module.valid() &&
+        spirvInstructionOperand(rasterVec3Input.module, 23, 3, 3) &&
+        rasterVec2Input.succeeded && rasterVec2Input.module.valid() &&
+        spirvInstructionOperand(rasterVec2Input.module, 23, 3, 2) &&
+        rasterMixedNarrowInputs.succeeded &&
+        rasterMixedNarrowInputs.module.valid() &&
+        spirvWordCount(rasterMixedNarrowInputs.module, 262176) == 3 &&
         texturedTriangle.valid && texturedTriangle.locations.size == 5 &&
         texturedTriangle.bindings.size == 1 &&
         texturedTriangle.bindings[0].stage == shaderStageFragment &&

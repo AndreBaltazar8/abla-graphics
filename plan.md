@@ -84,7 +84,10 @@ derivatives, checked components, width-preserving extended operations, and
 `vec3`-only `cross` compose into existing `vec4` outputs. Narrow fragment
 push members preserve reflected alignment and feed typed loads; the live
 `push-color` proof uses `vec3` plus scalar data across all 16 render forms.
-Narrow fragment location inputs remain milestone work.
+Fragment location inputs now emit width-specific `vec2`/`vec3`/`vec4` pointer,
+variable, and load types, including mixed-width modules. The live
+`narrow-input` sample proves interpolated `vec2` data on both backends; fragment
+color outputs remain `vec4`.
 
 ## Non-negotiable design rules
 

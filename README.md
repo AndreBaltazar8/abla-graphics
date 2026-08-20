@@ -249,6 +249,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   comparison/logical/ternary mutation and readback plus reusable reflected push
   constants with exact output, stable handles, and zero-growth repeated
   dispatch;
+- `examples/narrow-input`: one interleaved `vec2` vertex attribute is
+  interpolated through a typed `vec2` fragment location and composed into a
+  `vec4` color, proving exact pixels, stable handles, and zero-growth repeated
+  offscreen and presented frames on OpenGL and Vulkan;
 - `examples/push-color`: one reflected 16-byte `vec3` tint plus scalar alpha
   push block drives the same
   procedural or buffered triangle through all sixteen portable direct,

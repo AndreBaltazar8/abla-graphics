@@ -1,0 +1,115 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics narrow input",
+            width = 640,
+            height = 480
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(texCoord.x, texCoord.y, 0.0, 1.0);
+            }
+        }
+    }
+    val vertexBytes = bufferBytes(48)
+    val verticesStored =
+        vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(1.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(0.75, 16) &&
+        vertexBytes.storeF32(-0.65, 20) &&
+        vertexBytes.storeF32(1.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(0.0, 32) &&
+        vertexBytes.storeF32(0.75, 36) &&
+        vertexBytes.storeF32(1.0, 40) &&
+        vertexBytes.storeF32(0.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "narrow-input-vertices",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val uploaded = verticesStored && vertices.writeAllBytes(vertexBytes)
+    val layout = VertexBufferLayout(16, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2),
+        VertexAttribute(1, 8, vertexFormatFloat32x2)
+    ])
+    val texture = app.texture(TextureDescriptor(
+        label = "narrow-input-proof",
+        size = Extent3D(64, 64),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(texture))
+    val targetPipeline = app.renderTargetPipeline(target, shader, layout)
+    val windowPipeline = app.renderPipeline(shader, layout)
+    val clear = Color(0.0, 0.0, 1.0)
+    val warmed = app.valid() && shader.valid && vertices.valid() && uploaded &&
+        target.valid() && targetPipeline.valid() && windowPipeline.valid() &&
+        app.renderVerticesToTarget(
+            target,
+            targetPipeline,
+            vertices,
+            3,
+            clear
+        ) && target.texture.rgba8(32, 32) == 4278190335 &&
+        app.presentRenderVertices(windowPipeline, vertices, 3, clear)
+    val targetHandle = if (app.backend == graphicsBackendOpenGl)
+        targetPipeline.openGl.handle else targetPipeline.vulkan.handle
+    val windowHandle = if (app.backend == graphicsBackendOpenGl)
+        windowPipeline.openGl.handle else windowPipeline.vulkan.handle
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = warmed
+    var frame = 0
+    while (repeated && frame < 4) {
+        repeated = app.renderVerticesToTarget(
+            target,
+            targetPipeline,
+            vertices,
+            3,
+            clear
+        ) && target.texture.rgba8(32, 32) == 4278190335 &&
+            app.presentRenderVertices(windowPipeline, vertices, 3, clear)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val finalPixel = target.texture.rgba8(32, 32)
+    val handlesStable = targetHandle != 0 && windowHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            targetPipeline.openGl.handle == targetHandle &&
+                windowPipeline.openGl.handle == windowHandle
+         else targetPipeline.vulkan.handle == targetHandle &&
+                windowPipeline.vulkan.handle == windowHandle)
+    println(
+        "narrow-input backend=${graphicsBackendName(app.backend)} pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+    )
+    if (repeated && frame == 4 && finalPixel == 4278190335 &&
+        liveAfter == liveBefore && handlesStable) 0 else 1
+}

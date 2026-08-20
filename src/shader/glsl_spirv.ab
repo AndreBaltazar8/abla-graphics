@@ -1114,7 +1114,9 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         outputs.size > 0 && outputs.size <= 8
     var inputIndex = 0
     while (valid && inputIndex < inputs.size) {
-        valid = inputs[inputIndex].dataType == "vec4" &&
+        valid = glslRasterTypeIsVector(glslRasterDataType(
+            inputs[inputIndex].dataType
+        )) &&
             inputs[inputIndex].arraySize == 1
         inputIndex = inputIndex + 1
     }
@@ -1144,7 +1146,7 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         val input = inputs[inputIndex]
         val inputTokens = [
             "layout", "(", "location", "=", "${input.location}", ")",
-            "in", "vec4", input.name, ";"
+            "in", input.dataType, input.name, ";"
         ]
         var inputTokenIndex = 0
         while (valid && inputTokenIndex < inputTokens.size) {
@@ -1514,7 +1516,9 @@ fun glslRasterFragmentSpirv(
     var inputIndex = 0
     while (valid && inputIndex < program.inputs.size) {
         val input = program.inputs[inputIndex]
-        valid = input.location >= 0 && input.dataType == "vec4" &&
+        valid = input.location >= 0 && glslRasterTypeIsVector(
+            glslRasterDataType(input.dataType)
+        ) &&
             input.arraySize == 1
         inputIndex = inputIndex + 1
     }
@@ -1542,6 +1546,14 @@ fun glslRasterFragmentSpirv(
     var usesDerivativeControl = false
     var usesVector2 = hasVector2Member
     var usesVector3 = hasVector3Member
+    inputIndex = 0
+    while (valid && inputIndex < program.inputs.size) {
+        usesVector2 = usesVector2 ||
+            program.inputs[inputIndex].dataType == "vec2"
+        usesVector3 = usesVector3 ||
+            program.inputs[inputIndex].dataType == "vec3"
+        inputIndex = inputIndex + 1
+    }
     var scanExpression = 0
     while (valid && scanExpression < program.expressions.size) {
         var scanToken = 0
@@ -1585,10 +1597,40 @@ fun glslRasterFragmentSpirv(
         outputIndex = outputIndex + 1
     }
     var inputPointerType = 0
+    var inputVector2PointerType = 0
+    var inputVector3PointerType = 0
+    var inputVectorPointerType = 0
+    var primaryInputType = glslRasterTypeInvalid
     val inputVariables: array<int> = []
     if (valid && program.inputs.size > 0) {
+        primaryInputType = glslRasterDataType(program.inputs[0].dataType)
         inputPointerType = nextId
         nextId = nextId + 1
+        if (primaryInputType == glslRasterTypeVector2) {
+            inputVector2PointerType = inputPointerType
+        } else if (primaryInputType == glslRasterTypeVector3) {
+            inputVector3PointerType = inputPointerType
+        } else inputVectorPointerType = inputPointerType
+        inputIndex = 0
+        while (inputIndex < program.inputs.size) {
+            val inputType = glslRasterDataType(
+                program.inputs[inputIndex].dataType
+            )
+            if (inputType == glslRasterTypeVector2 &&
+                inputVector2PointerType == 0) {
+                inputVector2PointerType = nextId
+                nextId = nextId + 1
+            } else if (inputType == glslRasterTypeVector3 &&
+                inputVector3PointerType == 0) {
+                inputVector3PointerType = nextId
+                nextId = nextId + 1
+            } else if (inputType == glslRasterTypeVector &&
+                inputVectorPointerType == 0) {
+                inputVectorPointerType = nextId
+                nextId = nextId + 1
+            }
+            inputIndex = inputIndex + 1
+        }
         inputIndex = 0
         while (inputIndex < program.inputs.size) {
             inputVariables.append(nextId)
@@ -1729,11 +1771,46 @@ fun glslRasterFragmentSpirv(
             words.append(262176)
             words.append(inputPointerType)
             words.append(1)
-            words.append(vectorType)
+            words.append(glslRasterSpirvType(
+                primaryInputType,
+                floatType,
+                vector2Type,
+                vector3Type,
+                vectorType
+            ))
+            if (inputVector2PointerType != 0 &&
+                inputVector2PointerType != inputPointerType) {
+                words.append(262176)
+                words.append(inputVector2PointerType)
+                words.append(1)
+                words.append(vector2Type)
+            }
+            if (inputVector3PointerType != 0 &&
+                inputVector3PointerType != inputPointerType) {
+                words.append(262176)
+                words.append(inputVector3PointerType)
+                words.append(1)
+                words.append(vector3Type)
+            }
+            if (inputVectorPointerType != 0 &&
+                inputVectorPointerType != inputPointerType) {
+                words.append(262176)
+                words.append(inputVectorPointerType)
+                words.append(1)
+                words.append(vectorType)
+            }
             inputIndex = 0
             while (inputIndex < inputVariables.size) {
+                val inputType = glslRasterDataType(
+                    program.inputs[inputIndex].dataType
+                )
+                val pointerType = if (
+                    inputType == glslRasterTypeVector2
+                ) inputVector2PointerType else if (
+                    inputType == glslRasterTypeVector3
+                ) inputVector3PointerType else inputVectorPointerType
                 words.append(262203)
-                words.append(inputPointerType)
+                words.append(pointerType)
                 words.append(inputVariables[inputIndex])
                 words.append(1)
                 inputIndex = inputIndex + 1
@@ -1957,13 +2034,26 @@ fun glslRasterFragmentSpirv(
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < inputVariables.size
             if (valid) {
+                val inputType = glslRasterDataType(program.inputs[
+                    token.memberIndex
+                ].dataType)
+                val inputSpirvType = glslRasterSpirvType(
+                    inputType,
+                    floatType,
+                    vector2Type,
+                    vector3Type,
+                    vectorType
+                )
+                valid = inputSpirvType != 0
                 valueId = nextId
                 nextId = nextId + 1
-                words.append(262205)
-                words.append(vectorType)
-                words.append(valueId)
-                words.append(inputVariables[token.memberIndex])
-                tokenTypes[tokenIndex] = glslRasterTypeVector
+                if (valid) {
+                    words.append(262205)
+                    words.append(inputSpirvType)
+                    words.append(valueId)
+                    words.append(inputVariables[token.memberIndex])
+                    tokenTypes[tokenIndex] = inputType
+                }
             }
         } else if (token.kind == glslRasterTokenConstruct) {
             val arity = token.memberIndex
