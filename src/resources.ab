@@ -604,10 +604,19 @@ class BufferDescriptor(
                 "persistent mapping requires mapped-at-creation"
             )
         } else if (this.mappedAtCreation &&
-            (this.usage & bufferUsageMapWrite) == 0) {
+            (this.usage & (bufferUsageMapRead | bufferUsageMapWrite)) == 0) {
             result = graphicsDescriptorInvalid(
                 "mappedAtCreation",
-                "mapped-at-creation buffers require map-write usage"
+                "mapped-at-creation buffers require map-read or map-write usage"
+            )
+        } else if (this.persistentMapping &&
+            (((this.usage & bufferUsageMapWrite) != 0 &&
+              (this.usage & bufferUsageCopySource) == 0) ||
+             ((this.usage & bufferUsageMapRead) != 0 &&
+              (this.usage & bufferUsageCopyDestination) == 0))) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "persistent mappings require the matching GPU copy direction"
             )
         } else if ((this.usage & bufferUsageMapRead) != 0 &&
             (this.usage & ~(bufferUsageMapRead | bufferUsageCopyDestination)) != 0) {
@@ -629,7 +638,13 @@ class BufferDescriptor(
         graphicsUsageValid(this.usage, bufferUsageAll) &&
         (!this.persistentMapping || this.mappedAtCreation) &&
         (!this.mappedAtCreation ||
-         (this.usage & bufferUsageMapWrite) != 0) &&
+         (this.usage & (bufferUsageMapRead | bufferUsageMapWrite)) != 0) &&
+        (!this.persistentMapping ||
+         ((this.usage & bufferUsageMapWrite) == 0 ||
+          (this.usage & bufferUsageCopySource) != 0)) &&
+        (!this.persistentMapping ||
+         ((this.usage & bufferUsageMapRead) == 0 ||
+          (this.usage & bufferUsageCopyDestination) != 0)) &&
         ((this.usage & bufferUsageMapRead) == 0 ||
          (this.usage & ~(bufferUsageMapRead |
             bufferUsageCopyDestination)) == 0) &&

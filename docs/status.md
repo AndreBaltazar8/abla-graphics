@@ -370,20 +370,22 @@ Updated: 2026-08-20.
   preserve both native buffer handles and produce zero Abla runtime live-byte
   growth. Invalid mapped usage, access mode, logical range, nested map,
   repeated unmap, mapped GPU use, and deterministic destruction also pass.
-  A separate capability-gated persistent mapping mode keeps a coherent
-  map-write/copy-source upload buffer mapped through synchronous GPU copies.
+  A separate capability-gated persistent mapping mode keeps either a coherent
+  map-write/copy-source upload or map-read/copy-destination readback buffer
+  mapped through synchronous GPU copies.
   OpenGL 4.4+ uses immutable `glBufferStorage`, persistent/coherent map flags,
   a client-mapped barrier, and a targeted fence/client wait; Vulkan uses
   coherent host memory and waits for transfer submission. Four repeated
   write/copy/readback cycles preserve all handles and live bytes. Because copy
   completion is genuinely synchronous, each range is safe to overwrite after
   return; asynchronous ring ownership is not claimed.
-  `GraphicsBufferUploadRing` now owns one such mapping and provides aligned,
-  bounded, wrap-counted staging through descriptor and primitive-range APIs.
-  Five live sample uploads force two wraps; four application-gate uploads force
-  one wrap. Both backends preserve the staging handle, reject an invalid range
-  without advancing state, read back exact bytes, and add zero live bytes in
-  the measured loops.
+  `GraphicsBufferUploadRing` and `GraphicsBufferReadbackRing` own one mapping in
+  each direction and provide aligned, bounded, wrap-counted staging through
+  descriptor and primitive-range APIs. Five live sample operations per ring
+  force two wraps; four application-gate operations force one wrap. Both
+  backends preserve both staging handles, reject invalid ranges without
+  advancing state, read back exact bytes, and add zero live bytes in the
+  measured loops.
 - Common GPU buffer-copy test: `GraphicsApplication.copyBuffer` validates
   distinct same-backend resources, source/destination copy usages, and both
   ranges before dispatch. A partial 31-byte copy between different offsets is
@@ -405,11 +407,11 @@ Updated: 2026-08-20.
 - Common buffer sample: one independently buildable Abla source creates and
   verifies the same partial reusable-byte upload/readback on a 256-byte storage
   buffer plus mapped-at-creation upload/unmap, post-creation write/read maps,
-  coherent persistent upload, a 32-byte aligned upload ring forced through two
-  wraps, and GPU copy/fill/readback under explicit OpenGL and Vulkan in the
-  software-driver sample matrix. Four complete mapped transfer cycles preserve
-  all mapped buffer handles and produce zero Abla runtime live-byte growth on
-  both backends.
+  coherent persistent transfers, 32-byte aligned upload and readback rings each
+  forced through two wraps, and GPU copy/fill/readback under explicit OpenGL and
+  Vulkan in the software-driver sample matrix. Four complete mapped transfer
+  cycles preserve all mapped buffer handles and produce zero Abla runtime
+  live-byte growth on both backends.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1163,8 +1165,8 @@ validity gate unchanged.
   byte-range upload/readback is present, including
   distinct source and destination offsets; synchronous GPU buffer copies and
   aligned 32-bit pattern fills reuse backend command state. Synchronous
-  coherent persistent uploads and a bounded aligned buffer upload ring are
-  present; asynchronous transfers are not.
+  coherent persistent transfers and bounded aligned buffer upload/readback
+  rings are present; asynchronous transfers are not.
   Common buffers, textures, views,
   samplers, and immutable structural
   descriptors are present;

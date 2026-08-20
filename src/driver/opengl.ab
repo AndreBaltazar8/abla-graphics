@@ -1046,7 +1046,8 @@ resource class OpenGlBuffer(
             this.size
         )
         var succeeded = this.valid() && destination.valid() &&
-            (!this.mapped() || this.persistent) && !destination.mapped() &&
+            (!this.mapped() || this.persistent) &&
+            (!destination.mapped() || destination.persistent) &&
             this.context == destination.context &&
             this.display == destination.display &&
             bufferCopyRangeValid(
@@ -1067,6 +1068,9 @@ resource class OpenGlBuffer(
                 destinationOffset,
                 byteCount
             )
+            if (destination.mapped() && destination.persistent) {
+                glMemoryBarrier(16384)
+            }
             succeeded = glGetError() == 0
             if (succeeded) succeeded = openGlWaitForCommands()
         }
@@ -1074,7 +1078,8 @@ resource class OpenGlBuffer(
     }
 
     trusted fun fill(descriptor: BufferFillDescriptor): bool {
-        var succeeded = this.valid() && !this.mapped() &&
+        var succeeded = this.valid() &&
+            (!this.mapped() || this.persistent) &&
             descriptor.valid(this.size) &&
             this.makeCurrent()
         if (succeeded) {
@@ -1089,7 +1094,11 @@ resource class OpenGlBuffer(
                 5125,
                 this.scratch.address
             )
+            if (this.mapped() && this.persistent) glMemoryBarrier(16384)
             succeeded = glGetError() == 0
+            if (succeeded && this.mapped() && this.persistent) {
+                succeeded = openGlWaitForCommands()
+            }
         }
         succeeded
     }
@@ -1211,14 +1220,17 @@ resource class OpenGlBuffer(
 trusted fun OpenGlWindowContext.buffer(
     size: int,
     mappedAtCreation: bool = false,
-    persistentMapping: bool = false
+    persistentMapping: bool = false,
+    initialMapAccess: int = 2
 ): OpenGlBuffer {
     var handle = 0
     val mappedAddress = nativePointerCell(nativeNullPointer())
     var mappedOffset = 0
     var mappedSize = 0
     var mappedAccess = 0
-    if (size > 0 && size <= 1073741824 && this.makeCurrent()) {
+    if (size > 0 && size <= 1073741824 &&
+        (!mappedAtCreation || initialMapAccess == 1 ||
+         initialMapAccess == 2) && this.makeCurrent()) {
         val output = nativeI64Cell(0)
         glGenBuffers(1, output.address)
         handle = output.load()
@@ -1228,7 +1240,7 @@ trusted fun OpenGlWindowContext.buffer(
                 34962,
                 size,
                 nativeNullPointer(),
-                450
+                if (initialMapAccess == 1) 193 else 450
             )
             else glBufferData(34962, size, nativeNullPointer(), 35048)
             var succeeded = glGetError() == 0
@@ -1237,13 +1249,15 @@ trusted fun OpenGlWindowContext.buffer(
                     34962,
                     0,
                     size,
-                    if (persistentMapping) 194 else 2
+                    if (persistentMapping)
+                        (if (initialMapAccess == 1) 193 else 194)
+                    else initialMapAccess
                 )
                 succeeded = !pointerIsNull(address) &&
                     mappedAddress.store(address) && glGetError() == 0
                 if (succeeded) {
                     mappedSize = size
-                    mappedAccess = 2
+                    mappedAccess = initialMapAccess
                 }
             }
             if (!succeeded) {

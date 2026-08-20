@@ -220,8 +220,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   SPIR-V fragment table;
 - `examples/common-buffer`: affine buffers with reusable byte ranges,
   mapped-at-creation upload, post-creation write/read remapping, coherent
-  persistent uploads, a bounded aligned upload ring, GPU copies, and stable
-  zero-allocation repeats on explicit OpenGL and Vulkan; and
+  persistent transfers, bounded aligned upload/readback rings, GPU copies, and
+  stable zero-allocation repeats on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and

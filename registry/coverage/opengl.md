@@ -1348,7 +1348,7 @@
 | `glMatrixTranslatefEXT` | definition | unclassified | - | - | - | - |
 | `glMaxShaderCompilerThreadsARB` | definition | unclassified | - | - | - | - |
 | `glMaxShaderCompilerThreadsKHR` | definition | unclassified | - | - | - | - |
-| `glMemoryBarrier` | definition | common | src/driver/opengl.ab storage visibility after compute dispatch | src/driver/opengl.ab typed barrier-mask ABI | examples/common-compute/main.ab exact storage readback after repeated dispatch | tests/application/main.ab missing storage binding rejection |
+| `glMemoryBarrier` | definition | common | src/driver/opengl.ab compute and coherent mapped-transfer visibility | src/driver/opengl.ab typed barrier-mask ABI | examples/common-buffer/main.ab exact wrapped persistent upload and readback | tests/application/main.ab invalid mapped transfer rejection |
 | `glMemoryBarrierByRegion` | definition | unclassified | - | - | - | - |
 | `glMemoryBarrierEXT` | definition | unclassified | - | - | - | - |
 | `glMemoryObjectParameterivEXT` | definition | unclassified | - | - | - | - |

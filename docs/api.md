@@ -571,8 +571,9 @@ zero live-byte growth. OpenGL maps the exact native range. Vulkan maps its
 host-coherent allocation from alignment-safe offset zero and enforces the same
 logical subrange in Abla.
 
-For synchronous streaming uploads, `persistentMapping = true` keeps a coherent
-map-write/copy-source buffer mapped while `copyBuffer` consumes it:
+For synchronous streaming transfers, `persistentMapping = true` keeps either a
+coherent map-write/copy-source upload buffer or a map-read/copy-destination
+readback buffer mapped while `copyBuffer` consumes it:
 
 ```abla
 val upload = app.buffer(BufferDescriptor(
@@ -588,15 +589,17 @@ app.copyBuffer(upload, deviceBuffer, copy)
 
 `graphicsFeaturePersistentMapping` advertises this path. OpenGL requires core
 4.4, allocates immutable storage with `glBufferStorage`, maps it persistent and
-coherent, and issues the client-mapped visibility barrier before copying.
+coherent, and issues the client-mapped visibility barrier before upload copies
+or after readback copies.
 Vulkan uses its host-visible coherent allocation and alignment-safe whole-memory
 map. OpenGL fences each copy and waits only for that fence; Vulkan waits for its
 transfer submission. The current `copyBuffer` therefore completes before the
 method returns on both backends, and the application may safely overwrite the
-upload range for the next call. A persistently mapped buffer remains restricted
-to map-write plus copy-source usage; it cannot silently enter vertex, index,
-uniform, storage, or copy-destination work. `unmap()` ends the persistent
-lifecycle explicitly, and affine drop does so automatically.
+upload range or read the completed download range. A persistently mapped buffer
+remains restricted to exactly one portable direction: map-write plus
+copy-source, or map-read plus copy-destination. It cannot silently enter vertex,
+index, uniform, or storage work. `unmap()` ends the persistent lifecycle
+explicitly, and affine drop does so automatically.
 
 `GraphicsBufferUploadRing` packages that mechanism into one affine staging
 resource:
@@ -627,6 +630,31 @@ drops its staging buffer, and `graphicsFeaturePersistentMapping` gates creation.
 This is synchronous streaming with bounded reusable storage, not an in-flight
 asynchronous ownership scheme.
 
+`GraphicsBufferReadbackRing` is the matching download path:
+
+```abla
+val downloads = app.bufferReadbackRing(BufferReadbackRingDescriptor(
+    capacity = 1048576,
+    alignment = 256
+))
+
+app.downloadBufferRange(
+    downloads,
+    deviceBuffer,
+    resultBytes,
+    sourceOffset,
+    0,
+    resultBytes.size
+)
+```
+
+It copies a checked GPU source range into the next aligned persistent map-read
+slice, waits for the same backend completion boundary, then copies directly
+into caller-owned `BufferBytes`. Descriptor and primitive APIs mirror uploads.
+Failed copy or read validation leaves `cursor`, `downloadCount`, and `wrapCount`
+unchanged. Repeated wrapped downloads preserve the staging handle and allocate
+no live Abla memory.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -642,8 +670,8 @@ ranges. `copyBufferRange` exposes the identical primitive-offset operation for
 allocation-critical loops. OpenGL binds copy-read/copy-write targets and calls
 `glCopyBufferSubData`, then uses `glFenceSync`/`glClientWaitSync`/`glDeleteSync`
 as an explicit completion point instead of calling `glFinish`. Vulkan owns one
-transfer command pool, command buffer,
-and scratch ABI block with the device, resets and reuses them, emits
+transfer command pool, command buffer, and scratch ABI block with the device,
+resets and reuses them, emits
 `vkCmdCopyBuffer` plus a transfer-to-host barrier, and waits for queue completion.
 Repeated copies preserve those handles and show zero Abla runtime live-byte
 growth. This initial operation is deliberately synchronous; it establishes the

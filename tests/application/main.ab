@@ -369,7 +369,7 @@ fun applicationBackendProbe(
     val remappedGpuMatches = mappedReadback.loadI64(2) == remappedValue
     val invalidMappedBuffer = app.buffer(BufferDescriptor(
         size = 64,
-        usage = bufferUsageMapRead,
+        usage = bufferUsageCopySource,
         mappedAtCreation = true
     ))
     val readbackBuffer = app.buffer(BufferDescriptor(
@@ -470,6 +470,51 @@ fun applicationBackendProbe(
         uploadRingHandleStable && uploadRingRead &&
         uploadRingReadback.loadI64() == mappedValue &&
         invalidUploadRingRangeRejected
+    val readbackRing = app.bufferReadbackRing(BufferReadbackRingDescriptor(
+        label = "application-readback-ring",
+        capacity = 32,
+        alignment = 16
+    ))
+    val readbackRingHandle = if (app.backend == graphicsBackendOpenGl)
+        readbackRing.staging.openGl.handle
+    else readbackRing.staging.vulkan.handle
+    val readbackRingBytes = bufferBytes(8)
+    val readbackRingLiveBefore = runtimeMemoryLiveBytes()
+    var readbackRingRepeated = readbackRing.valid()
+    var readbackRingRepeat = 0
+    while (readbackRingRepeated && readbackRingRepeat < 4) {
+        readbackRingRepeated = app.downloadBufferRange(
+            readbackRing,
+            gpuCopyDestination,
+            readbackRingBytes,
+            56,
+            0,
+            8
+        )
+        readbackRingRepeat = readbackRingRepeat + 1
+    }
+    val readbackRingLiveAfter = runtimeMemoryLiveBytes()
+    val readbackRingStateBeforeInvalid = readbackRing.cursor
+    val invalidReadbackRingRangeRejected = !app.downloadBufferRange(
+        readbackRing,
+        gpuCopyDestination,
+        readbackRingBytes,
+        60,
+        0,
+        8
+    ) && readbackRing.cursor == readbackRingStateBeforeInvalid &&
+        readbackRing.downloadCount == 4
+    val readbackRingHandleStable = if (app.backend == graphicsBackendOpenGl)
+        readbackRing.staging.openGl.handle == readbackRingHandle
+    else readbackRing.staging.vulkan.handle == readbackRingHandle
+    val readbackRingPassed = readbackRingRepeated &&
+        readbackRingRepeat == 4 && readbackRing.downloadCount == 4 &&
+        readbackRing.wrapCount == 1 && readbackRing.lastOffset == 16 &&
+        readbackRing.cursor == 24 &&
+        readbackRingLiveAfter == readbackRingLiveBefore &&
+        readbackRingHandleStable &&
+        readbackRingBytes.loadI64() == mappedValue &&
+        invalidReadbackRingRangeRejected
     val sampler = app.sampler(SamplerDescriptor(
         addressU = samplerAddressRepeat,
         addressV = samplerAddressMirrorRepeat,
@@ -1740,7 +1785,7 @@ fun applicationBackendProbe(
         writeToReadMapRejected && readMapGpuUseRejected &&
         readRangeUnmapped && mapWriteUsageRejected &&
         invalidReadRangeRejected && readRangeRemapped &&
-        uploadRingPassed &&
+        uploadRingPassed && readbackRingPassed &&
         rangeUploaded && rangeRead && rangeMatches &&
         invalidBufferRangeRejected && wholeBufferTransferred &&
         gpuCopyDestination.valid() && gpuRangeCopied && gpuCopyRead &&

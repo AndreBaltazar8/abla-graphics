@@ -189,6 +189,37 @@ fun main: int {
         8
     ) && uploadRing.cursor == ringCursorAfterUpload &&
         uploadRing.uploadCount == 1 && uploadRing.wrapCount == 0
+    val readbackRing = app.bufferReadbackRing(BufferReadbackRingDescriptor(
+        label = "sample-readback-ring",
+        capacity = 32,
+        alignment = 16
+    ))
+    val readbackPersistentFilled = app.fillBuffer(
+        readbackRing.staging,
+        BufferFillDescriptor(287454020, 0, 8)
+    )
+    val readbackPersistentFillRead = readbackRing.staging.readMappedRange(
+        mappedReadback,
+        0,
+        2,
+        8
+    ) && mappedReadback.loadI64(2) == 1234605615291183940
+    val ringReadbackDownloaded = app.downloadBuffer(
+        readbackRing,
+        copiedBuffer,
+        mappedReadback,
+        BufferCopyDescriptor(192, 2, 8)
+    )
+    val readbackRingCursorAfterDownload = readbackRing.cursor
+    val readbackRingInvalidRejected = !app.downloadBufferRange(
+        readbackRing,
+        copiedBuffer,
+        mappedReadback,
+        252,
+        2,
+        8
+    ) && readbackRing.cursor == readbackRingCursorAfterDownload &&
+        readbackRing.downloadCount == 1 && readbackRing.wrapCount == 0
     val mappedOpenGlHandle = mappedSource.openGl.handle
     val mappedVulkanHandle = mappedSource.vulkan.handle
     val readOpenGlHandle = mappedReadSource.openGl.handle
@@ -197,6 +228,8 @@ fun main: int {
     val persistentVulkanHandle = persistentSource.vulkan.handle
     val ringOpenGlHandle = uploadRing.staging.openGl.handle
     val ringVulkanHandle = uploadRing.staging.vulkan.handle
+    val readbackRingOpenGlHandle = readbackRing.staging.openGl.handle
+    val readbackRingVulkanHandle = readbackRing.staging.vulkan.handle
     val liveBeforeRepeats = runtimeMemoryLiveBytes()
     var repeated = uploaded && downloaded && gpuCopied && gpuDownloaded &&
         gpuFilled && gpuFillDownloaded && mappedCopied && mappedDownloaded
@@ -256,6 +289,13 @@ fun main: int {
             ) && copiedBuffer.readBytes(
                 mappedReadback,
                 ringReadbackRange
+            ) && app.downloadBufferRange(
+                readbackRing,
+                copiedBuffer,
+                mappedReadback,
+                192,
+                2,
+                8
             )
         repeat = repeat + 1
     }
@@ -265,17 +305,26 @@ fun main: int {
         mappedSource.openGl.handle == mappedOpenGlHandle &&
             mappedReadSource.openGl.handle == readOpenGlHandle &&
             persistentSource.openGl.handle == persistentOpenGlHandle &&
-            uploadRing.staging.openGl.handle == ringOpenGlHandle
+            uploadRing.staging.openGl.handle == ringOpenGlHandle &&
+            readbackRing.staging.openGl.handle == readbackRingOpenGlHandle
     else mappedSource.vulkan.handle == mappedVulkanHandle &&
         mappedReadSource.vulkan.handle == readVulkanHandle &&
         persistentSource.vulkan.handle == persistentVulkanHandle &&
-        uploadRing.staging.vulkan.handle == ringVulkanHandle
+        uploadRing.staging.vulkan.handle == ringVulkanHandle &&
+        readbackRing.staging.vulkan.handle == readbackRingVulkanHandle
     val ringRepeated = uploadRing.valid() && uploadRing.uploadCount == 5 &&
         uploadRing.wrapCount == 2 && uploadRing.lastOffset == 0 &&
         uploadRing.cursor == 8 && uploadRing.remainingBytes() == 24
     val ringRewound = uploadRing.rewind() && uploadRing.cursor == 0 &&
         uploadRing.lastOffset == -1 && uploadRing.uploadCount == 5 &&
         uploadRing.wrapCount == 2
+    val readbackRingRepeated = readbackRing.valid() &&
+        readbackRing.downloadCount == 5 && readbackRing.wrapCount == 2 &&
+        readbackRing.lastOffset == 0 && readbackRing.cursor == 8 &&
+        readbackRing.remainingBytes() == 24
+    val readbackRingRewound = readbackRing.rewind() &&
+        readbackRing.cursor == 0 && readbackRing.lastOffset == -1 &&
+        readbackRing.downloadCount == 5 && readbackRing.wrapCount == 2
     val persistentFinished = persistentSource.unmap() &&
         !persistentSource.persistentlyMapped()
     val passed = app.valid() && buffer.valid() && copiedBuffer.valid() &&
@@ -294,6 +343,9 @@ fun main: int {
         persistentDownloaded && persistentFinished &&
         ringUploaded && ringDownloaded && ringInvalidRejected &&
         ringRepeated && ringRewound &&
+        readbackPersistentFilled && readbackPersistentFillRead &&
+        ringReadbackDownloaded && readbackRingInvalidRejected &&
+        readbackRingRepeated && readbackRingRewound &&
         mappedHandleStable &&
         repeated && noTransferAllocations &&
         readback.load(3) == 23 &&
@@ -315,7 +367,7 @@ fun main: int {
             0.4375
         ))
     println(
-        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, mapped=${mappingStarted && mappedWritten && mappingFinished && mappedCopied && mappedDownloaded}, remap=${remapStarted && remapWritten && remapFinished && remapCopied}, readMap=${readMapStarted && readMapped && readMapFinished}, persistent=${persistentStarted && persistentWritten && persistentGpuCopied && persistentDownloaded && persistentFinished}, uploadRing=${ringUploaded && ringDownloaded && ringInvalidRejected && ringRepeated && ringRewound}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, mappedHandleStable=$mappedHandleStable, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
+        "Common buffer ${graphicsBackendName(app.backend)}: ${buffer.descriptor.size} bytes, range=${uploaded && downloaded}, mapped=${mappingStarted && mappedWritten && mappingFinished && mappedCopied && mappedDownloaded}, remap=${remapStarted && remapWritten && remapFinished && remapCopied}, readMap=${readMapStarted && readMapped && readMapFinished}, persistent=${persistentStarted && persistentWritten && persistentGpuCopied && persistentDownloaded && persistentFinished}, uploadRing=${ringUploaded && ringDownloaded && ringInvalidRejected && ringRepeated && ringRewound}, readbackRing=${ringReadbackDownloaded && readbackRingInvalidRejected && readbackRingRepeated && readbackRingRewound}, gpuCopy=${gpuCopied && gpuDownloaded}, gpuFill=${gpuFilled && gpuFillDownloaded}, repeatNoAlloc=${noTransferAllocations}, mappedHandleStable=$mappedHandleStable, liveDelta=${liveAfterRepeats - liveBeforeRepeats} on ${app.adapterName}"
     )
     if (passed) 0 else 1
 }

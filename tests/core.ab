@@ -140,9 +140,21 @@ fun main: int {
         mappedAtCreation = true,
         persistentMapping = true
     )
+    val persistentReadBuffer = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapRead | bufferUsageCopyDestination,
+        mappedAtCreation = true,
+        persistentMapping = true
+    )
     val invalidPersistentBuffer = BufferDescriptor(
         size = 64,
         usage = bufferUsageMapWrite | bufferUsageCopySource,
+        persistentMapping = true
+    ).validation()
+    val invalidPersistentReadUsage = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapRead,
+        mappedAtCreation = true,
         persistentMapping = true
     ).validation()
     val uploadRingDescriptor = BufferUploadRingDescriptor(
@@ -156,6 +168,14 @@ fun main: int {
     val oversizedUploadRing = BufferUploadRingDescriptor(
         capacity = graphicsMaximumUploadRingBytes + 1,
         alignment = 16
+    ).validation()
+    val readbackRingDescriptor = BufferReadbackRingDescriptor(
+        capacity = 256,
+        alignment = 32
+    )
+    val invalidReadbackRingAlignment = BufferReadbackRingDescriptor(
+        capacity = 256,
+        alignment = 24
     ).validation()
     val bytes = bufferBytes(24)
     val bytesFilled = bytes.fill(9)
@@ -770,8 +790,11 @@ fun main: int {
         pixels.rgba8(1, 1) == 387125517 &&
         vertexBuffer.valid() && readbackBuffer.valid() &&
         persistentBuffer.valid() &&
+        persistentReadBuffer.valid() &&
         !invalidPersistentBuffer.succeeded &&
         invalidPersistentBuffer.field == "persistentMapping" &&
+        !invalidPersistentReadUsage.succeeded &&
+        invalidPersistentReadUsage.field == "usage" &&
         uploadRingDescriptor.valid() &&
         bufferUploadAlignedOffset(0, 32) == 0 &&
         bufferUploadAlignedOffset(17, 32) == 32 &&
@@ -780,6 +803,9 @@ fun main: int {
         invalidUploadRingAlignment.field == "alignment" &&
         !oversizedUploadRing.succeeded &&
         oversizedUploadRing.field == "capacity" &&
+        readbackRingDescriptor.valid() &&
+        !invalidReadbackRingAlignment.succeeded &&
+        invalidReadbackRingAlignment.field == "alignment" &&
         !invalidMappedBuffer.succeeded &&
         invalidMappedBuffer.field == "usage" &&
         bytes.valid() && bytesFilled && byteStored &&
