@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 84/2892
+- Classified commands: 90/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -773,7 +773,7 @@
 | `glGetDoublei_v` | definition | unclassified | - | - | - | - |
 | `glGetDoublei_vEXT` | definition | unclassified | - | - | - | - |
 | `glGetDoublev` | definition | unclassified | - | - | - | - |
-| `glGetError` | definition | unclassified | - | - | - | - |
+| `glGetError` | definition | common | src/driver/opengl.ab checked driver failure boundary | src/driver/opengl.ab typed error-code result ABI | tests/opengl/main.ab successful program use and malformed shader rejection | tests/application/main.ab unsupported OpenGL feature rejection |
 | `glGetFenceivNV` | definition | unclassified | - | - | - | - |
 | `glGetFinalCombinerInputParameterfvNV` | definition | unclassified | - | - | - | - |
 | `glGetFinalCombinerInputParameterivNV` | definition | unclassified | - | - | - | - |
@@ -782,7 +782,7 @@
 | `glGetFloatIndexedvEXT` | definition | unclassified | - | - | - | - |
 | `glGetFloati_v` | definition | unclassified | - | - | - | - |
 | `glGetFloati_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetFloatv` | definition | unclassified | - | - | - | - |
+| `glGetFloatv` | definition | common | src/driver/opengl.ab sampler anisotropy capability query | src/driver/opengl.ab typed floating output-pointer ABI | tests/opengl/main.ab validated maximum anisotropy at least 16 | src/driver/opengl.ab conservative one-times fallback |
 | `glGetFogFuncSGIS` | definition | unclassified | - | - | - | - |
 | `glGetFragDataIndex` | definition | unclassified | - | - | - | - |
 | `glGetFragDataLocation` | definition | unclassified | - | - | - | - |
@@ -812,12 +812,12 @@
 | `glGetInfoLogARB` | definition | unclassified | - | - | - | - |
 | `glGetInstrumentsSGIX` | definition | unclassified | - | - | - | - |
 | `glGetInteger64i_v` | definition | unclassified | - | - | - | - |
-| `glGetInteger64v` | definition | unclassified | - | - | - | - |
+| `glGetInteger64v` | definition | common | src/driver/opengl.ab storage-buffer limit query | src/driver/opengl.ab typed 64-bit output-pointer ABI | tests/opengl/main.ab validated positive storage limit | src/driver/opengl.ab bounded portable storage cap |
 | `glGetIntegerIndexedvEXT` | definition | unclassified | - | - | - | - |
-| `glGetIntegeri_v` | definition | unclassified | - | - | - | - |
+| `glGetIntegeri_v` | definition | common | src/driver/opengl.ab indexed compute workgroup limit query | src/driver/opengl.ab typed name index and output ABI | tests/opengl/main.ab validated three-axis group and local limits | tests/application/main.ab limit-exceeding dispatch rejection |
 | `glGetIntegerui64i_vNV` | definition | unclassified | - | - | - | - |
 | `glGetIntegerui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetIntegerv` | definition | unclassified | - | - | - | - |
+| `glGetIntegerv` | definition | common | src/driver/opengl.ab version extension and scalar limit queries | src/driver/opengl.ab typed integer output-pointer ABI | tests/opengl/main.ab validated version texture compute and extension counts | src/driver/opengl.ab conservative defaults for unavailable limits |
 | `glGetInternalformatSampleivNV` | definition | unclassified | - | - | - | - |
 | `glGetInternalformati64v` | definition | unclassified | - | - | - | - |
 | `glGetInternalformativ` | definition | unclassified | - | - | - | - |
@@ -993,7 +993,7 @@
 | `glGetSharpenTexFuncSGIS` | definition | unclassified | - | - | - | - |
 | `glGetStageIndexNV` | definition | unclassified | - | - | - | - |
 | `glGetString` | definition | unclassified | - | - | - | - |
-| `glGetStringi` | definition | unclassified | - | - | - | - |
+| `glGetStringi` | definition | common | src/driver/opengl.ab bounded extension-name enumeration | src/driver/opengl.ab typed name index and string-pointer ABI | tests/application/main.ab SPIR-V and anisotropy feature negotiation | src/driver/opengl.ab null extension pointer handling |
 | `glGetSubroutineIndex` | definition | unclassified | - | - | - | - |
 | `glGetSubroutineUniformLocation` | definition | unclassified | - | - | - | - |
 | `glGetSynciv` | definition | unclassified | - | - | - | - |

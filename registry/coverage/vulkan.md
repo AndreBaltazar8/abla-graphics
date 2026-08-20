@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 84/842
+- Classified commands: 95/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -397,7 +397,7 @@
 | `vkCreateDescriptorSetLayout` | definition | common | src/driver/vulkan.ab reflected bind-group layout creation | src/driver/vulkan.ab packed DescriptorSetLayoutBinding and create-info ABIs | tests/application/main.ab sampled uniform and storage layout validation | tests/application/main.ab duplicate binding rejection |
 | `vkCreateDescriptorUpdateTemplate` | definition | unclassified | - | - | - | - |
 | `vkCreateDescriptorUpdateTemplateKHR` | alias | unclassified | - | - | - | - |
-| `vkCreateDevice` | definition | unclassified | - | - | - | - |
+| `vkCreateDevice` | definition | common | src/driver/vulkan.ab negotiated logical-device creation | src/driver/vulkan.ab packed DeviceQueueCreateInfo DeviceCreateInfo and feature-chain ABIs | tests/vulkan/main.ab compute timeline synchronization2 and dynamic-rendering device | tests/application/main.ab unavailable required feature rejection |
 | `vkCreateDirectFBSurfaceEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateDisplayModeKHR` | definition | unclassified | - | - | - | - |
 | `vkCreateDisplayPlaneSurfaceKHR` | definition | unclassified | - | - | - | - |
@@ -416,7 +416,7 @@
 | `vkCreateIndirectCommandsLayoutEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateIndirectCommandsLayoutNV` | definition | unclassified | - | - | - | - |
 | `vkCreateIndirectExecutionSetEXT` | definition | unclassified | - | - | - | - |
-| `vkCreateInstance` | definition | unclassified | - | - | - | - |
+| `vkCreateInstance` | definition | common | src/driver/vulkan.ab negotiated Vulkan instance creation | src/driver/vulkan.ab packed ApplicationInfo and InstanceCreateInfo ABIs | tests/vulkan/main.ab live Vulkan 1.4 instance with debug-utils negotiation | tests/application/main.ab unavailable loader rejection |
 | `vkCreateMacOSSurfaceMVK` | definition | unclassified | - | - | - | - |
 | `vkCreateMetalSurfaceEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateMicromapEXT` | definition | unclassified | - | - | - | - |
@@ -477,7 +477,7 @@
 | `vkDestroyDescriptorSetLayout` | definition | common | src/driver/vulkan.ab affine descriptor-layout lifetime | src/driver/vulkan.ab typed extern signature | examples/common-textured/main.ab repeated bind-group render lifecycle | tests/application/main.ab invalid bind-group rejection before allocation |
 | `vkDestroyDescriptorUpdateTemplate` | definition | unclassified | - | - | - | - |
 | `vkDestroyDescriptorUpdateTemplateKHR` | alias | unclassified | - | - | - | - |
-| `vkDestroyDevice` | definition | unclassified | - | - | - | - |
+| `vkDestroyDevice` | definition | common | src/driver/vulkan.ab affine logical-device lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan/main.ab complete device resource lifecycle | src/driver/vulkan.ab partial device creation cleanup |
 | `vkDestroyEvent` | definition | unclassified | - | - | - | - |
 | `vkDestroyExternalComputeQueueNV` | definition | unclassified | - | - | - | - |
 | `vkDestroyFence` | definition | unclassified | - | - | - | - |
@@ -488,7 +488,7 @@
 | `vkDestroyIndirectCommandsLayoutEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyIndirectCommandsLayoutNV` | definition | unclassified | - | - | - | - |
 | `vkDestroyIndirectExecutionSetEXT` | definition | unclassified | - | - | - | - |
-| `vkDestroyInstance` | definition | unclassified | - | - | - | - |
+| `vkDestroyInstance` | definition | common | src/driver/vulkan.ab affine instance lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan/main.ab complete debug instance lifecycle | src/driver/vulkan.ab failed initialization cleanup |
 | `vkDestroyMicromapEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyOpticalFlowSessionNV` | definition | unclassified | - | - | - | - |
 | `vkDestroyPipeline` | definition | common | src/driver/vulkan.ab affine graphics and compute pipeline lifetime | src/driver/vulkan.ab typed extern signature | examples/common-triangle/main.ab alternate pipeline drop and stable primary pipeline | examples/common-triangle/main.ab invalid pipeline cleanup |
@@ -520,13 +520,13 @@
 | `vkEnumerateDeviceLayerProperties` | definition | unclassified | - | - | - | - |
 | `vkEnumerateInstanceExtensionProperties` | definition | common | src/driver/vulkan.ab debug-utils extension discovery | src/driver/vulkan.ab bounded ExtensionProperties ABI | tests/vulkan/main.ab negotiated extension availability | tests/vulkan/main.ab explicitly disabled extension path |
 | `vkEnumerateInstanceLayerProperties` | definition | unclassified | - | - | - | - |
-| `vkEnumerateInstanceVersion` | definition | unclassified | - | - | - | - |
+| `vkEnumerateInstanceVersion` | definition | common | src/driver/vulkan.ab loader API version negotiation | src/driver/vulkan.ab typed version output-pointer ABI | tests/vulkan/main.ab validated Vulkan 1.4 loader version | src/driver/vulkan.ab Vulkan 1.0 fallback on query failure |
 | `vkEnumeratePhysicalDeviceGroups` | definition | unclassified | - | - | - | - |
 | `vkEnumeratePhysicalDeviceGroupsKHR` | alias | unclassified | - | - | - | - |
 | `vkEnumeratePhysicalDeviceQueueFamilyPerformanceCountersByRegionARM` | definition | unclassified | - | - | - | - |
 | `vkEnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR` | definition | unclassified | - | - | - | - |
 | `vkEnumeratePhysicalDeviceShaderInstrumentationMetricsARM` | definition | unclassified | - | - | - | - |
-| `vkEnumeratePhysicalDevices` | definition | unclassified | - | - | - | - |
+| `vkEnumeratePhysicalDevices` | definition | common | src/driver/vulkan.ab bounded adapter enumeration | src/driver/vulkan.ab two-call count and handle-array ABI | tests/vulkan/main.ab nonempty named adapter inventory | tests/application/main.ab unavailable adapter rejection |
 | `vkExportMetalObjectsEXT` | definition | unclassified | - | - | - | - |
 | `vkFlushMappedMemoryRanges` | definition | unclassified | - | - | - | - |
 | `vkFreeCommandBuffers` | definition | unclassified | - | - | - | - |
@@ -588,7 +588,7 @@
 | `vkGetDeviceMemoryOpaqueCaptureAddressKHR` | alias | unclassified | - | - | - | - |
 | `vkGetDeviceMicromapCompatibilityEXT` | definition | unclassified | - | - | - | - |
 | `vkGetDeviceProcAddr` | definition | unclassified | - | - | - | - |
-| `vkGetDeviceQueue` | definition | unclassified | - | - | - | - |
+| `vkGetDeviceQueue` | definition | common | src/driver/vulkan.ab selected graphics-compute queue retrieval | src/driver/vulkan.ab typed family index queue index and output ABI | tests/vulkan/main.ab live compute transfer and render queue | src/driver/vulkan.ab invalid queue handle rejects device |
 | `vkGetDeviceQueue2` | definition | unclassified | - | - | - | - |
 | `vkGetDeviceSubpassShadingMaxWorkgroupSizeHUAWEI` | definition | unclassified | - | - | - | - |
 | `vkGetDeviceTensorMemoryRequirementsARM` | definition | unclassified | - | - | - | - |
@@ -673,7 +673,7 @@
 | `vkGetPhysicalDeviceExternalSemaphoreProperties` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceExternalSemaphorePropertiesKHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceExternalTensorPropertiesARM` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceFeatures` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceFeatures` | definition | common | src/driver/vulkan.ab base feature availability query | src/driver/vulkan.ab packed PhysicalDeviceFeatures ABI | tests/vulkan/main.ab sampler anisotropy and core feature negotiation | tests/application/main.ab required feature rejection |
 | `vkGetPhysicalDeviceFeatures2` | definition | common | src/driver/vulkan.ab promoted feature query | src/driver/vulkan.ab Vulkan 12 and 13 feature-chain ABI | tests/vulkan/main.ab timeline and synchronization2 enablement | src/driver/vulkan.ab core-version gating |
 | `vkGetPhysicalDeviceFeatures2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceFormatProperties` | definition | unclassified | - | - | - | - |
@@ -683,13 +683,13 @@
 | `vkGetPhysicalDeviceImageFormatProperties` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceImageFormatProperties2` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceImageFormatProperties2KHR` | alias | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceMemoryProperties` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceMemoryProperties` | definition | common | src/driver/vulkan.ab buffer and image memory-type selection | src/driver/vulkan.ab packed PhysicalDeviceMemoryProperties ABI | tests/application/main.ab exact mapped buffer and texture allocation | tests/application/main.ab oversized resource rejection |
 | `vkGetPhysicalDeviceMemoryProperties2` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceMemoryProperties2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceMultisamplePropertiesEXT` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceOpticalFlowImageFormatsNV` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDevicePresentRectanglesKHR` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceProperties` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceProperties` | definition | common | src/driver/vulkan.ab adapter identity limits and timestamp query | src/driver/vulkan.ab packed PhysicalDeviceProperties ABI | tests/vulkan/main.ab named adapter compute texture storage and timestamp limits | tests/application/main.ab limit-exceeding resource rejection |
 | `vkGetPhysicalDeviceProperties2` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceProperties2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceQueueFamilyDataGraphEngineOperationPropertiesARM` | definition | unclassified | - | - | - | - |
@@ -697,7 +697,7 @@
 | `vkGetPhysicalDeviceQueueFamilyDataGraphProcessingEnginePropertiesARM` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceQueueFamilyDataGraphPropertiesARM` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceQueueFamilyPerformanceQueryPassesKHR` | definition | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceQueueFamilyProperties` | definition | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceQueueFamilyProperties` | definition | common | src/driver/vulkan.ab graphics compute and presentation family selection | src/driver/vulkan.ab two-call count and property-array ABI | tests/vulkan/main.ab valid graphics-compute queue family | tests/application/main.ab unavailable compatible queue rejection |
 | `vkGetPhysicalDeviceQueueFamilyProperties2` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceQueueFamilyProperties2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceScreenPresentationSupportQNX` | definition | unclassified | - | - | - | - |
