@@ -63,8 +63,9 @@ compound assignment, standalone prefix/postfix updates, left-to-right comma
 declarators, typed single-component vector selection, four-component vector
 permutation, runtime one-/four-scalar `vec4` construction, typed vector dot
 products, and conditionally imported floating `min`/`max`/`clamp` plus unary
-`abs`/`floor`/`ceil`/`sqrt`/`inversesqrt`. Repeated clear, pixel, transfer,
-compute, event-poll, and triangle hot paths have stable native
+`abs`/`floor`/`ceil`/`sqrt`/`inversesqrt` and `mix`/`step`/`smoothstep`.
+Repeated clear, pixel, transfer, compute, event-poll, and triangle hot paths
+have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.
 

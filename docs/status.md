@@ -1038,7 +1038,9 @@ validity gate unchanged.
   them retain byte-identical import-free modules. Homogeneous scalar/vector
   `abs`, `floor`, `ceil`, `sqrt`, and `inversesqrt` share that import and retain
   their operand type; nested instruction-number coverage and arity rejection
-  pass. The reflected `.w`/`.bgra`, `sqrt(abs(dot(...)))` clamped projection,
+  pass. Homogeneous scalar/vector `mix`, `step`, and `smoothstep` now share the
+  same import and typed emission; mixed forms and wrong arities reject. The
+  reflected `.w`/`.bgra`, interpolated `sqrt(abs(dot(...)))` projection,
   runtime-denominator, comma-local postfix-`--`, prefix-`++`, and `+=` push-
   expression sample retains exact OpenGL/Vulkan pixels, stable handles, and
   zero-growth repeated frames.

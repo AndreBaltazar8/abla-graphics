@@ -1789,6 +1789,10 @@ The same conditional import supports homogeneous scalar/vector `abs`, `floor`,
 `ceil`, `sqrt`, and `inversesqrt`. Each unary call preserves its operand type,
 uses the matching `GLSL.std.450` instruction, and composes with other calls
 under the existing depth/token bounds. Missing or extra arguments reject.
+Homogeneous scalar/vector `mix(x, y, amount)`, `step(edge, value)`, and
+`smoothstep(low, high, value)` use `FMix`, `Step`, and `SmoothStep` through that
+same import. Their result type matches their operands; mixed scalar/vector
+forms and wrong arities reject in this strict slice.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1858,10 +1862,12 @@ reflected vector, permutes another reflected vector from `.bgra` into logical
 RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
 sibling unit scalar after projecting the reflected vector onto the alpha axis
 with `dot`, applying `sqrt(abs(...))`, and clamping that projection to `[0, 1]`,
-constructs a runtime scalar-splat `vec4` denominator, executes vector division
-after vector negation into a mutable vector, then rebinds it with `+=` and the
-second vector. It proves its 48-byte mixed layout plus exact red/green output,
-stable handles, and zero steady-state allocation growth on both real backends.
+then shapes it with `smoothstep` and selects the unit scale through nested
+`step`/`mix`. It constructs a runtime scalar-splat `vec4` denominator, executes
+vector division after vector negation into a mutable vector, then rebinds it
+with `+=` and the second vector. It proves its 48-byte mixed layout plus exact
+red/green output, stable handles, and zero steady-state allocation growth on
+both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

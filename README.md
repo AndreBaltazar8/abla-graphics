@@ -271,7 +271,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   including reflected `.w` extraction and `.bgra` permutation, plus vector
   locals including a runtime scalar-splat `vec4` denominator and `+=`
   rebinding in storage-free SSA form, a typed `dot` product clamped through
-  nested `abs`/`sqrt` `GLSL.std.450` calls, vector negation, and
+  nested `abs`/`sqrt`/`smoothstep`/`step`/`mix` `GLSL.std.450` calls, vector
+  negation, and
   precedence-ordered vector/scalar division plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;
