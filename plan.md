@@ -65,7 +65,9 @@ permutation, runtime one-/four-scalar `vec4` construction, typed vector dot
 products, and conditionally imported floating `min`/`max`/`clamp` plus unary
 `abs`/`floor`/`ceil`/`sqrt`/`inversesqrt` and `mix`/`step`/`smoothstep`.
 Rounding, fraction/sign, angle/trigonometric, inverse/hyperbolic, exponential/
-logarithmic, `pow`, and `fma` share that typed path. Repeated clear, pixel,
+logarithmic, `pow`, and `fma` share that typed path. Vector geometry
+`length`/`distance`/`normalize`/`faceforward`/`reflect`/`refract` calls use exact
+scalar/vector result and operand rules. Repeated clear, pixel,
 transfer, compute, event-poll, and triangle hot paths have stable native
 handles and zero runtime live-byte growth. The remaining milestone work below
 is intentionally still open.

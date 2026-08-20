@@ -251,18 +251,70 @@ fun glslRasterExtInstruction(text: string): int {
     else if (text == "mix") 46
     else if (text == "step") 48
     else if (text == "smoothstep") 49
-    else if (text == "fma") 50 else 0
+    else if (text == "fma") 50
+    else if (text == "length") 66
+    else if (text == "distance") 67
+    else if (text == "normalize") 69
+    else if (text == "faceforward") 70
+    else if (text == "reflect") 71
+    else if (text == "refract") 72 else 0
 }
 
 fun glslRasterExtArity(instruction: int): int {
     if ((instruction >= 1 && instruction <= 24 && instruction != 5 &&
          instruction != 7) ||
-        (instruction >= 27 && instruction <= 32)) 1
+        (instruction >= 27 && instruction <= 32) || instruction == 66 ||
+        instruction == 69) 1
     else if (instruction == 26 || instruction == 37 || instruction == 40 ||
-        instruction == 48) 2
+        instruction == 48 || instruction == 67 || instruction == 71) 2
     else if (instruction == 43 || instruction == 46 || instruction == 49 ||
-        instruction == 50) 3
+        instruction == 50 || instruction == 70 || instruction == 72) 3
     else 0
+}
+
+fun glslRasterExtResultType(
+    instruction: int,
+    arity: int,
+    stack: array<int>,
+    stackSize: int
+): int {
+    var resultType = glslRasterTypeInvalid
+    val begin = stackSize - arity
+    if (begin >= 0 && (instruction == 66 || instruction == 67)) {
+        var valid = stack[begin] == glslRasterTypeVector
+        var argument = 1
+        while (valid && argument < arity) {
+            valid = stack[begin + argument] == glslRasterTypeVector
+            argument = argument + 1
+        }
+        if (valid) resultType = glslRasterTypeScalar
+    } else if (begin >= 0 && (instruction == 69 || instruction == 70 ||
+        instruction == 71)) {
+        var valid = stack[begin] == glslRasterTypeVector
+        var argument = 1
+        while (valid && argument < arity) {
+            valid = stack[begin + argument] == glslRasterTypeVector
+            argument = argument + 1
+        }
+        if (valid) resultType = glslRasterTypeVector
+    } else if (begin >= 0 && instruction == 72) {
+        if (arity == 3 && stack[begin] == glslRasterTypeVector &&
+            stack[begin + 1] == glslRasterTypeVector &&
+            stack[begin + 2] == glslRasterTypeScalar) {
+            resultType = glslRasterTypeVector
+        }
+    } else if (begin >= 0) {
+        val candidate = stack[begin]
+        var valid = candidate == glslRasterTypeScalar ||
+            candidate == glslRasterTypeVector
+        var argument = 1
+        while (valid && argument < arity) {
+            valid = stack[begin + argument] == candidate
+            argument = argument + 1
+        }
+        if (valid) resultType = candidate
+    }
+    resultType
 }
 
 fun glslRasterPrimary(
@@ -715,15 +767,13 @@ fun glslRasterExpressionType(
             valid = arity > 0 &&
                 arity == glslRasterExtArity(token.memberIndex) &&
                 stackSize >= arity
-            val resultType = if (valid) stack[stackSize - arity]
-                else glslRasterTypeInvalid
-            var argument = 0
-            while (valid && argument < arity) {
-                valid = stack[stackSize - arity + argument] == resultType
-                argument = argument + 1
-            }
-            valid = valid && (resultType == glslRasterTypeScalar ||
-                resultType == glslRasterTypeVector)
+            val resultType = if (valid) glslRasterExtResultType(
+                token.memberIndex,
+                arity,
+                stack,
+                stackSize
+            ) else glslRasterTypeInvalid
+            valid = valid && resultType != glslRasterTypeInvalid
             if (valid) {
                 stackSize = stackSize - arity
                 valueType = resultType
@@ -1641,16 +1691,13 @@ fun glslRasterFragmentSpirv(
                 arity > 0 &&
                 arity == glslRasterExtArity(token.memberIndex) &&
                 stackSize >= arity
-            val resultType = if (valid) stackTypes[stackSize - arity]
-                else glslRasterTypeInvalid
-            var argument = 0
-            while (valid && argument < arity) {
-                valid = stackTypes[stackSize - arity + argument] ==
-                    resultType
-                argument = argument + 1
-            }
-            valid = valid && (resultType == glslRasterTypeScalar ||
-                resultType == glslRasterTypeVector)
+            val resultType = if (valid) glslRasterExtResultType(
+                token.memberIndex,
+                arity,
+                stackTypes,
+                stackSize
+            ) else glslRasterTypeInvalid
+            valid = valid && resultType != glslRasterTypeInvalid
             if (valid) {
                 valueId = nextId
                 nextId = nextId + 1
@@ -1660,7 +1707,7 @@ fun glslRasterFragmentSpirv(
                 words.append(valueId)
                 words.append(extendedInstructionSet)
                 words.append(token.memberIndex)
-                argument = 0
+                var argument = 0
                 while (argument < arity) {
                     words.append(stack[stackSize - arity + argument])
                     argument = argument + 1

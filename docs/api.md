@@ -1798,6 +1798,13 @@ The table also covers homogeneous scalar/vector `round`, `roundEven`, `trunc`,
 unary `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`,
 `exp2`, and `log2`, plus homogeneous binary `pow` and ternary `fma`. Each maps
 to its exact `GLSL.std.450` instruction and shares the same arity/type checks.
+Vector geometry calls use their GLSL result rules rather than that homogeneous
+rule: `length(vec4)` and `distance(vec4, vec4)` return `float`;
+`normalize(vec4)`, `faceforward(vec4, vec4, vec4)`, and
+`reflect(vec4, vec4)` return `vec4`; and `refract(vec4, vec4, float)` returns
+`vec4`. They map to `Length`, `Distance`, `Normalize`, `FaceForward`, `Reflect`,
+and `Refract` instructions 66, 67, and 69 through 72. Scalar vector operands,
+mixed distance operands, a vector refraction ratio, and wrong arities reject.
 Constructor arguments may be arbitrary supported scalar expressions. A single
 runtime scalar emits one `OpCompositeConstruct` with its result reused in all
 four lanes; four runtime scalars retain source order. Constant-only signed
@@ -1865,10 +1872,12 @@ changing either output.
 `push-expression` loads a reflected scalar gain and the `.w` component of a
 reflected vector, permutes another reflected vector from `.bgra` into logical
 RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
-sibling unit scalar after projecting the reflected vector onto the alpha axis
-with `dot`, applying `sqrt(abs(...))`, and clamping that projection to `[0, 1]`,
+sibling unit scalar after projecting the reflected vector onto a normalized
+alpha axis with `dot`, applying `sqrt(abs(...))`, and clamping that projection
+to `[0, 1]`,
 then shapes it with `smoothstep` and selects the unit scale through nested
-`step`/`mix`, multiplied by a `cos(radians(0))` phase. It constructs a runtime
+`step`/`mix`, multiplied by a `cos(radians(length(vec4(0))))` phase. It
+constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
 into a mutable vector, then rebinds it with `+=` and the second vector. It
 proves its 48-byte mixed layout plus exact red/green output, stable handles, and
