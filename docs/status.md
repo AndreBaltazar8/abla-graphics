@@ -1097,7 +1097,8 @@ validity gate unchanged.
   Fragment color outputs now emit deterministic `vec2`, `vec3`, or `vec4`
   Output pointer, variable, and store types. Mixed narrow MRT modules validate,
   and expression widths must match exactly. Native missing-component attachment
-  semantics remain unclaimed pending a dedicated driver proof.
+  semantics are live-verified: `vec3` writes RGB with zero alpha to RGBA8 on
+  both backends (`pixel=255`), with four frames, stable handles, and zero growth.
   The live source-vector path also executes scalar-factor `mix` before its
   downstream SSA expansion and retains the exact dual-backend proof.
   Vector geometry built-ins now carry their non-homogeneous signatures through

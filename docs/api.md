@@ -1884,8 +1884,8 @@ Output declarations and assignments use the same reflected source order, so
 missing, duplicated, or reordered writes reject rather than being silently
 reassociated. Each final expression must exactly match its output width.
 Width-specific Output pointer and variable types support mixed narrow MRT
-modules; native attachment behavior for missing color components remains a
-separate validation milestone.
+modules. The `narrow-input` native proof confirms that a `vec3` output writes
+RGB and leaves alpha zero in an RGBA8 attachment on both backends.
 Unknown or array members, mismatched addition/subtraction such as `vec4 +
 float`, scalar final outputs, extra statements/declarations, malformed
 expressions, and unsupported operators fail before pipeline creation. Existing
@@ -1925,8 +1925,8 @@ zero steady-state allocation growth on both real backends.
 
 `narrow-input` uses the existing interleaved `vec2` vertex-output form and the
 typed raster emitter for its matching `vec2` fragment input. The fragment
-performs a `.yx` shuffle and extracts both checked components into a `vec4`
-color. Exact red offscreen pixels,
+performs a `.yx` shuffle and extracts both checked components into a `vec3`
+color. Exact RGB-red/zero-alpha offscreen pixels (`255` packed),
 presented rendering, stable native pipeline handles, four repeated frames, and
 zero live-byte growth pass on both backends. Deterministic module tests also
 cover `vec3` and mixed `vec2`/`vec3` fragment inputs with distinct pointer types.

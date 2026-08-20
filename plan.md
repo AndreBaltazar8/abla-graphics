@@ -97,7 +97,8 @@ sample executes `.yx` without changing its dual-backend proof.
 Fragment color outputs now emit width-specific `vec2`, `vec3`, or `vec4`
 Output pointer, variable, and store types, including mixed narrow MRT modules
 and exact expression-width rejection. Native attachment semantics for omitted
-components remain milestone work rather than an inferred guarantee.
+components are verified by the live `vec3` output proof on both backends: RGBA8
+receives RGB and a zero alpha component.
 
 ## Non-negotiable design rules
 
