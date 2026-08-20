@@ -1048,12 +1048,18 @@ validity gate unchanged.
   logarithmic functions, homogeneous `pow`, and `fma`; every mapped instruction
   number has positive module-validity coverage, with vector typing and arity/
   mismatch rejection.
+  Unary `atan(x)` now coexists with homogeneous scalar/vector `atan(y, x)`.
+  A bounded top-level call scan resolves the latter to `Atan2` instruction 25
+  while ignoring separators inside nested calls; mixed types and third
+  arguments reject, and the live phase executes the scalar overload on both
+  backends without changing its exact output.
   Vector geometry built-ins now carry their non-homogeneous signatures through
   validation and emission: `length`/`distance` return scalars, while
   `normalize`/`faceforward`/`reflect`/`refract` return vectors and `refract`
   alone requires a scalar third operand. Instruction numbers 66, 67, and
   69-72, push/input/local operands, every result shape, wrong arity, and mixed
-  operand rejection are covered. The live sample now normalizes its alpha axis
+  operand rejection are covered. Its input/local proof uses a matching
+  vertex-to-fragment interface. The live sample now normalizes its alpha axis
   and derives its zero phase through `length`; both live backends retain the
   exact pixel, stable handles, four frames, and zero live-byte growth.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are

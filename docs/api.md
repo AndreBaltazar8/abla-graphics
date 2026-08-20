@@ -1798,6 +1798,11 @@ The table also covers homogeneous scalar/vector `round`, `roundEven`, `trunc`,
 unary `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `log`,
 `exp2`, and `log2`, plus homogeneous binary `pow` and ternary `fma`. Each maps
 to its exact `GLSL.std.450` instruction and shares the same arity/type checks.
+The overloaded `atan(y, x)` form resolves from its top-level argument separator
+without mistaking commas inside nested calls. Homogeneous scalar or `vec4`
+operands emit `Atan2` instruction 25, while the unary form retains `Atan`
+instruction 18 and identical module output. Mixed operand types and a third
+argument reject.
 Vector geometry calls use their GLSL result rules rather than that homogeneous
 rule: `length(vec4)` and `distance(vec4, vec4)` return `float`;
 `normalize(vec4)`, `faceforward(vec4, vec4, vec4)`, and
@@ -1876,8 +1881,8 @@ sibling unit scalar after projecting the reflected vector onto a normalized
 alpha axis with `dot`, applying `sqrt(abs(...))`, and clamping that projection
 to `[0, 1]`,
 then shapes it with `smoothstep` and selects the unit scale through nested
-`step`/`mix`, multiplied by a `cos(radians(length(vec4(0))))` phase. It
-constructs a runtime
+`step`/`mix`, multiplied by a
+`cos(radians(length(vec4(0))) + atan(0, 1))` phase. It constructs a runtime
 scalar-splat `vec4` denominator, executes vector division after vector negation
 into a mutable vector, then rebinds it with `+=` and the second vector. It
 proves its 48-byte mixed layout plus exact red/green output, stable handles, and

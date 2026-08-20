@@ -1764,6 +1764,34 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 value; } draw; void main(){ color=sin(draw.value); }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterScalarAtan2ExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float first; float second; } draw; void main(){ color=vec4(atan(sin(draw.first),cos(draw.second))); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterVectorAtan2ExtInst = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=atan(draw.first,draw.second); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterAtan2TypeRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; float second; } draw; void main(){ color=atan(draw.first,draw.second); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterAtan2ArityRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(atan(0.0,1.0,2.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterPowTypeRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -1809,7 +1837,7 @@ fun main: int {
     val rasterInputLocalGeometryExtInst = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
-            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec4 tint; layout(location=0) out vec4 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
             "#version 450\nlayout(location=0) in vec4 vertexTint; layout(location=0) out vec4 color; void main(){ vec4 normal=normalize(vertexTint); color=reflect(vertexTint,normal); }"
         ]
     ).spirv(shaderStageFragment)
@@ -3363,6 +3391,18 @@ fun main: int {
         spirvInstructionOperand(rasterPowFmaExtInst.module, 12, 4, 50) &&
         rasterVectorTranscendentalExtInst.succeeded &&
         rasterVectorTranscendentalExtInst.module.valid() &&
+        rasterScalarAtan2ExtInst.succeeded &&
+        rasterScalarAtan2ExtInst.module.valid() &&
+        spirvInstructionOperand(rasterScalarAtan2ExtInst.module, 12, 4, 25) &&
+        spirvInstructionOperand(rasterScalarAtan2ExtInst.module, 12, 4, 13) &&
+        spirvInstructionOperand(rasterScalarAtan2ExtInst.module, 12, 4, 14) &&
+        rasterVectorAtan2ExtInst.succeeded &&
+        rasterVectorAtan2ExtInst.module.valid() &&
+        spirvInstructionOperand(rasterVectorAtan2ExtInst.module, 12, 4, 25) &&
+        !rasterAtan2TypeRejected.succeeded &&
+        rasterAtan2TypeRejected.error != "" &&
+        !rasterAtan2ArityRejected.succeeded &&
+        rasterAtan2ArityRejected.error != "" &&
         !rasterPowTypeRejected.succeeded &&
         rasterPowTypeRejected.error != "" &&
         !rasterFmaArityRejected.succeeded &&

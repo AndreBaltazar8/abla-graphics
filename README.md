@@ -273,8 +273,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   rebinding in storage-free SSA form, a typed `dot` product against a
   `normalize`d alpha axis clamped through nested
   `abs`/`sqrt`/`smoothstep`/`step`/`mix` `GLSL.std.450` calls, vector negation,
-  a `cos(radians(length(...)))` phase, and precedence-ordered vector/scalar
-  division plus addition,
+  a `cos(radians(length(...)) + atan(y, x))` phase, and precedence-ordered
+  vector/scalar division plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;
 - `examples/gpu-timestamp`: one affine timestamp query measures four submitted
