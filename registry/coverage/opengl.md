@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 66/2892
+- Classified commands: 75/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -134,7 +134,7 @@
 | `glBlendEquation` | definition | unclassified | - | - | - | - |
 | `glBlendEquationEXT` | definition | unclassified | - | - | - | - |
 | `glBlendEquationIndexedAMD` | definition | unclassified | - | - | - | - |
-| `glBlendEquationSeparate` | definition | unclassified | - | - | - | - |
+| `glBlendEquationSeparate` | definition | common | src/driver/opengl.ab portable color and alpha blend equations | src/driver/opengl.ab typed equation-pair ABI | examples/common-triangle/main.ab repeated alpha-blended rendering | examples/common-triangle/main.ab invalid raster state rejection |
 | `glBlendEquationSeparateEXT` | definition | unclassified | - | - | - | - |
 | `glBlendEquationSeparateIndexedAMD` | definition | unclassified | - | - | - | - |
 | `glBlendEquationSeparatei` | definition | unclassified | - | - | - | - |
@@ -143,7 +143,7 @@
 | `glBlendEquationiARB` | definition | unclassified | - | - | - | - |
 | `glBlendFunc` | definition | unclassified | - | - | - | - |
 | `glBlendFuncIndexedAMD` | definition | unclassified | - | - | - | - |
-| `glBlendFuncSeparate` | definition | unclassified | - | - | - | - |
+| `glBlendFuncSeparate` | definition | common | src/driver/opengl.ab portable source and destination blend factors | src/driver/opengl.ab typed color and alpha factor ABI | examples/common-triangle/main.ab repeated source-alpha rendering | examples/common-triangle/main.ab invalid raster state rejection |
 | `glBlendFuncSeparateEXT` | definition | unclassified | - | - | - | - |
 | `glBlendFuncSeparateINGR` | definition | unclassified | - | - | - | - |
 | `glBlendFuncSeparateIndexedAMD` | definition | unclassified | - | - | - | - |
@@ -393,7 +393,7 @@
 | `glCreateTextures` | definition | unclassified | - | - | - | - |
 | `glCreateTransformFeedbacks` | definition | unclassified | - | - | - | - |
 | `glCreateVertexArrays` | definition | unclassified | - | - | - | - |
-| `glCullFace` | definition | unclassified | - | - | - | - |
+| `glCullFace` | definition | common | src/driver/opengl.ab portable front and back face culling | src/driver/opengl.ab typed face-mode ABI | examples/common-triangle/main.ab live front-cull alternate pipeline | examples/common-triangle/main.ab invalid cull mode rejection |
 | `glCullParameterdvEXT` | definition | unclassified | - | - | - | - |
 | `glCullParameterfvEXT` | definition | unclassified | - | - | - | - |
 | `glCurrentPaletteMatrixARB` | definition | unclassified | - | - | - | - |
@@ -450,8 +450,8 @@
 | `glDeleteVertexShaderEXT` | definition | unclassified | - | - | - | - |
 | `glDepthBoundsEXT` | definition | unclassified | - | - | - | - |
 | `glDepthBoundsdNV` | definition | unclassified | - | - | - | - |
-| `glDepthFunc` | definition | unclassified | - | - | - | - |
-| `glDepthMask` | definition | unclassified | - | - | - | - |
+| `glDepthFunc` | definition | common | src/driver/opengl.ab portable depth comparison state | src/driver/opengl.ab typed comparison ABI | examples/common-triangle/main.ab repeated less-depth rendering | examples/common-triangle/main.ab invalid depth state rejection |
+| `glDepthMask` | definition | common | src/driver/opengl.ab portable depth write state | src/driver/opengl.ab typed boolean ABI | examples/common-triangle/main.ab enabled depth-write rendering | examples/common-triangle/main.ab write-without-depth rejection |
 | `glDepthRange` | definition | unclassified | - | - | - | - |
 | `glDepthRangeArraydvNV` | definition | unclassified | - | - | - | - |
 | `glDepthRangeArrayv` | definition | unclassified | - | - | - | - |
@@ -464,7 +464,7 @@
 | `glDetachObjectARB` | definition | unclassified | - | - | - | - |
 | `glDetachShader` | definition | unclassified | - | - | - | - |
 | `glDetailTexFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glDisable` | definition | unclassified | - | - | - | - |
+| `glDisable` | definition | common | src/driver/opengl.ab cull blend and depth state disablement | src/driver/opengl.ab typed capability ABI | examples/common-triangle/main.ab alternate and primary fixed-function state transitions | examples/common-triangle/main.ab descriptor validation before state mutation |
 | `glDisableClientState` | definition | unclassified | - | - | - | - |
 | `glDisableClientStateIndexedEXT` | definition | unclassified | - | - | - | - |
 | `glDisableClientStateiEXT` | definition | unclassified | - | - | - | - |
@@ -534,7 +534,7 @@
 | `glEdgeFlagv` | definition | unclassified | - | - | - | - |
 | `glElementPointerAPPLE` | definition | unclassified | - | - | - | - |
 | `glElementPointerATI` | definition | unclassified | - | - | - | - |
-| `glEnable` | definition | unclassified | - | - | - | - |
+| `glEnable` | definition | common | src/driver/opengl.ab cull blend and depth state enablement | src/driver/opengl.ab typed capability ABI | examples/common-triangle/main.ab live cull blend and depth pipelines | examples/common-triangle/main.ab invalid raster and depth rejection |
 | `glEnableClientState` | definition | unclassified | - | - | - | - |
 | `glEnableClientStateIndexedEXT` | definition | unclassified | - | - | - | - |
 | `glEnableClientStateiEXT` | definition | unclassified | - | - | - | - |
@@ -669,7 +669,7 @@
 | `glFramebufferTextureLayerEXT` | definition | unclassified | - | - | - | - |
 | `glFramebufferTextureMultiviewOVR` | definition | unclassified | - | - | - | - |
 | `glFreeObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glFrontFace` | definition | unclassified | - | - | - | - |
+| `glFrontFace` | definition | common | src/driver/opengl.ab portable winding state | src/driver/opengl.ab typed winding ABI | examples/common-triangle/main.ab clockwise and counter-clockwise pipelines | examples/common-triangle/main.ab invalid front-face rejection |
 | `glFrustum` | definition | unclassified | - | - | - | - |
 | `glFrustumfOES` | definition | unclassified | - | - | - | - |
 | `glFrustumxOES` | definition | unclassified | - | - | - | - |
@@ -2832,7 +2832,7 @@
 | `glVideoCaptureStreamParameterdvNV` | definition | unclassified | - | - | - | - |
 | `glVideoCaptureStreamParameterfvNV` | definition | unclassified | - | - | - | - |
 | `glVideoCaptureStreamParameterivNV` | definition | unclassified | - | - | - | - |
-| `glViewport` | definition | unclassified | - | - | - | - |
+| `glViewport` | definition | common | src/driver/opengl.ab surfaced and offscreen viewport state | src/driver/opengl.ab typed origin and extent ABI | examples/common-triangle/main.ab exact resize to 640 by 480 | tests/application/main.ab invalid zero extent rejection |
 | `glViewportArrayv` | definition | unclassified | - | - | - | - |
 | `glViewportIndexedf` | definition | unclassified | - | - | - | - |
 | `glViewportIndexedfv` | definition | unclassified | - | - | - | - |

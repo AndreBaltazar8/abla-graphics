@@ -10,7 +10,7 @@
 - Command parameters: 2845
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 62/842
+- Classified commands: 70/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 
@@ -74,7 +74,7 @@
 | `vkCmdBindIndexBuffer2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdBindIndexBuffer3KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdBindInvocationMaskHUAWEI` | definition | unclassified | - | - | - | - |
-| `vkCmdBindPipeline` | definition | unclassified | - | - | - | - |
+| `vkCmdBindPipeline` | definition | common | src/driver/vulkan.ab graphics and compute pipeline binding | src/driver/vulkan.ab typed bind-point and pipeline ABI | tests/application/main.ab exact compute and render execution | tests/application/main.ab invalid pipeline rejection before recording |
 | `vkCmdBindPipelineShaderGroupNV` | definition | unclassified | - | - | - | - |
 | `vkCmdBindResourceHeapEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdBindSamplerHeapEXT` | definition | unclassified | - | - | - | - |
@@ -321,7 +321,7 @@
 | `vkCmdSetSampleLocationsEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdSetSampleLocationsEnableEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdSetSampleMaskEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdSetScissor` | definition | unclassified | - | - | - | - |
+| `vkCmdSetScissor` | definition | common | src/driver/vulkan.ab dynamic render scissor state | src/driver/vulkan.ab packed Rect2D array ABI | examples/common-triangle/main.ab repeated full-target draw and resize | tests/application/main.ab invalid target extent rejection |
 | `vkCmdSetScissorWithCount` | definition | unclassified | - | - | - | - |
 | `vkCmdSetScissorWithCountEXT` | alias | unclassified | - | - | - | - |
 | `vkCmdSetShadingRateImageEnableNV` | definition | unclassified | - | - | - | - |
@@ -334,7 +334,7 @@
 | `vkCmdSetStencilWriteMask` | definition | unclassified | - | - | - | - |
 | `vkCmdSetTessellationDomainOriginEXT` | definition | unclassified | - | - | - | - |
 | `vkCmdSetVertexInputEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdSetViewport` | definition | unclassified | - | - | - | - |
+| `vkCmdSetViewport` | definition | common | src/driver/vulkan.ab dynamic render viewport state | src/driver/vulkan.ab packed Viewport array ABI | examples/common-triangle/main.ab resize to exact 640 by 480 | tests/application/main.ab invalid target extent rejection |
 | `vkCmdSetViewportShadingRatePaletteNV` | definition | unclassified | - | - | - | - |
 | `vkCmdSetViewportSwizzleNV` | definition | unclassified | - | - | - | - |
 | `vkCmdSetViewportWScalingEnableNV` | definition | unclassified | - | - | - | - |
@@ -383,7 +383,7 @@
 | `vkCreateBufferCollectionFUCHSIA` | definition | unclassified | - | - | - | - |
 | `vkCreateBufferView` | definition | unclassified | - | - | - | - |
 | `vkCreateCommandPool` | definition | unclassified | - | - | - | - |
-| `vkCreateComputePipelines` | definition | unclassified | - | - | - | - |
+| `vkCreateComputePipelines` | definition | common | src/driver/vulkan.ab reflected compute pipeline creation | src/driver/vulkan.ab packed ComputePipelineCreateInfo and specialization ABIs | tests/application/main.ab exact specialized compute dispatch | tests/application/main.ab unsupported and oversized workgroup rejection |
 | `vkCreateCuFunctionNVX` | definition | unclassified | - | - | - | - |
 | `vkCreateCuModuleNVX` | definition | unclassified | - | - | - | - |
 | `vkCreateCudaFunctionNV` | definition | unclassified | - | - | - | - |
@@ -407,7 +407,7 @@
 | `vkCreateFence` | definition | unclassified | - | - | - | - |
 | `vkCreateFramebuffer` | definition | common | src/driver/vulkan.ab target creation | src/driver/vulkan.ab packed framebuffer ABI | tests/application/main.ab MRT multisample framebuffer | tests/application/main.ab incompatible attachment rejection |
 | `vkCreateGpaSessionAMD` | definition | unclassified | - | - | - | - |
-| `vkCreateGraphicsPipelines` | definition | unclassified | - | - | - | - |
+| `vkCreateGraphicsPipelines` | definition | common | src/driver/vulkan.ab reflected graphics pipeline creation | src/driver/vulkan.ab packed shader vertex raster blend depth and dynamic-state ABIs | examples/common-triangle/main.ab live blended depth-tested raster pipelines | examples/common-triangle/main.ab invalid raster depth and vertex layout rejection |
 | `vkCreateHeadlessSurfaceEXT` | definition | unclassified | - | - | - | - |
 | `vkCreateIOSSurfaceMVK` | definition | unclassified | - | - | - | - |
 | `vkCreateImage` | definition | common | src/driver/vulkan.ab texture allocation | src/driver/vulkan.ab packed image creation ABI | tests/application/main.ab texture and target creation | tests/application/main.ab invalid descriptor rejection |
@@ -423,7 +423,7 @@
 | `vkCreateOpticalFlowSessionNV` | definition | unclassified | - | - | - | - |
 | `vkCreatePipelineBinariesKHR` | definition | unclassified | - | - | - | - |
 | `vkCreatePipelineCache` | definition | unclassified | - | - | - | - |
-| `vkCreatePipelineLayout` | definition | unclassified | - | - | - | - |
+| `vkCreatePipelineLayout` | definition | common | src/driver/vulkan.ab reflected descriptor and push pipeline layout | src/driver/vulkan.ab packed PipelineLayoutCreateInfo and push-range ABIs | tests/application/main.ab compute render binding and push pipelines | tests/application/main.ab mismatched binding and push rejection |
 | `vkCreatePrivateDataSlot` | definition | unclassified | - | - | - | - |
 | `vkCreatePrivateDataSlotEXT` | alias | unclassified | - | - | - | - |
 | `vkCreateQueryPool` | definition | common | src/driver/vulkan.ab timestamp query creation | src/driver/vulkan.ab packed query-pool ABI | tests/application/main.ab timestamp query creation | tests/application/main.ab invalid application rejection |
@@ -491,10 +491,10 @@
 | `vkDestroyInstance` | definition | unclassified | - | - | - | - |
 | `vkDestroyMicromapEXT` | definition | unclassified | - | - | - | - |
 | `vkDestroyOpticalFlowSessionNV` | definition | unclassified | - | - | - | - |
-| `vkDestroyPipeline` | definition | unclassified | - | - | - | - |
+| `vkDestroyPipeline` | definition | common | src/driver/vulkan.ab affine graphics and compute pipeline lifetime | src/driver/vulkan.ab typed extern signature | examples/common-triangle/main.ab alternate pipeline drop and stable primary pipeline | examples/common-triangle/main.ab invalid pipeline cleanup |
 | `vkDestroyPipelineBinaryKHR` | definition | unclassified | - | - | - | - |
 | `vkDestroyPipelineCache` | definition | unclassified | - | - | - | - |
-| `vkDestroyPipelineLayout` | definition | unclassified | - | - | - | - |
+| `vkDestroyPipelineLayout` | definition | common | src/driver/vulkan.ab affine pipeline-layout lifetime | src/driver/vulkan.ab typed extern signature | examples/common-triangle/main.ab repeated render pipeline lifecycle | tests/application/main.ab invalid pipeline cleanup |
 | `vkDestroyPrivateDataSlot` | definition | unclassified | - | - | - | - |
 | `vkDestroyPrivateDataSlotEXT` | alias | unclassified | - | - | - | - |
 | `vkDestroyQueryPool` | definition | common | src/driver/vulkan.ab timestamp query lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
