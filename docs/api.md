@@ -515,6 +515,28 @@ map-read or copy-source usage. `writeAllBytes` and `readAllBytes` are convenient
 whole-range operations; performance-sensitive loops should construct one
 `BufferCopyDescriptor` and reuse it with `writeBytes`/`readBytes`.
 
+Buffers that should stay on the GPU can request device-local placement:
+
+```abla
+val geometry = app.buffer(BufferDescriptor(
+    label = "device-geometry",
+    size = 1048576,
+    usage = bufferUsageVertex | bufferUsageCopySource |
+        bufferUsageCopyDestination,
+    memory = bufferMemoryDeviceLocal
+))
+```
+
+`bufferMemoryAutomatic` preserves the general compatible allocation policy;
+`bufferMemoryHostVisible` explicitly requests CPU-visible coherent memory; and
+`bufferMemoryDeviceLocal` rejects map-read/map-write usage and all direct CPU
+`writeBytes`/`readBytes` operations. Upload and readback queues are the portable
+way across that boundary. Vulkan requires the device-local memory-property bit
+and prefers a compatible type without host-visible/coherent flags. OpenGL owns
+the same portable CPU-access boundary while physical residency remains under
+the OpenGL driver. `deviceLocal()` reports that the requested policy was
+realized; on Vulkan it also checks the selected native memory flags.
+
 A map-write/copy-source buffer may start mapped without an intermediate upload:
 
 ```abla

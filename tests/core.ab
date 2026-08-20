@@ -157,6 +157,22 @@ fun main: int {
         mappedAtCreation = true,
         persistentMapping = true
     ).validation()
+    val deviceLocalBuffer = BufferDescriptor(
+        size = 4096,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination |
+            bufferUsageVertex,
+        memory = bufferMemoryDeviceLocal
+    )
+    val invalidBufferMemory = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageCopyDestination,
+        memory = 3
+    ).validation()
+    val invalidDeviceLocalMapping = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageMapWrite | bufferUsageCopySource,
+        memory = bufferMemoryDeviceLocal
+    ).validation()
     val uploadRingDescriptor = BufferUploadRingDescriptor(
         capacity = 256,
         alignment = 32
@@ -819,6 +835,14 @@ fun main: int {
         invalidPersistentBuffer.field == "persistentMapping" &&
         !invalidPersistentReadUsage.succeeded &&
         invalidPersistentReadUsage.field == "usage" &&
+        deviceLocalBuffer.valid() &&
+        !bufferMemoryAllowsCpuAccess(deviceLocalBuffer.memory) &&
+        bufferMemoryAllowsCpuAccess(bufferMemoryAutomatic) &&
+        bufferMemoryAllowsCpuAccess(bufferMemoryHostVisible) &&
+        !invalidBufferMemory.succeeded &&
+        invalidBufferMemory.field == "memory" &&
+        !invalidDeviceLocalMapping.succeeded &&
+        invalidDeviceLocalMapping.field == "memory" &&
         uploadRingDescriptor.valid() &&
         bufferUploadAlignedOffset(0, 32) == 0 &&
         bufferUploadAlignedOffset(17, 32) == 32 &&

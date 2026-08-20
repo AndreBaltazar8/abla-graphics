@@ -2537,6 +2537,7 @@ resource class VulkanBuffer(
     var handle: int,
     var memory: int,
     val size: int,
+    val memoryProperties: int,
     val mapped: NativePointerCell,
     var mappedOffset: int,
     var mappedSize: int,
@@ -2546,6 +2547,9 @@ resource class VulkanBuffer(
     fun valid(): bool =
         this.handle != 0 && this.memory != 0 && this.size > 0 &&
         !this.mapped.closed
+
+    fun deviceLocal(): bool = this.valid() &&
+        (this.memoryProperties & 1) != 0
 
     trusted fun mappedActive(): bool = this.valid() &&
         !pointerIsNull(this.mapped.load()) && this.mappedOffset >= 0 &&
@@ -5215,6 +5219,7 @@ trusted fun VulkanDevice.texture(
         0,
         0,
         0,
+        0,
         nativePointerCell(nativeNullPointer()),
         0,
         0,
@@ -5784,7 +5789,8 @@ trusted fun VulkanDevice.buffer(
     usage: int = bufferUsageCopySource |
         bufferUsageCopyDestination | bufferUsageStorage,
     mappedAtCreation: bool = false,
-    persistentMapping: bool = false
+    persistentMapping: bool = false,
+    memoryLocation: int = bufferMemoryAutomatic
 ): VulkanBuffer {
     var handle = 0
     var memory = 0
@@ -5792,8 +5798,11 @@ trusted fun VulkanDevice.buffer(
     var mappedOffset = 0
     var mappedSize = 0
     var mappedAccess = 0
+    var memoryProperties = 0
     val nativeUsage = vulkanBufferUsage(usage)
-    if (this.valid() && size > 0 && size <= 1073741824 && nativeUsage != 0) {
+    if (this.valid() && size > 0 && size <= 1073741824 &&
+        nativeUsage != 0 && memoryLocation >= bufferMemoryAutomatic &&
+        memoryLocation <= bufferMemoryDeviceLocal) {
         val createInfo = nativeByteBuffer(56)
         createInfo.storeI64(0, 12)
         createInfo.storePointer(8, nativeNullPointer())
@@ -5828,11 +5837,23 @@ trusted fun VulkanDevice.buffer(
         )
         val typeCount = properties.loadI64(0) & 4294967295
         var typeIndex = -1
+        var typeRank = 0
+        val requiredProperties = if (
+            memoryLocation == bufferMemoryDeviceLocal
+        ) 1 else 6
         var index = 0
-        while (typeIndex < 0 && index < typeCount && index < 32) {
+        while (index < typeCount && index < 32) {
             val flags = properties.loadI64(4 + index * 8) & 4294967295
-            if ((typeBits & (1 << index)) != 0 &&
-                (flags & 6) == 6) typeIndex = index
+            val matches = (typeBits & (1 << index)) != 0 &&
+                (flags & requiredProperties) == requiredProperties
+            val rank = if (matches &&
+                memoryLocation == bufferMemoryDeviceLocal &&
+                (flags & 6) == 0) 2 else if (matches) 1 else 0
+            if (rank > typeRank) {
+                typeIndex = index
+                typeRank = rank
+                memoryProperties = flags
+            }
             index = index + 1
         }
         if (typeIndex >= 0) {
@@ -5892,6 +5913,7 @@ trusted fun VulkanDevice.buffer(
         handle,
         memory,
         size,
+        memoryProperties,
         move(mapped),
         mappedOffset,
         mappedSize,

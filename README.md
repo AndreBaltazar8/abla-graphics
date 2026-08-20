@@ -223,9 +223,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   persistent transfers, bounded aligned upload/readback rings, GPU copies, and
   stable zero-allocation repeats on explicit OpenGL and Vulkan;
 - `examples/async-buffer`: three-slot fixed-capacity upload and readback queues
-  that submit work before targeted waits, recover exact bytes, and reuse their
-  native synchronization state with zero live-byte growth on explicit OpenGL
-  and Vulkan; and
+  that stage through an explicitly device-local destination, submit work before
+  targeted waits, recover exact bytes, and reuse their native synchronization
+  state with zero live-byte growth on explicit OpenGL and Vulkan; and
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and

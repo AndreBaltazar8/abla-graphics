@@ -166,21 +166,27 @@ resource class GraphicsBuffer(
 
     trusted fun readI64(offset: int = 0): int {
         var result = 0
-        if (this.backend == graphicsBackendOpenGl) {
+        if (this.valid() && bufferMemoryAllowsCpuAccess(
+            this.descriptor.memory
+        ) && this.backend == graphicsBackendOpenGl) {
             result = this.openGl.readI64(offset)
-        } else if (this.backend == graphicsBackendVulkan) {
+        } else if (this.valid() && bufferMemoryAllowsCpuAccess(
+            this.descriptor.memory
+        ) && this.backend == graphicsBackendVulkan) {
             result = this.vulkan.readI64(offset)
         }
         result
     }
 
     trusted fun writeI64(value: int, offset: int = 0): bool {
-        var succeeded = false
-        if (this.backend == graphicsBackendOpenGl) {
+        var succeeded = this.valid() && bufferMemoryAllowsCpuAccess(
+            this.descriptor.memory
+        )
+        if (succeeded && this.backend == graphicsBackendOpenGl) {
             succeeded = this.openGl.writeI64(value, offset)
-        } else if (this.backend == graphicsBackendVulkan) {
+        } else if (succeeded && this.backend == graphicsBackendVulkan) {
             succeeded = this.vulkan.writeI64(value, offset)
-        }
+        } else if (succeeded) succeeded = false
         succeeded
     }
 
@@ -190,6 +196,7 @@ resource class GraphicsBuffer(
     ): bool {
         var succeeded = this.valid() && source.valid() &&
             copy.valid(source.size, this.descriptor.size) &&
+            bufferMemoryAllowsCpuAccess(this.descriptor.memory) &&
             bufferUsageAllowsCpuWrite(this.descriptor.usage)
         if (succeeded && this.backend == graphicsBackendOpenGl) {
             succeeded = this.openGl.writeBytes(source, copy)
@@ -202,6 +209,7 @@ resource class GraphicsBuffer(
     trusted fun writeAllBytes(source: BufferBytes): bool {
         var succeeded = this.valid() && source.valid() &&
             source.size == this.descriptor.size &&
+            bufferMemoryAllowsCpuAccess(this.descriptor.memory) &&
             bufferUsageAllowsCpuWrite(this.descriptor.usage)
         if (succeeded && this.backend == graphicsBackendOpenGl) {
             succeeded = this.openGl.writeAllBytes(source)
@@ -217,6 +225,7 @@ resource class GraphicsBuffer(
     ): bool {
         var succeeded = this.valid() && destination.valid() &&
             copy.valid(this.descriptor.size, destination.size) &&
+            bufferMemoryAllowsCpuAccess(this.descriptor.memory) &&
             bufferUsageAllowsCpuRead(this.descriptor.usage)
         if (succeeded && this.backend == graphicsBackendOpenGl) {
             succeeded = this.openGl.readBytes(destination, copy)
@@ -239,6 +248,12 @@ resource class GraphicsBuffer(
           this.vulkan.handle != 0 &&
           this.vulkan.device == other.vulkan.device &&
           this.vulkan.handle == other.vulkan.handle))
+
+    fun deviceLocal(): bool = this.valid() &&
+        this.descriptor.memory == bufferMemoryDeviceLocal &&
+        (this.backend == graphicsBackendOpenGl ||
+         (this.backend == graphicsBackendVulkan &&
+          this.vulkan.deviceLocal()))
 
     trusted fun drop(): void {
         this.openGl.drop()
@@ -345,6 +360,7 @@ trusted fun GraphicsApplication.buffer(
         0,
         0,
         0,
+        0,
         nativePointerCell(nativeNullPointer()),
         0,
         0,
@@ -406,7 +422,8 @@ trusted fun GraphicsApplication.buffer(
             descriptor.size,
             descriptor.usage,
             descriptor.mappedAtCreation,
-            descriptor.persistentMapping
+            descriptor.persistentMapping,
+            descriptor.memory
         )
         if (!vulkan.valid()) {
             error = GraphicsError(

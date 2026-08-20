@@ -15,11 +15,20 @@ trusted fun transferQueueProbe(requestedBackend: int): bool {
     val destination = app.buffer(BufferDescriptor(
         label = "async-destination",
         size = 64,
-        usage = bufferUsageCopySource | bufferUsageCopyDestination
+        usage = bufferUsageCopySource | bufferUsageCopyDestination,
+        memory = bufferMemoryDeviceLocal
     ))
     val source = bufferBytes(16)
     val expected = 1234605616436508552
     val sourceReady = source.fill(0) && source.storeI64(expected, 4)
+    val directReadback = bufferBytes(8)
+    val directCpuAccessRejected = !destination.writeBytes(
+        source,
+        BufferCopyDescriptor(4, 0, 8)
+    ) && !destination.readBytes(
+        directReadback,
+        BufferCopyDescriptor(0, 0, 8)
+    )
     val upload = app.bufferTransferQueue(BufferTransferQueueDescriptor(
         label = "async-upload",
         direction = bufferTransferDirectionUpload,
@@ -78,13 +87,6 @@ trusted fun transferQueueProbe(requestedBackend: int): bool {
             upload.vulkanSlots[2].inFlight())
     val uploadsCompleted = upload.wait(uploadTicket0) &&
         upload.wait(uploadTicket1) && upload.wait(uploadTicket2)
-    val uploadedBytes = bufferBytes(24)
-    val uploadedExact = uploadedBytes.fill(0) && destination.readBytes(
-        uploadedBytes,
-        BufferCopyDescriptor(0, 0, 24)
-    ) && uploadedBytes.loadI64(0) == expected &&
-        uploadedBytes.loadI64(8) == expected &&
-        uploadedBytes.loadI64(16) == expected
     val queuedBeforeInvalid = upload.queuedCount
     val invalidUploadTicket = app.enqueueUploadBufferRange(
         upload,
@@ -215,9 +217,10 @@ trusted fun transferQueueProbe(requestedBackend: int): bool {
     val readbackHandleStable = if (app.backend == graphicsBackendOpenGl)
         readback.staging.openGl.handle == readbackStagingHandle
     else readback.staging.vulkan.handle == readbackStagingHandle
-    val passed = app.valid() && destination.valid() && sourceReady &&
+    val passed = app.valid() && destination.valid() &&
+        destination.deviceLocal() && sourceReady && directCpuAccessRejected &&
         upload.valid() && readback.valid() && uploadInFlight &&
-        uploadsCompleted && uploadedExact && invalidUploadRejected &&
+        uploadsCompleted && invalidUploadRejected &&
         uploadRepeated && uploadRepeat == 6 &&
         uploadLiveAfter == uploadLiveBefore && uploadHandlesStable &&
         readbackInFlight && readbacksCompleted && readbackExact &&
@@ -226,7 +229,7 @@ trusted fun transferQueueProbe(requestedBackend: int): bool {
         upload.queuedCount == 9 && upload.completedCount == 9 &&
         readback.queuedCount == 10 && readback.completedCount == 10
     println(
-        "async-transfer ${graphicsBackendName(app.backend)}: upload=$uploadInFlight/$uploadsCompleted/$uploadRepeated readback=$readbackInFlight/$readbacksCompleted/$readbackRepeated live=${uploadLiveAfter - uploadLiveBefore}/${readbackLiveAfter - readbackLiveBefore} stable=$uploadHandlesStable/$readbackHandleStable"
+        "async-transfer ${graphicsBackendName(app.backend)}: deviceLocal=${destination.deviceLocal()} cpuRejected=$directCpuAccessRejected upload=$uploadInFlight/$uploadsCompleted/$uploadRepeated readback=$readbackInFlight/$readbacksCompleted/$readbackRepeated live=${uploadLiveAfter - uploadLiveBefore}/${readbackLiveAfter - readbackLiveBefore} stable=$uploadHandlesStable/$readbackHandleStable"
     )
     passed
 }

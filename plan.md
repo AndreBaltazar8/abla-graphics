@@ -14,7 +14,8 @@ Current verified checkpoint: the Abla-only direct X11 foundation, surfaced and
 headless OpenGL/Vulkan selection, common buffers/textures/views/samplers,
 mapped-at-creation and checked post-creation buffer range mapping,
 coherent persistent upload/readback mapping, bounded aligned transfer rings,
-fixed-slot asynchronous buffer upload/readback queues, reusable
+fixed-slot asynchronous buffer upload/readback queues, explicit host-visible
+and device-local buffer placement, reusable
 copies/fills/pixel
 presentation, compute pipelines, strict initial
 `$glsl`-to-SPIR-V subsets, and the first procedural, common-vertex-buffer, and

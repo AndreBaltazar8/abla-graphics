@@ -424,6 +424,14 @@ Updated: 2026-08-20.
   waiting, recover exact bytes on explicit OpenGL and Vulkan, reject stale and
   invalid tickets, preserve native handles, and report zero live-byte growth in
   repeated operations. Auto selection is covered by the focused gate.
+- Explicit buffer memory placement: `BufferDescriptor.memory` accepts automatic,
+  host-visible, or device-local policy. Device-local descriptors reject CPU
+  mapping and direct byte access. Vulkan selects a compatible memory type with
+  the device-local bit and prefers non-host-visible memory; OpenGL enforces the
+  portable access boundary while leaving residency to its driver. The live
+  transfer gate stages three uploads and readbacks through a device-local
+  destination on explicit OpenGL, explicit Vulkan, and auto selection, rejects
+  direct CPU access, recovers exact bytes, and retains zero live-byte growth.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1166,7 +1174,7 @@ validity gate unchanged.
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  asynchronous texture transfers, device-local suballocation policy, command
+  asynchronous texture transfers, device-local suballocation pools, command
   encoders/render
   graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA

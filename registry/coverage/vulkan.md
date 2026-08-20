@@ -28,11 +28,11 @@
 | `vkAcquireXlibDisplayEXT` | definition | unclassified | - | - | - | - |
 | `vkAllocateCommandBuffers` | definition | common | src/driver/vulkan.ab reusable transfer compute render and query command allocation | src/driver/vulkan.ab packed CommandBufferAllocateInfo ABI | tests/application/main.ab stable command handles across repeated operations | tests/application/main.ab invalid resources rejected before allocation |
 | `vkAllocateDescriptorSets` | definition | common | src/driver/vulkan.ab affine bind-group descriptor allocation | src/driver/vulkan.ab packed DescriptorSetAllocateInfo ABI | examples/common-textured/main.ab stable descriptor set across repeated rendering | tests/application/main.ab duplicate binding rejection |
-| `vkAllocateMemory` | definition | common | src/driver/vulkan.ab buffer memory allocation | src/driver/vulkan.ab packed allocation and memory-properties ABIs | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid and oversized buffer rejection |
+| `vkAllocateMemory` | definition | common | src/driver/vulkan.ab host-visible and device-local buffer memory allocation | src/driver/vulkan.ab packed allocation and memory-properties ABIs | tests/transfer/main.ab exact staged device-local upload and readback | tests/core.ab invalid placement and mapping rejection |
 | `vkAntiLagUpdateAMD` | definition | unclassified | - | - | - | - |
 | `vkBeginCommandBuffer` | definition | common | src/driver/vulkan.ab reusable command recording begin | src/driver/vulkan.ab packed CommandBufferBeginInfo ABI | examples/common-compute/main.ab repeated compute command recording | tests/application/main.ab invalid dispatch and transfer rejection before recording |
 | `vkBindAccelerationStructureMemoryNV` | definition | unclassified | - | - | - | - |
-| `vkBindBufferMemory` | definition | common | src/driver/vulkan.ab buffer memory binding | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact buffer upload and readback | tests/application/main.ab invalid buffer descriptor rejection |
+| `vkBindBufferMemory` | definition | common | src/driver/vulkan.ab selected buffer memory binding | src/driver/vulkan.ab typed extern signature | tests/transfer/main.ab device-local transfer destination lifecycle | tests/core.ab invalid device-local mapping rejection |
 | `vkBindBufferMemory2` | definition | unclassified | - | - | - | - |
 | `vkBindBufferMemory2KHR` | alias | unclassified | - | - | - | - |
 | `vkBindDataGraphPipelineSessionMemoryARM` | definition | unclassified | - | - | - | - |
@@ -542,7 +542,7 @@
 | `vkGetBufferDeviceAddress` | definition | unclassified | - | - | - | - |
 | `vkGetBufferDeviceAddressEXT` | alias | unclassified | - | - | - | - |
 | `vkGetBufferDeviceAddressKHR` | alias | unclassified | - | - | - | - |
-| `vkGetBufferMemoryRequirements` | definition | common | src/driver/vulkan.ab buffer requirement query | src/driver/vulkan.ab packed MemoryRequirements ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab oversized buffer rejection |
+| `vkGetBufferMemoryRequirements` | definition | common | src/driver/vulkan.ab placement-compatible buffer requirement query | src/driver/vulkan.ab packed MemoryRequirements ABI | tests/transfer/main.ab device-local copy buffer requirements | tests/application/main.ab oversized buffer rejection |
 | `vkGetBufferMemoryRequirements2` | definition | unclassified | - | - | - | - |
 | `vkGetBufferMemoryRequirements2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetBufferOpaqueCaptureAddress` | definition | unclassified | - | - | - | - |
@@ -683,7 +683,7 @@
 | `vkGetPhysicalDeviceImageFormatProperties` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceImageFormatProperties2` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceImageFormatProperties2KHR` | alias | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceMemoryProperties` | definition | common | src/driver/vulkan.ab buffer and image memory-type selection | src/driver/vulkan.ab packed PhysicalDeviceMemoryProperties ABI | tests/application/main.ab exact mapped buffer and texture allocation | tests/application/main.ab oversized resource rejection |
+| `vkGetPhysicalDeviceMemoryProperties` | definition | common | src/driver/vulkan.ab ranked host-visible and device-local memory-type selection | src/driver/vulkan.ab packed PhysicalDeviceMemoryProperties ABI | tests/transfer/main.ab native device-local flag and exact staged bytes | tests/core.ab unknown placement rejection |
 | `vkGetPhysicalDeviceMemoryProperties2` | definition | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceMemoryProperties2KHR` | alias | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceMultisamplePropertiesEXT` | definition | unclassified | - | - | - | - |

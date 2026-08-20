@@ -201,6 +201,41 @@ runs the platform/headless examples plus every common example on explicit
 OpenGL and Vulkan. The corrected async-buffer sample reports
 `queued=9/3 completed=9/3 exact=true live=0` on both backends.
 
+## Follow-up checkpoint: explicit buffer memory placement
+
+This follow-up is built on published commit `e37385d`. It adds
+`bufferMemoryAutomatic`, `bufferMemoryHostVisible`, and
+`bufferMemoryDeviceLocal` to `BufferDescriptor`; tracks Vulkan memory-property
+flags on affine buffers; ranks compatible native memory types; rejects mapping
+and direct CPU byte access for device-local buffers; and explicitly keeps async
+queue staging host-visible. The async test and sample now use a device-local
+destination and cross the CPU/GPU boundary only through the queue.
+
+The implementation touches `src/resources.ab`, `src/buffer.ab`,
+`src/driver/vulkan.ab`, and `src/transfer.ab`. Evidence lives in
+`tests/core.ab`, `tests/transfer/main.ab`, `examples/async-buffer/main.ab`, the
+Vulkan audit/coverage ledger, and the public documentation. `tools/test-core.sh`
+uses a scoped 6144-MiB compiler limit because that exceptionally broad source
+crossed the generic 4096-MiB guard after the descriptor grew; the smaller live
+transfer composition remains at 4096 MiB.
+
+The final verification passes:
+
+```bash
+nix-shell --run 'make test-core test-transfer'
+nix-shell --run 'make update-registry test-registry'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+The focused gate reports `deviceLocal=true`, `cpuRejected=true`, exact staged
+upload/readback, stable handles, and `live=0/0` on explicit OpenGL, explicit
+Vulkan, and auto selection. The final async-buffer sample reports
+`deviceLocal=true queued=9/3 completed=9/3 exact=true live=0` on both backends.
+If this follow-up is dirty, publish it with the same explicit-scope discipline
+as the asynchronous checkpoint; if clean and synchronized, continue to actual
+device-local buffer suballocation pools.
+
 ## Immediate continuation checklist
 
 1. If this checkpoint is still dirty, inspect all files and run
@@ -292,8 +327,9 @@ that framework/platform/backend implementation source is Abla-only.
 The detailed source of truth is `plan.md`; `docs/status.md` distinguishes proven
 features from open work. Major remaining areas include:
 
-- finish the asynchronous transfer API, then device-local buffer/texture
-  suballocation, reusable command encoders, transient resources, descriptor
+- explicit device-local buffer placement is implemented and verified in the
+  follow-up after `e37385d`; finish device-local buffer/texture
+  suballocation pools, reusable command encoders, transient resources, descriptor
   reuse, pipeline-cache persistence, and framework-wide performance gates;
 - expand general texture byte layouts, format conversion, asynchronous image
   copies, render-graph execution/barriers/aliasing, and asset pipelines;

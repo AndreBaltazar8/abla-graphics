@@ -8,7 +8,10 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
-"$compiler" build "$project_root/tests/core.ab" \
+# This broad descriptor/utility source now crosses the generic four-GiB
+# compiler address-space guard. Keep the larger limit isolated to this gate.
+ABLA_MAX_MEMORY_MB=${ABLA_CORE_TEST_MEMORY_MB:-6144} \
+    "$compiler" build "$project_root/tests/core.ab" \
     -o "$output_directory/core" --no-cache
 set +e
 "$output_directory/core"
