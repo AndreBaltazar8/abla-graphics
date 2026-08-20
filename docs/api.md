@@ -1769,9 +1769,12 @@ source order before one to eight reflected non-array `vec4` outputs, an optional
 reflected block of up to eight non-array `float` or `vec4` members,
 scalar/`vec4` literals, four-component or scalar-splat `vec4` constructors,
 parentheses, single-component vector selectors `.x`/`.y`/`.z`/`.w` and their
-`rgba`/`stpq` aliases, and scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL
-precedence. A selector may follow an input, push member, local, literal, or
-parenthesized expression and emits typed scalar `OpCompositeExtract`.
+`rgba`/`stpq` aliases, four-component `vec4` swizzles such as `.bgra`, and
+scalar or `vec4` `*`, `/`, `+`, and `-` with GLSL precedence. A selector may
+follow an input, push member, local, literal, or parenthesized expression.
+Single components emit typed scalar `OpCompositeExtract`; four components from
+one naming family emit a typed `OpVectorShuffle`. Two- and three-component
+results remain checked failures until the raster IR gains `vec2`/`vec3` types.
 Prefix `+` is an identity and prefix `-` emits typed scalar or vector
 `OpFNegate`; unary nesting is included in the same 64-level/token bounds.
 Inputs and the push block may both be absent for a constant-only expression; a
@@ -1787,8 +1790,8 @@ declarators; they are initialized and exposed from left to right, share the
 declaration's optional `const`, count as one statement, and still count
 individually toward the eight-local cap. Mutable locals also accept `+=`, `-=`,
 `*=`, and `/=` under the same scalar/vector rules as the corresponding binary
-operation. A compound
-assignment combines the current SSA expression with its right operand and
+operation. A compound assignment combines the current SSA expression with its
+right operand and
 rebinds the result; it does not emit a load, store, or function variable. The
 standalone prefix/postfix forms `++name`, `name++`, `--name`, and `name--` also
 rebind a mutable scalar or vector local by adding or subtracting typed one.
@@ -1831,11 +1834,12 @@ distinct bit patterns remain distinct. The red/green MRT module consequently
 uses only its `0.0` and `1.0` constants and shrinks from 117 to 93 words without
 changing either output.
 `push-expression` loads a reflected scalar gain and the `.w` component of a
-reflected vector, applies postfix `--` to a comma-declared mutable divisor,
-increments its sibling unit scalar, executes vector/scalar division after
-vector negation into a mutable vector, then rebinds it with `+=` and the second
-vector. It proves its 48-byte mixed layout plus exact red/green output, stable
-handles, and zero steady-state allocation growth on both real backends.
+reflected vector, permutes another reflected vector from `.bgra` into logical
+RGBA, applies postfix `--` to a comma-declared mutable divisor, increments its
+sibling unit scalar, executes vector/scalar division after vector negation into
+a mutable vector, then rebinds it with `+=` and the second vector. It proves its
+48-byte mixed layout plus exact red/green output, stable handles, and zero
+steady-state allocation growth on both real backends.
 
 The push-aware buffered family mirrors the ordinary direct and GPU-indirect
 surface exactly:

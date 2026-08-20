@@ -1435,6 +1435,62 @@ fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=draw.tint*draw.tint.xy; }"
         ]
     ).spirv(shaderStageFragment)
+    val rasterSwizzlePush = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=draw.tint.bgra; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSwizzleAlias = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=draw.tint.zyxw; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSwizzleInput = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec4 tint; layout(location=0) out vec4 vertexTint; void main(){ gl_Position=vec4(position,0.0,1.0); vertexTint=tint; }",
+            "#version 450\nlayout(location=0) in vec4 vertexTint; layout(location=0) out vec4 color; void main(){ color=vertexTint.argb; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSwizzleLocal = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ vec4 value=vec4(1.0,0.5,0.25,1.0); color=value.wzyx; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSwizzleLiteral = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(1.0,0.5,0.25,1.0).qpts; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterSwizzleParenthesized = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 first; vec4 second; } draw; void main(){ color=(draw.first+draw.second).bgra; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterScalarSwizzleRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { float gain; } draw; void main(){ color=vec4(1.0)*draw.gain.xxxx; }"
+        ]
+    ).spirv(shaderStageFragment)
+    val rasterMixedSwizzleRejected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nconst vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 tint; } draw; void main(){ color=draw.tint.xgba; }"
+        ]
+    ).spirv(shaderStageFragment)
     val rasterConstAssignmentRejected = glslPackage(
         [shaderStageVertex, shaderStageFragment],
         [
@@ -2780,6 +2836,27 @@ fun main: int {
         rasterUnknownComponentRejected.error != "" &&
         !rasterMultiComponentRejected.succeeded &&
         rasterMultiComponentRejected.error != "" &&
+        rasterSwizzlePush.succeeded && rasterSwizzlePush.module.valid() &&
+        spirvContainsWord(rasterSwizzlePush.module, 589903) &&
+        spirvInstructionOperand(rasterSwizzlePush.module, 79, 5, 2) &&
+        spirvInstructionOperand(rasterSwizzlePush.module, 79, 6, 1) &&
+        spirvInstructionOperand(rasterSwizzlePush.module, 79, 7, 0) &&
+        spirvInstructionOperand(rasterSwizzlePush.module, 79, 8, 3) &&
+        spirvWordsEqual(
+            rasterSwizzlePush.module,
+            rasterSwizzleAlias.module
+        ) && rasterSwizzleInput.succeeded &&
+        rasterSwizzleInput.module.valid() &&
+        spirvContainsWord(rasterSwizzleInput.module, 589903) &&
+        rasterSwizzleLocal.succeeded && rasterSwizzleLocal.module.valid() &&
+        rasterSwizzleLiteral.succeeded &&
+        rasterSwizzleLiteral.module.valid() &&
+        rasterSwizzleParenthesized.succeeded &&
+        rasterSwizzleParenthesized.module.valid() &&
+        !rasterScalarSwizzleRejected.succeeded &&
+        rasterScalarSwizzleRejected.error != "" &&
+        !rasterMixedSwizzleRejected.succeeded &&
+        rasterMixedSwizzleRejected.error != "" &&
         !rasterConstAssignmentRejected.succeeded &&
         rasterConstAssignmentRejected.error != "" &&
         !rasterConstCompoundRejected.succeeded &&

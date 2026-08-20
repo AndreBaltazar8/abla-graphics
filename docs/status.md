@@ -1021,10 +1021,13 @@ validity gate unchanged.
   32-statement boundary coverage remain. Single-component `.xyzw`, `rgba`, and
   `stpq` selectors now lower vector inputs, push members, locals, literals, and
   parenthesized expressions to scalar `OpCompositeExtract`. Alias forms are
-  byte-identical; scalar bases, unknown selectors, and multi-component swizzles
-  reject. The reflected-`.w`, comma-local postfix-`--`, prefix-`++`, and `+=`
-  push-expression sample retains exact OpenGL/Vulkan pixels, stable handles,
-  and zero-growth repeated frames.
+  byte-identical. Four-component permutations from one `xyzw`, `rgba`, or
+  `stpq` naming family now lower the same source kinds to `OpVectorShuffle`;
+  `.bgra` emits selectors 2/1/0/3 and is byte-identical to `.zyxw`. Scalar
+  bases, unknown or mixed-family selectors, and two-/three-component results
+  reject. The reflected `.w`/`.bgra`, comma-local postfix-`--`, prefix-`++`,
+  and `+=` push-expression sample retains exact OpenGL/Vulkan pixels, stable
+  handles, and zero-growth repeated frames.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
