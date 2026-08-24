@@ -1,0 +1,172 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun bufferPoolProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = requestedBackend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(
+            title = "Abla device buffer pool",
+            width = 96,
+            height = 64
+        )
+    )
+    val pool = app.bufferPool(BufferPoolDescriptor(
+        label = "test-device-pool",
+        capacity = 128,
+        blockSize = 16,
+        maximumAllocations = 4,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val descriptorsRejectInvalid = !BufferPoolDescriptor(
+        capacity = 127,
+        blockSize = 16
+    ).valid() && !BufferPoolDescriptor(
+        capacity = 128,
+        blockSize = 16,
+        maximumAllocations = 0
+    ).valid() && !BufferPoolDescriptor(
+        capacity = 128,
+        blockSize = 16,
+        usage = bufferUsageCopyDestination
+    ).valid()
+    val backingHandle = if (app.backend == graphicsBackendOpenGl)
+        pool.backing.openGl.handle
+    else pool.backing.vulkan.handle
+
+    val first = pool.allocate(24)
+    val released = pool.allocate(16)
+    val aligned = pool.allocate(24, 64)
+    val layoutExact = pool.allocationOffset(first) == 0 &&
+        pool.allocationSize(first) == 24 &&
+        pool.allocationOffset(released) == 32 &&
+        pool.allocationOffset(aligned) == 64
+    val releaseAccepted = pool.release(released)
+    val replacement = pool.allocate(16)
+    val reuseExact = bufferPoolTokenSlot(replacement) ==
+        bufferPoolTokenSlot(released) &&
+        bufferPoolTokenGeneration(replacement) ==
+            bufferPoolTokenGeneration(released) + 1 &&
+        pool.allocationOffset(replacement) == 32 &&
+        !pool.allocationValid(released) && !pool.release(released)
+    val countersBeforeInvalid = pool.allocationCount
+    val invalid = pool.allocate(96)
+    val invalidRejected = !bufferPoolTokenValid(invalid) &&
+        pool.allocationCount == countersBeforeInvalid &&
+        pool.activeAllocations == 3 && pool.usedBytes == 80 &&
+        pool.availableBytes() == 48
+
+    val source = bufferBytes(32)
+    val firstValue = 1234605616436508552
+    val replacementValue = 72623859790382856
+    val alignedValue = 1161981756646125696
+    val sourceReady = source.fill(0) &&
+        source.storeI64(firstValue, 0) &&
+        source.storeI64(replacementValue, 8) &&
+        source.storeI64(alignedValue, 16)
+    val directReadback = bufferBytes(8)
+    val directCpuAccessRejected = !pool.backing.writeBytes(
+        source,
+        BufferCopyDescriptor(0, 0, 8)
+    ) && !pool.backing.readBytes(
+        directReadback,
+        BufferCopyDescriptor(0, 0, 8)
+    )
+    val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "pool-uploads",
+        direction = bufferTransferDirectionUpload,
+        slotCapacity = 8,
+        slotCount = 3,
+        alignment = 8
+    ))
+    val upload0 = app.enqueueUploadBufferPoolRange(
+        uploads, source, pool, first, 0, 4, 8
+    )
+    val upload1 = app.enqueueUploadBufferPoolRange(
+        uploads, source, pool, replacement, 8, 0, 8
+    )
+    val upload2 = app.enqueueUploadBufferPoolRange(
+        uploads, source, pool, aligned, 16, 8, 8
+    )
+    val uploadsCompleted = bufferTransferTicketValid(upload0) &&
+        bufferTransferTicketValid(upload1) &&
+        bufferTransferTicketValid(upload2) && uploads.wait(upload0) &&
+        uploads.wait(upload1) && uploads.wait(upload2)
+    val queuedBeforeBadRange = uploads.queuedCount
+    val badRange = app.enqueueUploadBufferPoolRange(
+        uploads, source, pool, replacement, 0, 12, 8
+    )
+    val badRangeRejected = !bufferTransferTicketValid(badRange) &&
+        uploads.queuedCount == queuedBeforeBadRange
+
+    val downloads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "pool-readbacks",
+        direction = bufferTransferDirectionReadback,
+        slotCapacity = 8,
+        slotCount = 3,
+        alignment = 8
+    ))
+    val download0 = app.enqueueReadbackBufferPoolRange(
+        downloads, pool, first, 4, 8
+    )
+    val download1 = app.enqueueReadbackBufferPoolRange(
+        downloads, pool, replacement, 0, 8
+    )
+    val download2 = app.enqueueReadbackBufferPoolRange(
+        downloads, pool, aligned, 8, 8
+    )
+    val result = bufferBytes(24)
+    val readbacksCompleted = result.fill(0) && app.waitReadback(
+        downloads, download0, result, 0
+    ) && app.waitReadback(
+        downloads, download1, result, 8
+    ) && app.waitReadback(
+        downloads, download2, result, 16
+    )
+    val exact = result.loadI64(0) == firstValue &&
+        result.loadI64(8) == replacementValue &&
+        result.loadI64(16) == alignedValue
+
+    val releasedForLoop = pool.release(replacement)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = true
+    var repeat = 0
+    while (repeated && repeat < 1000) {
+        val allocation = pool.allocate(16, 32)
+        repeated = bufferPoolTokenValid(allocation) &&
+            pool.allocationOffset(allocation) == 32 &&
+            pool.release(allocation)
+        repeat = repeat + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val handleStable = if (app.backend == graphicsBackendOpenGl)
+        pool.backing.openGl.handle == backingHandle
+    else pool.backing.vulkan.handle == backingHandle
+    val passed = app.valid() && pool.valid() && pool.backing.deviceLocal() &&
+        descriptorsRejectInvalid && layoutExact && releaseAccepted &&
+        reuseExact && invalidRejected && sourceReady &&
+        directCpuAccessRejected && uploads.valid() && downloads.valid() &&
+        uploadsCompleted && badRangeRejected && readbacksCompleted && exact &&
+        releasedForLoop && repeated && repeat == 1000 &&
+        liveAfter == liveBefore && handleStable &&
+        pool.activeAllocations == 2 && pool.usedBytes == 64 &&
+        pool.allocationCount == 1004
+    println(
+        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} layout=$layoutExact reuse=$reuseExact exact=$exact live=${liveAfter - liveBefore} stable=$handleStable active=${pool.activeAllocations} used=${pool.usedBytes}/${pool.descriptor.capacity}"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (bufferPoolProbe(backend)) 42 else 1
+}

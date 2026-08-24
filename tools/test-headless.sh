@@ -8,7 +8,7 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
-ABLA_MAX_MEMORY_MB=${ABLA_HEADLESS_TEST_MEMORY_MB:-4096} \
+ABLA_MAX_MEMORY_MB=${ABLA_HEADLESS_TEST_MEMORY_MB:-6144} \
     "$compiler" build --project "$project_root/tests/headless" \
     -o "$output_directory/headless" --no-cache
 

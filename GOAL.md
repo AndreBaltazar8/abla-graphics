@@ -79,6 +79,8 @@ Do not mark it complete while any part of that definition remains open.
 
 Recent published graphics checkpoints:
 
+- `5ceb5d1` - explicit device-local buffer placement;
+- `e37385d` - allocation-free asynchronous buffer transfers;
 - `08fee65` - allocation-free coherent buffer readback rings;
 - `e4d8784` - explicit OpenGL fence completion for synchronous copies;
 - `d1c5be4` - allocation-free coherent buffer upload rings;
@@ -216,8 +218,9 @@ The implementation touches `src/resources.ab`, `src/buffer.ab`,
 `tests/core.ab`, `tests/transfer/main.ab`, `examples/async-buffer/main.ab`, the
 Vulkan audit/coverage ledger, and the public documentation. `tools/test-core.sh`
 uses a scoped 6144-MiB compiler limit because that exceptionally broad source
-crossed the generic 4096-MiB guard after the descriptor grew; the smaller live
-transfer composition remains at 4096 MiB.
+crossed the generic 4096-MiB guard after the descriptor grew. The X11,
+headless, transfer, pool, and complete sample gates now use the same scoped
+6144-MiB ceiling because they import the expanded public composition root.
 
 The final verification passes:
 
@@ -236,15 +239,62 @@ If this follow-up is dirty, publish it with the same explicit-scope discipline
 as the asynchronous checkpoint; if clean and synchronized, continue to actual
 device-local buffer suballocation pools.
 
+## Current checkpoint: device-local buffer suballocation
+
+This verified checkpoint adds one useful allocator that is connected to real GPU
+work rather than being a detached planning utility. `src/pool.ab` defines
+`BufferPoolDescriptor` and affine `GraphicsBufferPool`: one explicitly
+device-local backing buffer, fixed block/allocation metadata constructed once,
+bounded aligned first-fit allocation, compact slot/generation tokens, stale
+reuse rejection, exact reserved-byte accounting, and allocation-free
+allocate/release operations. Pool-relative async upload/readback wrappers feed
+checked absolute offsets into the already verified fixed-slot OpenGL/Vulkan
+transfer paths.
+
+Evidence and user surface for this checkpoint:
+
+- `tests/pool/main.ab` and `tools/test-pool.sh` cover descriptor rejection,
+  aligned/fragmented placement, slot generation reuse, stale and crossing-range
+  rejection, device-local CPU-access rejection, exact asynchronous slice
+  transfers, stable backing handles, and zero live-byte change across 1,000
+  allocate/release cycles on OpenGL, Vulkan, and auto selection;
+- `examples/buffer-pool/main.ab` is the independently buildable public sample
+  and is part of the complete sample matrix on both explicit backends;
+- `src/graphics.ab`, `Makefile`, `README.md`, `docs/api.md`, `docs/status.md`,
+  and `plan.md` expose, gate, and document the slice.
+
+The pool does not yet claim offset-aware vertex/index/uniform/storage binding.
+Its public `backing` field is an advanced escape hatch, while safe render and
+binding integration remains the next buffer-pool slice. A slice must not be
+released until every command or transfer borrowing it has completed. Texture
+suballocation remains separate future work.
+
+Final-source verification passed on 2026-08-24:
+
+```bash
+nix-shell --run 'make test-core test-transfer test-pool check-abla-only'
+nix-shell --run 'make test-application'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+The focused pool gate reports `deviceLocal=true layout=true reuse=true
+exact=true live=0 stable=true active=2 used=64/128` for explicit OpenGL,
+explicit Vulkan, and Vulkan-selected auto. The public sample reports
+`deviceLocal=true offsets=0/512 exact=true live=0 active=2 peak=768` on both
+explicit backends. `make all` and the complete independently compiled sample
+matrix pass after scoping public-composition builds to the established 6144-MiB
+compiler address-space ceiling.
+
 ## Immediate continuation checklist
 
 1. If this checkpoint is still dirty, inspect all files and run
    `git diff --check`.
-2. After any transfer implementation/test edits, rerun the focused compiler and
-   live gates:
+2. After any transfer/pool implementation or test edits, rerun the focused
+   compiler and live gates:
 
    ```bash
-   nix-shell --run 'make test-core test-transfer'
+   nix-shell --run 'make test-core test-transfer test-pool'
    ```
 
 3. Diagnose failures rather than weakening assertions. In particular preserve:
@@ -274,7 +324,7 @@ device-local buffer suballocation pools.
    ```bash
    nix-shell --run 'make test-registry test-glsl test-core test-vulkan \
      test-vulkan-window test-opengl test-application test-transfer \
-     check-abla-only'
+     test-pool check-abla-only'
    ```
 
 7. After any sample or public-composition change, rerun the complete no-cache
@@ -285,7 +335,7 @@ device-local buffer suballocation pools.
    ```
 
 8. If not yet published, review scope, stage explicit paths only, inspect
-   `git diff --cached`, commit the coherent asynchronous-transfer slice, push
+   `git diff --cached`, commit the coherent buffer-pool slice, push
    `main`, and verify:
 
     ```bash
@@ -321,15 +371,25 @@ that framework/platform/backend implementation source is Abla-only.
   once when a native in-flight slot transitions to completed.
 - The current queue is buffer-only. Asynchronous texture/image transfers remain
   later work and must not be implied by this API.
+- Pool tokens are compact slot/generation integers. Cross-pool misuse can
+  collide when two pools have matching metadata state; add an opaque pool
+  identity if negative live testing requires hard cross-pool rejection.
+- The block allocator intentionally trades bounded metadata and predictable hot
+  paths for internal fragmentation. Benchmark first-fit scan cost before adding
+  size classes or free lists.
+- The current pool wrappers cover asynchronous upload/readback. Complete GPU
+  work before release; offset-aware vertex/index/uniform/storage/indirect
+  binding is the immediate integration target.
 
 ## Major remaining framework work after this slice
 
 The detailed source of truth is `plan.md`; `docs/status.md` distinguishes proven
 features from open work. Major remaining areas include:
 
-- explicit device-local buffer placement is implemented and verified in the
-  follow-up after `e37385d`; finish device-local buffer/texture
-  suballocation pools, reusable command encoders, transient resources, descriptor
+- explicit device-local buffer placement and the first allocation-free buffer
+  suballocation/transfer pool are implemented; finish offset-aware buffer
+  binding/render integration, device-local texture suballocation, reusable
+  command encoders, transient resources, descriptor
   reuse, pipeline-cache persistence, and framework-wide performance gates;
 - expand general texture byte layouts, format conversion, asynchronous image
   copies, render-graph execution/barriers/aliasing, and asset pipelines;

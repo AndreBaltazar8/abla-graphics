@@ -1,0 +1,383 @@
+// Fixed-metadata suballocation of one device-local GPU buffer.
+
+import "core.ab"
+import "resources.ab"
+import "bytes.ab"
+import "application.ab"
+import "buffer.ab"
+import "upload.ab"
+import "transfer.ab"
+
+val graphicsMaximumBufferPoolBytes = 1073741824
+val graphicsMaximumBufferPoolBlocks = 65536
+val graphicsMaximumBufferPoolAllocations = 1024
+val graphicsBufferPoolTokenSlotBits = 10
+val graphicsBufferPoolTokenSlotMask = 1023
+val graphicsMaximumBufferPoolTokenGeneration =
+    graphicsMaximumInt >>> graphicsBufferPoolTokenSlotBits
+
+class BufferPoolDescriptor(
+    val label: string = "device-buffer-pool",
+    val capacity: int = 16777216,
+    val blockSize: int = 256,
+    val maximumAllocations: int = 1024,
+    val usage: int = bufferUsageCopySource |
+        bufferUsageCopyDestination | bufferUsageVertex |
+        bufferUsageIndex | bufferUsageUniform | bufferUsageStorage |
+        bufferUsageIndirect
+) {
+    fun blockCount(): int = if (this.blockSize > 0)
+        this.capacity / this.blockSize
+    else 0
+
+    fun validation(): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (this.capacity <= 0 ||
+            this.capacity > graphicsMaximumBufferPoolBytes) {
+            result = graphicsDescriptorInvalid(
+                "capacity",
+                "buffer-pool capacity must be between one byte and one GiB"
+            )
+        } else if (!bufferTransferAlignmentValid(this.blockSize) ||
+            this.blockSize > this.capacity ||
+            (this.capacity / this.blockSize) * this.blockSize !=
+                this.capacity) {
+            result = graphicsDescriptorInvalid(
+                "blockSize",
+                "buffer-pool block size must divide capacity and be a power of two"
+            )
+        } else if (this.blockCount() <= 0 ||
+            this.blockCount() > graphicsMaximumBufferPoolBlocks) {
+            result = graphicsDescriptorInvalid(
+                "capacity",
+                "buffer pools support at most 65536 allocation blocks"
+            )
+        } else if (this.maximumAllocations <= 0 ||
+            this.maximumAllocations >
+                graphicsMaximumBufferPoolAllocations) {
+            result = graphicsDescriptorInvalid(
+                "maximumAllocations",
+                "buffer pools support between one and 1024 live allocations"
+            )
+        } else if (!graphicsUsageValid(this.usage, bufferUsageAll) ||
+            (this.usage & bufferUsageCopySource) == 0 ||
+            (this.usage & bufferUsageCopyDestination) == 0 ||
+            (this.usage & (bufferUsageMapRead | bufferUsageMapWrite)) != 0) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "device buffer pools require both copy directions and cannot be CPU mapped"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool = this.capacity > 0 &&
+        this.capacity <= graphicsMaximumBufferPoolBytes &&
+        bufferTransferAlignmentValid(this.blockSize) &&
+        this.blockSize <= this.capacity &&
+        (this.capacity / this.blockSize) * this.blockSize == this.capacity &&
+        this.blockCount() > 0 &&
+        this.blockCount() <= graphicsMaximumBufferPoolBlocks &&
+        this.maximumAllocations > 0 &&
+        this.maximumAllocations <= graphicsMaximumBufferPoolAllocations &&
+        graphicsUsageValid(this.usage, bufferUsageAll) &&
+        (this.usage & bufferUsageCopySource) != 0 &&
+        (this.usage & bufferUsageCopyDestination) != 0 &&
+        (this.usage & (bufferUsageMapRead | bufferUsageMapWrite)) == 0
+}
+
+fun bufferPoolToken(slot: int, generation: int): int = if (
+    slot >= 0 && slot < graphicsMaximumBufferPoolAllocations &&
+    generation > 0 &&
+    generation <= graphicsMaximumBufferPoolTokenGeneration
+) (generation << graphicsBufferPoolTokenSlotBits) | slot
+else 0
+
+fun bufferPoolTokenValid(token: int): bool =
+    token >= (1 << graphicsBufferPoolTokenSlotBits)
+
+fun bufferPoolTokenSlot(token: int): int = if (bufferPoolTokenValid(token))
+    token & graphicsBufferPoolTokenSlotMask
+else -1
+
+fun bufferPoolTokenGeneration(token: int): int = if (
+    bufferPoolTokenValid(token)
+) token >>> graphicsBufferPoolTokenSlotBits
+else 0
+
+resource class GraphicsBufferPool(
+    val backing: GraphicsBuffer,
+    val descriptor: BufferPoolDescriptor,
+    val owners: array<int>,
+    val offsets: array<int>,
+    val blockCounts: array<int>,
+    val sizes: array<int>,
+    val generations: array<int>,
+    var activeAllocations: int,
+    var usedBytes: int,
+    var peakUsedBytes: int,
+    var allocationCount: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        this.descriptor.valid() && this.backing.valid() &&
+        this.backing.deviceLocal() &&
+        this.backing.descriptor.size == this.descriptor.capacity &&
+        this.owners.size == this.descriptor.blockCount() &&
+        this.offsets.size == this.descriptor.maximumAllocations &&
+        this.blockCounts.size == this.descriptor.maximumAllocations &&
+        this.sizes.size == this.descriptor.maximumAllocations &&
+        this.generations.size == this.descriptor.maximumAllocations &&
+        this.activeAllocations >= 0 &&
+        this.activeAllocations <= this.descriptor.maximumAllocations &&
+        this.usedBytes >= 0 && this.usedBytes <= this.descriptor.capacity &&
+        this.peakUsedBytes >= this.usedBytes &&
+        this.peakUsedBytes <= this.descriptor.capacity &&
+        this.allocationCount >= this.activeAllocations
+
+    fun availableBytes(): int = if (this.valid())
+        this.descriptor.capacity - this.usedBytes
+    else 0
+
+    fun allocationValid(token: int): bool {
+        val slot = bufferPoolTokenSlot(token)
+        var accepted = this.valid() && slot >= 0 &&
+            slot < this.descriptor.maximumAllocations &&
+            this.generations[slot] == bufferPoolTokenGeneration(token) &&
+            this.sizes[slot] > 0 && this.blockCounts[slot] > 0 &&
+            this.offsets[slot] >= 0 &&
+            this.offsets[slot] <=
+                this.descriptor.capacity - this.sizes[slot]
+        var block = if (accepted)
+            this.offsets[slot] / this.descriptor.blockSize
+        else 0
+        val end = if (accepted) block + this.blockCounts[slot] else 0
+        while (accepted && block < end) {
+            accepted = block < this.owners.size &&
+                this.owners[block] == slot + 1
+            block = block + 1
+        }
+        accepted
+    }
+
+    fun allocationOffset(token: int): int {
+        val slot = bufferPoolTokenSlot(token)
+        if (this.allocationValid(token)) this.offsets[slot] else -1
+    }
+
+    fun allocationSize(token: int): int {
+        val slot = bufferPoolTokenSlot(token)
+        if (this.allocationValid(token)) this.sizes[slot] else 0
+    }
+
+    trusted fun allocate(size: int, alignment: int = 1): int {
+        var token = 0
+        var slot = 0
+        var accepted = this.valid() && size > 0 &&
+            size <= this.descriptor.capacity &&
+            bufferTransferAlignmentValid(alignment) &&
+            alignment <= this.descriptor.capacity &&
+            this.activeAllocations < this.descriptor.maximumAllocations &&
+            this.allocationCount < graphicsMaximumInt
+        while (accepted && slot < this.descriptor.maximumAllocations &&
+            (this.sizes[slot] != 0 ||
+             this.generations[slot] >=
+                graphicsMaximumBufferPoolTokenGeneration)) {
+            slot = slot + 1
+        }
+        if (slot == this.descriptor.maximumAllocations) accepted = false
+        val requiredBlocks = if (accepted)
+            ((size - 1) / this.descriptor.blockSize) + 1
+        else 0
+        var firstBlock = -1
+        var candidate = 0
+        while (accepted && firstBlock < 0 &&
+            candidate <= this.owners.size - requiredBlocks) {
+            val byteOffset = candidate * this.descriptor.blockSize
+            var free = (byteOffset & (alignment - 1)) == 0
+            var scan = 0
+            while (free && scan < requiredBlocks) {
+                free = this.owners[candidate + scan] == 0
+                scan = scan + 1
+            }
+            if (free) firstBlock = candidate
+            else candidate = candidate + 1
+        }
+        if (accepted && firstBlock >= 0) {
+            val generation = this.generations[slot] + 1
+            var block = 0
+            while (block < requiredBlocks) {
+                this.owners[firstBlock + block] = slot + 1
+                block = block + 1
+            }
+            val reservedBytes = requiredBlocks * this.descriptor.blockSize
+            this.offsets[slot] = firstBlock * this.descriptor.blockSize
+            this.blockCounts[slot] = requiredBlocks
+            this.sizes[slot] = size
+            this.generations[slot] = generation
+            this.activeAllocations = this.activeAllocations + 1
+            this.usedBytes = this.usedBytes + reservedBytes
+            if (this.usedBytes > this.peakUsedBytes) {
+                this.peakUsedBytes = this.usedBytes
+            }
+            this.allocationCount = this.allocationCount + 1
+            token = bufferPoolToken(slot, generation)
+        }
+        token
+    }
+
+    trusted fun release(token: int): bool {
+        val slot = bufferPoolTokenSlot(token)
+        val accepted = this.allocationValid(token)
+        if (accepted) {
+            val firstBlock = this.offsets[slot] / this.descriptor.blockSize
+            val count = this.blockCounts[slot]
+            var block = 0
+            while (block < count) {
+                this.owners[firstBlock + block] = 0
+                block = block + 1
+            }
+            this.offsets[slot] = 0
+            this.blockCounts[slot] = 0
+            this.sizes[slot] = 0
+            this.activeAllocations = this.activeAllocations - 1
+            this.usedBytes = this.usedBytes -
+                count * this.descriptor.blockSize
+        }
+        accepted
+    }
+
+    trusted fun drop(): void {
+        this.backing.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.bufferPool(
+    descriptor: BufferPoolDescriptor = BufferPoolDescriptor()
+): GraphicsBufferPool {
+    val validation = descriptor.validation()
+    val backing = this.buffer(BufferDescriptor(
+        label = descriptor.label,
+        size = if (validation.succeeded) descriptor.capacity else 0,
+        usage = if (validation.succeeded) descriptor.usage
+            else bufferUsageCopySource | bufferUsageCopyDestination,
+        memory = bufferMemoryDeviceLocal
+    ))
+    val owners: array<int> = []
+    val offsets: array<int> = []
+    val blockCounts: array<int> = []
+    val sizes: array<int> = []
+    val generations: array<int> = []
+    var block = 0
+    while (validation.succeeded && backing.valid() &&
+        block < descriptor.blockCount()) {
+        owners.append(0)
+        block = block + 1
+    }
+    var slot = 0
+    while (validation.succeeded && backing.valid() &&
+        slot < descriptor.maximumAllocations) {
+        offsets.append(0)
+        blockCounts.append(0)
+        sizes.append(0)
+        generations.append(0)
+        slot = slot + 1
+    }
+    var error = GraphicsError()
+    if (!this.valid()) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bufferPool",
+        "buffer pools require a valid graphics application"
+    )
+    else if (!validation.succeeded) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.bufferPool.${validation.field}",
+        validation.message
+    )
+    else if (!backing.valid()) error = GraphicsError(
+        backing.error.code,
+        "GraphicsApplication.bufferPool",
+        backing.error.message
+    )
+    GraphicsBufferPool(
+        move(backing),
+        descriptor,
+        owners,
+        offsets,
+        blockCounts,
+        sizes,
+        generations,
+        0,
+        0,
+        0,
+        0,
+        error
+    )
+}
+
+fun bufferPoolRangeResolvedSize(
+    pool: GraphicsBufferPool,
+    token: int,
+    offset: int,
+    size: int
+): int = if (size == -1 && pool.allocationValid(token) && offset >= 0 &&
+    offset <= pool.allocationSize(token))
+    pool.allocationSize(token) - offset
+else size
+
+fun bufferPoolRangeValid(
+    pool: GraphicsBufferPool,
+    token: int,
+    offset: int,
+    size: int
+): bool {
+    val allocationSize = pool.allocationSize(token)
+    val byteCount = bufferPoolRangeResolvedSize(pool, token, offset, size)
+    allocationSize > 0 && offset >= 0 && offset < allocationSize &&
+        byteCount > 0 && byteCount <= allocationSize - offset
+}
+
+trusted fun GraphicsApplication.enqueueUploadBufferPoolRange(
+    var queue: GraphicsBufferTransferQueue,
+    source: BufferBytes,
+    pool: GraphicsBufferPool,
+    allocation: int,
+    sourceOffset: int = 0,
+    allocationOffset: int = 0,
+    size: int = -1
+): int {
+    val byteCount = bufferCopyResolvedSize(sourceOffset, size, source.size)
+    if (bufferPoolRangeValid(
+        pool, allocation, allocationOffset, byteCount
+    )) this.enqueueUploadBufferRange(
+        queue,
+        source,
+        pool.backing,
+        sourceOffset,
+        pool.allocationOffset(allocation) + allocationOffset,
+        byteCount
+    )
+    else 0
+}
+
+trusted fun GraphicsApplication.enqueueReadbackBufferPoolRange(
+    var queue: GraphicsBufferTransferQueue,
+    pool: GraphicsBufferPool,
+    allocation: int,
+    allocationOffset: int = 0,
+    size: int = -1
+): int {
+    val byteCount = bufferPoolRangeResolvedSize(
+        pool, allocation, allocationOffset, size
+    )
+    if (bufferPoolRangeValid(
+        pool, allocation, allocationOffset, byteCount
+    )) this.enqueueReadbackBufferRange(
+        queue,
+        pool.backing,
+        pool.allocationOffset(allocation) + allocationOffset,
+        byteCount
+    )
+    else 0
+}

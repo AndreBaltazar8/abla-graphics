@@ -27,13 +27,14 @@ for sample in x11-window wayland-info wayland-window wayland-pixels \
     wayland-clipboard \
     vulkan-info vulkan-surface headless-opengl \
     common-headless \
-    opengl-window common-clear common-triangle common-buffer async-buffer common-texture \
+    opengl-window common-clear common-triangle common-buffer async-buffer buffer-pool common-texture \
     common-textured indexed-textured-cube render-to-texture \
     multiple-render-targets subpasses common-compute gpu-timestamp \
     push-color push-transform push-draw push-expression narrow-input \
     frame-pacing render-graph; do
     cd "$compiler_root"
-    ABLA_SYSROOT="$compiler_root" "$compiler" \
+    ABLA_MAX_MEMORY_MB=${ABLA_SAMPLE_TEST_MEMORY_MB:-6144} \
+        ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
         -o "$output_directory/$sample" --no-cache
 done
@@ -86,6 +87,8 @@ for backend in opengl vulkan; do
         "$output_directory/common-buffer" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/async-buffer" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/buffer-pool" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-texture" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-20.
+Updated: 2026-08-24.
 
 ## Verified now
 
@@ -432,6 +432,20 @@ Updated: 2026-08-20.
   transfer gate stages three uploads and readbacks through a device-local
   destination on explicit OpenGL, explicit Vulkan, and auto selection, rejects
   direct CPU access, recovers exact bytes, and retains zero live-byte growth.
+- Device-local buffer suballocation: `GraphicsBufferPool` owns one real
+  device-local buffer plus fixed allocator metadata. Descriptors bound capacity
+  to one GiB, require power-of-two blocks and both GPU copy directions, and
+  support at most 65,536 blocks and 1,024 live allocations. Compact
+  slot/generation tokens reject stale reuse; aligned first-fit allocation,
+  release, validation, and counter updates allocate no general memory. The
+  focused pool gate proves exact aligned offsets, fragmentation rejection,
+  same-slot generation reuse, stale-token and crossing-range rejection,
+  explicitly device-local CPU-access rejection, exact asynchronous slice
+  upload/readback, stable backing handles, and zero live-byte change across
+  1,000 allocate/release cycles on OpenGL, Vulkan, and auto selection. The
+  independently buildable `examples/buffer-pool` repeats the public workflow
+  on both explicit backends. Offset-aware bind/render integration and texture
+  suballocation remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

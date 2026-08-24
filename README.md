@@ -109,7 +109,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   drop real resources on either OpenGL or Vulkan, including allocation-free
   repeated partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
-  GPU buffer/texture copies, allocation-free GPU mip-chain generation,
+  GPU buffer/texture copies, fixed-metadata device-local buffer suballocation
+  with generation-checked slices, allocation-free GPU mip-chain generation,
   render-attachment-only 2x/4x/8x/16x multisampled color/depth textures, plus
   allocation-free repeated compute dispatch;
 - affine color render targets that own completeness-checked OpenGL FBOs or
@@ -226,6 +227,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   that stage through an explicitly device-local destination, submit work before
   targeted waits, recover exact bytes, and reuse their native synchronization
   state with zero live-byte growth on explicit OpenGL and Vulkan; and
+- `examples/buffer-pool`: aligned fixed-block suballocation from one
+  device-local backing buffer, checked slice upload/readback, slot reuse, and
+  1,000 allocation/release cycles with zero live-byte growth on explicit
+  OpenGL and Vulkan;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies; and

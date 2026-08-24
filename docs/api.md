@@ -537,6 +537,53 @@ the same portable CPU-access boundary while physical residency remains under
 the OpenGL driver. `deviceLocal()` reports that the requested policy was
 realized; on Vulkan it also checks the selected native memory flags.
 
+Many device-local buffers can share one real driver allocation through
+`GraphicsBufferPool`:
+
+```abla
+val pool = app.bufferPool(BufferPoolDescriptor(
+    capacity = 16777216,
+    blockSize = 256,
+    maximumAllocations = 1024,
+    usage = bufferUsageCopySource | bufferUsageCopyDestination |
+        bufferUsageVertex | bufferUsageIndex | bufferUsageUniform
+))
+
+val vertices = pool.allocate(65536, 16)
+val uniforms = pool.allocate(256, 256)
+val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+    direction = bufferTransferDirectionUpload,
+    slotCapacity = 256
+))
+val frameBytes = bufferBytes(256)
+val ticket = app.enqueueUploadBufferPoolRange(
+    uploads, frameBytes, pool, uniforms, 0, 0, frameBytes.size
+)
+uploads.wait(ticket)
+pool.release(uniforms)
+```
+
+The pool owns one explicitly device-local `GraphicsBuffer` and fixed arrays for
+at most 65,536 blocks and 1,024 live allocations. Creation performs all general
+metadata allocation. `allocate` uses a bounded first-fit scan and returns one
+compact positive integer containing a metadata slot and generation; `release`
+mutates the existing arrays. Neither operation allocates general memory, and a
+token becomes invalid as soon as its slot is released or reused. Requested
+alignment is a checked power of two; capacity and block size are bounded to one
+GiB, block size must divide capacity, and accounting records reserved block
+bytes rather than requested payload bytes.
+
+`allocationOffset`, `allocationSize`, and `allocationValid` expose checked
+slice metadata. `enqueueUploadBufferPoolRange` and
+`enqueueReadbackBufferPoolRange` translate a slice-relative range into the
+existing fixed-slot GL/Vulkan transfer machinery, so the backing allocation
+remains inaccessible to direct CPU reads and writes. Invalid and stale ranges
+return an invalid transfer ticket without changing queue state. Applications
+must complete every transfer or command that borrows a slice before releasing
+it. `backing` remains an explicit low-level escape hatch; offset-aware portable
+binding and render commands are the next integration slice and are not implied
+by the current pool API.
+
 A map-write/copy-source buffer may start mapped without an intermediate upload:
 
 ```abla
@@ -778,7 +825,7 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Asynchronous texture/image transfers and device-local suballocation policy
+Asynchronous texture/image transfers and device-local texture suballocation
 remain upcoming APIs.
 An application must let child buffers drop before its device/context.
 

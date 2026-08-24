@@ -1,0 +1,84 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(
+            title = "Abla Graphics device buffer pool",
+            width = 480,
+            height = 270
+        )
+    )
+    val pool = app.bufferPool(BufferPoolDescriptor(
+        label = "sample-device-pool",
+        capacity = 4096,
+        blockSize = 256,
+        maximumAllocations = 16,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination |
+            bufferUsageVertex | bufferUsageIndex | bufferUsageUniform
+    ))
+    val vertices = pool.allocate(96, 16)
+    val indices = pool.allocate(24, 4)
+    val uniforms = pool.allocate(64, 256)
+    val source = bufferBytes(16)
+    val expected = 1234605616436508552
+    val sourceReady = source.fill(0) && source.storeI64(expected)
+    val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "pool-sample-upload",
+        direction = bufferTransferDirectionUpload,
+        slotCapacity = 16,
+        slotCount = 3,
+        alignment = 16
+    ))
+    val upload = app.enqueueUploadBufferPoolRange(
+        uploads, source, pool, uniforms, 0, 8, 8
+    )
+    val uploadComplete = bufferTransferTicketValid(upload) &&
+        uploads.wait(upload)
+    val downloads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
+        label = "pool-sample-readback",
+        direction = bufferTransferDirectionReadback,
+        slotCapacity = 16,
+        slotCount = 3,
+        alignment = 16
+    ))
+    val download = app.enqueueReadbackBufferPoolRange(
+        downloads, pool, uniforms, 8, 8
+    )
+    val result = bufferBytes(8)
+    val exact = result.fill(0) && app.waitReadback(
+        downloads, download, result
+    ) && result.loadI64() == expected
+
+    val released = pool.release(indices)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var stable = true
+    var iteration = 0
+    while (stable && iteration < 1000) {
+        val temporary = pool.allocate(24, 4)
+        stable = bufferPoolTokenValid(temporary) && pool.release(temporary)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val passed = app.valid() && pool.valid() && pool.backing.deviceLocal() &&
+        bufferPoolTokenValid(vertices) && !pool.allocationValid(indices) &&
+        bufferPoolTokenValid(uniforms) && sourceReady && uploadComplete &&
+        exact && released && stable && iteration == 1000 &&
+        liveAfter == liveBefore && pool.activeAllocations == 2
+    println(
+        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} offsets=${pool.allocationOffset(vertices)}/${pool.allocationOffset(uniforms)} exact=$exact live=${liveAfter - liveBefore} active=${pool.activeAllocations} peak=${pool.peakUsedBytes}"
+    )
+    if (passed) 0 else 1
+}
