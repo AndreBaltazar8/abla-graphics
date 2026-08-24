@@ -17,6 +17,9 @@ coherent persistent upload/readback mapping, bounded aligned transfer rings,
 fixed-slot asynchronous buffer upload/readback queues, explicit host-visible
 and device-local buffer placement, fixed-slot asynchronous RGBA/BGRA texture
 upload/readback queues with allocation-free primitive range calls,
+portable 2D-array/cube/3D descriptors with dimension-resolved views,
+overflow-checked pitched `TextureRegion`/`TextureDataLayout` footprints, BC1
+RGBA linear/sRGB block metadata, and live 1D/2D/3D/array/cube limit queries,
 fixed-metadata device-local buffer
 suballocation with generation-checked slice transfers and aligned
 uniform/storage range binding plus generation-checked nonzero-offset surfaced

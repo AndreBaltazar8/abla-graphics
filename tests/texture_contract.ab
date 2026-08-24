@@ -1,0 +1,285 @@
+import "../src/graphics.ab"
+
+fun main: int {
+    val arrayTexture = TextureDescriptor(
+        size = Extent3D(8, 8, 4),
+        mipLevels = 4,
+        dimension = textureDimension2DArray,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val cubeTexture = TextureDescriptor(
+        size = Extent3D(16, 16, 6),
+        mipLevels = 5,
+        dimension = textureDimensionCube,
+        format = textureFormatRgba8UnormSrgb,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    )
+    val volumeTexture = TextureDescriptor(
+        size = Extent3D(8, 4, 4),
+        mipLevels = 4,
+        dimension = textureDimension3D,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource
+    )
+    val invalidCube = TextureDescriptor(
+        size = Extent3D(16, 8, 6),
+        dimension = textureDimensionCube,
+        usage = textureUsageSampled
+    ).validation()
+    val invalidCubeLayers = TextureDescriptor(
+        size = Extent3D(16, 16, 12),
+        dimension = textureDimensionCube,
+        usage = textureUsageSampled
+    ).validation()
+    val invalidArrayMipCount = TextureDescriptor(
+        size = Extent3D(4, 4, 64),
+        mipLevels = 4,
+        dimension = textureDimension2DArray,
+        usage = textureUsageSampled
+    ).validation()
+    val defaultArrayView = TextureViewDescriptor()
+    val arrayLayerView = TextureViewDescriptor(
+        dimension = textureDimension2D,
+        baseArrayLayer = 2,
+        arrayLayerCount = 1
+    )
+    val invalidArrayLayerView = TextureViewDescriptor(
+        dimension = textureDimension2D,
+        baseArrayLayer = 1,
+        arrayLayerCount = 2
+    ).validation(arrayTexture)
+    val defaultCubeView = TextureViewDescriptor()
+    val cubeFaceView = TextureViewDescriptor(
+        dimension = textureDimension2D,
+        baseArrayLayer = 4,
+        arrayLayerCount = 1
+    )
+    val invalidCubeView = TextureViewDescriptor(
+        dimension = textureDimensionCube,
+        baseArrayLayer = 1,
+        arrayLayerCount = 5
+    ).validation(cubeTexture)
+    val volumeView = TextureViewDescriptor()
+    val invalidVolumeLayerView = TextureViewDescriptor(
+        baseArrayLayer = 1,
+        arrayLayerCount = 1
+    ).validation(volumeTexture)
+
+    val arraySelection = TextureRegion(
+        mipLevel = 1,
+        x = 1,
+        y = 1,
+        z = 1,
+        width = 3,
+        height = 3,
+        depth = 2
+    )
+    val arrayCrossing = TextureRegion(
+        z = 3,
+        width = 1,
+        height = 1,
+        depth = 2
+    ).validation(arrayTexture)
+    val volumeSelection = TextureRegion(
+        mipLevel = 1,
+        z = 1,
+        width = 4,
+        height = 2,
+        depth = 1
+    )
+    val volumeCrossing = TextureRegion(
+        mipLevel = 1,
+        z = 1,
+        width = 1,
+        height = 1,
+        depth = 2
+    ).validation(volumeTexture)
+    val missingUsage = TextureRegion(
+        width = 1,
+        height = 1,
+        depth = 1
+    ).validation(arrayTexture, textureUsageStorage)
+
+    val compressedTexture = TextureDescriptor(
+        size = Extent3D(10, 6, 2),
+        dimension = textureDimension2DArray,
+        format = textureFormatBc1RgbaUnorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val compressedSelection = TextureRegion()
+    val compressedLayout = TextureDataLayout()
+    val pitchedCompressedLayout = TextureDataLayout(
+        offset = 8,
+        bytesPerRow = 32,
+        rowsPerImage = 8
+    )
+    val shortCompressedBuffer = pitchedCompressedLayout.validation(
+        compressedTexture,
+        compressedSelection,
+        127
+    )
+    val invalidCompressedRow = TextureDataLayout(
+        bytesPerRow = 22
+    ).validation(compressedTexture, compressedSelection, 128)
+    val invalidCompressedImageRows = TextureDataLayout(
+        rowsPerImage = 6
+    ).validation(compressedTexture, compressedSelection, 128)
+    val invalidCompressedOffset = TextureDataLayout(
+        offset = 4
+    ).validation(compressedTexture, compressedSelection, 128)
+    val invalidCompressedOrigin = TextureRegion(
+        x = 1,
+        width = 4,
+        height = 4,
+        depth = 1
+    ).validation(compressedTexture)
+    val invalidCompressedExtent = TextureRegion(
+        x = 4,
+        width = 3,
+        height = 4,
+        depth = 1
+    ).validation(compressedTexture)
+    val edgeCompressedExtent = TextureRegion(
+        x = 4,
+        y = 4,
+        width = 6,
+        height = 2,
+        depth = 1
+    )
+    val invalidCompressedUsage = TextureDescriptor(
+        size = Extent3D(8, 8),
+        format = textureFormatBc1RgbaUnorm,
+        usage = textureUsageRenderAttachment
+    ).validation()
+    val invalidCompressedSamples = TextureDescriptor(
+        size = Extent3D(8, 8),
+        samples = 4,
+        format = textureFormatBc1RgbaUnorm,
+        usage = textureUsageSampled
+    ).validation()
+    val compressedSrgbView = TextureViewDescriptor(
+        format = textureFormatBc1RgbaUnormSrgb
+    )
+
+    val overflowTexture = TextureDescriptor(
+        size = Extent3D(1, 1, 4294967295),
+        dimension = textureDimension2DArray,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopyDestination
+    )
+    val overflowSelection = TextureRegion(
+        width = 1,
+        height = 1,
+        depth = 2
+    )
+    val overflowLayout = TextureDataLayout(
+        bytesPerRow = 9223372036854775804,
+        rowsPerImage = 1
+    )
+    val overflowFootprint = overflowLayout.requiredBytes(
+        overflowTexture,
+        overflowSelection
+    )
+    val overflowValidation = overflowLayout.validation(
+        overflowTexture,
+        overflowSelection,
+        graphicsMaximumInt
+    )
+
+    val compressedBytes = compressedLayout.requiredBytes(
+        compressedTexture,
+        compressedSelection
+    )
+    val pitchedCompressedBytes = pitchedCompressedLayout.requiredBytes(
+        compressedTexture,
+        compressedSelection
+    )
+    val succeeded = arrayTexture.valid() && cubeTexture.valid() &&
+        volumeTexture.valid() &&
+        textureMaximumMipLevelsForDimension(
+            Extent3D(4, 4, 64),
+            textureDimension2DArray
+        ) == 3 && !invalidCube.succeeded && invalidCube.field == "size" &&
+        !invalidCubeLayers.succeeded && invalidCubeLayers.field == "size" &&
+        !invalidArrayMipCount.succeeded &&
+        invalidArrayMipCount.field == "mipLevels" &&
+        defaultArrayView.resolvedDimension(arrayTexture) ==
+            textureDimension2DArray &&
+        defaultArrayView.resolvedArrayLayerCount(arrayTexture) == 4 &&
+        defaultArrayView.validation(arrayTexture).succeeded &&
+        arrayLayerView.validation(arrayTexture).succeeded &&
+        !invalidArrayLayerView.succeeded &&
+        invalidArrayLayerView.field == "arrayLayerCount" &&
+        defaultCubeView.resolvedDimension(cubeTexture) == textureDimensionCube &&
+        defaultCubeView.resolvedArrayLayerCount(cubeTexture) == 6 &&
+        defaultCubeView.validation(cubeTexture).succeeded &&
+        cubeFaceView.validation(cubeTexture).succeeded &&
+        !invalidCubeView.succeeded &&
+        invalidCubeView.field == "arrayLayerCount" &&
+        volumeView.resolvedDimension(volumeTexture) == textureDimension3D &&
+        volumeView.resolvedArrayLayerCount(volumeTexture) == 1 &&
+        volumeView.validation(volumeTexture).succeeded &&
+        !invalidVolumeLayerView.succeeded &&
+        invalidVolumeLayerView.field == "arrayLayerCount" &&
+        textureMipDepth(arrayTexture, 3) == 4 &&
+        textureMipDepth(volumeTexture, 1) == 2 &&
+        arraySelection.validation(
+            arrayTexture,
+            textureUsageCopySource
+        ).succeeded && !arrayCrossing.succeeded &&
+        arrayCrossing.field == "origin" &&
+        volumeSelection.validation(volumeTexture).succeeded &&
+        !volumeCrossing.succeeded && volumeCrossing.field == "origin" &&
+        !missingUsage.succeeded && missingUsage.field == "usage" &&
+        compressedTexture.valid() && textureFormatCompressed(
+            textureFormatBc1RgbaUnorm
+        ) && textureFormatBlockWidth(textureFormatBc1RgbaUnorm) == 4 &&
+        textureFormatBlockHeight(textureFormatBc1RgbaUnorm) == 4 &&
+        textureFormatBytesPerBlock(textureFormatBc1RgbaUnorm) == 8 &&
+        textureFormatsViewCompatible(
+            textureFormatBc1RgbaUnorm,
+            textureFormatBc1RgbaUnormSrgb
+        ) && compressedSrgbView.validation(compressedTexture).succeeded &&
+        compressedSelection.validation(compressedTexture).succeeded &&
+        compressedBytes.succeeded && compressedBytes.value == 96 &&
+        compressedLayout.resolvedBytesPerRow(
+            compressedTexture,
+            compressedSelection
+        ) == 24 && compressedLayout.resolvedRowsPerImage(
+            compressedTexture,
+            compressedSelection
+        ) == 8 && compressedLayout.validation(
+            compressedTexture,
+            compressedSelection,
+            96
+        ).succeeded && pitchedCompressedBytes.succeeded &&
+        pitchedCompressedBytes.value == 128 &&
+        pitchedCompressedLayout.validation(
+            compressedTexture,
+            compressedSelection,
+            128
+        ).succeeded && !shortCompressedBuffer.succeeded &&
+        shortCompressedBuffer.field == "bufferSize" &&
+        !invalidCompressedRow.succeeded &&
+        invalidCompressedRow.field == "bytesPerRow" &&
+        !invalidCompressedImageRows.succeeded &&
+        invalidCompressedImageRows.field == "rowsPerImage" &&
+        !invalidCompressedOffset.succeeded &&
+        invalidCompressedOffset.field == "offset" &&
+        !invalidCompressedOrigin.succeeded &&
+        invalidCompressedOrigin.field == "blockAlignment" &&
+        !invalidCompressedExtent.succeeded &&
+        invalidCompressedExtent.field == "blockAlignment" &&
+        edgeCompressedExtent.validation(compressedTexture).succeeded &&
+        !invalidCompressedUsage.succeeded &&
+        invalidCompressedUsage.field == "usage" &&
+        !invalidCompressedSamples.succeeded &&
+        invalidCompressedSamples.field == "samples" &&
+        overflowTexture.valid() && overflowSelection.valid(overflowTexture) &&
+        !overflowFootprint.succeeded && !overflowValidation.succeeded &&
+        overflowValidation.field == "layout"
+    if (succeeded) 42 else 1
+}

@@ -621,6 +621,9 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     val major = nativeI64Cell(0)
     val minor = nativeI64Cell(0)
     val texture = nativeI64Cell(0)
+    val texture3D = nativeI64Cell(0)
+    val textureArrayLayers = nativeI64Cell(0)
+    val textureCube = nativeI64Cell(0)
     val storage = nativeI64Cell(0)
     val workgroupsX = nativeI64Cell(0)
     val workgroupsY = nativeI64Cell(0)
@@ -635,6 +638,9 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     glGetIntegerv(33307, major.address)
     glGetIntegerv(33308, minor.address)
     glGetIntegerv(3379, texture.address)
+    glGetIntegerv(32883, texture3D.address)
+    glGetIntegerv(35071, textureArrayLayers.address)
+    glGetIntegerv(34076, textureCube.address)
     glGetIntegerv(35380, uniformOffsetAlignment.address)
     val majorValue = major.load() & 4294967295
     val minorValue = minor.load() & 4294967295
@@ -700,7 +706,11 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
             workgroupSizeY.load() & 4294967295,
             workgroupSizeZ.load() & 4294967295,
             uniformOffsetAlignment.load() & 4294967295,
-            storageOffsetAlignment.load() & 4294967295
+            storageOffsetAlignment.load() & 4294967295,
+            texture.load() & 4294967295,
+            texture3D.load() & 4294967295,
+            textureArrayLayers.load() & 4294967295,
+            textureCube.load() & 4294967295
         ),
         GraphicsVersion(majorValue, minorValue)
     )
@@ -2192,11 +2202,12 @@ fun OpenGlTexture.view(
 ): OpenGlTextureView {
     val validation = descriptor.validation(texture)
     val fullView = descriptor.resolvedFormat(texture) == texture.format &&
-        descriptor.dimension == texture.dimension &&
+        descriptor.resolvedDimension(texture) == texture.dimension &&
         descriptor.baseMipLevel == 0 &&
         descriptor.resolvedMipLevelCount(texture) == texture.mipLevels &&
         descriptor.baseArrayLayer == 0 &&
-        descriptor.resolvedArrayLayerCount(texture) == 1
+        descriptor.resolvedArrayLayerCount(texture) ==
+            textureArrayLayerCount(texture)
     OpenGlTextureView(
         if (this.valid() && validation.succeeded && fullView)
             this.handle

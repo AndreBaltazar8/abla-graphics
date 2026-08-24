@@ -90,9 +90,12 @@ val textureUsageStorage = 8
 val textureUsageRenderAttachment = 16
 val textureUsageAll = 31
 
+val textureDimensionUndefined = 0
 val textureDimension1D = 1
 val textureDimension2D = 2
 val textureDimension3D = 3
+val textureDimension2DArray = 4
+val textureDimensionCube = 5
 
 val textureFormatUndefined = 0
 val textureFormatR8Unorm = 1
@@ -111,6 +114,8 @@ val textureFormatDepth16Unorm = 13
 val textureFormatDepth24Stencil8 = 14
 val textureFormatDepth32Float = 15
 val textureFormatDepth32FloatStencil8 = 16
+val textureFormatBc1RgbaUnorm = 17
+val textureFormatBc1RgbaUnormSrgb = 18
 
 val textureAspectAll = 0
 val textureAspectColor = 1
@@ -284,7 +289,51 @@ fun graphicsUsageValid(usage: int, allowed: int): bool =
 
 fun textureFormatValid(format: int): bool =
     format >= textureFormatR8Unorm &&
-    format <= textureFormatDepth32FloatStencil8
+    format <= textureFormatBc1RgbaUnormSrgb
+
+fun textureDimensionValid(dimension: int): bool =
+    dimension >= textureDimension1D && dimension <= textureDimensionCube
+
+fun textureDimensionArrayed(dimension: int): bool =
+    dimension == textureDimension2DArray ||
+    dimension == textureDimensionCube
+
+fun textureFormatCompressed(format: int): bool =
+    format == textureFormatBc1RgbaUnorm ||
+    format == textureFormatBc1RgbaUnormSrgb
+
+fun textureFormatBlockWidth(format: int): int =
+    if (textureFormatCompressed(format)) 4
+    else if (textureFormatValid(format)) 1 else 0
+
+fun textureFormatBlockHeight(format: int): int =
+    if (textureFormatCompressed(format)) 4
+    else if (textureFormatValid(format)) 1 else 0
+
+fun textureFormatBytesPerBlock(format: int): int {
+    var size = 0
+    if (format == textureFormatR8Unorm) size = 1
+    else if (format == textureFormatRg8Unorm) size = 2
+    else if (format == textureFormatRgba8Unorm ||
+        format == textureFormatRgba8UnormSrgb ||
+        format == textureFormatBgra8Unorm ||
+        format == textureFormatBgra8UnormSrgb) size = 4
+    else if (format == textureFormatR16Float) size = 2
+    else if (format == textureFormatRg16Float) size = 4
+    else if (format == textureFormatRgba16Float) size = 8
+    else if (format == textureFormatR32Float) size = 4
+    else if (format == textureFormatRg32Float) size = 8
+    else if (format == textureFormatRgba32Float) size = 16
+    else if (format == textureFormatDepth16Unorm) size = 2
+    else if (format == textureFormatDepth24Stencil8 ||
+        format == textureFormatDepth32Float) size = 4
+    else if (format == textureFormatDepth32FloatStencil8) size = 8
+    else if (textureFormatCompressed(format)) size = 8
+    size
+}
+
+fun textureBlockCount(size: int, blockSize: int): int =
+    if (size > 0 && blockSize > 0) (size - 1) / blockSize + 1 else 0
 
 fun textureFormatHasDepth(format: int): bool =
     format >= textureFormatDepth16Unorm &&
@@ -303,12 +352,35 @@ fun textureFormatsViewCompatible(textureFormat: int, viewFormat: int): bool =
     (textureFormat == textureFormatBgra8Unorm &&
      viewFormat == textureFormatBgra8UnormSrgb) ||
     (textureFormat == textureFormatBgra8UnormSrgb &&
-     viewFormat == textureFormatBgra8Unorm)
+     viewFormat == textureFormatBgra8Unorm) ||
+    (textureFormat == textureFormatBc1RgbaUnorm &&
+     viewFormat == textureFormatBc1RgbaUnormSrgb) ||
+    (textureFormat == textureFormatBc1RgbaUnormSrgb &&
+     viewFormat == textureFormatBc1RgbaUnorm)
 
 fun textureMaximumMipLevels(size: Extent3D): int {
     var maximum = size.width
     if (size.height > maximum) maximum = size.height
     if (size.depth > maximum) maximum = size.depth
+    var levels = 0
+    while (maximum > 0) {
+        levels = levels + 1
+        maximum = maximum / 2
+    }
+    levels
+}
+
+fun textureMaximumMipLevelsForDimension(
+    size: Extent3D,
+    dimension: int
+): int {
+    var maximum = size.width
+    if (dimension != textureDimension1D && size.height > maximum) {
+        maximum = size.height
+    }
+    if (dimension == textureDimension3D && size.depth > maximum) {
+        maximum = size.depth
+    }
     var levels = 0
     while (maximum > 0) {
         levels = levels + 1
@@ -901,8 +973,7 @@ class TextureDescriptor(
                 "size",
                 "texture extent exceeds the common backend ABI range"
             )
-        } else if (this.dimension < textureDimension1D ||
-            this.dimension > textureDimension3D) {
+        } else if (!textureDimensionValid(this.dimension)) {
             result = graphicsDescriptorInvalid(
                 "dimension",
                 "texture dimension is unknown"
@@ -918,8 +989,17 @@ class TextureDescriptor(
                 "size",
                 "two-dimensional textures require depth of one"
             )
+        } else if (this.dimension == textureDimensionCube &&
+            (this.size.width != this.size.height || this.size.depth != 6)) {
+            result = graphicsDescriptorInvalid(
+                "size",
+                "cube textures require square faces and exactly six layers"
+            )
         } else if (this.mipLevels < 1 ||
-            this.mipLevels > textureMaximumMipLevels(this.size)) {
+            this.mipLevels > textureMaximumMipLevelsForDimension(
+                this.size,
+                this.dimension
+            )) {
             result = graphicsDescriptorInvalid(
                 "mipLevels",
                 "texture mip-level count exceeds its extent"
@@ -940,6 +1020,18 @@ class TextureDescriptor(
             result = graphicsDescriptorInvalid(
                 "format",
                 "texture format is unknown"
+            )
+        } else if (textureFormatCompressed(this.format) && this.samples != 1) {
+            result = graphicsDescriptorInvalid(
+                "samples",
+                "compressed textures must be single-sampled"
+            )
+        } else if (textureFormatCompressed(this.format) &&
+            (this.usage & (textureUsageStorage |
+                textureUsageRenderAttachment)) != 0) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "compressed textures cannot be storage or render attachments"
             )
         } else if (!graphicsUsageValid(this.usage, textureUsageAll)) {
             result = graphicsDescriptorInvalid(
@@ -963,27 +1055,297 @@ class TextureDescriptor(
             )
         }
         succeeded = succeeded &&
-            this.dimension >= textureDimension1D &&
-            this.dimension <= textureDimension3D &&
+            textureDimensionValid(this.dimension) &&
             (this.dimension != textureDimension1D ||
              (this.size.height == 1 && this.size.depth == 1)) &&
             (this.dimension != textureDimension2D || this.size.depth == 1) &&
+            (this.dimension != textureDimensionCube ||
+             (this.size.width == this.size.height && this.size.depth == 6)) &&
             this.mipLevels >= 1 &&
-            this.mipLevels <= textureMaximumMipLevels(this.size) &&
+            this.mipLevels <= textureMaximumMipLevelsForDimension(
+                this.size,
+                this.dimension
+            ) &&
             (this.samples == 1 || this.samples == 2 || this.samples == 4 ||
              this.samples == 8 || this.samples == 16) &&
             (this.samples == 1 ||
              (this.dimension == textureDimension2D && this.mipLevels == 1)) &&
             textureFormatValid(this.format) &&
+            (!textureFormatCompressed(this.format) || this.samples == 1) &&
+            (!textureFormatCompressed(this.format) ||
+             (this.usage & (textureUsageStorage |
+                textureUsageRenderAttachment)) == 0) &&
             graphicsUsageValid(this.usage, textureUsageAll)
         succeeded
+    }
+}
+
+fun textureArrayLayerCount(texture: TextureDescriptor): int =
+    if (textureDimensionArrayed(texture.dimension)) texture.size.depth else 1
+
+fun textureMipDepth(texture: TextureDescriptor, mipLevel: int): int =
+    if (texture.dimension == textureDimension3D)
+        textureMipDimension(texture.size.depth, mipLevel)
+    else textureArrayLayerCount(texture)
+
+class TextureRegion(
+    val mipLevel: int = 0,
+    val x: int = 0,
+    val y: int = 0,
+    val z: int = 0,
+    val width: int = -1,
+    val height: int = -1,
+    val depth: int = -1
+) {
+    fun resolvedWidth(texture: TextureDescriptor): int =
+        if (this.width == -1 && this.mipLevel >= 0 &&
+            this.mipLevel < texture.mipLevels)
+            textureMipDimension(texture.size.width, this.mipLevel) - this.x
+        else this.width
+
+    fun resolvedHeight(texture: TextureDescriptor): int =
+        if (this.height == -1 && this.mipLevel >= 0 &&
+            this.mipLevel < texture.mipLevels)
+            textureMipDimension(texture.size.height, this.mipLevel) - this.y
+        else this.height
+
+    fun resolvedDepth(texture: TextureDescriptor): int =
+        if (this.depth == -1 && this.mipLevel >= 0 &&
+            this.mipLevel < texture.mipLevels)
+            textureMipDepth(texture, this.mipLevel) - this.z
+        else this.depth
+
+    fun validation(
+        texture: TextureDescriptor,
+        requiredUsage: int = 0
+    ): GraphicsDescriptorValidation {
+        var result = texture.validation()
+        if (result.succeeded && requiredUsage != 0 &&
+            (requiredUsage < 0 ||
+             (requiredUsage & textureUsageAll) != requiredUsage)) {
+            result = graphicsDescriptorInvalid(
+                "requiredUsage",
+                "texture region requires known usage flags"
+            )
+        } else if (result.succeeded && requiredUsage != 0 &&
+            (texture.usage & requiredUsage) != requiredUsage) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "texture region usage is missing from the texture"
+            )
+        } else if (result.succeeded && (this.mipLevel < 0 ||
+            this.mipLevel >= texture.mipLevels)) {
+            result = graphicsDescriptorInvalid(
+                "mipLevel",
+                "texture region mip level is out of range"
+            )
+        } else if (result.succeeded) {
+            val mipWidth = textureMipDimension(
+                texture.size.width,
+                this.mipLevel
+            )
+            val mipHeight = textureMipDimension(
+                texture.size.height,
+                this.mipLevel
+            )
+            val mipDepth = textureMipDepth(texture, this.mipLevel)
+            val selectedWidth = this.resolvedWidth(texture)
+            val selectedHeight = this.resolvedHeight(texture)
+            val selectedDepth = this.resolvedDepth(texture)
+            if (this.x < 0 || this.y < 0 || this.z < 0 ||
+                this.x >= mipWidth || this.y >= mipHeight ||
+                this.z >= mipDepth || selectedWidth <= 0 ||
+                selectedHeight <= 0 || selectedDepth <= 0 ||
+                selectedWidth > mipWidth - this.x ||
+                selectedHeight > mipHeight - this.y ||
+                selectedDepth > mipDepth - this.z) {
+                result = graphicsDescriptorInvalid(
+                    "origin",
+                    "texture region exceeds the selected mip subresource"
+                )
+            } else if (texture.dimension == textureDimension1D &&
+                (this.y != 0 || this.z != 0 || selectedHeight != 1 ||
+                 selectedDepth != 1)) {
+                result = graphicsDescriptorInvalid(
+                    "dimension",
+                    "one-dimensional texture regions require unit height and depth"
+                )
+            } else if (texture.dimension == textureDimension2D &&
+                (this.z != 0 || selectedDepth != 1)) {
+                result = graphicsDescriptorInvalid(
+                    "dimension",
+                    "two-dimensional texture regions require unit depth"
+                )
+            } else if (textureFormatCompressed(texture.format)) {
+                val blockWidth = textureFormatBlockWidth(texture.format)
+                val blockHeight = textureFormatBlockHeight(texture.format)
+                val xAligned = this.x - this.x / blockWidth * blockWidth == 0
+                val yAligned = this.y - this.y / blockHeight * blockHeight == 0
+                val widthAligned = selectedWidth -
+                    selectedWidth / blockWidth * blockWidth == 0 ||
+                    this.x + selectedWidth == mipWidth
+                val heightAligned = selectedHeight -
+                    selectedHeight / blockHeight * blockHeight == 0 ||
+                    this.y + selectedHeight == mipHeight
+                if (!xAligned || !yAligned || !widthAligned ||
+                    !heightAligned) {
+                    result = graphicsDescriptorInvalid(
+                        "blockAlignment",
+                        "compressed texture regions must align to format blocks or mip edges"
+                    )
+                }
+            }
+        }
+        result
+    }
+
+    fun valid(texture: TextureDescriptor, requiredUsage: int = 0): bool =
+        this.validation(texture, requiredUsage).succeeded
+}
+
+class TextureDataLayout(
+    val offset: int = 0,
+    val bytesPerRow: int = 0,
+    val rowsPerImage: int = 0
+) {
+    fun resolvedBytesPerRow(
+        texture: TextureDescriptor,
+        selection: TextureRegion
+    ): int {
+        val blockWidth = textureFormatBlockWidth(texture.format)
+        val blockBytes = textureFormatBytesPerBlock(texture.format)
+        val minimum = textureBlockCount(
+            selection.resolvedWidth(texture),
+            blockWidth
+        ) * blockBytes
+        if (this.bytesPerRow == 0) minimum else this.bytesPerRow
+    }
+
+    fun resolvedRowsPerImage(
+        texture: TextureDescriptor,
+        selection: TextureRegion
+    ): int = if (this.rowsPerImage == 0)
+        textureBlockCount(
+            selection.resolvedHeight(texture),
+            textureFormatBlockHeight(texture.format)
+        ) * textureFormatBlockHeight(texture.format)
+        else this.rowsPerImage
+
+    fun requiredBytes(
+        texture: TextureDescriptor,
+        selection: TextureRegion
+    ): GraphicsIntResult {
+        var succeeded = selection.validation(texture).succeeded
+        val blockWidth = textureFormatBlockWidth(texture.format)
+        val blockHeight = textureFormatBlockHeight(texture.format)
+        val blockBytes = textureFormatBytesPerBlock(texture.format)
+        val widthBlocks = textureBlockCount(
+            selection.resolvedWidth(texture),
+            blockWidth
+        )
+        val heightBlocks = textureBlockCount(
+            selection.resolvedHeight(texture),
+            blockHeight
+        )
+        val rowBytes = this.resolvedBytesPerRow(texture, selection)
+        val imageRows = this.resolvedRowsPerImage(texture, selection)
+        val imageBlockRows = if (blockHeight > 0) imageRows / blockHeight else 0
+        val selectedDepth = selection.resolvedDepth(texture)
+        val minimumRowBytes = widthBlocks * blockBytes
+        var total = GraphicsIntResult(false)
+        succeeded = succeeded && this.offset >= 0 && blockWidth > 0 &&
+            blockHeight > 0 && blockBytes > 0 && widthBlocks > 0 &&
+            heightBlocks > 0 && rowBytes >= minimumRowBytes &&
+            rowBytes - rowBytes / blockBytes * blockBytes == 0 &&
+            imageRows >= selection.resolvedHeight(texture) &&
+            imageRows - imageRows / blockHeight * blockHeight == 0 &&
+            this.offset - this.offset / blockBytes * blockBytes == 0
+        if (succeeded) {
+            val completeImages = graphicsCheckedSizeProduct(
+                selectedDepth - 1,
+                imageBlockRows
+            )
+            var precedingRows = GraphicsIntResult(false)
+            if (completeImages.succeeded) precedingRows = graphicsCheckedAdd(
+                completeImages.value,
+                heightBlocks - 1
+            )
+            var precedingBytes = GraphicsIntResult(false)
+            if (precedingRows.succeeded) precedingBytes =
+                graphicsCheckedSizeProduct(precedingRows.value, rowBytes)
+            var withLastRow = GraphicsIntResult(false)
+            if (precedingBytes.succeeded) withLastRow = graphicsCheckedAdd(
+                precedingBytes.value,
+                minimumRowBytes
+            )
+            if (withLastRow.succeeded) total = graphicsCheckedAdd(
+                this.offset,
+                withLastRow.value
+            )
+        }
+        total
+    }
+
+    fun validation(
+        texture: TextureDescriptor,
+        selection: TextureRegion,
+        bufferSize: int
+    ): GraphicsDescriptorValidation {
+        var result = selection.validation(texture)
+        if (result.succeeded && this.offset < 0) result =
+            graphicsDescriptorInvalid("offset", "texture data offset is negative")
+        else if (result.succeeded && (this.bytesPerRow < 0 ||
+            this.rowsPerImage < 0)) result = graphicsDescriptorInvalid(
+                "layout",
+                "texture row and image pitches cannot be negative"
+            )
+        else if (result.succeeded) {
+            val blockBytes = textureFormatBytesPerBlock(texture.format)
+            val blockHeight = textureFormatBlockHeight(texture.format)
+            val minimumRowBytes = textureBlockCount(
+                selection.resolvedWidth(texture),
+                textureFormatBlockWidth(texture.format)
+            ) * blockBytes
+            val rowBytes = this.resolvedBytesPerRow(texture, selection)
+            val imageRows = this.resolvedRowsPerImage(texture, selection)
+            if (blockBytes <= 0 || rowBytes < minimumRowBytes ||
+                rowBytes - rowBytes / blockBytes * blockBytes != 0) {
+                result = graphicsDescriptorInvalid(
+                    "bytesPerRow",
+                    "texture row pitch is smaller than or misaligned for the format"
+                )
+            } else if (imageRows < selection.resolvedHeight(texture) ||
+                imageRows - imageRows / blockHeight * blockHeight != 0) {
+                result = graphicsDescriptorInvalid(
+                    "rowsPerImage",
+                    "texture image pitch is smaller than or misaligned for the format"
+                )
+            } else if (this.offset - this.offset / blockBytes * blockBytes != 0) {
+                result = graphicsDescriptorInvalid(
+                    "offset",
+                    "texture data offset is misaligned for the format"
+                )
+            } else {
+                val required = this.requiredBytes(texture, selection)
+                if (!required.succeeded) result = graphicsDescriptorInvalid(
+                    "layout",
+                    "texture data footprint overflows the portable size range"
+                ) else if (bufferSize < 0 || required.value > bufferSize) {
+                    result = graphicsDescriptorInvalid(
+                        "bufferSize",
+                        "texture data footprint exceeds the byte buffer"
+                    )
+                }
+            }
+        }
+        result
     }
 }
 
 class TextureViewDescriptor(
     val label: string = "",
     val format: int = textureFormatUndefined,
-    val dimension: int = textureDimension2D,
+    val dimension: int = textureDimensionUndefined,
     val aspect: int = textureAspectAll,
     val baseMipLevel: int = 0,
     val mipLevelCount: int = 0,
@@ -994,6 +1356,10 @@ class TextureViewDescriptor(
         if (this.format == textureFormatUndefined) texture.format
         else this.format
 
+    fun resolvedDimension(texture: TextureDescriptor): int =
+        if (this.dimension == textureDimensionUndefined) texture.dimension
+        else this.dimension
+
     fun resolvedMipLevelCount(texture: TextureDescriptor): int =
         if (this.mipLevelCount == 0)
             texture.mipLevels - this.baseMipLevel
@@ -1001,12 +1367,13 @@ class TextureViewDescriptor(
 
     fun resolvedArrayLayerCount(texture: TextureDescriptor): int =
         if (this.arrayLayerCount == 0)
-            texture.size.depth - this.baseArrayLayer
+            textureArrayLayerCount(texture) - this.baseArrayLayer
         else this.arrayLayerCount
 
     fun validation(texture: TextureDescriptor): GraphicsDescriptorValidation {
         var result = texture.validation()
         val selectedFormat = this.resolvedFormat(texture)
+        val selectedDimension = this.resolvedDimension(texture)
         val selectedMipLevels = this.resolvedMipLevelCount(texture)
         val selectedArrayLayers = this.resolvedArrayLayerCount(texture)
         if (result.succeeded && !textureFormatValid(selectedFormat)) {
@@ -1018,11 +1385,23 @@ class TextureViewDescriptor(
                 "view format is incompatible with the texture format"
             )
         } else if (result.succeeded &&
-            (this.dimension < textureDimension1D ||
-             this.dimension > textureDimension3D)) {
+            !textureDimensionValid(selectedDimension)) {
             result = graphicsDescriptorInvalid(
                 "dimension",
                 "view dimension is unknown"
+            )
+        } else if (result.succeeded && !(
+            selectedDimension == texture.dimension ||
+            (texture.dimension == textureDimension2DArray &&
+             (selectedDimension == textureDimension2D ||
+              selectedDimension == textureDimension2DArray)) ||
+            (texture.dimension == textureDimensionCube &&
+             (selectedDimension == textureDimension2D ||
+              selectedDimension == textureDimension2DArray ||
+              selectedDimension == textureDimensionCube)))) {
+            result = graphicsDescriptorInvalid(
+                "dimension",
+                "view dimension is incompatible with the texture dimension"
             )
         } else if (result.succeeded &&
             (this.baseMipLevel < 0 ||
@@ -1036,13 +1415,28 @@ class TextureViewDescriptor(
             )
         } else if (result.succeeded &&
             (this.baseArrayLayer < 0 ||
-             this.baseArrayLayer >= texture.size.depth ||
+             this.baseArrayLayer >= textureArrayLayerCount(texture) ||
              this.arrayLayerCount < 0 ||
              selectedArrayLayers < 1 ||
-             selectedArrayLayers > texture.size.depth - this.baseArrayLayer)) {
+             selectedArrayLayers > textureArrayLayerCount(texture) -
+                this.baseArrayLayer)) {
             result = graphicsDescriptorInvalid(
                 "arrayLayerCount",
                 "view array-layer range is outside the texture"
+            )
+        } else if (result.succeeded &&
+            selectedDimension == textureDimension2D &&
+            selectedArrayLayers != 1) {
+            result = graphicsDescriptorInvalid(
+                "arrayLayerCount",
+                "two-dimensional views select exactly one array layer"
+            )
+        } else if (result.succeeded &&
+            selectedDimension == textureDimensionCube &&
+            (this.baseArrayLayer != 0 || selectedArrayLayers != 6)) {
+            result = graphicsDescriptorInvalid(
+                "arrayLayerCount",
+                "cube views select all six cube faces"
             )
         } else if (result.succeeded &&
             (this.aspect < textureAspectAll || this.aspect > textureAspectStencil)) {

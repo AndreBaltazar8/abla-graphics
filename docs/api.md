@@ -939,8 +939,10 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Asynchronous texture/image transfers and device-local texture suballocation
-remain upcoming APIs.
+Fixed-slot asynchronous RGBA8/BGRA8 2D texture upload/readback is available
+through `GraphicsTextureTransferQueue`; general pitched, layered, volume, and
+compressed asynchronous execution remains upcoming. Device-local texture
+suballocation is also not yet exposed.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:
@@ -955,6 +957,31 @@ val color = app.texture(TextureDescriptor(
 ))
 val fullView = color.view()
 ```
+
+The portable descriptor vocabulary also defines `textureDimension2DArray`,
+`textureDimensionCube`, and `textureDimension3D`. `Extent3D.depth` is physical
+depth for a 3D texture and array-layer count for a 2D array or cube; a cube is
+square and has exactly six layers. Array layers do not shrink across mip levels,
+while 3D depth does. A default `TextureViewDescriptor` inherits its parent's
+dimension. A 2D-array view may select the full array or one layer as 2D; a cube
+view selects all six faces, while individual faces may be viewed as 2D.
+
+`TextureRegion(mipLevel, x, y, z, width, height, depth)` expresses a checked
+subresource selection. `-1` extents select the remaining mip range. Its
+validation uses subtraction-based bounds checks, distinguishes physical depth
+from array layers, and requires compressed origins/extents to align to format
+blocks except at a mip edge. `TextureDataLayout(offset, bytesPerRow,
+rowsPerImage)` describes byte storage; zero pitches mean tightly packed. It
+computes the exact last-byte footprint with checked products/additions and
+rejects short buffers, invalid pitches, block misalignment, and integer
+overflow. `textureFormatBc1RgbaUnorm` and
+`textureFormatBc1RgbaUnormSrgb` establish the first eight-byte 4x4 compressed
+block family and compatible linear/sRGB views.
+
+These wider descriptors and their pure validation contract are delivered, but
+native array/cube/3D/BC1 creation and byte transfer are not yet claimed.
+`GraphicsApplication.texture` continues to reject non-2D creation until both
+backends implement the complete contract rather than accepting inert enums.
 
 `GraphicsTexture` owns an allocated OpenGL 2D texture or Vulkan image plus
 bound device memory. `GraphicsTextureView` is a non-owning full-resource alias
@@ -1028,8 +1055,10 @@ and keeps per-mip layout state in initialized native storage. It reuses the
 device transfer pool, command buffer, and scratch block established for buffer
 copies; repeated image copies preserve those handles and general live memory.
 The current operation waits for queue completion. Multisample image copies,
-1D/3D copies, format-converting copies, general byte layouts, and asynchronous
-upload queues are not yet part of this common slice. Views must
+1D/array/cube/3D copies, format-converting copies, and general byte layouts are
+not yet part of this common slice. The separate fixed-slot queue supports
+RGBA8/BGRA8 2D upload/readback, but not the wider `TextureDataLayout` contract.
+Views must
 drop before their parent texture, and textures must drop before the application
 device/context.
 
@@ -1384,9 +1413,10 @@ provide every required bit. Automatic selection may skip such a backend and
 select the next capable one.
 
 After successful creation, `app.capabilities` reports the selected driver's
-feature mask, `GraphicsVersion`, maximum 2D texture dimension, maximum storage
-buffer byte range, maximum compute workgroups in X, maximum compute workgroup
-size in X, maximum compute invocations, and maximum integer sampler anisotropy.
+feature mask, `GraphicsVersion`, maximum 1D/2D/3D/cube texture dimensions,
+maximum texture-array layers, maximum storage buffer byte range, maximum
+compute workgroups in X, maximum compute workgroup size in X, maximum compute
+invocations, and maximum integer sampler anisotropy.
 The corresponding Y/Z workgroup-count and local-size limits are also reported.
 These values come from
 `glGet*` on the current OpenGL context or `vkGetPhysicalDeviceProperties` and

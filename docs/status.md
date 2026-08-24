@@ -359,6 +359,19 @@ Updated: 2026-08-24.
   descriptors validate usage flags, mapping constraints, dimensions, mip and
   multisample rules, format/view compatibility, subresource ranges, aspects,
   filters, comparison, LOD, and anisotropy with field-specific diagnostics.
+- Wider portable texture contract: 2D-array, cube, and 3D descriptors distinguish
+  constant array layers from shrinking physical depth, cube faces from general
+  arrays, and inherited versus explicit view dimensions. `TextureRegion`
+  validates mip/layer/depth selections and compressed edge blocks;
+  `TextureDataLayout` resolves tight or explicit row/image pitches and computes
+  an overflow-checked byte footprint. BC1 RGBA UNORM/sRGB supplies the first
+  4x4/eight-byte compressed block family and compatible view pair. A dedicated
+  pure-Abla gate covers valid array/cube/volume shapes, invalid view and crossing
+  ranges, exact tight/pitched footprints, short storage, block misalignment,
+  forbidden compressed attachment usage, and 64-bit footprint overflow.
+  OpenGL and Vulkan now report live 1D/2D/3D/cube and array-layer limits. Native
+  wider image creation remains explicitly rejected until the following backend
+  slice is complete.
 - Common affine buffer test: one `BufferDescriptor` creates an OpenGL buffer or
   Vulkan buffer/allocation after one-time backend selection; both paths pass
   checked nonzero-offset 64-bit write/read plus a 19-byte upload/readback between
@@ -1219,8 +1232,8 @@ validity gate unchanged.
   exist, with 210 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
-- General texture byte uploads/format-converting copies/render-pass use,
-  asynchronous texture transfers, device-local texture suballocation pools,
+- General texture byte uploads/format-converting copies/render-pass use and
+  device-local texture suballocation pools,
   command encoders/render graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
   `PixelBuffer` uploads and synchronous diagnostic readback are present;

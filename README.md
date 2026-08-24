@@ -107,8 +107,12 @@ proves the architecture rather than stopping at placeholder interfaces:
 - immutable portable buffer/texture/view/sampler descriptors plus affine
   common buffers, textures, views, samplers, and bind groups that create and
   drop real resources on either OpenGL or Vulkan, including allocation-free
-  repeated partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
-  and allocation-free checked buffer subrange upload/readback, GPU fills, and
+  repeated partial mip-level RGBA/BGRA upload/readback; the portable texture
+  contract additionally validates 2D arrays, cube maps, 3D volumes, inherited
+  and sliced views, explicit row/image pitches, and BC1 linear/sRGB block
+  footprints while native wider-image execution remains in progress; queried
+  16x sampler anisotropy and allocation-free checked buffer subrange
+  upload/readback, GPU fills, and
   GPU buffer/texture copies, fixed-slot asynchronous RGBA/BGRA texture upload
   and readback queues, fixed-metadata device-local buffer suballocation
   with generation-checked slice transfers, aligned uniform/storage ranges,
