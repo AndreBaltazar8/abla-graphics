@@ -71,11 +71,11 @@ documentation, and relevant performance/validation gates all pass.
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
 - Current implementation checkpoint:
+  `6d2e8cbcf5347a65b655701bd7e59cbd77104231`
+  (`Add wider sampled texture shaders`)
+- Previous pitched wider-transfer checkpoint:
   `569107ea280198f08c116d164cbdd4fb1a491754`
-  (`Add pitched wider texture transfers`)
-- Previous native wider-resource checkpoint:
-  `24fa2967e6c7a77f6cbcbd1e13c95487a6488a3c`
-- This document is committed as a handoff-only successor to `569107e`, so use
+- This document is committed as a handoff-only successor to `6d2e8cb`, so use
   `git rev-parse HEAD` rather than embedding its self-referential commit here.
 - The implementation and handoff commits are intended to be pushed together.
   The worktree should be clean and synchronized after publication; recheck it
@@ -88,8 +88,10 @@ documentation, and relevant performance/validation gates all pass.
 - Branch: `master`
 - Local/upstream tip at this handoff:
   `359749679844b1f3325512ea369aa46bd716b01e`
-- It is clean and synchronized. The current graphics slice required no compiler
-  change.
+- HEAD is synchronized, but the worktree currently contains unrelated
+  in-progress edits and new tests. They were not made, staged, tested, or
+  committed by this graphics slice. Preserve them. The current graphics slice
+  required no compiler change.
 
 Verify rather than assuming these snapshots are still current:
 
@@ -260,31 +262,98 @@ Wayland/headless/X11 plus explicit OpenGL/Vulkan execution matrix. The new
 wider sample reported `exact=true`, `repeated=true`, stable handles, and
 `live=0` on both backends. `../ablac` was not changed.
 
+## Current checkpoint: target-aware wider sampled textures
+
+Implementation commit `6d2e8cb` completes full-resource sampled binding for
+the existing portable wider texture dimensions without introducing a compiler
+dependency.
+
+### Reflection and common binding contract
+
+- `src/shader/glsl.ab` exposes `glslSamplerType`, retaining recognition of the
+  complete existing scalar/integer/shadow sampler vocabulary.
+- `src/binding.ab` maps `sampler2D`, `sampler2DArray`, `samplerCube`, and
+  `sampler3D` to exact portable texture dimensions.
+- Pipeline creation rejects a reflected sampler/bound-texture dimension
+  mismatch before backend pipeline work. Uniform-buffer matching rejects every
+  recognized sampler type rather than only `sampler2D`.
+- The current entry binds a complete `GraphicsTexture`. Explicitly binding a
+  partial or format-reinterpreted `GraphicsTextureView` remains upcoming and
+  must not be claimed from this checkpoint.
+
+### Native backends and deterministic shaders
+
+- OpenGL bind groups use core direct-state-access `glBindTextureUnit`, whose
+  target is inherent in the texture object. The old hard-coded `GL_TEXTURE_2D`
+  draw-time binding is gone.
+- Vulkan continues to create one correctly typed default full-resource image
+  view and descriptor per sampled entry; descriptors and views are not rebuilt
+  per draw.
+- `src/shader/glsl_spirv.ab` retains the byte/word-stable strict `sampler2D`
+  module and adds strict vec3-coordinate forms for `sampler2DArray`,
+  `samplerCube`, and `sampler3D`.
+- The emitted SPIR-V selects the correct `OpTypeImage` dimension/arrayed
+  operands and coordinate vector width. Unsupported source shapes reject
+  instead of being partially accepted.
+
+### Evidence and sample
+
+`tests/glsl_subparser.ab` verifies deterministic repeated output, valid module
+structure, exact wider `OpTypeImage` operands, vec3 coordinates, legacy module
+sizes, and invalid array-coordinate rejection. `tests/application/main.ab`
+verifies the portable dimension mapping and pre-driver mismatch rejection.
+
+`examples/wider-sampling` independently uploads distinct colors into two array
+layers, six cube faces, and two volume slices. One shared vec3-coordinate
+triangle selects array layer 1, cube +Z face, and volume slice 1. Both backends
+produce the exact center pixels:
+
+```text
+array=4283644703 cube=4279733203 volume=4290850661
+```
+
+The sample also rejects an array texture bound to a cube shader, repeats all
+three target draws four times, retains OpenGL pipeline/resource handles and
+Vulkan pipeline/descriptor/view handles, reports `live=0`, and succeeds under
+explicit OpenGL, explicit Vulkan, and automatic selection.
+
+The OpenGL audit now classifies `glBindTextureUnit`. Generated ledgers report
+109 OpenGL and 113 Vulkan commands, 222 total.
+
+The final source in `6d2e8cb` passed on 2026-08-24:
+
+```bash
+nix-shell --run 'make update-registry test-registry test-glsl test-application test-wider-sampling'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+`make all` includes the Abla-only source audit. The independent no-cache sample
+matrix built all 37 examples, including `wider-sampling`, and completed its
+Wayland/headless/X11 plus explicit OpenGL/Vulkan runtime matrix.
+
 ## Immediate continuation checklist
 
-The next coherent checkpoint is target-aware sampled binding and shader support
-for arrays, cubes, and volumes:
+The next coherent checkpoint is explicit sampled `GraphicsTextureView`
+binding, which completes the ownership surface already used by attachments:
 
-1. Audit the existing `sampler2D` reflection, bind-group validation, OpenGL
-   target binding, Vulkan descriptor/view handling, and strict raster SPIR-V
-   image/sampling emitter before changing the public surface.
-2. Define one portable reflected texture-dimension contract for `sampler2D`,
-   `sampler2DArray`, `samplerCube`, and `sampler3D`. Reject a shader/bound-view
-   dimension mismatch before command recording.
-3. Preserve existing 2D APIs and exact shader bytes where a module does not use
-   wider samplers. Backend selection and dimension dispatch must remain outside
-   repeated draw loops.
-4. Extend OpenGL to bind the correct texture/view target and Vulkan to use the
-   matching owned view type without rebuilding descriptors per draw.
-5. Extend deterministic `$glsl` reflection and SPIR-V image types, coordinates,
-   and sampling instructions for the wider sampler families. Add malformed and
-   interface-mismatch compiler tests with original source spans.
-6. Add exact live array, cube, and 3D sampling output tests and one concise
-   independently buildable sample. Prove stable native handles and zero runtime
-   live-byte growth on both backends.
-7. Regenerate any newly used raw commands through the audit manifests, update
-   public claims, run focused gates, then run `make all` and
-   `make test-samples` before an explicit-path commit and push.
+1. Audit `GraphicsBindingEntry`, texture/view affine ownership, OpenGL alias
+   versus owned `glTextureView` handles, and Vulkan bind-group view ownership.
+2. Define an idiomatic view-entry API without weakening the existing concise
+   full-texture helper. A bind group must borrow the parent texture and view for
+   the pipeline lifetime without double ownership or premature destruction.
+3. Match sampler reflection against the resolved view dimension and reject
+   incompatible aspect, multisample, mip/layer range, or format before backend
+   descriptor work.
+4. Bind the exact OpenGL view object and use the supplied Vulkan image view
+   without silently recreating a full view. Keep repeated draws allocation-free
+   and all native handles stable.
+5. Add exact sampling from a selected array layer/cube face/volume or mip and a
+   compatible linear/sRGB view where portable. Include lifetime and mismatch
+   negatives on both backends.
+6. Add or extend one independent sample, update audited command evidence and
+   public claims, then run focused gates, `make all`, and `make test-samples`
+   before an explicit-path commit and push.
 
 After that, extend fixed-slot asynchronous texture queues to raw wider and
 compressed transfers without regressing the existing 2D convenience, tickets,
@@ -349,6 +418,8 @@ Tests and samples:
 
 - `tests/texture_contract.ab`, `tools/test-texture-contract.sh`;
 - `tests/wider_texture/main.ab`, `tools/test-wider-texture.sh`;
+- `examples/wider-sampling/main.ab`, `tools/test-wider-sampling.sh`;
+- `tests/glsl_subparser.ab`, `tools/test-glsl.sh`;
 - `tests/application/main.ab`;
 - `tests/texture_transfer/main.ab`, `tools/test-texture-transfer.sh`;
 - `tests/transfer/main.ab`, `tools/test-transfer.sh`;
@@ -374,7 +445,8 @@ on focused tests alone.
 Useful focused commands:
 
 ```bash
-nix-shell --run 'make test-core test-texture-contract test-wider-texture'
+nix-shell --run 'make test-core test-texture-contract test-wider-texture test-wider-sampling'
+nix-shell --run 'make test-glsl'
 nix-shell --run 'make test-application test-transfer test-texture-transfer'
 nix-shell --run 'make update-registry test-registry'
 ```
@@ -428,6 +500,9 @@ git -C ../ablac rev-parse '@{upstream}'
   until the raw wider async design is implemented and tested.
 - Keep the existing legacy 2D `PixelBuffer`, texture-copy, and layout methods
   working while extending the wider API.
+- `glBindTextureUnit` is core in the targeted OpenGL 4.6/4.5 path and avoids a
+  draw-time target table. Any future lower-version compatibility path must bind
+  the actual resolved target and must never restore a hard-coded 2D target.
 - Large texture-owned staging is currently bounded by the existing backend
   design. Do not promise arbitrary-size staging or device-local texture
   suballocation without a separate validated design.
