@@ -368,9 +368,8 @@ Updated: 2026-08-24.
   pure-Abla gate covers valid array/cube/volume shapes, invalid view and crossing
   ranges, exact tight/pitched footprints, short storage, block misalignment,
   forbidden compressed attachment usage, and 64-bit footprint overflow.
-  OpenGL and Vulkan now report live 1D/2D/3D/cube and array-layer limits. Native
-  wider image creation remains explicitly rejected until the following backend
-  slice is complete.
+  OpenGL and Vulkan report live 1D/2D/3D/cube and array-layer limits and create
+  matching native wider images and views, including BC1 storage.
 - Common affine buffer test: one `BufferDescriptor` creates an OpenGL buffer or
   Vulkan buffer/allocation after one-time backend selection; both paths pass
   checked nonzero-offset 64-bit write/read plus a 19-byte upload/readback between
@@ -524,6 +523,22 @@ Updated: 2026-08-24.
   handles and show zero live-byte growth on both backends. The independently
   buildable common-texture sample runs this slice under explicit OpenGL and
   Vulkan.
+- Common wider texture byte transfer: `GraphicsTexture.writeBytes` and
+  `readBytes` accept a checked `TextureRegion`, `TextureDataLayout`, and reusable
+  `BufferBytes`; primitive range forms avoid immutable descriptor copies in hot
+  loops. Exact live round trips cover uncompressed 1D, pitched R8 2D, RGBA
+  arrays, cube faces, physical 3D volumes, BC1 2D, and two-layer BC1 arrays.
+  Readback preserves caller offset/row/image padding. OpenGL scopes and restores
+  pack/unpack alignment, row length, image height, and compressed block state
+  around DSA subimage/readback calls. Vulkan repacks into one tight coherent
+  texture-owned staging allocation, tracks layout by mip and array layer,
+  distinguishes array layers from physical 3D z/depth, and inserts host-read
+  visibility. `copyTextureRange` performs checked same-format subresource copies
+  across array layers or physical volume slices. Short/crossing ranges reject;
+  four repeated upload/readback/copy cycles keep image, staging, command-pool,
+  and command-buffer handles stable with zero live-byte growth on explicit
+  OpenGL, explicit Vulkan, and automatic selection. The independently buildable
+  wider-texture sample repeats the exact pitched array path on both backends.
 - Common GPU texture-copy test: `GraphicsApplication.copyTexture` validates
   distinct application-owned color textures, exact format, copy usages, source
   and destination mip levels/origins, and a shared 2D extent. A 2x2 region moves
@@ -841,7 +856,7 @@ Updated: 2026-08-24.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 113 Vulkan and 101 OpenGL commands as
+  A strict audit join currently classifies 113 Vulkan and 108 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -1234,27 +1249,28 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 210 exercised common commands classified; all other
+  exist, with 221 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
-- General texture byte uploads/format-converting copies/render-pass use and
+- Format-converting texture copies/render-pass byte use and
   device-local texture suballocation pools,
   command encoders/render graph,
-  asset formats, or framework-wide performance gates. Partial RGBA/BGRA
-  `PixelBuffer` uploads and synchronous diagnostic readback are present;
-  general byte layouts and asynchronous image copies are not.
-  Same-format synchronous 2D image copies are present. General reusable buffer
+  asset formats, or framework-wide performance gates. Partial logical RGBA/BGRA
+  `PixelBuffer` uploads, synchronous diagnostic readback, and exact pitched
+  `BufferBytes` transfer for single-sample color/compressed 1D, 2D, array, cube,
+  and 3D selections are present; raw depth/stencil and wider asynchronous image
+  transfer are not. Same-format synchronous subresource copies are present.
+  General reusable buffer
   byte-range upload/readback is present, including
   distinct source and destination offsets; synchronous GPU buffer copies and
   aligned 32-bit pattern fills reuse backend command state. Synchronous
   coherent persistent transfers, bounded aligned synchronous buffer rings, and
-  fixed-slot asynchronous buffer and RGBA8/BGRA8 texture upload/readback queues
-  are present; wider compressed, depth/stencil, array, and 3D asynchronous
+  fixed-slot asynchronous buffer and RGBA8/BGRA8 2D texture upload/readback
+  queues are present; wider compressed, depth/stencil, array, and 3D asynchronous
   image transfers are not.
   Common buffers, textures, views,
   samplers, and immutable structural
-  descriptors are present;
-  the wider resource surface is not yet claimed.
+  descriptors and the synchronous wider resource/transfer surface are present.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not

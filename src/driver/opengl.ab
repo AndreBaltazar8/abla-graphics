@@ -347,6 +347,85 @@ noescape extern:"c" fun glTextureView(
     minimumLayer: i32,
     layerCount: i32
 ): void
+noescape extern:"c" fun glPixelStorei(name: i32, value: i32): void
+noescape extern:"c" fun glTextureSubImage1D(
+    texture: i32,
+    level: i32,
+    x: i32,
+    width: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glTextureSubImage2D(
+    texture: i32,
+    level: i32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glTextureSubImage3D(
+    texture: i32,
+    level: i32,
+    x: i32,
+    y: i32,
+    z: i32,
+    width: i32,
+    height: i32,
+    depth: i32,
+    format: i32,
+    kind: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glCompressedTextureSubImage1D(
+    texture: i32,
+    level: i32,
+    x: i32,
+    width: i32,
+    format: i32,
+    byteCount: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glCompressedTextureSubImage2D(
+    texture: i32,
+    level: i32,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    format: i32,
+    byteCount: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glCompressedTextureSubImage3D(
+    texture: i32,
+    level: i32,
+    x: i32,
+    y: i32,
+    z: i32,
+    width: i32,
+    height: i32,
+    depth: i32,
+    format: i32,
+    byteCount: i32,
+    pixels: i64*
+): void
+noescape extern:"c" fun glGetCompressedTextureSubImage(
+    texture: i32,
+    level: i32,
+    x: i32,
+    y: i32,
+    z: i32,
+    width: i32,
+    height: i32,
+    depth: i32,
+    bufferSize: i32,
+    pixels: i64*
+): void
 noescape extern:"c" fun glTexSubImage2D(
     target: i32,
     level: i32,
@@ -1476,61 +1555,69 @@ class OpenGlTextureFormat(
     val kind: int
 )
 
-fun openGlTextureFormat(format: int): OpenGlTextureFormat {
+fun openGlTextureInternalFormat(format: int): int {
     var internalFormat = 0
-    var baseFormat = 6408
-    var kind = 5121
     if (format == textureFormatR8Unorm) {
         internalFormat = 33321
-        baseFormat = 6403
     } else if (format == textureFormatRg8Unorm) {
         internalFormat = 33323
-        baseFormat = 33319
     } else if (format == textureFormatRgba8Unorm) internalFormat = 32856
     else if (format == textureFormatRgba8UnormSrgb) internalFormat = 35907
     else if (format == textureFormatBgra8Unorm) internalFormat = 32856
     else if (format == textureFormatBgra8UnormSrgb) internalFormat = 35907
-    else if (format == textureFormatR16Float) {
-        internalFormat = 33325
-        baseFormat = 6403
-        kind = 5131
-    } else if (format == textureFormatRg16Float) {
-        internalFormat = 33327
-        baseFormat = 33319
-        kind = 5131
-    } else if (format == textureFormatRgba16Float) {
-        internalFormat = 34842
-        kind = 5131
-    } else if (format == textureFormatR32Float) {
-        internalFormat = 33326
-        baseFormat = 6403
-        kind = 5126
-    } else if (format == textureFormatRg32Float) {
-        internalFormat = 33328
-        baseFormat = 33319
-        kind = 5126
-    } else if (format == textureFormatRgba32Float) {
-        internalFormat = 34836
-        kind = 5126
-    } else if (format == textureFormatDepth16Unorm) {
-        internalFormat = 33189
-        baseFormat = 6402
-        kind = 5123
-    } else if (format == textureFormatDepth24Stencil8) {
-        internalFormat = 35056
-        baseFormat = 34041
-        kind = 34042
-    } else if (format == textureFormatDepth32Float) {
-        internalFormat = 36012
-        baseFormat = 6402
-        kind = 5126
-    } else if (format == textureFormatDepth32FloatStencil8) {
-        internalFormat = 36013
-        baseFormat = 34041
-        kind = 36269
-    } else if (format == textureFormatBc1RgbaUnorm) internalFormat = 33777
+    else if (format == textureFormatR16Float) internalFormat = 33325
+    else if (format == textureFormatRg16Float) internalFormat = 33327
+    else if (format == textureFormatRgba16Float) internalFormat = 34842
+    else if (format == textureFormatR32Float) internalFormat = 33326
+    else if (format == textureFormatRg32Float) internalFormat = 33328
+    else if (format == textureFormatRgba32Float) internalFormat = 34836
+    else if (format == textureFormatDepth16Unorm) internalFormat = 33189
+    else if (format == textureFormatDepth24Stencil8) internalFormat = 35056
+    else if (format == textureFormatDepth32Float) internalFormat = 36012
+    else if (format == textureFormatDepth32FloatStencil8) internalFormat = 36013
+    else if (format == textureFormatBc1RgbaUnorm) internalFormat = 33777
     else if (format == textureFormatBc1RgbaUnormSrgb) internalFormat = 35917
-    OpenGlTextureFormat(internalFormat != 0, internalFormat, baseFormat, kind)
+    internalFormat
+}
+
+fun openGlTextureBaseFormat(format: int): int {
+    var result = 6408
+    if (format == textureFormatR8Unorm || format == textureFormatR16Float ||
+        format == textureFormatR32Float) result = 6403
+    else if (format == textureFormatRg8Unorm ||
+        format == textureFormatRg16Float ||
+        format == textureFormatRg32Float) result = 33319
+    else if (format == textureFormatBgra8Unorm ||
+        format == textureFormatBgra8UnormSrgb) result = 32993
+    else if (format == textureFormatDepth16Unorm ||
+        format == textureFormatDepth32Float) result = 6402
+    else if (format == textureFormatDepth24Stencil8 ||
+        format == textureFormatDepth32FloatStencil8) result = 34041
+    result
+}
+
+fun openGlTextureDataKind(format: int): int {
+    var result = 5121
+    if (format == textureFormatR16Float || format == textureFormatRg16Float ||
+        format == textureFormatRgba16Float) result = 5131
+    else if (format == textureFormatR32Float ||
+        format == textureFormatRg32Float ||
+        format == textureFormatRgba32Float ||
+        format == textureFormatDepth32Float) result = 5126
+    else if (format == textureFormatDepth16Unorm) result = 5123
+    else if (format == textureFormatDepth24Stencil8) result = 34042
+    else if (format == textureFormatDepth32FloatStencil8) result = 36269
+    result
+}
+
+fun openGlTextureFormat(format: int): OpenGlTextureFormat {
+    val internalFormat = openGlTextureInternalFormat(format)
+    OpenGlTextureFormat(
+        internalFormat != 0,
+        internalFormat,
+        openGlTextureBaseFormat(format),
+        openGlTextureDataKind(format)
+    )
 }
 
 fun openGlTextureTarget(dimension: int, samples: int = 1): int {
@@ -1620,6 +1707,67 @@ trusted fun OpenGlTexture.copyTo(
     succeeded
 }
 
+trusted fun OpenGlTexture.copyRangeTo(
+    sourceDescriptor: TextureDescriptor,
+    destination: OpenGlTexture,
+    destinationDescriptor: TextureDescriptor,
+    sourceMipLevel: int,
+    sourceX: int,
+    sourceY: int,
+    sourceZ: int,
+    destinationMipLevel: int,
+    destinationX: int,
+    destinationY: int,
+    destinationZ: int,
+    width: int,
+    height: int,
+    depth: int
+): bool {
+    var succeeded = this.valid() && destination.valid() &&
+        this.context == destination.context &&
+        this.display == destination.display && textureCopyRangeValid(
+            sourceDescriptor,
+            destinationDescriptor,
+            sourceMipLevel,
+            sourceX,
+            sourceY,
+            sourceZ,
+            destinationMipLevel,
+            destinationX,
+            destinationY,
+            destinationZ,
+            width,
+            height,
+            depth
+        ) && eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    if (succeeded) {
+        glCopyImageSubData(
+            this.handle,
+            this.target,
+            sourceMipLevel,
+            sourceX,
+            sourceY,
+            sourceZ,
+            destination.handle,
+            destination.target,
+            destinationMipLevel,
+            destinationX,
+            destinationY,
+            destinationZ,
+            width,
+            height,
+            depth
+        )
+        succeeded = glGetError() == 0
+    }
+    succeeded
+}
+
 trusted fun OpenGlTexture.generateMipmaps(
     descriptor: TextureDescriptor
 ): bool {
@@ -1672,6 +1820,356 @@ trusted fun OpenGlTexture.writePixels(
             6408,
             5121,
             pixels.storage.address
+        )
+        succeeded = glGetError() == 0
+    }
+    succeeded
+}
+
+trusted fun openGlTextureDataLayoutRange(
+    format: int,
+    width: int,
+    height: int,
+    bytesPerRow: int,
+    rowsPerImage: int,
+    unpack: bool
+): void {
+    val alignmentName = if (unpack) 3317 else 3333
+    val rowLengthName = if (unpack) 3314 else 3330
+    val imageHeightName = if (unpack) 32878 else 32876
+    val blockWidthName = if (unpack) 37159 else 37163
+    val blockHeightName = if (unpack) 37160 else 37164
+    val blockDepthName = if (unpack) 37161 else 37165
+    val blockSizeName = if (unpack) 37162 else 37166
+    val blockWidth = textureFormatBlockWidth(format)
+    val blockHeight = textureFormatBlockHeight(format)
+    val blockBytes = textureFormatBytesPerBlock(format)
+    val minimumRowBytes = textureBlockCount(width, blockWidth) * blockBytes
+    val rowBytes = if (bytesPerRow == 0) minimumRowBytes else bytesPerRow
+    val imageRows = if (rowsPerImage == 0)
+        textureBlockCount(height, blockHeight) * blockHeight else rowsPerImage
+    val rowLength = rowBytes / blockBytes * blockWidth
+    glPixelStorei(alignmentName, 1)
+    glPixelStorei(rowLengthName, rowLength)
+    glPixelStorei(
+        imageHeightName,
+        imageRows
+    )
+    if (textureFormatCompressed(format)) {
+        glPixelStorei(blockWidthName, blockWidth)
+        glPixelStorei(blockHeightName, blockHeight)
+        glPixelStorei(blockDepthName, 1)
+        glPixelStorei(blockSizeName, blockBytes)
+    }
+    return
+}
+
+trusted fun openGlResetTextureDataLayout(compressed: bool, unpack: bool): void {
+    val alignmentName = if (unpack) 3317 else 3333
+    val rowLengthName = if (unpack) 3314 else 3330
+    val imageHeightName = if (unpack) 32878 else 32876
+    glPixelStorei(alignmentName, 4)
+    glPixelStorei(rowLengthName, 0)
+    glPixelStorei(imageHeightName, 0)
+    if (compressed) {
+        glPixelStorei(if (unpack) 37159 else 37163, 0)
+        glPixelStorei(if (unpack) 37160 else 37164, 0)
+        glPixelStorei(if (unpack) 37161 else 37165, 0)
+        glPixelStorei(if (unpack) 37162 else 37166, 0)
+    }
+    return
+}
+
+trusted fun OpenGlTexture.writeBytes(
+    texture: TextureDescriptor,
+    source: BufferBytes,
+    selection: TextureRegion,
+    layout: TextureDataLayout
+): bool {
+    this.writeBytesRange(
+        texture,
+        source,
+        selection.mipLevel,
+        selection.x,
+        selection.y,
+        selection.z,
+        selection.resolvedWidth(texture),
+        selection.resolvedHeight(texture),
+        selection.resolvedDepth(texture),
+        layout.offset,
+        layout.bytesPerRow,
+        layout.rowsPerImage
+    )
+}
+
+trusted fun OpenGlTexture.writeBytesRange(
+    texture: TextureDescriptor,
+    source: BufferBytes,
+    mipLevel: int,
+    x: int,
+    y: int,
+    z: int,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int,
+    bytesPerRow: int,
+    rowsPerImage: int
+): bool {
+    val required = textureDataRequiredBytesRange(
+        texture,
+        width,
+        height,
+        depth,
+        offset,
+        bytesPerRow,
+        rowsPerImage
+    )
+    val tightRequired = textureDataRequiredBytesRange(
+        texture,
+        width,
+        height,
+        depth
+    )
+    val internalFormat = openGlTextureInternalFormat(texture.format)
+    val baseFormat = openGlTextureBaseFormat(texture.format)
+    val kind = openGlTextureDataKind(texture.format)
+    var succeeded = this.valid() && source.valid() &&
+        textureRegionRangeValid(
+            texture,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            textureUsageCopyDestination
+        ) && textureDataLayoutRangeValid(
+            texture,
+            width,
+            height,
+            depth,
+            offset,
+            bytesPerRow,
+            rowsPerImage,
+            source.size
+        ) && !textureFormatHasDepth(texture.format) &&
+        internalFormat != 0 && required >= 0 && tightRequired >= 0 &&
+        required - offset <= 2147483647 &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    if (succeeded) {
+        val pixels = source.storage.pointerAt(offset)
+        openGlTextureDataLayoutRange(
+            texture.format,
+            width,
+            height,
+            bytesPerRow,
+            rowsPerImage,
+            true
+        )
+        if (textureFormatCompressed(texture.format)) {
+            if (texture.dimension == textureDimension1D) {
+                glCompressedTextureSubImage1D(
+                    this.handle,
+                    mipLevel,
+                    x,
+                    width,
+                    internalFormat,
+                    tightRequired,
+                    pixels
+                )
+            } else if (texture.dimension == textureDimension2D) {
+                glCompressedTextureSubImage2D(
+                    this.handle,
+                    mipLevel,
+                    x,
+                    y,
+                    width,
+                    height,
+                    internalFormat,
+                    tightRequired,
+                    pixels
+                )
+            } else glCompressedTextureSubImage3D(
+                this.handle,
+                mipLevel,
+                x,
+                y,
+                z,
+                width,
+                height,
+                depth,
+                internalFormat,
+                tightRequired,
+                pixels
+            )
+        } else if (texture.dimension == textureDimension1D) {
+            glTextureSubImage1D(
+                this.handle,
+                mipLevel,
+                x,
+                width,
+                baseFormat,
+                kind,
+                pixels
+            )
+        } else if (texture.dimension == textureDimension2D) {
+            glTextureSubImage2D(
+                this.handle,
+                mipLevel,
+                x,
+                y,
+                width,
+                height,
+                baseFormat,
+                kind,
+                pixels
+            )
+        } else glTextureSubImage3D(
+            this.handle,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            baseFormat,
+            kind,
+            pixels
+        )
+        openGlResetTextureDataLayout(
+            textureFormatCompressed(texture.format),
+            true
+        )
+        succeeded = glGetError() == 0
+    }
+    succeeded
+}
+
+trusted fun OpenGlTexture.readBytes(
+    texture: TextureDescriptor,
+    var destination: BufferBytes,
+    selection: TextureRegion,
+    layout: TextureDataLayout
+): bool {
+    this.readBytesRange(
+        texture,
+        destination,
+        selection.mipLevel,
+        selection.x,
+        selection.y,
+        selection.z,
+        selection.resolvedWidth(texture),
+        selection.resolvedHeight(texture),
+        selection.resolvedDepth(texture),
+        layout.offset,
+        layout.bytesPerRow,
+        layout.rowsPerImage
+    )
+}
+
+trusted fun OpenGlTexture.readBytesRange(
+    texture: TextureDescriptor,
+    var destination: BufferBytes,
+    mipLevel: int,
+    x: int,
+    y: int,
+    z: int,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int,
+    bytesPerRow: int,
+    rowsPerImage: int
+): bool {
+    val required = textureDataRequiredBytesRange(
+        texture,
+        width,
+        height,
+        depth,
+        offset,
+        bytesPerRow,
+        rowsPerImage
+    )
+    val internalFormat = openGlTextureInternalFormat(texture.format)
+    val baseFormat = openGlTextureBaseFormat(texture.format)
+    val kind = openGlTextureDataKind(texture.format)
+    var succeeded = this.valid() && destination.valid() &&
+        textureRegionRangeValid(
+            texture,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            textureUsageCopySource
+        ) && textureDataLayoutRangeValid(
+            texture,
+            width,
+            height,
+            depth,
+            offset,
+            bytesPerRow,
+            rowsPerImage,
+            destination.size
+        ) && !textureFormatHasDepth(texture.format) &&
+        internalFormat != 0 && required >= 0 &&
+        required - offset <= 2147483647 &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+    if (succeeded) {
+        val bufferSize = required - offset
+        openGlTextureDataLayoutRange(
+            texture.format,
+            width,
+            height,
+            bytesPerRow,
+            rowsPerImage,
+            false
+        )
+        if (textureFormatCompressed(texture.format)) {
+            glGetCompressedTextureSubImage(
+                this.handle,
+                mipLevel,
+                x,
+                y,
+                z,
+                width,
+                height,
+                depth,
+                bufferSize,
+                destination.storage.pointerAt(offset)
+            )
+        } else glGetTextureSubImage(
+            this.handle,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            baseFormat,
+            kind,
+            bufferSize,
+            destination.storage.pointerAt(offset)
+        )
+        openGlResetTextureDataLayout(
+            textureFormatCompressed(texture.format),
+            false
         )
         succeeded = glGetError() == 0
     }

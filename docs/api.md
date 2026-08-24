@@ -978,11 +978,76 @@ overflow. `textureFormatBc1RgbaUnorm` and
 `textureFormatBc1RgbaUnormSrgb` establish the first eight-byte 4x4 compressed
 block family and compatible linear/sRGB views.
 
-These wider descriptors, pure validation, native allocation, and view ownership
-are delivered. OpenGL uses immutable 1D/2D/3D/array/cube storage and Vulkan
-uses the matching image type, physical depth or array layers, and cube-compatible
-flag. BC1 allocation is live on both. Pitched raw byte transfer remains the
-next API slice; `PixelBuffer` transfer methods intentionally remain 2D.
+These wider descriptors, pure validation, native allocation, view ownership,
+and synchronous byte transfers are delivered. OpenGL uses immutable
+1D/2D/3D/array/cube storage and Vulkan uses the matching image type, physical
+depth or array layers, and cube-compatible flag. BC1 allocation and pitched
+transfer are live on both. `PixelBuffer` transfer methods intentionally remain
+the convenient logical-RGBA 2D surface.
+
+`BufferBytes` transfers expose the exact storage representation and do not
+perform logical RGBA conversion. Uncompressed bytes follow the declared
+texture format's component order (`R`, `RG`, `RGBA`, or `BGRA`) and scalar
+representation; BC1 data uses consecutive standard eight-byte 4x4 blocks.
+Only active texel or block bytes are copied. Offset, end-of-row padding, and
+end-of-image padding in a readback buffer remain untouched:
+
+```abla
+val region = TextureRegion(
+    mipLevel = 1,
+    x = 1,
+    y = 1,
+    z = 1,
+    width = 3,
+    height = 2,
+    depth = 2
+)
+val layout = TextureDataLayout(
+    offset = 16,
+    bytesPerRow = 20,
+    rowsPerImage = 4
+)
+val source = bufferBytes(160)
+arrayTexture.writeBytes(source, region, layout)
+
+val destination = app.texture(arrayTexture.descriptor)
+app.copyTextureRange(
+    arrayTexture,
+    destination,
+    1, 1, 1, 1,
+    1, 4, 1, 0,
+    3, 2, 2
+)
+val readback = bufferBytes(160)
+destination.readBytes(
+    readback,
+    TextureRegion(
+        mipLevel = 1,
+        x = 4,
+        y = 1,
+        z = 0,
+        width = 3,
+        height = 2,
+        depth = 2
+    ),
+    layout
+)
+```
+
+`writeBytes` requires `textureUsageCopyDestination`; `readBytes` requires
+`textureUsageCopySource`. Both calls are synchronous. They support
+single-sample color and compressed 1D, 2D, 2D-array, cube, and 3D selections,
+subject to each format/dimension's native support. Depth/stencil raw transfer
+is rejected in this slice. `copyTextureRange` requires distinct
+application-owned, same-dimension, same-format, single-sample color textures
+with matching copy usages and validates both mip/xyz ranges and compressed
+block rules.
+
+For allocation-critical loops, `writeBytesRange` and `readBytesRange` accept
+the same mip/xyz/extent/layout fields as primitive scalars. Reusing those calls
+and `copyTextureRange` preserves native image, staging, command-pool, and
+command-buffer handles and produces zero Abla runtime live-byte growth in the
+focused gate and `examples/wider-texture`.
 
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource

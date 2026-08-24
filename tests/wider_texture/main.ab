@@ -1,6 +1,88 @@
 import "abla/io"
 import "abla/process/arguments"
+import "abla/runtime/memory"
 import "../../src/graphics.ab"
+
+fun activeTextureBytesEqual(
+    left: BufferBytes,
+    right: BufferBytes,
+    texture: TextureDescriptor,
+    selection: TextureRegion,
+    layout: TextureDataLayout
+): bool {
+    val blockWidth = textureFormatBlockWidth(texture.format)
+    val blockHeight = textureFormatBlockHeight(texture.format)
+    val rowBytes = textureBlockCount(
+        selection.resolvedWidth(texture),
+        blockWidth
+    ) * textureFormatBytesPerBlock(texture.format)
+    val rows = textureBlockCount(
+        selection.resolvedHeight(texture),
+        blockHeight
+    )
+    val pitchedRowBytes = layout.resolvedBytesPerRow(texture, selection)
+    val imageRows = layout.resolvedRowsPerImage(texture, selection) /
+        blockHeight
+    var equal = left.valid() && right.valid()
+    var image = 0
+    while (equal && image < selection.resolvedDepth(texture)) {
+        var row = 0
+        while (equal && row < rows) {
+            val offset = layout.offset +
+                (image * imageRows + row) * pitchedRowBytes
+            var byte = 0
+            while (equal && byte < rowBytes) {
+                equal = left.load(offset + byte) == right.load(offset + byte)
+                byte = byte + 1
+            }
+            row = row + 1
+        }
+        image = image + 1
+    }
+    equal
+}
+
+trusted fun fillTextureBytes(
+    var bytes: BufferBytes,
+    texture: TextureDescriptor,
+    selection: TextureRegion,
+    layout: TextureDataLayout,
+    seed: int
+): bool {
+    val blockWidth = textureFormatBlockWidth(texture.format)
+    val blockHeight = textureFormatBlockHeight(texture.format)
+    val rowBytes = textureBlockCount(
+        selection.resolvedWidth(texture),
+        blockWidth
+    ) * textureFormatBytesPerBlock(texture.format)
+    val rows = textureBlockCount(
+        selection.resolvedHeight(texture),
+        blockHeight
+    )
+    val pitchedRowBytes = layout.resolvedBytesPerRow(texture, selection)
+    val imageRows = layout.resolvedRowsPerImage(texture, selection) /
+        blockHeight
+    var succeeded = bytes.valid()
+    var image = 0
+    while (succeeded && image < selection.resolvedDepth(texture)) {
+        var row = 0
+        while (succeeded && row < rows) {
+            val offset = layout.offset +
+                (image * imageRows + row) * pitchedRowBytes
+            var byte = 0
+            while (succeeded && byte < rowBytes) {
+                succeeded = bytes.store(
+                    offset + byte,
+                    (seed + image * 53 + row * 17 + byte * 3) & 255
+                )
+                byte = byte + 1
+            }
+            row = row + 1
+        }
+        image = image + 1
+    }
+    succeeded
+}
 
 trusted fun widerTextureProbe(requestedBackend: int): bool {
     val app = graphicsApplication(
@@ -53,6 +135,34 @@ trusted fun widerTextureProbe(requestedBackend: int): bool {
         format = textureFormatBc1RgbaUnorm,
         usage = usage
     ))
+    val rawTwoDimensional = app.texture(TextureDescriptor(
+        label = "raw-two-dimensional-r8",
+        size = Extent3D(8, 4, 1),
+        dimension = textureDimension2D,
+        format = textureFormatR8Unorm,
+        usage = usage
+    ))
+    val compressedArray = app.texture(TextureDescriptor(
+        label = "bc1-array",
+        size = Extent3D(8, 8, 2),
+        dimension = textureDimension2DArray,
+        format = textureFormatBc1RgbaUnorm,
+        usage = usage
+    ))
+    val arrayCopyTexture = app.texture(TextureDescriptor(
+        label = "two-dimensional-array-copy",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension2DArray,
+        usage = usage
+    ))
+    val volumeCopyTexture = app.texture(TextureDescriptor(
+        label = "volume-copy",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension3D,
+        usage = usage
+    ))
 
     val defaultArrayView = arrayTexture.view()
     val arrayLayerView = arrayTexture.view(TextureViewDescriptor(
@@ -82,9 +192,443 @@ trusted fun widerTextureProbe(requestedBackend: int): bool {
         format = textureFormatBc1RgbaUnormSrgb
     ))
 
+    val arrayRegion = TextureRegion(
+        mipLevel = 1,
+        x = 1,
+        y = 1,
+        z = 1,
+        width = 3,
+        height = 2,
+        depth = 2
+    )
+    val arrayLayout = TextureDataLayout(
+        offset = 16,
+        bytesPerRow = 20,
+        rowsPerImage = 4
+    )
+    val arraySource = bufferBytes(160)
+    val arrayReadback = bufferBytes(160)
+    val arrayTransfer = arraySource.fill(204) && arrayReadback.fill(238) &&
+        fillTextureBytes(
+            arraySource,
+            arrayTexture.descriptor,
+            arrayRegion,
+            arrayLayout,
+            11
+        ) && arrayTexture.writeBytes(
+            arraySource,
+            arrayRegion,
+            arrayLayout
+        ) && arrayTexture.readBytes(
+            arrayReadback,
+            arrayRegion,
+            arrayLayout
+        ) && activeTextureBytesEqual(
+            arraySource,
+            arrayReadback,
+            arrayTexture.descriptor,
+            arrayRegion,
+            arrayLayout
+        ) && arrayReadback.load(0) == 238 &&
+        arrayReadback.load(28) == 238 && arrayReadback.load(68) == 238
+
+    val cubeRegion = TextureRegion(z = 4, width = 4, height = 4, depth = 1)
+    val cubeLayout = TextureDataLayout(offset = 4, bytesPerRow = 20)
+    val cubeSource = bufferBytes(84)
+    val cubeReadback = bufferBytes(84)
+    val cubeTransfer = cubeSource.fill(203) && cubeReadback.fill(237) &&
+        fillTextureBytes(
+            cubeSource,
+            cubeTexture.descriptor,
+            cubeRegion,
+            cubeLayout,
+            29
+        ) && cubeTexture.writeBytes(cubeSource, cubeRegion, cubeLayout) &&
+        cubeTexture.readBytes(cubeReadback, cubeRegion, cubeLayout) &&
+        activeTextureBytesEqual(
+            cubeSource,
+            cubeReadback,
+            cubeTexture.descriptor,
+            cubeRegion,
+            cubeLayout
+        ) && cubeReadback.load(0) == 237 && cubeReadback.load(20) == 237
+
+    val volumeRegion = TextureRegion(
+        x = 2,
+        y = 1,
+        z = 1,
+        width = 2,
+        height = 2,
+        depth = 2
+    )
+    val volumeLayout = TextureDataLayout(
+        offset = 8,
+        bytesPerRow = 12,
+        rowsPerImage = 3
+    )
+    val volumeSource = bufferBytes(80)
+    val volumeReadback = bufferBytes(80)
+    val volumeTransfer = volumeSource.fill(202) &&
+        volumeReadback.fill(236) && fillTextureBytes(
+            volumeSource,
+            volumeTexture.descriptor,
+            volumeRegion,
+            volumeLayout,
+            47
+        ) && volumeTexture.writeBytes(
+            volumeSource,
+            volumeRegion,
+            volumeLayout
+        ) && volumeTexture.readBytes(
+            volumeReadback,
+            volumeRegion,
+            volumeLayout
+        ) && activeTextureBytesEqual(
+            volumeSource,
+            volumeReadback,
+            volumeTexture.descriptor,
+            volumeRegion,
+            volumeLayout
+        ) && volumeReadback.load(0) == 236 &&
+        volumeReadback.load(16) == 236 && volumeReadback.load(32) == 236
+
+    val compressedRegion = TextureRegion(
+        x = 4,
+        y = 4,
+        width = 8,
+        height = 8,
+        depth = 1
+    )
+    val compressedLayout = TextureDataLayout(
+        offset = 8,
+        bytesPerRow = 24,
+        rowsPerImage = 8
+    )
+    val compressedSource = bufferBytes(64)
+    val compressedReadback = bufferBytes(64)
+    val compressedReady = compressedSource.fill(201) &&
+        compressedReadback.fill(235) && fillTextureBytes(
+            compressedSource,
+            compressedTexture.descriptor,
+            compressedRegion,
+            compressedLayout,
+            71
+        )
+    val compressedWritten = compressedReady && compressedTexture.writeBytes(
+            compressedSource,
+            compressedRegion,
+            compressedLayout
+        )
+    val compressedRead = compressedWritten && compressedTexture.readBytes(
+            compressedReadback,
+            compressedRegion,
+            compressedLayout
+        )
+    val compressedExact = compressedRead && activeTextureBytesEqual(
+            compressedSource,
+            compressedReadback,
+            compressedTexture.descriptor,
+            compressedRegion,
+            compressedLayout
+        )
+    val compressedPadding = compressedReadback.load(0) == 235 &&
+        compressedReadback.load(24) == 235
+    val compressedTransfer = compressedReady && compressedWritten &&
+        compressedRead && compressedExact && compressedPadding
+    val oneDimensionalRegion = TextureRegion(x = 3, width = 5)
+    val oneDimensionalLayout = TextureDataLayout(offset = 4)
+    val oneDimensionalSource = bufferBytes(24)
+    val oneDimensionalReadback = bufferBytes(24)
+    val oneDimensionalTransfer = oneDimensionalSource.fill(200) &&
+        oneDimensionalReadback.fill(234) && fillTextureBytes(
+            oneDimensionalSource,
+            oneDimensional.descriptor,
+            oneDimensionalRegion,
+            oneDimensionalLayout,
+            89
+        ) && oneDimensional.writeBytes(
+            oneDimensionalSource,
+            oneDimensionalRegion,
+            oneDimensionalLayout
+        ) && oneDimensional.readBytes(
+            oneDimensionalReadback,
+            oneDimensionalRegion,
+            oneDimensionalLayout
+        ) && activeTextureBytesEqual(
+            oneDimensionalSource,
+            oneDimensionalReadback,
+            oneDimensional.descriptor,
+            oneDimensionalRegion,
+            oneDimensionalLayout
+        ) && oneDimensionalReadback.load(0) == 234
+
+    val twoDimensionalRegion = TextureRegion(
+        x = 1,
+        y = 1,
+        width = 3,
+        height = 2
+    )
+    val twoDimensionalLayout = TextureDataLayout(
+        offset = 3,
+        bytesPerRow = 5
+    )
+    val twoDimensionalSource = bufferBytes(16)
+    val twoDimensionalReadback = bufferBytes(16)
+    val twoDimensionalTransfer = twoDimensionalSource.fill(199) &&
+        twoDimensionalReadback.fill(233) && fillTextureBytes(
+            twoDimensionalSource,
+            rawTwoDimensional.descriptor,
+            twoDimensionalRegion,
+            twoDimensionalLayout,
+            101
+        ) && rawTwoDimensional.writeBytes(
+            twoDimensionalSource,
+            twoDimensionalRegion,
+            twoDimensionalLayout
+        ) && rawTwoDimensional.readBytes(
+            twoDimensionalReadback,
+            twoDimensionalRegion,
+            twoDimensionalLayout
+        ) && activeTextureBytesEqual(
+            twoDimensionalSource,
+            twoDimensionalReadback,
+            rawTwoDimensional.descriptor,
+            twoDimensionalRegion,
+            twoDimensionalLayout
+        ) && twoDimensionalReadback.load(0) == 233 &&
+        twoDimensionalReadback.load(6) == 233
+
+    val compressedArrayRegion = TextureRegion(
+        z = 0,
+        width = 8,
+        height = 8,
+        depth = 2
+    )
+    val compressedArrayLayout = TextureDataLayout(
+        offset = 8,
+        bytesPerRow = 24,
+        rowsPerImage = 8
+    )
+    val compressedArraySource = bufferBytes(104)
+    val compressedArrayReadback = bufferBytes(104)
+    val compressedArrayReady = compressedArraySource.fill(197) &&
+        compressedArrayReadback.fill(231) && fillTextureBytes(
+            compressedArraySource,
+            compressedArray.descriptor,
+            compressedArrayRegion,
+            compressedArrayLayout,
+            127
+        )
+    val compressedArrayWritten = compressedArrayReady &&
+        compressedArray.writeBytes(
+            compressedArraySource,
+            compressedArrayRegion,
+            compressedArrayLayout
+        )
+    val compressedArrayRead = compressedArrayWritten &&
+        compressedArray.readBytes(
+            compressedArrayReadback,
+            compressedArrayRegion,
+            compressedArrayLayout
+        )
+    val compressedArrayExact = compressedArrayRead && activeTextureBytesEqual(
+            compressedArraySource,
+            compressedArrayReadback,
+            compressedArray.descriptor,
+            compressedArrayRegion,
+            compressedArrayLayout
+        )
+    val compressedArrayPadding = compressedArrayReadback.load(0) == 231 &&
+        compressedArrayReadback.load(24) == 231 &&
+        compressedArrayReadback.load(48) == 231
+    val compressedArrayTransfer = compressedArrayReady &&
+        compressedArrayWritten && compressedArrayRead &&
+        compressedArrayExact && compressedArrayPadding
+    val shortBytes = bufferBytes(8)
+    val invalidTransferRejected = !arrayTexture.writeBytes(
+        shortBytes,
+        arrayRegion,
+        arrayLayout
+    ) && !volumeTexture.readBytes(
+        shortBytes,
+        volumeRegion,
+        volumeLayout
+    )
+    val arrayCopyRegion = TextureRegion(
+        mipLevel = 1,
+        x = 4,
+        y = 1,
+        z = 0,
+        width = 3,
+        height = 2,
+        depth = 2
+    )
+    val arrayCopyReadback = bufferBytes(160)
+    val arrayCopied = arrayCopyReadback.fill(230) && app.copyTextureRange(
+        arrayTexture,
+        arrayCopyTexture,
+        1,
+        1,
+        1,
+        1,
+        1,
+        4,
+        1,
+        0,
+        3,
+        2,
+        2
+    ) && arrayCopyTexture.readBytes(
+        arrayCopyReadback,
+        arrayCopyRegion,
+        arrayLayout
+    ) && activeTextureBytesEqual(
+        arraySource,
+        arrayCopyReadback,
+        arrayTexture.descriptor,
+        arrayRegion,
+        arrayLayout
+    )
+    val volumeCopyRegion = TextureRegion(
+        x = 5,
+        y = 3,
+        z = 0,
+        width = 2,
+        height = 2,
+        depth = 2
+    )
+    val volumeCopyReadback = bufferBytes(80)
+    val volumeCopied = volumeCopyReadback.fill(229) && app.copyTextureRange(
+        volumeTexture,
+        volumeCopyTexture,
+        0,
+        2,
+        1,
+        1,
+        0,
+        5,
+        3,
+        0,
+        2,
+        2,
+        2
+    ) && volumeCopyTexture.readBytes(
+        volumeCopyReadback,
+        volumeCopyRegion,
+        volumeLayout
+    ) && activeTextureBytesEqual(
+        volumeSource,
+        volumeCopyReadback,
+        volumeTexture.descriptor,
+        volumeRegion,
+        volumeLayout
+    )
+    val invalidCopyRejected = !app.copyTextureRange(
+        arrayTexture,
+        arrayCopyTexture,
+        1,
+        1,
+        1,
+        1,
+        1,
+        6,
+        1,
+        0,
+        3,
+        2,
+        2
+    )
+    val repeatedImage = if (app.backend == graphicsBackendOpenGl)
+        arrayTexture.openGl.handle else arrayTexture.vulkan.image
+    val repeatedCopyImage = if (app.backend == graphicsBackendOpenGl)
+        arrayCopyTexture.openGl.handle else arrayCopyTexture.vulkan.image
+    val repeatedStaging = if (app.backend == graphicsBackendVulkan)
+        arrayTexture.vulkan.staging.handle else 0
+    val repeatedPool = if (app.backend == graphicsBackendVulkan)
+        arrayTexture.vulkan.commandPool else 0
+    val repeatedCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(arrayTexture.vulkan.command.load()) else 0
+    val repeatedDevicePool = if (app.backend == graphicsBackendVulkan)
+        app.vulkanDevice.transferPool else 0
+    val repeatedDeviceCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanDevice.transferCommand.load()) else 0
+    val transferLiveBefore = runtimeMemoryLiveBytes()
+    var repeatedTransfer = true
+    var repeat = 0
+    while (repeatedTransfer && repeat < 4) {
+        repeatedTransfer = arrayTexture.writeBytesRange(
+            arraySource,
+            arrayRegion.mipLevel,
+            arrayRegion.x,
+            arrayRegion.y,
+            arrayRegion.z,
+            arrayRegion.resolvedWidth(arrayTexture.descriptor),
+            arrayRegion.resolvedHeight(arrayTexture.descriptor),
+            arrayRegion.resolvedDepth(arrayTexture.descriptor),
+            arrayLayout.offset,
+            arrayLayout.bytesPerRow,
+            arrayLayout.rowsPerImage
+        ) && arrayTexture.readBytesRange(
+            arrayReadback,
+            arrayRegion.mipLevel,
+            arrayRegion.x,
+            arrayRegion.y,
+            arrayRegion.z,
+            arrayRegion.resolvedWidth(arrayTexture.descriptor),
+            arrayRegion.resolvedHeight(arrayTexture.descriptor),
+            arrayRegion.resolvedDepth(arrayTexture.descriptor),
+            arrayLayout.offset,
+            arrayLayout.bytesPerRow,
+            arrayLayout.rowsPerImage
+        ) && app.copyTextureRange(
+            arrayTexture,
+            arrayCopyTexture,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            0,
+            3,
+            2,
+            2
+        ) && arrayCopyTexture.readBytesRange(
+            arrayCopyReadback,
+            1,
+            4,
+            1,
+            0,
+            3,
+            2,
+            2,
+            arrayLayout.offset,
+            arrayLayout.bytesPerRow,
+            arrayLayout.rowsPerImage
+        )
+        repeat = repeat + 1
+    }
+    val transferLiveAfter = runtimeMemoryLiveBytes()
+    val transferHandlesStable = if (app.backend == graphicsBackendOpenGl)
+        arrayTexture.openGl.handle == repeatedImage &&
+        arrayCopyTexture.openGl.handle == repeatedCopyImage
+    else arrayTexture.vulkan.image == repeatedImage &&
+        arrayCopyTexture.vulkan.image == repeatedCopyImage &&
+        arrayTexture.vulkan.staging.handle == repeatedStaging &&
+        arrayTexture.vulkan.commandPool == repeatedPool &&
+        nativePointerAddress(arrayTexture.vulkan.command.load()) ==
+            repeatedCommand && app.vulkanDevice.transferPool ==
+            repeatedDevicePool && nativePointerAddress(
+                app.vulkanDevice.transferCommand.load()
+            ) == repeatedDeviceCommand
+    val transferNoGrowth = transferLiveAfter == transferLiveBefore
+
     val creationPassed = app.valid() && oneDimensional.valid() &&
         arrayTexture.valid() && cubeTexture.valid() && volumeTexture.valid() &&
-        compressedTexture.valid()
+        compressedTexture.valid() && rawTwoDimensional.valid() &&
+        compressedArray.valid() && arrayCopyTexture.valid() &&
+        volumeCopyTexture.valid()
     val viewsPassed = defaultArrayView.valid() && arrayLayerView.valid() &&
         cubeFaceView.valid() && volumeMipView.valid() &&
         compressedSrgbView.valid()
@@ -112,9 +656,16 @@ trusted fun widerTextureProbe(requestedBackend: int): bool {
     val aliasDropPassed = !defaultArrayView.valid() && arrayTexture.valid()
     val waited = app.waitIdle()
     val passed = creationPassed && viewsPassed && ownershipPassed &&
+        arrayTransfer && cubeTransfer && volumeTransfer &&
+        compressedTransfer && oneDimensionalTransfer &&
+        twoDimensionalTransfer &&
+        compressedArrayTransfer && invalidTransferRejected &&
+        arrayCopied && volumeCopied && invalidCopyRejected &&
+        repeatedTransfer && repeat == 4 && transferHandlesStable &&
+        transferNoGrowth &&
         ownedDropPassed && aliasDropPassed && waited
     println(
-        "wider-texture ${graphicsBackendName(app.backend)}: resources=$creationPassed views=$viewsPassed ownership=$ownershipPassed drop=$ownedDropPassed/$aliasDropPassed"
+        "wider-texture ${graphicsBackendName(app.backend)}: resources=$creationPassed/${compressedArray.valid()} views=$viewsPassed ownership=$ownershipPassed transfers=$oneDimensionalTransfer/$twoDimensionalTransfer/$arrayTransfer/$cubeTransfer/$volumeTransfer copies=$arrayCopied/$volumeCopied bc1=$compressedTransfer/$compressedArrayTransfer details=$compressedReady/$compressedWritten/$compressedRead/$compressedExact/$compressedPadding arrayDetails=$compressedArrayReady/$compressedArrayWritten/$compressedArrayRead/$compressedArrayExact/$compressedArrayPadding repeated=$repeatedTransfer/$transferHandlesStable/${transferLiveAfter - transferLiveBefore} invalid=$invalidTransferRejected/$invalidCopyRejected drop=$ownedDropPassed/$aliasDropPassed"
     )
     passed
 }

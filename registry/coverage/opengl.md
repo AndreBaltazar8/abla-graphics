@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 101/2892
+- Classified commands: 108/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -318,9 +318,9 @@
 | `glCompressedTextureImage3DEXT` | definition | unclassified | - | - | - | - |
 | `glCompressedTextureSubImage1D` | definition | unclassified | - | - | - | - |
 | `glCompressedTextureSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureSubImage2D` | definition | unclassified | - | - | - | - |
+| `glCompressedTextureSubImage2D` | definition | common | src/driver/opengl.ab compressed pitched two-dimensional byte upload | src/driver/opengl.ab typed DSA region format byte-count and pointer ABI | tests/wider_texture/main.ab exact pitched BC1 upload | tests/wider_texture/main.ab short source rejection |
 | `glCompressedTextureSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureSubImage3D` | definition | unclassified | - | - | - | - |
+| `glCompressedTextureSubImage3D` | definition | common | src/driver/opengl.ab compressed pitched layered and volume byte upload | src/driver/opengl.ab typed DSA xyz extent format byte-count and pointer ABI | tests/wider_texture/main.ab exact pitched two-layer BC1 array round trip | tests/texture_contract.ab compressed crossing and pitch rejection |
 | `glCompressedTextureSubImage3DEXT` | definition | unclassified | - | - | - | - |
 | `glConservativeRasterParameterfNV` | definition | unclassified | - | - | - | - |
 | `glConservativeRasterParameteriNV` | definition | unclassified | - | - | - | - |
@@ -759,7 +759,7 @@
 | `glGetCompressedTexImageARB` | definition | unclassified | - | - | - | - |
 | `glGetCompressedTextureImage` | definition | unclassified | - | - | - | - |
 | `glGetCompressedTextureImageEXT` | definition | unclassified | - | - | - | - |
-| `glGetCompressedTextureSubImage` | definition | unclassified | - | - | - | - |
+| `glGetCompressedTextureSubImage` | definition | common | src/driver/opengl.ab compressed pitched texture readback | src/driver/opengl.ab typed region buffer-size and byte-pointer ABI | tests/wider_texture/main.ab exact pitched BC1 readback | tests/wider_texture/main.ab short destination rejection |
 | `glGetConvolutionFilterEXT` | definition | unclassified | - | - | - | - |
 | `glGetConvolutionParameterfvEXT` | definition | unclassified | - | - | - | - |
 | `glGetConvolutionParameterivEXT` | definition | unclassified | - | - | - | - |
@@ -1639,7 +1639,7 @@
 | `glPixelMapusv` | definition | unclassified | - | - | - | - |
 | `glPixelMapx` | definition | unclassified | - | - | - | - |
 | `glPixelStoref` | definition | unclassified | - | - | - | - |
-| `glPixelStorei` | definition | unclassified | - | - | - | - |
+| `glPixelStorei` | definition | common | src/driver/opengl.ab scoped pitched uncompressed and compressed pack-unpack state | src/driver/opengl.ab typed state-name and integer ABI | tests/wider_texture/main.ab exact padded array cube volume and BC1 round trips | tests/texture_contract.ab invalid pitch and block alignment rejection |
 | `glPixelStorex` | definition | unclassified | - | - | - | - |
 | `glPixelTexGenParameterfSGIS` | definition | unclassified | - | - | - | - |
 | `glPixelTexGenParameterfvSGIS` | definition | unclassified | - | - | - | - |
@@ -2313,11 +2313,11 @@
 | `glTextureStorageMem3DEXT` | definition | unclassified | - | - | - | - |
 | `glTextureStorageMem3DMultisampleEXT` | definition | unclassified | - | - | - | - |
 | `glTextureStorageSparseAMD` | definition | unclassified | - | - | - | - |
-| `glTextureSubImage1D` | definition | unclassified | - | - | - | - |
+| `glTextureSubImage1D` | definition | common | src/driver/opengl.ab raw one-dimensional byte upload | src/driver/opengl.ab typed DSA region format and pointer ABI | tests/wider_texture/main.ab exact one-dimensional raw byte round trip | tests/texture_contract.ab one-dimensional region shape rejection |
 | `glTextureSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureSubImage2D` | definition | unclassified | - | - | - | - |
+| `glTextureSubImage2D` | definition | common | src/driver/opengl.ab raw pitched two-dimensional byte upload | src/driver/opengl.ab typed DSA region format and pointer ABI | tests/wider_texture/main.ab exact pitched R8 two-dimensional round trip | tests/wider_texture/main.ab short source rejection |
 | `glTextureSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureSubImage3D` | definition | unclassified | - | - | - | - |
+| `glTextureSubImage3D` | definition | common | src/driver/opengl.ab raw pitched array cube and volume byte upload | src/driver/opengl.ab typed DSA xyz extent format and pointer ABI | tests/wider_texture/main.ab exact array cube and volume round trips | tests/texture_contract.ab crossing depth and layer rejection |
 | `glTextureSubImage3DEXT` | definition | unclassified | - | - | - | - |
 | `glTextureView` | definition | common | src/driver/opengl.ab owned subresource and compatible-format views | src/driver/opengl.ab typed target format mip and layer ABI | tests/wider_texture/main.ab live array cube volume and BC1 view ownership | tests/texture_contract.ab incompatible view rejection |
 | `glTrackMatrixNV` | definition | unclassified | - | - | - | - |

@@ -1088,6 +1088,171 @@ fun textureMipDepth(texture: TextureDescriptor, mipLevel: int): int =
         textureMipDimension(texture.size.depth, mipLevel)
     else textureArrayLayerCount(texture)
 
+fun textureRegionRangeValid(
+    texture: TextureDescriptor,
+    mipLevel: int,
+    x: int,
+    y: int,
+    z: int,
+    width: int,
+    height: int,
+    depth: int,
+    requiredUsage: int = 0
+): bool {
+    var succeeded = texture.valid() && mipLevel >= 0 &&
+        mipLevel < texture.mipLevels && x >= 0 && y >= 0 && z >= 0 &&
+        width > 0 && height > 0 && depth > 0 &&
+        (requiredUsage == 0 ||
+         (requiredUsage > 0 &&
+          (requiredUsage & textureUsageAll) == requiredUsage &&
+          (texture.usage & requiredUsage) == requiredUsage))
+    if (succeeded) {
+        val mipWidth = textureMipDimension(texture.size.width, mipLevel)
+        val mipHeight = textureMipDimension(texture.size.height, mipLevel)
+        val mipDepth = textureMipDepth(texture, mipLevel)
+        succeeded = x < mipWidth && y < mipHeight && z < mipDepth &&
+            width <= mipWidth - x && height <= mipHeight - y &&
+            depth <= mipDepth - z &&
+            (texture.dimension != textureDimension1D ||
+             (y == 0 && z == 0 && height == 1 && depth == 1)) &&
+            (texture.dimension != textureDimension2D ||
+             (z == 0 && depth == 1))
+        if (succeeded && textureFormatCompressed(texture.format)) {
+            val blockWidth = textureFormatBlockWidth(texture.format)
+            val blockHeight = textureFormatBlockHeight(texture.format)
+            succeeded = x - x / blockWidth * blockWidth == 0 &&
+                y - y / blockHeight * blockHeight == 0 &&
+                (width - width / blockWidth * blockWidth == 0 ||
+                 x + width == mipWidth) &&
+                (height - height / blockHeight * blockHeight == 0 ||
+                 y + height == mipHeight)
+        }
+    }
+    succeeded
+}
+
+fun textureDataRequiredBytesRange(
+    texture: TextureDescriptor,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int = 0,
+    bytesPerRow: int = 0,
+    rowsPerImage: int = 0
+): int {
+    val blockWidth = textureFormatBlockWidth(texture.format)
+    val blockHeight = textureFormatBlockHeight(texture.format)
+    val blockBytes = textureFormatBytesPerBlock(texture.format)
+    val widthBlocks = textureBlockCount(width, blockWidth)
+    val heightBlocks = textureBlockCount(height, blockHeight)
+    val minimumRowBytes = widthBlocks * blockBytes
+    val rowBytes = if (bytesPerRow == 0) minimumRowBytes else bytesPerRow
+    val imageRows = if (rowsPerImage == 0)
+        heightBlocks * blockHeight else rowsPerImage
+    val imageBlockRows = if (blockHeight > 0)
+        imageRows / blockHeight else 0
+    var result = -1
+    var succeeded = texture.valid() && width > 0 && height > 0 && depth > 0 &&
+        offset >= 0 && blockWidth > 0 && blockHeight > 0 && blockBytes > 0 &&
+        widthBlocks > 0 && heightBlocks > 0 &&
+        widthBlocks <= 9223372036854775807 / blockBytes &&
+        rowBytes >= minimumRowBytes &&
+        rowBytes - rowBytes / blockBytes * blockBytes == 0 &&
+        imageRows >= height &&
+        imageRows - imageRows / blockHeight * blockHeight == 0 &&
+        offset - offset / blockBytes * blockBytes == 0
+    var precedingRows = 0
+    if (succeeded) {
+        succeeded = depth - 1 == 0 ||
+            imageBlockRows <= 9223372036854775807 / (depth - 1)
+    }
+    if (succeeded) {
+        precedingRows = (depth - 1) * imageBlockRows
+        succeeded = heightBlocks - 1 <=
+            9223372036854775807 - precedingRows
+    }
+    if (succeeded) {
+        precedingRows = precedingRows + heightBlocks - 1
+        succeeded = precedingRows == 0 ||
+            rowBytes <= 9223372036854775807 / precedingRows
+    }
+    var precedingBytes = 0
+    if (succeeded) {
+        precedingBytes = precedingRows * rowBytes
+        succeeded = minimumRowBytes <=
+            9223372036854775807 - precedingBytes
+    }
+    if (succeeded) {
+        val footprint = precedingBytes + minimumRowBytes
+        succeeded = offset <= 9223372036854775807 - footprint
+        if (succeeded) result = offset + footprint
+    }
+    result
+}
+
+fun textureDataLayoutRangeValid(
+    texture: TextureDescriptor,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int,
+    bytesPerRow: int,
+    rowsPerImage: int,
+    bufferSize: int
+): bool {
+    val required = textureDataRequiredBytesRange(
+        texture,
+        width,
+        height,
+        depth,
+        offset,
+        bytesPerRow,
+        rowsPerImage
+    )
+    bufferSize >= 0 && required >= 0 && required <= bufferSize
+}
+
+fun textureCopyRangeValid(
+    source: TextureDescriptor,
+    destination: TextureDescriptor,
+    sourceMipLevel: int,
+    sourceX: int,
+    sourceY: int,
+    sourceZ: int,
+    destinationMipLevel: int,
+    destinationX: int,
+    destinationY: int,
+    destinationZ: int,
+    width: int,
+    height: int,
+    depth: int
+): bool = source.valid() && destination.valid() &&
+    source.dimension == destination.dimension &&
+    source.samples == 1 && destination.samples == 1 &&
+    source.format == destination.format &&
+    !textureFormatHasDepth(source.format) &&
+    textureRegionRangeValid(
+        source,
+        sourceMipLevel,
+        sourceX,
+        sourceY,
+        sourceZ,
+        width,
+        height,
+        depth,
+        textureUsageCopySource
+    ) && textureRegionRangeValid(
+        destination,
+        destinationMipLevel,
+        destinationX,
+        destinationY,
+        destinationZ,
+        width,
+        height,
+        depth,
+        textureUsageCopyDestination
+    )
+
 class TextureRegion(
     val mipLevel: int = 0,
     val x: int = 0,

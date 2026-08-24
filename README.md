@@ -108,9 +108,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   common buffers, textures, views, samplers, and bind groups that create and
   drop real resources on either OpenGL or Vulkan, including allocation-free
   repeated partial mip-level RGBA/BGRA upload/readback; the portable texture
-  contract additionally validates 2D arrays, cube maps, 3D volumes, inherited
-  and sliced views, explicit row/image pitches, and BC1 linear/sRGB block
-  footprints while native wider-image execution remains in progress; queried
+  contract additionally creates 1D images, 2D arrays, cube maps, 3D volumes,
+  inherited and sliced views, and BC1 linear/sRGB storage on both backends,
+  with exact synchronous pitched byte upload/readback and same-format
+  subresource copies across layers or physical depth; queried
   16x sampler anisotropy and allocation-free checked buffer subrange
   upload/readback, GPU fills, and
   GPU buffer/texture copies, fixed-slot asynchronous RGBA/BGRA texture upload
@@ -245,7 +246,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   zero live-byte growth on explicit OpenGL and Vulkan;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
-  exact readback plus cross-mip GPU copies; and
+  exact readback plus cross-mip GPU copies;
+- `examples/wider-texture`: pitched RGBA array upload, layered GPU copy, exact
+  readback with padding preservation, array/cube/volume/BC1 resource views, and
+  allocation-free repeated primitive transfers on explicit OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

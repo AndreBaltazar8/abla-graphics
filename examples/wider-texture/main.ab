@@ -1,0 +1,250 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun fillPitchedArray(var bytes: BufferBytes): bool {
+    var succeeded = bytes.fill(204)
+    var layer = 0
+    while (succeeded && layer < 2) {
+        var row = 0
+        while (succeeded && row < 2) {
+            var byte = 0
+            while (succeeded && byte < 12) {
+                val offset = 16 + layer * 80 + row * 20 + byte
+                succeeded = bytes.store(
+                    offset,
+                    (11 + layer * 53 + row * 17 + byte * 3) & 255
+                )
+                byte = byte + 1
+            }
+            row = row + 1
+        }
+        layer = layer + 1
+    }
+    succeeded
+}
+
+fun pitchedArrayExact(source: BufferBytes, readback: BufferBytes): bool {
+    var exact = source.valid() && readback.valid()
+    var layer = 0
+    while (exact && layer < 2) {
+        var row = 0
+        while (exact && row < 2) {
+            var byte = 0
+            while (exact && byte < 12) {
+                val offset = 16 + layer * 80 + row * 20 + byte
+                exact = source.load(offset) == readback.load(offset)
+                byte = byte + 1
+            }
+            row = row + 1
+        }
+        layer = layer + 1
+    }
+    exact && readback.load(0) == 238 && readback.load(28) == 238 &&
+        readback.load(68) == 238
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            requiredFeatures = graphicsFeatureSampledTextures |
+                graphicsFeatureViewFormatReinterpretation
+        ),
+        WindowConfig(
+            title = "Abla Graphics wider textures",
+            width = 480,
+            height = 270
+        )
+    )
+    val usage = textureUsageSampled | textureUsageCopySource |
+        textureUsageCopyDestination
+    val arrayTexture = app.texture(TextureDescriptor(
+        label = "sample-array",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension2DArray,
+        usage = usage
+    ))
+    val copyTexture = app.texture(TextureDescriptor(
+        label = "sample-array-copy",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension2DArray,
+        usage = usage
+    ))
+    val cube = app.texture(TextureDescriptor(
+        label = "sample-cube",
+        size = Extent3D(16, 16, 6),
+        mipLevels = 3,
+        dimension = textureDimensionCube,
+        usage = usage
+    ))
+    val volume = app.texture(TextureDescriptor(
+        label = "sample-volume",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension3D,
+        usage = usage
+    ))
+    val bc1 = app.texture(TextureDescriptor(
+        label = "sample-bc1",
+        size = Extent3D(16, 16),
+        mipLevels = 3,
+        format = textureFormatBc1RgbaUnorm,
+        usage = usage
+    ))
+    val arrayLayer = arrayTexture.view(TextureViewDescriptor(
+        label = "sample-array-layer",
+        dimension = textureDimension2D,
+        baseMipLevel = 1,
+        mipLevelCount = 1,
+        baseArrayLayer = 1,
+        arrayLayerCount = 1
+    ))
+    val cubeFace = cube.view(TextureViewDescriptor(
+        label = "sample-cube-face",
+        dimension = textureDimension2D,
+        baseMipLevel = 1,
+        mipLevelCount = 1,
+        baseArrayLayer = 4,
+        arrayLayerCount = 1
+    ))
+    val volumeMip = volume.view(TextureViewDescriptor(
+        label = "sample-volume-mip",
+        dimension = textureDimension3D,
+        baseMipLevel = 1,
+        mipLevelCount = 1
+    ))
+    val bc1Srgb = bc1.view(TextureViewDescriptor(
+        label = "sample-bc1-srgb",
+        format = textureFormatBc1RgbaUnormSrgb
+    ))
+
+    val sourceRegion = TextureRegion(
+        mipLevel = 1,
+        x = 1,
+        y = 1,
+        z = 1,
+        width = 3,
+        height = 2,
+        depth = 2
+    )
+    val copyRegion = TextureRegion(
+        mipLevel = 1,
+        x = 4,
+        y = 1,
+        z = 0,
+        width = 3,
+        height = 2,
+        depth = 2
+    )
+    val layout = TextureDataLayout(
+        offset = 16,
+        bytesPerRow = 20,
+        rowsPerImage = 4
+    )
+    val source = bufferBytes(160)
+    val readback = bufferBytes(160)
+    val initialized = fillPitchedArray(source) && readback.fill(238)
+    val uploaded = initialized && arrayTexture.writeBytes(
+        source,
+        sourceRegion,
+        layout
+    )
+    val copied = uploaded && app.copyTextureRange(
+        arrayTexture,
+        copyTexture,
+        1,
+        1,
+        1,
+        1,
+        1,
+        4,
+        1,
+        0,
+        3,
+        2,
+        2
+    )
+    val downloaded = copied && copyTexture.readBytes(
+        readback,
+        copyRegion,
+        layout
+    )
+    val exact = downloaded && pitchedArrayExact(source, readback)
+
+    val sourceHandle = if (app.backend == graphicsBackendOpenGl)
+        arrayTexture.openGl.handle else arrayTexture.vulkan.image
+    val copyHandle = if (app.backend == graphicsBackendOpenGl)
+        copyTexture.openGl.handle else copyTexture.vulkan.image
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = exact
+    var iteration = 0
+    while (repeated && iteration < 4) {
+        repeated = arrayTexture.writeBytesRange(
+            source,
+            1,
+            1,
+            1,
+            1,
+            3,
+            2,
+            2,
+            16,
+            20,
+            4
+        ) && app.copyTextureRange(
+            arrayTexture,
+            copyTexture,
+            1,
+            1,
+            1,
+            1,
+            1,
+            4,
+            1,
+            0,
+            3,
+            2,
+            2
+        ) && copyTexture.readBytesRange(
+            readback,
+            1,
+            4,
+            1,
+            0,
+            3,
+            2,
+            2,
+            16,
+            20,
+            4
+        )
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        arrayTexture.openGl.handle == sourceHandle &&
+            copyTexture.openGl.handle == copyHandle
+    else arrayTexture.vulkan.image == sourceHandle &&
+        copyTexture.vulkan.image == copyHandle
+    val viewsValid = arrayLayer.valid() && cubeFace.valid() &&
+        volumeMip.valid() && bc1Srgb.valid()
+    val presented = app.presentClear(Color(0.03125, 0.125, 0.3125))
+    val passed = app.valid() && arrayTexture.valid() && copyTexture.valid() &&
+        cube.valid() && volume.valid() && bc1.valid() && viewsValid && exact &&
+        repeated && iteration == 4 && handlesStable &&
+        liveAfter == liveBefore && presented
+    println(
+        "wider-texture ${graphicsBackendName(app.backend)}: array=${arrayTexture.valid()} cube=${cube.valid()} volume=${volume.valid()} bc1=${bc1.valid()} views=$viewsValid exact=$exact repeated=$repeated stable=$handlesStable live=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}
