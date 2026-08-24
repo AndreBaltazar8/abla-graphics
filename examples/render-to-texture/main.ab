@@ -11,7 +11,11 @@ fun main: int {
         else if (requested == "vulkan") graphicsBackendVulkan
         else graphicsBackendAuto
     val app = graphicsApplication(
-        GraphicsConfig(backend = backend, framesInFlight = 2),
+        GraphicsConfig(
+            backend = backend,
+            framesInFlight = 2,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
         WindowConfig(
             title = "Abla Graphics render to texture",
             width = 640,
@@ -95,6 +99,19 @@ fun main: int {
             compare = compareFunctionLess
         )
     )
+    val scenePool = app.bufferPool(BufferPoolDescriptor(
+        label = "offscreen-scene-pool",
+        capacity = 256,
+        blockSize = 16,
+        maximumAllocations = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination |
+            bufferUsageVertex | bufferUsageIndex | bufferUsageIndirect
+    ))
+    val scenePrefix = scenePool.allocate(16)
+    val sceneVertices = scenePool.allocate(24, 4)
+    val sceneIndices = scenePool.allocate(12, 4)
+    val sceneDraw = scenePool.allocate(16, 4)
+    val sceneIndexedDraw = scenePool.allocate(20, 4)
     val sceneVertexBytes = bufferBytes(24)
     val sceneVerticesStored =
         sceneVertexBytes.storeF32(-0.75, 0) &&
@@ -103,46 +120,75 @@ fun main: int {
         sceneVertexBytes.storeF32(-0.65, 12) &&
         sceneVertexBytes.storeF32(0.0, 16) &&
         sceneVertexBytes.storeF32(0.75, 20)
-    val sceneVertices = app.buffer(BufferDescriptor(
-        label = "offscreen-scene-vertices",
-        size = 24,
-        usage = bufferUsageVertex | bufferUsageCopyDestination
-    ))
-    val sceneVerticesUploaded = sceneVerticesStored &&
-        sceneVertices.writeAllBytes(sceneVertexBytes)
     val sceneIndexBytes = bufferBytes(12)
     val sceneIndicesStored = sceneIndexBytes.storeU32(0, 0) &&
         sceneIndexBytes.storeU32(1, 4) &&
         sceneIndexBytes.storeU32(2, 8)
-    val sceneIndices = app.buffer(BufferDescriptor(
-        label = "offscreen-scene-indices",
-        size = 12,
-        usage = bufferUsageIndex | bufferUsageCopyDestination
-    ))
-    val sceneIndicesUploaded = sceneIndicesStored &&
-        sceneIndices.writeAllBytes(sceneIndexBytes)
     val sceneDrawBytes = bufferBytes(16)
     val sceneDrawStored = sceneDrawBytes.storeI64(4294967299, 0) &&
         sceneDrawBytes.storeI64(0, 8)
-    val sceneDraw = app.buffer(BufferDescriptor(
-        label = "offscreen-scene-draw",
-        size = 16,
-        usage = bufferUsageIndirect | bufferUsageCopyDestination
-    ))
-    val sceneDrawUploaded = sceneDrawStored &&
-        sceneDraw.writeAllBytes(sceneDrawBytes)
-    val sceneIndexedDrawBytes = bufferBytes(24)
+    val sceneIndexedDrawBytes = bufferBytes(20)
     val sceneIndexedDrawStored =
         sceneIndexedDrawBytes.storeI64(4294967299, 0) &&
-        sceneIndexedDrawBytes.storeI64(0, 8) &&
-        sceneIndexedDrawBytes.storeI64(0, 16)
-    val sceneIndexedDraw = app.buffer(BufferDescriptor(
-        label = "offscreen-scene-indexed-draw",
-        size = 24,
-        usage = bufferUsageIndirect | bufferUsageCopyDestination
-    ))
-    val sceneIndexedDrawUploaded = sceneIndexedDrawStored &&
-        sceneIndexedDraw.writeAllBytes(sceneIndexedDrawBytes)
+        sceneIndexedDrawBytes.storeI64(
+            scenePool.allocationOffset(sceneIndices) / 4,
+            8
+        ) && sceneIndexedDrawBytes.storeU32(0, 16)
+    val sceneUploads = app.bufferTransferQueue(
+        BufferTransferQueueDescriptor(
+            label = "offscreen-scene-uploads",
+            direction = bufferTransferDirectionUpload,
+            slotCapacity = 32,
+            slotCount = 4,
+            alignment = 16
+        )
+    )
+    val sceneVertexUpload = app.enqueueUploadBufferPoolRange(
+        sceneUploads,
+        sceneVertexBytes,
+        scenePool,
+        sceneVertices,
+        0,
+        0,
+        24
+    )
+    val sceneIndexUpload = app.enqueueUploadBufferPoolRange(
+        sceneUploads,
+        sceneIndexBytes,
+        scenePool,
+        sceneIndices,
+        0,
+        0,
+        12
+    )
+    val sceneDrawUpload = app.enqueueUploadBufferPoolRange(
+        sceneUploads,
+        sceneDrawBytes,
+        scenePool,
+        sceneDraw,
+        0,
+        0,
+        16
+    )
+    val sceneIndexedDrawUpload = app.enqueueUploadBufferPoolRange(
+        sceneUploads,
+        sceneIndexedDrawBytes,
+        scenePool,
+        sceneIndexedDraw,
+        0,
+        0,
+        20
+    )
+    val sceneUploaded = sceneVerticesStored && sceneIndicesStored &&
+        sceneDrawStored && sceneIndexedDrawStored &&
+        bufferTransferTicketValid(sceneVertexUpload) &&
+        bufferTransferTicketValid(sceneIndexUpload) &&
+        bufferTransferTicketValid(sceneDrawUpload) &&
+        bufferTransferTicketValid(sceneIndexedDrawUpload) &&
+        sceneUploads.wait(sceneVertexUpload) &&
+        sceneUploads.wait(sceneIndexUpload) &&
+        sceneUploads.wait(sceneDrawUpload) &&
+        sceneUploads.wait(sceneIndexedDrawUpload)
     val vertexBytes = bufferBytes(48)
     val verticesStored =
         vertexBytes.storeF32(-1.0, 0) &&
@@ -189,33 +235,41 @@ fun main: int {
     val warmed = app.valid() && target.valid() && scenePipeline.valid() &&
         scenePass.valid() && postPipeline.valid() && vertices.valid() &&
         sampler.valid() && target.resolveTextures[0].valid() &&
-        sceneVertices.valid() && sceneIndices.valid() && sceneDraw.valid() &&
-        sceneIndexedDraw.valid() && verticesUploaded &&
-        sceneVerticesUploaded && sceneIndicesUploaded && sceneDrawUploaded &&
-        sceneIndexedDrawUploaded &&
-        app.renderPassVerticesToTarget(
+        scenePool.valid() && scenePool.backing.deviceLocal() &&
+        sceneUploads.valid() &&
+        scenePool.allocationOffset(scenePrefix) == 0 &&
+        scenePool.allocationOffset(sceneVertices) == 16 &&
+        scenePool.allocationOffset(sceneIndices) == 48 &&
+        scenePool.allocationOffset(sceneDraw) == 64 &&
+        scenePool.allocationOffset(sceneIndexedDraw) == 80 &&
+        verticesUploaded && sceneUploaded &&
+        app.renderPassBufferPoolVerticesToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             3
-        ) && app.renderPassVerticesIndirectToTarget(
+        ) && app.renderPassBufferPoolVerticesIndirectToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             sceneDraw
-        ) && app.renderPassIndexedToTarget(
+        ) && app.renderPassBufferPoolIndexedToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             sceneIndices,
             3
-        ) && app.renderPassIndexedIndirectToTarget(
+        ) && app.renderPassBufferPoolIndexedIndirectToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             sceneIndices,
             sceneIndexedDraw
@@ -231,33 +285,39 @@ fun main: int {
         postPipeline.openGl.handle else postPipeline.vulkan.handle
     val resolveHandle = if (app.backend == graphicsBackendOpenGl)
         target.openGl.resolveFramebuffer else target.vulkan.resolveViews[0]
+    val poolHandle = if (app.backend == graphicsBackendOpenGl)
+        scenePool.backing.openGl.handle else scenePool.backing.vulkan.handle
     val liveBefore = runtimeMemoryLiveBytes()
     var presented = warmed
     var frame = 0
     while (presented && frame < 4) {
-        presented = app.renderPassVerticesToTarget(
+        presented = app.renderPassBufferPoolVerticesToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             3
-        ) && app.renderPassVerticesIndirectToTarget(
+        ) && app.renderPassBufferPoolVerticesIndirectToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             sceneDraw
-        ) && app.renderPassIndexedToTarget(
+        ) && app.renderPassBufferPoolIndexedToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             sceneIndices,
             3
-        ) && app.renderPassIndexedIndirectToTarget(
+        ) && app.renderPassBufferPoolIndexedIndirectToTarget(
             target,
             scenePipeline,
             scenePass,
+            scenePool,
             sceneVertices,
             sceneIndices,
             sceneIndexedDraw
@@ -272,18 +332,21 @@ fun main: int {
     val liveAfter = runtimeMemoryLiveBytes()
     val noGrowth = liveAfter == liveBefore
     val handlesStable = bindingHandle != 0 && resolveHandle != 0 &&
+        poolHandle != 0 &&
         (if (app.backend == graphicsBackendOpenGl)
             scenePipeline.openGl.handle == sceneHandle &&
                 postPipeline.openGl.handle == postHandle &&
                 target.openGl.resolveFramebuffer == resolveHandle &&
-                postPipeline.binding.openGlResources[0] == bindingHandle
+                postPipeline.binding.openGlResources[0] == bindingHandle &&
+                scenePool.backing.openGl.handle == poolHandle
          else scenePipeline.vulkan.handle == sceneHandle &&
                 postPipeline.vulkan.handle == postHandle &&
                 target.vulkan.resolveViews.size == 1 &&
                 target.vulkan.resolveViews[0] == resolveHandle &&
-                postPipeline.binding.vulkan.descriptorSet == bindingHandle)
+                postPipeline.binding.vulkan.descriptorSet == bindingHandle &&
+                scenePool.backing.vulkan.handle == poolHandle)
     println(
-        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, samples=${target.texture.descriptor.samples}, depth=${target.hasDepth()}, resolved=true, sampled=true, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Render to texture ${graphicsBackendName(app.backend)}: frames=$frame, target=256x256, samples=${target.texture.descriptor.samples}, depth=${target.hasDepth()}, resolved=true, sampled=true, pooled=true, offsets=${scenePool.allocationOffset(sceneVertices)}/${scenePool.allocationOffset(sceneIndices)}/${scenePool.allocationOffset(sceneDraw)}/${scenePool.allocationOffset(sceneIndexedDraw)}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
     if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
 }

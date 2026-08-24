@@ -11,7 +11,11 @@ fun main: int {
         else if (requested == "vulkan") graphicsBackendVulkan
         else graphicsBackendAuto
     val app = graphicsApplication(
-        GraphicsConfig(backend = backend, framesInFlight = 2),
+        GraphicsConfig(
+            backend = backend,
+            framesInFlight = 2,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
         WindowConfig(title = "Abla Graphics push color", width = 640, height = 480)
     )
     val shader = $glsl {
@@ -78,6 +82,19 @@ fun main: int {
         bufferedShader,
         vertexLayout
     )
+    val drawPool = app.bufferPool(BufferPoolDescriptor(
+        label = "push-color-draw-pool",
+        capacity = 256,
+        blockSize = 16,
+        maximumAllocations = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination |
+            bufferUsageVertex | bufferUsageIndex | bufferUsageIndirect
+    ))
+    val drawPrefix = drawPool.allocate(16)
+    val vertices = drawPool.allocate(24, 4)
+    val indices = drawPool.allocate(12, 4)
+    val direct = drawPool.allocate(16, 4)
+    val indexed = drawPool.allocate(20, 4)
     val vertexBytes = bufferBytes(24)
     val verticesStored = vertexBytes.storeF32(-0.75, 0) &&
         vertexBytes.storeF32(-0.65, 4) &&
@@ -85,41 +102,46 @@ fun main: int {
         vertexBytes.storeF32(-0.65, 12) &&
         vertexBytes.storeF32(0.0, 16) &&
         vertexBytes.storeF32(0.75, 20)
-    val vertices = app.buffer(BufferDescriptor(
-        label = "push-color-vertices",
-        size = 24,
-        usage = bufferUsageVertex | bufferUsageCopyDestination
-    ))
-    val verticesUploaded = verticesStored &&
-        vertices.writeAllBytes(vertexBytes)
     val indexBytes = bufferBytes(12)
     val indicesStored = indexBytes.storeU32(0, 0) &&
         indexBytes.storeU32(1, 4) && indexBytes.storeU32(2, 8)
-    val indices = app.buffer(BufferDescriptor(
-        label = "push-color-indices",
-        size = 12,
-        usage = bufferUsageIndex | bufferUsageCopyDestination
-    ))
-    val indicesUploaded = indicesStored && indices.writeAllBytes(indexBytes)
     val directBytes = bufferBytes(16)
     val directStored = directBytes.storeI64(4294967299, 0) &&
         directBytes.storeI64(0, 8)
-    val direct = app.buffer(BufferDescriptor(
-        label = "push-color-direct-indirect",
-        size = 16,
-        usage = bufferUsageIndirect | bufferUsageCopyDestination
-    ))
-    val directUploaded = directStored && direct.writeAllBytes(directBytes)
-    val indexedBytes = bufferBytes(24)
+    val indexedBytes = bufferBytes(20)
     val indexedStored = indexedBytes.storeI64(4294967299, 0) &&
-        indexedBytes.storeI64(0, 8) && indexedBytes.storeI64(0, 16)
-    val indexed = app.buffer(BufferDescriptor(
-        label = "push-color-indexed-indirect",
-        size = 24,
-        usage = bufferUsageIndirect | bufferUsageCopyDestination
-    ))
-    val indexedUploaded = indexedStored &&
-        indexed.writeAllBytes(indexedBytes)
+        indexedBytes.storeI64(
+            drawPool.allocationOffset(indices) / 4,
+            8
+        ) && indexedBytes.storeU32(0, 16)
+    val drawUploads = app.bufferTransferQueue(
+        BufferTransferQueueDescriptor(
+            label = "push-color-draw-uploads",
+            direction = bufferTransferDirectionUpload,
+            slotCapacity = 32,
+            slotCount = 4,
+            alignment = 16
+        )
+    )
+    val vertexUpload = app.enqueueUploadBufferPoolRange(
+        drawUploads, vertexBytes, drawPool, vertices, 0, 0, 24
+    )
+    val indexUpload = app.enqueueUploadBufferPoolRange(
+        drawUploads, indexBytes, drawPool, indices, 0, 0, 12
+    )
+    val directUpload = app.enqueueUploadBufferPoolRange(
+        drawUploads, directBytes, drawPool, direct, 0, 0, 16
+    )
+    val indexedUpload = app.enqueueUploadBufferPoolRange(
+        drawUploads, indexedBytes, drawPool, indexed, 0, 0, 20
+    )
+    val drawsUploaded = verticesStored && indicesStored && directStored &&
+        indexedStored && bufferTransferTicketValid(vertexUpload) &&
+        bufferTransferTicketValid(indexUpload) &&
+        bufferTransferTicketValid(directUpload) &&
+        bufferTransferTicketValid(indexedUpload) &&
+        drawUploads.wait(vertexUpload) && drawUploads.wait(indexUpload) &&
+        drawUploads.wait(directUpload) && drawUploads.wait(indexedUpload)
     val values = shader.pushConstants()
     val clear = Color(0.01, 0.02, 0.03)
     val clearValues = renderPassClearValues(clear)
@@ -170,14 +192,16 @@ fun main: int {
         values.storeMemberF32("tint", 0.0, 1) &&
         values.storeMemberF32("tint", 0.0, 2) &&
         values.storeMemberF32("alpha", 1.0)
-    val missingBufferedRejected = !app.renderVerticesToTarget(
+    val missingBufferedRejected = !app.renderBufferPoolVerticesToTarget(
         target,
         targetBufferedPipeline,
+        drawPool,
         vertices,
         3,
         clear
-    ) && !app.presentRenderVertices(
+    ) && !app.presentRenderBufferPoolVertices(
         windowBufferedPipeline,
+        drawPool,
         vertices,
         3,
         clear
@@ -186,10 +210,11 @@ fun main: int {
         target,
         targetPipeline,
         clearPass
-    ) && !app.renderPassVerticesToTarget(
+    ) && !app.renderPassBufferPoolVerticesToTarget(
         target,
         targetBufferedPipeline,
         clearPass,
+        drawPool,
         vertices,
         3
     )
@@ -206,10 +231,14 @@ fun main: int {
         targetBufferedPipeline.valid() && windowBufferedPipeline.valid() &&
         clearPass.valid() && loadPass.valid() && discardPass.valid() &&
         subpassPass.valid() && subpassSequence.valid() &&
-        subpassConstants.valid() &&
-        vertices.valid() && indices.valid() && direct.valid() &&
-        indexed.valid() && verticesUploaded && indicesUploaded &&
-        directUploaded && indexedUploaded && missingBufferedRejected &&
+        subpassConstants.valid() && drawPool.valid() &&
+        drawPool.backing.deviceLocal() && drawUploads.valid() &&
+        drawPool.allocationOffset(drawPrefix) == 0 &&
+        drawPool.allocationOffset(vertices) == 16 &&
+        drawPool.allocationOffset(indices) == 48 &&
+        drawPool.allocationOffset(direct) == 64 &&
+        drawPool.allocationOffset(indexed) == 80 && drawsUploaded &&
+        missingBufferedRejected &&
         missingPassRejected && missingSubpassesRejected && subpassStored &&
         stored && app.renderPushToTarget(
             target,
@@ -223,41 +252,46 @@ fun main: int {
             target, targetPipeline, values, loadPass
         ) && app.renderPushPassToTarget(
             target, targetPipeline, values, discardPass
-        ) && app.renderPushPassVerticesToTarget(
-            target, targetBufferedPipeline, values, clearPass, vertices, 3
-        ) && app.renderPushPassIndexedToTarget(
-            target, targetBufferedPipeline, values, clearPass, vertices,
-            indices, 3
-        ) && app.renderPushPassVerticesIndirectToTarget(
-            target, targetBufferedPipeline, values, clearPass, vertices,
-            direct
-        ) && app.renderPushPassIndexedIndirectToTarget(
-            target, targetBufferedPipeline, values, clearPass, vertices,
-            indices, indexed
+        ) && app.renderPushPassBufferPoolVerticesToTarget(
+            target, targetBufferedPipeline, values, clearPass, drawPool,
+            vertices, 3
+        ) && app.renderPushPassBufferPoolIndexedToTarget(
+            target, targetBufferedPipeline, values, clearPass, drawPool,
+            vertices, indices, 3
+        ) && app.renderPushPassBufferPoolVerticesIndirectToTarget(
+            target, targetBufferedPipeline, values, clearPass, drawPool,
+            vertices, direct
+        ) && app.renderPushPassBufferPoolIndexedIndirectToTarget(
+            target, targetBufferedPipeline, values, clearPass, drawPool,
+            vertices, indices, indexed
         ) && target.texture.rgba8(32, 32) == 4278190335 &&
         app.renderPushSubpassesToTarget(
             target, subpassSequence, subpassConstants, subpassPass
         ) && target.texture.rgba8(32, 32) == 4278190335 &&
-        app.renderPushVerticesToTarget(
-            target, targetBufferedPipeline, values, vertices, 3, clear
-        ) && app.renderPushIndexedToTarget(
-            target, targetBufferedPipeline, values, vertices, indices, 3,
+        app.renderPushBufferPoolVerticesToTarget(
+            target, targetBufferedPipeline, values, drawPool, vertices, 3,
             clear
-        ) && app.renderPushVerticesIndirectToTarget(
-            target, targetBufferedPipeline, values, vertices, direct, clear
-        ) && app.renderPushIndexedIndirectToTarget(
-            target, targetBufferedPipeline, values, vertices, indices,
-            indexed, clear
+        ) && app.renderPushBufferPoolIndexedToTarget(
+            target, targetBufferedPipeline, values, drawPool, vertices,
+            indices, 3, clear
+        ) && app.renderPushBufferPoolVerticesIndirectToTarget(
+            target, targetBufferedPipeline, values, drawPool, vertices,
+            direct, clear
+        ) && app.renderPushBufferPoolIndexedIndirectToTarget(
+            target, targetBufferedPipeline, values, drawPool, vertices,
+            indices, indexed, clear
         ) && target.texture.rgba8(32, 32) == 4278190335 &&
         app.presentPushRender(windowPipeline, values, clear) &&
-        app.presentPushRenderVertices(
-            windowBufferedPipeline, values, vertices, 3, clear
-        ) && app.presentPushRenderIndexed(
-            windowBufferedPipeline, values, vertices, indices, 3, clear
-        ) && app.presentPushRenderVerticesIndirect(
-            windowBufferedPipeline, values, vertices, direct, clear
-        ) && app.presentPushRenderIndexedIndirect(
-            windowBufferedPipeline, values, vertices, indices, indexed, clear
+        app.presentPushRenderBufferPoolVertices(
+            windowBufferedPipeline, values, drawPool, vertices, 3, clear
+        ) && app.presentPushRenderBufferPoolIndexed(
+            windowBufferedPipeline, values, drawPool, vertices, indices, 3,
+            clear
+        ) && app.presentPushRenderBufferPoolVerticesIndirect(
+            windowBufferedPipeline, values, drawPool, vertices, direct, clear
+        ) && app.presentPushRenderBufferPoolIndexedIndirect(
+            windowBufferedPipeline, values, drawPool, vertices, indices,
+            indexed, clear
         )
     val targetHandle = if (app.backend == graphicsBackendOpenGl)
         targetPipeline.openGl.pushConstantBuffer
@@ -277,6 +311,8 @@ fun main: int {
     val secondSubpassHandle = if (app.backend == graphicsBackendOpenGl)
         subpassSequence.pipelines[1].openGl.pushConstantBuffer
     else subpassSequence.pipelines[1].vulkan.handle
+    val drawPoolHandle = if (app.backend == graphicsBackendOpenGl)
+        drawPool.backing.openGl.handle else drawPool.backing.vulkan.handle
     val liveBefore = runtimeMemoryLiveBytes()
     var repeated = warmed
     var frame = 0
@@ -302,40 +338,43 @@ fun main: int {
             ) &&
             app.renderPushPassToTarget(
                 target, targetPipeline, values, clearPass
-            ) && app.renderPushPassVerticesToTarget(
-                target, targetBufferedPipeline, values, clearPass, vertices,
-                3
-            ) && app.renderPushPassIndexedToTarget(
-                target, targetBufferedPipeline, values, clearPass, vertices,
-                indices, 3
-            ) && app.renderPushPassVerticesIndirectToTarget(
-                target, targetBufferedPipeline, values, clearPass, vertices,
-                direct
-            ) && app.renderPushPassIndexedIndirectToTarget(
-                target, targetBufferedPipeline, values, clearPass, vertices,
-                indices, indexed
+            ) && app.renderPushPassBufferPoolVerticesToTarget(
+                target, targetBufferedPipeline, values, clearPass, drawPool,
+                vertices, 3
+            ) && app.renderPushPassBufferPoolIndexedToTarget(
+                target, targetBufferedPipeline, values, clearPass, drawPool,
+                vertices, indices, 3
+            ) && app.renderPushPassBufferPoolVerticesIndirectToTarget(
+                target, targetBufferedPipeline, values, clearPass, drawPool,
+                vertices, direct
+            ) && app.renderPushPassBufferPoolIndexedIndirectToTarget(
+                target, targetBufferedPipeline, values, clearPass, drawPool,
+                vertices, indices, indexed
             ) &&
-            app.renderPushVerticesToTarget(
-                target, targetBufferedPipeline, values, vertices, 3, clear
-            ) && app.renderPushIndexedToTarget(
-                target, targetBufferedPipeline, values, vertices, indices, 3,
-                clear
-            ) && app.renderPushVerticesIndirectToTarget(
-                target, targetBufferedPipeline, values, vertices, direct,
-                clear
-            ) && app.renderPushIndexedIndirectToTarget(
-                target, targetBufferedPipeline, values, vertices, indices,
-                indexed, clear
+            app.renderPushBufferPoolVerticesToTarget(
+                target, targetBufferedPipeline, values, drawPool, vertices,
+                3, clear
+            ) && app.renderPushBufferPoolIndexedToTarget(
+                target, targetBufferedPipeline, values, drawPool, vertices,
+                indices, 3, clear
+            ) && app.renderPushBufferPoolVerticesIndirectToTarget(
+                target, targetBufferedPipeline, values, drawPool, vertices,
+                direct, clear
+            ) && app.renderPushBufferPoolIndexedIndirectToTarget(
+                target, targetBufferedPipeline, values, drawPool, vertices,
+                indices, indexed, clear
             ) && app.presentPushRender(windowPipeline, values, clear) &&
-            app.presentPushRenderVertices(
-                windowBufferedPipeline, values, vertices, 3, clear
-            ) && app.presentPushRenderIndexed(
-                windowBufferedPipeline, values, vertices, indices, 3, clear
-            ) && app.presentPushRenderVerticesIndirect(
-                windowBufferedPipeline, values, vertices, direct, clear
-            ) && app.presentPushRenderIndexedIndirect(
-                windowBufferedPipeline, values, vertices, indices, indexed,
+            app.presentPushRenderBufferPoolVertices(
+                windowBufferedPipeline, values, drawPool, vertices, 3, clear
+            ) && app.presentPushRenderBufferPoolIndexed(
+                windowBufferedPipeline, values, drawPool, vertices, indices,
+                3, clear
+            ) && app.presentPushRenderBufferPoolVerticesIndirect(
+                windowBufferedPipeline, values, drawPool, vertices, direct,
                 clear
+            ) && app.presentPushRenderBufferPoolIndexedIndirect(
+                windowBufferedPipeline, values, drawPool, vertices, indices,
+                indexed, clear
             )
         frame = frame + 1
     }
@@ -353,7 +392,9 @@ fun main: int {
             subpassSequence.pipelines[1].openGl.pushConstantBuffer ==
                 secondSubpassHandle &&
             targetHandle != 0 && windowHandle != 0 &&
-            targetBufferedHandle != 0 && windowBufferedHandle != 0
+            targetBufferedHandle != 0 && windowBufferedHandle != 0 &&
+            drawPoolHandle != 0 &&
+            drawPool.backing.openGl.handle == drawPoolHandle
     else targetPipeline.vulkan.handle == targetHandle &&
         windowPipeline.vulkan.handle == windowHandle &&
         targetBufferedPipeline.vulkan.handle == targetBufferedHandle &&
@@ -363,9 +404,11 @@ fun main: int {
         targetPipeline.vulkan.pushConstantSize == 16 &&
         windowPipeline.vulkan.pushConstantSize == 16 &&
         targetBufferedPipeline.vulkan.pushConstantSize == 16 &&
-        windowBufferedPipeline.vulkan.pushConstantSize == 16
+        windowBufferedPipeline.vulkan.pushConstantSize == 16 &&
+        drawPoolHandle != 0 &&
+        drawPool.backing.vulkan.handle == drawPoolHandle
     println(
-        "push-color backend=${graphicsBackendName(app.backend)} forms=16 pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
+        "push-color backend=${graphicsBackendName(app.backend)} forms=16 pooled=true offsets=${drawPool.allocationOffset(vertices)}/${drawPool.allocationOffset(indices)}/${drawPool.allocationOffset(direct)}/${drawPool.allocationOffset(indexed)} pixel=$finalPixel frames=$frame liveDelta=${liveAfter - liveBefore} stable=$handlesStable"
     )
     if (repeated && frame == 4 && finalPixel == 4278190335 &&
         liveAfter == liveBefore && handlesStable) 0 else 1

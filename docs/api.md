@@ -617,10 +617,14 @@ remains inaccessible to direct CPU reads and writes. Invalid and stale ranges
 return an invalid transfer ticket without changing queue state. Applications
 must complete every transfer or command that borrows a slice before releasing
 it. `backing` remains an explicit low-level escape hatch. Uniform/storage
-binding uses the checked helpers above. The eight surfaced pool helpers cover
-direct/indexed and vertex-/indexed-indirect rendering, with or without push
-values. They validate every generation token before forwarding the single
-backing buffer and its absolute ranges.
+binding uses the checked helpers above. Twenty-four draw helpers cover the eight
+surfaced and sixteen offscreen target/pass direct, indexed,
+vertex-indirect, and indexed-indirect forms, with or without push values. They
+validate every generation token before forwarding the single backing buffer and
+its absolute ranges. The offscreen families are named consistently, for example
+`renderBufferPoolIndexedToTarget`,
+`renderPassBufferPoolIndexedIndirectToTarget`, and
+`renderPushPassBufferPoolVerticesToTarget`.
 
 The corresponding ordinary surfaced methods accept optional byte ranges after
 their existing arguments. Vertex, `uint32` index, and indirect offsets must be
@@ -628,12 +632,17 @@ four-byte aligned; the vertex range must contain the requested vertices, the
 index range must contain `indexCount * 4` bytes, and indirect ranges must contain
 at least 16 bytes for direct or 20 bytes for indexed commands. OpenGL sums the
 vertex base into every attribute pointer and passes the index/indirect byte
-offset as the command pointer. Vulkan records the same values in
+offset as the command pointer. Vulkan records the matching direct offsets in
 `vkCmdBindVertexBuffers`, `vkCmdBindIndexBuffer`, `vkCmdDrawIndirect`, or
-`vkCmdDrawIndexedIndirect`. Invalid, crossing, short, misaligned, or stale pool
-ranges return `false` before driver work. Complete GPU work before releasing or
-reusing any borrowed allocation. Offset-aware render-target/pass overloads are
-still separate work.
+`vkCmdDrawIndexedIndirect`. For indexed-indirect commands, portable
+`firstIndex` is absolute to the complete index backing buffer because OpenGL has
+no separate index-buffer base for an indirect draw; `indexOffset`/`indexSize`
+identify the validated allocation range and are not added to `firstIndex`.
+Vulkan therefore binds the whole index buffer for indexed-indirect calls. A
+pool command targeting an index slice at byte 48 stores `firstIndex = 12` for
+`uint32` indices. Invalid, crossing, short, misaligned, or stale pool ranges
+return `false` before driver work. Complete GPU work before releasing or
+reusing any borrowed allocation.
 
 A map-write/copy-source buffer may start mapped without an intermediate upload:
 
@@ -1198,7 +1207,12 @@ app.renderPassIndexedIndirectToTarget(
 
 Direct variants accept an optional instance count. The common validation rejects
 a pass created for another target even when its attachment dimensions happen
-to match.
+to match. All four methods, their scalar-clear target counterparts, and all
+eight push-aware target/pass forms accept the same optional checked vertex,
+index, and indirect byte ranges as surfaced rendering. Pool users normally call
+the generation-checked `renderPassBufferPool*ToTarget`,
+`renderBufferPool*ToTarget`, `renderPushPassBufferPool*ToTarget`, and
+`renderPushBufferPool*ToTarget` families instead.
 
 `app.renderTargetPipeline(target, shader, vertexLayout, raster, depth, binding)`
 compiles a raster pipeline against the target format. Procedural pipelines use
@@ -1213,9 +1227,11 @@ FBO. A target
 declaring sampled usage can then feed an ordinary bind group and surface
 pipeline. A depth-enabled pipeline must target a depth-attached target; color-
 only/depth-state mismatches are rejected. The `render-to-texture` sample
-exercises all four buffered command forms against a 4x color/depth target,
-automatically resolves its owned output, then samples it, with exact center-pixel
-verification, stable native handles, and zero live-byte growth. The same
+suballocates vertices, indices, and both indirect commands from one explicitly
+device-local backing buffer at byte offsets 16/48/64/80, exercises all four
+pass-bound command forms against a 4x color/depth target, automatically resolves
+its owned output, then samples it, with exact center-pixel verification, stable
+native handles, and zero live-byte growth. The same
 command forms operate on multiple color attachments and honor the same
 per-attachment operations. `resolveRenderTargetColor` validates an attachment
 index and resolves any color of a multisampled MRT into its matching owned
@@ -2276,10 +2292,13 @@ surface exactly:
 vertex/index/indirect usage, byte-size, count, ownership, target, depth, and
 swapchain-recovery rules while additionally requiring an exact reflected value
 layout. OpenGL reuses the program-owned UBO for every draw form; Vulkan records
-the range before direct or indirect drawing. The `push-color` sample uses a
-layout-equivalent 16-byte block containing a `vec3` tint at byte 0 and scalar
-alpha at byte 12. It executes all eight buffered forms plus both procedural
-forms for changing values across four allocation-free frames on each backend.
+the range before direct or indirect drawing. Their generation-checked pool
+counterparts are `renderPushBufferPool*ToTarget` and
+`presentPushRenderBufferPool*`. The `push-color` sample uses a layout-equivalent
+16-byte block containing a `vec3` tint at byte 0 and scalar alpha at byte 12,
+plus one device-local draw pool at offsets 16/48/64/80. It executes all eight
+buffered forms plus both procedural forms for changing values across four
+allocation-free frames on each backend.
 
 Reusable attachment-operation passes have the matching
 `renderPushPassToTarget`, `renderPushPassVerticesToTarget`,
@@ -2289,8 +2308,10 @@ Reusable attachment-operation passes have the matching
 subpass index, clear-value storage, clear mask, discard-before mask,
 discard-after mask, and Vulkan-compatible-render-pass checks remain unchanged;
 the reflected value layout is an additional mandatory condition. The sample
-exercises clear/store, load/store, and discard/discard operations before a
-stored exact-pixel pass, then repeats all five command forms allocation-free.
+uses the matching `renderPushPassBufferPool*ToTarget` helpers for every buffered
+form and exercises clear/store, load/store, and discard/discard operations
+before a stored exact-pixel pass, then repeats all five command forms
+allocation-free.
 
 For a prepared procedural subpass sequence,
 `sequence.pushConstants()` creates one affine contiguous value block with the

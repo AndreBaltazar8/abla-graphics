@@ -453,14 +453,19 @@ Updated: 2026-08-24.
   1,000 allocate/release cycles on OpenGL, Vulkan, and auto selection. The
   independently buildable `examples/buffer-pool` repeats the public workflow
   on both explicit backends. Uniform/storage range binding is verified by the
-  focused gate and indexed cube. The surfaced direct/indexed and
-  vertex-/indexed-indirect APIs accept checked byte ranges, with generation-
-  checked pool helpers for their ordinary and push-value forms. The focused
-  gate and public sample populate nonzero offsets 16/48/64/80 in one
-  device-local backing buffer, execute all four draw forms on OpenGL and
-  Vulkan, reject misaligned/short/stale ranges, preserve native handles, and
-  report zero live-byte growth. Equivalent render-target/pass range overloads
-  and texture suballocation remain open.
+  focused gate and indexed cube. The surfaced and offscreen target/pass
+  direct/indexed and vertex-/indexed-indirect APIs accept checked byte ranges,
+  with generation-checked pool helpers for their ordinary and push-value forms.
+  The focused gate populates nonzero offsets 16/48/64/80 in one device-local
+  backing buffer, executes all eight surfaced plus all sixteen target/pass
+  helpers on OpenGL, Vulkan, and auto selection, verifies an exact red target
+  pixel, rejects misaligned/short/stale ranges, preserves native handles, and
+  reports zero live-byte growth. `render-to-texture` repeats the four ordinary
+  pass forms from the pooled backing; `push-color` repeats all pooled push
+  target/pass/present forms. Indexed-indirect `firstIndex` is absolute to the
+  complete index backing buffer on both backends, matching OpenGL's native
+  command semantics; Vulkan binds byte zero for this form. Texture
+  suballocation remains open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1203,9 +1208,8 @@ validity gate unchanged.
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,
-  asynchronous texture transfers, device-local suballocation pools, command
-  encoders/render
-  graph,
+  asynchronous texture transfers, device-local texture suballocation pools,
+  command encoders/render graph,
   asset formats, or framework-wide performance gates. Partial RGBA/BGRA
   `PixelBuffer` uploads and synchronous diagnostic readback are present;
   general byte layouts and asynchronous image copies are not.

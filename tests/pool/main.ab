@@ -218,7 +218,7 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
         directBytes.storeI64(0, 8)
     val indexedBytes = bufferBytes(20)
     val indexedStored = indexedBytes.storeI64(4294967299, 0) &&
-        indexedBytes.storeI64(0, 8) && indexedBytes.storeU32(0, 16)
+        indexedBytes.storeI64(12, 8) && indexedBytes.storeU32(0, 16)
     val drawUploads = app.bufferTransferQueue(
         BufferTransferQueueDescriptor(
             label = "test-pool-draw-uploads",
@@ -295,11 +295,29 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
     )
     val pushDrawValues = pushDrawShader.pushConstants()
     val pushDrawReady = pushDrawValues.fill() &&
-        pushDrawValues.storeMemberF32("tint", 0.2) &&
-        pushDrawValues.storeMemberF32("tint", 0.7, 1) &&
-        pushDrawValues.storeMemberF32("tint", 1.0, 2) &&
+        pushDrawValues.storeMemberF32("tint", 1.0) &&
+        pushDrawValues.storeMemberF32("tint", 0.0, 1) &&
+        pushDrawValues.storeMemberF32("tint", 0.0, 2) &&
         pushDrawValues.storeMemberF32("tint", 1.0, 3)
     val drawClear = Color(0.01, 0.02, 0.03)
+    val drawTargetTexture = app.texture(TextureDescriptor(
+        label = "test-pool-draw-target",
+        size = Extent3D(64, 64),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val drawTarget = app.renderTarget(move(drawTargetTexture))
+    val drawTargetPipeline = app.renderTargetPipeline(
+        drawTarget,
+        drawShader,
+        VertexBufferLayout(8)
+    )
+    val pushDrawTargetPipeline = app.renderTargetPipeline(
+        drawTarget,
+        pushDrawShader,
+        VertexBufferLayout(8)
+    )
+    val drawPassValues = renderPassClearValues(drawClear)
+    val drawPass = app.renderPass(drawTarget, move(drawPassValues))
     val directDrawn = app.presentRenderBufferPoolVertices(
         drawPipeline, drawPool, drawVertices, 3, drawClear
     )
@@ -337,6 +355,173 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
             drawIndexed,
             drawClear
         )
+    val targetVerticesDrawn = app.renderBufferPoolVerticesToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPool,
+        drawVertices,
+        3,
+        drawClear
+    )
+    val targetIndexedDrawn = app.renderBufferPoolIndexedToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPool,
+        drawVertices,
+        drawIndices,
+        3,
+        drawClear
+    )
+    val targetVerticesIndirectDrawn =
+        app.renderBufferPoolVerticesIndirectToTarget(
+            drawTarget,
+            drawTargetPipeline,
+            drawPool,
+            drawVertices,
+            drawDirect,
+            drawClear
+        )
+    val targetIndexedIndirectDrawn =
+        app.renderBufferPoolIndexedIndirectToTarget(
+            drawTarget,
+            drawTargetPipeline,
+            drawPool,
+            drawVertices,
+            drawIndices,
+            drawIndexed,
+            drawClear
+        )
+    val pushTargetVerticesDrawn = app.renderPushBufferPoolVerticesToTarget(
+        drawTarget,
+        pushDrawTargetPipeline,
+        pushDrawValues,
+        drawPool,
+        drawVertices,
+        3,
+        drawClear
+    )
+    val pushTargetIndexedDrawn = app.renderPushBufferPoolIndexedToTarget(
+        drawTarget,
+        pushDrawTargetPipeline,
+        pushDrawValues,
+        drawPool,
+        drawVertices,
+        drawIndices,
+        3,
+        drawClear
+    )
+    val pushTargetVerticesIndirectDrawn =
+        app.renderPushBufferPoolVerticesIndirectToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPool,
+            drawVertices,
+            drawDirect,
+            drawClear
+        )
+    val pushTargetIndexedIndirectDrawn =
+        app.renderPushBufferPoolIndexedIndirectToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPool,
+            drawVertices,
+            drawIndices,
+            drawIndexed,
+            drawClear
+        )
+    val passVerticesDrawn = app.renderPassBufferPoolVerticesToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPass,
+        drawPool,
+        drawVertices,
+        3
+    )
+    val passIndexedDrawn = app.renderPassBufferPoolIndexedToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPass,
+        drawPool,
+        drawVertices,
+        drawIndices,
+        3
+    )
+    val passVerticesIndirectDrawn =
+        app.renderPassBufferPoolVerticesIndirectToTarget(
+            drawTarget,
+            drawTargetPipeline,
+            drawPass,
+            drawPool,
+            drawVertices,
+            drawDirect
+        )
+    val passIndexedIndirectDrawn =
+        app.renderPassBufferPoolIndexedIndirectToTarget(
+            drawTarget,
+            drawTargetPipeline,
+            drawPass,
+            drawPool,
+            drawVertices,
+            drawIndices,
+            drawIndexed
+        )
+    val pushPassVerticesDrawn =
+        app.renderPushPassBufferPoolVerticesToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPass,
+            drawPool,
+            drawVertices,
+            3
+        )
+    val pushPassIndexedDrawn =
+        app.renderPushPassBufferPoolIndexedToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPass,
+            drawPool,
+            drawVertices,
+            drawIndices,
+            3
+        )
+    val pushPassVerticesIndirectDrawn =
+        app.renderPushPassBufferPoolVerticesIndirectToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPass,
+            drawPool,
+            drawVertices,
+            drawDirect
+        )
+    val pushPassIndexedIndirectDrawn =
+        app.renderPushPassBufferPoolIndexedIndirectToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPass,
+            drawPool,
+            drawVertices,
+            drawIndices,
+            drawIndexed
+        )
+    val offscreenPixel = drawTarget.texture.rgba8(32, 32)
+    val offscreenPixelExact = offscreenPixel == 4278190335
+    val offscreenFormsDrawn = drawTarget.valid() &&
+        drawTargetPipeline.valid() && pushDrawTargetPipeline.valid() &&
+        drawPass.valid() && targetVerticesDrawn && targetIndexedDrawn &&
+        targetVerticesIndirectDrawn && targetIndexedIndirectDrawn &&
+        pushTargetVerticesDrawn && pushTargetIndexedDrawn &&
+        pushTargetVerticesIndirectDrawn && pushTargetIndexedIndirectDrawn &&
+        passVerticesDrawn && passIndexedDrawn &&
+        passVerticesIndirectDrawn && passIndexedIndirectDrawn &&
+        pushPassVerticesDrawn && pushPassIndexedDrawn &&
+        pushPassVerticesIndirectDrawn && pushPassIndexedIndirectDrawn &&
+        offscreenPixelExact
     val misalignedDrawRejected = !app.presentRenderVertices(
         drawPipeline,
         drawPool.backing,
@@ -371,16 +556,66 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
         drawPool.allocationOffset(drawIndexed),
         19
     )
+    val misalignedTargetDrawRejected = !app.renderVerticesToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPool.backing,
+        3,
+        drawClear,
+        1,
+        drawPool.allocationOffset(drawVertices) + 1,
+        drawPool.allocationSize(drawVertices)
+    )
+    val shortTargetIndexRejected = !app.renderIndexedToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPool.backing,
+        drawPool.backing,
+        3,
+        drawClear,
+        1,
+        drawPool.allocationOffset(drawVertices),
+        drawPool.allocationSize(drawVertices),
+        drawPool.allocationOffset(drawIndices),
+        8
+    )
+    val shortPassDrawRejected = !app.renderPassIndexedIndirectToTarget(
+        drawTarget,
+        drawTargetPipeline,
+        drawPass,
+        drawPool.backing,
+        drawPool.backing,
+        drawPool.backing,
+        drawPool.allocationOffset(drawVertices),
+        drawPool.allocationSize(drawVertices),
+        drawPool.allocationOffset(drawIndices),
+        drawPool.allocationSize(drawIndices),
+        drawPool.allocationOffset(drawIndexed),
+        19
+    )
     val staleDraw = drawPool.allocate(16, 4)
     val staleDrawReleased = drawPool.release(staleDraw)
     val staleDrawRejected = staleDrawReleased &&
         !app.presentRenderBufferPoolVertices(
             drawPipeline, drawPool, staleDraw, 2, drawClear
+        ) && !app.renderBufferPoolVerticesToTarget(
+            drawTarget,
+            drawTargetPipeline,
+            drawPool,
+            staleDraw,
+            2,
+            drawClear
         )
     val drawBackingHandle = if (app.backend == graphicsBackendOpenGl)
         drawPool.backing.openGl.handle else drawPool.backing.vulkan.handle
     val drawPipelineHandle = if (app.backend == graphicsBackendOpenGl)
         drawPipeline.openGl.handle else drawPipeline.vulkan.handle
+    val drawTargetPipelineHandle = if (app.backend == graphicsBackendOpenGl)
+        drawTargetPipeline.openGl.handle else drawTargetPipeline.vulkan.handle
+    val pushDrawTargetPipelineHandle =
+        if (app.backend == graphicsBackendOpenGl)
+            pushDrawTargetPipeline.openGl.handle
+        else pushDrawTargetPipeline.vulkan.handle
     val drawLiveBefore = runtimeMemoryLiveBytes()
     var drawRepeated = true
     var drawFrame = 0
@@ -392,17 +627,33 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
             drawIndices,
             drawIndexed,
             drawClear
+        ) && app.renderPushPassBufferPoolIndexedIndirectToTarget(
+            drawTarget,
+            pushDrawTargetPipeline,
+            pushDrawValues,
+            drawPass,
+            drawPool,
+            drawVertices,
+            drawIndices,
+            drawIndexed
         )
         drawFrame = drawFrame + 1
     }
     val drawLiveAfter = runtimeMemoryLiveBytes()
     val drawHandlesStable = drawBackingHandle != 0 &&
-        drawPipelineHandle != 0 &&
+        drawPipelineHandle != 0 && drawTargetPipelineHandle != 0 &&
+        pushDrawTargetPipelineHandle != 0 &&
         (if (app.backend == graphicsBackendOpenGl)
             drawPool.backing.openGl.handle == drawBackingHandle &&
-                drawPipeline.openGl.handle == drawPipelineHandle
+                drawPipeline.openGl.handle == drawPipelineHandle &&
+                drawTargetPipeline.openGl.handle == drawTargetPipelineHandle &&
+                pushDrawTargetPipeline.openGl.handle ==
+                    pushDrawTargetPipelineHandle
          else drawPool.backing.vulkan.handle == drawBackingHandle &&
-                drawPipeline.vulkan.handle == drawPipelineHandle)
+                drawPipeline.vulkan.handle == drawPipelineHandle &&
+                drawTargetPipeline.vulkan.handle == drawTargetPipelineHandle &&
+                pushDrawTargetPipeline.vulkan.handle ==
+                    pushDrawTargetPipelineHandle)
     val drawRangesExact = drawPool.allocationOffset(drawPrefix) == 0 &&
         drawPool.allocationOffset(drawVertices) == 16 &&
         drawPool.allocationOffset(drawIndices) == 48 &&
@@ -411,8 +662,11 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
         directDrawn && indexedDrawn && indirectDrawn &&
         indexedIndirectDrawn && pushDrawPipeline.valid() &&
         pushDrawValues.valid() && pushDrawReady && pushIndexedIndirectDrawn &&
+        offscreenFormsDrawn &&
         misalignedDrawRejected && shortIndexRejected &&
-        shortDrawRejected && staleDrawRejected && drawRepeated &&
+        shortDrawRejected && misalignedTargetDrawRejected &&
+        shortTargetIndexRejected && shortPassDrawRejected &&
+        staleDrawRejected && drawRepeated &&
         drawFrame == 4 && drawLiveAfter == drawLiveBefore &&
         drawHandlesStable
 
@@ -444,7 +698,10 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
         pool.activeAllocations == 2 && pool.usedBytes == 64 &&
         pool.allocationCount == 1004
     println(
-        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} layout=$layoutExact reuse=$reuseExact exact=$exact bindings=$rangesExact align=$uniformAlignment/$storageAlignment draws=$drawRangesExact push=$pushIndexedIndirectDrawn rejected=$misalignedDrawRejected/$shortIndexRejected/$shortDrawRejected/$staleDrawRejected offsets=${drawPool.allocationOffset(drawVertices)}/${drawPool.allocationOffset(drawIndices)}/${drawPool.allocationOffset(drawDirect)}/${drawPool.allocationOffset(drawIndexed)} drawLive=${drawLiveAfter - drawLiveBefore} live=${liveAfter - liveBefore} stable=$handleStable/$drawHandlesStable active=${pool.activeAllocations} used=${pool.usedBytes}/${pool.descriptor.capacity}"
+        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} layout=$layoutExact reuse=$reuseExact exact=$exact bindings=$rangesExact align=$uniformAlignment/$storageAlignment draws=$drawRangesExact offscreen=$offscreenFormsDrawn push=$pushIndexedIndirectDrawn rejected=$misalignedDrawRejected/$shortIndexRejected/$shortDrawRejected/$misalignedTargetDrawRejected/$shortTargetIndexRejected/$shortPassDrawRejected/$staleDrawRejected offsets=${drawPool.allocationOffset(drawVertices)}/${drawPool.allocationOffset(drawIndices)}/${drawPool.allocationOffset(drawDirect)}/${drawPool.allocationOffset(drawIndexed)} drawLive=${drawLiveAfter - drawLiveBefore} live=${liveAfter - liveBefore} stable=$handleStable/$drawHandlesStable active=${pool.activeAllocations} used=${pool.usedBytes}/${pool.descriptor.capacity}"
+    )
+    println(
+        "buffer-pool offscreen forms: target=$targetVerticesDrawn/$targetIndexedDrawn/$targetVerticesIndirectDrawn/$targetIndexedIndirectDrawn pushTarget=$pushTargetVerticesDrawn/$pushTargetIndexedDrawn/$pushTargetVerticesIndirectDrawn/$pushTargetIndexedIndirectDrawn pass=$passVerticesDrawn/$passIndexedDrawn/$passVerticesIndirectDrawn/$passIndexedIndirectDrawn pushPass=$pushPassVerticesDrawn/$pushPassIndexedDrawn/$pushPassVerticesIndirectDrawn/$pushPassIndexedIndirectDrawn pixel=$offscreenPixel/$offscreenPixelExact"
     )
     passed
 }
