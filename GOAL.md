@@ -7,6 +7,11 @@ Read this file first, then `plan.md`, `docs/status.md`, and `docs/api.md`. The
 repository contains many working vertical slices, but the framework is not
 finished and must not be presented as complete.
 
+The persistent goal is active. Its objective is to complete every item in
+`plan.md`, not merely the next checkpoint. This handoff was refreshed before
+any wider-texture implementation edit was made, so the next person can begin
+from a clean published tree.
+
 ## Product goal
 
 Build and publish `AndreBaltazar8/abla-graphics`: the Abla ecosystem's native
@@ -65,12 +70,15 @@ Graphics repository:
 - path: `/home/andre/Desktop/projects/abla-graphics`
 - remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - branch: `main`
-- verified implementation checkpoint:
+- synchronized published base when this refresh began:
+  `c092194a2fbadca0cba3985b1a653da90a10b8eb`
+- last implementation checkpoint:
   `a99cf7af8faf7fb4e021cdda629d4b98a9ca9ce5`
-- local `HEAD` and `origin/main` matched at that commit before this handoff was
-  committed; after the handoff commit, use the commands below as authoritative
-- no uncommitted implementation work should remain; expect a clean synchronized
-  tree after this document is published
+- `c092194` changes only the previous handoff; there are no later implementation
+  edits
+- the tree was clean and synchronized immediately before this refresh; the
+  refresh commit will naturally be a handoff-only successor, so use the commands
+  below for the current commit instead of embedding a self-referential hash here
 
 Compiler repository:
 
@@ -166,6 +174,80 @@ problem. OpenGL generally owns opaque texture storage while Vulkan exposes
 image-memory binding, so define portable application intent (atlas, array,
 transient aliasing, or native memory suballocation) before choosing an API.
 
+## Exact continuation point
+
+Implementation is paused before the wider-texture slice. No source file has
+been edited for it. The initial read-only audit established the following
+current assumptions and pressure points:
+
+- `TextureDescriptor` and `TextureViewDescriptor` already contain dimension,
+  depth/layer, mip, and view-range fields, but `GraphicsApplication.texture`
+  rejects every dimension except 2D and the transfer/copy descriptors expose
+  only `x`, `y`, `width`, and `height`;
+- `Extent3D.depth` can remain the public third extent, but its meaning must be
+  explicit: physical depth for 3D textures and array-layer count for 2D arrays
+  and cube textures. Mip reduction applies to physical 3D depth, never to array
+  layer count;
+- default views currently assume 2D. They need to resolve their dimension from
+  the parent texture, validate compatible 2D/2D-array/cube/3D combinations, and
+  distinguish a 3D depth slice from an array layer;
+- the OpenGL backend creates and binds only `GL_TEXTURE_2D` or multisample 2D,
+  writes only with `glTexSubImage2D`, and aliases full views. Wider support needs
+  audited 3D/array/cube targets, immutable storage, real owned texture views,
+  correct pixel-store state, and target-aware bind-group application;
+- the Vulkan backend currently creates one-layer images/views, records 2D
+  buffer-image regions, and stores one layout per mip. Arrays and cubes require
+  correct image flags/view types/layer counts and layout tracking per mip and
+  array layer; 3D textures keep one array layer and a shrinking depth extent;
+- `GraphicsLimits` only exposes the 2D texture limit. Query and publish the 1D,
+  3D, cube, and array-layer limits on both backends before accepting the new
+  descriptors;
+- sampled binding reflection treats only `sampler2D` as a texture. It must
+  distinguish and validate `sampler2D`, `sampler2DArray`, `samplerCube`, and
+  `sampler3D`, then carry the correct target/type through OpenGL and Vulkan;
+- the current async texture queues are deliberately RGBA/BGRA 2D. Preserve
+  those convenience calls, tickets, fixed slot storage, stable handles, and
+  zero-growth primitive paths while adding a raw byte/layout/region path;
+- generated raw declarations do not count as backend support. Any newly used
+  OpenGL entry point must be added through `registry/audit/opengl.tsv`, tested,
+  regenerated, and reflected in the coverage ledger.
+
+The provisional portable API shape from the audit is:
+
+- add explicit 2D-array and cube dimensions while retaining 1D, 2D, and 3D;
+- add a texture subresource region containing mip, `x/y/z`, and
+  `width/height/depth`, plus a data layout containing byte offset,
+  `bytesPerRow`, and `rowsPerImage`;
+- keep `PixelBuffer` as the ergonomic uncompressed 2D RGBA convenience and use
+  `BufferBytes` for pitched, layered, volume, and compressed transfers;
+- introduce BC1 RGBA UNORM and sRGB as the first compressed family, together
+  with format block-width, block-height, bytes-per-block, and overflow-safe
+  footprint helpers;
+- use immutable OpenGL texture storage so real `glTextureView` objects and
+  compressed allocation share one correct storage model;
+- make primitive region/layout overloads the measured hot path; descriptor
+  wrappers may remain setup conveniences.
+
+These are design conclusions, not implemented promises. Before coding, verify
+the exact Khronos constants and entry-point requirements from the pinned
+registry, settle descriptor names in `src/resources.ab`, and write core
+positive/negative validation cases. Then implement in this order:
+
+1. portable dimensions, format/block helpers, regions, layouts, view rules,
+   limits, and overflow-safe tests;
+2. OpenGL/Vulkan creation and view ownership, followed by synchronous raw
+   upload/readback/copy paths and exact live tests;
+3. target/type-aware bind groups and `$glsl` reflection/SPIR-V support for
+   array, cube, and 3D sampling;
+4. fixed-slot asynchronous raw transfers without regressing the existing 2D
+   convenience or allocation behavior;
+5. independently buildable array/cube/volume samples, documentation, registry
+   regeneration, and the complete publication gates.
+
+Do not quietly reduce this checkpoint to creation-only enums. If the whole
+slice becomes too large for one reviewable commit, split it at the numbered
+boundaries and keep each published commit truthful about what is live-tested.
+
 ## Files to care about
 
 Primary implementation and composition:
@@ -179,8 +261,14 @@ Primary implementation and composition:
   buffer transfer slot implementations to extend or factor carefully;
 - `src/driver/opengl.ab` and `src/driver/vulkan.ab` — existing synchronous image
   copy/layout/barrier machinery;
-- `src/resources.ab` and `src/graphics.ab` — public descriptor/composition
-  surfaces if a new texture-transfer module is added.
+- `src/resources.ab` — current texture descriptors, dimensions, formats, view
+  rules, and transfer/copy validation; start the portable design here;
+- `src/core.ab` — portable limits and the backend capability contract;
+- `src/binding.ab` — reflected sampled-texture compatibility and bind-group
+  payloads;
+- `src/shader/glsl.ab` and `src/shader/glsl_spirv.ab` — sampler reflection and
+  deterministic SPIR-V image/sampling types;
+- `src/graphics.ab` — public module composition when surfaces change.
 
 Live evidence and samples:
 
