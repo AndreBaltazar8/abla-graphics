@@ -66,7 +66,7 @@ Graphics repository:
 - remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - branch: `main`
 - verified implementation checkpoint:
-  `8990ca4dce2a4884603ba285cd37430ed3805746`
+  `a99cf7af8faf7fb4e021cdda629d4b98a9ca9ce5`
 - local `HEAD` and `origin/main` matched at that commit before this handoff was
   committed; after the handoff commit, use the commands below as authoritative
 - no uncommitted implementation work should remain; expect a clean synchronized
@@ -96,31 +96,35 @@ git -C ../ablac rev-parse '@{upstream}'
 
 ## Last published checkpoint
 
-The last implementation commit is `8990ca4` (`Add pooled offscreen draw
-ranges`). It extends the previously published surfaced draw-range support to
-all sixteen offscreen target/pass forms.
+The last implementation commit is `a99cf7a` (`Add fixed-slot async texture
+transfers`). It adds allocation-free streaming paths for portable RGBA8/BGRA8
+2D texture upload and readback on both production backends.
 
 Published behavior:
 
-- all 16 ordinary/push target/pass vertex, indexed, vertex-indirect, and
-  indexed-indirect methods accept source-compatible optional checked byte
-  ranges;
-- `src/pool_render_target.ab` exposes 16 generation-checked helpers in addition
-  to the eight surfaced helpers in `src/pool_render.ab`;
-- OpenGL sums vertex bases into attribute pointers and uses index/indirect draw
-  pointers; Vulkan records equivalent direct range binds and command offsets;
-- indexed-indirect `firstIndex` is absolute to the complete backing index
-  buffer on both backends because OpenGL has no separate indirect index-base
-  argument. Vulkan binds index byte zero for indexed-indirect calls. A pooled
-  `uint32` index allocation at byte 48 therefore stores `firstIndex = 12`;
-- `tests/pool/main.ab` runs all eight surfaced and all sixteen offscreen helpers
-  from one device-local pool at `16/48/64/80`, verifies an exact red target
-  pixel, rejects seven malformed/short/stale cases, preserves native handles,
-  and reports zero live growth on OpenGL, Vulkan, and auto selection;
-- `examples/render-to-texture` uses the pooled ordinary pass forms with depth,
-  multisample resolve, sampling, exact output, and zero-growth repeats;
-- `examples/push-color` uses pooled push target/pass/present forms with exact
-  changing values and zero-growth repeats;
+- `src/texture_transfer.ab` exposes fixed-capacity one-to-eight-slot upload or
+  readback queues, generation tickets, poll/wait/wait-all, immutable descriptor
+  conveniences, and primitive `...TextureRange` hot paths;
+- each queue reuses one coherent persistent mapped staging allocation and the
+  existing per-slot OpenGL sync or Vulkan command-pool/command-buffer/fence
+  state; enqueue never waits for a busy selected slot;
+- OpenGL performs real pixel unpack/pack buffer transfers and `GLsync`
+  completion; Vulkan records buffer/image copies, per-mip layout transitions,
+  a transfer-to-host readback barrier, and fence-backed completion without
+  queue/device-wide idle;
+- CPU `PixelBuffer` data remains RGBA while mapped staging uses native RGBA or
+  BGRA channel order. Upload and readback both preserve exact pixels;
+- descriptor overloads are concise for setup. Primitive range overloads avoid
+  Abla immutable-class value-copy allocation and are the explicit streaming
+  path; repeated measured loops report zero live-byte growth;
+- `tests/texture_transfer/main.ab` submits two operations before waits, checks
+  exact RGBA and BGRA regions, capacity rejection, stale generations, stable
+  staging/command handles, and zero live growth on OpenGL, Vulkan, and auto;
+- `examples/async-texture` submits three complete frames before waiting,
+  reads the final BGRA image back exactly, performs 12 allocation-free repeated
+  uploads, and runs under both explicit backends in the sample matrix;
+- the pre-existing asynchronous buffer queue regression still passes exact,
+  stable, zero-growth behavior after the Vulkan slot scratch expansion;
 - The strict registry coverage remains 97 OpenGL plus 113 Vulkan common
   commands, 210 total.
 
@@ -132,7 +136,7 @@ nix-shell --run 'make all'
 nix-shell --run 'make test-samples'
 ```
 
-Those results apply to the final source in `8990ca4`. `../ablac` was not changed.
+Those results apply to the final source in `a99cf7a`. `../ablac` was not changed.
 
 Earlier published foundations include explicit device-local buffer placement,
 fixed-metadata buffer suballocation, generation-checked async slice transfer,
@@ -142,49 +146,25 @@ offscreen targets/passes, push values, compute, X11/Wayland/headless platform
 paths, and the currently documented strict `$glsl` subset. Consult
 `docs/status.md` for claim-level detail and evidence.
 
-## Recommended next checkpoint: asynchronous texture transfers
+## Recommended next checkpoint: wider texture subresources
 
-The next high-value performance slice is fixed-slot asynchronous texture upload
-and readback. Buffer queues are already allocation-free and well tested, while
-texture operations remain synchronous. This slice should make real progress
-toward streaming assets and later texture suballocation without pretending that
-OpenGL and Vulkan expose identical memory models.
+The next coherent slice should expand the texture model beyond single-layer 2D
+RGBA8/BGRA8. Prioritize 2D arrays, cube maps, and 3D textures with explicit
+layer/depth origins and extents, row/image pitch, and the first compressed
+format family. Carry that shape through creation, views, synchronous copies,
+asynchronous queues, bind groups, `$glsl` reflection, and both native backends.
 
-Start with a design/source audit of `src/texture.ab`, `src/transfer.ab`,
-`src/driver/opengl_transfer.ab`, `src/driver/vulkan_transfer.ab`, the synchronous
-image paths in `src/driver/opengl.ab` and `src/driver/vulkan.ab`, and the texture
-coverage in `tests/application/main.ab`/`examples/common-texture`.
+Do not merely add enum values. Required evidence includes overflow-safe
+descriptor validation, backend limit/capability checks, OpenGL target and pixel
+store handling, Vulkan image/view types and buffer-image-copy layouts,
+per-subresource Vulkan layout tracking, exact positive readback where portable,
+negative crossing/pitch/format cases, stable handles, zero-growth repeated
+range operations, and independently buildable array/cube or volume samples.
 
-Required shape for a coherent checkpoint:
-
-1. Add a bounded descriptor for upload or readback, fixed slot count/capacity,
-   pixel layout, mip, origin, and extent. Validate overflow-safe row/layer byte
-   sizes, format compatibility, usage, ownership, sample count, and subresource
-   bounds before submission.
-2. Reuse one mapped staging allocation and fixed native state per slot. Enqueue
-   must return immediately with a generation-checked ticket and must not wait or
-   allocate in the hot path.
-3. OpenGL should use fence-backed completion around real texture transfer work;
-   Vulkan should use reusable per-slot command/fence state and explicit image
-   layout/access transitions without queue/device-wide idle.
-4. Preserve the buffer queue's poll/wait/stale-ticket semantics where they are
-   genuinely portable. Do not force an abstraction that loses row pitch,
-   subresource, or layout information needed by either backend.
-5. Add focused positive and negative live tests on explicit OpenGL, explicit
-   Vulkan, and auto selection: multiple operations in flight before waits,
-   exact partial-mip bytes, stale tickets, invalid/crossing layouts, stable
-   staging/command handles, and zero live growth across slot reuse.
-6. Add a small independently buildable streaming-texture sample or evolve
-   `examples/common-texture` only if it remains concise. Update audit evidence,
-   API/status/plan documentation, and the complete sample matrix.
-7. Run the focused gates, `make update-registry test-registry`, `make all`, and
-   `make test-samples`; publish only after all final-source gates pass.
-
-Device-local texture memory suballocation remains the next separate allocator
-design problem. OpenGL generally owns opaque texture storage while Vulkan
-exposes image-memory binding, so first define the portable application intent
-(atlas/array/subresource pooling versus native memory suballocation) and keep
-backend-specific optimization behind that contract.
+Device-local texture memory suballocation remains a separate allocator design
+problem. OpenGL generally owns opaque texture storage while Vulkan exposes
+image-memory binding, so define portable application intent (atlas, array,
+transient aliasing, or native memory suballocation) before choosing an API.
 
 ## Files to care about
 
@@ -192,6 +172,8 @@ Primary implementation and composition:
 
 - `src/texture.ab` — portable descriptors, checked texture byte operations,
   layouts, and ownership;
+- `src/texture_transfer.ab` — delivered async queue surface and native-order
+  staging conversion; extend without regressing primitive range allocation;
 - `src/transfer.ab` — established ticket, slot, generation, poll, and wait API;
 - `src/driver/opengl_transfer.ab` and `src/driver/vulkan_transfer.ab` — reusable
   buffer transfer slot implementations to extend or factor carefully;
@@ -205,10 +187,9 @@ Live evidence and samples:
 - `tests/application/main.ab` — existing broad texture validation/output proof;
 - `tests/transfer/main.ab` and `tools/test-transfer.sh` — established queue
   invariants and output conventions;
-- add a focused texture-transfer test rather than overgrowing either broad
-  source if compilation memory materially increases;
-- `examples/common-texture/main.ab` and a possible concise streaming-texture
-  example;
+- `tests/texture_transfer/main.ab` and `tools/test-texture-transfer.sh` — exact
+  async RGBA/BGRA, generation, stable-handle, and zero-growth proof;
+- `examples/common-texture/main.ab` and `examples/async-texture/main.ab`;
 - `tools/test-samples.sh` and each affected example's `abla.toml`.
 
 Public claims and generated coverage:
@@ -230,7 +211,7 @@ Use the repository's Nix environment. Start focused, then run the complete
 release and independent-sample gates:
 
 ```bash
-nix-shell --run 'make test-core test-transfer'
+nix-shell --run 'make test-core test-transfer test-texture-transfer'
 nix-shell --run 'make test-application'
 nix-shell --run 'make update-registry test-registry'
 nix-shell --run 'make all'
@@ -238,9 +219,10 @@ nix-shell --run 'make test-samples'
 ```
 
 `make all` includes the Abla-only audit and the core, platform, OpenGL, Vulkan,
-window, `$glsl`, application, transfer, pool, debug, and registry tests. Do not
-replace it with only focused checks before publication. `make test-samples`
-performs the independent no-cache sample build/live matrix and is also required.
+window, `$glsl`, application, buffer-transfer, texture-transfer, pool, debug,
+and registry tests. Do not replace it with only focused checks before
+publication. `make test-samples` performs the independent no-cache sample
+build/live matrix and is also required.
 
 Before committing:
 
@@ -268,7 +250,7 @@ git status --short
 
 `plan.md` remains authoritative. The largest open areas are:
 
-- device-local texture suballocation, asynchronous image transfer, reusable
+- device-local texture suballocation, wider asynchronous image transfer, reusable
   command encoders, transient resources, descriptor reuse, render-graph
   scheduling/barriers/aliasing, and persistent pipeline caches;
 - fuller texture formats/layouts/conversion, query resolution, advanced
