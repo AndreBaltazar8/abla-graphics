@@ -1,6 +1,6 @@
 # Abla Graphics goal and continuation handoff
 
-Updated: 2026-08-24 (Europe/Lisbon).
+Updated: 2026-08-25 (Europe/Lisbon).
 
 This is the operational handoff for the next person continuing Abla Graphics.
 Read this file first, then `plan.md`, `docs/status.md`, and `docs/api.md`.
@@ -71,11 +71,11 @@ documentation, and relevant performance/validation gates all pass.
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
 - Current implementation checkpoint:
+  `3b31d3dd7f1c93e7f2732e12100098494fcea3c2`
+  (`Add explicit sampled texture view bindings`)
+- Previous wider-sampler checkpoint:
   `6d2e8cbcf5347a65b655701bd7e59cbd77104231`
-  (`Add wider sampled texture shaders`)
-- Previous pitched wider-transfer checkpoint:
-  `569107ea280198f08c116d164cbdd4fb1a491754`
-- This document is committed as a handoff-only successor to `6d2e8cb`, so use
+- This document is committed as a handoff-only successor to `3b31d3d`, so use
   `git rev-parse HEAD` rather than embedding its self-referential commit here.
 - The implementation and handoff commits are intended to be pushed together.
   The worktree should be clean and synchronized after publication; recheck it
@@ -332,32 +332,51 @@ nix-shell --run 'make test-samples'
 matrix built all 37 examples, including `wider-sampling`, and completed its
 Wayland/headless/X11 plus explicit OpenGL/Vulkan runtime matrix.
 
+## Current checkpoint: explicit sampled texture views
+
+Implementation commit `3b31d3d` adds `sampledTextureViewEntry`,
+`textureViewBinding`, and `textureViewUniformBinding`. A view retains its parent
+descriptor for resolved dimension/format validation and application ownership
+checks. Bind groups borrow the parent texture, view, and sampler; they do not
+take affine ownership.
+
+OpenGL binds the exact alias or owned `glTextureView` name. Vulkan accepts the
+caller-owned `VkImageView` directly and destroys only default views created
+inside the bind group. The live sample proves that no hidden Vulkan replacement
+views are created. It samples a narrowed array layer, cube face, and volume
+view with exact pixels on both backends, four repeated frames, stable handles,
+and `live=0`. Depth-view and reflected-dimension mismatches reject before
+driver work.
+
+Verified on 2026-08-25 with:
+
+```bash
+nix-shell --run 'make test-core test-texture-contract test-application test-wider-sampling'
+VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s "-screen 0 800x600x24" build/tests/wider-sampling vulkan
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+The validation-layer run was silent, and the no-cache matrix built and ran all
+37 examples. No `ablac` change was required.
+
 ## Immediate continuation checklist
 
-The next coherent checkpoint is explicit sampled `GraphicsTextureView`
-binding, which completes the ownership surface already used by attachments:
+The next coherent checkpoint is wider fixed-slot asynchronous texture transfer:
 
-1. Audit `GraphicsBindingEntry`, texture/view affine ownership, OpenGL alias
-   versus owned `glTextureView` handles, and Vulkan bind-group view ownership.
-2. Define an idiomatic view-entry API without weakening the existing concise
-   full-texture helper. A bind group must borrow the parent texture and view for
-   the pipeline lifetime without double ownership or premature destruction.
-3. Match sampler reflection against the resolved view dimension and reject
-   incompatible aspect, multisample, mip/layer range, or format before backend
-   descriptor work.
-4. Bind the exact OpenGL view object and use the supplied Vulkan image view
-   without silently recreating a full view. Keep repeated draws allocation-free
-   and all native handles stable.
-5. Add exact sampling from a selected array layer/cube face/volume or mip and a
-   compatible linear/sRGB view where portable. Include lifetime and mismatch
-   negatives on both backends.
-6. Add or extend one independent sample, update audited command evidence and
-   public claims, then run focused gates, `make all`, and `make test-samples`
-   before an explicit-path commit and push.
+1. Extend the existing ticket/slot API from RGBA8/BGRA8 2D convenience to raw
+   `BufferBytes`, `TextureRegion`, and `TextureDataLayout` selections.
+2. Support array layers, cube faces, physical 3D slices, and BC1 blocks without
+   conflating array layers with volume depth.
+3. Preserve bounded capacity, stale-ticket rejection, targeted wait/poll,
+   stable staging/command/synchronization handles, caller padding, and zero
+   steady-state allocation.
+4. Add exact positive and negative live gates on OpenGL and Vulkan, an
+   independent sample, docs, and any newly required registry evidence.
+5. Run focused gates, `make all`, and `make test-samples`, then commit and push
+   with explicit-path review.
 
-After that, extend fixed-slot asynchronous texture queues to raw wider and
-compressed transfers without regressing the existing 2D convenience, tickets,
-stable resources, or zero-growth hot paths. Decide and document portable
+After that, decide and document portable
 application intent before designing Vulkan device-local texture-memory
 suballocation; OpenGL texture storage is opaque, so native allocation mechanics
 alone are not a useful common abstraction. Then continue through all remaining
