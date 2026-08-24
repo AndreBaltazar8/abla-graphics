@@ -178,6 +178,13 @@ noescape extern:"c" fun glBindBufferBase(
     index: i32,
     buffer: i32
 ): void
+noescape extern:"c" fun glBindBufferRange(
+    target: i32,
+    index: i32,
+    buffer: i32,
+    offset: int,
+    size: int
+): void
 noescape extern:"c" fun glMemoryBarrier(barriers: i32): void
 noescape extern:"c" fun glEnable(capability: i32): void
 noescape extern:"c" fun glDisable(capability: i32): void
@@ -571,25 +578,36 @@ trusted fun openGlApplyBindGroup(
     kinds: array<int>,
     bindings: array<int>,
     resources: array<int>,
+    offsets: array<int>,
+    sizes: array<int>,
     samplers: array<int>
 ): bool {
     var succeeded = kinds.size == bindings.size &&
-        kinds.size == resources.size && kinds.size == samplers.size
+        kinds.size == resources.size && kinds.size == offsets.size &&
+        kinds.size == sizes.size && kinds.size == samplers.size
     var index = 0
     while (succeeded && index < kinds.size) {
         val kind = kinds[index]
         val binding = bindings[index]
         val handle = resources[index]
+        val offset = offsets[index]
+        val size = sizes[index]
         val sampler = samplers[index]
         succeeded = binding >= 0 && binding <= 31 && handle != 0
         if (succeeded && kind == 1 && sampler != 0) {
             glActiveTexture(33984 + binding)
             glBindTexture(3553, handle)
             glBindSampler(binding, sampler)
-        } else if (succeeded && kind == 2 && sampler == 0) {
+        } else if (succeeded && kind == 2 && sampler == 0 &&
+            offset < 0) {
             glBindBufferBase(35345, binding, handle)
-        } else if (succeeded && kind == 3 && sampler == 0) {
+        } else if (succeeded && kind == 2 && sampler == 0 && size > 0) {
+            glBindBufferRange(35345, binding, handle, offset, size)
+        } else if (succeeded && kind == 3 && sampler == 0 &&
+            offset < 0) {
             glBindBufferBase(37074, binding, handle)
+        } else if (succeeded && kind == 3 && sampler == 0 && size > 0) {
+            glBindBufferRange(37074, binding, handle, offset, size)
         } else succeeded = false
         index = index + 1
     }
@@ -609,15 +627,19 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     val workgroupSizeZ = nativeI64Cell(0)
     val invocations = nativeI64Cell(0)
     val anisotropy = nativeI64Cell(0)
+    val uniformOffsetAlignment = nativeI64Cell(1)
+    val storageOffsetAlignment = nativeI64Cell(1)
     glGetIntegerv(33307, major.address)
     glGetIntegerv(33308, minor.address)
     glGetIntegerv(3379, texture.address)
+    glGetIntegerv(35380, uniformOffsetAlignment.address)
     val majorValue = major.load() & 4294967295
     val minorValue = minor.load() & 4294967295
     val compute = majorValue > 4 ||
         (majorValue == 4 && minorValue >= 3)
     if (compute) {
         glGetInteger64v(37086, storage.address)
+        glGetIntegerv(37087, storageOffsetAlignment.address)
         glGetIntegeri_v(37310, 0, workgroupsX.address)
         glGetIntegeri_v(37310, 1, workgroupsY.address)
         glGetIntegeri_v(37310, 2, workgroupsZ.address)
@@ -673,7 +695,9 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
             workgroupsY.load() & 4294967295,
             workgroupsZ.load() & 4294967295,
             workgroupSizeY.load() & 4294967295,
-            workgroupSizeZ.load() & 4294967295
+            workgroupSizeZ.load() & 4294967295,
+            uniformOffsetAlignment.load() & 4294967295,
+            storageOffsetAlignment.load() & 4294967295
         ),
         GraphicsVersion(majorValue, minorValue)
     )
@@ -1931,6 +1955,8 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     bindingKinds: array<int>,
     bindingNumbers: array<int>,
     bindingResources: array<int>,
+    bindingOffsets: array<int>,
+    bindingSizes: array<int>,
     bindingSamplers: array<int>,
     indirectBuffer: int = 0,
     indexedIndirect: bool = false,
@@ -2038,6 +2064,8 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             bindingKinds,
             bindingNumbers,
             bindingResources,
+            bindingOffsets,
+            bindingSizes,
             bindingSamplers
         )
         if (indexed) glBindBuffer(34963, indexBuffer)
@@ -2887,6 +2915,8 @@ resource class OpenGlWindowContext(
         bindingKinds: array<int>,
         bindingNumbers: array<int>,
         bindingResources: array<int>,
+        bindingOffsets: array<int>,
+        bindingSizes: array<int>,
         bindingSamplers: array<int>,
         pushConstantData: i64* = nativeNullPointer(),
         pushConstantSize: int = 0
@@ -2942,6 +2972,8 @@ resource class OpenGlWindowContext(
                 bindingKinds,
                 bindingNumbers,
                 bindingResources,
+                bindingOffsets,
+                bindingSizes,
                 bindingSamplers
             ) &&
                 openGlApplyDepthState(depth) &&
@@ -2969,6 +3001,8 @@ resource class OpenGlWindowContext(
         bindingKinds: array<int>,
         bindingNumbers: array<int>,
         bindingResources: array<int>,
+        bindingOffsets: array<int>,
+        bindingSizes: array<int>,
         bindingSamplers: array<int>,
         indirectBuffer: int = 0,
         pushConstantData: i64* = nativeNullPointer(),
@@ -3030,6 +3064,8 @@ resource class OpenGlWindowContext(
                     bindingKinds,
                     bindingNumbers,
                     bindingResources,
+                    bindingOffsets,
+                    bindingSizes,
                     bindingSamplers
                 ) &&
                 openGlApplyDepthState(depth) &&
@@ -3065,6 +3101,8 @@ resource class OpenGlWindowContext(
         bindingKinds: array<int>,
         bindingNumbers: array<int>,
         bindingResources: array<int>,
+        bindingOffsets: array<int>,
+        bindingSizes: array<int>,
         bindingSamplers: array<int>,
         indirectBuffer: int = 0,
         pushConstantData: i64* = nativeNullPointer(),
@@ -3126,6 +3164,8 @@ resource class OpenGlWindowContext(
                     bindingKinds,
                     bindingNumbers,
                     bindingResources,
+                    bindingOffsets,
+                    bindingSizes,
                     bindingSamplers
                 )
             glBindBuffer(34963, indices.handle)

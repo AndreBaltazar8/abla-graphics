@@ -233,7 +233,9 @@ val pipeline = app.renderPipeline(
 ```
 
 `sampledTextureEntry`, `uniformBufferEntry`, and `storageBufferEntry` may be
-combined in one group with unique bindings from 0 through 31. Groups currently
+combined in one group with unique bindings from 0 through 31. Their
+`uniformBufferRangeEntry` and `storageBufferRangeEntry` counterparts bind a
+checked byte range rather than the whole resource. Groups currently
 accept up to 16 entries in descriptor set zero and one resource per entry.
 Visibility can combine `shaderVisibilityVertex`, `shaderVisibilityFragment`,
 and `shaderVisibilityCompute`. Pipeline creation structurally matches every
@@ -242,8 +244,11 @@ wrong-stage, wrong-kind, nonzero-set, or array bindings.
 
 OpenGL maps sampled entries to the matching texture/sampler unit and buffer
 entries to the matching UBO or SSBO slot, reapplying the group before each draw.
+Whole resources retain `glBindBufferBase`; real subranges use
+`glBindBufferRange` with a typed pointer-sized offset and size.
 Vulkan creates one compatible set layout, aggregated descriptor pool, descriptor
-set, and a full image view for each sampled entry; every draw records
+set, exact `VkDescriptorBufferInfo` offsets/ranges, and a full image view for
+each sampled entry; every draw records
 `vkCmdBindDescriptorSets`. These resources survive swapchain and graphics-
 pipeline recreation. The entry arrays and backend binding arrays are prepared
 once, so drawing does not allocate or rebuild descriptors.
@@ -259,8 +264,28 @@ for the common binding-zero fragment texture and binding-one vertex uniform
 layouts. The indexed cube uses the latter with a std140 `Transform` block
 containing one `mat4 mvp`. Buffers must declare the matching
 `bufferUsageUniform` or `bufferUsageStorage` flag and outlive the pipeline.
-Updating a uniform with reused `BufferBytes` and `writeAllBytes` uses direct
-whole-buffer backend paths, avoiding a temporary copy descriptor per call.
+Every ranged offset must be a multiple of the active device's queried
+`minimumUniformBufferOffsetAlignment` or
+`minimumStorageBufferOffsetAlignment`; misaligned and crossing ranges are
+rejected before driver work.
+
+Pool slices have direct helpers:
+
+```abla
+val entry = app.uniformBufferPoolEntry(
+    1,
+    shaderVisibilityVertex,
+    pool,
+    allocation
+)
+```
+
+The helper validates the generation token and slice-relative subrange, then
+uses its checked absolute backing-buffer offset. The indexed cube forces the
+uniform away from offset zero, asynchronously uploads its 64-byte transform,
+and renders four allocation-stable frames from offset 16 on the tested OpenGL
+driver and offset 64 on Vulkan. A released/stale allocation cannot create a
+valid entry. Complete all GPU work before releasing the slice.
 
 Portable fixed raster state is immutable and supplied when creating the
 pipeline:
@@ -580,9 +605,9 @@ existing fixed-slot GL/Vulkan transfer machinery, so the backing allocation
 remains inaccessible to direct CPU reads and writes. Invalid and stale ranges
 return an invalid transfer ticket without changing queue state. Applications
 must complete every transfer or command that borrows a slice before releasing
-it. `backing` remains an explicit low-level escape hatch; offset-aware portable
-binding and render commands are the next integration slice and are not implied
-by the current pool API.
+it. `backing` remains an explicit low-level escape hatch. Uniform/storage
+binding uses the checked helpers above; offset-aware vertex/index/indirect
+commands remain a separate integration slice.
 
 A map-write/copy-source buffer may start mapped without an intermediate upload:
 

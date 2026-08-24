@@ -16,7 +16,8 @@ mapped-at-creation and checked post-creation buffer range mapping,
 coherent persistent upload/readback mapping, bounded aligned transfer rings,
 fixed-slot asynchronous buffer upload/readback queues, explicit host-visible
 and device-local buffer placement, fixed-metadata device-local buffer
-suballocation with generation-checked slice transfers, reusable
+suballocation with generation-checked slice transfers and aligned
+uniform/storage range binding, reusable
 copies/fills/pixel
 presentation, compute pipelines, strict initial
 `$glsl`-to-SPIR-V subsets, and the first procedural, common-vertex-buffer, and

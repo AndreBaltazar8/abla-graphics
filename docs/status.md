@@ -276,10 +276,15 @@ Updated: 2026-08-24.
 - General bind groups: `GraphicsBindGroup` accepts up to 16 unique set-zero
   entries spanning sampled textures, uniform buffers, and storage buffers with
   explicit vertex/fragment/compute visibility. Pipeline reflection matches the
-  complete entry shape. OpenGL prepares texture/sampler/UBO/SSBO slot arrays;
-  Vulkan owns per-texture views plus an aggregated descriptor pool, layout, and
-  set. Application tests create a three-entry group on both backends and reject
-  duplicate bindings and usage mismatches before driver work. The strict
+  complete entry shape. Entries can select checked uniform/storage subranges.
+  OpenGL prepares texture/sampler/UBO/SSBO slot, offset, and size arrays, keeps
+  whole resources on `glBindBufferBase`, and uses `glBindBufferRange` only for
+  real ranges. Vulkan owns per-texture views plus an aggregated descriptor
+  pool, layout, and set with exact descriptor offsets/ranges. Both backends
+  query and expose their uniform/storage offset alignment; misaligned and
+  crossing ranges are rejected before driver work. Application tests create a
+  three-entry group on both backends and reject duplicate bindings and usage
+  mismatches before driver work. The strict
   textured triangle and texture-plus-uniform cube remain allocation-free and
   preserve descriptor handles through repeated frames and resize recovery.
 - Indirect rendering: common vertex and `uint32` indexed paths accept
@@ -290,10 +295,13 @@ Updated: 2026-08-24.
   recovery with stable handles and zero live-byte growth on both backends.
 - Indexed textured cube sample: one strict `vec3` position/`vec2` UV shader,
   24 interleaved face vertices, 36 reusable `uint32` indices, a four-quadrant
-  atlas, a vertex-visible std140 64-byte MVP uniform, and enabled less/depth-
-  write state render unchanged through OpenGL and Vulkan. Four warmed frames
-  update and upload the transform while preserving binding/pipeline handles
-  with zero live-byte growth; the Lavapipe run is validation-clean.
+  atlas, a vertex-visible std140 64-byte MVP uniform suballocated from one
+  device-local pool, and enabled less/depth-write state render unchanged
+  through OpenGL and Vulkan. A prefix allocation forces a nonzero ranged bind
+  at each backend's queried alignment (16 bytes on the tested OpenGL path and
+  64 bytes on Vulkan). Four warmed frames stage asynchronous transform updates
+  while preserving pool, transfer, binding, and pipeline handles with zero live
+  growth; the Vulkan run is validation-clean.
 - Whole-buffer update optimization: `GraphicsBuffer.writeAllBytes` dispatches
   directly to allocation-free OpenGL `glBufferSubData` or mapped Vulkan copy
   paths instead of constructing a default copy descriptor per update. The cube
@@ -444,7 +452,8 @@ Updated: 2026-08-24.
   upload/readback, stable backing handles, and zero live-byte change across
   1,000 allocate/release cycles on OpenGL, Vulkan, and auto selection. The
   independently buildable `examples/buffer-pool` repeats the public workflow
-  on both explicit backends. Offset-aware bind/render integration and texture
+  on both explicit backends. Uniform/storage range binding is verified by the
+  focused gate and indexed cube; vertex/index/indirect offsets and texture
   suballocation remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
@@ -791,7 +800,7 @@ Updated: 2026-08-24.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 112 Vulkan and 96 OpenGL commands as
+  A strict audit join currently classifies 113 Vulkan and 97 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
@@ -1184,7 +1193,7 @@ validity gate unchanged.
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 209 exercised common commands classified; all other
+  exist, with 210 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - General texture byte uploads/format-converting copies/render-pass use,

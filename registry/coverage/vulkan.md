@@ -847,7 +847,7 @@
 | `vkUnregisterCustomBorderColorEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateDescriptorSetWithTemplate` | definition | unclassified | - | - | - | - |
 | `vkUpdateDescriptorSetWithTemplateKHR` | alias | unclassified | - | - | - | - |
-| `vkUpdateDescriptorSets` | definition | common | src/driver/vulkan.ab sampled uniform and storage descriptor writes | src/driver/vulkan.ab packed WriteDescriptorSet image-info and buffer-info ABIs | examples/common-textured/main.ab exact sampled texture binding render | tests/application/main.ab wrong usage and duplicate binding rejection |
+| `vkUpdateDescriptorSets` | definition | common | src/driver/vulkan.ab sampled and ranged buffer descriptor writes | src/driver/vulkan.ab packed WriteDescriptorSet image-info and offset buffer-info ABIs | examples/indexed-textured-cube/main.ab nonzero pool uniform range rendering | tests/pool/main.ab misaligned range rejection |
 | `vkUpdateIndirectExecutionSetPipelineEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateIndirectExecutionSetShaderEXT` | definition | unclassified | - | - | - | - |
 | `vkUpdateVideoSessionParametersKHR` | definition | unclassified | - | - | - | - |

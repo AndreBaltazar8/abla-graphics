@@ -263,11 +263,11 @@ Evidence and user surface for this checkpoint:
 - `src/graphics.ab`, `Makefile`, `README.md`, `docs/api.md`, `docs/status.md`,
   and `plan.md` expose, gate, and document the slice.
 
-The pool does not yet claim offset-aware vertex/index/uniform/storage binding.
-Its public `backing` field is an advanced escape hatch, while safe render and
-binding integration remains the next buffer-pool slice. A slice must not be
-released until every command or transfer borrowing it has completed. Texture
-suballocation remains separate future work.
+At published checkpoint `2495946`, the pool did not yet claim offset-aware
+vertex/index/uniform/storage binding. Its public `backing` field remained the
+advanced escape hatch. A slice must not be released until every command or
+transfer borrowing it has completed. Texture suballocation remains separate
+future work.
 
 Final-source verification passed on 2026-08-24:
 
@@ -285,6 +285,34 @@ explicit Vulkan, and Vulkan-selected auto. The public sample reports
 explicit backends. `make all` and the complete independently compiled sample
 matrix pass after scoping public-composition builds to the established 6144-MiB
 compiler address-space ceiling.
+
+## Current follow-up: ranged pool bindings
+
+This implemented follow-up connects pool allocations to portable
+uniform/storage bind-group entries. `GraphicsLimits` now carries the queried
+minimum UBO/SSBO offset alignment from OpenGL and Vulkan; range entries reject
+misalignment and crossing bounds before driver work. Whole OpenGL resources
+retain `glBindBufferBase`, while true ranges use `glBindBufferRange`. Vulkan
+packs the checked offset and size into `VkDescriptorBufferInfo`.
+
+The focused pool gate creates real uniform and storage ranges, invokes the
+OpenGL range bind, creates the Vulkan descriptors, and rejects a deliberately
+misaligned range. `examples/indexed-textured-cube` now suballocates its 64-byte
+transform from a device-local pool after a prefix allocation, uploads through
+the fixed transfer queue, and renders from a nonzero aligned descriptor on both
+backends with stable handles and `liveDelta=0`. Vertex/index/indirect offsets
+remain the next distinct integration slice.
+
+The full verification evidence for this checkpoint is current as of 2026-08-24:
+
+- `make update-registry test-registry` passes with 97 exercised OpenGL commands,
+  113 exercised Vulkan commands, and 210 total common commands;
+- `make all` passes, including the focused pool gate on explicit OpenGL,
+  explicit Vulkan, and Vulkan-selected auto. The range proof reports queried
+  alignment `16/16` on OpenGL and `64/16` on Vulkan for uniform/storage;
+- `make test-samples` passes its complete no-cache compile and live matrix. The
+  indexed cube reports `uniformRange=true/16/64` on OpenGL and
+  `uniformRange=true/64/64` on Vulkan, with stable handles and `liveDelta=0`.
 
 ## Immediate continuation checklist
 
@@ -335,7 +363,7 @@ compiler address-space ceiling.
    ```
 
 8. If not yet published, review scope, stage explicit paths only, inspect
-   `git diff --cached`, commit the coherent buffer-pool slice, push
+   `git diff --cached`, commit the coherent ranged-binding slice, push
    `main`, and verify:
 
     ```bash
@@ -377,9 +405,9 @@ that framework/platform/backend implementation source is Abla-only.
 - The block allocator intentionally trades bounded metadata and predictable hot
   paths for internal fragmentation. Benchmark first-fit scan cost before adding
   size classes or free lists.
-- The current pool wrappers cover asynchronous upload/readback. Complete GPU
-  work before release; offset-aware vertex/index/uniform/storage/indirect
-  binding is the immediate integration target.
+- The current pool wrappers cover asynchronous upload/readback and the active
+  follow-up adds aligned uniform/storage ranges. Complete GPU work before
+  release; offset-aware vertex/index/indirect binding is the next target.
 
 ## Major remaining framework work after this slice
 
@@ -387,8 +415,9 @@ The detailed source of truth is `plan.md`; `docs/status.md` distinguishes proven
 features from open work. Major remaining areas include:
 
 - explicit device-local buffer placement and the first allocation-free buffer
-  suballocation/transfer pool are implemented; finish offset-aware buffer
-  binding/render integration, device-local texture suballocation, reusable
+  suballocation/transfer pool are implemented, with uniform/storage range
+  binding in the current follow-up; finish offset-aware vertex/index/indirect
+  integration, device-local texture suballocation, reusable
   command encoders, transient resources, descriptor
   reuse, pipeline-cache persistence, and framework-wide performance gates;
 - expand general texture byte layouts, format conversion, asynchronous image
@@ -401,7 +430,7 @@ features from open work. Major remaining areas include:
   diagnostics, reflection, interface validation, deterministic OpenGL GLSL and
   Vulkan SPIR-V, and shader caching;
 - complete generated callable raw bindings and classify every pinned OpenGL and
-  Vulkan core/extension row. The current status documents 209 exercised common
+  Vulkan core/extension row. The current status documents 210 exercised common
   commands; all other rows intentionally remain unclassified;
 - implement Win32 and Cocoa platform/window/surface layers in Abla and add real
   Linux, Windows, and macOS CI. Linux X11/Wayland is substantial but does not

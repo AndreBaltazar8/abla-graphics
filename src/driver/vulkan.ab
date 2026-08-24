@@ -1268,7 +1268,9 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
             properties.loadI64(520) & 4294967295,
             properties.loadI64(524) & 4294967295,
             properties.loadI64(536) & 4294967295,
-            properties.loadI64(540) & 4294967295
+            properties.loadI64(540) & 4294967295,
+            properties.loadI64(616),
+            properties.loadI64(624)
         ),
         GraphicsVersion(
             vulkanVersionMajor(this.apiVersion),
@@ -2922,17 +2924,18 @@ class VulkanBindingEntry(
     val stageFlags: int,
     val handle: int,
     val sampler: int,
+    val offset: int,
     val size: int,
     val texture: TextureDescriptor = TextureDescriptor()
 ) {
     fun valid(): bool = this.binding >= 0 && this.binding <= 31 &&
         this.stageFlags > 0 && this.handle != 0 &&
         ((this.descriptorType == 1 && this.sampler != 0 &&
-          this.size == 0 && this.texture.valid() &&
+          this.offset == 0 && this.size == 0 && this.texture.valid() &&
           (this.texture.usage & textureUsageSampled) != 0 &&
           !textureFormatHasDepth(this.texture.format)) ||
          ((this.descriptorType == 6 || this.descriptorType == 7) &&
-          this.sampler == 0 && this.size > 0))
+          this.sampler == 0 && this.offset >= 0 && this.size > 0))
 }
 
 resource class VulkanBindGroup(
@@ -5495,7 +5498,7 @@ trusted fun VulkanDevice.bindGroup(
             }
         } else {
             bufferInfos.storeI64(bufferIndex * 24, entry.handle)
-            bufferInfos.storeI64(bufferIndex * 24 + 8, 0)
+            bufferInfos.storeI64(bufferIndex * 24 + 8, entry.offset)
             bufferInfos.storeI64(bufferIndex * 24 + 16, entry.size)
             bufferIndex = bufferIndex + 1
         }

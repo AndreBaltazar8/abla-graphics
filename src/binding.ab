@@ -43,7 +43,9 @@ class GraphicsBindingEntry(
     val openGlSampler: int,
     val vulkanResource: int,
     val vulkanSampler: int,
+    val offset: int,
     val size: int,
+    val bufferSize: int,
     val texture: TextureDescriptor,
     val backend: int,
     val error: GraphicsError
@@ -56,16 +58,22 @@ class GraphicsBindingEntry(
         ((this.backend == graphicsBackendOpenGl &&
           this.openGlResource != 0 &&
           ((this.kind == graphicsBindingSampledTexture &&
-            this.openGlSampler != 0 && this.size == 0) ||
+            this.openGlSampler != 0 && this.offset == 0 &&
+            this.size == 0 && this.bufferSize == 0) ||
            (this.kind != graphicsBindingSampledTexture &&
-            this.openGlSampler == 0 && this.size > 0))) ||
+            this.openGlSampler == 0 && this.offset >= 0 &&
+            this.size > 0 && this.bufferSize > 0 &&
+            this.offset <= this.bufferSize - this.size))) ||
          (this.backend == graphicsBackendVulkan &&
           this.vulkanResource != 0 &&
           ((this.kind == graphicsBindingSampledTexture &&
-            this.vulkanSampler != 0 && this.size == 0 &&
+            this.vulkanSampler != 0 && this.offset == 0 &&
+            this.size == 0 && this.bufferSize == 0 &&
             this.texture.valid()) ||
            (this.kind != graphicsBindingSampledTexture &&
-            this.vulkanSampler == 0 && this.size > 0))))
+            this.vulkanSampler == 0 && this.offset >= 0 &&
+            this.size > 0 && this.bufferSize > 0 &&
+            this.offset <= this.bufferSize - this.size))))
 
     fun matches(reflected: ShaderBinding): bool {
         val stageVisibility = graphicsBindingStageVisibility(reflected.stage)
@@ -89,6 +97,8 @@ resource class GraphicsBindGroup(
     val openGlKinds: array<int>,
     val openGlBindings: array<int>,
     val openGlResources: array<int>,
+    val openGlOffsets: array<int>,
+    val openGlSizes: array<int>,
     val openGlSamplers: array<int>,
     val openGlDisplay: i64*,
     val openGlContext: i64*,
@@ -102,6 +112,8 @@ resource class GraphicsBindGroup(
           this.openGlKinds.size == this.entries.size &&
           this.openGlBindings.size == this.entries.size &&
           this.openGlResources.size == this.entries.size &&
+          this.openGlOffsets.size == this.entries.size &&
+          this.openGlSizes.size == this.entries.size &&
           this.openGlSamplers.size == this.entries.size &&
           !pointerIsNull(this.openGlDisplay) &&
           !pointerIsNull(this.openGlContext)) ||
@@ -157,6 +169,8 @@ fun emptyGraphicsBindGroup(): GraphicsBindGroup = GraphicsBindGroup(
     [],
     [],
     [],
+    [],
+    [],
     nativeNullPointer(),
     nativeNullPointer(),
     VulkanBindGroup(nativeNullPointer(), 0, 0, 0, [], 0),
@@ -192,6 +206,8 @@ trusted fun GraphicsApplication.sampledTextureEntry(
         if (this.backend == graphicsBackendVulkan) texture.vulkan.image else 0,
         if (this.backend == graphicsBackendVulkan) sampler.vulkan.handle else 0,
         0,
+        0,
+        0,
         texture.descriptor,
         this.backend,
         error
@@ -203,20 +219,50 @@ trusted fun GraphicsApplication.bufferBindingEntry(
     visibility: int,
     buffer: GraphicsBuffer,
     kind: int
+): GraphicsBindingEntry = this.bufferBindingRangeEntry(
+    binding,
+    visibility,
+    buffer,
+    kind,
+    0,
+    buffer.descriptor.size
+)
+
+trusted fun GraphicsApplication.bufferBindingRangeEntry(
+    binding: int,
+    visibility: int,
+    buffer: GraphicsBuffer,
+    kind: int,
+    offset: int = 0,
+    size: int = -1
 ): GraphicsBindingEntry {
     var error = GraphicsError()
     val requiredUsage = if (kind == graphicsBindingUniformBuffer)
         bufferUsageUniform
     else if (kind == graphicsBindingStorageBuffer) bufferUsageStorage
     else 0
+    val byteCount = bufferCopyResolvedSize(
+        offset,
+        size,
+        buffer.descriptor.size
+    )
+    val requiredAlignment = if (kind == graphicsBindingUniformBuffer)
+        this.capabilities.limits.minimumUniformBufferOffsetAlignment
+    else if (kind == graphicsBindingStorageBuffer)
+        this.capabilities.limits.minimumStorageBufferOffsetAlignment
+    else 0
     if (!this.valid() || !buffer.valid() || !this.ownsBuffer(buffer) ||
         binding < 0 || binding > 31 ||
         !graphicsBindingVisibilityValid(visibility) || requiredUsage == 0 ||
-        (buffer.descriptor.usage & requiredUsage) == 0) {
+        (buffer.descriptor.usage & requiredUsage) == 0 ||
+        offset < 0 || offset >= buffer.descriptor.size || byteCount <= 0 ||
+        byteCount > buffer.descriptor.size - offset ||
+        requiredAlignment <= 0 ||
+        (offset & (requiredAlignment - 1)) != 0) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
-            "GraphicsApplication.bufferBindingEntry",
-            "buffer entries require an owned resource with matching usage, a binding from 0 to 31, and valid visibility"
+            "GraphicsApplication.bufferBindingRangeEntry",
+            "buffer entries require an aligned in-bounds range, matching usage, a binding from 0 to 31, and valid visibility"
         )
     }
     GraphicsBindingEntry(
@@ -227,6 +273,8 @@ trusted fun GraphicsApplication.bufferBindingEntry(
         0,
         if (this.backend == graphicsBackendVulkan) buffer.vulkan.handle else 0,
         0,
+        offset,
+        byteCount,
         buffer.descriptor.size,
         TextureDescriptor(),
         this.backend,
@@ -256,6 +304,36 @@ trusted fun GraphicsApplication.storageBufferEntry(
     graphicsBindingStorageBuffer
 )
 
+trusted fun GraphicsApplication.uniformBufferRangeEntry(
+    binding: int,
+    visibility: int,
+    buffer: GraphicsBuffer,
+    offset: int = 0,
+    size: int = -1
+): GraphicsBindingEntry = this.bufferBindingRangeEntry(
+    binding,
+    visibility,
+    buffer,
+    graphicsBindingUniformBuffer,
+    offset,
+    size
+)
+
+trusted fun GraphicsApplication.storageBufferRangeEntry(
+    binding: int,
+    visibility: int,
+    buffer: GraphicsBuffer,
+    offset: int = 0,
+    size: int = -1
+): GraphicsBindingEntry = this.bufferBindingRangeEntry(
+    binding,
+    visibility,
+    buffer,
+    graphicsBindingStorageBuffer,
+    offset,
+    size
+)
+
 trusted fun GraphicsApplication.bindGroup(
     entries: array<GraphicsBindingEntry>
 ): GraphicsBindGroup {
@@ -280,6 +358,8 @@ trusted fun GraphicsApplication.bindGroup(
     val openGlKinds: array<int> = []
     val openGlBindings: array<int> = []
     val openGlResources: array<int> = []
+    val openGlOffsets: array<int> = []
+    val openGlSizes: array<int> = []
     val openGlSamplers: array<int> = []
     if (valid && this.backend == graphicsBackendOpenGl) {
         index = 0
@@ -287,6 +367,14 @@ trusted fun GraphicsApplication.bindGroup(
             openGlKinds.append(entries[index].kind)
             openGlBindings.append(entries[index].binding)
             openGlResources.append(entries[index].openGlResource)
+            openGlOffsets.append(
+                if (entries[index].kind != graphicsBindingSampledTexture &&
+                    entries[index].offset == 0 &&
+                    entries[index].size == entries[index].bufferSize)
+                    -1
+                else entries[index].offset
+            )
+            openGlSizes.append(entries[index].size)
             openGlSamplers.append(entries[index].openGlSampler)
             index = index + 1
         }
@@ -304,6 +392,7 @@ trusted fun GraphicsApplication.bindGroup(
                 graphicsBindingVulkanStageFlags(entry.visibility),
                 entry.vulkanResource,
                 entry.vulkanSampler,
+                entry.offset,
                 entry.size,
                 entry.texture
             ))
@@ -321,6 +410,8 @@ trusted fun GraphicsApplication.bindGroup(
         openGlKinds,
         openGlBindings,
         openGlResources,
+        openGlOffsets,
+        openGlSizes,
         openGlSamplers,
         if (this.backend == graphicsBackendOpenGl) this.openGl.display
             else nativeNullPointer(),

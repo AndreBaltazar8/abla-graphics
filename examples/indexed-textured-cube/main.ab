@@ -11,7 +11,11 @@ fun main: int {
         else if (requested == "vulkan") graphicsBackendVulkan
         else graphicsBackendAuto
     val app = graphicsApplication(
-        GraphicsConfig(backend = backend, framesInFlight = 3),
+        GraphicsConfig(
+            backend = backend,
+            framesInFlight = 3,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
         WindowConfig(
             title = "Abla Graphics indexed textured cube",
             width = 720,
@@ -141,14 +145,50 @@ fun main: int {
         )
         transformIndex = transformIndex + 1
     }
-    val transform = app.buffer(BufferDescriptor(
-        label = "cube-transform",
-        size = 64,
-        usage = bufferUsageUniform | bufferUsageCopyDestination
+    val transformAlignment =
+        app.capabilities.limits.minimumUniformBufferOffsetAlignment
+    val transformPool = app.bufferPool(BufferPoolDescriptor(
+        label = "cube-transform-pool",
+        capacity = 4096,
+        blockSize = 16,
+        maximumAllocations = 4,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination |
+            bufferUsageUniform
     ))
+    val transformPrefix = transformPool.allocate(16)
+    val transformAllocation = transformPool.allocate(64, transformAlignment)
+    val transformUploads = app.bufferTransferQueue(
+        BufferTransferQueueDescriptor(
+            label = "cube-transform-uploads",
+            direction = bufferTransferDirectionUpload,
+            slotCapacity = 64,
+            slotCount = 2,
+            alignment = 16
+        )
+    )
+    val firstTransformUpload = app.enqueueUploadBufferPoolRange(
+        transformUploads,
+        transformBytes,
+        transformPool,
+        transformAllocation
+    )
     val transformUploaded = transformStored &&
-        transform.writeAllBytes(transformBytes)
-    val binding = app.textureUniformBinding(texture, sampler, transform)
+        bufferTransferTicketValid(firstTransformUpload) &&
+        transformUploads.wait(firstTransformUpload)
+    val binding = app.bindGroup([
+        app.sampledTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            texture,
+            sampler
+        ),
+        app.uniformBufferPoolEntry(
+            1,
+            shaderVisibilityVertex,
+            transformPool,
+            transformAllocation
+        )
+    ])
     val pipeline = app.renderPipeline(
         shader,
         VertexBufferLayout(20, [
@@ -170,7 +210,10 @@ fun main: int {
     val clear = Color(0.012, 0.018, 0.03)
     val warmed = app.valid() && shader.valid && vertices.valid() &&
         indices.valid() && texture.valid() && sampler.valid() &&
-        transform.valid() && verticesUploaded && indicesUploaded &&
+        transformPool.valid() && transformUploads.valid() &&
+        bufferPoolTokenValid(transformPrefix) &&
+        bufferPoolTokenValid(transformAllocation) &&
+        verticesUploaded && indicesUploaded &&
         textureUploaded && transformUploaded &&
         pipeline.valid() &&
         app.presentRenderIndexed(pipeline, vertices, indices, 36, clear)
@@ -179,6 +222,9 @@ fun main: int {
     val bindingHandle = if (app.backend == graphicsBackendOpenGl)
         pipeline.binding.openGlResources[0]
     else pipeline.binding.vulkan.descriptorSet
+    val transformBufferHandle = if (app.backend == graphicsBackendOpenGl)
+        transformPool.backing.openGl.handle
+    else transformPool.backing.vulkan.handle
     val liveBefore = runtimeMemoryLiveBytes()
     var presented = warmed
     var frame = 0
@@ -187,27 +233,45 @@ fun main: int {
         if (frame == 1) offset = 0.01
         else if (frame == 2) offset = 0.02
         else if (frame == 3) offset = 0.03
-        presented = transformBytes.storeF32(offset, 48) &&
-            transform.writeAllBytes(transformBytes) &&
-            app.presentRenderIndexed(
-            pipeline,
-            vertices,
-            indices,
-            36,
-            clear
+        val upload = if (transformBytes.storeF32(offset, 48))
+            app.enqueueUploadBufferPoolRange(
+                transformUploads,
+                transformBytes,
+                transformPool,
+                transformAllocation
+            )
+        else 0
+        presented = bufferTransferTicketValid(upload) &&
+            transformUploads.wait(upload) && app.presentRenderIndexed(
+                pipeline,
+                vertices,
+                indices,
+                36,
+                clear
             )
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
     val noGrowth = liveBefore == liveAfter
     val handlesStable = pipelineHandle != 0 && bindingHandle != 0 &&
+        transformBufferHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            transformPool.backing.openGl.handle == transformBufferHandle
+         else transformPool.backing.vulkan.handle == transformBufferHandle) &&
         (if (app.backend == graphicsBackendOpenGl)
             pipeline.openGl.handle == pipelineHandle &&
                 pipeline.binding.openGlResources[0] == bindingHandle
          else pipeline.vulkan.handle == pipelineHandle &&
                 pipeline.binding.vulkan.descriptorSet == bindingHandle)
+    val uniformRange = pipeline.binding.entries.size == 2 &&
+        pipeline.binding.entries[1].offset ==
+            transformPool.allocationOffset(transformAllocation) &&
+        pipeline.binding.entries[1].size == 64 &&
+        pipeline.binding.entries[1].offset > 0
     println(
-        "Indexed textured cube ${graphicsBackendName(app.backend)}: vertices=24, indices=36, frames=$frame, uniformBytes=${transform.descriptor.size}, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Indexed textured cube ${graphicsBackendName(app.backend)}: vertices=24, indices=36, frames=$frame, uniformRange=$uniformRange/${pipeline.binding.entries[1].offset}/64, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
     )
-    if (presented && frame == 4 && noGrowth && handlesStable) 0 else 1
+    if (presented && frame == 4 && uniformRange && noGrowth && handlesStable)
+        0
+    else 1
 }

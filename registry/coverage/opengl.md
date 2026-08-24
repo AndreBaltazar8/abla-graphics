@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 96/2892
+- Classified commands: 97/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -72,7 +72,7 @@
 | `glBindBufferBaseNV` | definition | unclassified | - | - | - | - |
 | `glBindBufferOffsetEXT` | definition | unclassified | - | - | - | - |
 | `glBindBufferOffsetNV` | definition | unclassified | - | - | - | - |
-| `glBindBufferRange` | definition | unclassified | - | - | - | - |
+| `glBindBufferRange` | definition | common | src/driver/opengl.ab ranged uniform and storage binding slots | src/driver/opengl.ab typed target index name offset and size ABI | examples/indexed-textured-cube/main.ab nonzero pool uniform range rendering | tests/pool/main.ab misaligned range rejection |
 | `glBindBufferRangeEXT` | definition | unclassified | - | - | - | - |
 | `glBindBufferRangeNV` | definition | unclassified | - | - | - | - |
 | `glBindBuffersBase` | definition | unclassified | - | - | - | - |

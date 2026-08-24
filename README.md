@@ -110,7 +110,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   repeated partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
   GPU buffer/texture copies, fixed-metadata device-local buffer suballocation
-  with generation-checked slices, allocation-free GPU mip-chain generation,
+  with generation-checked slice transfers and aligned uniform/storage ranges,
+  allocation-free GPU mip-chain generation,
   render-attachment-only 2x/4x/8x/16x multisampled color/depth textures, plus
   allocation-free repeated compute dispatch;
 - affine color render targets that own completeness-checked OpenGL FBOs or

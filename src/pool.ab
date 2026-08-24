@@ -7,6 +7,7 @@ import "application.ab"
 import "buffer.ab"
 import "upload.ab"
 import "transfer.ab"
+import "binding.ab"
 
 val graphicsMaximumBufferPoolBytes = 1073741824
 val graphicsMaximumBufferPoolBlocks = 65536
@@ -381,3 +382,70 @@ trusted fun GraphicsApplication.enqueueReadbackBufferPoolRange(
     )
     else 0
 }
+
+trusted fun GraphicsApplication.bufferPoolBindingEntry(
+    binding: int,
+    visibility: int,
+    pool: GraphicsBufferPool,
+    allocation: int,
+    kind: int,
+    allocationOffset: int = 0,
+    size: int = -1
+): GraphicsBindingEntry {
+    val byteCount = bufferPoolRangeResolvedSize(
+        pool,
+        allocation,
+        allocationOffset,
+        size
+    )
+    val rangeValid = bufferPoolRangeValid(
+        pool,
+        allocation,
+        allocationOffset,
+        byteCount
+    )
+    this.bufferBindingRangeEntry(
+        binding,
+        visibility,
+        pool.backing,
+        kind,
+        if (rangeValid)
+            pool.allocationOffset(allocation) + allocationOffset
+        else -1,
+        if (rangeValid) byteCount else 0
+    )
+}
+
+trusted fun GraphicsApplication.uniformBufferPoolEntry(
+    binding: int,
+    visibility: int,
+    pool: GraphicsBufferPool,
+    allocation: int,
+    allocationOffset: int = 0,
+    size: int = -1
+): GraphicsBindingEntry = this.bufferPoolBindingEntry(
+    binding,
+    visibility,
+    pool,
+    allocation,
+    graphicsBindingUniformBuffer,
+    allocationOffset,
+    size
+)
+
+trusted fun GraphicsApplication.storageBufferPoolEntry(
+    binding: int,
+    visibility: int,
+    pool: GraphicsBufferPool,
+    allocation: int,
+    allocationOffset: int = 0,
+    size: int = -1
+): GraphicsBindingEntry = this.bufferPoolBindingEntry(
+    binding,
+    visibility,
+    pool,
+    allocation,
+    graphicsBindingStorageBuffer,
+    allocationOffset,
+    size
+)

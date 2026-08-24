@@ -131,6 +131,65 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
         result.loadI64(8) == replacementValue &&
         result.loadI64(16) == alignedValue
 
+    val uniformAlignment =
+        app.capabilities.limits.minimumUniformBufferOffsetAlignment
+    val storageAlignment =
+        app.capabilities.limits.minimumStorageBufferOffsetAlignment
+    val bindingAlignment = if (uniformAlignment > storageAlignment)
+        uniformAlignment
+    else storageAlignment
+    val bindingPool = app.bufferPool(BufferPoolDescriptor(
+        label = "test-binding-pool",
+        capacity = 4096,
+        blockSize = 16,
+        maximumAllocations = 4,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination |
+            bufferUsageUniform | bufferUsageStorage
+    ))
+    val bindingPrefix = bindingPool.allocate(16)
+    val bindingSlice = bindingPool.allocate(64, bindingAlignment)
+    val uniformEntry = app.uniformBufferPoolEntry(
+        0,
+        shaderVisibilityVertex,
+        bindingPool,
+        bindingSlice,
+        0,
+        32
+    )
+    val storageEntry = app.storageBufferPoolEntry(
+        1,
+        shaderVisibilityFragment,
+        bindingPool,
+        bindingSlice,
+        0,
+        32
+    )
+    val binding = app.bindGroup([uniformEntry, storageEntry])
+    val nativeRangeApplied = if (app.backend == graphicsBackendOpenGl)
+        openGlApplyBindGroup(
+            binding.openGlKinds,
+            binding.openGlBindings,
+            binding.openGlResources,
+            binding.openGlOffsets,
+            binding.openGlSizes,
+            binding.openGlSamplers
+        )
+    else binding.vulkan.valid()
+    val misaligned = app.uniformBufferRangeEntry(
+        2,
+        shaderVisibilityVertex,
+        bindingPool.backing,
+        bindingPool.allocationOffset(bindingSlice) + 1,
+        16
+    )
+    val rangesExact = uniformAlignment > 0 && storageAlignment > 0 &&
+        bindingPool.allocationOffset(bindingPrefix) == 0 &&
+        bindingPool.allocationOffset(bindingSlice) == bindingAlignment &&
+        uniformEntry.valid() && storageEntry.valid() && binding.valid() &&
+        uniformEntry.offset == bindingAlignment && uniformEntry.size == 32 &&
+        storageEntry.offset == bindingAlignment && storageEntry.size == 32 &&
+        nativeRangeApplied && !misaligned.valid()
+
     val releasedForLoop = pool.release(replacement)
     val liveBefore = runtimeMemoryLiveBytes()
     var repeated = true
@@ -151,12 +210,13 @@ trusted fun bufferPoolProbe(requestedBackend: int): bool {
         reuseExact && invalidRejected && sourceReady &&
         directCpuAccessRejected && uploads.valid() && downloads.valid() &&
         uploadsCompleted && badRangeRejected && readbacksCompleted && exact &&
+        bindingPool.valid() && rangesExact &&
         releasedForLoop && repeated && repeat == 1000 &&
         liveAfter == liveBefore && handleStable &&
         pool.activeAllocations == 2 && pool.usedBytes == 64 &&
         pool.allocationCount == 1004
     println(
-        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} layout=$layoutExact reuse=$reuseExact exact=$exact live=${liveAfter - liveBefore} stable=$handleStable active=${pool.activeAllocations} used=${pool.usedBytes}/${pool.descriptor.capacity}"
+        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} layout=$layoutExact reuse=$reuseExact exact=$exact ranges=$rangesExact align=$uniformAlignment/$storageAlignment live=${liveAfter - liveBefore} stable=$handleStable active=${pool.activeAllocations} used=${pool.usedBytes}/${pool.descriptor.capacity}"
     )
     passed
 }
