@@ -453,8 +453,14 @@ Updated: 2026-08-24.
   1,000 allocate/release cycles on OpenGL, Vulkan, and auto selection. The
   independently buildable `examples/buffer-pool` repeats the public workflow
   on both explicit backends. Uniform/storage range binding is verified by the
-  focused gate and indexed cube; vertex/index/indirect offsets and texture
-  suballocation remain open.
+  focused gate and indexed cube. The surfaced direct/indexed and
+  vertex-/indexed-indirect APIs accept checked byte ranges, with generation-
+  checked pool helpers for their ordinary and push-value forms. The focused
+  gate and public sample populate nonzero offsets 16/48/64/80 in one
+  device-local backing buffer, execute all four draw forms on OpenGL and
+  Vulkan, reject misaligned/short/stale ranges, preserve native handles, and
+  report zero live-byte growth. Equivalent render-target/pass range overloads
+  and texture suballocation remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

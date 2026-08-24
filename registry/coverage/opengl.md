@@ -482,7 +482,7 @@
 | `glDispatchComputeIndirect` | definition | unclassified | - | - | - | - |
 | `glDrawArrays` | definition | common | src/driver/opengl.ab allocation-free pixel and simple triangle drawing | src/driver/opengl.ab typed mode first and count ABI | tests/application/main.ab exact repeated pixel and triangle presentation | tests/application/main.ab invalid vertex range rejection |
 | `glDrawArraysEXT` | definition | unclassified | - | - | - | - |
-| `glDrawArraysIndirect` | definition | common | src/driver/opengl.ab indirect non-indexed rendering | src/driver/opengl.ab typed mode and indirect-pointer ABI | examples/common-triangle/main.ab live vertex-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
+| `glDrawArraysIndirect` | definition | common | src/driver/opengl.ab offset-aware indirect non-indexed rendering | src/driver/opengl.ab typed mode and indirect-pointer ABI | examples/buffer-pool/main.ab nonzero pooled vertex and indirect offsets | tests/pool/main.ab short and stale range rejection |
 | `glDrawArraysInstanced` | definition | common | src/driver/opengl.ab direct instanced vertex rendering | src/driver/opengl.ab typed mode range and instance-count ABI | tests/application/main.ab repeated direct triangle presentation | examples/common-triangle/main.ab zero instance-count rejection |
 | `glDrawArraysInstancedARB` | definition | unclassified | - | - | - | - |
 | `glDrawArraysInstancedBaseInstance` | definition | unclassified | - | - | - | - |
@@ -497,9 +497,9 @@
 | `glDrawCommandsStatesNV` | definition | unclassified | - | - | - | - |
 | `glDrawElementArrayAPPLE` | definition | unclassified | - | - | - | - |
 | `glDrawElementArrayATI` | definition | unclassified | - | - | - | - |
-| `glDrawElements` | definition | common | src/driver/opengl.ab optimized single-instance indexed drawing | src/driver/opengl.ab typed mode count index-type and pointer ABI | examples/common-textured/main.ab repeated direct indexed textured rendering | examples/common-triangle/main.ab invalid index count rejection |
+| `glDrawElements` | definition | common | src/driver/opengl.ab offset-aware single-instance indexed drawing | src/driver/opengl.ab typed mode count index-type and pointer ABI | examples/buffer-pool/main.ab nonzero pooled direct indexed rendering | tests/pool/main.ab short and misaligned range rejection |
 | `glDrawElementsBaseVertex` | definition | unclassified | - | - | - | - |
-| `glDrawElementsIndirect` | definition | common | src/driver/opengl.ab indirect indexed rendering | src/driver/opengl.ab typed mode index-type and indirect-pointer ABI | examples/common-triangle/main.ab repeated two-instance indexed-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
+| `glDrawElementsIndirect` | definition | common | src/driver/opengl.ab offset-aware indirect indexed rendering | src/driver/opengl.ab typed mode index-type and indirect-pointer ABI | examples/buffer-pool/main.ab repeated nonzero pooled indexed-indirect rendering | tests/pool/main.ab short and stale range rejection |
 | `glDrawElementsInstanced` | definition | common | src/driver/opengl.ab direct indexed instanced rendering | src/driver/opengl.ab typed mode count index-type pointer and instances ABI | examples/common-triangle/main.ab live indexed two-instance rendering | examples/common-triangle/main.ab invalid index count and instances rejection |
 | `glDrawElementsInstancedARB` | definition | unclassified | - | - | - | - |
 | `glDrawElementsInstancedBaseInstance` | definition | unclassified | - | - | - | - |
@@ -2762,7 +2762,7 @@
 | `glVertexAttribP4ui` | definition | unclassified | - | - | - | - |
 | `glVertexAttribP4uiv` | definition | unclassified | - | - | - | - |
 | `glVertexAttribParameteriAMD` | definition | unclassified | - | - | - | - |
-| `glVertexAttribPointer` | definition | common | src/driver/opengl.ab reflected floating vertex layout | src/driver/opengl.ab typed location width type stride and offset ABI | examples/common-triangle/main.ab exact interleaved float position and color rendering | examples/common-triangle/main.ab mismatched stride and attribute rejection |
+| `glVertexAttribPointer` | definition | common | src/driver/opengl.ab reflected floating vertex layout with buffer base offset | src/driver/opengl.ab typed location width type stride and summed offset ABI | examples/buffer-pool/main.ab nonzero pooled vertex rendering | tests/pool/main.ab misaligned draw range rejection |
 | `glVertexAttribPointerARB` | definition | unclassified | - | - | - | - |
 | `glVertexAttribPointerNV` | definition | unclassified | - | - | - | - |
 | `glVertexAttribs1dvNV` | definition | unclassified | - | - | - | - |

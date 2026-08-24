@@ -1,6 +1,6 @@
 # Abla Graphics continuation goal
 
-Updated: 2026-08-20 (Europe/Lisbon).
+Updated: 2026-08-24 (Europe/Lisbon).
 
 This file is the operational handoff for the next person continuing the active
 Abla Graphics goal. Read this file first, then `plan.md`, `docs/status.md`, and
@@ -315,11 +315,50 @@ The full verification evidence for this checkpoint is current as of 2026-08-24:
   indexed cube reports `uniformRange=true/16/64` on OpenGL and
   `uniformRange=true/64/64` on Vulkan, with stable handles and `liveDelta=0`.
 
+## Current follow-up: surfaced pooled draw ranges
+
+This follow-up adds checked scalar byte ranges to every surfaced vertex,
+indexed, vertex-indirect, and indexed-indirect API, including the push-value
+forms. Existing calls remain source-compatible. OpenGL adds the vertex base to
+attribute pointers and passes index/indirect offsets as draw pointers. Vulkan
+records the same offsets in vertex/index binds and indirect draw commands.
+
+`src/pool_render.ab` exposes eight generation-checked convenience helpers. They
+allow one device-local pool backing buffer to supply each surfaced draw without
+creating per-frame view objects. `tests/pool/main.ab` and
+`examples/buffer-pool/main.ab` allocate vertex, index, direct-indirect, and
+indexed-indirect slices at offsets 16/48/64/80, upload them through fixed slots,
+execute all four draw forms, reject misaligned/short/stale ranges, preserve the
+backing and pipeline handles, and report zero live-byte growth. Focused OpenGL,
+Vulkan, core, application, pool, and independent sample checks pass.
+
+Final-source verification passed on 2026-08-24:
+
+```bash
+nix-shell --run 'make update-registry test-registry'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+The strict registry join retains 97 OpenGL plus 113 Vulkan common commands and
+now points the affected bind/draw rows at the offset proof. `make all` passes
+the Abla-only audit and every focused gate. The complete no-cache sample matrix
+reports `draw=true/true/true/true offsets=16/48/64/80
+rejected=true/true/true exact=true live=0 stable=true` on both explicit
+backends. The focused gate additionally reports `push=true` on explicit
+OpenGL, explicit Vulkan, and auto-selected Vulkan, with
+`rejected=true/true/true/true` for misaligned vertex, undersized index,
+undersized indirect, and stale-token inputs. Publication is the only remaining
+task for this checkpoint.
+
+The immediate next API slice after publication is equivalent range plumbing
+and pool helpers for offscreen render-target/pass and push-pass draws. Texture
+suballocation remains separate.
+
 ## Immediate continuation checklist
 
-1. Start from clean `main` at or after `da3ef13`, verify it matches
-   `origin/main`, then inspect `src/render.ab`, `src/buffer.ab`, and
-   `src/pool.ab` for the offset-aware vertex/index/indirect integration slice.
+1. If this follow-up is dirty, inspect every changed path, regenerate the
+   registry outputs, and run `git diff --check` before staging.
 2. After any transfer/pool implementation or test edits, rerun the focused
    compiler and live gates:
 
@@ -407,9 +446,9 @@ that framework/platform/backend implementation source is Abla-only.
 - The block allocator intentionally trades bounded metadata and predictable hot
   paths for internal fragmentation. Benchmark first-fit scan cost before adding
   size classes or free lists.
-- The current pool wrappers cover asynchronous upload/readback and the active
-  follow-up adds aligned uniform/storage ranges. Complete GPU work before
-  release; offset-aware vertex/index/indirect binding is the next target.
+- The pool wrappers cover asynchronous upload/readback, aligned uniform/storage
+  ranges, and surfaced vertex/index/direct-indirect draws. Complete GPU work
+  before release; equivalent offscreen target/pass ranges are the next target.
 
 ## Major remaining framework work after this slice
 
@@ -417,9 +456,9 @@ The detailed source of truth is `plan.md`; `docs/status.md` distinguishes proven
 features from open work. Major remaining areas include:
 
 - explicit device-local buffer placement and the first allocation-free buffer
-  suballocation/transfer pool are implemented, with uniform/storage range
-  binding in the current follow-up; finish offset-aware vertex/index/indirect
-  integration, device-local texture suballocation, reusable
+  suballocation/transfer pool are implemented, with uniform/storage binding and
+  surfaced draw ranges; finish offscreen target/pass range integration,
+  device-local texture suballocation, reusable
   command encoders, transient resources, descriptor
   reuse, pipeline-cache persistence, and framework-wide performance gates;
 - expand general texture byte layouts, format conversion, asynchronous image

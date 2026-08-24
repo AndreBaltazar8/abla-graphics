@@ -69,7 +69,7 @@
 | `vkCmdBindDescriptorSets` | definition | common | src/driver/vulkan.ab render and compute descriptor binding | src/driver/vulkan.ab typed bind-point layout set and offset ABI | examples/common-textured/main.ab repeated indexed sampled rendering | examples/common-textured/main.ab missing shader binding rejection |
 | `vkCmdBindDescriptorSets2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindDescriptorSets2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdBindIndexBuffer` | definition | common | src/driver/vulkan.ab indexed draw buffer binding | src/driver/vulkan.ab typed command buffer handle offset and index-type ABI | examples/common-triangle/main.ab repeated indexed instanced and indirect rendering | examples/common-triangle/main.ab invalid index count rejection |
+| `vkCmdBindIndexBuffer` | definition | common | src/driver/vulkan.ab offset-aware indexed buffer binding | src/driver/vulkan.ab typed command buffer handle offset and index-type ABI | examples/buffer-pool/main.ab nonzero pooled index rendering | tests/pool/main.ab short and stale range rejection |
 | `vkCmdBindIndexBuffer2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindIndexBuffer2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdBindIndexBuffer3KHR` | definition | unclassified | - | - | - | - |
@@ -83,7 +83,7 @@
 | `vkCmdBindTileMemoryQCOM` | definition | unclassified | - | - | - | - |
 | `vkCmdBindTransformFeedbackBuffers2EXT` | definition | unclassified | - | - | - | - |
 | `vkCmdBindTransformFeedbackBuffersEXT` | definition | unclassified | - | - | - | - |
-| `vkCmdBindVertexBuffers` | definition | common | src/driver/vulkan.ab raster vertex-buffer binding | src/driver/vulkan.ab typed buffer and offset array ABI | examples/common-triangle/main.ab direct indexed and indirect vertex rendering | examples/common-triangle/main.ab invalid vertex layout rejection |
+| `vkCmdBindVertexBuffers` | definition | common | src/driver/vulkan.ab offset-aware raster vertex-buffer binding | src/driver/vulkan.ab typed buffer and offset array ABI | examples/buffer-pool/main.ab nonzero pooled vertex rendering | tests/pool/main.ab misaligned draw range rejection |
 | `vkCmdBindVertexBuffers2` | definition | unclassified | - | - | - | - |
 | `vkCmdBindVertexBuffers2EXT` | alias | unclassified | - | - | - | - |
 | `vkCmdBindVertexBuffers3KHR` | definition | unclassified | - | - | - | - |
@@ -155,13 +155,13 @@
 | `vkCmdDrawClusterHUAWEI` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawClusterIndirectHUAWEI` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexed` | definition | common | src/driver/vulkan.ab indexed render recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab exact indexed output | tests/application/main.ab invalid index range rejection |
-| `vkCmdDrawIndexedIndirect` | definition | common | src/driver/vulkan.ab indexed indirect command recording | src/driver/vulkan.ab typed buffer offset count and stride ABI | examples/common-triangle/main.ab repeated two-instance indexed-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
+| `vkCmdDrawIndexedIndirect` | definition | common | src/driver/vulkan.ab offset-aware indexed indirect command recording | src/driver/vulkan.ab typed buffer offset count and stride ABI | examples/buffer-pool/main.ab repeated nonzero pooled indexed-indirect rendering | tests/pool/main.ab short and stale range rejection |
 | `vkCmdDrawIndexedIndirect2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCount` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCount2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCountAMD` | alias | unclassified | - | - | - | - |
 | `vkCmdDrawIndexedIndirectCountKHR` | alias | unclassified | - | - | - | - |
-| `vkCmdDrawIndirect` | definition | common | src/driver/vulkan.ab non-indexed indirect command recording | src/driver/vulkan.ab typed buffer offset count and stride ABI | examples/common-triangle/main.ab live vertex-indirect rendering | examples/common-triangle/main.ab missing indirect usage rejection |
+| `vkCmdDrawIndirect` | definition | common | src/driver/vulkan.ab offset-aware non-indexed indirect command recording | src/driver/vulkan.ab typed buffer offset count and stride ABI | examples/buffer-pool/main.ab nonzero pooled vertex-indirect rendering | tests/pool/main.ab short and stale range rejection |
 | `vkCmdDrawIndirect2KHR` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndirectByteCount2EXT` | definition | unclassified | - | - | - | - |
 | `vkCmdDrawIndirectByteCountEXT` | definition | unclassified | - | - | - | - |

@@ -571,10 +571,13 @@ val pool = app.bufferPool(BufferPoolDescriptor(
     blockSize = 256,
     maximumAllocations = 1024,
     usage = bufferUsageCopySource | bufferUsageCopyDestination |
-        bufferUsageVertex | bufferUsageIndex | bufferUsageUniform
+        bufferUsageVertex | bufferUsageIndex | bufferUsageUniform |
+        bufferUsageIndirect
 ))
 
 val vertices = pool.allocate(65536, 16)
+val indices = pool.allocate(12288, 4)
+val indirect = pool.allocate(20, 4)
 val uniforms = pool.allocate(256, 256)
 val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
     direction = bufferTransferDirectionUpload,
@@ -585,7 +588,15 @@ val ticket = app.enqueueUploadBufferPoolRange(
     uploads, frameBytes, pool, uniforms, 0, 0, frameBytes.size
 )
 uploads.wait(ticket)
-pool.release(uniforms)
+
+val rendered = app.presentRenderBufferPoolIndexedIndirect(
+    pipeline,
+    pool,
+    vertices,
+    indices,
+    indirect,
+    Color(0.02, 0.03, 0.05)
+)
 ```
 
 The pool owns one explicitly device-local `GraphicsBuffer` and fixed arrays for
@@ -606,8 +617,23 @@ remains inaccessible to direct CPU reads and writes. Invalid and stale ranges
 return an invalid transfer ticket without changing queue state. Applications
 must complete every transfer or command that borrows a slice before releasing
 it. `backing` remains an explicit low-level escape hatch. Uniform/storage
-binding uses the checked helpers above; offset-aware vertex/index/indirect
-commands remain a separate integration slice.
+binding uses the checked helpers above. The eight surfaced pool helpers cover
+direct/indexed and vertex-/indexed-indirect rendering, with or without push
+values. They validate every generation token before forwarding the single
+backing buffer and its absolute ranges.
+
+The corresponding ordinary surfaced methods accept optional byte ranges after
+their existing arguments. Vertex, `uint32` index, and indirect offsets must be
+four-byte aligned; the vertex range must contain the requested vertices, the
+index range must contain `indexCount * 4` bytes, and indirect ranges must contain
+at least 16 bytes for direct or 20 bytes for indexed commands. OpenGL sums the
+vertex base into every attribute pointer and passes the index/indirect byte
+offset as the command pointer. Vulkan records the same values in
+`vkCmdBindVertexBuffers`, `vkCmdBindIndexBuffer`, `vkCmdDrawIndirect`, or
+`vkCmdDrawIndexedIndirect`. Invalid, crossing, short, misaligned, or stale pool
+ranges return `false` before driver work. Complete GPU work before releasing or
+reusing any borrowed allocation. Offset-aware render-target/pass overloads are
+still separate work.
 
 A map-write/copy-source buffer may start mapped without an intermediate upload:
 

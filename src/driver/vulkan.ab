@@ -4885,7 +4885,10 @@ trusted fun VulkanDevice.renderTargetProgram(
     clearStorage: i64* = nativeNullPointer(),
     compatibleRenderPass: int = 0,
     pushConstantData: i64* = nativeNullPointer(),
-    pushConstantSize: int = 0
+    pushConstantSize: int = 0,
+    vertexOffset: int = 0,
+    indexOffset: int = 0,
+    indirectOffset: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     val colorCount = 1 + target.additionalViews.size
@@ -4906,6 +4909,9 @@ trusted fun VulkanDevice.renderTargetProgram(
         ((!indexed && indexBuffer == 0) ||
          (pipeline.vertexStride > 0 && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        vertexOffset >= 0 && indexOffset >= 0 && indirectOffset >= 0 &&
+        (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
+        (indirectOffset & 3) == 0 &&
         ((pipeline.pushConstantSize == 0 && pushConstantSize == 0 &&
           pointerIsNull(pushConstantData)) ||
          (pipeline.pushConstantSize > 0 &&
@@ -5013,7 +5019,7 @@ trusted fun VulkanDevice.renderTargetProgram(
         }
         if (pipeline.vertexStride > 0) {
             this.transferScratch.storeI64(72, vertexBuffer)
-            this.transferScratch.storeI64(80, 0)
+            this.transferScratch.storeI64(80, vertexOffset)
             vkCmdBindVertexBuffers(
                 this.transferCommand.load(),
                 0,
@@ -5026,13 +5032,13 @@ trusted fun VulkanDevice.renderTargetProgram(
             vkCmdBindIndexBuffer(
                 this.transferCommand.load(),
                 indexBuffer,
-                0,
+                indexOffset,
                 1
             )
             if (indirectBuffer != 0) vkCmdDrawIndexedIndirect(
                     this.transferCommand.load(),
                     indirectBuffer,
-                    0,
+                    indirectOffset,
                     1,
                     20
                 )
@@ -5047,7 +5053,7 @@ trusted fun VulkanDevice.renderTargetProgram(
         } else if (indirectBuffer != 0) vkCmdDrawIndirect(
                 this.transferCommand.load(),
                 indirectBuffer,
-                0,
+                indirectOffset,
                 1,
                 16
             )
@@ -7620,7 +7626,10 @@ trusted fun VulkanDevice.presentRenderOutcome(
     indirectBuffer: int = 0,
     indexedIndirect: bool = false,
     pushConstantData: i64* = nativeNullPointer(),
-    pushConstantSize: int = 0
+    pushConstantSize: int = 0,
+    vertexOffset: int = 0,
+    indexOffset: int = 0,
+    indirectOffset: int = 0
 ): int {
     val indexed = indexCount > 0 || indexedIndirect
     var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
@@ -7642,6 +7651,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
         ((!indexed && indexBuffer == 0) ||
          (pipeline.vertexStride > 0 && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        vertexOffset >= 0 && indexOffset >= 0 && indirectOffset >= 0 &&
+        (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
+        (indirectOffset & 3) == 0 &&
         ((pipeline.pushConstantSize == 0 && pushConstantSize == 0 &&
           pointerIsNull(pushConstantData)) ||
          (pipeline.pushConstantSize > 0 &&
@@ -7885,7 +7897,7 @@ trusted fun VulkanDevice.presentRenderOutcome(
         }
         if (pipeline.vertexStride > 0) {
             presenter.frames[frame].scratch.storeI64(136, vertexBuffer)
-            presenter.frames[frame].scratch.storeI64(144, 0)
+            presenter.frames[frame].scratch.storeI64(144, vertexOffset)
             vkCmdBindVertexBuffers(
                 presenter.frames[frame].command.load(),
                 0,
@@ -7906,13 +7918,13 @@ trusted fun VulkanDevice.presentRenderOutcome(
             vkCmdBindIndexBuffer(
                 presenter.frames[frame].command.load(),
                 indexBuffer,
-                0,
+                indexOffset,
                 1
             )
             if (indirectBuffer != 0) vkCmdDrawIndexedIndirect(
                     presenter.frames[frame].command.load(),
                     indirectBuffer,
-                    0,
+                    indirectOffset,
                     1,
                     20
                 )
@@ -7928,7 +7940,7 @@ trusted fun VulkanDevice.presentRenderOutcome(
             vkCmdDrawIndirect(
                 presenter.frames[frame].command.load(),
                 indirectBuffer,
-                0,
+                indirectOffset,
                 1,
                 16
             )

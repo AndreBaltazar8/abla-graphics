@@ -519,9 +519,10 @@ fun openGlVertexComponents(format: int): int {
 }
 
 trusted fun openGlConfigureVertexLayout(
-    layout: VertexBufferLayout
+    layout: VertexBufferLayout,
+    baseOffset: int = 0
 ): bool {
-    var succeeded = layout.valid() && layout.buffered()
+    var succeeded = layout.valid() && layout.buffered() && baseOffset >= 0
     if (succeeded && layout.attributes.size == 0) {
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(
@@ -530,13 +531,15 @@ trusted fun openGlConfigureVertexLayout(
             5126,
             0,
             layout.stride,
-            nativeNullPointer()
+            nativePointerFromAddress(baseOffset)
         )
     } else {
         var index = 0
         while (succeeded && index < layout.attributes.size) {
             val attribute = layout.attributes[index]
-            val pointer = nativePointerFromAddress(attribute.offset)
+            val pointer = nativePointerFromAddress(
+                baseOffset + attribute.offset
+            )
             glEnableVertexAttribArray(attribute.location)
             if (attribute.format == vertexFormatUint32) {
                 glVertexAttribIPointer(
@@ -1965,7 +1968,10 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     discardBeforeMask: int = 0,
     discardAfterMask: int = 0,
     pushConstantData: i64* = nativeNullPointer(),
-    pushConstantSize: int = 0
+    pushConstantSize: int = 0,
+    vertexOffset: int = 0,
+    indexOffset: int = 0,
+    indirectOffset: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
@@ -1982,6 +1988,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         ((!indexed && indexBuffer == 0) ||
          (vertexLayout.buffered() && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        vertexOffset >= 0 && indexOffset >= 0 && indirectOffset >= 0 &&
+        (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
+        (indirectOffset & 3) == 0 &&
         ((program.pushConstantSize == 0 && pushConstantSize == 0 &&
           pointerIsNull(pushConstantData)) ||
          (program.pushConstantSize > 0 &&
@@ -2058,7 +2067,10 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         }
         if (vertexLayout.buffered()) {
             glBindBuffer(34962, vertexBuffer)
-            rendered = openGlConfigureVertexLayout(vertexLayout)
+            rendered = openGlConfigureVertexLayout(
+                vertexLayout,
+                vertexOffset
+            )
         }
         rendered = rendered && openGlApplyBindGroup(
             bindingKinds,
@@ -2076,27 +2088,27 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             glDrawElementsIndirect(
                 openGlPrimitiveMode(raster.topology),
                 5125,
-                nativeNullPointer()
+                nativePointerFromAddress(indirectOffset)
             )
         } else if (rendered && indexed && instanceCount == 1) {
             glDrawElements(
                 openGlPrimitiveMode(raster.topology),
                 indexCount,
                 5125,
-                nativeNullPointer()
+                nativePointerFromAddress(indexOffset)
             )
         } else if (rendered && indexed) glDrawElementsInstanced(
             openGlPrimitiveMode(raster.topology),
             indexCount,
             5125,
-            nativeNullPointer(),
+            nativePointerFromAddress(indexOffset),
             instanceCount
         )
         else if (rendered && indirectBuffer != 0) {
             glBindBuffer(36671, indirectBuffer)
             glDrawArraysIndirect(
                 openGlPrimitiveMode(raster.topology),
-                nativeNullPointer()
+                nativePointerFromAddress(indirectOffset)
             )
         } else if (rendered) glDrawArraysInstanced(
                 openGlPrimitiveMode(raster.topology),
@@ -3006,10 +3018,14 @@ resource class OpenGlWindowContext(
         bindingSamplers: array<int>,
         indirectBuffer: int = 0,
         pushConstantData: i64* = nativeNullPointer(),
-        pushConstantSize: int = 0
+        pushConstantSize: int = 0,
+        vertexOffset: int = 0,
+        indirectOffset: int = 0
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             vertexCount > 0 && instanceCount > 0 &&
+            vertexOffset >= 0 && indirectOffset >= 0 &&
+            (vertexOffset & 3) == 0 && (indirectOffset & 3) == 0 &&
             vertexLayout.valid() && vertexLayout.buffered() &&
             clear.valid() && raster.valid() &&
             depth.valid() &&
@@ -3059,7 +3075,10 @@ resource class OpenGlWindowContext(
                 )
             }
             glBindBuffer(34962, vertices.handle)
-            presented = openGlConfigureVertexLayout(vertexLayout) &&
+            presented = openGlConfigureVertexLayout(
+                vertexLayout,
+                vertexOffset
+            ) &&
                 openGlApplyBindGroup(
                     bindingKinds,
                     bindingNumbers,
@@ -3074,7 +3093,7 @@ resource class OpenGlWindowContext(
                 glBindBuffer(36671, indirectBuffer)
                 glDrawArraysIndirect(
                     openGlPrimitiveMode(raster.topology),
-                    nativeNullPointer()
+                    nativePointerFromAddress(indirectOffset)
                 )
             } else if (presented) glDrawArraysInstanced(
                     openGlPrimitiveMode(raster.topology),
@@ -3106,10 +3125,16 @@ resource class OpenGlWindowContext(
         bindingSamplers: array<int>,
         indirectBuffer: int = 0,
         pushConstantData: i64* = nativeNullPointer(),
-        pushConstantSize: int = 0
+        pushConstantSize: int = 0,
+        vertexOffset: int = 0,
+        indexOffset: int = 0,
+        indirectOffset: int = 0
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
+            vertexOffset >= 0 && indexOffset >= 0 && indirectOffset >= 0 &&
+            (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
+            (indirectOffset & 3) == 0 &&
             vertexLayout.valid() && vertexLayout.buffered() &&
             clear.valid() && raster.valid() &&
             depth.valid() &&
@@ -3159,7 +3184,10 @@ resource class OpenGlWindowContext(
                 )
             }
             glBindBuffer(34962, vertices.handle)
-            presented = openGlConfigureVertexLayout(vertexLayout) &&
+            presented = openGlConfigureVertexLayout(
+                vertexLayout,
+                vertexOffset
+            ) &&
                 openGlApplyBindGroup(
                     bindingKinds,
                     bindingNumbers,
@@ -3176,18 +3204,18 @@ resource class OpenGlWindowContext(
                 glDrawElementsIndirect(
                     openGlPrimitiveMode(raster.topology),
                     5125,
-                    nativeNullPointer()
+                    nativePointerFromAddress(indirectOffset)
                 )
             } else if (presented && instanceCount == 1) glDrawElements(
                 openGlPrimitiveMode(raster.topology),
                 indexCount,
                 5125,
-                nativeNullPointer()
+                nativePointerFromAddress(indexOffset)
             ) else if (presented) glDrawElementsInstanced(
                 openGlPrimitiveMode(raster.topology),
                 indexCount,
                 5125,
-                nativeNullPointer(),
+                nativePointerFromAddress(indexOffset),
                 instanceCount
             )
             presented = presented && glGetError() == 0 &&

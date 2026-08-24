@@ -13,10 +13,11 @@ fun main: int {
     val app = graphicsApplication(
         GraphicsConfig(
             backend = backend,
+            framesInFlight = 2,
             requiredFeatures = graphicsFeaturePersistentMapping
         ),
         WindowConfig(
-            title = "Abla Graphics device buffer pool",
+            title = "Abla Graphics pooled draw",
             width = 480,
             height = 270
         )
@@ -24,34 +25,84 @@ fun main: int {
     val pool = app.bufferPool(BufferPoolDescriptor(
         label = "sample-device-pool",
         capacity = 4096,
-        blockSize = 256,
+        blockSize = 16,
         maximumAllocations = 16,
         usage = bufferUsageCopySource | bufferUsageCopyDestination |
-            bufferUsageVertex | bufferUsageIndex | bufferUsageUniform
+            bufferUsageVertex | bufferUsageIndex | bufferUsageUniform |
+            bufferUsageIndirect
     ))
-    val vertices = pool.allocate(96, 16)
-    val indices = pool.allocate(24, 4)
+    val prefix = pool.allocate(16)
+    val vertices = pool.allocate(24, 4)
+    val indices = pool.allocate(12, 4)
     val uniforms = pool.allocate(64, 256)
-    val source = bufferBytes(16)
+    val drawIndirect = pool.allocate(16, 4)
+    val indexedDrawIndirect = pool.allocate(20, 4)
+
+    val vertexBytes = bufferBytes(24)
+    val verticesStored = vertexBytes.storeF32(-0.7, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.7, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.7, 20)
+    val indexBytes = bufferBytes(12)
+    val indicesStored = indexBytes.storeU32(0, 0) &&
+        indexBytes.storeU32(1, 4) && indexBytes.storeU32(2, 8)
+    val uniformBytes = bufferBytes(8)
     val expected = 1234605616436508552
-    val sourceReady = source.fill(0) && source.storeI64(expected)
+    val uniformStored = uniformBytes.storeI64(expected)
+    val drawBytes = bufferBytes(16)
+    val drawStored = drawBytes.storeI64(4294967299, 0) &&
+        drawBytes.storeI64(0, 8)
+    val indexedDrawBytes = bufferBytes(20)
+    val indexedDrawStored = indexedDrawBytes.storeI64(4294967299, 0) &&
+        indexedDrawBytes.storeI64(0, 8) &&
+        indexedDrawBytes.storeU32(0, 16)
+
     val uploads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
         label = "pool-sample-upload",
         direction = bufferTransferDirectionUpload,
-        slotCapacity = 16,
-        slotCount = 3,
+        slotCapacity = 32,
+        slotCount = 5,
         alignment = 16
     ))
-    val upload = app.enqueueUploadBufferPoolRange(
-        uploads, source, pool, uniforms, 0, 8, 8
+    val vertexUpload = app.enqueueUploadBufferPoolRange(
+        uploads, vertexBytes, pool, vertices, 0, 0, 24
     )
-    val uploadComplete = bufferTransferTicketValid(upload) &&
-        uploads.wait(upload)
+    val indexUpload = app.enqueueUploadBufferPoolRange(
+        uploads, indexBytes, pool, indices, 0, 0, 12
+    )
+    val uniformUpload = app.enqueueUploadBufferPoolRange(
+        uploads, uniformBytes, pool, uniforms, 0, 8, 8
+    )
+    val drawUpload = app.enqueueUploadBufferPoolRange(
+        uploads, drawBytes, pool, drawIndirect, 0, 0, 16
+    )
+    val indexedDrawUpload = app.enqueueUploadBufferPoolRange(
+        uploads,
+        indexedDrawBytes,
+        pool,
+        indexedDrawIndirect,
+        0,
+        0,
+        20
+    )
+    val uploadsComplete = verticesStored && indicesStored && uniformStored &&
+        drawStored && indexedDrawStored &&
+        bufferTransferTicketValid(vertexUpload) &&
+        bufferTransferTicketValid(indexUpload) &&
+        bufferTransferTicketValid(uniformUpload) &&
+        bufferTransferTicketValid(drawUpload) &&
+        bufferTransferTicketValid(indexedDrawUpload) &&
+        uploads.wait(vertexUpload) && uploads.wait(indexUpload) &&
+        uploads.wait(uniformUpload) && uploads.wait(drawUpload) &&
+        uploads.wait(indexedDrawUpload)
+
     val downloads = app.bufferTransferQueue(BufferTransferQueueDescriptor(
         label = "pool-sample-readback",
         direction = bufferTransferDirectionReadback,
         slotCapacity = 16,
-        slotCount = 3,
+        slotCount = 2,
         alignment = 16
     ))
     val download = app.enqueueReadbackBufferPoolRange(
@@ -62,23 +113,111 @@ fun main: int {
         downloads, download, result
     ) && result.loadI64() == expected
 
-    val released = pool.release(indices)
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.15, 0.65, 1.0, 1.0);
+            }
+        }
+    }
+    val pipeline = app.renderPipeline(shader, VertexBufferLayout(8))
+    val clear = Color(0.02, 0.03, 0.05)
+    val direct = app.presentRenderBufferPoolVertices(
+        pipeline, pool, vertices, 3, clear
+    )
+    val indexed = app.presentRenderBufferPoolIndexed(
+        pipeline, pool, vertices, indices, 3, clear
+    )
+    val indirect = app.presentRenderBufferPoolVerticesIndirect(
+        pipeline, pool, vertices, drawIndirect, clear
+    )
+    val indexedIndirect = app.presentRenderBufferPoolIndexedIndirect(
+        pipeline,
+        pool,
+        vertices,
+        indices,
+        indexedDrawIndirect,
+        clear
+    )
+    val misalignedRejected = !app.presentRenderVertices(
+        pipeline,
+        pool.backing,
+        3,
+        clear,
+        1,
+        pool.allocationOffset(vertices) + 1,
+        pool.allocationSize(vertices)
+    )
+    val shortIndirectRejected = !app.presentRenderVerticesIndirect(
+        pipeline,
+        pool.backing,
+        pool.backing,
+        clear,
+        pool.allocationOffset(vertices),
+        pool.allocationSize(vertices),
+        pool.allocationOffset(drawIndirect),
+        15
+    )
+    val stale = pool.allocate(16, 4)
+    val staleReleased = pool.release(stale)
+    val staleRejected = staleReleased &&
+        !app.presentRenderBufferPoolVertices(
+            pipeline, pool, stale, 2, clear
+        )
+
+    val backingHandle = if (app.backend == graphicsBackendOpenGl)
+        pool.backing.openGl.handle else pool.backing.vulkan.handle
+    val pipelineHandle = if (app.backend == graphicsBackendOpenGl)
+        pipeline.openGl.handle else pipeline.vulkan.handle
     val liveBefore = runtimeMemoryLiveBytes()
-    var stable = true
+    var repeated = true
+    var frame = 0
+    while (repeated && frame < 4) {
+        repeated = app.presentRenderBufferPoolIndexedIndirect(
+            pipeline,
+            pool,
+            vertices,
+            indices,
+            indexedDrawIndirect,
+            clear
+        )
+        frame = frame + 1
+    }
     var iteration = 0
-    while (stable && iteration < 1000) {
-        val temporary = pool.allocate(24, 4)
-        stable = bufferPoolTokenValid(temporary) && pool.release(temporary)
+    while (repeated && iteration < 1000) {
+        val temporary = pool.allocate(16, 4)
+        repeated = bufferPoolTokenValid(temporary) && pool.release(temporary)
         iteration = iteration + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
+    val handlesStable = backingHandle != 0 && pipelineHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            pool.backing.openGl.handle == backingHandle &&
+                pipeline.openGl.handle == pipelineHandle
+         else pool.backing.vulkan.handle == backingHandle &&
+                pipeline.vulkan.handle == pipelineHandle)
+    val offsetsExact = pool.allocationOffset(prefix) == 0 &&
+        pool.allocationOffset(vertices) > 0 &&
+        pool.allocationOffset(indices) > pool.allocationOffset(vertices) &&
+        pool.allocationOffset(drawIndirect) > 0 &&
+        pool.allocationOffset(indexedDrawIndirect) > 0
     val passed = app.valid() && pool.valid() && pool.backing.deviceLocal() &&
-        bufferPoolTokenValid(vertices) && !pool.allocationValid(indices) &&
-        bufferPoolTokenValid(uniforms) && sourceReady && uploadComplete &&
-        exact && released && stable && iteration == 1000 &&
-        liveAfter == liveBefore && pool.activeAllocations == 2
+        uploadsComplete && exact && pipeline.valid() && direct && indexed &&
+        indirect && indexedIndirect && misalignedRejected &&
+        shortIndirectRejected && staleRejected && repeated && frame == 4 &&
+        iteration == 1000 && liveAfter == liveBefore && handlesStable &&
+        offsetsExact && pool.activeAllocations == 6
     println(
-        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} offsets=${pool.allocationOffset(vertices)}/${pool.allocationOffset(uniforms)} exact=$exact live=${liveAfter - liveBefore} active=${pool.activeAllocations} peak=${pool.peakUsedBytes}"
+        "buffer-pool ${graphicsBackendName(app.backend)}: deviceLocal=${pool.backing.deviceLocal()} draw=$direct/$indexed/$indirect/$indexedIndirect offsets=${pool.allocationOffset(vertices)}/${pool.allocationOffset(indices)}/${pool.allocationOffset(drawIndirect)}/${pool.allocationOffset(indexedDrawIndirect)} rejected=$misalignedRejected/$shortIndirectRejected/$staleRejected exact=$exact live=${liveAfter - liveBefore} stable=$handlesStable active=${pool.activeAllocations} peak=${pool.peakUsedBytes}"
     )
     if (passed) 0 else 1
 }

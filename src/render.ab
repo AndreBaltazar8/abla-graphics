@@ -2208,6 +2208,23 @@ trusted fun GraphicsApplication.renderTargetReady(
     ready
 }
 
+fun graphicsDrawBufferRangeSize(
+    offset: int,
+    size: int,
+    bufferSize: int
+): int = bufferCopyResolvedSize(offset, size, bufferSize)
+
+fun graphicsDrawBufferRangeValid(
+    offset: int,
+    size: int,
+    bufferSize: int,
+    minimumSize: int = 1
+): bool {
+    val byteCount = graphicsDrawBufferRangeSize(offset, size, bufferSize)
+    offset >= 0 && offset < bufferSize && (offset & 3) == 0 &&
+        byteCount >= minimumSize && byteCount <= bufferSize - offset
+}
+
 trusted fun GraphicsApplication.presentRender(
     var pipeline: GraphicsRenderPipeline,
     clear: Color
@@ -2352,14 +2369,26 @@ trusted fun GraphicsApplication.presentRenderVertices(
     vertices: GraphicsBuffer,
     vertexCount: int,
     clear: Color,
-    instanceCount: int = 1
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
+    val vertexBytes = graphicsDrawBufferRangeSize(
+        vertexOffset,
+        vertexSize,
+        vertices.descriptor.size
+    )
     if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
         !clear.valid() || pipeline.backend != this.backend ||
         pipeline.targetHandle != 0 || stride <= 0 ||
         vertexCount <= 0 || instanceCount <= 0 ||
-        vertexCount > vertices.descriptor.size / stride ||
+        !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || vertexCount > vertexBytes / stride ||
         !this.ownsBuffer(vertices) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0) false
     else if (this.backend == graphicsBackendOpenGl) {
@@ -2377,7 +2406,11 @@ trusted fun GraphicsApplication.presentRenderVertices(
             pipeline.binding.openGlResources,
             pipeline.binding.openGlOffsets,
             pipeline.binding.openGlSizes,
-            pipeline.binding.openGlSamplers
+            pipeline.binding.openGlSamplers,
+            0,
+            nativeNullPointer(),
+            0,
+            vertexOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2392,7 +2425,12 @@ trusted fun GraphicsApplication.presentRenderVertices(
                 0,
                 0,
                 instanceCount,
-                pipeline.binding.vulkan.descriptorSet
+                pipeline.binding.vulkan.descriptorSet,
+                0,
+                false,
+                nativeNullPointer(),
+                0,
+                vertexOffset
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2412,7 +2450,12 @@ trusted fun GraphicsApplication.presentRenderVertices(
                     0,
                     0,
                     instanceCount,
-                    pipeline.binding.vulkan.descriptorSet
+                    pipeline.binding.vulkan.descriptorSet,
+                    0,
+                    false,
+                    nativeNullPointer(),
+                    0,
+                    vertexOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2428,16 +2471,40 @@ trusted fun GraphicsApplication.presentRenderIndexed(
     indices: GraphicsBuffer,
     indexCount: int,
     clear: Color,
-    instanceCount: int = 1
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
+    val vertexBytes = graphicsDrawBufferRangeSize(
+        vertexOffset,
+        vertexSize,
+        vertices.descriptor.size
+    )
+    val indexBytes = graphicsDrawBufferRangeSize(
+        indexOffset,
+        indexSize,
+        indices.descriptor.size
+    )
     if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
         !indices.valid() || !clear.valid() ||
         pipeline.backend != this.backend || pipeline.targetHandle != 0 ||
         stride <= 0 ||
-        vertices.descriptor.size / stride <= 0 || indexCount <= 0 ||
+        !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || !graphicsDrawBufferRangeValid(
+            indexOffset,
+            indexSize,
+            indices.descriptor.size,
+            4
+        ) || vertexBytes / stride <= 0 || indexCount <= 0 ||
         instanceCount <= 0 ||
-        indexCount > indices.descriptor.size / 4 ||
+        indexCount > indexBytes / 4 ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
         (indices.descriptor.usage & bufferUsageIndex) == 0) false
@@ -2457,7 +2524,12 @@ trusted fun GraphicsApplication.presentRenderIndexed(
             pipeline.binding.openGlResources,
             pipeline.binding.openGlOffsets,
             pipeline.binding.openGlSizes,
-            pipeline.binding.openGlSamplers
+            pipeline.binding.openGlSamplers,
+            0,
+            nativeNullPointer(),
+            0,
+            vertexOffset,
+            indexOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2468,11 +2540,17 @@ trusted fun GraphicsApplication.presentRenderIndexed(
                 pipeline.vulkan,
                 clear,
                 vertices.vulkan.handle,
-                vertices.descriptor.size / stride,
+                vertexBytes / stride,
                 indices.vulkan.handle,
                 indexCount,
                 instanceCount,
-                pipeline.binding.vulkan.descriptorSet
+                pipeline.binding.vulkan.descriptorSet,
+                0,
+                false,
+                nativeNullPointer(),
+                0,
+                vertexOffset,
+                indexOffset
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2488,11 +2566,17 @@ trusted fun GraphicsApplication.presentRenderIndexed(
                     pipeline.vulkan,
                     clear,
                     vertices.vulkan.handle,
-                    vertices.descriptor.size / stride,
+                    vertexBytes / stride,
                     indices.vulkan.handle,
                     indexCount,
                     instanceCount,
-                    pipeline.binding.vulkan.descriptorSet
+                    pipeline.binding.vulkan.descriptorSet,
+                    0,
+                    false,
+                    nativeNullPointer(),
+                    0,
+                    vertexOffset,
+                    indexOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2506,15 +2590,28 @@ trusted fun GraphicsApplication.presentRenderVerticesIndirect(
     var pipeline: GraphicsRenderPipeline,
     vertices: GraphicsBuffer,
     indirect: GraphicsBuffer,
-    clear: Color
+    clear: Color,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indirectOffset: int = 0,
+    indirectSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
     if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
         !indirect.valid() || !clear.valid() ||
         pipeline.backend != this.backend || pipeline.targetHandle != 0 ||
         stride <= 0 ||
-        vertices.descriptor.size / stride <= 0 ||
-        indirect.descriptor.size < 16 ||
+        !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || !graphicsDrawBufferRangeValid(
+            indirectOffset,
+            indirectSize,
+            indirect.descriptor.size,
+            16
+        ) ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indirect) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
         (indirect.descriptor.usage & bufferUsageIndirect) == 0) false
@@ -2534,7 +2631,11 @@ trusted fun GraphicsApplication.presentRenderVerticesIndirect(
             pipeline.binding.openGlOffsets,
             pipeline.binding.openGlSizes,
             pipeline.binding.openGlSamplers,
-            indirect.openGl.handle
+            indirect.openGl.handle,
+            nativeNullPointer(),
+            0,
+            vertexOffset,
+            indirectOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2550,7 +2651,13 @@ trusted fun GraphicsApplication.presentRenderVerticesIndirect(
             0,
             1,
             pipeline.binding.vulkan.descriptorSet,
-            indirect.vulkan.handle
+            indirect.vulkan.handle,
+            false,
+            nativeNullPointer(),
+            0,
+            vertexOffset,
+            0,
+            indirectOffset
         )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2571,7 +2678,13 @@ trusted fun GraphicsApplication.presentRenderVerticesIndirect(
                     0,
                     1,
                     pipeline.binding.vulkan.descriptorSet,
-                    indirect.vulkan.handle
+                    indirect.vulkan.handle,
+                    false,
+                    nativeNullPointer(),
+                    0,
+                    vertexOffset,
+                    0,
+                    indirectOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2586,15 +2699,35 @@ trusted fun GraphicsApplication.presentRenderIndexedIndirect(
     vertices: GraphicsBuffer,
     indices: GraphicsBuffer,
     indirect: GraphicsBuffer,
-    clear: Color
+    clear: Color,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1,
+    indirectOffset: int = 0,
+    indirectSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
     if (!this.valid() || !pipeline.valid() || !vertices.valid() ||
         !indices.valid() || !indirect.valid() || !clear.valid() ||
         pipeline.backend != this.backend || pipeline.targetHandle != 0 ||
         stride <= 0 ||
-        vertices.descriptor.size / stride <= 0 ||
-        indices.descriptor.size / 4 <= 0 || indirect.descriptor.size < 20 ||
+        !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || !graphicsDrawBufferRangeValid(
+            indexOffset,
+            indexSize,
+            indices.descriptor.size,
+            4
+        ) || !graphicsDrawBufferRangeValid(
+            indirectOffset,
+            indirectSize,
+            indirect.descriptor.size,
+            20
+        ) ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
         !this.ownsBuffer(indirect) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
@@ -2617,7 +2750,12 @@ trusted fun GraphicsApplication.presentRenderIndexedIndirect(
             pipeline.binding.openGlOffsets,
             pipeline.binding.openGlSizes,
             pipeline.binding.openGlSamplers,
-            indirect.openGl.handle
+            indirect.openGl.handle,
+            nativeNullPointer(),
+            0,
+            vertexOffset,
+            indexOffset,
+            indirectOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2634,7 +2772,12 @@ trusted fun GraphicsApplication.presentRenderIndexedIndirect(
             1,
             pipeline.binding.vulkan.descriptorSet,
             indirect.vulkan.handle,
-            true
+            true,
+            nativeNullPointer(),
+            0,
+            vertexOffset,
+            indexOffset,
+            indirectOffset
         )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2656,7 +2799,12 @@ trusted fun GraphicsApplication.presentRenderIndexedIndirect(
                     1,
                     pipeline.binding.vulkan.descriptorSet,
                     indirect.vulkan.handle,
-                    true
+                    true,
+                    nativeNullPointer(),
+                    0,
+                    vertexOffset,
+                    indexOffset,
+                    indirectOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2672,15 +2820,27 @@ trusted fun GraphicsApplication.presentPushRenderVertices(
     vertices: GraphicsBuffer,
     vertexCount: int,
     clear: Color,
-    instanceCount: int = 1
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
+    val vertexBytes = graphicsDrawBufferRangeSize(
+        vertexOffset,
+        vertexSize,
+        vertices.descriptor.size
+    )
     if (!this.valid() || !pipeline.valid() || !constants.valid() ||
         !constants.layout.matches(pipeline.pushConstantLayout) ||
         !vertices.valid() || !clear.valid() ||
         pipeline.backend != this.backend || pipeline.targetHandle != 0 ||
         stride <= 0 || vertexCount <= 0 || instanceCount <= 0 ||
-        vertexCount > vertices.descriptor.size / stride ||
+        !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || vertexCount > vertexBytes / stride ||
         !this.ownsBuffer(vertices) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0) false
     else if (this.backend == graphicsBackendOpenGl) {
@@ -2701,7 +2861,8 @@ trusted fun GraphicsApplication.presentPushRenderVertices(
             pipeline.binding.openGlSamplers,
             0,
             constants.bytes.storage.address,
-            constants.layout.size
+            constants.layout.size,
+            vertexOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2720,7 +2881,8 @@ trusted fun GraphicsApplication.presentPushRenderVertices(
                 0,
                 false,
                 constants.bytes.storage.address,
-                constants.layout.size
+                constants.layout.size,
+                vertexOffset
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2744,7 +2906,8 @@ trusted fun GraphicsApplication.presentPushRenderVertices(
                     0,
                     false,
                     constants.bytes.storage.address,
-                    constants.layout.size
+                    constants.layout.size,
+                    vertexOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2761,16 +2924,40 @@ trusted fun GraphicsApplication.presentPushRenderIndexed(
     indices: GraphicsBuffer,
     indexCount: int,
     clear: Color,
-    instanceCount: int = 1
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
+    val vertexBytes = graphicsDrawBufferRangeSize(
+        vertexOffset,
+        vertexSize,
+        vertices.descriptor.size
+    )
+    val indexBytes = graphicsDrawBufferRangeSize(
+        indexOffset,
+        indexSize,
+        indices.descriptor.size
+    )
     if (!this.valid() || !pipeline.valid() || !constants.valid() ||
         !constants.layout.matches(pipeline.pushConstantLayout) ||
         !vertices.valid() || !indices.valid() || !clear.valid() ||
         pipeline.backend != this.backend || pipeline.targetHandle != 0 ||
-        stride <= 0 || vertices.descriptor.size / stride <= 0 ||
+        stride <= 0 || !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || !graphicsDrawBufferRangeValid(
+            indexOffset,
+            indexSize,
+            indices.descriptor.size,
+            4
+        ) || vertexBytes / stride <= 0 ||
         indexCount <= 0 || instanceCount <= 0 ||
-        indexCount > indices.descriptor.size / 4 ||
+        indexCount > indexBytes / 4 ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
         (indices.descriptor.usage & bufferUsageIndex) == 0) false
@@ -2793,7 +2980,9 @@ trusted fun GraphicsApplication.presentPushRenderIndexed(
             pipeline.binding.openGlSamplers,
             0,
             constants.bytes.storage.address,
-            constants.layout.size
+            constants.layout.size,
+            vertexOffset,
+            indexOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2804,7 +2993,7 @@ trusted fun GraphicsApplication.presentPushRenderIndexed(
                 pipeline.vulkan,
                 clear,
                 vertices.vulkan.handle,
-                vertices.descriptor.size / stride,
+                vertexBytes / stride,
                 indices.vulkan.handle,
                 indexCount,
                 instanceCount,
@@ -2812,7 +3001,9 @@ trusted fun GraphicsApplication.presentPushRenderIndexed(
                 0,
                 false,
                 constants.bytes.storage.address,
-                constants.layout.size
+                constants.layout.size,
+                vertexOffset,
+                indexOffset
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2828,7 +3019,7 @@ trusted fun GraphicsApplication.presentPushRenderIndexed(
                     pipeline.vulkan,
                     clear,
                     vertices.vulkan.handle,
-                    vertices.descriptor.size / stride,
+                    vertexBytes / stride,
                     indices.vulkan.handle,
                     indexCount,
                     instanceCount,
@@ -2836,7 +3027,9 @@ trusted fun GraphicsApplication.presentPushRenderIndexed(
                     0,
                     false,
                     constants.bytes.storage.address,
-                    constants.layout.size
+                    constants.layout.size,
+                    vertexOffset,
+                    indexOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2851,15 +3044,28 @@ trusted fun GraphicsApplication.presentPushRenderVerticesIndirect(
     constants: GraphicsPushConstants,
     vertices: GraphicsBuffer,
     indirect: GraphicsBuffer,
-    clear: Color
+    clear: Color,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indirectOffset: int = 0,
+    indirectSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
     if (!this.valid() || !pipeline.valid() || !constants.valid() ||
         !constants.layout.matches(pipeline.pushConstantLayout) ||
         !vertices.valid() || !indirect.valid() || !clear.valid() ||
         pipeline.backend != this.backend || pipeline.targetHandle != 0 ||
-        stride <= 0 || vertices.descriptor.size / stride <= 0 ||
-        indirect.descriptor.size < 16 ||
+        stride <= 0 || !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || !graphicsDrawBufferRangeValid(
+            indirectOffset,
+            indirectSize,
+            indirect.descriptor.size,
+            16
+        ) ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indirect) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
         (indirect.descriptor.usage & bufferUsageIndirect) == 0) false
@@ -2881,7 +3087,9 @@ trusted fun GraphicsApplication.presentPushRenderVerticesIndirect(
             pipeline.binding.openGlSamplers,
             indirect.openGl.handle,
             constants.bytes.storage.address,
-            constants.layout.size
+            constants.layout.size,
+            vertexOffset,
+            indirectOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2900,7 +3108,10 @@ trusted fun GraphicsApplication.presentPushRenderVerticesIndirect(
                 indirect.vulkan.handle,
                 false,
                 constants.bytes.storage.address,
-                constants.layout.size
+                constants.layout.size,
+                vertexOffset,
+                0,
+                indirectOffset
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -2924,7 +3135,10 @@ trusted fun GraphicsApplication.presentPushRenderVerticesIndirect(
                     indirect.vulkan.handle,
                     false,
                     constants.bytes.storage.address,
-                    constants.layout.size
+                    constants.layout.size,
+                    vertexOffset,
+                    0,
+                    indirectOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
@@ -2940,7 +3154,13 @@ trusted fun GraphicsApplication.presentPushRenderIndexedIndirect(
     vertices: GraphicsBuffer,
     indices: GraphicsBuffer,
     indirect: GraphicsBuffer,
-    clear: Color
+    clear: Color,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1,
+    indirectOffset: int = 0,
+    indirectSize: int = -1
 ): bool {
     val stride = pipeline.vertexLayout.stride
     if (!this.valid() || !pipeline.valid() || !constants.valid() ||
@@ -2948,8 +3168,22 @@ trusted fun GraphicsApplication.presentPushRenderIndexedIndirect(
         !vertices.valid() || !indices.valid() || !indirect.valid() ||
         !clear.valid() || pipeline.backend != this.backend ||
         pipeline.targetHandle != 0 || stride <= 0 ||
-        vertices.descriptor.size / stride <= 0 ||
-        indices.descriptor.size / 4 <= 0 || indirect.descriptor.size < 20 ||
+        !graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) || !graphicsDrawBufferRangeValid(
+            indexOffset,
+            indexSize,
+            indices.descriptor.size,
+            4
+        ) || !graphicsDrawBufferRangeValid(
+            indirectOffset,
+            indirectSize,
+            indirect.descriptor.size,
+            20
+        ) ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
         !this.ownsBuffer(indirect) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
@@ -2974,7 +3208,10 @@ trusted fun GraphicsApplication.presentPushRenderIndexedIndirect(
             pipeline.binding.openGlSamplers,
             indirect.openGl.handle,
             constants.bytes.storage.address,
-            constants.layout.size
+            constants.layout.size,
+            vertexOffset,
+            indexOffset,
+            indirectOffset
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -2993,7 +3230,10 @@ trusted fun GraphicsApplication.presentPushRenderIndexedIndirect(
                 indirect.vulkan.handle,
                 true,
                 constants.bytes.storage.address,
-                constants.layout.size
+                constants.layout.size,
+                vertexOffset,
+                indexOffset,
+                indirectOffset
             )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -3017,7 +3257,10 @@ trusted fun GraphicsApplication.presentPushRenderIndexedIndirect(
                     indirect.vulkan.handle,
                     true,
                     constants.bytes.storage.address,
-                    constants.layout.size
+                    constants.layout.size,
+                    vertexOffset,
+                    indexOffset,
+                    indirectOffset
                 )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&
