@@ -3552,6 +3552,8 @@ fun vulkanTextureFormat(format: int): int {
     else if (format == textureFormatDepth24Stencil8) result = 129
     else if (format == textureFormatDepth32Float) result = 126
     else if (format == textureFormatDepth32FloatStencil8) result = 130
+    else if (format == textureFormatBc1RgbaUnorm) result = 133
+    else if (format == textureFormatBc1RgbaUnormSrgb) result = 134
     result
 }
 
@@ -3568,11 +3570,26 @@ fun vulkanTextureUsage(usage: int, format: int): int {
     result
 }
 
-fun vulkanTextureFlags(format: int): int =
-    if (format == textureFormatRgba8Unorm ||
+fun vulkanTextureFlags(format: int, dimension: int): int {
+    var result = if (format == textureFormatRgba8Unorm ||
         format == textureFormatRgba8UnormSrgb ||
         format == textureFormatBgra8Unorm ||
-        format == textureFormatBgra8UnormSrgb) 8 else 0
+        format == textureFormatBgra8UnormSrgb ||
+        format == textureFormatBc1RgbaUnorm ||
+        format == textureFormatBc1RgbaUnormSrgb) 8 else 0
+    if (dimension == textureDimensionCube) result = result | 16
+    result
+}
+
+fun vulkanTextureImageType(dimension: int): int {
+    var result = -1
+    if (dimension == textureDimension1D) result = 0
+    else if (dimension == textureDimension2D ||
+        dimension == textureDimension2DArray ||
+        dimension == textureDimensionCube) result = 1
+    else if (dimension == textureDimension3D) result = 2
+    result
+}
 
 fun vulkanTextureViewType(dimension: int): int {
     var result = -1
@@ -5257,9 +5274,11 @@ trusted fun VulkanDevice.texture(
     var commandPool = 0
     var command = nativePointerCell(nativeNullPointer())
     var scratch = nativeByteBuffer(80)
-    var layouts = nativeByteBuffer(descriptor.mipLevels * 8)
+    val layoutCount = descriptor.mipLevels *
+        textureArrayLayerCount(descriptor)
+    var layouts = nativeByteBuffer(layoutCount * 8)
     var layoutLevel = 0
-    while (layoutLevel < descriptor.mipLevels) {
+    while (layoutLevel < layoutCount) {
         layouts.storeI64(layoutLevel * 8, 0)
         layoutLevel = layoutLevel + 1
     }
@@ -5273,8 +5292,8 @@ trusted fun VulkanDevice.texture(
         createInfo.storePointer(8, nativeNullPointer())
         createInfo.storeI64(
             16,
-            (descriptor.dimension - 1) * 4294967296 +
-                vulkanTextureFlags(descriptor.format)
+            vulkanTextureImageType(descriptor.dimension) * 4294967296 +
+                vulkanTextureFlags(descriptor.format, descriptor.dimension)
         )
         createInfo.storeI64(
             24,
@@ -5282,11 +5301,14 @@ trusted fun VulkanDevice.texture(
         )
         createInfo.storeI64(
             32,
-            descriptor.size.depth * 4294967296 + descriptor.size.height
+            (if (descriptor.dimension == textureDimension3D)
+                descriptor.size.depth else 1) * 4294967296 +
+                descriptor.size.height
         )
         createInfo.storeI64(
             40,
-            4294967296 + descriptor.mipLevels
+            textureArrayLayerCount(descriptor) * 4294967296 +
+                descriptor.mipLevels
         )
         createInfo.storeI64(48, descriptor.samples)
         createInfo.storeI64(56, usage)

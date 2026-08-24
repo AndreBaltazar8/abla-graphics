@@ -316,6 +316,37 @@ noescape extern:"c" fun glTexImage2DMultisample(
     height: i32,
     fixedSampleLocations: i32
 ): void
+noescape extern:"c" fun glTexStorage1D(
+    target: i32,
+    levels: i32,
+    internalFormat: i32,
+    width: i32
+): void
+noescape extern:"c" fun glTexStorage2D(
+    target: i32,
+    levels: i32,
+    internalFormat: i32,
+    width: i32,
+    height: i32
+): void
+noescape extern:"c" fun glTexStorage3D(
+    target: i32,
+    levels: i32,
+    internalFormat: i32,
+    width: i32,
+    height: i32,
+    depth: i32
+): void
+noescape extern:"c" fun glTextureView(
+    texture: i32,
+    target: i32,
+    originalTexture: i32,
+    internalFormat: i32,
+    minimumLevel: i32,
+    levelCount: i32,
+    minimumLayer: i32,
+    layerCount: i32
+): void
 noescape extern:"c" fun glTexSubImage2D(
     target: i32,
     level: i32,
@@ -691,6 +722,9 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     }
     if (majorValue > 4 || (majorValue == 4 && minorValue >= 4)) {
         features = features | graphicsFeaturePersistentMapping
+    }
+    if (majorValue > 4 || (majorValue == 4 && minorValue >= 3)) {
+        features = features | graphicsFeatureViewFormatReinterpretation
     }
     GraphicsCapabilities(
         features,
@@ -1494,8 +1528,23 @@ fun openGlTextureFormat(format: int): OpenGlTextureFormat {
         internalFormat = 36013
         baseFormat = 34041
         kind = 36269
-    }
+    } else if (format == textureFormatBc1RgbaUnorm) internalFormat = 33777
+    else if (format == textureFormatBc1RgbaUnormSrgb) internalFormat = 35917
     OpenGlTextureFormat(internalFormat != 0, internalFormat, baseFormat, kind)
+}
+
+fun openGlTextureTarget(dimension: int, samples: int = 1): int {
+    var result = 0
+    if (samples > 1 && dimension == textureDimension2D) result = 37120
+    else if (samples == 1 && dimension == textureDimension1D) result = 3552
+    else if (samples == 1 && dimension == textureDimension2D) result = 3553
+    else if (samples == 1 && dimension == textureDimension3D) result = 32879
+    else if (samples == 1 && dimension == textureDimension2DArray) {
+        result = 35866
+    } else if (samples == 1 && dimension == textureDimensionCube) {
+        result = 34067
+    }
+    result
 }
 
 resource class OpenGlTexture(
@@ -1507,7 +1556,9 @@ resource class OpenGlTexture(
     val readback: NativeByteBuffer
 ) {
     fun valid(): bool = this.handle != 0 &&
-        (this.target == 3553 || this.target == 37120) &&
+        (this.target == 3552 || this.target == 3553 ||
+         this.target == 32879 || this.target == 34067 ||
+         this.target == 35866 || this.target == 37120) &&
         !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
         !this.readback.closed && this.readback.capacity >= 8
 
@@ -1672,10 +1723,27 @@ trusted fun OpenGlTexture.rgba8(
     result
 }
 
-resource class OpenGlTextureView(var handle: int) {
+resource class OpenGlTextureView(
+    var handle: int,
+    val display: i64* = nativeNullPointer(),
+    val surface: i64* = nativeNullPointer(),
+    val context: i64* = nativeNullPointer(),
+    val owned: bool = false
+) {
     fun valid(): bool = this.handle != 0
 
-    fun drop(): void {
+    trusted fun drop(): void {
+        if (this.handle != 0 && this.owned) {
+            if (!pointerIsNull(this.display) &&
+                !pointerIsNull(this.context)) eglMakeCurrent(
+                    this.display,
+                    this.surface,
+                    this.surface,
+                    this.context
+                )
+            val output = nativeI64Cell(this.handle)
+            glDeleteTextures(1, output.address)
+        }
         this.handle = 0
         return
     }
@@ -2141,10 +2209,10 @@ trusted fun OpenGlWindowContext.texture(
     descriptor: TextureDescriptor
 ): OpenGlTexture {
     var handle = 0
-    val target = if (descriptor.samples > 1) 37120 else 3553
+    val target = openGlTextureTarget(descriptor.dimension, descriptor.samples)
     val selected = openGlTextureFormat(descriptor.format)
-    if (descriptor.valid() && descriptor.dimension == textureDimension2D &&
-        selected.valid && this.makeCurrent()) {
+    if (descriptor.valid() && target != 0 && selected.valid &&
+        this.makeCurrent()) {
         val output = nativeI64Cell(0)
         glGenTextures(1, output.address)
         handle = output.load()
@@ -2160,25 +2228,28 @@ trusted fun OpenGlWindowContext.texture(
             ) else {
                 glTexParameteri(target, 33084, 0)
                 glTexParameteri(target, 33085, descriptor.mipLevels - 1)
-                var level = 0
-                var width = descriptor.size.width
-                var height = descriptor.size.height
-                while (level < descriptor.mipLevels) {
-                    glTexImage2D(
+                if (descriptor.dimension == textureDimension1D) glTexStorage1D(
+                    target,
+                    descriptor.mipLevels,
+                    selected.internalFormat,
+                    descriptor.size.width
+                ) else if (descriptor.dimension == textureDimension2D ||
+                    descriptor.dimension == textureDimensionCube) {
+                    glTexStorage2D(
                         target,
-                        level,
+                        descriptor.mipLevels,
                         selected.internalFormat,
-                        width,
-                        height,
-                        0,
-                        selected.format,
-                        selected.kind,
-                        nativeNullPointer()
+                        descriptor.size.width,
+                        descriptor.size.height
                     )
-                    if (width > 1) width = width / 2
-                    if (height > 1) height = height / 2
-                    level = level + 1
-                }
+                } else glTexStorage3D(
+                    target,
+                    descriptor.mipLevels,
+                    selected.internalFormat,
+                    descriptor.size.width,
+                    descriptor.size.height,
+                    descriptor.size.depth
+                )
             }
             if (glGetError() != 0) {
                 glDeleteTextures(1, output.address)
@@ -2208,10 +2279,48 @@ fun OpenGlTexture.view(
         descriptor.baseArrayLayer == 0 &&
         descriptor.resolvedArrayLayerCount(texture) ==
             textureArrayLayerCount(texture)
+    var handle = 0
+    var owned = false
+    if (this.valid() && validation.succeeded && fullView) handle = this.handle
+    else if (this.valid() && validation.succeeded && eglMakeCurrent(
+        this.display,
+        this.surface,
+        this.surface,
+        this.context
+    ) == eglTrue) {
+        val selected = openGlTextureFormat(descriptor.resolvedFormat(texture))
+        val target = openGlTextureTarget(
+            descriptor.resolvedDimension(texture)
+        )
+        if (selected.valid && target != 0) {
+            val output = nativeI64Cell(0)
+            glGenTextures(1, output.address)
+            handle = output.load()
+            if (handle != 0) {
+                glTextureView(
+                    handle,
+                    target,
+                    this.handle,
+                    selected.internalFormat,
+                    descriptor.baseMipLevel,
+                    descriptor.resolvedMipLevelCount(texture),
+                    descriptor.baseArrayLayer,
+                    descriptor.resolvedArrayLayerCount(texture)
+                )
+                if (glGetError() == 0) owned = true
+                else {
+                    glDeleteTextures(1, output.address)
+                    handle = 0
+                }
+            }
+        }
+    }
     OpenGlTextureView(
-        if (this.valid() && validation.succeeded && fullView)
-            this.handle
-        else 0
+        handle,
+        this.display,
+        this.surface,
+        this.context,
+        owned
     )
 }
 

@@ -31,9 +31,8 @@ fun applicationBackendProbe(
         graphicsFeatureStorageBuffers | graphicsFeatureSampledTextures |
         graphicsFeatureDepthTextures | graphicsFeatureComparisonSamplers |
         graphicsFeatureSamplerAnisotropy | graphicsFeatureTimestampQueries
-    val requiredFeatures = if (requestedBackend == graphicsBackendVulkan)
-        commonFeatures | graphicsFeatureViewFormatReinterpretation
-    else commonFeatures
+    val requiredFeatures = commonFeatures |
+        graphicsFeatureViewFormatReinterpretation
     val app = graphicsApplication(
         GraphicsConfig(
             backend = requestedBackend,
@@ -1824,18 +1823,13 @@ fun applicationBackendProbe(
         textureView.valid() &&
         textureView.descriptor.resolvedFormat(texture.descriptor) ==
             textureFormatRgba8Unorm &&
-        (if (app.backend == graphicsBackendOpenGl)
-            !reinterpretedTextureView.valid() &&
-                reinterpretedTextureView.error.code ==
-                    graphicsErrorUnsupportedFeature
-         else reinterpretedTextureView.valid()) &&
+        reinterpretedTextureView.valid() &&
         !invalidTextureView.valid() &&
         invalidTextureView.error.code == graphicsErrorInvalidConfiguration &&
         bgraTexture.valid() && bgraUploaded &&
         bgraPixel == 1026235665 && !bgraTexture.generateMipmaps() &&
         depthTexture.valid() && depthTextureView.valid() &&
-        !unsupportedTexture.valid() &&
-        unsupportedTexture.error.code == graphicsErrorUnsupportedFeature &&
+        unsupportedTexture.valid() &&
         !oversizedTexture.valid() &&
         oversizedTexture.error.code == graphicsErrorLimitExceeded &&
         renderTarget.valid() &&
@@ -1988,7 +1982,7 @@ fun applicationUnsupportedFeatureProbe(): bool {
     val app = graphicsApplication(
         GraphicsConfig(
             backend = graphicsBackendOpenGl,
-            requiredFeatures = graphicsFeatureViewFormatReinterpretation
+            requiredFeatures = 512
         ),
         WindowConfig(
             title = "Unsupported OpenGL feature",
@@ -1997,8 +1991,8 @@ fun applicationUnsupportedFeatureProbe(): bool {
         )
     )
     val rejected = !app.valid() &&
-        app.error.code == graphicsErrorUnsupportedFeature
-    println("unsupported OpenGL feature: rejected=$rejected")
+        app.error.code == graphicsErrorInvalidConfiguration
+    println("unknown graphics feature: rejected=$rejected")
     rejected
 }
 

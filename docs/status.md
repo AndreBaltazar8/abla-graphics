@@ -192,8 +192,8 @@ Updated: 2026-08-24.
   clears and reads a pbuffer while explicit Vulkan creates a logical device,
   submits a buffer fill, synchronizes, and reads the result back. Both paths
   require and verify the common compute/storage/texture/anisotropy feature set
-  and real queried limits; Vulkan additionally requires format
-  reinterpretation, while an explicit OpenGL request for it is rejected before
+  and real queried limits; both production paths require and provide compatible
+  view-format reinterpretation. An unknown feature bit is rejected before
   application use.
 - Vulkan test: loader version, instance, physical-adapter API version, queried
   2D texture/storage/compute limits and portable feature mask, graphics
@@ -318,11 +318,10 @@ Updated: 2026-08-24.
   preference, automatic fallback to OpenGL, explicit-unavailable rejection,
   and explicit unsupported-feature rejection. Every successful path requires
   compute, storage buffers, sampled/depth textures, comparison samplers, and
-  sampler anisotropy,
+  sampler anisotropy and view-format reinterpretation,
   then verifies the reported API version and driver limits. It rejects a
   storage buffer one byte above the reported range and a 2D texture one texel
-  above the reported dimension before allocation. Explicit Vulkan
-  additionally requires the implemented view-format reinterpretation feature;
+  above the reported dimension before allocation;
   successful paths create an affine application, report the selected adapter,
   round a common native `f64` color to IEEE-754 binary32 in Abla, and present it
   under Xvfb/Lavapipe. The explicit OpenGL path additionally requests a resize,
@@ -500,12 +499,18 @@ Updated: 2026-08-24.
   only the advertised sampler bit, and records the anisotropic sampler state.
   Pure capability tests reject a request above the reported limit and a request
   on a device without the feature.
-- Common affine texture/view test: one descriptor creates complete color mip
-  chains and depth images as OpenGL 2D texture objects or bound Vulkan images.
-  Omitted view counts resolve to all remaining subresources; full OpenGL views
-  alias their texture while Vulkan creates and destroys `VkImageView` objects.
-  Vulkan mutable-format images additionally verify compatible linear-to-sRGB
-  views while OpenGL reports that operation as unsupported. Both paths verify
+- Common affine texture/view tests: descriptors create complete 1D, 2D,
+  2D-array, cube, and 3D color mip chains plus 2D depth images as immutable
+  OpenGL texture storage or bound Vulkan images. OpenGL selects the exact target;
+  Vulkan selects the exact image type, physical depth or array layers, and cube
+  compatibility. BC1 UNORM/sRGB allocation is live on both. Omitted view counts
+  resolve to all remaining subresources; full OpenGL views alias their texture,
+  while partial layer/mip and compatible-format views own independent
+  `glTextureView` names. Vulkan creates and destroys `VkImageView` objects.
+  Both mutable Vulkan images and immutable OpenGL storage verify compatible
+  linear-to-sRGB views. The focused wider-resource gate runs 1D, array, cube,
+  volume, BC1, alias, owned-view, and parent-survival checks on explicit OpenGL,
+  explicit Vulkan, and automatic selection. Both paths verify
   color/depth aspects, invalid-range diagnostics, rejection of multisampled
   sampled/copy usage, and reverse-order affine cleanup. A partial 2x2 RGBA upload into
   mip two is read back exactly, updated a second time to prove Vulkan's
@@ -836,7 +841,7 @@ Updated: 2026-08-24.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 113 Vulkan and 97 OpenGL commands as
+  A strict audit join currently classifies 113 Vulkan and 101 OpenGL commands as
   `common`, with separate loader, ABI, positive-test, and unsupported-path
   evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so

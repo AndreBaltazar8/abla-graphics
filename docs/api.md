@@ -978,25 +978,25 @@ overflow. `textureFormatBc1RgbaUnorm` and
 `textureFormatBc1RgbaUnormSrgb` establish the first eight-byte 4x4 compressed
 block family and compatible linear/sRGB views.
 
-These wider descriptors and their pure validation contract are delivered, but
-native array/cube/3D/BC1 creation and byte transfer are not yet claimed.
-`GraphicsApplication.texture` continues to reject non-2D creation until both
-backends implement the complete contract rather than accepting inert enums.
+These wider descriptors, pure validation, native allocation, and view ownership
+are delivered. OpenGL uses immutable 1D/2D/3D/array/cube storage and Vulkan
+uses the matching image type, physical depth or array layers, and cube-compatible
+flag. BC1 allocation is live on both. Pitched raw byte transfer remains the
+next API slice; `PixelBuffer` transfer methods intentionally remain 2D.
 
-`GraphicsTexture` owns an allocated OpenGL 2D texture or Vulkan image plus
-bound device memory. `GraphicsTextureView` is a non-owning full-resource alias
-on the current OpenGL path and an owning `VkImageView` on Vulkan. Both paths
-support single-sample 2D color and depth formats, complete mip allocation, and
-validated color/depth/stencil aspect ranges. They also create 2x, 4x, 8x, and
-16x multisampled 2D color/depth textures when usage is exactly
+`GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
+device memory. A full matching OpenGL view is a non-owning alias; subresource
+and compatible-format views own independent `glTextureView` names. Vulkan
+views own `VkImageView` objects. Both paths support single-sample 1D, 2D,
+2D-array, cube, and 3D color resources, 2D depth resources, complete mip
+allocation, and validated color/depth/stencil aspect ranges. They also create
+2x, 4x, 8x, and 16x multisampled 2D color/depth textures when usage is exactly
 `textureUsageRenderAttachment`; sampled/copy usage remains rejected, so an
 application resolves into a separate single-sample resource, either owned by
-the target or supplied explicitly. Vulkan compatible linear/sRGB
-reinterpretation uses mutable-format images. OpenGL subresource and
-format-reinterpreted views return `graphicsErrorUnsupportedFeature` until
-texture-view support is negotiated. Width or height above
-`maximumTextureDimension2D` returns `graphicsErrorLimitExceeded` before image
-creation.
+the target or supplied explicitly. Compatible linear/sRGB reinterpretation
+uses mutable-format Vulkan images or immutable OpenGL storage. Extents or array
+layers above the selected dimension-specific device limit return
+`graphicsErrorLimitExceeded` before image creation.
 
 RGBA8 pixel storage can update a validated region of any mip in an RGBA8/BGRA8
 texture carrying `textureUsageCopyDestination`:
@@ -1420,9 +1420,10 @@ invocations, and maximum integer sampler anisotropy.
 The corresponding Y/Z workgroup-count and local-size limits are also reported.
 These values come from
 `glGet*` on the current OpenGL context or `vkGetPhysicalDeviceProperties` and
-the selected Vulkan queue family. The current OpenGL path deliberately does not
-advertise view-format reinterpretation; Vulkan does because the implemented
-mutable-format view path has positive coverage. Unknown requirement bits are
+the selected Vulkan queue family. OpenGL 4.3+ advertises view-format
+reinterpretation through immutable texture storage and owned `glTextureView`
+resources; Vulkan advertises it through the implemented mutable-format
+image-view path. Unknown requirement bits are
 an invalid configuration.
 
 This is the delivered portable capability subset, not a claim of complete

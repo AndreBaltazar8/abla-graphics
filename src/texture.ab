@@ -23,7 +23,8 @@ resource class GraphicsTexture(
         pixels: PixelBuffer,
         write: TextureWriteDescriptor
     ): bool {
-        if (!this.valid() || !pixels.valid() || !write.valid(
+        if (!this.valid() || this.descriptor.dimension != textureDimension2D ||
+            !pixels.valid() || !write.valid(
             this.descriptor,
             pixels.width,
             pixels.height
@@ -40,7 +41,8 @@ resource class GraphicsTexture(
         y: int,
         mipLevel: int = 0
     ): int {
-        if (!this.valid()) -1
+        if (!this.valid() ||
+            this.descriptor.dimension != textureDimension2D) -1
         else if (this.backend == graphicsBackendOpenGl) {
             this.openGl.rgba8(this.descriptor, x, y, mipLevel)
         } else if (this.backend == graphicsBackendVulkan) {
@@ -228,12 +230,6 @@ trusted fun GraphicsApplication.texture(
             "GraphicsApplication.texture.${validation.field}",
             validation.message
         )
-    } else if (descriptor.dimension != textureDimension2D) {
-        error = GraphicsError(
-            graphicsErrorUnsupportedFeature,
-            "GraphicsApplication.texture",
-            "the portable texture slice currently supports two-dimensional textures"
-        )
     } else if (descriptor.samples > 1 &&
         descriptor.usage != textureUsageRenderAttachment) {
         error = GraphicsError(
@@ -250,14 +246,35 @@ trusted fun GraphicsApplication.texture(
             "GraphicsApplication.texture",
             "the requested texture feature is unavailable on the selected device"
         )
-    } else if (descriptor.size.width >
-            this.capabilities.limits.maximumTextureDimension2D ||
-        descriptor.size.height >
-            this.capabilities.limits.maximumTextureDimension2D) {
+    } else if ((descriptor.dimension == textureDimension1D &&
+            descriptor.size.width >
+                this.capabilities.limits.maximumTextureDimension1D) ||
+        (descriptor.dimension == textureDimension2D &&
+            (descriptor.size.width >
+                this.capabilities.limits.maximumTextureDimension2D ||
+             descriptor.size.height >
+                this.capabilities.limits.maximumTextureDimension2D)) ||
+        (descriptor.dimension == textureDimension3D &&
+            (descriptor.size.width >
+                this.capabilities.limits.maximumTextureDimension3D ||
+             descriptor.size.height >
+                this.capabilities.limits.maximumTextureDimension3D ||
+             descriptor.size.depth >
+                this.capabilities.limits.maximumTextureDimension3D)) ||
+        (descriptor.dimension == textureDimension2DArray &&
+            (descriptor.size.width >
+                this.capabilities.limits.maximumTextureDimension2D ||
+             descriptor.size.height >
+                this.capabilities.limits.maximumTextureDimension2D ||
+             descriptor.size.depth >
+                this.capabilities.limits.maximumTextureArrayLayers)) ||
+        (descriptor.dimension == textureDimensionCube &&
+            descriptor.size.width >
+                this.capabilities.limits.maximumTextureCubeDimension)) {
         error = GraphicsError(
             graphicsErrorLimitExceeded,
             "GraphicsApplication.texture.size",
-            "2D texture extent exceeds the selected device limit"
+            "texture extent exceeds the selected device dimension or layer limit"
         )
     } else if (this.backend == graphicsBackendOpenGl) {
         openGl = this.openGl.texture(descriptor)
@@ -316,9 +333,9 @@ trusted fun GraphicsTexture.view(
         openGl = this.openGl.view(this.descriptor, descriptor)
         if (!openGl.valid()) {
             error = GraphicsError(
-                graphicsErrorUnsupportedFeature,
+                graphicsErrorDriverFailure,
                 "OpenGlTexture.view",
-                "OpenGL subresource or format-reinterpreted views require texture-view support"
+                "OpenGL texture-view creation failed"
             )
         }
     } else if (this.backend == graphicsBackendVulkan) {

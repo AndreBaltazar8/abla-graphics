@@ -1,0 +1,130 @@
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/graphics.ab"
+
+trusted fun widerTextureProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = requestedBackend,
+            requiredFeatures = graphicsFeatureSampledTextures |
+                graphicsFeatureViewFormatReinterpretation
+        ),
+        WindowConfig(
+            title = "Abla wider texture resources",
+            width = 96,
+            height = 64
+        )
+    )
+    val usage = textureUsageCopySource |
+        textureUsageCopyDestination | textureUsageSampled
+    val oneDimensional = app.texture(TextureDescriptor(
+        label = "one-dimensional",
+        size = Extent3D(32, 1, 1),
+        mipLevels = 4,
+        dimension = textureDimension1D,
+        usage = usage
+    ))
+    val arrayTexture = app.texture(TextureDescriptor(
+        label = "two-dimensional-array",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension2DArray,
+        usage = usage
+    ))
+    val cubeTexture = app.texture(TextureDescriptor(
+        label = "cube",
+        size = Extent3D(16, 16, 6),
+        mipLevels = 3,
+        dimension = textureDimensionCube,
+        usage = usage
+    ))
+    val volumeTexture = app.texture(TextureDescriptor(
+        label = "volume",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension3D,
+        usage = usage
+    ))
+    val compressedTexture = app.texture(TextureDescriptor(
+        label = "bc1",
+        size = Extent3D(16, 16, 1),
+        mipLevels = 3,
+        dimension = textureDimension2D,
+        format = textureFormatBc1RgbaUnorm,
+        usage = usage
+    ))
+
+    val defaultArrayView = arrayTexture.view()
+    val arrayLayerView = arrayTexture.view(TextureViewDescriptor(
+        label = "array-layer-two",
+        dimension = textureDimension2D,
+        baseMipLevel = 1,
+        mipLevelCount = 1,
+        baseArrayLayer = 2,
+        arrayLayerCount = 1
+    ))
+    val cubeFaceView = cubeTexture.view(TextureViewDescriptor(
+        label = "cube-face-four",
+        dimension = textureDimension2D,
+        baseMipLevel = 1,
+        mipLevelCount = 1,
+        baseArrayLayer = 4,
+        arrayLayerCount = 1
+    ))
+    val volumeMipView = volumeTexture.view(TextureViewDescriptor(
+        label = "volume-mip-one",
+        dimension = textureDimension3D,
+        baseMipLevel = 1,
+        mipLevelCount = 1
+    ))
+    val compressedSrgbView = compressedTexture.view(TextureViewDescriptor(
+        label = "bc1-srgb",
+        format = textureFormatBc1RgbaUnormSrgb
+    ))
+
+    val creationPassed = app.valid() && oneDimensional.valid() &&
+        arrayTexture.valid() && cubeTexture.valid() && volumeTexture.valid() &&
+        compressedTexture.valid()
+    val viewsPassed = defaultArrayView.valid() && arrayLayerView.valid() &&
+        cubeFaceView.valid() && volumeMipView.valid() &&
+        compressedSrgbView.valid()
+    val ownershipPassed = if (app.backend == graphicsBackendOpenGl)
+        defaultArrayView.openGl.handle == arrayTexture.openGl.handle &&
+        !defaultArrayView.openGl.owned && arrayLayerView.openGl.owned &&
+        cubeFaceView.openGl.owned && volumeMipView.openGl.owned &&
+        compressedSrgbView.openGl.owned &&
+        arrayLayerView.openGl.handle != arrayTexture.openGl.handle &&
+        cubeFaceView.openGl.handle != cubeTexture.openGl.handle &&
+        volumeMipView.openGl.handle != volumeTexture.openGl.handle &&
+        compressedSrgbView.openGl.handle != compressedTexture.openGl.handle
+    else defaultArrayView.vulkan.handle != arrayTexture.vulkan.image &&
+        arrayLayerView.vulkan.handle != arrayTexture.vulkan.image &&
+        cubeFaceView.vulkan.handle != cubeTexture.vulkan.image &&
+        volumeMipView.vulkan.handle != volumeTexture.vulkan.image &&
+        compressedSrgbView.vulkan.handle != compressedTexture.vulkan.image
+
+    val ownedHandle = if (app.backend == graphicsBackendOpenGl)
+        arrayLayerView.openGl.handle else arrayLayerView.vulkan.handle
+    arrayLayerView.drop()
+    val ownedDropPassed = ownedHandle != 0 && !arrayLayerView.valid() &&
+        arrayTexture.valid()
+    defaultArrayView.drop()
+    val aliasDropPassed = !defaultArrayView.valid() && arrayTexture.valid()
+    val waited = app.waitIdle()
+    val passed = creationPassed && viewsPassed && ownershipPassed &&
+        ownedDropPassed && aliasDropPassed && waited
+    println(
+        "wider-texture ${graphicsBackendName(app.backend)}: resources=$creationPassed views=$viewsPassed ownership=$ownershipPassed drop=$ownedDropPassed/$aliasDropPassed"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (widerTextureProbe(backend)) 42 else 1
+}

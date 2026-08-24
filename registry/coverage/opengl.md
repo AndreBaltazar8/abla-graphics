@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 97/2892
+- Classified commands: 101/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -2242,12 +2242,12 @@
 | `glTexParameterxOES` | definition | unclassified | - | - | - | - |
 | `glTexParameterxvOES` | definition | unclassified | - | - | - | - |
 | `glTexRenderbufferNV` | definition | unclassified | - | - | - | - |
-| `glTexStorage1D` | definition | unclassified | - | - | - | - |
+| `glTexStorage1D` | definition | common | src/driver/opengl.ab immutable one-dimensional texture allocation | src/driver/opengl.ab typed levels format and width ABI | tests/wider_texture/main.ab live one-dimensional texture creation | tests/texture_contract.ab invalid one-dimensional shape rejection |
 | `glTexStorage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorage2D` | definition | unclassified | - | - | - | - |
+| `glTexStorage2D` | definition | common | src/driver/opengl.ab immutable two-dimensional and cube texture allocation | src/driver/opengl.ab typed levels format width and height ABI | tests/wider_texture/main.ab live cube and BC1 texture creation | tests/texture_contract.ab invalid cube and compressed descriptor rejection |
 | `glTexStorage2DEXT` | definition | unclassified | - | - | - | - |
 | `glTexStorage2DMultisample` | definition | unclassified | - | - | - | - |
-| `glTexStorage3D` | definition | unclassified | - | - | - | - |
+| `glTexStorage3D` | definition | common | src/driver/opengl.ab immutable array and volume texture allocation | src/driver/opengl.ab typed levels format width height and depth ABI | tests/wider_texture/main.ab live array and volume texture creation | tests/texture_contract.ab invalid array and volume descriptor rejection |
 | `glTexStorage3DEXT` | definition | unclassified | - | - | - | - |
 | `glTexStorage3DMultisample` | definition | unclassified | - | - | - | - |
 | `glTexStorageMem1DEXT` | definition | unclassified | - | - | - | - |
@@ -2319,7 +2319,7 @@
 | `glTextureSubImage2DEXT` | definition | unclassified | - | - | - | - |
 | `glTextureSubImage3D` | definition | unclassified | - | - | - | - |
 | `glTextureSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureView` | definition | unclassified | - | - | - | - |
+| `glTextureView` | definition | common | src/driver/opengl.ab owned subresource and compatible-format views | src/driver/opengl.ab typed target format mip and layer ABI | tests/wider_texture/main.ab live array cube volume and BC1 view ownership | tests/texture_contract.ab incompatible view rejection |
 | `glTrackMatrixNV` | definition | unclassified | - | - | - | - |
 | `glTransformFeedbackAttribsNV` | definition | unclassified | - | - | - | - |
 | `glTransformFeedbackBufferBase` | definition | unclassified | - | - | - | - |
