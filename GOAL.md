@@ -286,9 +286,10 @@ explicit backends. `make all` and the complete independently compiled sample
 matrix pass after scoping public-composition builds to the established 6144-MiB
 compiler address-space ceiling.
 
-## Current follow-up: ranged pool bindings
+## Published follow-up: ranged pool bindings
 
-This implemented follow-up connects pool allocations to portable
+Commit `da3ef13` (`Add ranged device buffer pool bindings`) is published on
+`origin/main`. It connects pool allocations to portable
 uniform/storage bind-group entries. `GraphicsLimits` now carries the queried
 minimum UBO/SSBO offset alignment from OpenGL and Vulkan; range entries reject
 misalignment and crossing bounds before driver work. Whole OpenGL resources
@@ -316,8 +317,9 @@ The full verification evidence for this checkpoint is current as of 2026-08-24:
 
 ## Immediate continuation checklist
 
-1. If this checkpoint is still dirty, inspect all files and run
-   `git diff --check`.
+1. Start from clean `main` at or after `da3ef13`, verify it matches
+   `origin/main`, then inspect `src/render.ab`, `src/buffer.ab`, and
+   `src/pool.ab` for the offset-aware vertex/index/indirect integration slice.
 2. After any transfer/pool implementation or test edits, rerun the focused
    compiler and live gates:
 
