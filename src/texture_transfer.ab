@@ -1,0 +1,561 @@
+// Fixed-slot asynchronous RGBA8 texture uploads and readbacks.
+
+import "abla/unsafe/memory"
+import "core.ab"
+import "resources.ab"
+import "pixels.ab"
+import "application.ab"
+import "buffer.ab"
+import "texture.ab"
+import "transfer.ab"
+
+val textureTransferDirectionUpload = bufferTransferDirectionUpload
+val textureTransferDirectionReadback = bufferTransferDirectionReadback
+
+class TextureTransferQueueDescriptor(
+    val label: string = "texture-transfer-queue",
+    val direction: int = textureTransferDirectionUpload,
+    val slotCapacity: int = 4194304,
+    val slotCount: int = 3,
+    val alignment: int = 256
+) {
+    fun bufferDescriptor(): BufferTransferQueueDescriptor =
+        BufferTransferQueueDescriptor(
+            this.label,
+            this.direction,
+            this.slotCapacity,
+            this.slotCount,
+            this.alignment
+        )
+
+    fun validation(): GraphicsDescriptorValidation =
+        this.bufferDescriptor().validation()
+
+    fun valid(): bool {
+        val stride = this.slotStride()
+        val total = this.totalCapacity()
+        this.direction >= textureTransferDirectionUpload &&
+            this.direction <= textureTransferDirectionReadback &&
+            this.slotCapacity > 0 &&
+            this.slotCapacity <= graphicsMaximumTransferRingBytes &&
+            this.slotCount > 0 &&
+            this.slotCount <= graphicsMaximumTransferQueueSlots &&
+            bufferTransferAlignmentValid(this.alignment) &&
+            this.alignment <= this.slotCapacity && stride > 0 && total > 0 &&
+            total <= graphicsMaximumTransferRingBytes
+    }
+
+    fun slotStride(): int = bufferTransferAlignedOffset(
+        this.slotCapacity,
+        this.alignment
+    )
+
+    fun totalCapacity(): int {
+        val stride = this.slotStride()
+        if (stride > 0 && this.slotCount > 0 &&
+            stride <= graphicsMaximumTransferRingBytes / this.slotCount)
+            stride * this.slotCount
+        else 0
+    }
+}
+
+class TextureReadDescriptor(
+    val mipLevel: int = 0,
+    val x: int = 0,
+    val y: int = 0,
+    val width: int = 1,
+    val height: int = 1
+) {
+    fun validation(texture: TextureDescriptor): GraphicsDescriptorValidation {
+        var result = graphicsDescriptorValid()
+        if (!texture.valid() || this.width <= 0 || this.height <= 0) {
+            result = graphicsDescriptorInvalid(
+                "pixels",
+                "texture readback requires a valid non-empty extent"
+            )
+        } else if ((texture.usage & textureUsageCopySource) == 0) {
+            result = graphicsDescriptorInvalid(
+                "usage",
+                "texture readback usage is missing from the texture"
+            )
+        } else if (!textureFormatAcceptsRgba8Pixels(texture.format)) {
+            result = graphicsDescriptorInvalid(
+                "format",
+                "RGBA8 readback requires an RGBA8 or BGRA8 texture"
+            )
+        } else if (this.mipLevel < 0 ||
+            this.mipLevel >= texture.mipLevels) {
+            result = graphicsDescriptorInvalid(
+                "mipLevel",
+                "texture readback mip level is out of range"
+            )
+        } else {
+            val mipWidth = textureMipDimension(
+                texture.size.width,
+                this.mipLevel
+            )
+            val mipHeight = textureMipDimension(
+                texture.size.height,
+                this.mipLevel
+            )
+            if (this.x < 0 || this.y < 0 || this.x >= mipWidth ||
+                this.y >= mipHeight || this.width > mipWidth - this.x ||
+                this.height > mipHeight - this.y) {
+                result = graphicsDescriptorInvalid(
+                    "origin",
+                    "texture readback region exceeds the selected mip level"
+                )
+            }
+        }
+        result
+    }
+
+    fun valid(texture: TextureDescriptor): bool {
+        textureTransferRegionValid(
+            texture,
+            this.mipLevel,
+            this.x,
+            this.y,
+            this.width,
+            this.height,
+            textureUsageCopySource
+        )
+    }
+
+    fun byteSize(): int = if (this.width > 0 && this.height > 0 &&
+        this.width <= graphicsMaximumTransferRingBytes / 4 / this.height)
+        this.width * this.height * 4
+    else 0
+}
+
+fun textureTransferTicketValid(ticket: int): bool =
+    bufferTransferTicketValid(ticket)
+
+fun textureTransferTicketSlot(ticket: int): int =
+    bufferTransferTicketSlot(ticket)
+
+fun textureTransferTicketGeneration(ticket: int): int =
+    bufferTransferTicketGeneration(ticket)
+
+trusted fun textureTransferMappedPointer(
+    buffer: GraphicsBuffer,
+    offset: int,
+    size: int,
+    write: bool
+): i64* {
+    var result = nativeNullPointer()
+    if (buffer.valid() && buffer.backend == graphicsBackendOpenGl &&
+        ((write && buffer.openGl.mappedWritable()) ||
+         (!write && buffer.openGl.mappedReadable())) &&
+        buffer.openGl.mappedContains(offset, size)) {
+        result = ablaUnsafePointerOffset(
+            buffer.openGl.mappedAddress.load(),
+            offset - buffer.openGl.mappedOffset
+        )
+    } else if (buffer.valid() && buffer.backend == graphicsBackendVulkan &&
+        ((write && buffer.vulkan.mappedWritable()) ||
+         (!write && buffer.vulkan.mappedReadable())) &&
+        buffer.vulkan.mappedContains(offset, size)) {
+        result = ablaUnsafePointerOffset(
+            buffer.vulkan.mapped.load(),
+            offset - buffer.vulkan.mappedOffset
+        )
+    }
+    result
+}
+
+trusted fun textureTransferWritePixels(
+    staging: GraphicsBuffer,
+    pixels: PixelBuffer,
+    offset: int,
+    format: int
+): bool {
+    val byteCount = pixels.width * pixels.height * 4
+    val destination = textureTransferMappedPointer(
+        staging,
+        offset,
+        byteCount,
+        true
+    )
+    val swapRedBlue = format == textureFormatBgra8Unorm ||
+        format == textureFormatBgra8UnormSrgb
+    var succeeded = pixels.valid() &&
+        textureFormatAcceptsRgba8Pixels(format) &&
+        !pointerIsNull(destination)
+    var pixel = 0
+    while (succeeded && pixel < pixels.width * pixels.height) {
+        val sourceOffset = pixel * 4
+        val destinationOffset = sourceOffset
+        val red = pixels.storage.load(sourceOffset)
+        val green = pixels.storage.load(sourceOffset + 1)
+        val blue = pixels.storage.load(sourceOffset + 2)
+        val alpha = pixels.storage.load(sourceOffset + 3)
+        ablaUnsafeStoreU8(
+            ablaUnsafePointerOffset(destination, destinationOffset),
+            if (swapRedBlue) blue else red
+        )
+        ablaUnsafeStoreU8(
+            ablaUnsafePointerOffset(destination, destinationOffset + 1),
+            green
+        )
+        ablaUnsafeStoreU8(
+            ablaUnsafePointerOffset(destination, destinationOffset + 2),
+            if (swapRedBlue) red else blue
+        )
+        ablaUnsafeStoreU8(
+            ablaUnsafePointerOffset(destination, destinationOffset + 3),
+            alpha
+        )
+        pixel = pixel + 1
+    }
+    succeeded
+}
+
+trusted fun textureTransferReadPixels(
+    staging: GraphicsBuffer,
+    offset: int,
+    format: int,
+    var pixels: PixelBuffer
+): bool {
+    val byteCount = pixels.width * pixels.height * 4
+    val source = textureTransferMappedPointer(
+        staging,
+        offset,
+        byteCount,
+        false
+    )
+    val swapRedBlue = format == textureFormatBgra8Unorm ||
+        format == textureFormatBgra8UnormSrgb
+    var succeeded = pixels.valid() &&
+        textureFormatAcceptsRgba8Pixels(format) &&
+        !pointerIsNull(source)
+    var pixel = 0
+    while (succeeded && pixel < pixels.width * pixels.height) {
+        val sourceOffset = pixel * 4
+        var red = ablaUnsafeLoadU8(
+            ablaUnsafePointerOffset(source, sourceOffset)
+        )
+        val green = ablaUnsafeLoadU8(
+            ablaUnsafePointerOffset(source, sourceOffset + 1)
+        )
+        var blue = ablaUnsafeLoadU8(
+            ablaUnsafePointerOffset(source, sourceOffset + 2)
+        )
+        val alpha = ablaUnsafeLoadU8(
+            ablaUnsafePointerOffset(source, sourceOffset + 3)
+        )
+        if (swapRedBlue) {
+            val swap = red
+            red = blue
+            blue = swap
+        }
+        pixels.storage.store(sourceOffset, red)
+        pixels.storage.store(sourceOffset + 1, green)
+        pixels.storage.store(sourceOffset + 2, blue)
+        pixels.storage.store(sourceOffset + 3, alpha)
+        pixel = pixel + 1
+    }
+    succeeded
+}
+
+resource class GraphicsTextureTransferQueue(
+    val transfers: GraphicsBufferTransferQueue,
+    val descriptor: TextureTransferQueueDescriptor,
+    val widths: array<int>,
+    val heights: array<int>,
+    val formats: array<int>
+) {
+    trusted fun valid(): bool {
+        var metadataValid = this.widths.size == this.descriptor.slotCount &&
+            this.heights.size == this.descriptor.slotCount &&
+            this.formats.size == this.descriptor.slotCount
+        var slot = 0
+        while (metadataValid && slot < this.descriptor.slotCount) {
+            metadataValid = this.widths[slot] >= 0 &&
+                this.heights[slot] >= 0 && this.formats[slot] >= 0
+            slot = slot + 1
+        }
+        this.descriptor.valid() && this.transfers.valid() &&
+            this.transfers.descriptor.direction == this.descriptor.direction &&
+            this.transfers.descriptor.slotCapacity ==
+                this.descriptor.slotCapacity &&
+            this.transfers.descriptor.slotCount == this.descriptor.slotCount &&
+            this.transfers.descriptor.alignment == this.descriptor.alignment &&
+            metadataValid
+    }
+
+    trusted fun ticketMatches(ticket: int): bool =
+        this.transfers.ticketMatches(ticket)
+
+    trusted fun poll(ticket: int): bool =
+        this.transfers.poll(ticket)
+
+    trusted fun wait(
+        ticket: int,
+        timeoutNanoseconds: int = -1
+    ): bool = this.transfers.wait(ticket, timeoutNanoseconds)
+
+    trusted fun waitAll(): bool = this.transfers.waitAll()
+
+    trusted fun drop(): void {
+        this.transfers.drop()
+        return
+    }
+}
+
+trusted fun GraphicsApplication.textureTransferQueue(
+    descriptor: TextureTransferQueueDescriptor =
+        TextureTransferQueueDescriptor()
+): GraphicsTextureTransferQueue {
+    val transfers = this.bufferTransferQueue(descriptor.bufferDescriptor())
+    val widths: array<int> = []
+    val heights: array<int> = []
+    val formats: array<int> = []
+    var slot = 0
+    while (slot < descriptor.slotCount && descriptor.valid()) {
+        widths.append(0)
+        heights.append(0)
+        formats.append(0)
+        slot = slot + 1
+    }
+    GraphicsTextureTransferQueue(
+        move(transfers),
+        descriptor,
+        widths,
+        heights,
+        formats
+    )
+}
+
+trusted noescape fun GraphicsApplication.enqueueUploadTexture(
+    var queue: GraphicsTextureTransferQueue,
+    pixels: PixelBuffer,
+    destination: GraphicsTexture,
+    write: TextureWriteDescriptor = TextureWriteDescriptor()
+): int = this.enqueueUploadTextureRange(
+    queue,
+    pixels,
+    destination,
+    write.mipLevel,
+    write.x,
+    write.y
+)
+
+trusted noescape fun GraphicsApplication.enqueueUploadTextureRange(
+    var queue: GraphicsTextureTransferQueue,
+    pixels: PixelBuffer,
+    destination: GraphicsTexture,
+    mipLevel: int = 0,
+    x: int = 0,
+    y: int = 0
+): int {
+    val byteCount = pixels.width * pixels.height * 4
+    var ticket = 0
+    var succeeded = this.valid() && queue.transfers.valid() &&
+        queue.widths.size == queue.descriptor.slotCount &&
+        queue.heights.size == queue.descriptor.slotCount &&
+        queue.formats.size == queue.descriptor.slotCount && pixels.valid() &&
+        destination.valid() &&
+        queue.descriptor.direction == textureTransferDirectionUpload &&
+        queue.transfers.backend == this.backend &&
+        this.ownsBuffer(queue.transfers.staging) &&
+        this.ownsTexture(destination) &&
+        destination.descriptor.dimension == textureDimension2D &&
+        destination.descriptor.samples == 1 &&
+        textureTransferRegionValid(
+            destination.descriptor,
+            mipLevel,
+            x,
+            y,
+            pixels.width,
+            pixels.height,
+            textureUsageCopyDestination
+        ) && byteCount <= queue.descriptor.slotCapacity &&
+        queue.transfers.queuedCount < graphicsMaximumInt
+    val slot = if (succeeded) queue.transfers.nextSlot else -1
+    if (succeeded) succeeded = queue.transfers.slotCompleted(slot) &&
+        queue.transfers.generations[slot] <
+            graphicsMaximumTransferTicketGeneration
+    val stagingOffset = if (succeeded)
+        queue.transfers.slotOffset(slot) else -1
+    if (succeeded) succeeded = textureTransferWritePixels(
+        queue.transfers.staging,
+        pixels,
+        stagingOffset,
+        destination.descriptor.format
+    )
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = queue.transfers.openGlSlots[slot].submitTextureUpload(
+            queue.transfers.staging.openGl,
+            stagingOffset,
+            destination.openGl,
+            destination.descriptor.format,
+            mipLevel,
+            x,
+            y,
+            pixels.width,
+            pixels.height
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = queue.transfers.vulkanSlots[slot].submitTextureUpload(
+            queue.transfers.staging.vulkan,
+            stagingOffset,
+            destination.vulkan,
+            destination.descriptor.usage,
+            mipLevel,
+            x,
+            y,
+            pixels.width,
+            pixels.height
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) {
+        val generation = queue.transfers.generations[slot] + 1
+        queue.transfers.generations[slot] = generation
+        queue.transfers.sizes[slot] = byteCount
+        queue.widths[slot] = pixels.width
+        queue.heights[slot] = pixels.height
+        queue.formats[slot] = destination.descriptor.format
+        queue.transfers.nextSlot = if (
+            slot + 1 == queue.descriptor.slotCount
+        ) 0 else slot + 1
+        queue.transfers.queuedCount = queue.transfers.queuedCount + 1
+        ticket = bufferTransferTicket(slot, generation)
+    }
+    ticket
+}
+
+trusted noescape fun GraphicsApplication.enqueueReadbackTexture(
+    var queue: GraphicsTextureTransferQueue,
+    source: GraphicsTexture,
+    read: TextureReadDescriptor = TextureReadDescriptor()
+): int = this.enqueueReadbackTextureRange(
+    queue,
+    source,
+    read.mipLevel,
+    read.x,
+    read.y,
+    read.width,
+    read.height
+)
+
+trusted noescape fun GraphicsApplication.enqueueReadbackTextureRange(
+    var queue: GraphicsTextureTransferQueue,
+    source: GraphicsTexture,
+    mipLevel: int = 0,
+    x: int = 0,
+    y: int = 0,
+    width: int = 1,
+    height: int = 1
+): int {
+    val byteCount = if (width > 0 && height > 0 &&
+        width <= graphicsMaximumTransferRingBytes / 4 / height)
+        width * height * 4
+    else 0
+    var ticket = 0
+    var succeeded = this.valid() && queue.transfers.valid() &&
+        queue.widths.size == queue.descriptor.slotCount &&
+        queue.heights.size == queue.descriptor.slotCount &&
+        queue.formats.size == queue.descriptor.slotCount && source.valid() &&
+        queue.descriptor.direction == textureTransferDirectionReadback &&
+        queue.transfers.backend == this.backend &&
+        this.ownsBuffer(queue.transfers.staging) &&
+        this.ownsTexture(source) &&
+        source.descriptor.dimension == textureDimension2D &&
+        source.descriptor.samples == 1 && textureTransferRegionValid(
+            source.descriptor,
+            mipLevel,
+            x,
+            y,
+            width,
+            height,
+            textureUsageCopySource
+        ) &&
+        byteCount > 0 && byteCount <= queue.descriptor.slotCapacity &&
+        queue.transfers.queuedCount < graphicsMaximumInt
+    val slot = if (succeeded) queue.transfers.nextSlot else -1
+    if (succeeded) succeeded = queue.transfers.slotCompleted(slot) &&
+        queue.transfers.generations[slot] <
+            graphicsMaximumTransferTicketGeneration
+    val stagingOffset = if (succeeded)
+        queue.transfers.slotOffset(slot) else -1
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = queue.transfers.openGlSlots[slot].submitTextureReadback(
+            source.openGl,
+            source.descriptor.format,
+            mipLevel,
+            x,
+            y,
+            width,
+            height,
+            queue.transfers.staging.openGl,
+            stagingOffset
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = queue.transfers.vulkanSlots[slot].submitTextureReadback(
+            source.vulkan,
+            source.descriptor.usage,
+            mipLevel,
+            x,
+            y,
+            width,
+            height,
+            queue.transfers.staging.vulkan,
+            stagingOffset
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) {
+        val generation = queue.transfers.generations[slot] + 1
+        queue.transfers.generations[slot] = generation
+        queue.transfers.sizes[slot] = byteCount
+        queue.widths[slot] = width
+        queue.heights[slot] = height
+        queue.formats[slot] = source.descriptor.format
+        queue.transfers.nextSlot = if (
+            slot + 1 == queue.descriptor.slotCount
+        ) 0 else slot + 1
+        queue.transfers.queuedCount = queue.transfers.queuedCount + 1
+        ticket = bufferTransferTicket(slot, generation)
+    }
+    ticket
+}
+
+trusted fun GraphicsApplication.resolveTextureReadback(
+    var queue: GraphicsTextureTransferQueue,
+    ticket: int,
+    var destination: PixelBuffer
+): bool {
+    val slot = textureTransferTicketSlot(ticket)
+    this.valid() && queue.ticketMatches(ticket) &&
+        queue.descriptor.direction == textureTransferDirectionReadback &&
+        slot >= 0 && destination.valid() &&
+        destination.width == queue.widths[slot] &&
+        destination.height == queue.heights[slot] && queue.poll(ticket) &&
+        textureTransferReadPixels(
+            queue.transfers.staging,
+            queue.transfers.slotOffset(slot),
+            queue.formats[slot],
+            destination
+        )
+}
+
+trusted fun GraphicsApplication.waitTextureReadback(
+    var queue: GraphicsTextureTransferQueue,
+    ticket: int,
+    var destination: PixelBuffer,
+    timeoutNanoseconds: int = -1
+): bool {
+    val slot = textureTransferTicketSlot(ticket)
+    this.valid() && queue.ticketMatches(ticket) &&
+        queue.descriptor.direction == textureTransferDirectionReadback &&
+        slot >= 0 && destination.valid() &&
+        destination.width == queue.widths[slot] &&
+        destination.height == queue.heights[slot] &&
+        queue.wait(ticket, timeoutNanoseconds) &&
+        textureTransferReadPixels(
+            queue.transfers.staging,
+            queue.transfers.slotOffset(slot),
+            queue.formats[slot],
+            destination
+        )
+}

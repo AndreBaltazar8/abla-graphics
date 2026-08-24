@@ -432,6 +432,18 @@ Updated: 2026-08-24.
   waiting, recover exact bytes on explicit OpenGL and Vulkan, reject stale and
   invalid tickets, preserve native handles, and report zero live-byte growth in
   repeated operations. Auto selection is covered by the focused gate.
+- Common asynchronous texture transfers: a direction-specific affine queue
+  reuses the same bounded slot/generation/ticket model with mapped RGBA8/BGRA8
+  staging. Descriptor convenience calls cover mip/origin/extent setup while
+  primitive `...TextureRange` calls keep streaming loops allocation-free.
+  OpenGL submits pixel unpack/pack buffer operations and one `GLsync` per slot;
+  Vulkan records buffer/image copies, per-mip layout transitions, a readback
+  host barrier, and one fence-backed command buffer per slot. The focused live
+  gate submits two operations before waiting, proves exact RGBA and BGRA
+  results, capacity rejection, stale-ticket rejection, stable handles, and
+  zero repeated live-byte growth on explicit OpenGL, explicit Vulkan, and auto
+  selection. `examples/async-texture` submits three frames before waiting and
+  repeats allocation-free texture streaming on both production backends.
 - Explicit buffer memory placement: `BufferDescriptor.memory` accepts automatic,
   host-visible, or device-local policy. Device-local descriptors reject CPU
   mapping and direct byte access. Vulkan selects a compatible memory type with
@@ -1218,8 +1230,9 @@ validity gate unchanged.
   distinct source and destination offsets; synchronous GPU buffer copies and
   aligned 32-bit pattern fills reuse backend command state. Synchronous
   coherent persistent transfers, bounded aligned synchronous buffer rings, and
-  fixed-slot asynchronous buffer upload/readback queues are present;
-  asynchronous image transfers are not.
+  fixed-slot asynchronous buffer and RGBA8/BGRA8 texture upload/readback queues
+  are present; wider compressed, depth/stencil, array, and 3D asynchronous
+  image transfers are not.
   Common buffers, textures, views,
   samplers, and immutable structural
   descriptors are present;

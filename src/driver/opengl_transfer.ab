@@ -112,6 +112,116 @@ resource class OpenGlTransferSlot(
         succeeded
     }
 
+    trusted fun submitTextureUpload(
+        staging: OpenGlBuffer,
+        stagingOffset: int,
+        texture: OpenGlTexture,
+        format: int,
+        mipLevel: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int
+    ): bool {
+        val byteCount = width * height * 4
+        var succeeded = this.valid() && !this.inFlight() &&
+            staging.valid() && texture.valid() && staging.persistent &&
+            staging.mappedWritable() &&
+            staging.context == this.context &&
+            texture.context == this.context &&
+            staging.display == this.display &&
+            texture.display == this.display &&
+            staging.mappedContains(stagingOffset, byteCount) &&
+            textureFormatAcceptsRgba8Pixels(format) &&
+            mipLevel >= 0 && x >= 0 && y >= 0 && width > 0 && height > 0 &&
+            this.makeCurrent()
+        if (succeeded) {
+            glMemoryBarrier(16384)
+            glBindBuffer(35052, staging.handle)
+            glBindTexture(texture.target, texture.handle)
+            glTexSubImage2D(
+                texture.target,
+                mipLevel,
+                x,
+                y,
+                width,
+                height,
+                if (format == textureFormatBgra8Unorm ||
+                    format == textureFormatBgra8UnormSrgb)
+                    32993 else 6408,
+                5121,
+                nativePointerFromAddress(stagingOffset)
+            )
+            glBindBuffer(35052, 0)
+            succeeded = glGetError() == 0
+            if (succeeded) {
+                this.sync = glFenceSync(37143, 0)
+                succeeded = !pointerIsNull(this.sync) && glGetError() == 0
+            }
+            if (!succeeded && !pointerIsNull(this.sync)) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+            }
+        }
+        succeeded
+    }
+
+    trusted fun submitTextureReadback(
+        texture: OpenGlTexture,
+        format: int,
+        mipLevel: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        staging: OpenGlBuffer,
+        stagingOffset: int
+    ): bool {
+        val byteCount = width * height * 4
+        var succeeded = this.valid() && !this.inFlight() &&
+            texture.valid() && staging.valid() && staging.persistent &&
+            staging.mappedReadable() &&
+            texture.context == this.context &&
+            staging.context == this.context &&
+            texture.display == this.display &&
+            staging.display == this.display &&
+            staging.mappedContains(stagingOffset, byteCount) &&
+            textureFormatAcceptsRgba8Pixels(format) &&
+            mipLevel >= 0 && x >= 0 && y >= 0 && width > 0 && height > 0 &&
+            this.makeCurrent()
+        if (succeeded) {
+            glBindBuffer(35051, staging.handle)
+            glGetTextureSubImage(
+                texture.handle,
+                mipLevel,
+                x,
+                y,
+                0,
+                width,
+                height,
+                1,
+                if (format == textureFormatBgra8Unorm ||
+                    format == textureFormatBgra8UnormSrgb)
+                    32993 else 6408,
+                5121,
+                byteCount,
+                nativePointerFromAddress(stagingOffset)
+            )
+            glBindBuffer(35051, 0)
+            glMemoryBarrier(16384)
+            succeeded = glGetError() == 0
+            if (succeeded) {
+                this.sync = glFenceSync(37143, 0)
+                succeeded = !pointerIsNull(this.sync) && glGetError() == 0
+            }
+            if (!succeeded && !pointerIsNull(this.sync)) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+            }
+        }
+        succeeded
+    }
+
     trusted fun drop(): void {
         if (this.inFlight()) {
             val completed = this.wait(-1)

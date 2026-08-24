@@ -333,6 +333,28 @@ fun textureFormatAcceptsRgba8Pixels(format: int): bool =
     format == textureFormatBgra8Unorm ||
     format == textureFormatBgra8UnormSrgb
 
+fun textureTransferRegionValid(
+    texture: TextureDescriptor,
+    mipLevel: int,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    requiredUsage: int
+): bool {
+    var succeeded = texture.valid() && width > 0 && height > 0 &&
+        (texture.usage & requiredUsage) != 0 &&
+        textureFormatAcceptsRgba8Pixels(texture.format) &&
+        mipLevel >= 0 && mipLevel < texture.mipLevels
+    if (succeeded) {
+        val mipWidth = textureMipDimension(texture.size.width, mipLevel)
+        val mipHeight = textureMipDimension(texture.size.height, mipLevel)
+        succeeded = x >= 0 && y >= 0 && x < mipWidth && y < mipHeight &&
+            width <= mipWidth - x && height <= mipHeight - y
+    }
+    succeeded
+}
+
 class TextureWriteDescriptor(
     val mipLevel: int = 0,
     val x: int = 0,
@@ -393,24 +415,15 @@ class TextureWriteDescriptor(
         height: int,
         requiredUsage: int = textureUsageCopyDestination
     ): bool {
-        var succeeded = texture.valid() && width > 0 && height > 0 &&
-            (texture.usage & requiredUsage) != 0 &&
-            textureFormatAcceptsRgba8Pixels(texture.format) &&
-            this.mipLevel >= 0 && this.mipLevel < texture.mipLevels
-        if (succeeded) {
-            val mipWidth = textureMipDimension(
-                texture.size.width,
-                this.mipLevel
-            )
-            val mipHeight = textureMipDimension(
-                texture.size.height,
-                this.mipLevel
-            )
-            succeeded = this.x >= 0 && this.y >= 0 &&
-                this.x < mipWidth && this.y < mipHeight &&
-                width <= mipWidth - this.x && height <= mipHeight - this.y
-        }
-        succeeded
+        textureTransferRegionValid(
+            texture,
+            this.mipLevel,
+            this.x,
+            this.y,
+            width,
+            height,
+            requiredUsage
+        )
     }
 }
 

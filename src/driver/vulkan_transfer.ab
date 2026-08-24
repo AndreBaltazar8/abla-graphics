@@ -22,7 +22,7 @@ resource class VulkanTransferSlot(
     trusted fun valid(): bool = !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.commandPool != 0 &&
         !this.command.closed && !pointerIsNull(this.command.load()) &&
-        !this.scratch.closed && this.scratch.capacity >= 144 &&
+        !this.scratch.closed && this.scratch.capacity >= 216 &&
         this.fence != 0
 
     trusted fun inFlight(): bool = this.valid() && this.submitted
@@ -41,11 +41,11 @@ resource class VulkanTransferSlot(
         var completed = this.valid() && timeoutNanoseconds >= -1 &&
             !this.submitted
         if (this.valid() && timeoutNanoseconds >= -1 && this.submitted) {
-            this.scratch.storeI64(136, this.fence)
+            this.scratch.storeI64(208, this.fence)
             val status = vkWaitForFences(
                 this.device,
                 1,
-                this.scratch.pointerAt(136),
+                this.scratch.pointerAt(208),
                 1,
                 timeoutNanoseconds
             )
@@ -125,11 +125,11 @@ resource class VulkanTransferSlot(
                 vulkanSuccess
         }
         if (succeeded) {
-            this.scratch.storeI64(136, this.fence)
+            this.scratch.storeI64(208, this.fence)
             succeeded = vkResetFences(
                 this.device,
                 1,
-                this.scratch.pointerAt(136)
+                this.scratch.pointerAt(208)
             ) == vulkanSuccess
         }
         if (succeeded) {
@@ -149,6 +149,255 @@ resource class VulkanTransferSlot(
                 this.fence
             ) == vulkanSuccess
             if (succeeded) this.submitted = true
+        }
+        succeeded
+    }
+
+    trusted fun beginTextureTransfer(): bool {
+        var succeeded = this.valid() && !this.submitted &&
+            vkResetCommandPool(
+                this.device,
+                this.commandPool,
+                0
+            ) == vulkanSuccess
+        if (succeeded) {
+            this.scratch.storeI64(0, 42)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 1)
+            this.scratch.storePointer(24, nativeNullPointer())
+            succeeded = vkBeginCommandBuffer(
+                this.command.load(),
+                this.scratch.address
+            ) == vulkanSuccess
+        }
+        succeeded
+    }
+
+    trusted fun submitTextureCommands(): bool {
+        var succeeded = vkEndCommandBuffer(this.command.load()) ==
+            vulkanSuccess
+        if (succeeded) {
+            this.scratch.storeI64(208, this.fence)
+            succeeded = vkResetFences(
+                this.device,
+                1,
+                this.scratch.pointerAt(208)
+            ) == vulkanSuccess
+        }
+        if (succeeded) {
+            this.scratch.storeI64(128, 4)
+            this.scratch.storePointer(136, nativeNullPointer())
+            this.scratch.storeI64(144, 0)
+            this.scratch.storePointer(152, nativeNullPointer())
+            this.scratch.storePointer(160, nativeNullPointer())
+            this.scratch.storeI64(168, 1)
+            this.scratch.storePointer(176, this.command.address)
+            this.scratch.storeI64(184, 0)
+            this.scratch.storePointer(192, nativeNullPointer())
+            succeeded = vkQueueSubmit(
+                this.queue,
+                1,
+                this.scratch.pointerAt(128),
+                this.fence
+            ) == vulkanSuccess
+            if (succeeded) this.submitted = true
+        }
+        succeeded
+    }
+
+    trusted fun submitTextureUpload(
+        staging: VulkanBuffer,
+        stagingOffset: int,
+        texture: VulkanTexture,
+        usage: int,
+        mipLevel: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int
+    ): bool {
+        val byteCount = width * height * 4
+        var succeeded = staging.valid() && texture.valid() &&
+            staging.device == this.device && texture.device == this.device &&
+            staging.persistent && staging.mappedWritable() &&
+            staging.mappedContains(stagingOffset, byteCount) &&
+            mipLevel >= 0 && x >= 0 && y >= 0 && width > 0 && height > 0 &&
+            mipLevel * 8 < texture.layouts.capacity &&
+            this.beginTextureTransfer()
+        var finalLayout = 1
+        if (succeeded) {
+            val oldLayout = texture.layouts.loadI64(mipLevel * 8)
+            vulkanStoreImageBarrier(
+                this.scratch.address,
+                texture.image,
+                oldLayout,
+                7,
+                if (oldLayout == 0) 0
+                else vulkanTextureRestingAccessForUsage(usage, oldLayout),
+                4096,
+                1,
+                mipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                if (oldLayout == 0) 1 else 65536,
+                4096,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.scratch.address
+            )
+            this.scratch.storeI64(0, stagingOffset)
+            this.scratch.storeI64(8, 0)
+            this.scratch.storeI64(16, mipLevel * 4294967296 + 1)
+            this.scratch.storeI64(24, 4294967296)
+            this.scratch.storeI64(32, y * 4294967296 + x)
+            this.scratch.storeI64(40, width * 4294967296)
+            this.scratch.storeI64(48, 4294967296 + height)
+            vkCmdCopyBufferToImage(
+                this.command.load(),
+                staging.handle,
+                texture.image,
+                7,
+                1,
+                this.scratch.address
+            )
+            finalLayout = if (
+                (usage & textureUsageSampled) != 0
+            ) 5 else 1
+            vulkanStoreImageBarrier(
+                this.scratch.address,
+                texture.image,
+                7,
+                finalLayout,
+                4096,
+                vulkanTextureRestingAccessForUsage(usage, finalLayout),
+                1,
+                mipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                4096,
+                65536,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.scratch.address
+            )
+            succeeded = this.submitTextureCommands()
+            if (succeeded) texture.storeLayout(mipLevel, finalLayout)
+        }
+        succeeded
+    }
+
+    trusted fun submitTextureReadback(
+        texture: VulkanTexture,
+        usage: int,
+        mipLevel: int,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        staging: VulkanBuffer,
+        stagingOffset: int
+    ): bool {
+        val byteCount = width * height * 4
+        var succeeded = texture.valid() && staging.valid() &&
+            texture.device == this.device && staging.device == this.device &&
+            staging.persistent && staging.mappedReadable() &&
+            staging.mappedContains(stagingOffset, byteCount) &&
+            mipLevel >= 0 && x >= 0 && y >= 0 && width > 0 && height > 0 &&
+            mipLevel * 8 < texture.layouts.capacity &&
+            this.beginTextureTransfer()
+        var finalLayout = 1
+        if (succeeded) {
+            val oldLayout = texture.layouts.loadI64(mipLevel * 8)
+            finalLayout = if (oldLayout != 0) oldLayout
+                else if ((usage & textureUsageSampled) != 0) 5
+                else 1
+            vulkanStoreImageBarrier(
+                this.scratch.address,
+                texture.image,
+                oldLayout,
+                6,
+                if (oldLayout == 0) 0
+                else vulkanTextureRestingAccessForUsage(usage, oldLayout),
+                2048,
+                1,
+                mipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                if (oldLayout == 0) 1 else 65536,
+                4096,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.scratch.address
+            )
+            this.scratch.storeI64(0, stagingOffset)
+            this.scratch.storeI64(8, 0)
+            this.scratch.storeI64(16, mipLevel * 4294967296 + 1)
+            this.scratch.storeI64(24, 4294967296)
+            this.scratch.storeI64(32, y * 4294967296 + x)
+            this.scratch.storeI64(40, width * 4294967296)
+            this.scratch.storeI64(48, 4294967296 + height)
+            vkCmdCopyImageToBuffer(
+                this.command.load(),
+                texture.image,
+                6,
+                staging.handle,
+                1,
+                this.scratch.address
+            )
+            vulkanStoreImageBarrier(
+                this.scratch.address,
+                texture.image,
+                6,
+                finalLayout,
+                2048,
+                vulkanTextureRestingAccessForUsage(usage, finalLayout),
+                1,
+                mipLevel
+            )
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                4096,
+                65536,
+                0,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer(),
+                1,
+                this.scratch.address
+            )
+            this.scratch.storeI64(0, 46)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 8192 * 4294967296 + 4096)
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                4096,
+                16384,
+                0,
+                1,
+                this.scratch.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+            succeeded = this.submitTextureCommands()
+            if (succeeded) texture.storeLayout(mipLevel, finalLayout)
         }
         succeeded
     }
@@ -180,7 +429,7 @@ resource class VulkanTransferSlot(
 trusted fun VulkanDevice.transferSlot(): VulkanTransferSlot {
     var commandPool = 0
     val command = nativePointerCell(nativeNullPointer())
-    val scratch = nativeByteBuffer(144)
+    val scratch = nativeByteBuffer(216)
     var fence = 0
     var succeeded = this.valid()
     if (succeeded) {
@@ -194,9 +443,9 @@ trusted fun VulkanDevice.transferSlot(): VulkanTransferSlot {
             this.handle,
             scratch.address,
             nativeNullPointer(),
-            scratch.pointerAt(136)
+            scratch.pointerAt(208)
         ) == vulkanSuccess
-        if (succeeded) commandPool = scratch.loadI64(136)
+        if (succeeded) commandPool = scratch.loadI64(208)
     }
     if (succeeded) {
         scratch.storeI64(0, 40)
@@ -217,9 +466,9 @@ trusted fun VulkanDevice.transferSlot(): VulkanTransferSlot {
             this.handle,
             scratch.address,
             nativeNullPointer(),
-            scratch.pointerAt(136)
+            scratch.pointerAt(208)
         ) == vulkanSuccess
-        if (succeeded) fence = scratch.loadI64(136)
+        if (succeeded) fence = scratch.loadI64(208)
     }
     if (!succeeded) {
         if (fence != 0) vkDestroyFence(

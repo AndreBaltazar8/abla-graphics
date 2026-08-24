@@ -851,6 +851,60 @@ exact bytes on both backends, and reports zero live-byte growth in repeated
 upload operations. The focused transfer gate additionally proves that staging,
 Vulkan command-pool, and Vulkan command-buffer handles remain stable.
 
+Textures use the same fixed-slot ticket model with RGBA8 `PixelBuffer` data,
+checked mip/origin/extent regions, and native RGBA/BGRA channel order:
+
+```abla
+val uploads = app.textureTransferQueue(TextureTransferQueueDescriptor(
+    direction = textureTransferDirectionUpload,
+    slotCapacity = 4194304,
+    slotCount = 3,
+    alignment = 256
+))
+val upload = app.enqueueUploadTextureRange(
+    uploads,
+    pixels,
+    texture,
+    mipLevel,
+    textureX,
+    textureY
+)
+
+val downloads = app.textureTransferQueue(TextureTransferQueueDescriptor(
+    direction = textureTransferDirectionReadback,
+    slotCapacity = 4194304,
+    slotCount = 3,
+    alignment = 256
+))
+val download = app.enqueueReadbackTextureRange(
+    downloads,
+    texture,
+    mipLevel,
+    textureX,
+    textureY,
+    width,
+    height
+)
+app.waitTextureReadback(downloads, download, resultPixels)
+```
+
+`enqueueUploadTexture` and `enqueueReadbackTexture` accept immutable
+`TextureWriteDescriptor` and `TextureReadDescriptor` values for concise setup
+code. Their `...Range` counterparts pass only scalars and are the intended
+allocation-free streaming path. Every queue owns one persistent staging buffer
+and one native completion slot per configured entry. OpenGL uses pixel
+unpack/pack buffer offsets plus `GLsync`; Vulkan records buffer/image copies,
+per-mip layout transitions, a transfer-to-host barrier for readback, and one
+fence-backed command buffer per slot. Enqueue never waits for a busy selected
+slot. Textures must remain alive and externally unsynchronized until their
+ticket completes.
+
+The focused texture-transfer gate submits multiple operations before waiting,
+checks exact RGBA and BGRA regions, slot-generation reuse, invalid capacity,
+stable native handles, and zero live-byte growth on OpenGL, Vulkan, and auto
+selection. `examples/async-texture` demonstrates three in-flight frames and
+allocation-free repeated texture streaming.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer

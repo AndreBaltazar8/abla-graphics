@@ -1,0 +1,110 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(
+            title = "Abla Graphics streaming texture",
+            width = 64,
+            height = 64
+        )
+    )
+    val texture = app.texture(TextureDescriptor(
+        label = "streamed-texture",
+        size = Extent3D(64, 64),
+        format = textureFormatBgra8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    ))
+    val frame0 = pixelBuffer(64, 64)
+    val frame1 = pixelBuffer(64, 64)
+    val frame2 = pixelBuffer(64, 64)
+    val framesReady = frame0.clearRgba8(24, 42, 72) &&
+        frame0.fillRectRgba8(4, 4, 24, 24, 220, 64, 40) &&
+        frame1.clearRgba8(24, 42, 72) &&
+        frame1.fillRectRgba8(20, 20, 24, 24, 40, 220, 96) &&
+        frame2.clearRgba8(24, 42, 72) &&
+        frame2.fillRectRgba8(36, 36, 24, 24, 48, 112, 240)
+    val uploads = app.textureTransferQueue(TextureTransferQueueDescriptor(
+        label = "streamed-texture-uploads",
+        direction = textureTransferDirectionUpload,
+        slotCapacity = 16384,
+        slotCount = 3,
+        alignment = 256
+    ))
+
+    // Submit three complete frames before waiting for their fixed slots.
+    val upload0 = app.enqueueUploadTextureRange(uploads, frame0, texture)
+    val upload1 = app.enqueueUploadTextureRange(uploads, frame1, texture)
+    val upload2 = app.enqueueUploadTextureRange(uploads, frame2, texture)
+    val submitted = textureTransferTicketValid(upload0) &&
+        textureTransferTicketValid(upload1) &&
+        textureTransferTicketValid(upload2)
+    val uploaded = uploads.wait(upload0) && uploads.wait(upload1) &&
+        uploads.wait(upload2)
+
+    val downloads = app.textureTransferQueue(TextureTransferQueueDescriptor(
+        label = "streamed-texture-readback",
+        direction = textureTransferDirectionReadback,
+        slotCapacity = 16384,
+        slotCount = 2,
+        alignment = 256
+    ))
+    val download = app.enqueueReadbackTextureRange(
+        downloads,
+        texture,
+        0,
+        0,
+        0,
+        64,
+        64
+    )
+    val result = pixelBuffer(64, 64)
+    val readback = app.waitTextureReadback(downloads, download, result)
+    val exact = readback && result.rgba8(40, 40) ==
+        frame2.rgba8(40, 40) && result.rgba8(8, 8) == frame2.rgba8(8, 8)
+
+    // Range calls avoid descriptor value copies in allocation-critical loops.
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = true
+    var frame = 0
+    while (repeated && frame < 12) {
+        repeated = frame2.setRgba8(
+            frame,
+            0,
+            frame * 17,
+            255 - frame * 11,
+            96
+        )
+        val ticket = app.enqueueUploadTextureRange(
+            uploads,
+            frame2,
+            texture
+        )
+        repeated = repeated && textureTransferTicketValid(ticket) &&
+            uploads.wait(ticket)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val presented = app.presentPixels(frame2)
+    val passed = app.valid() && texture.valid() && framesReady &&
+        uploads.valid() && downloads.valid() && submitted && uploaded &&
+        exact && repeated && frame == 12 && liveAfter == liveBefore &&
+        presented
+    println(
+        "async-texture ${graphicsBackendName(app.backend)}: queued=${uploads.transfers.queuedCount}/${downloads.transfers.queuedCount} exact=$exact live=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}

@@ -109,7 +109,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   drop real resources on either OpenGL or Vulkan, including allocation-free
   repeated partial mip-level RGBA/BGRA upload/readback, queried 16x sampler anisotropy,
   and allocation-free checked buffer subrange upload/readback, GPU fills, and
-  GPU buffer/texture copies, fixed-metadata device-local buffer suballocation
+  GPU buffer/texture copies, fixed-slot asynchronous RGBA/BGRA texture upload
+  and readback queues, fixed-metadata device-local buffer suballocation
   with generation-checked slice transfers, aligned uniform/storage ranges,
   and nonzero-offset surfaced and offscreen target/pass
   vertex/index/direct-indirect draws (including reflected push values),
@@ -230,6 +231,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   that stage through an explicitly device-local destination, submit work before
   targeted waits, recover exact bytes, and reuse their native synchronization
   state with zero live-byte growth on explicit OpenGL and Vulkan; and
+- `examples/async-texture`: three in-flight fixed-slot BGRA texture uploads,
+  exact asynchronous RGBA readback, and allocation-free repeated streaming on
+  explicit OpenGL and Vulkan;
 - `examples/buffer-pool`: aligned fixed-block suballocation from one
   device-local backing buffer, checked slice upload/readback, nonzero-offset
   direct/indexed/vertex-indirect/indexed-indirect rendering, stale and invalid
