@@ -70,12 +70,12 @@ Graphics repository:
 - path: `/home/andre/Desktop/projects/abla-graphics`
 - remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - branch: `main`
-- synchronized published base when this refresh began:
-  `c092194a2fbadca0cba3985b1a653da90a10b8eb`
-- last implementation checkpoint:
-  `a99cf7af8faf7fb4e021cdda629d4b98a9ca9ce5`
-- `c092194` changes only the previous handoff; there are no later implementation
-  edits
+- current implementation checkpoint:
+  `9f01d1a13c627dcb4d641f87779a19633b36e2b6`
+- previous handoff-only base:
+  `f4f83f30735368e1862645cf0fb143d963939771`
+- `9f01d1a` is the portable wider-texture contract; native wider image creation
+  has not begun
 - the tree was clean and synchronized immediately before this refresh; the
   refresh commit will naturally be a handoff-only successor, so use the commands
   below for the current commit instead of embedding a self-referential hash here
@@ -102,7 +102,7 @@ git -C ../ablac rev-parse HEAD
 git -C ../ablac rev-parse '@{upstream}'
 ```
 
-## Last published checkpoint
+## Previous asynchronous-transfer checkpoint
 
 The last implementation commit is `a99cf7a` (`Add fixed-slot async texture
 transfers`). It adds allocation-free streaming paths for portable RGBA8/BGRA8
@@ -154,13 +154,56 @@ offscreen targets/passes, push values, compute, X11/Wayland/headless platform
 paths, and the currently documented strict `$glsl` subset. Consult
 `docs/status.md` for claim-level detail and evidence.
 
-## Recommended next checkpoint: wider texture subresources
+## Current portable wider-texture checkpoint
 
-The next coherent slice should expand the texture model beyond single-layer 2D
-RGBA8/BGRA8. Prioritize 2D arrays, cube maps, and 3D textures with explicit
-layer/depth origins and extents, row/image pitch, and the first compressed
-format family. Carry that shape through creation, views, synchronous copies,
-asynchronous queues, bind groups, `$glsl` reflection, and both native backends.
+Commit `9f01d1a` completes the portable contract boundary that precedes native
+array/cube/volume work:
+
+- `src/resources.ab` defines 2D-array and cube dimensions alongside 1D/2D/3D,
+  with dimension-aware maximum mip counts and explicit layer-versus-physical-
+  depth semantics;
+- default views inherit the parent dimension. Checked compatibility covers 2D
+  slices of arrays/cubes, full array views, all-six-face cube views, and 3D
+  views without pretending physical depth is an array layer;
+- `TextureRegion` carries mip, `x/y/z`, and `width/height/depth`, resolves
+  remaining extents, checks usage and subresource bounds by subtraction, and
+  enforces compressed block origins/extents except at mip edges;
+- `TextureDataLayout` carries offset, bytes per row, and rows per image, resolves
+  tight storage, validates block alignment, and computes the exact last-byte
+  footprint through checked products/additions;
+- BC1 RGBA UNORM and sRGB are the first compressed format pair, with 4x4 blocks,
+  eight bytes per block, compatible views, single-sample enforcement, and no
+  storage/render-attachment usage;
+- `GraphicsLimits` now reports 1D, 2D, 3D, cube, and array-layer limits. Live
+  OpenGL values were `16384/16384/2048/16384/2048`; live Vulkan values were
+  `32768/32768/16384/32768/2048` (1D/2D/3D/cube/layers);
+- `tests/texture_contract.ab` and `make test-texture-contract` cover valid and
+  invalid array/cube/volume shapes and views, mip behavior, crossing regions,
+  missing usage, tight/pitched BC1 footprints, short buffers, alignment,
+  compressed multisampling/attachment rejection, and 64-bit overflow;
+- existing default 2D views were updated to resolve the inherited dimension in
+  OpenGL and Vulkan without enabling partial wider-image support.
+
+The following gates passed on the final source in `9f01d1a` on 2026-08-24:
+
+```bash
+nix-shell --run 'make test-texture-contract update-registry test-registry'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+`make all` included the new contract gate and the Abla-only audit. The sample
+matrix independently rebuilt all 35 examples without cache and ran its full
+Wayland/headless/X11 plus OpenGL/Vulkan execution matrix. `../ablac` was not
+changed.
+
+## Recommended next checkpoint: native wider texture resources
+
+The portable model is now fixed. Carry it through OpenGL/Vulkan image creation,
+real owned views, synchronous byte upload/readback/copy, bind groups and `$glsl`
+sampling, then fixed-slot asynchronous queues and samples. Implement 2D arrays,
+cube maps, 3D textures, and BC1 together so the common API never exposes a shape
+that only one production backend can execute.
 
 Do not merely add enum values. Required evidence includes overflow-safe
 descriptor validation, backend limit/capability checks, OpenGL target and pixel
@@ -176,21 +219,11 @@ transient aliasing, or native memory suballocation) before choosing an API.
 
 ## Exact continuation point
 
-Implementation is paused before the wider-texture slice. No source file has
-been edited for it. The initial read-only audit established the following
-current assumptions and pressure points:
+The portable boundary is complete in `9f01d1a`; implementation is paused before
+native wider image creation. `GraphicsApplication.texture` still rejects every
+dimension except 2D, and `TextureWriteDescriptor`/`TextureCopyDescriptor` still
+expose only the legacy 2D pixel path. Remaining pressure points are:
 
-- `TextureDescriptor` and `TextureViewDescriptor` already contain dimension,
-  depth/layer, mip, and view-range fields, but `GraphicsApplication.texture`
-  rejects every dimension except 2D and the transfer/copy descriptors expose
-  only `x`, `y`, `width`, and `height`;
-- `Extent3D.depth` can remain the public third extent, but its meaning must be
-  explicit: physical depth for 3D textures and array-layer count for 2D arrays
-  and cube textures. Mip reduction applies to physical 3D depth, never to array
-  layer count;
-- default views currently assume 2D. They need to resolve their dimension from
-  the parent texture, validate compatible 2D/2D-array/cube/3D combinations, and
-  distinguish a 3D depth slice from an array layer;
 - the OpenGL backend creates and binds only `GL_TEXTURE_2D` or multisample 2D,
   writes only with `glTexSubImage2D`, and aliases full views. Wider support needs
   audited 3D/array/cube targets, immutable storage, real owned texture views,
@@ -199,9 +232,6 @@ current assumptions and pressure points:
   buffer-image regions, and stores one layout per mip. Arrays and cubes require
   correct image flags/view types/layer counts and layout tracking per mip and
   array layer; 3D textures keep one array layer and a shrinking depth extent;
-- `GraphicsLimits` only exposes the 2D texture limit. Query and publish the 1D,
-  3D, cube, and array-layer limits on both backends before accepting the new
-  descriptors;
 - sampled binding reflection treats only `sampler2D` as a texture. It must
   distinguish and validate `sampler2D`, `sampler2DArray`, `samplerCube`, and
   `sampler3D`, then carry the correct target/type through OpenGL and Vulkan;
@@ -212,15 +242,15 @@ current assumptions and pressure points:
   OpenGL entry point must be added through `registry/audit/opengl.tsv`, tested,
   regenerated, and reflected in the coverage ledger.
 
-The provisional portable API shape from the audit is:
+The implemented portable API shape is:
 
-- add explicit 2D-array and cube dimensions while retaining 1D, 2D, and 3D;
-- add a texture subresource region containing mip, `x/y/z`, and
-  `width/height/depth`, plus a data layout containing byte offset,
+- explicit 2D-array and cube dimensions retain 1D, 2D, and 3D;
+- `TextureRegion` contains mip, `x/y/z`, and `width/height/depth`;
+  `TextureDataLayout` contains byte offset,
   `bytesPerRow`, and `rowsPerImage`;
 - keep `PixelBuffer` as the ergonomic uncompressed 2D RGBA convenience and use
   `BufferBytes` for pitched, layered, volume, and compressed transfers;
-- introduce BC1 RGBA UNORM and sRGB as the first compressed family, together
+- BC1 RGBA UNORM and sRGB are the first compressed family, together
   with format block-width, block-height, bytes-per-block, and overflow-safe
   footprint helpers;
 - use immutable OpenGL texture storage so real `glTextureView` objects and
@@ -228,14 +258,13 @@ The provisional portable API shape from the audit is:
 - make primitive region/layout overloads the measured hot path; descriptor
   wrappers may remain setup conveniences.
 
-These are design conclusions, not implemented promises. Before coding, verify
-the exact Khronos constants and entry-point requirements from the pinned
-registry, settle descriptor names in `src/resources.ab`, and write core
-positive/negative validation cases. Then implement in this order:
+These portable promises are tested. Before native coding, verify exact Khronos
+constants and entry-point requirements from the pinned registry. Continue in
+this order:
 
-1. portable dimensions, format/block helpers, regions, layouts, view rules,
-   limits, and overflow-safe tests;
-2. OpenGL/Vulkan creation and view ownership, followed by synchronous raw
+1. completed: portable dimensions, format/block helpers, regions, layouts, view
+   rules, limits, and overflow-safe tests;
+2. next: OpenGL/Vulkan creation and view ownership, followed by synchronous raw
    upload/readback/copy paths and exact live tests;
 3. target/type-aware bind groups and `$glsl` reflection/SPIR-V support for
    array, cube, and 3D sampling;
@@ -252,8 +281,7 @@ boundaries and keep each published commit truthful about what is live-tested.
 
 Primary implementation and composition:
 
-- `src/texture.ab` — portable descriptors, checked texture byte operations,
-  layouts, and ownership;
+- `src/texture.ab` — common texture ownership and application/backend dispatch;
 - `src/texture_transfer.ab` — delivered async queue surface and native-order
   staging conversion; extend without regressing primitive range allocation;
 - `src/transfer.ab` — established ticket, slot, generation, poll, and wait API;
@@ -273,6 +301,8 @@ Primary implementation and composition:
 Live evidence and samples:
 
 - `tests/application/main.ab` — existing broad texture validation/output proof;
+- `tests/texture_contract.ab` and `tools/test-texture-contract.sh` — portable
+  dimension/view/region/layout/block/overflow contract;
 - `tests/transfer/main.ab` and `tools/test-transfer.sh` — established queue
   invariants and output conventions;
 - `tests/texture_transfer/main.ab` and `tools/test-texture-transfer.sh` — exact
@@ -299,7 +329,7 @@ Use the repository's Nix environment. Start focused, then run the complete
 release and independent-sample gates:
 
 ```bash
-nix-shell --run 'make test-core test-transfer test-texture-transfer'
+nix-shell --run 'make test-core test-texture-contract test-transfer test-texture-transfer'
 nix-shell --run 'make test-application'
 nix-shell --run 'make update-registry test-registry'
 nix-shell --run 'make all'
