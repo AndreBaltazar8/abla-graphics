@@ -8,9 +8,9 @@ repository contains many working vertical slices, but the framework is not
 finished and must not be presented as complete.
 
 The persistent goal is active. Its objective is to complete every item in
-`plan.md`, not merely the next checkpoint. This handoff was refreshed before
-any wider-texture implementation edit was made, so the next person can begin
-from a clean published tree.
+`plan.md`, not merely the next checkpoint. This handoff now includes the native
+wider-resource/view checkpoint and identifies pitched byte transfer as the next
+implementation boundary.
 
 ## Product goal
 
@@ -71,14 +71,14 @@ Graphics repository:
 - remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - branch: `main`
 - current implementation checkpoint:
-  `9f01d1a13c627dcb4d641f87779a19633b36e2b6`
+  `24fa2967e6c7a77f6cbcbd1e13c95487a6488a3c`
 - previous handoff-only base:
-  `f4f83f30735368e1862645cf0fb143d963939771`
-- `9f01d1a` is the portable wider-texture contract; native wider image creation
-  has not begun
-- the tree was clean and synchronized immediately before this refresh; the
-  refresh commit will naturally be a handoff-only successor, so use the commands
-  below for the current commit instead of embedding a self-referential hash here
+  `d47273214a92a8aab56aa0f166ba2f98963a3385`
+- `24fa296` adds native wider image creation and owned views; `9f01d1a` is its
+  portable descriptor/validation foundation
+- this GOAL refresh will naturally be a handoff-only successor, so use the
+  commands below for the current branch tip instead of embedding a
+  self-referential handoff hash here
 
 Compiler repository:
 
@@ -133,8 +133,9 @@ Published behavior:
   uploads, and runs under both explicit backends in the sample matrix;
 - the pre-existing asynchronous buffer queue regression still passes exact,
   stable, zero-growth behavior after the Vulkan slot scratch expansion;
-- The strict registry coverage remains 97 OpenGL plus 113 Vulkan common
-  commands, 210 total.
+- At that asynchronous checkpoint the strict registry coverage was 97 OpenGL
+  plus 113 Vulkan common commands, 210 total. The current wider-resource
+  checkpoint raises OpenGL to 101, for 214 total.
 
 The following gates passed on the final published source on 2026-08-24:
 
@@ -197,13 +198,47 @@ matrix independently rebuilt all 35 examples without cache and ran its full
 Wayland/headless/X11 plus OpenGL/Vulkan execution matrix. `../ablac` was not
 changed.
 
-## Recommended next checkpoint: native wider texture resources
+## Current native wider-resource checkpoint
 
-The portable model is now fixed. Carry it through OpenGL/Vulkan image creation,
-real owned views, synchronous byte upload/readback/copy, bind groups and `$glsl`
-sampling, then fixed-slot asynchronous queues and samples. Implement 2D arrays,
-cube maps, 3D textures, and BC1 together so the common API never exposes a shape
-that only one production backend can execute.
+Commit `24fa296` carries the portable model through real backend allocation and
+view ownership:
+
+- OpenGL maps all five dimensions to their exact target, allocates non-MSAA
+  images with immutable `glTexStorage1D/2D/3D`, maps BC1 UNORM/sRGB internal
+  formats, advertises view reinterpretation on 4.3+, aliases exact full views,
+  and creates/deletes owned `glTextureView` names for partial or reinterpreted
+  views;
+- Vulkan maps BC1 formats, image types, physical 3D depth versus array layers,
+  cube-compatible and mutable-format flags, matching view types, and reserves
+  layout storage for every mip/layer pair;
+- `GraphicsApplication.texture` enforces the selected device's dimension-
+  specific 1D/2D/3D/cube and array-layer limits before allocation, while the
+  legacy `PixelBuffer` convenience remains explicitly 2D;
+- `tests/wider_texture/main.ab` creates 1D, 2D-array, cube, volume, and BC1
+  resources, exercises full aliases plus owned layer/face/mip/sRGB views, drops
+  child views, and proves their parent survives on OpenGL, Vulkan, and auto;
+- the strict registry audit now classifies 101 OpenGL plus 113 Vulkan commands,
+  214 total.
+
+The following gates passed on the final source in `24fa296` on 2026-08-24:
+
+```bash
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+The sample matrix rebuilt all 35 independent examples without cache and ran
+the complete Wayland/headless/X11 plus explicit OpenGL/Vulkan matrix. Existing
+buffer/texture async paths and render samples retained exact results, stable
+handles, and zero-growth claims. `../ablac` was not changed.
+
+## Recommended next checkpoint: pitched wider texture transfers
+
+The portable model, native OpenGL/Vulkan allocation, and owned view lifetimes
+are now fixed. Carry `TextureRegion` and `TextureDataLayout` through synchronous
+byte upload/readback/copy, then bind groups and `$glsl` sampling, fixed-slot
+asynchronous queues, and samples. Keep 2D arrays, cube maps, 3D textures, and
+BC1 moving together so neither production backend becomes a partial facade.
 
 Do not merely add enum values. Required evidence includes overflow-safe
 descriptor validation, backend limit/capability checks, OpenGL target and pixel
@@ -219,19 +254,28 @@ transient aliasing, or native memory suballocation) before choosing an API.
 
 ## Exact continuation point
 
-The portable boundary is complete in `9f01d1a`; implementation is paused before
-native wider image creation. `GraphicsApplication.texture` still rejects every
-dimension except 2D, and `TextureWriteDescriptor`/`TextureCopyDescriptor` still
-expose only the legacy 2D pixel path. Remaining pressure points are:
+The current checkpoint creates real 1D, 2D-array, cube, 3D, and BC1 resources
+on OpenGL and Vulkan. OpenGL uses audited immutable storage and owns partial or
+reinterpreted `glTextureView` names while full matching views remain aliases.
+Vulkan uses the correct image type, physical depth versus array layers,
+cube-compatible and mutable-format flags, and matching `VkImageView` types.
+`tests/wider_texture/main.ab` proves these resource and lifetime paths on
+explicit OpenGL, explicit Vulkan, and automatic selection.
 
-- the OpenGL backend creates and binds only `GL_TEXTURE_2D` or multisample 2D,
-  writes only with `glTexSubImage2D`, and aliases full views. Wider support needs
-  audited 3D/array/cube targets, immutable storage, real owned texture views,
-  correct pixel-store state, and target-aware bind-group application;
-- the Vulkan backend currently creates one-layer images/views, records 2D
-  buffer-image regions, and stores one layout per mip. Arrays and cubes require
-  correct image flags/view types/layer counts and layout tracking per mip and
-  array layer; 3D textures keep one array layer and a shrinking depth extent;
+The implementation is paused before synchronous raw byte transfer. Remaining
+pressure points are:
+
+- OpenGL still writes only the legacy 2D `PixelBuffer` path with
+  `glTexSubImage2D`. Declare/audit DSA uncompressed and compressed subimage
+  commands plus exact readback, configure and restore pack/unpack row,
+  image-height, alignment, and compressed-block pixel-store state, and use the
+  resolved `BufferBytes` offset/footprint without temporary allocation;
+- Vulkan records legacy 2D `VkBufferImageCopy` regions and its active helpers
+  still index layout state by mip only. The backing layout array now reserves
+  every mip/layer pair, but transfer/barrier helpers must compute the pair index,
+  transition each selected array layer, distinguish 3D z/depth from array
+  base-layer/count, honor row/image pitches, and insert transfer-to-host read
+  visibility before mapped readback;
 - sampled binding reflection treats only `sampler2D` as a texture. It must
   distinguish and validate `sampler2D`, `sampler2DArray`, `samplerCube`, and
   `sampler3D`, then carry the correct target/type through OpenGL and Vulkan;
@@ -258,19 +302,20 @@ The implemented portable API shape is:
 - make primitive region/layout overloads the measured hot path; descriptor
   wrappers may remain setup conveniences.
 
-These portable promises are tested. Before native coding, verify exact Khronos
-constants and entry-point requirements from the pinned registry. Continue in
-this order:
+These portable promises and the native allocation/view boundary are tested.
+Continue in this order:
 
 1. completed: portable dimensions, format/block helpers, regions, layouts, view
    rules, limits, and overflow-safe tests;
-2. next: OpenGL/Vulkan creation and view ownership, followed by synchronous raw
-   upload/readback/copy paths and exact live tests;
-3. target/type-aware bind groups and `$glsl` reflection/SPIR-V support for
+2. completed in `24fa296`: OpenGL/Vulkan 1D, array,
+   cube, volume, and BC1 creation plus owned/aliased texture-view lifetimes;
+3. next: synchronous pitched raw upload/readback/copy paths, per-layer Vulkan
+   layout tracking, and exact live byte tests;
+4. target/type-aware bind groups and `$glsl` reflection/SPIR-V support for
    array, cube, and 3D sampling;
-4. fixed-slot asynchronous raw transfers without regressing the existing 2D
+5. fixed-slot asynchronous raw transfers without regressing the existing 2D
    convenience or allocation behavior;
-5. independently buildable array/cube/volume samples, documentation, registry
+6. independently buildable array/cube/volume samples, documentation, registry
    regeneration, and the complete publication gates.
 
 Do not quietly reduce this checkpoint to creation-only enums. If the whole
