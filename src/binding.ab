@@ -49,11 +49,13 @@ class GraphicsBindingEntry(
     val openGlResource: int,
     val openGlSampler: int,
     val vulkanResource: int,
+    val vulkanView: int,
     val vulkanSampler: int,
     val offset: int,
     val size: int,
     val bufferSize: int,
     val texture: TextureDescriptor,
+    val textureDimension: int,
     val backend: int,
     val error: GraphicsError
 ) {
@@ -72,12 +74,13 @@ class GraphicsBindingEntry(
             this.size > 0 && this.bufferSize > 0 &&
             this.offset <= this.bufferSize - this.size))) ||
          (this.backend == graphicsBackendVulkan &&
-          this.vulkanResource != 0 &&
           ((this.kind == graphicsBindingSampledTexture &&
+            (this.vulkanResource != 0 || this.vulkanView != 0) &&
             this.vulkanSampler != 0 && this.offset == 0 &&
             this.size == 0 && this.bufferSize == 0 &&
             this.texture.valid()) ||
            (this.kind != graphicsBindingSampledTexture &&
+            this.vulkanResource != 0 && this.vulkanView == 0 &&
             this.vulkanSampler == 0 && this.offset >= 0 &&
             this.size > 0 && this.bufferSize > 0 &&
             this.offset <= this.bufferSize - this.size))))
@@ -91,7 +94,7 @@ class GraphicsBindingEntry(
             (this.kind == graphicsBindingSampledTexture &&
              reflected.storage == "uniform" &&
              sampledDimension != textureDimensionUndefined &&
-             this.texture.dimension == sampledDimension) ||
+             this.textureDimension == sampledDimension) ||
             (this.kind == graphicsBindingUniformBuffer &&
              reflected.storage == "uniform" &&
              !glslSamplerType(reflected.dataType)) ||
@@ -215,11 +218,54 @@ trusted fun GraphicsApplication.sampledTextureEntry(
         if (this.backend == graphicsBackendOpenGl) texture.openGl.handle else 0,
         if (this.backend == graphicsBackendOpenGl) sampler.openGl.handle else 0,
         if (this.backend == graphicsBackendVulkan) texture.vulkan.image else 0,
+        0,
         if (this.backend == graphicsBackendVulkan) sampler.vulkan.handle else 0,
         0,
         0,
         0,
         texture.descriptor,
+        texture.descriptor.dimension,
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.sampledTextureViewEntry(
+    binding: int,
+    visibility: int,
+    view: GraphicsTextureView,
+    sampler: GraphicsSampler
+): GraphicsBindingEntry {
+    var error = GraphicsError()
+    val validation = view.descriptor.validation(view.texture)
+    val dimension = view.descriptor.resolvedDimension(view.texture)
+    val format = view.descriptor.resolvedFormat(view.texture)
+    if (!this.valid() || !view.valid() || !sampler.valid() ||
+        !this.ownsTextureView(view) || !this.ownsSampler(sampler) ||
+        !validation.succeeded || binding < 0 || binding > 31 ||
+        !graphicsBindingVisibilityValid(visibility) ||
+        (view.texture.usage & textureUsageSampled) == 0 ||
+        view.texture.samples != 1 || textureFormatHasDepth(format)) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.sampledTextureViewEntry",
+            "sampled texture-view entries require an owned single-sample color view, a binding from 0 to 31, and valid visibility"
+        )
+    }
+    GraphicsBindingEntry(
+        binding,
+        graphicsBindingSampledTexture,
+        visibility,
+        if (this.backend == graphicsBackendOpenGl) view.openGl.handle else 0,
+        if (this.backend == graphicsBackendOpenGl) sampler.openGl.handle else 0,
+        0,
+        if (this.backend == graphicsBackendVulkan) view.vulkan.handle else 0,
+        if (this.backend == graphicsBackendVulkan) sampler.vulkan.handle else 0,
+        0,
+        0,
+        0,
+        view.texture,
+        dimension,
         this.backend,
         error
     )
@@ -284,10 +330,12 @@ trusted fun GraphicsApplication.bufferBindingRangeEntry(
         0,
         if (this.backend == graphicsBackendVulkan) buffer.vulkan.handle else 0,
         0,
+        0,
         offset,
         byteCount,
         buffer.descriptor.size,
         TextureDescriptor(),
+        textureDimensionUndefined,
         this.backend,
         error
     )
@@ -405,7 +453,8 @@ trusted fun GraphicsApplication.bindGroup(
                 entry.vulkanSampler,
                 entry.offset,
                 entry.size,
-                entry.texture
+                entry.texture,
+                entry.vulkanView
             ))
             index = index + 1
         }
@@ -446,6 +495,18 @@ trusted fun GraphicsApplication.textureBinding(
     )
 ])
 
+trusted fun GraphicsApplication.textureViewBinding(
+    view: GraphicsTextureView,
+    sampler: GraphicsSampler
+): GraphicsBindGroup = this.bindGroup([
+    this.sampledTextureViewEntry(
+        0,
+        shaderVisibilityFragment,
+        view,
+        sampler
+    )
+])
+
 trusted fun GraphicsApplication.textureUniformBinding(
     texture: GraphicsTexture,
     sampler: GraphicsSampler,
@@ -455,6 +516,20 @@ trusted fun GraphicsApplication.textureUniformBinding(
         0,
         shaderVisibilityFragment,
         texture,
+        sampler
+    ),
+    this.uniformBufferEntry(1, shaderVisibilityVertex, uniform)
+])
+
+trusted fun GraphicsApplication.textureViewUniformBinding(
+    view: GraphicsTextureView,
+    sampler: GraphicsSampler,
+    uniform: GraphicsBuffer
+): GraphicsBindGroup = this.bindGroup([
+    this.sampledTextureViewEntry(
+        0,
+        shaderVisibilityFragment,
+        view,
         sampler
     ),
     this.uniformBufferEntry(1, shaderVisibilityVertex, uniform)

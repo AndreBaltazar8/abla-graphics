@@ -3163,16 +3163,19 @@ class VulkanBindingEntry(
     val sampler: int,
     val offset: int,
     val size: int,
-    val texture: TextureDescriptor = TextureDescriptor()
+    val texture: TextureDescriptor = TextureDescriptor(),
+    val view: int = 0
 ) {
     fun valid(): bool = this.binding >= 0 && this.binding <= 31 &&
-        this.stageFlags > 0 && this.handle != 0 &&
-        ((this.descriptorType == 1 && this.sampler != 0 &&
+        this.stageFlags > 0 &&
+        ((this.descriptorType == 1 &&
+          (this.handle != 0 || this.view != 0) && this.sampler != 0 &&
           this.offset == 0 && this.size == 0 && this.texture.valid() &&
           (this.texture.usage & textureUsageSampled) != 0 &&
           !textureFormatHasDepth(this.texture.format)) ||
          ((this.descriptorType == 6 || this.descriptorType == 7) &&
-          this.sampler == 0 && this.offset >= 0 && this.size > 0))
+          this.handle != 0 && this.view == 0 && this.sampler == 0 &&
+          this.offset >= 0 && this.size > 0))
 }
 
 resource class VulkanBindGroup(
@@ -6611,7 +6614,9 @@ trusted fun VulkanDevice.bindGroup(
     while (succeeded && entryIndex < entries.size) {
         val entry = entries[entryIndex]
         if (entry.descriptorType == 1) {
-            val view = vulkanTextureViewHandle(
+            val ownsView = entry.view == 0
+            val view = if (!ownsView) entry.view
+            else vulkanTextureViewHandle(
                 this.handle,
                 entry.handle,
                 entry.texture,
@@ -6619,7 +6624,7 @@ trusted fun VulkanDevice.bindGroup(
             )
             succeeded = view != 0
             if (succeeded) {
-                views.append(view)
+                if (ownsView) views.append(view)
                 imageInfos.storeI64(imageIndex * 24, entry.sampler)
                 imageInfos.storeI64(imageIndex * 24 + 8, view)
                 imageInfos.storeI64(imageIndex * 24 + 16, 5)

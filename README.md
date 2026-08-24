@@ -83,7 +83,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   point/line/triangle topology, culling/front-face state, and standard alpha
   blending plus checked depth testing/writes before presenting a real Vulkan
   render pass or OpenGL draw without steady-state runtime allocation; affine
-  multi-entry bind groups feed sampled textures plus uniform/storage buffers to
+  multi-entry bind groups feed sampled textures or explicit subresource views
+  plus uniform/storage buffers to
   strict reflected shaders
   and survives ordered Vulkan pipeline/swapchain/depth rebuilding after a
   window resize;
@@ -253,8 +254,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   allocation-free repeated primitive transfers on explicit OpenGL and Vulkan;
 - `examples/wider-sampling`: exact 2D-array layer, cube face, and 3D volume
   sampling through reflected target-aware bind groups and deterministic
-  pure-Abla SPIR-V, with mismatch rejection, stable native handles, and zero
-  live-byte growth on explicit OpenGL and Vulkan;
+  pure-Abla SPIR-V, including explicit narrowed array-layer/cube-face/volume
+  views, mismatch rejection, stable native handles, and zero live-byte growth
+  on explicit OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

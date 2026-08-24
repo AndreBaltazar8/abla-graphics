@@ -815,6 +815,18 @@ fun applicationBackendProbe(
         texture,
         sampler
     )
+    val sampledViewEntry = app.sampledTextureViewEntry(
+        4,
+        shaderVisibilityFragment,
+        reinterpretedTextureView,
+        sampler
+    )
+    val sampledDepthViewEntry = app.sampledTextureViewEntry(
+        4,
+        shaderVisibilityFragment,
+        depthTextureView,
+        sampler
+    )
     val uniformEntry = app.uniformBufferEntry(
         5,
         shaderVisibilityVertex | shaderVisibilityFragment,
@@ -907,6 +919,25 @@ fun applicationBackendProbe(
             textureDimension3D &&
         graphicsSampledTextureDimension("samplerCubeArray") ==
             textureDimensionUndefined
+    val sampledViewMatches = sampledViewEntry.valid() &&
+        sampledViewEntry.textureDimension == textureDimension2D &&
+        sampledViewEntry.matches(ShaderBinding(
+            shaderStageFragment,
+            0,
+            4,
+            "uniform",
+            "sampler2D",
+            "viewAtlas"
+        )) && !sampledViewEntry.matches(ShaderBinding(
+            shaderStageFragment,
+            0,
+            4,
+            "uniform",
+            "sampler2DArray",
+            "viewAtlas"
+        )) && !sampledDepthViewEntry.valid() &&
+        sampledDepthViewEntry.error.code ==
+            graphicsErrorInvalidConfiguration
     val duplicateBindGroup = app.bindGroup([
         sampledEntry,
         app.uniformBufferEntry(
@@ -1940,7 +1971,7 @@ fun applicationBackendProbe(
         bindUniform.valid() && sampledEntry.valid() &&
         uniformEntry.valid() && storageEntry.valid() && bindGroup.valid() &&
         bindGroup.entryCount() == 3 && bindGroupMatches &&
-        sampledDimensionMatches &&
+        sampledDimensionMatches && sampledViewMatches &&
         !duplicateBindGroup.valid() &&
         duplicateBindGroup.error.code == graphicsErrorInvalidConfiguration &&
         !wrongUsageEntry.valid() && !wrongUsageBindGroup.valid() &&

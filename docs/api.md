@@ -249,6 +249,14 @@ before either backend creates a pipeline. Other GLSL sampler families remain
 recognized as sampled resources but are rejected until their corresponding
 portable texture dimensions are available.
 
+`sampledTextureViewEntry` binds an existing `GraphicsTextureView` instead of a
+texture's default view. Its resolved format, dimension, mip range, layer range,
+aspect, sample count, application ownership, and sampled usage are checked
+before backend descriptor work. The concise `textureViewBinding` and
+`textureViewUniformBinding` helpers mirror their whole-texture counterparts.
+The parent texture and view are borrowed and must both outlive the resulting
+pipeline; declare them before the bind group or pipeline.
+
 OpenGL maps sampled entries to the matching texture/sampler unit and buffer
 entries to the matching UBO or SSBO slot, reapplying the group before each draw.
 Target-inherent direct-state-access binding lets the same path bind 2D, array,
@@ -1063,9 +1071,11 @@ The strict `$glsl` subset emits matching Vulkan image dimensions and vec3
 texture coordinates for `sampler2DArray`, `samplerCube`, and `sampler3D`, while
 OpenGL compiles the same source directly. `examples/wider-sampling` uploads
 distinct array layers, cube faces, and volume slices, selects one of each, and
-checks the exact rendered center pixel on both backends. Explicit sampled
-subresource-view binding is still upcoming; the backend binding uses the texture's
-default full-resource view.
+checks the exact rendered center pixel on both backends. The same sample binds
+narrowed one-layer array and cube-face views plus an explicit volume view. It
+checks the same exact pixels without hidden replacement views: OpenGL binds the
+view object directly, while Vulkan borrows the existing `VkImageView` and only
+destroys default views that the bind group created itself.
 
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource

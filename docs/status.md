@@ -550,7 +550,11 @@ Updated: 2026-08-24.
   and volume slices, then verifies exact selected pixels on explicit OpenGL,
   explicit Vulkan, and automatic selection. A deliberate array/cube mismatch
   rejects, while four repeated frames retain pipeline, descriptor, view, and
-  resource handles with zero live-byte growth.
+  resource handles with zero live-byte growth. `sampledTextureViewEntry` and
+  its concise bind-group helpers also borrow explicit validated views. The live
+  gate samples a narrowed array layer, cube face, and volume view exactly;
+  OpenGL binds each view name directly and Vulkan consumes the caller-owned
+  `VkImageView` without creating or destroying a hidden replacement.
 - Common GPU texture-copy test: `GraphicsApplication.copyTexture` validates
   distinct application-owned color textures, exact format, copy usages, source
   and destination mip levels/origins, and a shared 2D extent. A 2x2 region moves
@@ -1283,8 +1287,7 @@ validity gate unchanged.
   Common buffers, textures, views,
   samplers, and immutable structural
   descriptors, the synchronous wider resource/transfer surface, and
-  full-resource wider sampled bindings are present. Explicit sampled
-  subresource-view binding is not yet exposed.
+  full-resource and explicit-view wider sampled bindings are present.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not

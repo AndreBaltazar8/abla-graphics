@@ -24,6 +24,8 @@ wider image/view ownership, exact synchronous pitched raw upload/readback, and
 same-format layered or physical-volume subresource copies,
 target-aware full-resource `sampler2DArray`/`samplerCube`/`sampler3D` bindings
 with matching strict deterministic SPIR-V and exact dual-backend sampling,
+plus borrowed explicit sampled subresource/view bindings with exact selected
+array-layer, cube-face, and volume-view evidence,
 fixed-metadata device-local buffer
 suballocation with generation-checked slice transfers and aligned
 uniform/storage range binding plus generation-checked nonzero-offset surfaced
