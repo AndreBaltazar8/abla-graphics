@@ -35,6 +35,13 @@ fun graphicsBindingStageVisibility(stage: string): int =
     else if (stage == shaderStageCompute) shaderVisibilityCompute
     else 0
 
+fun graphicsSampledTextureDimension(dataType: string): int =
+    if (dataType == "sampler2D") textureDimension2D
+    else if (dataType == "sampler2DArray") textureDimension2DArray
+    else if (dataType == "samplerCube") textureDimensionCube
+    else if (dataType == "sampler3D") textureDimension3D
+    else textureDimensionUndefined
+
 class GraphicsBindingEntry(
     val binding: int,
     val kind: int,
@@ -77,13 +84,17 @@ class GraphicsBindingEntry(
 
     fun matches(reflected: ShaderBinding): bool {
         val stageVisibility = graphicsBindingStageVisibility(reflected.stage)
+        val sampledDimension = graphicsSampledTextureDimension(
+            reflected.dataType
+        )
         val typeMatches =
             (this.kind == graphicsBindingSampledTexture &&
              reflected.storage == "uniform" &&
-             reflected.dataType == "sampler2D") ||
+             sampledDimension != textureDimensionUndefined &&
+             this.texture.dimension == sampledDimension) ||
             (this.kind == graphicsBindingUniformBuffer &&
              reflected.storage == "uniform" &&
-             reflected.dataType != "sampler2D") ||
+             !glslSamplerType(reflected.dataType)) ||
             (this.kind == graphicsBindingStorageBuffer &&
              reflected.storage == "buffer")
         reflected.set == 0 && reflected.binding == this.binding &&

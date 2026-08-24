@@ -4,14 +4,14 @@ export ABLA_MAX_MEMORY_MB ?= 4096
 .PHONY: all test test-core test-x11 test-wayland test-headless test-vulkan test-opengl \
 	test-vulkan-window test-opengl-window test-glsl test-samples test-toolchain \
 	test-application test-transfer test-texture-transfer test-debug test-registry update-registry \
-	test-texture-contract test-wider-texture test-pool check-abla-only clean
+	test-texture-contract test-wider-texture test-wider-sampling test-pool check-abla-only clean
 
 all: check-abla-only test
 
 check-abla-only:
 	./tools/check-abla-only.sh
 
-test: test-core test-texture-contract test-wider-texture test-x11 test-wayland test-headless test-vulkan test-vulkan-window test-opengl \
+test: test-core test-texture-contract test-wider-texture test-wider-sampling test-x11 test-wayland test-headless test-vulkan test-vulkan-window test-opengl \
 	test-opengl-window test-glsl test-application test-transfer test-texture-transfer test-pool test-debug test-registry
 
 test-core:
@@ -22,6 +22,9 @@ test-texture-contract:
 
 test-wider-texture:
 	./tools/test-wider-texture.sh
+
+test-wider-sampling:
+	./tools/test-wider-sampling.sh
 
 test-x11:
 	./tools/test-x11.sh

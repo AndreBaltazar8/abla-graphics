@@ -242,8 +242,17 @@ and `shaderVisibilityCompute`. Pipeline creation structurally matches every
 reflected shader binding before driver work, rejecting missing, extra,
 wrong-stage, wrong-kind, nonzero-set, or array bindings.
 
+Sampled texture reflection is dimension-aware. `sampler2D`,
+`sampler2DArray`, `samplerCube`, and `sampler3D` require matching 2D, array,
+cube, and 3D texture descriptors respectively; a mismatched texture is rejected
+before either backend creates a pipeline. Other GLSL sampler families remain
+recognized as sampled resources but are rejected until their corresponding
+portable texture dimensions are available.
+
 OpenGL maps sampled entries to the matching texture/sampler unit and buffer
 entries to the matching UBO or SSBO slot, reapplying the group before each draw.
+Target-inherent direct-state-access binding lets the same path bind 2D, array,
+cube, and 3D texture objects.
 Whole resources retain `glBindBufferBase`; real subranges use
 `glBindBufferRange` with a typed pointer-sized offset and size.
 Vulkan creates one compatible set layout, aggregated descriptor pool, descriptor
@@ -1048,6 +1057,15 @@ the same mip/xyz/extent/layout fields as primitive scalars. Reusing those calls
 and `copyTextureRange` preserves native image, staging, command-pool, and
 command-buffer handles and produces zero Abla runtime live-byte growth in the
 focused gate and `examples/wider-texture`.
+
+Full-resource sampled bindings also accept 2D-array, cube, and 3D textures.
+The strict `$glsl` subset emits matching Vulkan image dimensions and vec3
+texture coordinates for `sampler2DArray`, `samplerCube`, and `sampler3D`, while
+OpenGL compiles the same source directly. `examples/wider-sampling` uploads
+distinct array layers, cube faces, and volume slices, selects one of each, and
+checks the exact rendered center pixel on both backends. Explicit sampled
+subresource-view binding is still upcoming; the backend binding uses the texture's
+default full-resource view.
 
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource

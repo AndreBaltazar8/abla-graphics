@@ -22,6 +22,8 @@ overflow-checked pitched `TextureRegion`/`TextureDataLayout` footprints, BC1
 RGBA linear/sRGB block metadata, live 1D/2D/3D/array/cube limit queries, native
 wider image/view ownership, exact synchronous pitched raw upload/readback, and
 same-format layered or physical-volume subresource copies,
+target-aware full-resource `sampler2DArray`/`samplerCube`/`sampler3D` bindings
+with matching strict deterministic SPIR-V and exact dual-backend sampling,
 fixed-metadata device-local buffer
 suballocation with generation-checked slice transfers and aligned
 uniform/storage range binding plus generation-checked nonzero-offset surfaced

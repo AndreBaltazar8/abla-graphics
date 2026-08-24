@@ -6279,20 +6279,31 @@ fun glslColoredVertexSpirv(uintInput: bool): array<int> {
     words
 }
 
-fun glslTexturedVertexSource(source: string): bool =
+fun glslTexturedVertexSourceWithCoordinates(
+    source: string,
+    coordinates: string
+): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
         "in", "vec2", "position", ";",
         "layout", "(", "location", "=", "1", ")",
-        "in", "vec2", "uv", ";",
+        "in", coordinates, "uv", ";",
         "layout", "(", "location", "=", "0", ")",
-        "out", "vec2", "texCoord", ";",
+        "out", coordinates, "texCoord", ";",
         "void", "main", "(", ")", "{",
         "gl_Position", "=", "vec4", "(",
         "position", ",", "0.0", ",", "1.0", ")", ";",
         "texCoord", "=", "uv", ";", "}"
     ])
+
+fun glslTexturedVertexCoordinates(source: string): int =
+    if (glslTexturedVertexSourceWithCoordinates(source, "vec2")) 2
+    else if (glslTexturedVertexSourceWithCoordinates(source, "vec3")) 3
+    else 0
+
+fun glslTexturedVertexSource(source: string): bool =
+    glslTexturedVertexCoordinates(source) == 2
 
 fun glslTexturedCubeVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
@@ -6327,19 +6338,65 @@ fun glslTransformCubeVertexSource(source: string): bool =
         "texCoord", "=", "uv", ";", "}"
     ])
 
-fun glslTexturedFragmentSource(source: string): bool =
+val glslSampler2D = 1
+val glslSampler2DArray = 2
+val glslSamplerCube = 3
+val glslSampler3D = 4
+
+fun glslTexturedFragmentSourceWithSampler(
+    source: string,
+    coordinates: string,
+    sampler: string
+): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
         "layout", "(", "location", "=", "0", ")",
-        "in", "vec2", "texCoord", ";",
+        "in", coordinates, "texCoord", ";",
         "layout", "(", "location", "=", "0", ")",
         "out", "vec4", "color", ";",
         "layout", "(", "binding", "=", "0", ")",
-        "uniform", "sampler2D", "atlas", ";",
+        "uniform", sampler, "atlas", ";",
         "void", "main", "(", ")", "{",
         "color", "=", "texture", "(",
         "atlas", ",", "texCoord", ")", ";", "}"
     ])
+
+fun glslTexturedFragmentSampler(source: string): int =
+    if (glslTexturedFragmentSourceWithSampler(
+        source,
+        "vec2",
+        "sampler2D"
+    )) glslSampler2D
+    else if (glslTexturedFragmentSourceWithSampler(
+        source,
+        "vec3",
+        "sampler2DArray"
+    )) glslSampler2DArray
+    else if (glslTexturedFragmentSourceWithSampler(
+        source,
+        "vec3",
+        "samplerCube"
+    )) glslSamplerCube
+    else if (glslTexturedFragmentSourceWithSampler(
+        source,
+        "vec3",
+        "sampler3D"
+    )) glslSampler3D
+    else 0
+
+fun glslTexturedFragmentSource(source: string): bool =
+    glslTexturedFragmentSampler(source) == glslSampler2D
+
+fun glslSamplerSpirvDimension(sampler: int): int =
+    if (sampler == glslSampler3D) 2
+    else if (sampler == glslSamplerCube) 3
+    else 1
+
+fun glslSamplerSpirvArrayed(sampler: int): int =
+    if (sampler == glslSampler2DArray) 1 else 0
+
+fun glslSamplerCoordinateComponents(sampler: int): int =
+    if (sampler == glslSampler2D) 2 else 3
 
 fun glslPushStorageComputeSource(source: string): bool =
     glslSourceMatchesTokens(source, [
@@ -6442,14 +6499,18 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslColoredVertexSource(this.source(shaderStageVertex))
     val coloredUintVertex = graphicsCommon && stage == shaderStageVertex &&
         glslColoredUintVertexSource(this.source(shaderStageVertex))
-    val texturedVertex = graphicsCommon && stage == shaderStageVertex &&
-        glslTexturedVertexSource(this.source(shaderStageVertex))
+    val texturedVertexCoordinates = if (
+        graphicsCommon && stage == shaderStageVertex
+    ) glslTexturedVertexCoordinates(this.source(shaderStageVertex)) else 0
+    val texturedVertex = texturedVertexCoordinates > 0
     val texturedCubeVertex = graphicsCommon && stage == shaderStageVertex &&
         glslTexturedCubeVertexSource(this.source(shaderStageVertex))
     val transformCubeVertex = graphicsCommon && stage == shaderStageVertex &&
         glslTransformCubeVertexSource(this.source(shaderStageVertex))
-    val texturedFragment = graphicsCommon && stage == shaderStageFragment &&
-        glslTexturedFragmentSource(this.source(shaderStageFragment))
+    val texturedFragmentSampler = if (
+        graphicsCommon && stage == shaderStageFragment
+    ) glslTexturedFragmentSampler(this.source(shaderStageFragment)) else 0
+    val texturedFragment = texturedFragmentSampler > 0
     val storageEmission = if (storage) glslStorageSpirv(storageWrite)
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
@@ -6640,7 +6701,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             262203, 12, 13, 3,
             262165, 14, 32, 1,
             262187, 14, 15, 0,
-            262167, 16, 6, 2,
+            262167, 16, 6, texturedVertexCoordinates,
             262176, 17, 1, 16,
             262203, 17, 18, 1,
             262187, 6, 20, 0,
@@ -6796,11 +6857,16 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             262167, 7, 6, 4,
             262176, 8, 3, 7,
             262203, 8, 9, 3,
-            589849, 10, 6, 1, 0, 0, 0, 1, 0,
+            589849, 10, 6,
+                glslSamplerSpirvDimension(texturedFragmentSampler),
+                0,
+                glslSamplerSpirvArrayed(texturedFragmentSampler),
+                0, 1, 0,
             196635, 11, 10,
             262176, 12, 0, 11,
             262203, 12, 13, 0,
-            262167, 15, 6, 2,
+            262167, 15, 6,
+                glslSamplerCoordinateComponents(texturedFragmentSampler),
             262176, 16, 1, 15,
             262203, 16, 17, 1,
             327734, 2, 4, 0, 3,

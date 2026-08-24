@@ -1,0 +1,356 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun fillRgba8(
+    var bytes: BufferBytes,
+    red: int,
+    green: int,
+    blue: int,
+    alpha: int,
+    offset: int = 0,
+    size: int = -1
+): bool {
+    val byteCount = if (size == -1) bytes.size - offset else size
+    var succeeded = bytes.valid() && offset >= 0 && byteCount > 0 &&
+        offset <= bytes.size - byteCount &&
+        offset - offset / 4 * 4 == 0 &&
+        byteCount - byteCount / 4 * 4 == 0
+    var cursor = offset
+    while (succeeded && cursor < offset + byteCount) {
+        succeeded = bytes.store(cursor, red) &&
+            bytes.store(cursor + 1, green) &&
+            bytes.store(cursor + 2, blue) &&
+            bytes.store(cursor + 3, alpha)
+        cursor = cursor + 4
+    }
+    succeeded
+}
+
+fun packedRgba8(red: int, green: int, blue: int, alpha: int): int =
+    red + green * 256 + blue * 65536 + alpha * 16777216
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics wider sampling",
+            width = 480,
+            height = 270
+        )
+    )
+    val arrayShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec3 uv;
+            layout(location = 0) out vec3 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec3 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2DArray atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val cubeShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec3 uv;
+            layout(location = 0) out vec3 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec3 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform samplerCube atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val volumeShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec3 uv;
+            layout(location = 0) out vec3 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec3 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler3D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val vertexBytes = bufferBytes(60)
+    val verticesStored =
+        vertexBytes.storeF32(-0.8, 0) &&
+        vertexBytes.storeF32(-0.8, 4) &&
+        vertexBytes.storeF32(0.25, 8) &&
+        vertexBytes.storeF32(0.25, 12) &&
+        vertexBytes.storeF32(0.75, 16) &&
+        vertexBytes.storeF32(0.8, 20) &&
+        vertexBytes.storeF32(-0.8, 24) &&
+        vertexBytes.storeF32(0.25, 28) &&
+        vertexBytes.storeF32(0.25, 32) &&
+        vertexBytes.storeF32(0.75, 36) &&
+        vertexBytes.storeF32(0.0, 40) &&
+        vertexBytes.storeF32(0.8, 44) &&
+        vertexBytes.storeF32(0.25, 48) &&
+        vertexBytes.storeF32(0.25, 52) &&
+        vertexBytes.storeF32(0.75, 56)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "wider-sampling-vertices",
+        size = 60,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val sampledUsage = textureUsageSampled | textureUsageCopyDestination
+    val arrayTexture = app.texture(TextureDescriptor(
+        label = "sampled-array",
+        size = Extent3D(2, 2, 2),
+        dimension = textureDimension2DArray,
+        usage = sampledUsage
+    ))
+    val cubeTexture = app.texture(TextureDescriptor(
+        label = "sampled-cube",
+        size = Extent3D(2, 2, 6),
+        dimension = textureDimensionCube,
+        usage = sampledUsage
+    ))
+    val volumeTexture = app.texture(TextureDescriptor(
+        label = "sampled-volume",
+        size = Extent3D(2, 2, 2),
+        dimension = textureDimension3D,
+        usage = sampledUsage
+    ))
+    val arrayBytes = bufferBytes(32)
+    val cubeBytes = bufferBytes(96)
+    val volumeBytes = bufferBytes(32)
+    val arrayExpected = packedRgba8(31, 59, 83, 255)
+    val cubeExpected = packedRgba8(211, 139, 23, 255)
+    val volumeExpected = packedRgba8(101, 47, 193, 255)
+    val texturesUploaded = fillRgba8(arrayBytes, 7, 11, 13, 255) &&
+        fillRgba8(arrayBytes, 31, 59, 83, 255, 16, 16) &&
+        fillRgba8(cubeBytes, 17, 19, 29, 255) &&
+        fillRgba8(cubeBytes, 211, 139, 23, 255, 64, 16) &&
+        fillRgba8(volumeBytes, 37, 41, 43, 255) &&
+        fillRgba8(volumeBytes, 101, 47, 193, 255, 16, 16) &&
+        arrayTexture.writeBytes(arrayBytes) &&
+        cubeTexture.writeBytes(cubeBytes) &&
+        volumeTexture.writeBytes(volumeBytes)
+    val sampler = app.sampler()
+    val targetTexture = app.texture(TextureDescriptor(
+        label = "wider-sampling-target",
+        size = Extent3D(64, 64),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(targetTexture))
+    val layout = VertexBufferLayout(20, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2),
+        VertexAttribute(1, 8, vertexFormatFloat32x3)
+    ])
+    val arrayBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            arrayTexture,
+            sampler
+        )
+    ])
+    val cubeBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            cubeTexture,
+            sampler
+        )
+    ])
+    val volumeBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            volumeTexture,
+            sampler
+        )
+    ])
+    val mismatchBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            arrayTexture,
+            sampler
+        )
+    ])
+    val arrayPipeline = app.renderTargetPipeline(
+        target,
+        arrayShader,
+        layout,
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(arrayBinding)
+    )
+    val cubePipeline = app.renderTargetPipeline(
+        target,
+        cubeShader,
+        layout,
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(cubeBinding)
+    )
+    val volumePipeline = app.renderTargetPipeline(
+        target,
+        volumeShader,
+        layout,
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(volumeBinding)
+    )
+    val mismatchedPipeline = app.renderTargetPipeline(
+        target,
+        cubeShader,
+        layout,
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(mismatchBinding)
+    )
+    val clear = Color(0.0, 0.0, 0.0)
+    val arrayRendered = app.renderVerticesToTarget(
+        target,
+        arrayPipeline,
+        vertices,
+        3,
+        clear
+    ) && target.texture.rgba8(32, 32) == arrayExpected
+    val cubeRendered = app.renderVerticesToTarget(
+        target,
+        cubePipeline,
+        vertices,
+        3,
+        clear
+    ) && target.texture.rgba8(32, 32) == cubeExpected
+    val volumeRendered = app.renderVerticesToTarget(
+        target,
+        volumePipeline,
+        vertices,
+        3,
+        clear
+    ) && target.texture.rgba8(32, 32) == volumeExpected
+    val arrayPipelineHandle = if (app.backend == graphicsBackendOpenGl)
+        arrayPipeline.openGl.handle else arrayPipeline.vulkan.handle
+    val cubePipelineHandle = if (app.backend == graphicsBackendOpenGl)
+        cubePipeline.openGl.handle else cubePipeline.vulkan.handle
+    val volumePipelineHandle = if (app.backend == graphicsBackendOpenGl)
+        volumePipeline.openGl.handle else volumePipeline.vulkan.handle
+    val arrayBindingHandle = if (app.backend == graphicsBackendOpenGl)
+        arrayPipeline.binding.openGlResources[0]
+    else arrayPipeline.binding.vulkan.descriptorSet
+    val cubeBindingHandle = if (app.backend == graphicsBackendOpenGl)
+        cubePipeline.binding.openGlResources[0]
+    else cubePipeline.binding.vulkan.descriptorSet
+    val volumeBindingHandle = if (app.backend == graphicsBackendOpenGl)
+        volumePipeline.binding.openGlResources[0]
+    else volumePipeline.binding.vulkan.descriptorSet
+    val arrayViewHandle = if (app.backend == graphicsBackendVulkan)
+        arrayPipeline.binding.vulkan.views[0] else 0
+    val cubeViewHandle = if (app.backend == graphicsBackendVulkan)
+        cubePipeline.binding.vulkan.views[0] else 0
+    val volumeViewHandle = if (app.backend == graphicsBackendVulkan)
+        volumePipeline.binding.vulkan.views[0] else 0
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = arrayRendered && cubeRendered && volumeRendered
+    var frame = 0
+    while (repeated && frame < 4) {
+        repeated = app.renderVerticesToTarget(
+            target,
+            arrayPipeline,
+            vertices,
+            3,
+            clear
+        ) && target.texture.rgba8(32, 32) == arrayExpected &&
+            app.renderVerticesToTarget(
+                target,
+                cubePipeline,
+                vertices,
+                3,
+                clear
+            ) && target.texture.rgba8(32, 32) == cubeExpected &&
+            app.renderVerticesToTarget(
+                target,
+                volumePipeline,
+                vertices,
+                3,
+                clear
+            ) && target.texture.rgba8(32, 32) == volumeExpected
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val handlesStable = arrayPipelineHandle != 0 &&
+        cubePipelineHandle != 0 && volumePipelineHandle != 0 &&
+        arrayBindingHandle != 0 && cubeBindingHandle != 0 &&
+        volumeBindingHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            arrayPipeline.openGl.handle == arrayPipelineHandle &&
+                cubePipeline.openGl.handle == cubePipelineHandle &&
+                volumePipeline.openGl.handle == volumePipelineHandle &&
+                arrayPipeline.binding.openGlResources[0] ==
+                    arrayBindingHandle &&
+                cubePipeline.binding.openGlResources[0] ==
+                    cubeBindingHandle &&
+                volumePipeline.binding.openGlResources[0] ==
+                    volumeBindingHandle
+         else arrayPipeline.vulkan.handle == arrayPipelineHandle &&
+            cubePipeline.vulkan.handle == cubePipelineHandle &&
+            volumePipeline.vulkan.handle == volumePipelineHandle &&
+            arrayPipeline.binding.vulkan.descriptorSet ==
+                arrayBindingHandle &&
+            cubePipeline.binding.vulkan.descriptorSet == cubeBindingHandle &&
+            volumePipeline.binding.vulkan.descriptorSet ==
+                volumeBindingHandle && arrayViewHandle != 0 &&
+            cubeViewHandle != 0 && volumeViewHandle != 0 &&
+            arrayPipeline.binding.vulkan.views[0] == arrayViewHandle &&
+            cubePipeline.binding.vulkan.views[0] == cubeViewHandle &&
+            volumePipeline.binding.vulkan.views[0] == volumeViewHandle)
+    val presented = app.presentClear(Color(0.03125, 0.125, 0.3125))
+    val passed = app.valid() && arrayShader.valid && cubeShader.valid &&
+        volumeShader.valid && vertices.valid() && verticesUploaded &&
+        arrayTexture.valid() && cubeTexture.valid() && volumeTexture.valid() &&
+        texturesUploaded && sampler.valid() && target.valid() &&
+        arrayPipeline.valid() && cubePipeline.valid() &&
+        volumePipeline.valid() && !mismatchedPipeline.valid() &&
+        mismatchedPipeline.error.code == graphicsErrorInvalidConfiguration &&
+        repeated && frame == 4 && handlesStable &&
+        liveAfter == liveBefore && presented
+    println(
+        "wider-sampling ${graphicsBackendName(app.backend)}: array=$arrayRendered/$arrayExpected cube=$cubeRendered/$cubeExpected volume=$volumeRendered/$volumeExpected mismatch=${!mismatchedPipeline.valid()} frames=$frame stable=$handlesStable live=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}

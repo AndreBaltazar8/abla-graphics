@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 108/2892
+- Classified commands: 109/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 
@@ -101,7 +101,7 @@
 | `glBindTexGenParameterEXT` | definition | unclassified | - | - | - | - |
 | `glBindTexture` | definition | common | src/driver/opengl.ab texture allocation and checked upload binding | src/driver/opengl.ab typed target and name ABI | tests/application/main.ab exact texture upload and reupload readback | tests/application/main.ab upload range and texture validity rejection |
 | `glBindTextureEXT` | definition | unclassified | - | - | - | - |
-| `glBindTextureUnit` | definition | unclassified | - | - | - | - |
+| `glBindTextureUnit` | definition | common | src/driver/opengl.ab target-inherent sampled texture unit binding | src/driver/opengl.ab typed unit and texture name ABI | examples/wider-sampling/main.ab exact array cube and volume sampling | tests/application/main.ab reflected sampler dimension mismatch rejection |
 | `glBindTextureUnitParameterEXT` | definition | unclassified | - | - | - | - |
 | `glBindTextures` | definition | unclassified | - | - | - | - |
 | `glBindTransformFeedback` | definition | unclassified | - | - | - | - |

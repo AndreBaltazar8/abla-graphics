@@ -276,8 +276,10 @@ Updated: 2026-08-24.
 - General bind groups: `GraphicsBindGroup` accepts up to 16 unique set-zero
   entries spanning sampled textures, uniform buffers, and storage buffers with
   explicit vertex/fragment/compute visibility. Pipeline reflection matches the
-  complete entry shape. Entries can select checked uniform/storage subranges.
-  OpenGL prepares texture/sampler/UBO/SSBO slot, offset, and size arrays, keeps
+  complete entry shape, including exact 2D, array, cube, or 3D sampled-texture
+  dimension. Entries can select checked uniform/storage subranges. OpenGL uses
+  target-inherent texture-unit binding and prepares sampler/UBO/SSBO slot,
+  offset, and size arrays, keeps
   whole resources on `glBindBufferBase`, and uses `glBindBufferRange` only for
   real ranges. Vulkan owns per-texture views plus an aggregated descriptor
   pool, layout, and set with exact descriptor offsets/ranges. Both backends
@@ -539,6 +541,16 @@ Updated: 2026-08-24.
   and command-buffer handles stable with zero live-byte growth on explicit
   OpenGL, explicit Vulkan, and automatic selection. The independently buildable
   wider-texture sample repeats the exact pitched array path on both backends.
+- Common wider texture sampling: reflected `sampler2DArray`, `samplerCube`, and
+  `sampler3D` bindings require matching texture dimensions before driver work.
+  The strict pure-Abla SPIR-V path emits the corresponding image dimension,
+  arrayed flag, and vec3 coordinate type; OpenGL uses the same GLSL source with
+  target-inherent direct-state-access texture-unit binding. The independently
+  buildable wider-sampling sample uploads distinct array layers, cube faces,
+  and volume slices, then verifies exact selected pixels on explicit OpenGL,
+  explicit Vulkan, and automatic selection. A deliberate array/cube mismatch
+  rejects, while four repeated frames retain pipeline, descriptor, view, and
+  resource handles with zero live-byte growth.
 - Common GPU texture-copy test: `GraphicsApplication.copyTexture` validates
   distinct application-owned color textures, exact format, copy usages, source
   and destination mip levels/origins, and a shared 2D extent. A 2x2 region moves
@@ -1242,14 +1254,14 @@ validity gate unchanged.
   Specialized compute workgroup IDs and fixed-workgroup scalar constants are
   wired through the portable descriptor on both backends. SPIR-V emission
   currently covers the strict no-op and precedence-parsed homogeneous scalar
-  storage-block expression compute subsets plus fixed, interleaved position/color,
-  and sampled-texture triangle vertex/fragment subsets described above, not
-  general shaders.
+  storage-block expression compute subsets plus fixed, interleaved
+  position/color, and sampled-texture triangle vertex/fragment subsets for 2D,
+  2D-array, cube, and 3D textures described above, not general shaders.
 - Callable generated bindings, compiler-verified host offsets, and fully
   classified coverage ledgers. The pinned deterministic inventory, strict
   evidence join, compiled raw metadata modules, complete selected OpenGL and
   Vulkan constant output, command signatures, and Vulkan aggregate declarations
-  exist, with 221 exercised common commands classified; all other
+  exist, with 222 exercised common commands classified; all other
   rows deliberately remain `unclassified` until equivalent evidence is
   attached.
 - Format-converting texture copies/render-pass byte use and
@@ -1270,7 +1282,9 @@ validity gate unchanged.
   image transfers are not.
   Common buffers, textures, views,
   samplers, and immutable structural
-  descriptors and the synchronous wider resource/transfer surface are present.
+  descriptors, the synchronous wider resource/transfer surface, and
+  full-resource wider sampled bindings are present. Explicit sampled
+  subresource-view binding is not yet exposed.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
 These remain milestones in [the implementation plan](../plan.md); they are not

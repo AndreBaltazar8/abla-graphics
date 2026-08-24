@@ -2483,6 +2483,45 @@ fun main: int {
     val texturedVertexAgain = texturedTriangle.spirv(shaderStageVertex)
     val texturedFragment = texturedTriangle.spirv(shaderStageFragment)
     val texturedFragmentAgain = texturedTriangle.spirv(shaderStageFragment)
+    val texturedArray = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec3 uv; layout(location=0) out vec3 texCoord; void main(){ gl_Position=vec4(position,0.0,1.0); texCoord=uv; }",
+            "#version 450\nlayout(location=0) in vec3 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArray atlas; void main(){ color=texture(atlas,texCoord); }"
+        ]
+    )
+    val texturedArrayVertex = texturedArray.spirv(shaderStageVertex)
+    val texturedArrayFragment = texturedArray.spirv(shaderStageFragment)
+    val texturedArrayFragmentAgain = texturedArray.spirv(
+        shaderStageFragment
+    )
+    val texturedCubeSampler = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec3 uv; layout(location=0) out vec3 texCoord; void main(){ gl_Position=vec4(position,0.0,1.0); texCoord=uv; }",
+            "#version 450\nlayout(location=0) in vec3 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform samplerCube atlas; void main(){ color=texture(atlas,texCoord); }"
+        ]
+    )
+    val texturedCubeFragment = texturedCubeSampler.spirv(
+        shaderStageFragment
+    )
+    val texturedVolume = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec3 uv; layout(location=0) out vec3 texCoord; void main(){ gl_Position=vec4(position,0.0,1.0); texCoord=uv; }",
+            "#version 450\nlayout(location=0) in vec3 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler3D atlas; void main(){ color=texture(atlas,texCoord); }"
+        ]
+    )
+    val texturedVolumeFragment = texturedVolume.spirv(
+        shaderStageFragment
+    )
+    val invalidArrayCoordinates = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(location=1) in vec2 uv; layout(location=0) out vec2 texCoord; void main(){ gl_Position=vec4(position,0.0,1.0); texCoord=uv; }",
+            "#version 450\nlayout(location=0) in vec2 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArray atlas; void main(){ color=texture(atlas,texCoord); }"
+        ]
+    ).spirv(shaderStageFragment)
     val texturedCube = $glsl {
         vertex {
             #version 450
@@ -4022,6 +4061,41 @@ fun main: int {
             texturedFragment.module,
             texturedFragmentAgain.module
         ) &&
+        texturedArray.valid && texturedArray.bindings.size == 1 &&
+        texturedArray.bindings[0].dataType == "sampler2DArray" &&
+        texturedArrayVertex.succeeded && texturedArrayVertex.module.valid() &&
+        texturedArrayVertex.module.words.size == 187 &&
+        spirvContainsWords(
+            texturedArrayVertex.module,
+            [262167, 16, 6, 3]
+        ) && texturedArrayFragment.succeeded &&
+        texturedArrayFragment.module.valid() &&
+        texturedArrayFragment.module.words.size == 119 &&
+        spirvContainsWords(
+            texturedArrayFragment.module,
+            [589849, 10, 6, 1, 0, 1, 0, 1, 0]
+        ) && spirvContainsWords(
+            texturedArrayFragment.module,
+            [262167, 15, 6, 3]
+        ) && spirvWordsEqual(
+            texturedArrayFragment.module,
+            texturedArrayFragmentAgain.module
+        ) && texturedCubeSampler.valid &&
+        texturedCubeSampler.bindings[0].dataType == "samplerCube" &&
+        texturedCubeFragment.succeeded &&
+        texturedCubeFragment.module.valid() &&
+        spirvContainsWords(
+            texturedCubeFragment.module,
+            [589849, 10, 6, 3, 0, 0, 0, 1, 0]
+        ) && texturedVolume.valid &&
+        texturedVolume.bindings[0].dataType == "sampler3D" &&
+        texturedVolumeFragment.succeeded &&
+        texturedVolumeFragment.module.valid() &&
+        spirvContainsWords(
+            texturedVolumeFragment.module,
+            [589849, 10, 6, 2, 0, 0, 0, 1, 0]
+        ) && !invalidArrayCoordinates.succeeded &&
+        invalidArrayCoordinates.error != "" &&
         texturedCube.valid && texturedCubeVertex.succeeded &&
         texturedCubeVertex.module.valid() &&
         texturedCubeVertex.module.words.size == 196 &&

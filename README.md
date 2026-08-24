@@ -60,7 +60,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   compatible allocation-slot aliasing plus pruned synchronization records;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
-  position/color, and sampled-texture vertex/fragment triangle subsets, with
+  position/color, and sampled-texture vertex/fragment triangle subsets for
+  `sampler2D`, `sampler2DArray`, `samplerCube`, and `sampler3D`, with
   composable typed scalar/workgroup specialization constants, observable
   shared-token precedence-parsed signed/unsigned arithmetic, shift, bitwise,
   relational, Boolean/logical, unary, and integer ternary expressions over
@@ -250,6 +251,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/wider-texture`: pitched RGBA array upload, layered GPU copy, exact
   readback with padding preservation, array/cube/volume/BC1 resource views, and
   allocation-free repeated primitive transfers on explicit OpenGL and Vulkan;
+- `examples/wider-sampling`: exact 2D-array layer, cube face, and 3D volume
+  sampling through reflected target-aware bind groups and deterministic
+  pure-Abla SPIR-V, with mismatch rejection, stable native handles, and zero
+  live-byte growth on explicit OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;
