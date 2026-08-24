@@ -315,9 +315,10 @@ The full verification evidence for this checkpoint is current as of 2026-08-24:
   indexed cube reports `uniformRange=true/16/64` on OpenGL and
   `uniformRange=true/64/64` on Vulkan, with stable handles and `liveDelta=0`.
 
-## Current follow-up: surfaced pooled draw ranges
+## Published follow-up: surfaced pooled draw ranges
 
-This follow-up adds checked scalar byte ranges to every surfaced vertex,
+Commit `edda17f` (`Add pooled draw buffer ranges`) is published on
+`origin/main`. It adds checked scalar byte ranges to every surfaced vertex,
 indexed, vertex-indirect, and indexed-indirect API, including the push-value
 forms. Existing calls remain source-compatible. OpenGL adds the vertex base to
 attribute pointers and passes index/indirect offsets as draw pointers. Vulkan
@@ -348,8 +349,8 @@ rejected=true/true/true exact=true live=0 stable=true` on both explicit
 backends. The focused gate additionally reports `push=true` on explicit
 OpenGL, explicit Vulkan, and auto-selected Vulkan, with
 `rejected=true/true/true/true` for misaligned vertex, undersized index,
-undersized indirect, and stale-token inputs. Publication is the only remaining
-task for this checkpoint.
+undersized indirect, and stale-token inputs. This verified checkpoint was
+published by `edda17f`.
 
 The immediate next API slice after publication is equivalent range plumbing
 and pool helpers for offscreen render-target/pass and push-pass draws. Texture
@@ -357,8 +358,10 @@ suballocation remains separate.
 
 ## Immediate continuation checklist
 
-1. If this follow-up is dirty, inspect every changed path, regenerate the
-   registry outputs, and run `git diff --check` before staging.
+1. Start from clean `main` at or after `edda17f`, verify it matches
+   `origin/main`, then inspect the offscreen target/pass functions in
+   `src/render.ab` and the backend offset plumbing already added in
+   `src/driver/opengl.ab` and `src/driver/vulkan.ab`.
 2. After any transfer/pool implementation or test edits, rerun the focused
    compiler and live gates:
 
