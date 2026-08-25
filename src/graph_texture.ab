@@ -78,6 +78,9 @@ resource class GraphicsMaterializedRenderGraph(
     val passes: array<GraphicsGraphPass>,
     val declarations: array<GraphicsGraphTextureDeclaration>,
     val plan: GraphicsRenderGraphPlan,
+    val compiledBarrierCounts: array<int>,
+    val compiledSourceAccesses: array<int>,
+    val compiledDestinationAccesses: array<int>,
     val pools: array<GraphicsTexturePool>,
     val slotLeases: array<int>,
     val resourceSlots: array<int>,
@@ -98,6 +101,9 @@ resource class GraphicsMaterializedRenderGraph(
             this.resources.size <= graphicsMaximumGraphTextureResources &&
             this.declarations.size == this.resources.size &&
             this.resourceSlots.size == this.resources.size &&
+            this.compiledBarrierCounts.size == this.plan.order.size &&
+            this.compiledSourceAccesses.size == this.plan.order.size &&
+            this.compiledDestinationAccesses.size == this.plan.order.size &&
             this.pools.size == this.plan.allocations.size &&
             this.slotLeases.size == this.pools.size &&
             (this.backend == graphicsBackendOpenGl ||
@@ -111,6 +117,21 @@ resource class GraphicsMaterializedRenderGraph(
             this.currentPassPosition >= -1 &&
             this.currentPassPosition < this.plan.order.size
         var slot = 0
+        var passPosition = 0
+        while (accepted && passPosition < this.plan.order.size) {
+            val count = this.compiledBarrierCounts[passPosition]
+            val sourceAccess = this.compiledSourceAccesses[passPosition]
+            val destinationAccess =
+                this.compiledDestinationAccesses[passPosition]
+            accepted = count >= 0 &&
+                ((count == 0 && sourceAccess == 0 &&
+                  destinationAccess == 0) ||
+                 (count > 0 && sourceAccess >= graphAccessRead &&
+                  sourceAccess <= graphAccessReadWrite &&
+                  destinationAccess >= graphAccessRead &&
+                  destinationAccess <= graphAccessReadWrite))
+            passPosition = passPosition + 1
+        }
         while (accepted && slot < this.pools.size) {
             accepted = this.pools[slot].valid() &&
                 this.pools[slot].backend == this.backend &&
@@ -248,6 +269,9 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
     val pools: array<GraphicsTexturePool> = []
     val slotLeases: array<int> = []
     val resourceSlots: array<int> = []
+    val compiledBarrierCounts: array<int> = []
+    val compiledSourceAccesses: array<int> = []
+    val compiledDestinationAccesses: array<int> = []
     val slotDescriptors: array<TextureDescriptor> = []
     val slotDefined: array<bool> = []
     var error = GraphicsError()
@@ -267,6 +291,28 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
         "GraphicsApplication.materializeRenderGraphTextures",
         "every graph resource needs one typed texture declaration and at most 256 resources are supported"
     )
+
+    var passPosition = 0
+    while (!error.occurred() && passPosition < plan.order.size) {
+        var barrierCount = 0
+        var sourceAccess = 0
+        var destinationAccess = 0
+        var barrierIndex = 0
+        while (barrierIndex < plan.barriers.size) {
+            val barrier = plan.barriers[barrierIndex]
+            if (barrier.destinationPass == plan.order[passPosition]) {
+                barrierCount = barrierCount + 1
+                sourceAccess = sourceAccess | barrier.sourceAccess
+                destinationAccess =
+                    destinationAccess | barrier.destinationAccess
+            }
+            barrierIndex = barrierIndex + 1
+        }
+        compiledBarrierCounts.append(barrierCount)
+        compiledSourceAccesses.append(sourceAccess)
+        compiledDestinationAccesses.append(destinationAccess)
+        passPosition = passPosition + 1
+    }
 
     var slot = 0
     while (!error.occurred() && slot < plan.allocations.size) {
@@ -374,6 +420,9 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
         passes,
         declarations,
         plan,
+        compiledBarrierCounts,
+        compiledSourceAccesses,
+        compiledDestinationAccesses,
         move(pools),
         slotLeases,
         resourceSlots,

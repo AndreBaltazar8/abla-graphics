@@ -14,11 +14,18 @@ graph.completeExecution(execution)
 ```
 
 `beginMaterializedRenderGraphPass` first checks the execution generation and
-the next exact ID in `plan.order`. It gathers every `GraphicsGraphBarrier`
-whose destination is that pass, converts the read/write pair into conservative
-portable memory intent, submits one combined backend dependency, and advances
-the logical pass only when submission succeeds. A skipped/out-of-order/stale
-entry performs no backend work and does not increment counters.
+the next exact ID in `plan.order`. It loads that pass's precompiled logical
+barrier count and combined read/write intent, submits one backend dependency,
+and advances the logical pass only when submission succeeds. A
+skipped/out-of-order/stale entry performs no backend work and does not increment
+counters.
+
+Materialization compiles the planner records once into three primitive arrays
+indexed by scheduled pass position: logical barrier count, combined source
+access, and combined destination access. Repeated pass entry reads that bounded
+schedule directly instead of rescanning `plan.barriers`. Construction still
+retains the original plan for inspection; the compiled arrays are execution
+metadata and create no warmed-path object copies.
 
 ## Backend mapping
 
@@ -87,6 +94,9 @@ OpenGL, explicit Vulkan, and automatic selection and reports three planned
 barriers, 3,003 logical barriers/backend calls after 1,001 executions, exact
 synchronization2 counter growth on Vulkan, stable native handles, one pool
 acquisition per transient object, and zero `runtimeMemoryLiveBytes()` growth.
+The gate checks the exact compiled schedule (`0/1/1/1` barriers for the primary
+graph) before executing it 1,001 times.
+
 An additional live two-resource graph writes both textures in one pass and
 reads both in the next. It reports two incoming logical barriers but exactly
 one backend barrier call, proving per-destination batching on OpenGL, Vulkan,

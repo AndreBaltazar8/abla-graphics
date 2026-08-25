@@ -532,8 +532,11 @@ Updated: 2026-08-25.
   executions, stable handles, one pool acquisition per transient, and zero
   live-byte growth. A second live graph reports two incoming logical barriers
   and one backend call, proving per-destination batching on OpenGL, Vulkan, and
-  auto selection. `examples/graph-post-process` repeats the public workflow on
-  both explicit backends. Reusable multi-command frame encoding remains open.
+  auto selection. Materialization compiles exact per-pass barrier counts and
+  access unions into bounded primitive arrays, and warmed entry indexes that
+  schedule without rescanning planner barriers. `examples/graph-post-process`
+  repeats the public workflow on both explicit backends. Reusable
+  multi-command frame encoding remains open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

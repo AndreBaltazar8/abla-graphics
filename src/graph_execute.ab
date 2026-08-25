@@ -84,34 +84,18 @@ trusted fun GraphicsApplication.beginMaterializedRenderGraphPass(
     var succeeded = this.valid() && graph.active(token) &&
         this.backend == graph.backend && next >= 0 &&
         next < graph.plan.order.size && graph.plan.order[next] == passId
-    var barrierCount = 0
-    var openGlBits = 0
-    var vulkanSourceAccess = 0
-    var vulkanDestinationAccess = 0
-    var barrierIndex = 0
-    while (succeeded && barrierIndex < graph.plan.barriers.size) {
-        val barrier = graph.plan.barriers[barrierIndex]
-        if (barrier.destinationPass == passId) {
-            succeeded = barrier.resourceId >= 0 &&
-                barrier.sourcePass >= 0 && barrier.destinationPass >= 0 &&
-                barrier.sourceAccess >= graphAccessRead &&
-                barrier.sourceAccess <= graphAccessReadWrite &&
-                barrier.destinationAccess >= graphAccessRead &&
-                barrier.destinationAccess <= graphAccessReadWrite
-            if (succeeded) {
-                barrierCount = barrierCount + 1
-                openGlBits = openGlBits |
-                    graphicsGraphOpenGlAllBarrierBits
-                vulkanSourceAccess = vulkanSourceAccess |
-                    graphicsGraphVulkanMemoryAccess(barrier.sourceAccess)
-                vulkanDestinationAccess = vulkanDestinationAccess |
-                    graphicsGraphVulkanMemoryAccess(
-                        barrier.destinationAccess
-                    )
-            }
-        }
-        barrierIndex = barrierIndex + 1
-    }
+    val barrierCount = if (succeeded)
+        graph.compiledBarrierCounts[next] else 0
+    val sourceAccess = if (succeeded)
+        graph.compiledSourceAccesses[next] else 0
+    val destinationAccess = if (succeeded)
+        graph.compiledDestinationAccesses[next] else 0
+    val openGlBits = if (barrierCount > 0)
+        graphicsGraphOpenGlAllBarrierBits else 0
+    val vulkanSourceAccess =
+        graphicsGraphVulkanMemoryAccess(sourceAccess)
+    val vulkanDestinationAccess =
+        graphicsGraphVulkanMemoryAccess(destinationAccess)
     if (succeeded && barrierCount > 0 &&
         this.backend == graphicsBackendOpenGl) {
         succeeded = this.openGl.graphMemoryBarrier(openGlBits)

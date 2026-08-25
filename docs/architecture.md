@@ -186,9 +186,11 @@ checks, and borrows imported textures from their caller. The planner remains
 pure, while physical ownership remains affine and backend-neutral. Scheduled
 pass entry now combines incoming hazards into one conservative backend memory
 dependency before the pass's direct work. Resource-specific Vulkan layout
-transitions remain owned by the direct texture/render operation. A future
-reusable multi-command encoder can fold these dependencies into one submission
-without changing direct resource APIs.
+transitions remain owned by the direct texture/render operation. Barrier counts
+and access unions are compiled once into bounded primitive arrays indexed by
+scheduled pass position, avoiding a planner-barrier scan during repeated entry.
+A future reusable multi-command encoder can fold these dependencies into one
+submission without changing direct resource APIs.
 
 ## Specification coverage
 

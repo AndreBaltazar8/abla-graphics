@@ -1743,7 +1743,10 @@ retained transfer command state and synchronization2 when available, with its
 existing legacy fallback. Direct render/compute/copy calls then form the pass
 body and continue to own exact image-layout transitions. Barrier counts and
 backend calls are observable and allocation-free in warmed execution. Reusable
-multi-command encoding remains future work. The complete contracts are in
+primitive barrier counts and source/destination access unions are compiled once
+per scheduled pass during materialization, so repeated entry does not rescan
+the planner's barrier list. General render/compute/copy command recording and
+multi-command submission remain future work. The complete contracts are in
 `docs/render-graph-textures.md` and `docs/render-graph-execution.md`.
 
 The delivered timestamp-query resource owns all result and command scratch at
