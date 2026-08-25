@@ -1,0 +1,546 @@
+// Bounded reusable command recording for materialized render graphs.
+
+import "core.ab"
+import "resources.ab"
+import "application.ab"
+import "texture.ab"
+import "texture_pool.ab"
+import "graph.ab"
+import "graph_texture.ab"
+import "graph_execute.ab"
+
+val graphicsGraphCommandPass = 1
+val graphicsGraphCommandTextureCopy = 2
+val graphicsMaximumGraphCommands = 4096
+
+fun graphicsGraphCommandFingerprintMix(state: int, value: int): int =
+    ((state << 7) | (state >>> 57)) ^ value ^ (value >>> 32)
+
+fun graphicsGraphDeclaredAccess(
+    graph: GraphicsMaterializedRenderGraph,
+    passId: int,
+    resourceId: int
+): int {
+    val passIndex = graphicsGraphPassIndex(graph.passes, passId)
+    if (passIndex >= 0)
+        graphicsGraphAccess(graph.passes[passIndex], resourceId)
+    else 0
+}
+
+resource class GraphicsGraphCommandList(
+    val capacity: int,
+    val backend: int,
+    val passOrder: array<int>,
+    val resourceIds: array<int>,
+    val resourceSlots: array<int>,
+    val resourcePhysicalIdentities: array<int>,
+    val kinds: array<int>,
+    val passIds: array<int>,
+    val sourceResourceIds: array<int>,
+    val destinationResourceIds: array<int>,
+    val sourceMipLevels: array<int>,
+    val sourceXs: array<int>,
+    val sourceYs: array<int>,
+    val sourceZs: array<int>,
+    val destinationMipLevels: array<int>,
+    val destinationXs: array<int>,
+    val destinationYs: array<int>,
+    val destinationZs: array<int>,
+    val widths: array<int>,
+    val heights: array<int>,
+    val depths: array<int>,
+    var commandCount: int,
+    var recordedPasses: int,
+    var sealed: bool,
+    var prepared: bool,
+    var sealedFingerprint: int,
+    var executions: int,
+    var failedExecutions: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool = !this.error.occurred() &&
+        this.capacity >= 1 &&
+        this.capacity <= graphicsMaximumGraphCommands &&
+        (this.backend == graphicsBackendOpenGl ||
+         this.backend == graphicsBackendVulkan) &&
+        this.passOrder.size >= 1 &&
+        this.passOrder.size <= graphicsMaximumGraphTextureResources &&
+        this.resourceIds.size >= 1 &&
+        this.resourceIds.size <= graphicsMaximumGraphTextureResources &&
+        this.resourceSlots.size == this.resourceIds.size &&
+        this.resourcePhysicalIdentities.size == this.resourceIds.size &&
+        this.kinds.size == this.capacity &&
+        this.passIds.size == this.capacity &&
+        this.sourceResourceIds.size == this.capacity &&
+        this.destinationResourceIds.size == this.capacity &&
+        this.sourceMipLevels.size == this.capacity &&
+        this.sourceXs.size == this.capacity &&
+        this.sourceYs.size == this.capacity &&
+        this.sourceZs.size == this.capacity &&
+        this.destinationMipLevels.size == this.capacity &&
+        this.destinationXs.size == this.capacity &&
+        this.destinationYs.size == this.capacity &&
+        this.destinationZs.size == this.capacity &&
+        this.widths.size == this.capacity &&
+        this.heights.size == this.capacity &&
+        this.depths.size == this.capacity &&
+        this.commandCount >= 0 && this.commandCount <= this.capacity &&
+        this.recordedPasses >= 0 &&
+        this.recordedPasses <= this.passOrder.size &&
+        (!this.prepared || this.sealed) &&
+        (!this.prepared || this.sealedFingerprint != 0) &&
+        this.executions >= 0 && this.failedExecutions >= 0
+
+    fun fingerprint(): int {
+        var fingerprint = graphicsGraphCommandFingerprintMix(
+            7046029254386353131,
+            this.commandCount
+        )
+        fingerprint = graphicsGraphCommandFingerprintMix(
+            fingerprint,
+            this.recordedPasses
+        )
+        var commandIndex = 0
+        while (commandIndex < this.commandCount) {
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.kinds[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.passIds[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.sourceResourceIds[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.destinationResourceIds[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.sourceMipLevels[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.sourceXs[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.sourceYs[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.sourceZs[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.destinationMipLevels[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.destinationXs[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.destinationYs[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.destinationZs[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.widths[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.heights[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.depths[commandIndex]
+            )
+            commandIndex = commandIndex + 1
+        }
+        if (fingerprint == 0) 1 else fingerprint
+    }
+
+    fun graphCompatible(graph: GraphicsMaterializedRenderGraph): bool {
+        var accepted = this.valid() && graph.valid() &&
+            this.backend == graph.backend &&
+            this.passOrder.size == graph.plan.order.size &&
+            this.resourceIds.size == graph.resources.size
+        var passPosition = 0
+        while (accepted && passPosition < this.passOrder.size) {
+            accepted = this.passOrder[passPosition] ==
+                graph.plan.order[passPosition]
+            passPosition = passPosition + 1
+        }
+        var resourceIndex = 0
+        while (accepted && resourceIndex < this.resourceIds.size) {
+            val resourceId = this.resourceIds[resourceIndex]
+            accepted = resourceId == graph.resources[resourceIndex].id &&
+                graph.transientResource(resourceId) &&
+                this.resourceSlots[resourceIndex] ==
+                    graph.resourceSlot(resourceId) &&
+                this.resourcePhysicalIdentities[resourceIndex] != 0 &&
+                this.resourcePhysicalIdentities[resourceIndex] ==
+                    graph.physicalIdentity(resourceId)
+            resourceIndex = resourceIndex + 1
+        }
+        accepted
+    }
+
+    fun commandsValidFor(
+        graph: GraphicsMaterializedRenderGraph
+    ): bool {
+        var accepted = this.graphCompatible(graph) && this.sealed &&
+            this.recordedPasses == this.passOrder.size &&
+            this.commandCount >= this.recordedPasses
+        var commandIndex = 0
+        var passPosition = -1
+        while (accepted && commandIndex < this.commandCount) {
+            val kind = this.kinds[commandIndex]
+            if (kind == graphicsGraphCommandPass) {
+                passPosition = passPosition + 1
+                accepted = passPosition < this.passOrder.size &&
+                    this.passIds[commandIndex] ==
+                        this.passOrder[passPosition]
+            } else if (kind == graphicsGraphCommandTextureCopy) {
+                val source = this.sourceResourceIds[commandIndex]
+                val destination =
+                    this.destinationResourceIds[commandIndex]
+                val sourceSlot = graph.resourceSlot(source)
+                val destinationSlot = graph.resourceSlot(destination)
+                val passId = if (passPosition >= 0 &&
+                    passPosition < this.passOrder.size)
+                    this.passOrder[passPosition] else -1
+                accepted = passId >= 0 &&
+                    this.passIds[commandIndex] == passId &&
+                    graph.transientResource(source) &&
+                    graph.transientResource(destination) &&
+                    sourceSlot >= 0 && destinationSlot >= 0 &&
+                    sourceSlot != destinationSlot &&
+                    (graphicsGraphDeclaredAccess(
+                        graph,
+                        passId,
+                        source
+                    ) & graphAccessRead) != 0 &&
+                    (graphicsGraphDeclaredAccess(
+                        graph,
+                        passId,
+                        destination
+                    ) & graphAccessWrite) != 0 &&
+                    textureCopyRangeValid(
+                        graph.textureDescriptor(source),
+                        graph.textureDescriptor(destination),
+                        this.sourceMipLevels[commandIndex],
+                        this.sourceXs[commandIndex],
+                        this.sourceYs[commandIndex],
+                        this.sourceZs[commandIndex],
+                        this.destinationMipLevels[commandIndex],
+                        this.destinationXs[commandIndex],
+                        this.destinationYs[commandIndex],
+                        this.destinationZs[commandIndex],
+                        this.widths[commandIndex],
+                        this.heights[commandIndex],
+                        this.depths[commandIndex]
+                    )
+            } else accepted = false
+            commandIndex = commandIndex + 1
+        }
+        accepted && passPosition == this.passOrder.size - 1
+    }
+
+    trusted fun recordPass(
+        graph: GraphicsMaterializedRenderGraph,
+        passId: int
+    ): bool {
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity &&
+            this.recordedPasses < this.passOrder.size &&
+            this.passOrder[this.recordedPasses] == passId
+        if (accepted) {
+            val index = this.commandCount
+            this.kinds[index] = graphicsGraphCommandPass
+            this.passIds[index] = passId
+            this.commandCount = this.commandCount + 1
+            this.recordedPasses = this.recordedPasses + 1
+        }
+        accepted
+    }
+
+    trusted fun recordTextureCopyRange(
+        graph: GraphicsMaterializedRenderGraph,
+        sourceResourceId: int,
+        destinationResourceId: int,
+        sourceMipLevel: int,
+        sourceX: int,
+        sourceY: int,
+        sourceZ: int,
+        destinationMipLevel: int,
+        destinationX: int,
+        destinationY: int,
+        destinationZ: int,
+        width: int,
+        height: int,
+        depth: int
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val sourceSlot = graph.resourceSlot(sourceResourceId)
+        val destinationSlot = graph.resourceSlot(destinationResourceId)
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            graph.transientResource(sourceResourceId) &&
+            graph.transientResource(destinationResourceId) &&
+            sourceSlot >= 0 && destinationSlot >= 0 &&
+            sourceSlot != destinationSlot &&
+            (graphicsGraphDeclaredAccess(
+                graph,
+                passId,
+                sourceResourceId
+            ) & graphAccessRead) != 0 &&
+            (graphicsGraphDeclaredAccess(
+                graph,
+                passId,
+                destinationResourceId
+            ) & graphAccessWrite) != 0 &&
+            textureCopyRangeValid(
+                graph.textureDescriptor(sourceResourceId),
+                graph.textureDescriptor(destinationResourceId),
+                sourceMipLevel,
+                sourceX,
+                sourceY,
+                sourceZ,
+                destinationMipLevel,
+                destinationX,
+                destinationY,
+                destinationZ,
+                width,
+                height,
+                depth
+            )
+        if (accepted) {
+            val index = this.commandCount
+            this.kinds[index] = graphicsGraphCommandTextureCopy
+            this.passIds[index] = passId
+            this.sourceResourceIds[index] = sourceResourceId
+            this.destinationResourceIds[index] = destinationResourceId
+            this.sourceMipLevels[index] = sourceMipLevel
+            this.sourceXs[index] = sourceX
+            this.sourceYs[index] = sourceY
+            this.sourceZs[index] = sourceZ
+            this.destinationMipLevels[index] = destinationMipLevel
+            this.destinationXs[index] = destinationX
+            this.destinationYs[index] = destinationY
+            this.destinationZs[index] = destinationZ
+            this.widths[index] = width
+            this.heights[index] = height
+            this.depths[index] = depth
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
+    trusted fun recordTextureCopy(
+        graph: GraphicsMaterializedRenderGraph,
+        sourceResourceId: int,
+        destinationResourceId: int,
+        copy: TextureCopyDescriptor = TextureCopyDescriptor()
+    ): bool {
+        val source = graph.textureDescriptor(sourceResourceId)
+        val destination = graph.textureDescriptor(destinationResourceId)
+        return copy.valid(source, destination) &&
+            this.recordTextureCopyRange(
+                graph,
+                sourceResourceId,
+                destinationResourceId,
+                copy.sourceMipLevel,
+                copy.sourceX,
+                copy.sourceY,
+                0,
+                copy.destinationMipLevel,
+                copy.destinationX,
+                copy.destinationY,
+                0,
+                copy.resolvedWidth(source),
+                copy.resolvedHeight(source),
+                1
+            )
+    }
+
+    fun seal(graph: GraphicsMaterializedRenderGraph): bool {
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.recordedPasses == this.passOrder.size &&
+            this.commandCount >= this.recordedPasses
+        if (accepted) this.sealed = true
+        val prepared = accepted && this.commandsValidFor(graph)
+        if (prepared) {
+            this.sealedFingerprint = this.fingerprint()
+            this.prepared = true
+        }
+        else if (accepted) this.sealed = false
+        prepared
+    }
+
+    fun drop(): void {
+        return
+    }
+}
+
+trusted fun GraphicsApplication.graphCommandList(
+    graph: GraphicsMaterializedRenderGraph,
+    capacity: int
+): GraphicsGraphCommandList {
+    var accepted = this.valid() && graph.valid() &&
+        this.backend == graph.backend && capacity >= graph.plan.order.size &&
+        capacity <= graphicsMaximumGraphCommands
+    val passOrder: array<int> = []
+    val resourceIds: array<int> = []
+    val resourceSlots: array<int> = []
+    val resourcePhysicalIdentities: array<int> = []
+    val kinds: array<int> = []
+    val passIds: array<int> = []
+    val sourceResourceIds: array<int> = []
+    val destinationResourceIds: array<int> = []
+    val sourceMipLevels: array<int> = []
+    val sourceXs: array<int> = []
+    val sourceYs: array<int> = []
+    val sourceZs: array<int> = []
+    val destinationMipLevels: array<int> = []
+    val destinationXs: array<int> = []
+    val destinationYs: array<int> = []
+    val destinationZs: array<int> = []
+    val widths: array<int> = []
+    val heights: array<int> = []
+    val depths: array<int> = []
+    var index = 0
+    while (accepted && index < graph.plan.order.size) {
+        passOrder.append(graph.plan.order[index])
+        index = index + 1
+    }
+    index = 0
+    while (accepted && index < graph.resources.size) {
+        val resourceId = graph.resources[index].id
+        val physicalIdentity = graph.physicalIdentity(resourceId)
+        if (graph.transientResource(resourceId) && physicalIdentity != 0) {
+            resourceIds.append(resourceId)
+            resourceSlots.append(graph.resourceSlot(resourceId))
+            resourcePhysicalIdentities.append(physicalIdentity)
+        } else accepted = false
+        index = index + 1
+    }
+    index = 0
+    while (accepted && index < capacity) {
+        kinds.append(0)
+        passIds.append(0)
+        sourceResourceIds.append(0)
+        destinationResourceIds.append(0)
+        sourceMipLevels.append(0)
+        sourceXs.append(0)
+        sourceYs.append(0)
+        sourceZs.append(0)
+        destinationMipLevels.append(0)
+        destinationXs.append(0)
+        destinationYs.append(0)
+        destinationZs.append(0)
+        widths.append(0)
+        heights.append(0)
+        depths.append(0)
+        index = index + 1
+    }
+    GraphicsGraphCommandList(
+        if (accepted) capacity else 0,
+        if (accepted) this.backend else graphicsBackendAuto,
+        passOrder,
+        resourceIds,
+        resourceSlots,
+        resourcePhysicalIdentities,
+        kinds,
+        passIds,
+        sourceResourceIds,
+        destinationResourceIds,
+        sourceMipLevels,
+        sourceXs,
+        sourceYs,
+        sourceZs,
+        destinationMipLevels,
+        destinationXs,
+        destinationYs,
+        destinationZs,
+        widths,
+        heights,
+        depths,
+        0,
+        0,
+        false,
+        false,
+        0,
+        0,
+        0,
+        if (accepted) GraphicsError() else GraphicsError(
+            if (capacity > graphicsMaximumGraphCommands)
+                graphicsErrorLimitExceeded
+            else graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.graphCommandList",
+            "graph command lists require a compatible all-transient materialized graph and capacity for every pass"
+        )
+    )
+}
+
+trusted fun GraphicsApplication.executeGraphCommands(
+    var graph: GraphicsMaterializedRenderGraph,
+    var commands: GraphicsGraphCommandList
+): bool {
+    var succeeded = this.valid() && !graph.executing &&
+        commands.graphCompatible(graph) && commands.sealed &&
+        commands.prepared && commands.sealedFingerprint != 0 &&
+        commands.sealedFingerprint == commands.fingerprint() &&
+        commands.executions < graphicsMaximumInt &&
+        commands.failedExecutions < graphicsMaximumInt
+    val token = if (succeeded) graph.beginExecution() else 0
+    succeeded = token > 0
+    var commandIndex = 0
+    while (succeeded && commandIndex < commands.commandCount) {
+        val kind = commands.kinds[commandIndex]
+        if (kind == graphicsGraphCommandPass) {
+            succeeded = this.beginMaterializedRenderGraphPass(
+                graph,
+                token,
+                commands.passIds[commandIndex]
+            )
+        } else if (kind == graphicsGraphCommandTextureCopy) {
+            succeeded = this.copyGraphTextureRange(
+                graph,
+                token,
+                commands.sourceResourceIds[commandIndex],
+                commands.destinationResourceIds[commandIndex],
+                commands.sourceMipLevels[commandIndex],
+                commands.sourceXs[commandIndex],
+                commands.sourceYs[commandIndex],
+                commands.sourceZs[commandIndex],
+                commands.destinationMipLevels[commandIndex],
+                commands.destinationXs[commandIndex],
+                commands.destinationYs[commandIndex],
+                commands.destinationZs[commandIndex],
+                commands.widths[commandIndex],
+                commands.heights[commandIndex],
+                commands.depths[commandIndex]
+            )
+        } else succeeded = false
+        commandIndex = commandIndex + 1
+    }
+    if (succeeded) succeeded = graph.completeExecution(token)
+    if (succeeded) commands.executions = commands.executions + 1
+    else {
+        if (token > 0 && graph.active(token)) graph.abortExecution(token)
+        if (commands.failedExecutions >= 0 &&
+            commands.failedExecutions < graphicsMaximumInt) {
+            commands.failedExecutions = commands.failedExecutions + 1
+        }
+    }
+    succeeded
+}

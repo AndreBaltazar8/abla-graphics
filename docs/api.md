@@ -1749,6 +1749,34 @@ the planner's barrier list. General render/compute/copy command recording and
 multi-command submission remain future work. The complete contracts are in
 `docs/render-graph-textures.md` and `docs/render-graph-execution.md`.
 
+The first bounded reusable recording slice is available for all-transient
+materialized graphs:
+
+```abla
+val commands = app.graphCommandList(graph, 4)
+commands.recordPass(graph, 10)
+commands.recordPass(graph, 20)
+commands.recordTextureCopy(graph, sourceId, destinationId)
+commands.recordPass(graph, 30)
+
+if (commands.seal(graph)) {
+    app.executeGraphCommands(graph, commands)
+}
+```
+
+Creation preallocates capacity for at most 4,096 primitive records and captures
+the exact pass order, logical resources, physical slots, and native identities.
+Recording accepts ordered pass markers and graph-owned transient texture range
+copies only. Sealing performs the full descriptor/access/range validation once
+and fingerprints the used scalar fields. Replay rejects a different graph or
+post-seal mutation before opening an execution, then reuses scalar copy calls
+without descriptor construction. The affine command list borrows the graph,
+which must outlive the list and submitted work. A failed partial replay aborts
+the graph generation so it can be used again. See
+`docs/render-graph-commands.md` for the complete ownership, failure, performance,
+and current-limit contract. General render/compute recording and consolidated
+native submission remain future work.
+
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:
 

@@ -89,6 +89,7 @@ resource class GraphicsMaterializedRenderGraph(
     var executionGeneration: int,
     var currentPassPosition: int,
     var completedExecutions: int,
+    var abortedExecutions: int,
     var currentExecutionBarriers: int,
     var lastExecutionBarriers: int,
     var totalExecutedBarriers: int,
@@ -110,6 +111,7 @@ resource class GraphicsMaterializedRenderGraph(
              this.backend == graphicsBackendVulkan) &&
             this.executionGeneration >= 0 &&
             this.completedExecutions >= 0 &&
+            this.abortedExecutions >= 0 &&
             this.currentExecutionBarriers >= 0 &&
             this.lastExecutionBarriers >= 0 &&
             this.totalExecutedBarriers >= this.currentExecutionBarriers &&
@@ -255,6 +257,18 @@ resource class GraphicsMaterializedRenderGraph(
             this.currentPassPosition = -1
             this.completedExecutions = this.completedExecutions + 1
             this.lastExecutionBarriers = this.currentExecutionBarriers
+        }
+        accepted
+    }
+
+    trusted fun abortExecution(token: int): bool {
+        val accepted = this.active(token) &&
+            this.abortedExecutions < graphicsMaximumGraphExecutionGeneration
+        if (accepted) {
+            this.executing = false
+            this.currentPassPosition = -1
+            this.currentExecutionBarriers = 0
+            this.abortedExecutions = this.abortedExecutions + 1
         }
         accepted
     }
@@ -435,6 +449,7 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
         0,
         0,
         0,
+        0,
         error
     )
 }
@@ -502,6 +517,50 @@ trusted fun GraphicsApplication.copyGraphTexture(
             graph.pools[destinationSlot],
             graph.slotLeases[destinationSlot],
             copy
+        )
+}
+
+trusted fun GraphicsApplication.copyGraphTextureRange(
+    graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    sourceResourceId: int,
+    destinationResourceId: int,
+    sourceMipLevel: int,
+    sourceX: int,
+    sourceY: int,
+    sourceZ: int,
+    destinationMipLevel: int,
+    destinationX: int,
+    destinationY: int,
+    destinationZ: int,
+    width: int,
+    height: int,
+    depth: int
+): bool {
+    val sourceSlot = graph.resourceSlot(sourceResourceId)
+    val destinationSlot = graph.resourceSlot(destinationResourceId)
+    return graph.resourceActive(token, sourceResourceId) &&
+        graph.resourceActive(token, destinationResourceId) &&
+        (graph.currentAccess(sourceResourceId) & graphAccessRead) != 0 &&
+        (graph.currentAccess(destinationResourceId) & graphAccessWrite) != 0 &&
+        sourceSlot >= 0 && sourceSlot < graph.pools.size &&
+        destinationSlot >= 0 && destinationSlot < graph.pools.size &&
+        sourceSlot != destinationSlot && this.copyTexturePoolLeaseRange(
+            graph.pools[sourceSlot],
+            graph.slotLeases[sourceSlot],
+            graph.pools[destinationSlot],
+            graph.slotLeases[destinationSlot],
+            sourceMipLevel,
+            sourceX,
+            sourceY,
+            sourceZ,
+            destinationMipLevel,
+            destinationX,
+            destinationY,
+            destinationZ,
+            width,
+            height,
+            depth
         )
 }
 

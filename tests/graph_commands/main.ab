@@ -1,0 +1,194 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillGraphCommandBytes(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun graphCommandBytesEqual(bytes: BufferBytes, value: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == value
+        offset = offset + 4
+    }
+    exact
+}
+
+trusted fun graphCommandProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(backend = requestedBackend, validation = true),
+        WindowConfig(
+            title = "Abla recorded graph copy",
+            width = 96,
+            height = 64
+        )
+    )
+    val sourceDescriptor = TextureDescriptor(
+        label = "recorded-copy-source",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val destinationDescriptor = TextureDescriptor(
+        label = "recorded-copy-destination",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "recorded-source", true, 16, 10),
+        GraphicsGraphResource(1, "recorded-destination", true, 16, 11)
+    ], [
+        GraphicsGraphPass(10, "prepare", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "recorded-copy", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "inspect", [
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, sourceDescriptor),
+        GraphicsGraphTextureDeclaration(1, destinationDescriptor)
+    ])
+    val mismatchGraph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "mismatch-source", true, 16, 20),
+        GraphicsGraphResource(1, "mismatch-destination", true, 16, 21)
+    ], [
+        GraphicsGraphPass(10, "mismatch-prepare", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "mismatch-copy", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "mismatch-inspect", [
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, sourceDescriptor),
+        GraphicsGraphTextureDeclaration(1, destinationDescriptor)
+    ])
+    val tooSmall = app.graphCommandList(graph, 2)
+    val commands = app.graphCommandList(graph, 4)
+    val recorded = app.valid() && graph.valid() && mismatchGraph.valid() &&
+        !tooSmall.valid() && commands.valid() &&
+        !commands.recordPass(graph, 20) && commands.commandCount == 0 &&
+        commands.recordPass(graph, 10) &&
+        !commands.recordTextureCopy(graph, 0, 1) &&
+        commands.recordPass(graph, 20) &&
+        commands.recordTextureCopy(graph, 0, 1) &&
+        !commands.recordTextureCopy(graph, 0, 0) &&
+        commands.recordPass(graph, 30) && commands.seal(graph) &&
+        commands.prepared && commands.commandCount == 4 &&
+        commands.recordedPasses == 3 &&
+        !commands.recordPass(graph, 30)
+
+    val abortedToken = graph.beginExecution()
+    val abortPassed = abortedToken > 0 &&
+        app.beginMaterializedRenderGraphPass(graph, abortedToken, 10) &&
+        graph.abortExecution(abortedToken) && !graph.executing &&
+        graph.abortedExecutions == 1 &&
+        !graph.completeExecution(abortedToken)
+
+    val value = 4280427042
+    val sourceBytes = bufferBytes(16)
+    val destinationBytes = bufferBytes(16)
+    val initializationToken = graph.beginExecution()
+    val initialized = abortPassed && initializationToken > abortedToken &&
+        app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            10
+        ) && fillGraphCommandBytes(sourceBytes, value) &&
+        app.writeGraphTextureBytes(
+            graph,
+            initializationToken,
+            0,
+            sourceBytes
+        ) && app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            20
+        ) && app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            30
+        ) && graph.completeExecution(initializationToken)
+
+    val mismatchRejected = initialized &&
+        !app.executeGraphCommands(mismatchGraph, commands) &&
+        !mismatchGraph.executing && mismatchGraph.completedExecutions == 0 &&
+        commands.failedExecutions == 1
+    commands.widths[2] = 1
+    val tamperRejected = mismatchRejected &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 2
+    commands.widths[2] = 2
+    val copied = tamperRejected &&
+        app.executeGraphCommands(graph, commands) && commands.executions == 1
+    val inspectionToken = graph.beginExecution()
+    val exact = copied && inspectionToken > 0 &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 10) &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 20) &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 30) &&
+        destinationBytes.fill(0) && app.readGraphTextureBytes(
+            graph,
+            inspectionToken,
+            1,
+            destinationBytes
+        ) && graphCommandBytesEqual(destinationBytes, value) &&
+        graph.completeExecution(inspectionToken)
+
+    val sourceIdentity = graph.physicalIdentity(0)
+    val destinationIdentity = graph.physicalIdentity(1)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    var steady = recorded && exact
+    while (steady && iteration < 1000) {
+        steady = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stable = steady && iteration == 1000 &&
+        liveAfter == liveBefore && sourceIdentity != 0 &&
+        destinationIdentity != 0 && sourceIdentity != destinationIdentity &&
+        graph.physicalIdentity(0) == sourceIdentity &&
+        graph.physicalIdentity(1) == destinationIdentity &&
+        commands.executions == 1001 && commands.failedExecutions == 2 &&
+        graph.completedExecutions == 1003 && graph.abortedExecutions == 1 &&
+        graph.lastExecutionBarriers == 2 &&
+        graph.totalExecutedBarriers == 2006 &&
+        graph.backendBarrierCalls == 2006 &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1
+    val passed = recorded && abortPassed && mismatchRejected &&
+        tamperRejected && exact && stable
+    println(
+        "graph-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} exact=$exact mismatch=$mismatchRejected tamper=$tamperRejected aborted=${graph.abortedExecutions} executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (graphCommandProbe(backend)) 42 else 1
+}

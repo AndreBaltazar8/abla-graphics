@@ -189,8 +189,13 @@ dependency before the pass's direct work. Resource-specific Vulkan layout
 transitions remain owned by the direct texture/render operation. Barrier counts
 and access unions are compiled once into bounded primitive arrays indexed by
 scheduled pass position, avoiding a planner-barrier scan during repeated entry.
-A future reusable multi-command encoder can fold these dependencies into one
-submission without changing direct resource APIs.
+The first optional affine command list preallocates primitive records for exact
+pass markers and all-transient texture copies, binds a sealed list to the
+materialized graph's physical identities, and replays without descriptor
+construction or live-memory growth. It deliberately reuses the current direct
+barrier/copy paths. A later multi-command encoder will add render/compute work
+and fold these dependencies into one submission without changing direct
+resource APIs.
 
 ## Specification coverage
 

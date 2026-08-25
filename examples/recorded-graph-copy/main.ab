@@ -1,0 +1,131 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillRecordedCopyBytes(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun recordedCopyBytesEqual(bytes: BufferBytes, value: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == value
+        offset = offset + 4
+    }
+    exact
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded graph copy",
+            width = 480,
+            height = 270
+        )
+    )
+    val sourceDescriptor = TextureDescriptor(
+        label = "recorded-source",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val destinationDescriptor = TextureDescriptor(
+        label = "recorded-destination",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "source", true, 16, 10),
+        GraphicsGraphResource(1, "destination", true, 16, 11)
+    ], [
+        GraphicsGraphPass(10, "prepare", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "copy", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "inspect", [
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, sourceDescriptor),
+        GraphicsGraphTextureDeclaration(1, destinationDescriptor)
+    ])
+    val commands = app.graphCommandList(graph, 4)
+    var succeeded = app.valid() && graph.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordPass(graph, 20) &&
+        commands.recordTextureCopy(graph, 0, 1) &&
+        commands.recordPass(graph, 30) && commands.seal(graph)
+
+    val value = 4280427042
+    val sourceBytes = bufferBytes(16)
+    val outputBytes = bufferBytes(16)
+    val initialization = graph.beginExecution()
+    succeeded = succeeded && initialization > 0 &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 10) &&
+        fillRecordedCopyBytes(sourceBytes, value) &&
+        app.writeGraphTextureBytes(graph, initialization, 0, sourceBytes) &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 20) &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 30) &&
+        graph.completeExecution(initialization) &&
+        app.executeGraphCommands(graph, commands)
+
+    val inspection = graph.beginExecution()
+    succeeded = succeeded && inspection > initialization &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 10) &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 20) &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 30) &&
+        outputBytes.fill(0) &&
+        app.readGraphTextureBytes(graph, inspection, 1, outputBytes) &&
+        recordedCopyBytesEqual(outputBytes, value) &&
+        graph.completeExecution(inspection)
+
+    val sourceIdentity = graph.physicalIdentity(0)
+    val destinationIdentity = graph.physicalIdentity(1)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stable = iteration == 1000 && sourceIdentity != 0 &&
+        destinationIdentity != 0 && sourceIdentity != destinationIdentity &&
+        graph.physicalIdentity(0) == sourceIdentity &&
+        graph.physicalIdentity(1) == destinationIdentity &&
+        commands.commandCount == 4 && commands.executions == 1001 &&
+        commands.failedExecutions == 0 &&
+        graph.completedExecutions == 1003 &&
+        graph.lastExecutionBarriers == 2 &&
+        graph.totalExecutedBarriers == 2006 &&
+        graph.backendBarrierCalls == 2006 &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1 &&
+        liveAfter == liveBefore
+    val passed = succeeded &&
+        recordedCopyBytesEqual(outputBytes, value) && stable
+    println(
+        "recorded-graph-copy ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} exact=${recordedCopyBytesEqual(outputBytes, value)} executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity"
+    )
+    if (passed) 0 else 1
+}

@@ -1,6 +1,6 @@
 # Abla Graphics implementation plan
 
-Status: active implementation contract, 2026-08-18.
+Status: active implementation contract, 2026-08-25.
 
 Abla Graphics is the graphics and windowing framework for the Abla ecosystem.
 It targets OpenGL 4.6 core and Vulkan 1.4, with an idiomatic common API for
@@ -120,6 +120,17 @@ Output pointer, variable, and store types, including mixed narrow MRT modules
 and exact expression-width rejection. Native attachment semantics for omitted
 components are verified by the live `vec3` output proof on both backends: RGBA8
 receives RGB and a zero alpha component.
+
+The optional materialized render graph now also has a first bounded reusable
+command slice. An affine fixed-capacity list records exact scheduled pass
+markers and graph-owned transient texture copies into preallocated primitive
+arrays, validates and fingerprints the whole stream at seal, binds it to the
+materialized graph's physical identities, and replays without warmed descriptor
+construction or live-memory growth. Exact OpenGL/Vulkan/auto tests cover
+different-graph and post-seal mutation rejection, abort/recovery, 1,001
+successful replays, stable native objects, and silent Vulkan validation.
+General render/compute recording, consolidated submission, and frames in flight
+remain milestone 5 work.
 
 ## Non-negotiable design rules
 
