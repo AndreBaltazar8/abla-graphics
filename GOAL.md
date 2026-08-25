@@ -80,15 +80,21 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
-- Published and synchronized bounded-command implementation checkpoint:
-  `08d481ad5105c03b4858d341ffed31d606ce09cc`
-  (`Record bounded render graph commands`).
+- Published implementation tip immediately before this handoff document:
+  `d38676f5f54dcd46b7e3bf51ac9ee9a73fb49074`
+  (`Consolidate recorded graph rendering`).
+- Published and synchronized consolidated recorded-render implementation:
+  `d38676f5f54dcd46b7e3bf51ac9ee9a73fb49074`.
+- Earlier bounded-command implementation checkpoint:
+  `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
-  graph barriers`), `6ba1ec5` (`Compile render graph barrier schedules`), and
-  `08d481a` (`Record bounded render graph commands`).
-- This handoff-only update is the intended successor to `08d481a`, so use
-  `git rev-parse HEAD` for the current tip instead of embedding a
-  self-referential handoff hash here. Recheck before release work.
+  graph barriers`), `6ba1ec5` (`Compile render graph barrier schedules`),
+  `08d481a` (`Record bounded render graph commands`), and `d38676f`
+  (`Consolidate recorded graph rendering`).
+- Before committing this handoff only `GOAL.md` is modified. No implementation
+  delta is intentionally left uncommitted.
+- Recheck `git status` and commit IDs before release work. A commit hash in
+  this file is a snapshot, not proof of current synchronization.
 
 ### `ablac`
 
@@ -99,9 +105,8 @@ nix-shell --run 'make check-abla-only'
 - Local/upstream tip at this handoff:
   `82a66da3a978d63adbe49922f74eebc76eea892a`
   (`Export lifted functions from independent modules`)
-- It is currently clean and synchronized. The render-graph barrier checkpoint
-  did not require a compiler change; the sibling advanced independently while
-  the graphics sample matrix was running.
+- It is currently clean and synchronized. The recorded-render checkpoint did
+  not require a compiler change.
 
 Changes to `../ablac` are authorized when a real language/compiler capability
 is required. Keep them minimal, test them in `ablac`, commit and push that repo
@@ -170,9 +175,97 @@ and `live=0` on both explicit backends.
 No `../ablac` change was needed. It remained clean and synchronized at
 `82a66da3a978d63adbe49922f74eebc76eea892a` after the release gates.
 
-Actual recorded render/compute commands, consolidated Vulkan command-buffer
-submission, frames in flight, and GPU-completion retention are later parts of
-milestone 5. Do not imply this first texture-copy slice delivers them.
+This historical first texture-copy slice did not deliver render/compute or
+consolidated submission. The following `d38676f` checkpoint adds the first
+narrow recorded render and eligible single-submission Vulkan replay; compute,
+frames in flight, and GPU-completion retention remain later milestone-5 work.
+
+## Published checkpoint: recorded render and one Vulkan submission
+
+Implementation commit `d38676f` delivers the next bounded milestone-5 slice:
+
+- `GraphicsGraphCommandList.recordRenderTarget(...)` records one procedural
+  offscreen draw and moves its affine `GraphicsRenderTarget` and
+  `GraphicsRenderPipeline` into command-list ownership;
+- imported render resources are accepted only with declared write access and
+  an exact storage-descriptor match; descriptor sealing deliberately excludes
+  labels;
+- eligible Vulkan streams encode graph memory barriers, a 2D transient texture
+  copy, and the render into one retained command buffer and make exactly one
+  queue submission per complete replay;
+- OpenGL keeps ordered direct replay, and unsupported-but-valid Vulkan copy
+  shapes retain the direct fallback;
+- direct copy/render APIs remain validated begin/record/submit wrappers;
+- Vulkan separately tracks transfer health and queue-submission acceptance.
+  Failures before acceptance restore provisional layout tracking. Accepted work
+  remains reflected in layout/submission bookkeeping even if completion wait
+  fails, while the graph does not claim completion and the device becomes
+  unhealthy;
+- counter additions and direct submission requirements are checked before
+  partial work, and invalid direct rendering is rejected before beginning a
+  command buffer.
+
+The current render record is intentionally narrow: exactly one single-sample
+color attachment, no depth or resolves, procedural vertices, no bind group, and
+no push constants. Consolidated copies are currently 2D with `z = 0` and
+`depth = 1`. Compute, broader render/copy records, asynchronous submission,
+GPU-completion-aware retention, and frames in flight remain open.
+
+### Verified evidence
+
+The combined proof stream contains four pass markers, one transient texture
+copy, and one render. Across explicit OpenGL, explicit Vulkan, and automatic
+selection it reports:
+
+- six of six commands and exact center pixel `4294281759`;
+- exact copied RGBA word `4280427042`;
+- all three rejection checks passing: invalid direct render, incompatible
+  record, and incompatible replay;
+- 1,001 successful list replays and 1,003 completed graph executions;
+- four barriers in the last execution, 4,012 logical barriers total, and 3,009
+  batched backend barrier calls;
+- zero Vulkan submissions on OpenGL and exactly 1,001 on Vulkan;
+- stable graph texture, render target, and pipeline handles with zero warmed
+  live-byte growth.
+
+Verification completed on 2026-08-25:
+
+```bash
+nix-shell --run 'make check-abla-only test-core test-vulkan test-graph-commands'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+The final focused gate passed after the submission-acceptance bookkeeping
+review. A dedicated `VK_LAYER_KHRONOS_validation` replay of the final binary
+returned the expected status and produced a zero-line validation log. The full
+aggregate `make all` gate passed. The no-cache sample gate rebuilt all 42
+example roots and ran the full OpenGL/Vulkan live matrix. The new
+`examples/recorded-graph-render` reported `6/6`, exact render/copy output,
+`1001/1003` list/graph executions, `4/4012/3009` barriers,
+`submissions=0` on OpenGL or `1001` on Vulkan, stable handles, and `live=0`.
+
+No `../ablac` change was needed. It remained clean and synchronized at
+`82a66da3a978d63adbe49922f74eebc76eea892a`.
+
+### Immediate continuation sequence
+
+1. Add typed compute command records with owned pipeline/binding resources and
+   exact storage-buffer output on both backends.
+2. Generalize render records to buffered/indexed/indirect forms, bind groups,
+   push constants, depth, resolves, MRT, and subpasses without unbounded command
+   variants or warmed allocation.
+3. Generalize consolidated Vulkan texture copies beyond the current 2D slice
+   while preserving per-mip/layer layout rollback and accepted-submission
+   semantics.
+4. Introduce GPU-completion-aware resource retention and bounded frames in
+   flight, replacing synchronous per-replay waiting without weakening affine
+   ownership.
+5. Add independent compute/render and deferred-rendering samples with exact
+   outputs, stable resources, native submission counts, validation silence, and
+   frame-rate/memory evidence.
+6. Continue the larger milestone/coverage/platform work in `plan.md`; do not
+   mark the persistent goal complete after this checkpoint.
 
 ## Published typed materialization foundation
 
@@ -360,28 +453,26 @@ There are 40 independently rebuilt example directories at this checkpoint.
 The sample count in older commits or handoffs may be lower; the filesystem and
 `tools/test-samples.sh` are authoritative.
 
-## Milestone 5 path after the current first recording slice
+## Milestone 5 direction after the published recorded-render slice
 
-Once the narrow pass-marker/texture-copy slice above is published, continue
-toward the complete reusable command/submission layer. The existing executor
-orders direct operations correctly, but Vulkan currently submits and waits
-through the retained transfer path for each graph barrier and texture copy.
+Pass markers, transient 2D copies, a narrow owned procedural render, and one
+submission for an eligible Vulkan replay are published. Submission is still
+synchronous, while compute and most render resource/command forms remain direct.
 
 The later layers should:
 
-1. Add typed render, compute, remaining copy, barrier, query, and debug command
-   records without turning the first slice into an unbounded variant type.
+1. Add typed compute, broader render/copy, query, and debug command records
+   without turning the bounded slice into an unbounded variant type.
 2. Record a complete graph/frame without managed allocation after warm-up.
-3. Compile `GraphicsGraphBarrier` records into the same native command stream
-   as dependent work instead of separate synchronous barrier submissions.
-4. Preserve exact image-layout responsibility without double transitions.
-5. Batch backend submission, support frames in flight, and retain every
+3. Preserve exact image-layout responsibility without double transitions as
+   more copy/render forms join the consolidated command stream.
+4. Support frames in flight and retain every
    borrowed resource until GPU completion.
-6. Keep direct encoders and raw escape hatches available.
-7. Prove exact multi-pass output, native barrier/submission counts, stable
+5. Keep direct encoders and raw escape hatches available.
+6. Prove exact multi-pass output, native barrier/submission counts, stable
    command resources, Vulkan validation silence, and zero steady-state live
    allocation on OpenGL and Vulkan.
-8. Deliver independently buildable deferred-rendering and compute/render
+7. Deliver independently buildable deferred-rendering and compute/render
    samples using the real recorded command path.
 
 ## Major remaining work from `plan.md`
@@ -431,9 +522,11 @@ Public/common implementation:
 - `src/graph.ab` — pure dependency/lifetime/barrier/alias planner;
 - `src/graph_texture.ab` — typed physical texture materialization and ordered
   execution tokens;
-- `src/graph_execute.ab` — current native graph memory-barrier execution.
-- `src/graph_commands.ab` — verified bounded pass-marker/transient-copy command
-  recording, sealing, graph binding, fingerprinting, replay, and diagnostics.
+- `src/graph_execute.ab` — direct and non-submitting Vulkan graph memory-barrier
+  execution.
+- `src/graph_commands.ab` — verified bounded pass/copy/render recording,
+  affine render ownership, sealing, graph/descriptor binding, direct and
+  consolidated replay, submission accounting, and diagnostics.
 
 Native/platform implementation:
 
@@ -486,6 +579,26 @@ nix-shell --run 'make test-glsl test-application'
 nix-shell --run 'make update-registry test-registry'
 nix-shell --run 'make all'
 nix-shell --run 'make test-samples'
+```
+
+After the focused graph-command binary has built, run Vulkan validation against
+the exact binary that `tools/test-graph-commands.sh` produces:
+
+```bash
+validation_log=build/tests/graph-commands-validation.log
+validation_out=build/tests/graph-commands-validation.out
+: > "$validation_log"
+set +e
+VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
+  xvfb-run -a -s "-screen 0 800x600x24" \
+  build/tests/graph-commands vulkan \
+  >"$validation_out" 2>"$validation_log"
+status=$?
+set -e
+test "$status" -eq 42
+! rg -q 'Validation Error|VUID-|ERROR' "$validation_log"
+test ! -s "$validation_log"
+cat "$validation_out"
 ```
 
 Review and publish with explicit paths:
