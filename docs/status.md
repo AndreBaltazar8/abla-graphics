@@ -519,8 +519,21 @@ Updated: 2026-08-25.
   live-byte growth through 1,000 executions on OpenGL, Vulkan, and auto
   selection. The independent
   `examples/materialized-render-graph` performs four live sampled frames on
-  both explicit backends. Backend graph-command recording and materialized
-  barrier submission remain open.
+  both explicit backends.
+- Ordered render-graph barrier execution: pass entry validates exact plan order
+  and generation, combines every incoming logical dependency, and emits one
+  conservative OpenGL memory barrier or Vulkan memory barrier batch before
+  direct pass work. Vulkan uses the retained transfer command state,
+  synchronization2 when available, and the legacy pipeline-barrier fallback.
+  The focused four-pass gate performs transient upload, a real sampled draw
+  into an imported offscreen target, a post-pass copy into another transient,
+  and exact 16x16 readback. OpenGL, Vulkan, and auto selection each report the
+  exact pixel `4281541137`, 3,003 logical/backend barriers over 1,001
+  executions, stable handles, one pool acquisition per transient, and zero
+  live-byte growth. A second live graph reports two incoming logical barriers
+  and one backend call, proving per-destination batching on OpenGL, Vulkan, and
+  auto selection. `examples/graph-post-process` repeats the public workflow on
+  both explicit backends. Reusable multi-command frame encoding remains open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1077,7 +1090,7 @@ validity gate unchanged.
 
 ## Not yet claimed
 
-- Render-graph command execution with per-subpass input/preserve attachment lists,
+- Reusable render-graph command encoding with per-subpass input/preserve attachment lists,
   arbitrary attachment routing and dependency masks, complete synchronization2
   barrier/event migration, and offscreen/MRT dynamic rendering. The delivered
   pure-Abla graph planner validates stable explicit dependencies, derives
@@ -1085,8 +1098,9 @@ validity gate unchanged.
   lifetimes, emits pruned resource-specific barrier records, and aliases
   compatible non-overlapping transient allocations. Its typed texture layer
   now materializes those allocation slots as retained cross-backend texture
-  pools with checked logical-resource operations; it does not yet record
-  backend commands or submit the derived barriers.
+  pools with checked logical-resource operations. Ordered direct pass entry
+  submits conservative derived memory barriers, but it does not yet retain and
+  record an arbitrary multi-command pass/frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
   color/depth/resolve attachment set and inserts

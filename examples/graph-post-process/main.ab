@@ -1,0 +1,218 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillPostProcessBytes(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun postProcessBytesEqual(bytes: BufferBytes, value: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == value
+        offset = offset + 4
+    }
+    exact
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics graph post process",
+            width = 480,
+            height = 270
+        )
+    )
+    val atlasDescriptor = TextureDescriptor(
+        label = "post-process-atlas",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val targetDescriptor = TextureDescriptor(
+        label = "post-process-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val targetTexture = app.texture(targetDescriptor)
+    val target = app.renderTarget(move(targetTexture))
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "atlas", true, 16, 1),
+        GraphicsGraphResource(1, "offscreen", false, 0, 2),
+        GraphicsGraphResource(2, "post-output", true, 1024, 2)
+    ], [
+        GraphicsGraphPass(10, "upload", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "shade", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "copy", [
+            GraphicsGraphUse(1, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "read", [
+            GraphicsGraphUse(2, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, atlasDescriptor),
+        GraphicsGraphTextureDeclaration(1, targetDescriptor),
+        GraphicsGraphTextureDeclaration(2, TextureDescriptor(
+            label = "post-process-output",
+            size = Extent3D(16, 16),
+            format = textureFormatRgba8Unorm,
+            usage = targetDescriptor.usage
+        ))
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val vertexBytes = bufferBytes(48)
+    val verticesStored = vertexBytes.storeF32(-1.0, 0) &&
+        vertexBytes.storeF32(-1.0, 4) &&
+        vertexBytes.storeF32(0.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(3.0, 16) &&
+        vertexBytes.storeF32(-1.0, 20) &&
+        vertexBytes.storeF32(2.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(-1.0, 32) &&
+        vertexBytes.storeF32(3.0, 36) &&
+        vertexBytes.storeF32(0.0, 40) &&
+        vertexBytes.storeF32(2.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "post-process-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val color = 4281541137
+    val atlasBytes = bufferBytes(16)
+    val outputBytes = bufferBytes(1024)
+    val execution = graph.beginExecution()
+    var succeeded = app.valid() && graph.valid() && target.valid() &&
+        shader.valid && verticesStored && vertices.writeAllBytes(vertexBytes) &&
+        sampler.valid() && execution > 0 &&
+        app.beginMaterializedRenderGraphPass(graph, execution, 10) &&
+        fillPostProcessBytes(atlasBytes, color) &&
+        app.writeGraphTextureBytes(graph, execution, 0, atlasBytes) &&
+        app.beginMaterializedRenderGraphPass(graph, execution, 20)
+    val binding = app.bindGroup([
+        app.sampledGraphTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            graph,
+            execution,
+            0,
+            sampler
+        )
+    ])
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    succeeded = succeeded && pipeline.valid() && app.renderVerticesToTarget(
+        target,
+        pipeline,
+        vertices,
+        3,
+        Color(0.0, 0.0, 0.0)
+    ) && app.beginMaterializedRenderGraphPass(graph, execution, 30) &&
+        app.copyImportedToGraphTexture(
+            graph,
+            execution,
+            1,
+            target.texture,
+            2
+        ) && app.beginMaterializedRenderGraphPass(graph, execution, 40) &&
+        outputBytes.fill(0) &&
+        app.readGraphTextureBytes(graph, execution, 2, outputBytes) &&
+        postProcessBytesEqual(outputBytes, color) &&
+        graph.completeExecution(execution)
+
+    val atlasHandle = graph.physicalIdentity(0)
+    val outputHandle = graph.physicalIdentity(2)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        val token = graph.beginExecution()
+        var passIndex = 0
+        succeeded = token > execution
+        while (succeeded && passIndex < graph.plan.order.size) {
+            succeeded = app.beginMaterializedRenderGraphPass(
+                graph,
+                token,
+                graph.plan.order[passIndex]
+            )
+            passIndex = passIndex + 1
+        }
+        succeeded = succeeded && graph.completeExecution(token)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stable = atlasHandle != 0 && outputHandle != 0 &&
+        graph.physicalIdentity(0) == atlasHandle &&
+        graph.physicalIdentity(2) == outputHandle &&
+        graph.lastExecutionBarriers == 3 &&
+        graph.totalExecutedBarriers == 3003 &&
+        graph.backendBarrierCalls == 3003 &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1 &&
+        liveAfter == liveBefore
+    val passed = succeeded && iteration == 1000 &&
+        graph.completedExecutions == 1001 && stable
+    println(
+        "graph-post-process ${graphicsBackendName(app.backend)}: pixel=${target.texture.rgba8(8, 8)}/$color copy=${postProcessBytesEqual(outputBytes, color)} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} executions=${graph.completedExecutions} live=${liveAfter - liveBefore} stable=$stable handles=$atlasHandle/$outputHandle"
+    )
+    if (passed) 0 else 1
+}

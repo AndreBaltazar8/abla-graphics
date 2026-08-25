@@ -1,0 +1,311 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillGraphExecuteBytes(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun graphExecuteBytesEqual(bytes: BufferBytes, value: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == value
+        offset = offset + 4
+    }
+    exact
+}
+
+trusted fun graphExecuteProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(backend = requestedBackend, validation = true),
+        WindowConfig(
+            title = "Abla render graph execution",
+            width = 96,
+            height = 64
+        )
+    )
+    val atlasDescriptor = TextureDescriptor(
+        label = "graph-execute-atlas",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val targetDescriptor = TextureDescriptor(
+        label = "graph-execute-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val targetTexture = app.texture(targetDescriptor)
+    val target = app.renderTarget(move(targetTexture))
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "atlas", true, 16, 1),
+        GraphicsGraphResource(1, "target", false, 0, 2),
+        GraphicsGraphResource(2, "post-copy", true, 1024, 2)
+    ], [
+        GraphicsGraphPass(10, "upload", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "offscreen", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "post-copy", [
+            GraphicsGraphUse(1, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "readback", [
+            GraphicsGraphUse(2, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, atlasDescriptor),
+        GraphicsGraphTextureDeclaration(1, targetDescriptor),
+        GraphicsGraphTextureDeclaration(2, TextureDescriptor(
+            label = "graph-execute-post-copy",
+            size = Extent3D(16, 16),
+            format = textureFormatRgba8Unorm,
+            usage = targetDescriptor.usage
+        ))
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val verticesBytes = bufferBytes(48)
+    val verticesStored = verticesBytes.storeF32(-1.0, 0) &&
+        verticesBytes.storeF32(-1.0, 4) &&
+        verticesBytes.storeF32(0.0, 8) &&
+        verticesBytes.storeF32(0.0, 12) &&
+        verticesBytes.storeF32(3.0, 16) &&
+        verticesBytes.storeF32(-1.0, 20) &&
+        verticesBytes.storeF32(2.0, 24) &&
+        verticesBytes.storeF32(0.0, 28) &&
+        verticesBytes.storeF32(-1.0, 32) &&
+        verticesBytes.storeF32(3.0, 36) &&
+        verticesBytes.storeF32(0.0, 40) &&
+        verticesBytes.storeF32(2.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "graph-execute-fullscreen-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(verticesBytes)
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val sampledValue = 4281541137
+    val atlasBytes = bufferBytes(16)
+    val readback = bufferBytes(1024)
+    val token = graph.beginExecution()
+    var executed = app.valid() && graph.valid() && target.valid() &&
+        shader.valid && verticesUploaded && sampler.valid() && token > 0 &&
+        !app.beginMaterializedRenderGraphPass(graph, token, 20) &&
+        graph.backendBarrierCalls == 0 &&
+        app.beginMaterializedRenderGraphPass(graph, token, 10) &&
+        fillGraphExecuteBytes(atlasBytes, sampledValue) &&
+        app.writeGraphTextureBytes(graph, token, 0, atlasBytes) &&
+        app.beginMaterializedRenderGraphPass(graph, token, 20)
+    val binding = app.bindGroup([
+        app.sampledGraphTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            graph,
+            token,
+            0,
+            sampler
+        )
+    ])
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    executed = executed && pipeline.valid() && app.renderVerticesToTarget(
+        target,
+        pipeline,
+        vertices,
+        3,
+        Color(0.0, 0.0, 0.0)
+    ) && target.texture.rgba8(8, 8) == sampledValue &&
+        app.beginMaterializedRenderGraphPass(graph, token, 30) &&
+        app.copyImportedToGraphTexture(
+            graph,
+            token,
+            1,
+            target.texture,
+            2
+        ) && app.beginMaterializedRenderGraphPass(graph, token, 40) &&
+        readback.fill(0) &&
+        app.readGraphTextureBytes(graph, token, 2, readback) &&
+        graphExecuteBytesEqual(readback, sampledValue) &&
+        graph.completeExecution(token)
+    val primaryExact = executed && graph.plan.barriers.size == 3 &&
+        graph.lastExecutionBarriers == 3 &&
+        graph.totalExecutedBarriers == 3 &&
+        graph.backendBarrierCalls == 3
+
+    val batchDescriptor = TextureDescriptor(
+        label = "graph-execute-batch",
+        size = Extent3D(1, 1),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val batchGraph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(10, "batch-left", true, 4, 10),
+        GraphicsGraphResource(11, "batch-right", true, 4, 11)
+    ], [
+        GraphicsGraphPass(50, "batch-write", [
+            GraphicsGraphUse(10, graphAccessWrite),
+            GraphicsGraphUse(11, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(60, "batch-read", [
+            GraphicsGraphUse(10, graphAccessRead),
+            GraphicsGraphUse(11, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(10, batchDescriptor),
+        GraphicsGraphTextureDeclaration(11, TextureDescriptor(
+            label = "graph-execute-batch-right",
+            size = batchDescriptor.size,
+            format = batchDescriptor.format,
+            usage = batchDescriptor.usage
+        ))
+    ])
+    val batchLeftValue = 4280427042
+    val batchRightValue = 4291322930
+    val batchLeftBytes = bufferBytes(4)
+    val batchRightBytes = bufferBytes(4)
+    val batchToken = batchGraph.beginExecution()
+    val batchExact = batchGraph.valid() && batchToken > 0 &&
+        graphicsGraphBarrierCountForPass(batchGraph.plan, 60) == 2 &&
+        fillGraphExecuteBytes(batchLeftBytes, batchLeftValue) &&
+        fillGraphExecuteBytes(batchRightBytes, batchRightValue) &&
+        app.beginMaterializedRenderGraphPass(batchGraph, batchToken, 50) &&
+        app.writeGraphTextureBytes(
+            batchGraph,
+            batchToken,
+            10,
+            batchLeftBytes
+        ) && app.writeGraphTextureBytes(
+            batchGraph,
+            batchToken,
+            11,
+            batchRightBytes
+        ) && app.beginMaterializedRenderGraphPass(
+            batchGraph,
+            batchToken,
+            60
+        ) && batchLeftBytes.fill(0) && batchRightBytes.fill(0) &&
+        app.readGraphTextureBytes(
+            batchGraph,
+            batchToken,
+            10,
+            batchLeftBytes
+        ) && app.readGraphTextureBytes(
+            batchGraph,
+            batchToken,
+            11,
+            batchRightBytes
+        ) && graphExecuteBytesEqual(batchLeftBytes, batchLeftValue) &&
+        graphExecuteBytesEqual(batchRightBytes, batchRightValue) &&
+        batchGraph.completeExecution(batchToken) &&
+        batchGraph.plan.barriers.size == 2 &&
+        batchGraph.lastExecutionBarriers == 2 &&
+        batchGraph.totalExecutedBarriers == 2 &&
+        batchGraph.backendBarrierCalls == 1
+
+    val atlasIdentity = graph.physicalIdentity(0)
+    val postIdentity = graph.physicalIdentity(2)
+    val targetIdentity = if (app.backend == graphicsBackendOpenGl)
+        target.texture.openGl.handle else target.texture.vulkan.image
+    val vulkanBarrier2Before = app.vulkanDevice.transferBarrier2Count
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    var steady = primaryExact
+    while (steady && iteration < 1000) {
+        val repeatedToken = graph.beginExecution()
+        var passIndex = 0
+        steady = repeatedToken > token
+        while (steady && passIndex < graph.plan.order.size) {
+            steady = app.beginMaterializedRenderGraphPass(
+                graph,
+                repeatedToken,
+                graph.plan.order[passIndex]
+            )
+            passIndex = passIndex + 1
+        }
+        steady = steady && graph.completeExecution(repeatedToken)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val vulkanBarrier2After = app.vulkanDevice.transferBarrier2Count
+    val stable = steady && iteration == 1000 && liveAfter == liveBefore &&
+        atlasIdentity != 0 && postIdentity != 0 && targetIdentity != 0 &&
+        graph.physicalIdentity(0) == atlasIdentity &&
+        graph.physicalIdentity(2) == postIdentity &&
+        (if (app.backend == graphicsBackendOpenGl)
+            target.texture.openGl.handle == targetIdentity
+         else target.texture.vulkan.image == targetIdentity) &&
+        graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 3 &&
+        graph.totalExecutedBarriers == 3003 &&
+        graph.backendBarrierCalls == 3003 &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1 &&
+        (app.backend != graphicsBackendVulkan ||
+         !app.vulkanDevice.synchronization2 ||
+         vulkanBarrier2After - vulkanBarrier2Before == 3000)
+    val passed = primaryExact && batchExact && stable
+    println(
+        "graph-execute ${graphicsBackendName(app.backend)}: offscreen=$executed pixel=${target.texture.rgba8(8, 8)}/$sampledValue copy=${graphExecuteBytesEqual(readback, sampledValue)} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} batch=${batchGraph.lastExecutionBarriers}/${batchGraph.backendBarrierCalls} sync2=$vulkanBarrier2Before/$vulkanBarrier2After stable=$stable executions=${graph.completedExecutions} live=${liveAfter - liveBefore} handles=$atlasIdentity/$targetIdentity/$postIdentity"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (graphExecuteProbe(backend)) 42 else 1
+}

@@ -112,10 +112,11 @@ fun main: int {
     val execution = graph.beginExecution()
     var succeeded = app.valid() && graph.valid() && shader.valid &&
         verticesUploaded && sampler.valid() && execution > 0 &&
-        graph.samePhysicalTexture(0, 1) && graph.beginPass(execution, 10) &&
+        graph.samePhysicalTexture(0, 1) &&
+        app.beginMaterializedRenderGraphPass(graph, execution, 10) &&
         fillGraphAtlas(atlasBytes, warm) &&
         app.writeGraphTextureBytes(graph, execution, 0, atlasBytes) &&
-        graph.beginPass(execution, 20)
+        app.beginMaterializedRenderGraphPass(graph, execution, 20)
     val binding = app.bindGroup([
         app.sampledGraphTextureEntry(
             0,
@@ -148,10 +149,14 @@ fun main: int {
         )
         frame = frame + 1
     }
-    succeeded = succeeded && graph.beginPass(execution, 30) &&
+    succeeded = succeeded && app.beginMaterializedRenderGraphPass(
+        graph,
+        execution,
+        30
+    ) &&
         fillGraphAtlas(atlasBytes, cool) &&
         app.writeGraphTextureBytes(graph, execution, 1, atlasBytes) &&
-        graph.beginPass(execution, 40)
+        app.beginMaterializedRenderGraphPass(graph, execution, 40)
     while (succeeded && frame < 4) {
         succeeded = app.presentRenderVertices(
             pipeline,
@@ -170,7 +175,11 @@ fun main: int {
         var passIndex = 0
         succeeded = token > execution
         while (succeeded && passIndex < graph.plan.order.size) {
-            succeeded = graph.beginPass(token, graph.plan.order[passIndex])
+            succeeded = app.beginMaterializedRenderGraphPass(
+                graph,
+                token,
+                graph.plan.order[passIndex]
+            )
             passIndex = passIndex + 1
         }
         succeeded = succeeded && graph.completeExecution(token)
@@ -180,11 +189,14 @@ fun main: int {
     val stable = physical != 0 && graph.physicalIdentity(0) == physical &&
         graph.physicalIdentity(1) == physical &&
         graph.pools[0].acquisitionCount == 1 &&
+        graph.lastExecutionBarriers == 2 &&
+        graph.totalExecutedBarriers == 2002 &&
+        graph.backendBarrierCalls == 2002 &&
         liveAfter == liveBefore
     val passed = succeeded && frame == 4 && iteration == 1000 && stable &&
         graph.completedExecutions == 1001
     println(
-        "materialized-render-graph ${graphicsBackendName(app.backend)}: frames=$frame reuse=${graph.samePhysicalTexture(0, 1)} executions=${graph.completedExecutions} pools=${graph.pools.size} acquisitions=${graph.pools[0].acquisitionCount} live=${liveAfter - liveBefore} stable=$stable handle=$physical"
+        "materialized-render-graph ${graphicsBackendName(app.backend)}: frames=$frame reuse=${graph.samePhysicalTexture(0, 1)} barriers=${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} executions=${graph.completedExecutions} pools=${graph.pools.size} acquisitions=${graph.pools[0].acquisitionCount} live=${liveAfter - liveBefore} stable=$stable handle=$physical"
     )
     if (passed) 0 else 1
 }

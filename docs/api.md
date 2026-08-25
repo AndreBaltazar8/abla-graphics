@@ -1711,8 +1711,8 @@ resource's first and last scheduled pass.
 an intervening access already supplies the dependency path. Each record carries
 the resource ID, source/destination pass IDs, and both access masks. Explicit
 ordering edges do not fabricate resource barriers. These backend-neutral
-records remain the input for forthcoming OpenGL memory-barrier and Vulkan
-synchronization2 command materialization.
+records are the input to the delivered ordered OpenGL memory-barrier and Vulkan
+synchronization2/fallback executor described below.
 
 Transient resources with disjoint lifetimes and the same compatibility class
 share the lowest available `GraphicsGraphAllocation` slot. Slot capacity grows
@@ -1733,9 +1733,18 @@ transient/imported copy, and sampled-entry helpers require the logical resource
 ID and verify its declared access in the current pass. Imported resources
 remain caller-owned and are borrowed only after application ownership and exact
 descriptor checks. Execution reset retains every lease and native object, so a
-warmed pass walk allocates nothing. This is real texture materialization; graph
-command encoding and backend barrier emission remain separate future work.
-The complete contract is in `docs/render-graph-textures.md`.
+warmed pass walk allocates nothing.
+
+`app.beginMaterializedRenderGraphPass(graph, token, passId)` is the ordered
+backend entry. It validates the next planned pass, combines every incoming
+logical barrier, emits one conservative `glMemoryBarrier` or Vulkan memory
+barrier batch, and advances only after successful submission. Vulkan uses the
+retained transfer command state and synchronization2 when available, with its
+existing legacy fallback. Direct render/compute/copy calls then form the pass
+body and continue to own exact image-layout transitions. Barrier counts and
+backend calls are observable and allocation-free in warmed execution. Reusable
+multi-command encoding remains future work. The complete contracts are in
+`docs/render-graph-textures.md` and `docs/render-graph-execution.md`.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

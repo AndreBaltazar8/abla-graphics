@@ -1,0 +1,134 @@
+// Ordered backend memory dependencies for materialized render graphs.
+
+import "core.ab"
+import "application.ab"
+import "graph.ab"
+import "graph_texture.ab"
+import "driver/opengl.ab"
+import "driver/vulkan.ab"
+
+val graphicsGraphOpenGlAllBarrierBits = 65535
+val graphicsGraphVulkanAllCommandsStage = 65536
+val graphicsGraphVulkanMemoryReadAccess = 32768
+val graphicsGraphVulkanMemoryWriteAccess = 65536
+
+class GraphicsGraphBarrierIntent(
+    val resourceId: int,
+    val sourcePass: int,
+    val destinationPass: int,
+    val sourceAccess: int,
+    val destinationAccess: int,
+    val openGlBits: int,
+    val vulkanSourceStage: int,
+    val vulkanDestinationStage: int,
+    val vulkanSourceAccess: int,
+    val vulkanDestinationAccess: int
+) {
+    fun valid(): bool = this.resourceId >= 0 && this.sourcePass >= 0 &&
+        this.destinationPass >= 0 &&
+        this.sourceAccess >= graphAccessRead &&
+        this.sourceAccess <= graphAccessReadWrite &&
+        this.destinationAccess >= graphAccessRead &&
+        this.destinationAccess <= graphAccessReadWrite &&
+        this.openGlBits > 0 &&
+        this.vulkanSourceStage == graphicsGraphVulkanAllCommandsStage &&
+        this.vulkanDestinationStage == graphicsGraphVulkanAllCommandsStage &&
+        this.vulkanSourceAccess > 0 && this.vulkanDestinationAccess > 0
+}
+
+fun graphicsGraphVulkanMemoryAccess(access: int): int {
+    var result = 0
+    if ((access & graphAccessRead) != 0) {
+        result = result | graphicsGraphVulkanMemoryReadAccess
+    }
+    if ((access & graphAccessWrite) != 0) {
+        result = result | graphicsGraphVulkanMemoryWriteAccess
+    }
+    result
+}
+
+fun graphicsGraphBarrierIntent(
+    barrier: GraphicsGraphBarrier
+): GraphicsGraphBarrierIntent = GraphicsGraphBarrierIntent(
+    barrier.resourceId,
+    barrier.sourcePass,
+    barrier.destinationPass,
+    barrier.sourceAccess,
+    barrier.destinationAccess,
+    graphicsGraphOpenGlAllBarrierBits,
+    graphicsGraphVulkanAllCommandsStage,
+    graphicsGraphVulkanAllCommandsStage,
+    graphicsGraphVulkanMemoryAccess(barrier.sourceAccess),
+    graphicsGraphVulkanMemoryAccess(barrier.destinationAccess)
+)
+
+fun graphicsGraphBarrierCountForPass(
+    plan: GraphicsRenderGraphPlan,
+    passId: int
+): int {
+    var count = 0
+    var index = 0
+    while (index < plan.barriers.size) {
+        if (plan.barriers[index].destinationPass == passId) count = count + 1
+        index = index + 1
+    }
+    count
+}
+
+trusted fun GraphicsApplication.beginMaterializedRenderGraphPass(
+    var graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    passId: int
+): bool {
+    val next = graph.currentPassPosition + 1
+    var succeeded = this.valid() && graph.active(token) &&
+        this.backend == graph.backend && next >= 0 &&
+        next < graph.plan.order.size && graph.plan.order[next] == passId
+    var barrierCount = 0
+    var openGlBits = 0
+    var vulkanSourceAccess = 0
+    var vulkanDestinationAccess = 0
+    var barrierIndex = 0
+    while (succeeded && barrierIndex < graph.plan.barriers.size) {
+        val barrier = graph.plan.barriers[barrierIndex]
+        if (barrier.destinationPass == passId) {
+            succeeded = barrier.resourceId >= 0 &&
+                barrier.sourcePass >= 0 && barrier.destinationPass >= 0 &&
+                barrier.sourceAccess >= graphAccessRead &&
+                barrier.sourceAccess <= graphAccessReadWrite &&
+                barrier.destinationAccess >= graphAccessRead &&
+                barrier.destinationAccess <= graphAccessReadWrite
+            if (succeeded) {
+                barrierCount = barrierCount + 1
+                openGlBits = openGlBits |
+                    graphicsGraphOpenGlAllBarrierBits
+                vulkanSourceAccess = vulkanSourceAccess |
+                    graphicsGraphVulkanMemoryAccess(barrier.sourceAccess)
+                vulkanDestinationAccess = vulkanDestinationAccess |
+                    graphicsGraphVulkanMemoryAccess(
+                        barrier.destinationAccess
+                    )
+            }
+        }
+        barrierIndex = barrierIndex + 1
+    }
+    if (succeeded && barrierCount > 0 &&
+        this.backend == graphicsBackendOpenGl) {
+        succeeded = this.openGl.graphMemoryBarrier(openGlBits)
+    } else if (succeeded && barrierCount > 0 &&
+        this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.graphMemoryBarrier(
+            vulkanSourceAccess,
+            vulkanDestinationAccess
+        )
+    }
+    if (succeeded) succeeded = graph.beginPass(token, passId)
+    if (succeeded && barrierCount > 0) {
+        graph.currentExecutionBarriers =
+            graph.currentExecutionBarriers + barrierCount
+        graph.totalExecutedBarriers =
+            graph.totalExecutedBarriers + barrierCount
+        graph.backendBarrierCalls = graph.backendBarrierCalls + 1
+    }
+    succeeded
+}

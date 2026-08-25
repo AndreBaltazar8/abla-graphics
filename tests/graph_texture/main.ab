@@ -127,12 +127,15 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
     val token = graph.beginExecution()
     val lifecycleStart = importedSeeded && token > 0 &&
         graph.beginExecution() == 0 &&
-        !graph.beginPass(token, 20) && graph.beginPass(token, 10) &&
+        !app.beginMaterializedRenderGraphPass(graph, token, 20) &&
+        graph.backendBarrierCalls == 0 &&
+        app.beginMaterializedRenderGraphPass(graph, token, 10) &&
         fillGraphTextureBytes(source, firstValue) &&
         app.writeGraphTextureBytes(graph, token, 0, source) &&
         !app.readGraphTextureBytes(graph, token, 0, result) &&
         !app.writeGraphTextureBytes(graph, token + 1, 0, source) &&
-        graph.beginPass(token, 20) && result.fill(0) &&
+        app.beginMaterializedRenderGraphPass(graph, token, 20) &&
+        result.fill(0) &&
         app.readGraphTextureBytes(graph, token, 0, result) &&
         graphTextureBytesEqual(result, firstValue) &&
         app.matchesImportedGraphTexture(graph, token, 3, imported) &&
@@ -176,13 +179,18 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
         imported,
         sampler
     )
-    val copied = graph.beginPass(token, 30) && app.copyGraphTexture(
+    val copied = app.beginMaterializedRenderGraphPass(
+        graph,
+        token,
+        30
+    ) && app.copyGraphTexture(
         graph,
         token,
         2,
         1
     ) && !app.copyGraphTexture(graph, token, 1, 2) &&
-        graph.beginPass(token, 40) && result.fill(0) &&
+        app.beginMaterializedRenderGraphPass(graph, token, 40) &&
+        result.fill(0) &&
         app.readGraphTextureBytes(graph, token, 1, result) &&
         graphTextureBytesEqual(result, overlapValue) &&
         app.copyGraphTextureToImported(
@@ -193,15 +201,29 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
             importedOutput
         ) && result.fill(0) && importedOutput.readBytes(result) &&
         graphTextureBytesEqual(result, overlapValue) &&
-        graph.beginPass(token, 50) &&
+        app.beginMaterializedRenderGraphPass(graph, token, 50) &&
         fillGraphTextureBytes(source, incompatibleValue) &&
         app.writeGraphTextureBytes(graph, token, 4, source) &&
-        graph.beginPass(token, 60) && result.fill(0) &&
+        app.beginMaterializedRenderGraphPass(graph, token, 60) &&
+        result.fill(0) &&
         app.readGraphTextureBytes(graph, token, 4, result) &&
         graphTextureBytesEqual(result, incompatibleValue) &&
         graph.completeExecution(token) &&
         !graph.completeExecution(token) &&
         !app.readGraphTextureBytes(graph, token, 4, result)
+
+    val firstIntent = graphicsGraphBarrierIntent(graph.plan.barriers[0])
+    val barriersExact = graph.plan.barriers.size == 4 &&
+        firstIntent.valid() && firstIntent.openGlBits == 65535 &&
+        firstIntent.vulkanSourceAccess ==
+            graphicsGraphVulkanMemoryWriteAccess &&
+        firstIntent.vulkanDestinationAccess ==
+            graphicsGraphVulkanMemoryReadAccess &&
+        graphicsGraphBarrierCountForPass(graph.plan, 10) == 0 &&
+        graphicsGraphBarrierCountForPass(graph.plan, 20) == 1 &&
+        graph.lastExecutionBarriers == 4 &&
+        graph.totalExecutedBarriers == 4 &&
+        graph.backendBarrierCalls == 4
 
     val opaqueMismatch = app.materializeRenderGraphTextures([
         GraphicsGraphResource(10, "opaque-left", true, 64, 7),
@@ -240,6 +262,7 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
     val stableFirst = graph.physicalIdentity(0)
     val stableOverlap = graph.physicalIdentity(2)
     val stableIncompatible = graph.physicalIdentity(4)
+    val vulkanBarrier2Before = app.vulkanDevice.transferBarrier2Count
     val liveBefore = runtimeMemoryLiveBytes()
     var iteration = 0
     var steady = true
@@ -248,7 +271,8 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
         var passIndex = 0
         steady = repeatedToken > token
         while (steady && passIndex < graph.plan.order.size) {
-            steady = graph.beginPass(
+            steady = app.beginMaterializedRenderGraphPass(
+                graph,
                 repeatedToken,
                 graph.plan.order[passIndex]
             )
@@ -258,8 +282,15 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
         iteration = iteration + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
+    val vulkanBarrier2After = app.vulkanDevice.transferBarrier2Count
     val stableExact = steady && iteration == 1000 &&
         liveAfter == liveBefore && graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 4 &&
+        graph.totalExecutedBarriers == 4004 &&
+        graph.backendBarrierCalls == 4004 &&
+        (app.backend != graphicsBackendVulkan ||
+         !app.vulkanDevice.synchronization2 ||
+         vulkanBarrier2After - vulkanBarrier2Before == 4000) &&
         graph.physicalIdentity(0) == stableFirst &&
         graph.physicalIdentity(2) == stableOverlap &&
         graph.physicalIdentity(4) == stableIncompatible &&
@@ -269,12 +300,13 @@ trusted fun graphTextureProbe(requestedBackend: int): bool {
 
     val passed = app.valid() && typedExact && lifecycleStart &&
         sampler.valid() && activeSampled.valid() && importedSampled.valid() &&
-        !writeOnlySampled.valid() && copied && rejected && stableExact
+        !writeOnlySampled.valid() && copied && barriersExact && rejected &&
+        stableExact
     println(
-        "graph-texture ${graphicsBackendName(app.backend)}: typed=$typedExact alias=${graph.samePhysicalTexture(0, 1)} overlap=${!graph.samePhysicalTexture(0, 2)} incompatible=${!graph.samePhysicalTexture(1, 4)} lifecycle=${lifecycleStart && copied} sampled=${activeSampled.valid() && !writeOnlySampled.valid()} rejected=$rejected steady=$stableExact executions=${graph.completedExecutions} live=${liveAfter - liveBefore} handles=$stableFirst/$stableOverlap/$stableIncompatible"
+        "graph-texture ${graphicsBackendName(app.backend)}: typed=$typedExact alias=${graph.samePhysicalTexture(0, 1)} overlap=${!graph.samePhysicalTexture(0, 2)} incompatible=${!graph.samePhysicalTexture(1, 4)} lifecycle=${lifecycleStart && copied} barriers=$barriersExact/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} sampled=${activeSampled.valid() && !writeOnlySampled.valid()} rejected=$rejected steady=$stableExact executions=${graph.completedExecutions} live=${liveAfter - liveBefore} handles=$stableFirst/$stableOverlap/$stableIncompatible"
     )
     if (!passed) println(
-        "graph-texture detail: app=${app.valid()} graph=${graph.valid()} error=${graph.error.code}:${graph.error.operation}:${graph.error.message} plan=${graph.plan.valid()}/${graph.plan.allocations.size} pools=${graph.pools.size} typed=$typedExact lifecycle=$lifecycleStart copied=$copied active=${activeSampled.valid()} writeOnly=${writeOnlySampled.valid()} rejected=$rejected steady=$stableExact"
+        "graph-texture detail: app=${app.valid()} graph=${graph.valid()} error=${graph.error.code}:${graph.error.operation}:${graph.error.message} plan=${graph.plan.valid()}/${graph.plan.allocations.size} pools=${graph.pools.size} typed=$typedExact lifecycle=$lifecycleStart copied=$copied barriers=$barriersExact/${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls}/$vulkanBarrier2Before/$vulkanBarrier2After active=${activeSampled.valid()} writeOnly=${writeOnlySampled.valid()} rejected=$rejected steady=$stableExact"
     )
     passed
 }

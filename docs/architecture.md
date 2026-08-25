@@ -183,9 +183,12 @@ aliasing, but direct command encoders remain first-class for exact control.
 Its typed texture materializer is also optional: it retains one homogeneous
 texture-pool lease per planned slot, maps logical IDs through pass/generation
 checks, and borrows imported textures from their caller. The planner remains
-pure, while physical ownership remains affine and backend-neutral. Command and
-barrier emission can be layered over the same plan without changing direct
-resource APIs.
+pure, while physical ownership remains affine and backend-neutral. Scheduled
+pass entry now combines incoming hazards into one conservative backend memory
+dependency before the pass's direct work. Resource-specific Vulkan layout
+transitions remain owned by the direct texture/render operation. A future
+reusable multi-command encoder can fold these dependencies into one submission
+without changing direct resource APIs.
 
 ## Specification coverage
 

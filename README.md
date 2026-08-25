@@ -60,7 +60,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   compatible allocation-slot aliasing plus pruned synchronization records,
   together with affine typed texture materialization that maps scheduled
   logical IDs to stable pooled OpenGL/Vulkan objects, retains caller-owned
-  imports, and rejects stale/access/descriptor mismatches;
+  imports, rejects stale/access/descriptor mismatches, and submits combined
+  conservative backend memory dependencies at ordered pass entry;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets for
@@ -261,6 +262,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   typed physical texture, render four live sampled frames, and retain one
   stable native handle through 1,000 allocation-free graph executions on
   explicit OpenGL and Vulkan;
+- `examples/graph-post-process`: graph-ordered transient upload, sampled
+  offscreen rendering into a caller-owned imported target, post-pass copy into
+  another transient, exact 16x16 readback, and 3,003 allocation-free backend
+  barrier calls on explicit OpenGL and Vulkan;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

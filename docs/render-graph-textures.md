@@ -64,12 +64,15 @@ modes, imported resources passed to transient helpers, and copies between an
 aliased object are rejected before backend work. A sampled entry snapshots the
 native handle, so the materialized graph must outlive bind groups made from it.
 
-The graph does not allocate or release objects at a pass boundary. Existing
-common rendering and transfer operations retain their synchronization
-contracts; direct raw command users remain responsible for submitting the
-planner's barrier requirements and for GPU completion before destroying the
-graph. `GraphicsApplication.waitIdle()` is available for diagnostic and final
-lifecycle boundaries, not required by `completeExecution()` on every frame.
+The graph does not allocate or release objects at a pass boundary. Entering a
+pass through `app.beginMaterializedRenderGraphPass` now submits the planner's
+conservative cross-submission memory dependencies before direct work begins;
+existing common rendering and transfer operations retain their exact image
+layout-transition contracts. Direct raw users that bypass this entry API remain
+responsible for equivalent dependencies and for GPU completion before
+destroying the graph. `GraphicsApplication.waitIdle()` is available for
+diagnostic and final lifecycle boundaries, not required by
+`completeExecution()` on every frame. See `docs/render-graph-execution.md`.
 
 ## Imported textures
 
@@ -103,3 +106,10 @@ both backends. Two logical atlases with disjoint lifetimes reuse one physical
 texture; the sample overwrites it between scheduled passes, renders both
 contents, then completes 1,000 allocation-free executions while retaining the
 same native handle.
+
+`tests/graph_execute/main.ab` and `examples/graph-post-process` add real
+barrier-ordered execution: transient upload, sampled draw into an imported
+offscreen target, post-pass copy into a transient, exact output readback, and
+3,003 zero-growth logical/backend barriers across 1,001 executions. The
+focused test also proves that two logical hazards entering one destination
+pass become one backend barrier call.
