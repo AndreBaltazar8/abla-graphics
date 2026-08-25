@@ -107,14 +107,14 @@
 | `vkCmdCopyBuffer` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab synchronous and queued buffer copies | src/driver/vulkan.ab packed BufferCopy ABI | tests/transfer/main.ab exact three-slot upload and readback | tests/transfer/main.ab invalid queued range rejection |
 | `vkCmdCopyBuffer2` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyBuffer2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdCopyBufferToImage` | definition | common | src/driver/vulkan.ab texture upload | src/driver/vulkan.ab packed buffer image copy ABI | tests/application/main.ab exact texture upload | tests/application/main.ab upload range rejection |
+| `vkCmdCopyBufferToImage` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab texture upload | src/driver/vulkan.ab packed buffer image copy ABI | tests/application/main.ab and tests/wider_texture_transfer/main.ab exact texture upload | tests/application/main.ab upload range rejection |
 | `vkCmdCopyBufferToImage2` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyBufferToImage2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdCopyGpaSessionResultsAMD` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyImage` | definition | common | src/driver/vulkan.ab texture copy | src/driver/vulkan.ab packed image copy ABI | tests/application/main.ab exact texture copy | tests/application/main.ab incompatible copy rejection |
 | `vkCmdCopyImage2` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyImage2KHR` | alias | unclassified | - | - | - | - |
-| `vkCmdCopyImageToBuffer` | definition | common | src/driver/vulkan.ab texture readback | src/driver/vulkan.ab packed buffer image copy ABI | tests/application/main.ab exact texture readback | tests/application/main.ab readback range rejection |
+| `vkCmdCopyImageToBuffer` | definition | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab texture readback | src/driver/vulkan.ab packed buffer image copy ABI | tests/application/main.ab and tests/wider_texture_transfer/main.ab exact texture readback | tests/application/main.ab readback range rejection |
 | `vkCmdCopyImageToBuffer2` | definition | unclassified | - | - | - | - |
 | `vkCmdCopyImageToBuffer2KHR` | alias | unclassified | - | - | - | - |
 | `vkCmdCopyImageToMemoryKHR` | definition | unclassified | - | - | - | - |

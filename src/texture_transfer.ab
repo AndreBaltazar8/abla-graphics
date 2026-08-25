@@ -1,4 +1,4 @@
-// Fixed-slot asynchronous RGBA8 texture uploads and readbacks.
+// Fixed-slot asynchronous texture uploads and readbacks.
 
 import "abla/unsafe/memory"
 import "core.ab"
@@ -258,21 +258,119 @@ trusted fun textureTransferReadPixels(
     succeeded
 }
 
+trusted fun textureTransferCopyBytesToSlot(
+    staging: GraphicsBuffer,
+    source: BufferBytes,
+    stagingOffset: int,
+    format: int,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int,
+    bytesPerRow: int,
+    rowsPerImage: int
+): bool {
+    val blockWidth = textureFormatBlockWidth(format)
+    val blockHeight = textureFormatBlockHeight(format)
+    val blockBytes = textureFormatBytesPerBlock(format)
+    val widthBlocks = textureBlockCount(width, blockWidth)
+    val heightBlocks = textureBlockCount(height, blockHeight)
+    val rowBytes = widthBlocks * blockBytes
+    val sourceRowBytes = if (bytesPerRow == 0) rowBytes else bytesPerRow
+    val sourceImagePixels = if (rowsPerImage == 0)
+        heightBlocks * blockHeight else rowsPerImage
+    val sourceImageRows = sourceImagePixels / blockHeight
+    var succeeded = staging.valid() && source.valid() && stagingOffset >= 0 &&
+        blockWidth > 0 && blockHeight > 0 && blockBytes > 0
+    var image = 0
+    while (succeeded && image < depth) {
+        var row = 0
+        while (succeeded && row < heightBlocks) {
+            succeeded = staging.writeMappedRange(
+                source,
+                offset + (image * sourceImageRows + row) * sourceRowBytes,
+                stagingOffset + (image * heightBlocks + row) * rowBytes,
+                rowBytes
+            )
+            row = row + 1
+        }
+        image = image + 1
+    }
+    succeeded
+}
+
+trusted fun textureTransferCopyBytesFromSlot(
+    staging: GraphicsBuffer,
+    stagingOffset: int,
+    format: int,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int,
+    bytesPerRow: int,
+    rowsPerImage: int,
+    var destination: BufferBytes
+): bool {
+    val blockWidth = textureFormatBlockWidth(format)
+    val blockHeight = textureFormatBlockHeight(format)
+    val blockBytes = textureFormatBytesPerBlock(format)
+    val widthBlocks = textureBlockCount(width, blockWidth)
+    val heightBlocks = textureBlockCount(height, blockHeight)
+    val rowBytes = widthBlocks * blockBytes
+    val destinationRowBytes = if (bytesPerRow == 0) rowBytes else bytesPerRow
+    val destinationImagePixels = if (rowsPerImage == 0)
+        heightBlocks * blockHeight else rowsPerImage
+    val destinationImageRows = destinationImagePixels / blockHeight
+    var succeeded = staging.valid() && destination.valid() &&
+        stagingOffset >= 0 && blockWidth > 0 && blockHeight > 0 &&
+        blockBytes > 0
+    var image = 0
+    while (succeeded && image < depth) {
+        var row = 0
+        while (succeeded && row < heightBlocks) {
+            succeeded = staging.readMappedRange(
+                destination,
+                stagingOffset + (image * heightBlocks + row) * rowBytes,
+                offset + (image * destinationImageRows + row) *
+                    destinationRowBytes,
+                rowBytes
+            )
+            row = row + 1
+        }
+        image = image + 1
+    }
+    succeeded
+}
+
 resource class GraphicsTextureTransferQueue(
     val transfers: GraphicsBufferTransferQueue,
     val descriptor: TextureTransferQueueDescriptor,
     val widths: array<int>,
     val heights: array<int>,
-    val formats: array<int>
+    val depths: array<int>,
+    val formats: array<int>,
+    val offsets: array<int>,
+    val bytesPerRows: array<int>,
+    val rowsPerImages: array<int>,
+    val footprints: array<int>
 ) {
     trusted fun valid(): bool {
         var metadataValid = this.widths.size == this.descriptor.slotCount &&
             this.heights.size == this.descriptor.slotCount &&
-            this.formats.size == this.descriptor.slotCount
+            this.depths.size == this.descriptor.slotCount &&
+            this.formats.size == this.descriptor.slotCount &&
+            this.offsets.size == this.descriptor.slotCount &&
+            this.bytesPerRows.size == this.descriptor.slotCount &&
+            this.rowsPerImages.size == this.descriptor.slotCount &&
+            this.footprints.size == this.descriptor.slotCount
         var slot = 0
         while (metadataValid && slot < this.descriptor.slotCount) {
             metadataValid = this.widths[slot] >= 0 &&
-                this.heights[slot] >= 0 && this.formats[slot] >= 0
+                this.heights[slot] >= 0 && this.depths[slot] >= 0 &&
+                this.formats[slot] >= 0 && this.offsets[slot] >= 0 &&
+                this.bytesPerRows[slot] >= 0 &&
+                this.rowsPerImages[slot] >= 0 &&
+                this.footprints[slot] >= 0
             slot = slot + 1
         }
         this.descriptor.valid() && this.transfers.valid() &&
@@ -310,12 +408,22 @@ trusted fun GraphicsApplication.textureTransferQueue(
     val transfers = this.bufferTransferQueue(descriptor.bufferDescriptor())
     val widths: array<int> = []
     val heights: array<int> = []
+    val depths: array<int> = []
     val formats: array<int> = []
+    val offsets: array<int> = []
+    val bytesPerRows: array<int> = []
+    val rowsPerImages: array<int> = []
+    val footprints: array<int> = []
     var slot = 0
     while (slot < descriptor.slotCount && descriptor.valid()) {
         widths.append(0)
         heights.append(0)
+        depths.append(0)
         formats.append(0)
+        offsets.append(0)
+        bytesPerRows.append(0)
+        rowsPerImages.append(0)
+        footprints.append(0)
         slot = slot + 1
     }
     GraphicsTextureTransferQueue(
@@ -323,8 +431,286 @@ trusted fun GraphicsApplication.textureTransferQueue(
         descriptor,
         widths,
         heights,
-        formats
+        depths,
+        formats,
+        offsets,
+        bytesPerRows,
+        rowsPerImages,
+        footprints
     )
+}
+
+trusted noescape fun GraphicsApplication.enqueueUploadTextureBytes(
+    var queue: GraphicsTextureTransferQueue,
+    source: BufferBytes,
+    destination: GraphicsTexture,
+    textureRegion: TextureRegion = TextureRegion(),
+    layout: TextureDataLayout = TextureDataLayout()
+): int = this.enqueueUploadTextureBytesRange(
+    queue,
+    source,
+    destination,
+    textureRegion.mipLevel,
+    textureRegion.x,
+    textureRegion.y,
+    textureRegion.z,
+    textureRegion.resolvedWidth(destination.descriptor),
+    textureRegion.resolvedHeight(destination.descriptor),
+    textureRegion.resolvedDepth(destination.descriptor),
+    layout.offset,
+    layout.bytesPerRow,
+    layout.rowsPerImage
+)
+
+trusted noescape fun GraphicsApplication.enqueueUploadTextureBytesRange(
+    var queue: GraphicsTextureTransferQueue,
+    source: BufferBytes,
+    destination: GraphicsTexture,
+    mipLevel: int,
+    x: int,
+    y: int,
+    z: int,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int = 0,
+    bytesPerRow: int = 0,
+    rowsPerImage: int = 0
+): int {
+    val tight = textureDataRequiredBytesRange(
+        destination.descriptor,
+        width,
+        height,
+        depth
+    )
+    val footprint = textureDataRequiredBytesRange(
+        destination.descriptor,
+        width,
+        height,
+        depth,
+        offset,
+        bytesPerRow,
+        rowsPerImage
+    )
+    var ticket = 0
+    var succeeded = this.valid() && queue.valid() && source.valid() &&
+        destination.valid() &&
+        queue.descriptor.direction == textureTransferDirectionUpload &&
+        queue.transfers.backend == this.backend &&
+        this.ownsBuffer(queue.transfers.staging) &&
+        this.ownsTexture(destination) && destination.descriptor.samples == 1 &&
+        !textureFormatHasDepth(destination.descriptor.format) &&
+        textureRegionRangeValid(
+            destination.descriptor,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            textureUsageCopyDestination
+        ) && textureDataLayoutRangeValid(
+            destination.descriptor,
+            width,
+            height,
+            depth,
+            offset,
+            bytesPerRow,
+            rowsPerImage,
+            source.size
+        ) && tight > 0 && tight <= queue.descriptor.slotCapacity &&
+        footprint >= 0 && queue.transfers.queuedCount < graphicsMaximumInt
+    val slot = if (succeeded) queue.transfers.nextSlot else -1
+    if (succeeded) succeeded = queue.transfers.slotCompleted(slot) &&
+        queue.transfers.generations[slot] <
+            graphicsMaximumTransferTicketGeneration
+    val stagingOffset = if (succeeded)
+        queue.transfers.slotOffset(slot) else -1
+    if (succeeded) succeeded = textureTransferCopyBytesToSlot(
+        queue.transfers.staging,
+        source,
+        stagingOffset,
+        destination.descriptor.format,
+        width,
+        height,
+        depth,
+        offset,
+        bytesPerRow,
+        rowsPerImage
+    )
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = queue.transfers.openGlSlots[slot].submitTextureBytesUpload(
+            queue.transfers.staging.openGl,
+            stagingOffset,
+            destination.openGl,
+            destination.descriptor,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = queue.transfers.vulkanSlots[slot].submitTextureBytesUpload(
+            queue.transfers.staging.vulkan,
+            stagingOffset,
+            destination.vulkan,
+            destination.descriptor,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) {
+        val generation = queue.transfers.generations[slot] + 1
+        queue.transfers.generations[slot] = generation
+        queue.transfers.sizes[slot] = tight
+        queue.widths[slot] = width
+        queue.heights[slot] = height
+        queue.depths[slot] = depth
+        queue.formats[slot] = destination.descriptor.format
+        queue.offsets[slot] = offset
+        queue.bytesPerRows[slot] = bytesPerRow
+        queue.rowsPerImages[slot] = rowsPerImage
+        queue.footprints[slot] = footprint
+        queue.transfers.nextSlot = if (
+            slot + 1 == queue.descriptor.slotCount
+        ) 0 else slot + 1
+        queue.transfers.queuedCount = queue.transfers.queuedCount + 1
+        ticket = bufferTransferTicket(slot, generation)
+    }
+    ticket
+}
+
+trusted noescape fun GraphicsApplication.enqueueReadbackTextureBytes(
+    var queue: GraphicsTextureTransferQueue,
+    source: GraphicsTexture,
+    textureRegion: TextureRegion = TextureRegion(),
+    layout: TextureDataLayout = TextureDataLayout()
+): int = this.enqueueReadbackTextureBytesRange(
+    queue,
+    source,
+    textureRegion.mipLevel,
+    textureRegion.x,
+    textureRegion.y,
+    textureRegion.z,
+    textureRegion.resolvedWidth(source.descriptor),
+    textureRegion.resolvedHeight(source.descriptor),
+    textureRegion.resolvedDepth(source.descriptor),
+    layout.offset,
+    layout.bytesPerRow,
+    layout.rowsPerImage
+)
+
+trusted noescape fun GraphicsApplication.enqueueReadbackTextureBytesRange(
+    var queue: GraphicsTextureTransferQueue,
+    source: GraphicsTexture,
+    mipLevel: int,
+    x: int,
+    y: int,
+    z: int,
+    width: int,
+    height: int,
+    depth: int,
+    offset: int = 0,
+    bytesPerRow: int = 0,
+    rowsPerImage: int = 0
+): int {
+    val tight = textureDataRequiredBytesRange(
+        source.descriptor,
+        width,
+        height,
+        depth
+    )
+    val footprint = textureDataRequiredBytesRange(
+        source.descriptor,
+        width,
+        height,
+        depth,
+        offset,
+        bytesPerRow,
+        rowsPerImage
+    )
+    var ticket = 0
+    var succeeded = this.valid() && queue.valid() && source.valid() &&
+        queue.descriptor.direction == textureTransferDirectionReadback &&
+        queue.transfers.backend == this.backend &&
+        this.ownsBuffer(queue.transfers.staging) && this.ownsTexture(source) &&
+        source.descriptor.samples == 1 &&
+        !textureFormatHasDepth(source.descriptor.format) &&
+        textureRegionRangeValid(
+            source.descriptor,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            textureUsageCopySource
+        ) && tight > 0 && tight <= queue.descriptor.slotCapacity &&
+        footprint >= 0 && queue.transfers.queuedCount < graphicsMaximumInt
+    val slot = if (succeeded) queue.transfers.nextSlot else -1
+    if (succeeded) succeeded = queue.transfers.slotCompleted(slot) &&
+        queue.transfers.generations[slot] <
+            graphicsMaximumTransferTicketGeneration
+    val stagingOffset = if (succeeded)
+        queue.transfers.slotOffset(slot) else -1
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = queue.transfers.openGlSlots[slot].submitTextureBytesReadback(
+            source.openGl,
+            source.descriptor,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            queue.transfers.staging.openGl,
+            stagingOffset
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = queue.transfers.vulkanSlots[slot].submitTextureBytesReadback(
+            source.vulkan,
+            source.descriptor,
+            mipLevel,
+            x,
+            y,
+            z,
+            width,
+            height,
+            depth,
+            queue.transfers.staging.vulkan,
+            stagingOffset
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) {
+        val generation = queue.transfers.generations[slot] + 1
+        queue.transfers.generations[slot] = generation
+        queue.transfers.sizes[slot] = tight
+        queue.widths[slot] = width
+        queue.heights[slot] = height
+        queue.depths[slot] = depth
+        queue.formats[slot] = source.descriptor.format
+        queue.offsets[slot] = offset
+        queue.bytesPerRows[slot] = bytesPerRow
+        queue.rowsPerImages[slot] = rowsPerImage
+        queue.footprints[slot] = footprint
+        queue.transfers.nextSlot = if (
+            slot + 1 == queue.descriptor.slotCount
+        ) 0 else slot + 1
+        queue.transfers.queuedCount = queue.transfers.queuedCount + 1
+        ticket = bufferTransferTicket(slot, generation)
+    }
+    ticket
 }
 
 trusted noescape fun GraphicsApplication.enqueueUploadTexture(
@@ -415,7 +801,12 @@ trusted noescape fun GraphicsApplication.enqueueUploadTextureRange(
         queue.transfers.sizes[slot] = byteCount
         queue.widths[slot] = pixels.width
         queue.heights[slot] = pixels.height
+        queue.depths[slot] = 1
         queue.formats[slot] = destination.descriptor.format
+        queue.offsets[slot] = 0
+        queue.bytesPerRows[slot] = 0
+        queue.rowsPerImages[slot] = 0
+        queue.footprints[slot] = byteCount
         queue.transfers.nextSlot = if (
             slot + 1 == queue.descriptor.slotCount
         ) 0 else slot + 1
@@ -423,6 +814,56 @@ trusted noescape fun GraphicsApplication.enqueueUploadTextureRange(
         ticket = bufferTransferTicket(slot, generation)
     }
     ticket
+}
+
+trusted fun GraphicsApplication.resolveTextureBytesReadback(
+    var queue: GraphicsTextureTransferQueue,
+    ticket: int,
+    var destination: BufferBytes
+): bool {
+    val slot = textureTransferTicketSlot(ticket)
+    this.valid() && queue.ticketMatches(ticket) &&
+        queue.descriptor.direction == textureTransferDirectionReadback &&
+        slot >= 0 && destination.valid() &&
+        queue.footprints[slot] <= destination.size && queue.poll(ticket) &&
+        textureTransferCopyBytesFromSlot(
+            queue.transfers.staging,
+            queue.transfers.slotOffset(slot),
+            queue.formats[slot],
+            queue.widths[slot],
+            queue.heights[slot],
+            queue.depths[slot],
+            queue.offsets[slot],
+            queue.bytesPerRows[slot],
+            queue.rowsPerImages[slot],
+            destination
+        )
+}
+
+trusted fun GraphicsApplication.waitTextureBytesReadback(
+    var queue: GraphicsTextureTransferQueue,
+    ticket: int,
+    var destination: BufferBytes,
+    timeoutNanoseconds: int = -1
+): bool {
+    val slot = textureTransferTicketSlot(ticket)
+    this.valid() && queue.ticketMatches(ticket) &&
+        queue.descriptor.direction == textureTransferDirectionReadback &&
+        slot >= 0 && destination.valid() &&
+        queue.footprints[slot] <= destination.size &&
+        queue.wait(ticket, timeoutNanoseconds) &&
+        textureTransferCopyBytesFromSlot(
+            queue.transfers.staging,
+            queue.transfers.slotOffset(slot),
+            queue.formats[slot],
+            queue.widths[slot],
+            queue.heights[slot],
+            queue.depths[slot],
+            queue.offsets[slot],
+            queue.bytesPerRows[slot],
+            queue.rowsPerImages[slot],
+            destination
+        )
 }
 
 trusted noescape fun GraphicsApplication.enqueueReadbackTexture(
@@ -510,7 +951,12 @@ trusted noescape fun GraphicsApplication.enqueueReadbackTextureRange(
         queue.transfers.sizes[slot] = byteCount
         queue.widths[slot] = width
         queue.heights[slot] = height
+        queue.depths[slot] = 1
         queue.formats[slot] = source.descriptor.format
+        queue.offsets[slot] = 0
+        queue.bytesPerRows[slot] = 0
+        queue.rowsPerImages[slot] = 0
+        queue.footprints[slot] = byteCount
         queue.transfers.nextSlot = if (
             slot + 1 == queue.descriptor.slotCount
         ) 0 else slot + 1

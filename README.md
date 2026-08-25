@@ -116,8 +116,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   subresource copies across layers or physical depth; queried
   16x sampler anisotropy and allocation-free checked buffer subrange
   upload/readback, GPU fills, and
-  GPU buffer/texture copies, fixed-slot asynchronous RGBA/BGRA texture upload
-  and readback queues, fixed-metadata device-local buffer suballocation
+  GPU buffer/texture copies, fixed-slot asynchronous texture upload and
+  readback queues for RGBA/BGRA pixels plus pitched raw 1D/2D/array/cube/3D
+  and BC1 selections, fixed-metadata device-local buffer suballocation
   with generation-checked slice transfers, aligned uniform/storage ranges,
   and nonzero-offset surfaced and offscreen target/pass
   vertex/index/direct-indirect draws (including reflected push values),
@@ -241,6 +242,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/async-texture`: three in-flight fixed-slot BGRA texture uploads,
   exact asynchronous RGBA readback, and allocation-free repeated streaming on
   explicit OpenGL and Vulkan;
+- `examples/async-wider-texture`: pitched two-layer array upload/readback through
+  fixed native slots, caller-padding preservation, and allocation-free scalar
+  streaming on explicit OpenGL and Vulkan;
 - `examples/buffer-pool`: aligned fixed-block suballocation from one
   device-local backing buffer, checked slice upload/readback, nonzero-offset
   direct/indexed/vertex-indirect/indexed-indirect rendering, stale and invalid

@@ -222,6 +222,185 @@ resource class OpenGlTransferSlot(
         succeeded
     }
 
+    trusted fun submitTextureBytesUpload(
+        staging: OpenGlBuffer,
+        stagingOffset: int,
+        texture: OpenGlTexture,
+        descriptor: TextureDescriptor,
+        mipLevel: int,
+        x: int,
+        y: int,
+        z: int,
+        width: int,
+        height: int,
+        depth: int
+    ): bool {
+        val byteCount = textureDataRequiredBytesRange(
+            descriptor,
+            width,
+            height,
+            depth
+        )
+        val internalFormat = openGlTextureInternalFormat(descriptor.format)
+        val baseFormat = openGlTextureBaseFormat(descriptor.format)
+        val kind = openGlTextureDataKind(descriptor.format)
+        var succeeded = this.valid() && !this.inFlight() &&
+            staging.valid() && texture.valid() && staging.persistent &&
+            staging.mappedWritable() && staging.context == this.context &&
+            texture.context == this.context &&
+            staging.display == this.display && texture.display == this.display &&
+            byteCount > 0 && byteCount <= 2147483647 &&
+            staging.mappedContains(stagingOffset, byteCount) &&
+            !textureFormatHasDepth(descriptor.format) &&
+            internalFormat != 0 && textureRegionRangeValid(
+                descriptor,
+                mipLevel,
+                x,
+                y,
+                z,
+                width,
+                height,
+                depth,
+                textureUsageCopyDestination
+            ) && this.makeCurrent()
+        if (succeeded) {
+            glMemoryBarrier(16384)
+            glBindBuffer(35052, staging.handle)
+            openGlTextureDataLayoutRange(
+                descriptor.format,
+                width,
+                height,
+                0,
+                0,
+                true
+            )
+            val pixels = nativePointerFromAddress(stagingOffset)
+            if (textureFormatCompressed(descriptor.format)) {
+                if (descriptor.dimension == textureDimension1D) {
+                    glCompressedTextureSubImage1D(
+                        texture.handle, mipLevel, x, width,
+                        internalFormat, byteCount, pixels
+                    )
+                } else if (descriptor.dimension == textureDimension2D) {
+                    glCompressedTextureSubImage2D(
+                        texture.handle, mipLevel, x, y, width, height,
+                        internalFormat, byteCount, pixels
+                    )
+                } else glCompressedTextureSubImage3D(
+                    texture.handle, mipLevel, x, y, z, width, height, depth,
+                    internalFormat, byteCount, pixels
+                )
+            } else if (descriptor.dimension == textureDimension1D) {
+                glTextureSubImage1D(
+                    texture.handle, mipLevel, x, width,
+                    baseFormat, kind, pixels
+                )
+            } else if (descriptor.dimension == textureDimension2D) {
+                glTextureSubImage2D(
+                    texture.handle, mipLevel, x, y, width, height,
+                    baseFormat, kind, pixels
+                )
+            } else glTextureSubImage3D(
+                texture.handle, mipLevel, x, y, z, width, height, depth,
+                baseFormat, kind, pixels
+            )
+            openGlResetTextureDataLayout(
+                textureFormatCompressed(descriptor.format),
+                true
+            )
+            glBindBuffer(35052, 0)
+            succeeded = glGetError() == 0
+            if (succeeded) {
+                this.sync = glFenceSync(37143, 0)
+                succeeded = !pointerIsNull(this.sync) && glGetError() == 0
+            }
+            if (!succeeded && !pointerIsNull(this.sync)) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+            }
+        }
+        succeeded
+    }
+
+    trusted fun submitTextureBytesReadback(
+        texture: OpenGlTexture,
+        descriptor: TextureDescriptor,
+        mipLevel: int,
+        x: int,
+        y: int,
+        z: int,
+        width: int,
+        height: int,
+        depth: int,
+        staging: OpenGlBuffer,
+        stagingOffset: int
+    ): bool {
+        val byteCount = textureDataRequiredBytesRange(
+            descriptor,
+            width,
+            height,
+            depth
+        )
+        val baseFormat = openGlTextureBaseFormat(descriptor.format)
+        val kind = openGlTextureDataKind(descriptor.format)
+        var succeeded = this.valid() && !this.inFlight() && texture.valid() &&
+            staging.valid() && staging.persistent && staging.mappedReadable() &&
+            texture.context == this.context && staging.context == this.context &&
+            texture.display == this.display && staging.display == this.display &&
+            byteCount > 0 && byteCount <= 2147483647 &&
+            staging.mappedContains(stagingOffset, byteCount) &&
+            !textureFormatHasDepth(descriptor.format) &&
+            openGlTextureInternalFormat(descriptor.format) != 0 &&
+            textureRegionRangeValid(
+                descriptor,
+                mipLevel,
+                x,
+                y,
+                z,
+                width,
+                height,
+                depth,
+                textureUsageCopySource
+            ) && this.makeCurrent()
+        if (succeeded) {
+            glBindBuffer(35051, staging.handle)
+            openGlTextureDataLayoutRange(
+                descriptor.format,
+                width,
+                height,
+                0,
+                0,
+                false
+            )
+            if (textureFormatCompressed(descriptor.format)) {
+                glGetCompressedTextureSubImage(
+                    texture.handle, mipLevel, x, y, z, width, height, depth,
+                    byteCount, nativePointerFromAddress(stagingOffset)
+                )
+            } else glGetTextureSubImage(
+                texture.handle, mipLevel, x, y, z, width, height, depth,
+                baseFormat, kind, byteCount,
+                nativePointerFromAddress(stagingOffset)
+            )
+            openGlResetTextureDataLayout(
+                textureFormatCompressed(descriptor.format),
+                false
+            )
+            glBindBuffer(35051, 0)
+            glMemoryBarrier(16384)
+            succeeded = glGetError() == 0
+            if (succeeded) {
+                this.sync = glFenceSync(37143, 0)
+                succeeded = !pointerIsNull(this.sync) && glGetError() == 0
+            }
+            if (!succeeded && !pointerIsNull(this.sync)) {
+                glDeleteSync(this.sync)
+                this.sync = nativeNullPointer()
+            }
+        }
+        succeeded
+    }
+
     trusted fun drop(): void {
         if (this.inFlight()) {
             val completed = this.wait(-1)

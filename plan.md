@@ -15,8 +15,9 @@ headless OpenGL/Vulkan selection, common buffers/textures/views/samplers,
 mapped-at-creation and checked post-creation buffer range mapping,
 coherent persistent upload/readback mapping, bounded aligned transfer rings,
 fixed-slot asynchronous buffer upload/readback queues, explicit host-visible
-and device-local buffer placement, fixed-slot asynchronous RGBA/BGRA texture
-upload/readback queues with allocation-free primitive range calls,
+and device-local buffer placement, fixed-slot asynchronous RGBA/BGRA pixel and
+pitched raw 1D/2D/array/cube/3D/BC1 texture upload/readback queues with
+allocation-free primitive range calls,
 portable 2D-array/cube/3D descriptors with dimension-resolved views,
 overflow-checked pitched `TextureRegion`/`TextureDataLayout` footprints, BC1
 RGBA linear/sRGB block metadata, live 1D/2D/3D/array/cube limit queries, native

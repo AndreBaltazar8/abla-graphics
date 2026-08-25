@@ -1,0 +1,462 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun activeBytesEqual(
+    left: BufferBytes,
+    right: BufferBytes,
+    texture: TextureDescriptor,
+    selection: TextureRegion,
+    layout: TextureDataLayout
+): bool {
+    val blockWidth = textureFormatBlockWidth(texture.format)
+    val blockHeight = textureFormatBlockHeight(texture.format)
+    val rowBytes = textureBlockCount(
+        selection.resolvedWidth(texture),
+        blockWidth
+    ) * textureFormatBytesPerBlock(texture.format)
+    val rows = textureBlockCount(
+        selection.resolvedHeight(texture),
+        blockHeight
+    )
+    val pitchedRowBytes = layout.resolvedBytesPerRow(texture, selection)
+    val imageRows = layout.resolvedRowsPerImage(texture, selection) /
+        blockHeight
+    var equal = left.valid() && right.valid()
+    var image = 0
+    while (equal && image < selection.resolvedDepth(texture)) {
+        var row = 0
+        while (equal && row < rows) {
+            val byteOffset = layout.offset +
+                (image * imageRows + row) * pitchedRowBytes
+            var byte = 0
+            while (equal && byte < rowBytes) {
+                equal = left.load(byteOffset + byte) ==
+                    right.load(byteOffset + byte)
+                byte = byte + 1
+            }
+            row = row + 1
+        }
+        image = image + 1
+    }
+    equal
+}
+
+trusted fun fillActiveBytes(
+    var bytes: BufferBytes,
+    texture: TextureDescriptor,
+    selection: TextureRegion,
+    layout: TextureDataLayout,
+    seed: int
+): bool {
+    val blockWidth = textureFormatBlockWidth(texture.format)
+    val blockHeight = textureFormatBlockHeight(texture.format)
+    val rowBytes = textureBlockCount(
+        selection.resolvedWidth(texture),
+        blockWidth
+    ) * textureFormatBytesPerBlock(texture.format)
+    val rows = textureBlockCount(
+        selection.resolvedHeight(texture),
+        blockHeight
+    )
+    val pitchedRowBytes = layout.resolvedBytesPerRow(texture, selection)
+    val imageRows = layout.resolvedRowsPerImage(texture, selection) /
+        blockHeight
+    var succeeded = bytes.valid()
+    var image = 0
+    while (succeeded && image < selection.resolvedDepth(texture)) {
+        var row = 0
+        while (succeeded && row < rows) {
+            val byteOffset = layout.offset +
+                (image * imageRows + row) * pitchedRowBytes
+            var byte = 0
+            while (succeeded && byte < rowBytes) {
+                succeeded = bytes.store(
+                    byteOffset + byte,
+                    (seed + image * 53 + row * 17 + byte * 3) & 255
+                )
+                byte = byte + 1
+            }
+            row = row + 1
+        }
+        image = image + 1
+    }
+    succeeded
+}
+
+trusted fun widerTextureTransferProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = requestedBackend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(
+            title = "Abla wider asynchronous texture transfers",
+            width = 96,
+            height = 64
+        )
+    )
+    val usage = textureUsageCopySource |
+        textureUsageCopyDestination | textureUsageSampled
+    val arrayTexture = app.texture(TextureDescriptor(
+        label = "async-array",
+        size = Extent3D(16, 8, 4),
+        mipLevels = 3,
+        dimension = textureDimension2DArray,
+        usage = usage
+    ))
+    val cubeTexture = app.texture(TextureDescriptor(
+        label = "async-cube",
+        size = Extent3D(16, 16, 6),
+        dimension = textureDimensionCube,
+        usage = usage
+    ))
+    val volumeTexture = app.texture(TextureDescriptor(
+        label = "async-volume",
+        size = Extent3D(16, 8, 4),
+        dimension = textureDimension3D,
+        usage = usage
+    ))
+    val compressedTexture = app.texture(TextureDescriptor(
+        label = "async-bc1",
+        size = Extent3D(16, 16, 1),
+        dimension = textureDimension2D,
+        format = textureFormatBc1RgbaUnorm,
+        usage = usage
+    ))
+
+    val arrayRegion = TextureRegion(
+        mipLevel = 1,
+        x = 1,
+        y = 1,
+        z = 1,
+        width = 3,
+        height = 2,
+        depth = 2
+    )
+    val arrayLayout = TextureDataLayout(
+        offset = 16,
+        bytesPerRow = 20,
+        rowsPerImage = 4
+    )
+    val cubeRegion = TextureRegion(
+        z = 4,
+        width = 4,
+        height = 4,
+        depth = 1
+    )
+    val cubeLayout = TextureDataLayout(offset = 4, bytesPerRow = 20)
+    val volumeRegion = TextureRegion(
+        x = 2,
+        y = 1,
+        z = 1,
+        width = 2,
+        height = 2,
+        depth = 2
+    )
+    val volumeLayout = TextureDataLayout(
+        offset = 8,
+        bytesPerRow = 12,
+        rowsPerImage = 3
+    )
+    val compressedRegion = TextureRegion(
+        x = 4,
+        y = 4,
+        width = 8,
+        height = 8
+    )
+    val compressedLayout = TextureDataLayout(
+        offset = 8,
+        bytesPerRow = 24,
+        rowsPerImage = 8
+    )
+
+    val arraySource = bufferBytes(160)
+    val cubeSource = bufferBytes(84)
+    val volumeSource = bufferBytes(80)
+    val compressedSource = bufferBytes(64)
+    val sourcesReady = arraySource.fill(204) && cubeSource.fill(203) &&
+        volumeSource.fill(202) && compressedSource.fill(201) &&
+        fillActiveBytes(
+            arraySource,
+            arrayTexture.descriptor,
+            arrayRegion,
+            arrayLayout,
+            11
+        ) && fillActiveBytes(
+            cubeSource,
+            cubeTexture.descriptor,
+            cubeRegion,
+            cubeLayout,
+            29
+        ) && fillActiveBytes(
+            volumeSource,
+            volumeTexture.descriptor,
+            volumeRegion,
+            volumeLayout,
+            47
+        ) && fillActiveBytes(
+            compressedSource,
+            compressedTexture.descriptor,
+            compressedRegion,
+            compressedLayout,
+            71
+        )
+
+    val upload = app.textureTransferQueue(TextureTransferQueueDescriptor(
+        label = "wider-upload",
+        direction = textureTransferDirectionUpload,
+        slotCapacity = 64,
+        slotCount = 4,
+        alignment = 16
+    ))
+    val uploadStaging = if (app.backend == graphicsBackendOpenGl)
+        upload.transfers.staging.openGl.handle
+    else upload.transfers.staging.vulkan.handle
+    val uploadPool = if (app.backend == graphicsBackendVulkan)
+        upload.transfers.vulkanSlots[0].commandPool else 0
+    val uploadCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(upload.transfers.vulkanSlots[0].command.load())
+    else 0
+    val uploadTicket0 = app.enqueueUploadTextureBytes(
+        upload, arraySource, arrayTexture, arrayRegion, arrayLayout
+    )
+    val uploadTicket1 = app.enqueueUploadTextureBytes(
+        upload, cubeSource, cubeTexture, cubeRegion, cubeLayout
+    )
+    val uploadTicket2 = app.enqueueUploadTextureBytes(
+        upload, volumeSource, volumeTexture, volumeRegion, volumeLayout
+    )
+    val uploadTicket3 = app.enqueueUploadTextureBytes(
+        upload,
+        compressedSource,
+        compressedTexture,
+        compressedRegion,
+        compressedLayout
+    )
+    val uploadsQueued = textureTransferTicketValid(uploadTicket0) &&
+        textureTransferTicketValid(uploadTicket1) &&
+        textureTransferTicketValid(uploadTicket2) &&
+        textureTransferTicketValid(uploadTicket3) &&
+        textureTransferTicketSlot(uploadTicket0) == 0 &&
+        textureTransferTicketSlot(uploadTicket3) == 3
+    val uploadsInFlight = uploadsQueued &&
+        (if (app.backend == graphicsBackendOpenGl)
+            upload.transfers.openGlSlots[0].inFlight() &&
+            upload.transfers.openGlSlots[1].inFlight() &&
+            upload.transfers.openGlSlots[2].inFlight() &&
+            upload.transfers.openGlSlots[3].inFlight()
+         else upload.transfers.vulkanSlots[0].inFlight() &&
+            upload.transfers.vulkanSlots[1].inFlight() &&
+            upload.transfers.vulkanSlots[2].inFlight() &&
+            upload.transfers.vulkanSlots[3].inFlight())
+    val uploadsCompleted = upload.wait(uploadTicket0) &&
+        upload.wait(uploadTicket1) && upload.wait(uploadTicket2) &&
+        upload.wait(uploadTicket3)
+
+    val readback = app.textureTransferQueue(TextureTransferQueueDescriptor(
+        label = "wider-readback",
+        direction = textureTransferDirectionReadback,
+        slotCapacity = 64,
+        slotCount = 4,
+        alignment = 16
+    ))
+    val readbackStaging = if (app.backend == graphicsBackendOpenGl)
+        readback.transfers.staging.openGl.handle
+    else readback.transfers.staging.vulkan.handle
+    val readbackPool = if (app.backend == graphicsBackendVulkan)
+        readback.transfers.vulkanSlots[0].commandPool else 0
+    val readbackCommand = if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(readback.transfers.vulkanSlots[0].command.load())
+    else 0
+    val readbackTicket0 = app.enqueueReadbackTextureBytes(
+        readback, arrayTexture, arrayRegion, arrayLayout
+    )
+    val readbackTicket1 = app.enqueueReadbackTextureBytes(
+        readback, cubeTexture, cubeRegion, cubeLayout
+    )
+    val readbackTicket2 = app.enqueueReadbackTextureBytes(
+        readback, volumeTexture, volumeRegion, volumeLayout
+    )
+    val readbackTicket3 = app.enqueueReadbackTextureBytes(
+        readback,
+        compressedTexture,
+        compressedRegion,
+        compressedLayout
+    )
+    val readbacksQueued = textureTransferTicketValid(readbackTicket0) &&
+        textureTransferTicketValid(readbackTicket1) &&
+        textureTransferTicketValid(readbackTicket2) &&
+        textureTransferTicketValid(readbackTicket3)
+    val arrayResult = bufferBytes(160)
+    val cubeResult = bufferBytes(84)
+    val volumeResult = bufferBytes(80)
+    val compressedResult = bufferBytes(64)
+    val resultsReady = arrayResult.fill(238) && cubeResult.fill(237) &&
+        volumeResult.fill(236) && compressedResult.fill(235)
+    val readbacksCompleted = resultsReady && app.waitTextureBytesReadback(
+        readback, readbackTicket0, arrayResult
+    ) && app.waitTextureBytesReadback(
+        readback, readbackTicket1, cubeResult
+    ) && app.waitTextureBytesReadback(
+        readback, readbackTicket2, volumeResult
+    ) && app.waitTextureBytesReadback(
+        readback, readbackTicket3, compressedResult
+    )
+    val exact = readbacksCompleted && activeBytesEqual(
+        arraySource,
+        arrayResult,
+        arrayTexture.descriptor,
+        arrayRegion,
+        arrayLayout
+    ) && activeBytesEqual(
+        cubeSource,
+        cubeResult,
+        cubeTexture.descriptor,
+        cubeRegion,
+        cubeLayout
+    ) && activeBytesEqual(
+        volumeSource,
+        volumeResult,
+        volumeTexture.descriptor,
+        volumeRegion,
+        volumeLayout
+    ) && activeBytesEqual(
+        compressedSource,
+        compressedResult,
+        compressedTexture.descriptor,
+        compressedRegion,
+        compressedLayout
+    )
+    val paddingPreserved = arrayResult.load(0) == 238 &&
+        arrayResult.load(28) == 238 && arrayResult.load(68) == 238 &&
+        cubeResult.load(0) == 237 && cubeResult.load(20) == 237 &&
+        volumeResult.load(0) == 236 && volumeResult.load(16) == 236 &&
+        volumeResult.load(32) == 236 && compressedResult.load(0) == 235 &&
+        compressedResult.load(24) == 235
+
+    val queuedBeforeInvalid = upload.transfers.queuedCount
+    val invalidCapacity = app.enqueueUploadTextureBytesRange(
+        upload,
+        arraySource,
+        arrayTexture,
+        0,
+        0,
+        0,
+        0,
+        5,
+        4,
+        2
+    )
+    val invalidLayout = app.enqueueUploadTextureBytesRange(
+        upload,
+        arraySource,
+        arrayTexture,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        0,
+        8,
+        2
+    )
+    val invalidRejected = !textureTransferTicketValid(invalidCapacity) &&
+        !textureTransferTicketValid(invalidLayout) &&
+        upload.transfers.queuedCount == queuedBeforeInvalid
+
+    val replacement = app.enqueueReadbackTextureBytes(
+        readback, arrayTexture, arrayRegion, arrayLayout
+    )
+    val staleRejected = textureTransferTicketValid(replacement) &&
+        textureTransferTicketSlot(replacement) ==
+            textureTransferTicketSlot(readbackTicket0) &&
+        !readback.poll(readbackTicket0) &&
+        app.waitTextureBytesReadback(readback, replacement, arrayResult)
+
+    val liveBefore = runtimeMemoryLiveBytes()
+    var repeated = true
+    var repeat = 0
+    while (repeated && repeat < 5) {
+        val uploadTicket = app.enqueueUploadTextureBytesRange(
+            upload,
+            arraySource,
+            arrayTexture,
+            1,
+            1,
+            1,
+            1,
+            3,
+            2,
+            2,
+            16,
+            20,
+            4
+        )
+        val readTicket = if (textureTransferTicketValid(uploadTicket) &&
+            upload.wait(uploadTicket)) app.enqueueReadbackTextureBytesRange(
+                readback,
+                arrayTexture,
+                1,
+                1,
+                1,
+                1,
+                3,
+                2,
+                2,
+                16,
+                20,
+                4
+            )
+        else 0
+        repeated = textureTransferTicketValid(readTicket) &&
+            app.waitTextureBytesReadback(readback, readTicket, arrayResult) &&
+            activeBytesEqual(
+                arraySource,
+                arrayResult,
+                arrayTexture.descriptor,
+                arrayRegion,
+                arrayLayout
+            )
+        repeat = repeat + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        upload.transfers.staging.openGl.handle == uploadStaging &&
+        readback.transfers.staging.openGl.handle == readbackStaging
+    else upload.transfers.staging.vulkan.handle == uploadStaging &&
+        readback.transfers.staging.vulkan.handle == readbackStaging &&
+        upload.transfers.vulkanSlots[0].commandPool == uploadPool &&
+        readback.transfers.vulkanSlots[0].commandPool == readbackPool &&
+        nativePointerAddress(upload.transfers.vulkanSlots[0].command.load()) ==
+            uploadCommand && nativePointerAddress(
+                readback.transfers.vulkanSlots[0].command.load()
+            ) == readbackCommand
+    val passed = app.valid() && arrayTexture.valid() && cubeTexture.valid() &&
+        volumeTexture.valid() && compressedTexture.valid() && sourcesReady &&
+        upload.valid() && uploadsQueued && uploadsInFlight &&
+        uploadsCompleted && readback.valid() && readbacksQueued &&
+        readbacksCompleted && exact && paddingPreserved && invalidRejected &&
+        staleRejected && repeated && repeat == 5 && liveAfter == liveBefore &&
+        handlesStable && upload.transfers.queuedCount == 9 &&
+        upload.transfers.completedCount == 9 &&
+        readback.transfers.queuedCount == 10 &&
+        readback.transfers.completedCount == 10
+    println(
+        "wider-async ${graphicsBackendName(app.backend)}: queued=$uploadsQueued/$readbacksQueued tickets=$uploadTicket0/$uploadTicket1/$uploadTicket2/$uploadTicket3:$readbackTicket0/$readbackTicket1/$readbackTicket2/$readbackTicket3 inFlight=$uploadsInFlight exact=$exact padding=$paddingPreserved invalid=$invalidRejected stale=$staleRejected repeated=$repeated live=${liveAfter - liveBefore} stable=$handlesStable"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (widerTextureTransferProbe(backend)) 42 else 1
+}

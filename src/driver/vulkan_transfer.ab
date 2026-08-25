@@ -402,6 +402,246 @@ resource class VulkanTransferSlot(
         succeeded
     }
 
+    trusted fun submitTextureBytesTransfer(
+        staging: VulkanBuffer,
+        stagingOffset: int,
+        texture: VulkanTexture,
+        descriptor: TextureDescriptor,
+        mipLevel: int,
+        x: int,
+        y: int,
+        z: int,
+        width: int,
+        height: int,
+        depth: int,
+        upload: bool
+    ): bool {
+        val byteCount = textureDataRequiredBytesRange(
+            descriptor,
+            width,
+            height,
+            depth
+        )
+        val requiredUsage = if (upload) textureUsageCopyDestination
+            else textureUsageCopySource
+        var succeeded = staging.valid() && texture.valid() &&
+            staging.device == this.device && texture.device == this.device &&
+            staging.persistent &&
+            ((upload && staging.mappedWritable()) ||
+             (!upload && staging.mappedReadable())) &&
+            byteCount > 0 && staging.mappedContains(stagingOffset, byteCount) &&
+            !textureFormatHasDepth(descriptor.format) &&
+            textureRegionRangeValid(
+                descriptor,
+                mipLevel,
+                x,
+                y,
+                z,
+                width,
+                height,
+                depth,
+                requiredUsage
+            ) && this.beginTextureTransfer()
+        val arrayed = textureDimensionArrayed(descriptor.dimension)
+        val baseArrayLayer = if (arrayed) z else 0
+        val arrayLayers = if (arrayed) depth else 1
+        val transferLayout = if (upload) 7 else 6
+        val transferAccess = if (upload) 4096 else 2048
+        val defaultFinalLayout = if (
+            (descriptor.usage & textureUsageSampled) != 0
+        )
+            5 else 1
+        var layer = 0
+        while (succeeded && layer < arrayLayers) {
+            val selectedLayer = baseArrayLayer + layer
+            val oldLayout = texture.loadLayout(
+                descriptor,
+                mipLevel,
+                selectedLayer
+            )
+            succeeded = oldLayout >= 0
+            if (succeeded) {
+                vulkanStoreImageBarrier(
+                    this.scratch.address,
+                    texture.image,
+                    oldLayout,
+                    transferLayout,
+                    if (oldLayout == 0) 0
+                    else vulkanTextureRestingAccess(descriptor, oldLayout),
+                    transferAccess,
+                    1,
+                    mipLevel,
+                    1,
+                    selectedLayer,
+                    1
+                )
+                vkCmdPipelineBarrier(
+                    this.command.load(),
+                    if (oldLayout == 0) 1 else 65536,
+                    4096,
+                    0,
+                    0,
+                    nativeNullPointer(),
+                    0,
+                    nativeNullPointer(),
+                    1,
+                    this.scratch.address
+                )
+            }
+            layer = layer + 1
+        }
+        if (succeeded) {
+            val imageZ = if (descriptor.dimension == textureDimension3D) z
+                else 0
+            val imageDepth = if (
+                descriptor.dimension == textureDimension3D
+            ) depth else 1
+            this.scratch.storeI64(0, stagingOffset)
+            this.scratch.storeI64(8, 0)
+            this.scratch.storeI64(
+                16,
+                mipLevel * 4294967296 +
+                    vulkanTextureAspect(descriptor.format, textureAspectAll)
+            )
+            this.scratch.storeI64(
+                24,
+                arrayLayers * 4294967296 + baseArrayLayer
+            )
+            this.scratch.storeI64(32, y * 4294967296 + x)
+            this.scratch.storeI64(40, width * 4294967296 + imageZ)
+            this.scratch.storeI64(48, imageDepth * 4294967296 + height)
+            if (upload) vkCmdCopyBufferToImage(
+                this.command.load(),
+                staging.handle,
+                texture.image,
+                transferLayout,
+                1,
+                this.scratch.address
+            )
+            else vkCmdCopyImageToBuffer(
+                this.command.load(),
+                texture.image,
+                transferLayout,
+                staging.handle,
+                1,
+                this.scratch.address
+            )
+        }
+        layer = 0
+        while (succeeded && layer < arrayLayers) {
+            val selectedLayer = baseArrayLayer + layer
+            val oldLayout = texture.loadLayout(
+                descriptor,
+                mipLevel,
+                selectedLayer
+            )
+            val finalLayout = if (!upload && oldLayout > 0) oldLayout
+                else defaultFinalLayout
+            succeeded = oldLayout >= 0
+            if (succeeded) {
+                vulkanStoreImageBarrier(
+                    this.scratch.address,
+                    texture.image,
+                    transferLayout,
+                    finalLayout,
+                    transferAccess,
+                    vulkanTextureRestingAccess(descriptor, finalLayout),
+                    1,
+                    mipLevel,
+                    1,
+                    selectedLayer,
+                    1
+                )
+                vkCmdPipelineBarrier(
+                    this.command.load(),
+                    4096,
+                    65536,
+                    0,
+                    0,
+                    nativeNullPointer(),
+                    0,
+                    nativeNullPointer(),
+                    1,
+                    this.scratch.address
+                )
+            }
+            layer = layer + 1
+        }
+        if (succeeded && !upload) {
+            this.scratch.storeI64(0, 46)
+            this.scratch.storePointer(8, nativeNullPointer())
+            this.scratch.storeI64(16, 8192 * 4294967296 + 4096)
+            vkCmdPipelineBarrier(
+                this.command.load(),
+                4096,
+                16384,
+                0,
+                1,
+                this.scratch.address,
+                0,
+                nativeNullPointer(),
+                0,
+                nativeNullPointer()
+            )
+        }
+        if (succeeded) succeeded = this.submitTextureCommands()
+        if (succeeded) {
+            layer = 0
+            while (layer < arrayLayers) {
+                val selectedLayer = baseArrayLayer + layer
+                val oldLayout = texture.loadLayout(
+                    descriptor,
+                    mipLevel,
+                    selectedLayer
+                )
+                val finalLayout = if (!upload && oldLayout > 0) oldLayout
+                    else defaultFinalLayout
+                texture.storeSubresourceLayout(
+                    descriptor,
+                    mipLevel,
+                    selectedLayer,
+                    finalLayout
+                )
+                layer = layer + 1
+            }
+        }
+        succeeded
+    }
+
+    trusted fun submitTextureBytesUpload(
+        staging: VulkanBuffer,
+        stagingOffset: int,
+        texture: VulkanTexture,
+        descriptor: TextureDescriptor,
+        mipLevel: int,
+        x: int,
+        y: int,
+        z: int,
+        width: int,
+        height: int,
+        depth: int
+    ): bool = this.submitTextureBytesTransfer(
+        staging, stagingOffset, texture, descriptor,
+        mipLevel, x, y, z, width, height, depth, true
+    )
+
+    trusted fun submitTextureBytesReadback(
+        texture: VulkanTexture,
+        descriptor: TextureDescriptor,
+        mipLevel: int,
+        x: int,
+        y: int,
+        z: int,
+        width: int,
+        height: int,
+        depth: int,
+        staging: VulkanBuffer,
+        stagingOffset: int
+    ): bool = this.submitTextureBytesTransfer(
+        staging, stagingOffset, texture, descriptor,
+        mipLevel, x, y, z, width, height, depth, false
+    )
+
     trusted fun drop(): void {
         if (this.submitted) {
             val completed = this.wait(-1)

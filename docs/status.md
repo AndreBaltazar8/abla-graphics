@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-24.
+Updated: 2026-08-25.
 
 ## Verified now
 
@@ -446,17 +446,23 @@ Updated: 2026-08-24.
   invalid tickets, preserve native handles, and report zero live-byte growth in
   repeated operations. Auto selection is covered by the focused gate.
 - Common asynchronous texture transfers: a direction-specific affine queue
-  reuses the same bounded slot/generation/ticket model with mapped RGBA8/BGRA8
-  staging. Descriptor convenience calls cover mip/origin/extent setup while
-  primitive `...TextureRange` calls keep streaming loops allocation-free.
+  reuses the same bounded slot/generation/ticket model with persistent mapped
+  staging. RGBA8/BGRA8 `PixelBuffer` convenience remains available, while raw
+  `BufferBytes` calls cover pitched 1D, 2D, array, cube, physical 3D, and BC1
+  selections. Slots contain tight active bytes; enqueue gathers pitched uploads
+  and readback resolution scatters active rows without touching caller padding.
+  Descriptor convenience calls cover selection/layout setup while primitive
+  `...BytesRange` calls keep streaming loops allocation-free.
   OpenGL submits pixel unpack/pack buffer operations and one `GLsync` per slot;
-  Vulkan records buffer/image copies, per-mip layout transitions, a readback
-  host barrier, and one fence-backed command buffer per slot. The focused live
-  gate submits two operations before waiting, proves exact RGBA and BGRA
-  results, capacity rejection, stale-ticket rejection, stable handles, and
-  zero repeated live-byte growth on explicit OpenGL, explicit Vulkan, and auto
-  selection. `examples/async-texture` submits three frames before waiting and
-  repeats allocation-free texture streaming on both production backends.
+  Vulkan records buffer/image copies, per-mip/per-array-layer layout transitions,
+  a readback host barrier, and one fence-backed command buffer per slot. The
+  RGBA gate submits two operations before waiting. The wider gate submits four
+  array/cube/volume/BC1 uploads and readbacks before waiting and proves exact
+  pitched results, padding preservation, capacity/layout rejection,
+  stale-ticket rejection, stable handles, and zero repeated live-byte growth
+  on explicit OpenGL, explicit Vulkan, and auto selection.
+  `examples/async-texture` and `examples/async-wider-texture` independently
+  demonstrate both public forms on the production backends.
 - Explicit buffer memory placement: `BufferDescriptor.memory` accepts automatic,
   host-visible, or device-local policy. Device-local descriptors reject CPU
   mapping and direct byte access. Vulkan selects a compatible memory type with
@@ -1274,16 +1280,17 @@ validity gate unchanged.
   asset formats, or framework-wide performance gates. Partial logical RGBA/BGRA
   `PixelBuffer` uploads, synchronous diagnostic readback, and exact pitched
   `BufferBytes` transfer for single-sample color/compressed 1D, 2D, array, cube,
-  and 3D selections are present; raw depth/stencil and wider asynchronous image
-  transfer are not. Same-format synchronous subresource copies are present.
+  and 3D selections are present; raw depth/stencil transfer is not. The same
+  wider color/compressed selections are supported by fixed-slot asynchronous
+  queues. Same-format synchronous subresource copies are present.
   General reusable buffer
   byte-range upload/readback is present, including
   distinct source and destination offsets; synchronous GPU buffer copies and
   aligned 32-bit pattern fills reuse backend command state. Synchronous
   coherent persistent transfers, bounded aligned synchronous buffer rings, and
-  fixed-slot asynchronous buffer and RGBA8/BGRA8 2D texture upload/readback
-  queues are present; wider compressed, depth/stencil, array, and 3D asynchronous
-  image transfers are not.
+  fixed-slot asynchronous buffer and texture upload/readback queues are present
+  for RGBA8/BGRA8 pixels and pitched raw color/compressed selections;
+  asynchronous depth/stencil image transfer is not.
   Common buffers, textures, views,
   samplers, and immutable structural
   descriptors, the synchronous wider resource/transfer surface, and

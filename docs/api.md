@@ -868,8 +868,9 @@ exact bytes on both backends, and reports zero live-byte growth in repeated
 upload operations. The focused transfer gate additionally proves that staging,
 Vulkan command-pool, and Vulkan command-buffer handles remain stable.
 
-Textures use the same fixed-slot ticket model with RGBA8 `PixelBuffer` data,
-checked mip/origin/extent regions, and native RGBA/BGRA channel order:
+Textures use the same fixed-slot ticket model. The concise `PixelBuffer` path
+accepts RGBA8 data, checked mip/origin/extent regions, and native RGBA/BGRA
+channel order:
 
 ```abla
 val uploads = app.textureTransferQueue(TextureTransferQueueDescriptor(
@@ -922,6 +923,52 @@ stable native handles, and zero live-byte growth on OpenGL, Vulkan, and auto
 selection. `examples/async-texture` demonstrates three in-flight frames and
 allocation-free repeated texture streaming.
 
+Raw `BufferBytes` queues extend the same contract to single-sample color and
+compressed 1D, 2D, 2D-array, cube, and 3D selections:
+
+```abla
+val upload = app.enqueueUploadTextureBytes(
+    uploads,
+    sourceBytes,
+    arrayTexture,
+    TextureRegion(
+        mipLevel = 1,
+        x = 1, y = 1, z = 1,
+        width = 3, height = 2, depth = 2
+    ),
+    TextureDataLayout(
+        offset = 16,
+        bytesPerRow = 20,
+        rowsPerImage = 4
+    )
+)
+uploads.wait(upload)
+
+val download = app.enqueueReadbackTextureBytesRange(
+    downloads,
+    arrayTexture,
+    1, 1, 1, 1,
+    3, 2, 2,
+    16, 20, 4
+)
+app.waitTextureBytesReadback(downloads, download, resultBytes)
+```
+
+Each slot stores tight native bytes. Upload enqueue repacks a caller's pitched
+layout into that bounded slot; readback resolution scatters active rows back
+into the requested layout without modifying offset, row, or image padding.
+Slot capacity therefore bounds the active texture bytes, while source and
+destination footprints are validated independently. Array/cube `z` selects
+layers; 3D `z` selects physical depth. Descriptor calls are convenient setup
+forms, while `enqueueUploadTextureBytesRange` and
+`enqueueReadbackTextureBytesRange` are the measured allocation-free streaming
+forms. Raw depth/stencil and multisampled transfers are rejected.
+
+The wider asynchronous gate queues array, cube, volume, and BC1 operations
+before waiting, checks exact bytes, untouched padding, capacity/layout
+rejection, stale tickets, stable backend slot resources, and zero live-memory
+growth on OpenGL, Vulkan, and automatic selection.
+
 OpenGL range operations call `glBufferSubData`/`glGetBufferSubData` directly.
 Vulkan buffers use host-visible coherent memory, map from aligned offset zero,
 and copy through the compiler's LLVM memory-copy intrinsic. Each Vulkan buffer
@@ -956,10 +1003,10 @@ explicit so performance-sensitive loops can construct it once and avoid
 per-call descriptor allocation. Repeated fills preserve native handles and
 produce zero runtime live-byte growth in the common-buffer sample.
 
-Fixed-slot asynchronous RGBA8/BGRA8 2D texture upload/readback is available
-through `GraphicsTextureTransferQueue`; general pitched, layered, volume, and
-compressed asynchronous execution remains upcoming. Device-local texture
-suballocation is also not yet exposed.
+Fixed-slot asynchronous RGBA8/BGRA8 `PixelBuffer` and raw pitched
+`BufferBytes` texture upload/readback are available through
+`GraphicsTextureTransferQueue`. Device-local texture suballocation is not yet
+exposed.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:
