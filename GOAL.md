@@ -96,10 +96,11 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `93f8e2ff75cd46feb3e8f72f087ba56f65cdf063`
-  (`Add compile-time independent program construction`)
+  `82a66da3a978d63adbe49922f74eebc76eea892a`
+  (`Export lifted functions from independent modules`)
 - It is currently clean and synchronized. The render-graph barrier checkpoint
-  did not require a compiler change.
+  did not require a compiler change; the sibling advanced independently while
+  the graphics sample matrix was running.
 
 Changes to `../ablac` are authorized when a real language/compiler capability
 is required. Keep them minimal, test them in `ablac`, commit and push that repo
