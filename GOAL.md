@@ -545,32 +545,98 @@ the pool reuses the already audited texture, copy, transfer, binding, and draw
 paths. No `ablac` change was required; its clean published tip remains
 `93f8e2f`.
 
+## Committed typed render-graph texture checkpoint (2026-08-25)
+
+Framework commit `b7d09cd` turns the deterministic planner's logical texture
+slots into real cross-backend objects without weakening the Abla-only or affine
+ownership rules.
+
+`src/graph_texture.ab` adds:
+
+- `GraphicsGraphTextureDeclaration`, with one complete `TextureDescriptor` per
+  logical resource;
+- `textureDescriptorStorageBytes`, which accounts for complete mip chains,
+  array/depth layers, compressed blocks, and samples with overflow checks;
+- affine `GraphicsMaterializedRenderGraph` ownership, retaining one
+  capacity-one `GraphicsTexturePool` and one live lease per planned physical
+  slot;
+- an exact descriptor recheck above the planner's intentionally opaque
+  compatibility integer, so mismatched extents/dimensions/mips/samples/formats/
+  usage cannot silently alias;
+- monotonic execution tokens and strict `plan.order` pass entry, with stale,
+  skipped, out-of-order, unknown-resource, and wrong-access rejection;
+- checked transient upload, readback, texture copy, and sampled-binding APIs by
+  logical resource ID; and
+- caller-owned imported texture validation plus imported-to-transient,
+  transient-to-imported, and sampled-import helpers. The graph never moves or
+  destroys an imported texture.
+
+Compatible non-overlapping resources share one stable OpenGL texture or Vulkan
+image. Overlapping resources and different compatibility classes receive
+different objects. If one opaque compatibility class would alias different
+complete descriptors, construction fails before creating a pool. The graph
+retains every lease for its whole lifetime, so warmed execution reset neither
+releases nor reacquires native resources. This is portable complete-object
+reuse, not a claim of Vulkan heap-offset aliasing.
+
+`tests/graph_texture/main.ab` and `tools/test-graph-texture.sh` prove explicit
+OpenGL, explicit Vulkan, and automatic selection with the following common
+result:
+
+```text
+typed=true alias=true overlap=true incompatible=true lifecycle=true sampled=true rejected=true steady=true executions=1001 live=0
+```
+
+The gate additionally verifies exact `64`- and `84`-byte descriptor sizing,
+three planned/physical slots, imported ownership/descriptor rejection, exact
+upload and three copy directions, exact readback, sampled entry construction,
+one pool acquisition per slot, and stable native identities. A dedicated
+Vulkan run under `VK_LAYER_KHRONOS_validation` returned `42`; its validation
+stderr file contained zero lines and no `Validation Error`, `VUID-`, or
+`ERROR` match.
+
+`examples/materialized-render-graph` is the independent live public workflow.
+Two logical 2x2 atlases with disjoint scheduled lifetimes reuse one native
+object, receive different contents in ordered passes, and render four frames.
+Both explicit backends report `reuse=true`, `executions=1001`, `pools=1`,
+`acquisitions=1`, `live=0`, and `stable=true`.
+
+`nix-shell --run 'make all'` passed the complete framework matrix after the new
+gate was added. `nix-shell --run 'make test-samples'` rebuilt all 39 current
+sample roots with `--no-cache` and ran the full Wayland/headless/X11 plus
+explicit OpenGL/Vulkan matrix successfully. The new sample passed both live
+backends inside that matrix. No compiler or standard-library change was needed;
+`../ablac` remains at synchronized commit `93f8e2f`.
+
+`docs/render-graph-textures.md` is the authoritative ownership, execution,
+imported-resource, performance, and evidence contract. `docs/api.md`,
+`docs/architecture.md`, `docs/status.md`, `docs/texture-pooling.md`, and
+`README.md` now distinguish delivered physical texture materialization from
+the still-open graph command/barrier layer.
+
 ## Immediate continuation checklist
 
-The next coherent checkpoint is real render-graph texture materialization on
-top of the published planner and texture pools:
+The next coherent checkpoint is real render-graph command and barrier
+materialization on top of the published pure planner and typed textures:
 
-1. Audit `src/graph.ab` resource/pass/allocation identities and every place the
-   current sample/docs treat compatibility as an opaque integer. Preserve the
-   deterministic pure planner as a useful independent layer.
-2. Define typed graph texture declarations for imported versus transient
-   resources, complete `TextureDescriptor` compatibility, allocation-slot
-   capacity, execution lifetime, and observable errors. Do not silently map an
-   opaque compatibility number to a physically incompatible texture.
-3. Design an affine materialized-graph owner that retains homogeneous
-   `GraphicsTexturePool` instances and maps planned allocation slots to live
-   pool-scoped leases without moving dynamically indexed resources. Record how
-   imported textures remain caller-owned and how GPU completion precedes lease
-   release.
-4. Implement a useful cross-backend vertical slice, not another metadata-only
-   planner: materialize transient textures, expose checked upload/readback,
-   copy, and sampled-binding operations by graph resource id, and keep warmed
-   execute/reset paths allocation-free.
-5. Prove that two non-overlapping compatible logical resources reuse one stable
-   native object while overlapping or descriptor-incompatible resources do
-   not. Add stale/id/import/capacity rejection, exact copy/sample/readback,
-   validation-layer, handle, allocation, and live-memory evidence plus an
-   independent sample.
+1. Audit the current common render/compute/target/pass calls and the exact
+   OpenGL/Vulkan access/layout transitions they already perform. Preserve all
+   direct APIs and avoid double-transitioning resources.
+2. Define typed graph executable-pass descriptions and a reusable affine
+   execution owner. It must connect pass IDs to actual render/compute/copy work
+   while retaining every referenced resource without unsafe dynamic moves.
+3. Translate `GraphicsGraphBarrier` access pairs into conservative portable
+   stage/access/layout intent. Materialize them as measured OpenGL memory
+   barriers and Vulkan synchronization2 barriers where supported, with a
+   correct fallback and observable unsupported/error paths.
+4. Integrate the existing materialized texture identities and imported-resource
+   borrows. Enforce that backend submissions follow `plan.order`, do not reuse
+   aliased contents before the preceding lifetime is complete, and never
+   release physical storage before GPU completion.
+5. Deliver a real multi-pass offscreen/deferred-style vertical slice with exact
+   pixels/readbacks, emitted-barrier counts, stable command/native handles,
+   validation silence, and zero steady-state managed allocations on OpenGL and
+   Vulkan. Keep an independently buildable sample.
 6. Run focused gates, `make all`, and `make test-samples`, then commit and push
    with explicit-path review. Continue through every remaining `plan.md`
    milestone afterward; do not mark the persistent goal complete.
@@ -588,9 +654,9 @@ include:
 - the remaining GLSL 4.60 grammar, stages, includes/modules, diagnostics,
   reflection, specialization constants, interface validation, deterministic
   dual-backend generation, and shader/pipeline caches;
-- reusable command encoders, render-graph texture materialization and execution,
-  descriptor reuse, backend-private heap allocation, frame scheduling, derived
-  barriers, aliasing, and device-loss/context-reset recovery;
+- reusable command encoders, render-graph command execution and derived barrier
+  submission, descriptor reuse, backend-private heap allocation, frame
+  scheduling, and device-loss/context-reset recovery;
 - geometry/tessellation, mesh/task, ray tracing, acceleration structures,
   multiview, variable-rate shading, sparse/external resources, video, device
   groups, protected work, calibrated timestamps, shader objects, and vendor
@@ -619,6 +685,9 @@ Core public surface and implementation:
 - `src/texture_transfer.ab` — fixed-slot asynchronous texture API;
 - `src/texture_pool.ab` — homogeneous complete-object reuse, pool-scoped
   generation leases, and checked texture operations;
+- `src/graph_texture.ab` — affine typed graph texture ownership, exact
+  descriptor/size validation, execution tokens, transient operations, and
+  caller-owned imported-resource borrowing;
 - `src/transfer.ab` — tickets, slots, generations, polling, and waits;
 - `src/binding.ab` — bind-group validation and sampled texture compatibility;
 - `src/driver/opengl.ab`, `src/driver/vulkan.ab` — backend image allocation,
@@ -626,7 +695,8 @@ Core public surface and implementation:
 - `src/driver/opengl_transfer.ab`, `src/driver/vulkan_transfer.ab` — reusable
   buffer-transfer slot patterns;
 - `src/graph.ab` — deterministic dependency, lifetime, barrier, and logical
-  transient-allocation planner; next checkpoint materializes its textures;
+  transient-allocation planner; next checkpoint submits its ordered work and
+  barriers;
 - `src/shader/glsl.ab`, `src/shader/glsl_spirv.ab` — `$glsl` parsing,
   reflection, typing, and deterministic SPIR-V generation.
 
@@ -643,6 +713,8 @@ Tests and samples:
 - `tests/transfer/main.ab`, `tools/test-transfer.sh`;
 - `tests/texture_pool/main.ab`, `tools/test-texture-pool.sh`, and
   `examples/texture-pool/main.ab`;
+- `tests/graph_texture/main.ab`, `tools/test-graph-texture.sh`, and
+  `examples/materialized-render-graph/main.ab`;
 - `examples/common-texture/main.ab`, `examples/async-texture/main.ab`, and
   `examples/async-wider-texture/main.ab`;
 - `tools/test-samples.sh` — independent no-cache build and live backend matrix;
@@ -669,7 +741,7 @@ Useful focused commands:
 nix-shell --run 'make test-core test-texture-contract test-wider-texture test-wider-sampling'
 nix-shell --run 'make test-glsl'
 nix-shell --run 'make test-application test-transfer test-texture-transfer test-wider-texture-transfer'
-nix-shell --run 'make test-texture-pool'
+nix-shell --run 'make test-texture-pool test-graph-texture'
 nix-shell --run 'make update-registry test-registry'
 ```
 
@@ -740,9 +812,20 @@ git -C ../ablac rev-parse '@{upstream}'
   every derived bind group is dropped, and complete queued transfers/draws
   before release or reuse.
 - Storage compatibility ignores diagnostic labels but is exact for extent,
-  dimension, format, mip levels, samples, and usage. Render-graph
-  materialization must recheck the complete descriptor even when planner
-  compatibility integers match.
+  dimension, format, mip levels, samples, and usage. Render-graph texture
+  materialization rechecks the complete descriptor even when planner
+  compatibility integers match; keep that second validation layer.
+- A materialized graph permanently retains one capacity-one texture-pool lease
+  per physical slot. Do not introduce per-pass acquire/release churn or move a
+  dynamically indexed affine pool/texture out of the owner.
+- Graph execution tokens currently enforce logical schedule and access only.
+  They do not submit `GraphicsGraphBarrier` records, and
+  `completeExecution()` deliberately does not call `waitIdle()` per frame.
+  Direct raw command users remain responsible for ordering/completion until the
+  next command/barrier checkpoint supplies that layer.
+- `sampledGraphTextureEntry` and the imported sampled helper snapshot native
+  handles. Keep the materialized graph or caller-owned imported texture alive
+  until every derived bind group and submitted draw is complete.
 
 ## `abla-doom` side quest
 
