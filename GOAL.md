@@ -71,11 +71,11 @@ documentation, and relevant performance/validation gates all pass.
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
 - Current implementation checkpoint:
+  `3be52d33ba22139172c267d786ca885332727689`
+  (`Add wider asynchronous texture transfers`)
+- Previous sampled-view checkpoint:
   `3b31d3dd7f1c93e7f2732e12100098494fcea3c2`
-  (`Add explicit sampled texture view bindings`)
-- Previous wider-sampler checkpoint:
-  `6d2e8cbcf5347a65b655701bd7e59cbd77104231`
-- This document is committed as a handoff-only successor to `3b31d3d`, so use
+- This document is committed as a handoff-only successor to `3be52d3`, so use
   `git rev-parse HEAD` rather than embedding its self-referential commit here.
 - The implementation and handoff commits are intended to be pushed together.
   The worktree should be clean and synchronized after publication; recheck it
@@ -359,27 +359,121 @@ nix-shell --run 'make test-samples'
 The validation-layer run was silent, and the no-cache matrix built and ran all
 37 examples. No `ablac` change was required.
 
+## Current checkpoint: wider fixed-slot asynchronous texture transfer
+
+Implementation commit `3be52d3` extends the existing texture queue without
+removing its RGBA8/BGRA8 `PixelBuffer` conveniences.
+
+### Public contract and slot model
+
+`src/texture_transfer.ab` adds descriptor conveniences and primitive scalar
+hot paths:
+
+- `enqueueUploadTextureBytes` and `enqueueUploadTextureBytesRange`;
+- `enqueueReadbackTextureBytes` and `enqueueReadbackTextureBytesRange`;
+- `resolveTextureBytesReadback` and `waitTextureBytesReadback`.
+
+The raw calls accept `BufferBytes`, `TextureRegion`, and `TextureDataLayout` and
+support single-sample color/compressed 1D, 2D, 2D-array, cube, and 3D
+selections subject to native format support. Raw depth/stencil and multisample
+transfer are rejected.
+
+Each fixed queue slot contains tight active texture bytes. Upload enqueue
+gathers a caller's offset/row/image-pitched bytes into the slot; readback
+resolution scatters active rows back without touching caller padding. Slot
+capacity therefore bounds tight bytes, while the caller footprint is validated
+independently. Queue-owned fixed metadata retains format, extent, and output
+layout without steady-state allocation. Legacy `PixelBuffer` metadata is filled
+into the same extended slots and its API remains compatible.
+
+Descriptor calls are setup conveniences. The scalar `...BytesRange` calls are
+the measured allocation-free streaming path. Textures remain ordinary immutable
+bindings at public call sites; backend layout tracking does not force `var` on
+application code.
+
+### Native backends
+
+`src/driver/opengl_transfer.ab` submits tight PBO offsets through direct-state-
+access 1D/2D/3D or compressed subimage operations and reads them through
+`glGetTextureSubImage`/`glGetCompressedTextureSubImage`. It scopes pixel-store
+block state, restores it, and uses one `GLsync` per slot.
+
+`src/driver/vulkan_transfer.ab` records tight `VkBufferImageCopy` operations in
+each slot's reusable command buffer. Array/cube `z/depth` becomes base layer and
+layer count; 3D `z/depth` remains physical image offset/extent. Every selected
+mip/layer transitions to the transfer layout and back, readback receives a
+transfer-to-host barrier, and the existing slot fence provides targeted
+completion. `VulkanTexture.storeSubresourceLayout` now writes through the same
+trusted native-buffer boundary as the legacy layout writer, retaining the
+simple immutable public texture binding.
+
+### Exact evidence
+
+`tests/wider_texture_transfer/main.ab` and
+`tools/test-wider-texture-transfer.sh` prove on OpenGL, Vulkan, and auto:
+
+- four uploads and four readbacks queued before any targeted waits;
+- exact pitched two-layer array, cube-face, physical 3D-volume, and BC1 data;
+- untouched offset, row, and image padding;
+- tight slot-capacity and invalid-layout rejection without queue advancement;
+- generation-checked stale-ticket rejection;
+- stable OpenGL staging and Vulkan staging/pool/command resources;
+- five repeated primitive upload/readback cycles with zero live-byte growth.
+
+The focused output reported `queued=true/true`, `inFlight=true`, `exact=true`,
+`padding=true`, `invalid=true`, `stale=true`, `repeated=true`, `live=0`, and
+`stable=true` for every selection. A Khronos validation-layer Vulkan run was
+silent and returned the same evidence.
+
+`examples/async-wider-texture` is the 38th independent sample. It streams a
+pitched two-layer array through both direction-specific queues, checks exact
+readback and padding, repeats six scalar frames, presents a window, and reports
+`live=0` on explicit OpenGL and Vulkan.
+
+The registry stays at 109 OpenGL plus 113 Vulkan commands, 222 total: no new
+native command was introduced, so existing DSA/PBO and buffer-image-copy rows
+were updated with the new implementation and live evidence rather than
+inflating coverage.
+
+Verified on 2026-08-25 with:
+
+```bash
+nix-shell --run 'make update-registry test-registry'
+nix-shell --run 'make test-wider-texture-transfer'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+nix-shell --run "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s '-screen 0 800x600x24' build/tests/wider-texture-transfer vulkan"
+```
+
+`make all` includes the Abla-only audit and the new focused gate. The complete
+no-cache matrix built all 38 samples and ran its Wayland/headless/X11 plus
+explicit OpenGL/Vulkan runtime paths. No `ablac` change was required; its clean
+published tip remains `93f8e2f`.
+
 ## Immediate continuation checklist
 
-The next coherent checkpoint is wider fixed-slot asynchronous texture transfer:
+The next coherent checkpoint is a portable texture reuse/allocation strategy,
+starting with semantics rather than exposing Vulkan heap mechanics directly:
 
-1. Extend the existing ticket/slot API from RGBA8/BGRA8 2D convenience to raw
-   `BufferBytes`, `TextureRegion`, and `TextureDataLayout` selections.
-2. Support array layers, cube faces, physical 3D slices, and BC1 blocks without
-   conflating array layers with volume depth.
-3. Preserve bounded capacity, stale-ticket rejection, targeted wait/poll,
-   stable staging/command/synchronization handles, caller padding, and zero
-   steady-state allocation.
-4. Add exact positive and negative live gates on OpenGL and Vulkan, an
-   independent sample, docs, and any newly required registry evidence.
-5. Run focused gates, `make all`, and `make test-samples`, then commit and push
-   with explicit-path review.
-
-After that, decide and document portable
-application intent before designing Vulkan device-local texture-memory
-suballocation; OpenGL texture storage is opaque, so native allocation mechanics
-alone are not a useful common abstraction. Then continue through all remaining
-milestones in `plan.md`.
+1. Audit existing `GraphicsTexture`, render-target ownership, wider views,
+   render-graph transient lifetime planning, and Vulkan image-memory allocation.
+2. Define application-visible intent: reusable compatible texture storage,
+   lifetime/aliasability, capacity limits, usage/format/sample compatibility,
+   deterministic release, and observable errors. Do not promise identical
+   physical suballocation where OpenGL deliberately keeps storage opaque.
+3. Decide whether the common abstraction should be a fixed metadata texture
+   reuse pool, transient render-graph texture allocator, explicit Vulkan-only
+   native memory pool, or a layered combination. Record the rationale before
+   implementation.
+4. Implement only the coherent cross-backend contract, with affine ownership,
+   generation-checked reuse if handles escape, stable warmed native resources,
+   bounded memory, and zero-allocation steady-state acquire/release.
+5. Add exact render/readback, fragmentation/capacity/stale-token/compatibility
+   rejection, validation-layer, allocation, and performance evidence plus an
+   independent sample and honest registry/docs updates.
+6. Run focused gates, `make all`, and `make test-samples`, then commit and push
+   with explicit-path review. Continue through every remaining `plan.md`
+   milestone afterward; do not mark the persistent goal complete.
 
 ## Major remaining framework work
 
@@ -440,8 +534,11 @@ Tests and samples:
 - `tests/glsl_subparser.ab`, `tools/test-glsl.sh`;
 - `tests/application/main.ab`;
 - `tests/texture_transfer/main.ab`, `tools/test-texture-transfer.sh`;
+- `tests/wider_texture_transfer/main.ab`,
+  `tools/test-wider-texture-transfer.sh`;
 - `tests/transfer/main.ab`, `tools/test-transfer.sh`;
-- `examples/common-texture/main.ab` and `examples/async-texture/main.ab`;
+- `examples/common-texture/main.ab`, `examples/async-texture/main.ab`, and
+  `examples/async-wider-texture/main.ab`;
 - `tools/test-samples.sh` — independent no-cache build and live backend matrix;
 - `Makefile` — authoritative gate map.
 
@@ -465,7 +562,7 @@ Useful focused commands:
 ```bash
 nix-shell --run 'make test-core test-texture-contract test-wider-texture test-wider-sampling'
 nix-shell --run 'make test-glsl'
-nix-shell --run 'make test-application test-transfer test-texture-transfer'
+nix-shell --run 'make test-application test-transfer test-texture-transfer test-wider-texture-transfer'
 nix-shell --run 'make update-registry test-registry'
 ```
 
@@ -510,14 +607,17 @@ git -C ../ablac rev-parse '@{upstream}'
   and cubes use array layers. Do not apply one interpretation to both.
 - Vulkan layout state is per mip and per array layer. Whole-texture state updates
   are insufficient for partial wider operations.
-- OpenGL compressed pixel-store state selects blocks from pitched caller memory,
-  but the compressed upload `imageSize` is the tight active selection size.
+- OpenGL synchronous compressed pixel-store state selects blocks from pitched
+  caller memory, but compressed upload `imageSize` is the tight active selection
+  size. Asynchronous slots are already repacked tight and use zero row/image
+  pitch at native submission.
 - Caller padding must remain untouched on readback; only active texel/block bytes
   are semantically transferred.
-- The existing asynchronous texture queues intentionally remain RGBA8/BGRA8 2D
-  until the raw wider async design is implemented and tested.
-- Keep the existing legacy 2D `PixelBuffer`, texture-copy, and layout methods
-  working while extending the wider API.
+- Queue capacity applies to tight active texture bytes, not the larger caller
+  footprint. Resolve/wait must validate the stored footprint against the output
+  buffer before waiting or writing.
+- Keep the legacy 2D `PixelBuffer`, synchronous texture-copy, and layout methods
+  working when evolving the wider API.
 - `glBindTextureUnit` is core in the targeted OpenGL 4.6/4.5 path and avoids a
   draw-time target table. Any future lower-version compatibility path must bind
   the actual resolved target and must never restore a hard-coded 2D target.
