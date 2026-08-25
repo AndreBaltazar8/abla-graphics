@@ -425,7 +425,7 @@ The focused output reported `queued=true/true`, `inFlight=true`, `exact=true`,
 `stable=true` for every selection. A Khronos validation-layer Vulkan run was
 silent and returned the same evidence.
 
-`examples/async-wider-texture` is the 38th independent sample. It streams a
+`examples/async-wider-texture` is an independent sample. It streams a
 pitched two-layer array through both direction-specific queues, checks exact
 readback and padding, repeats six scalar frames, presents a window, and reports
 `live=0` on explicit OpenGL and Vulkan.
@@ -446,31 +446,131 @@ nix-shell --run "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s '
 ```
 
 `make all` includes the Abla-only audit and the new focused gate. The complete
-no-cache matrix built all 38 samples and ran its Wayland/headless/X11 plus
+no-cache matrix built all then-current 37 samples and ran its
+Wayland/headless/X11 plus
 explicit OpenGL/Vulkan runtime paths. No `ablac` change was required; its clean
 published tip remains `93f8e2f`.
 
+## Checkpoint: portable texture-object reuse
+
+Published framework commit
+`eab5e846ede3b30bc4b32775d5d88208f3066046` implements the portable texture
+reuse/allocation checkpoint without manufacturing a Vulkan-shaped OpenGL heap
+API.
+
+### Common semantics and ownership
+
+`docs/texture-pooling.md` records the decision. `GraphicsTexturePool` is a
+bounded homogeneous pool of one to 64 eagerly created complete textures. It
+retains affine ownership of every `GraphicsTexture`; `acquire()` and
+`release()` lend compact pool-scoped slot/generation tokens and mutate only
+fixed metadata after construction.
+
+This shape follows Abla's real ownership semantics. A statically known affine
+array place can be moved and restored, but a dynamically indexed moved place
+cannot be proven restored. The pool therefore never moves a runtime-selected
+texture out of its owner. Structural resource cleanup destroys the retained
+array exactly once. A stale or double-released token fails, capacity exhaustion
+returns `0`, labels do not change storage compatibility, and fixed whole slots
+have no external fragmentation.
+
+The common promise is complete-object reuse:
+
+- OpenGL retains immutable texture objects plus their reusable readback state;
+- Vulkan retains images, dedicated bound device memory, transfer state, command
+  resources, and per-subresource layout tracking;
+- warmed acquire/release performs no driver allocation and no managed
+  allocation;
+- physical Vulkan heap suballocation remains a future backend-private layer,
+  not a false portable guarantee.
+
+The intended generation-checked surface includes synchronous raw-byte
+write/read, scalar RGBA8 readback, mipmap generation, GPU copies, fixed-slot
+asynchronous upload/readback, and sampled binding entries. Every application
+operation validates both pool ownership and the live lease before borrowing the
+retained texture. Tokens are scoped to their issuing pool. The public
+`textures` field is a borrowed low-level escape hatch analogous to a buffer
+pool's `backing`; using it directly bypasses logical lease validation but does
+not transfer ownership.
+
+Binding entries snapshot native handles, as the pre-existing binding API does.
+The lease must remain live until bind groups made from it are dropped. All
+queued GPU work borrowing a lease must complete before release.
+
+### Exact evidence
+
+`tests/texture_pool/main.ab` and `tools/test-texture-pool.sh` prove on explicit
+OpenGL, explicit Vulkan, and automatic selection:
+
+- invalid descriptor/capacity rejection and exact descriptor compatibility;
+- two-slot exhaustion, deterministic first-free reuse, generation increment,
+  stale access, and double-release rejection;
+- exact synchronous raw-byte upload/readback and scalar pixel readback;
+- exact GPU copy between two live pooled leases plus stale-copy rejection;
+- exact asynchronous upload/readback through the existing fixed native slots;
+- a real sampled offscreen draw with the exact pixel `4281541137`;
+- stable OpenGL texture names and Vulkan image handles;
+- 1,000 warmed acquire/release cycles with `runtimeMemoryLiveBytes()` delta
+  zero.
+
+The focused output reports
+`capacity/reuse/direct/copy/async/sampled/stale/steady=true`, `live=0`, and
+`acquisitions=1003` for every selection. A Vulkan run with
+`VK_LAYER_KHRONOS_validation` returned 42 with zero stderr bytes.
+
+`examples/texture-pool` is an independently buildable public workflow. It
+uploads through a lease, renders four sampled frames, performs 1,000 warmed
+reuse cycles, and reports `live=0`, `stable=true`, and `active=1/3` on both
+explicit backends.
+
+The repository now contains 38 example directories: the published parent had
+37 and this checkpoint adds one. The preceding handoff's wording that called
+`async-wider-texture` the 38th sample was off by one; the filesystem and
+`tools/test-samples.sh` count are authoritative here.
+
+Verified on 2026-08-25 with:
+
+```bash
+nix-shell --run 'make check-abla-only test-texture-pool'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+nix-shell --run 'validation_log=build/tests/texture-pool-validation.log; : > "$validation_log"; set +e; VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s "-screen 0 800x600x24" build/tests/texture-pool vulkan >build/tests/texture-pool-validation.out 2>"$validation_log"; status=$?; set -e; test "$status" -eq 42; ! rg -q "Validation Error|VUID-|ERROR" "$validation_log"'
+```
+
+`make all` passed the complete framework matrix. The no-cache sample gate built
+all 38 current roots and ran the Wayland/headless/X11 plus explicit
+OpenGL/Vulkan paths. The final ownership-tightened tree reran the Abla-only and
+focused pool gates successfully. No registry row or native command changed;
+the pool reuses the already audited texture, copy, transfer, binding, and draw
+paths. No `ablac` change was required; its clean published tip remains
+`93f8e2f`.
+
 ## Immediate continuation checklist
 
-The next coherent checkpoint is a portable texture reuse/allocation strategy,
-starting with semantics rather than exposing Vulkan heap mechanics directly:
+The next coherent checkpoint is real render-graph texture materialization on
+top of the published planner and texture pools:
 
-1. Audit existing `GraphicsTexture`, render-target ownership, wider views,
-   render-graph transient lifetime planning, and Vulkan image-memory allocation.
-2. Define application-visible intent: reusable compatible texture storage,
-   lifetime/aliasability, capacity limits, usage/format/sample compatibility,
-   deterministic release, and observable errors. Do not promise identical
-   physical suballocation where OpenGL deliberately keeps storage opaque.
-3. Decide whether the common abstraction should be a fixed metadata texture
-   reuse pool, transient render-graph texture allocator, explicit Vulkan-only
-   native memory pool, or a layered combination. Record the rationale before
-   implementation.
-4. Implement only the coherent cross-backend contract, with affine ownership,
-   generation-checked reuse if handles escape, stable warmed native resources,
-   bounded memory, and zero-allocation steady-state acquire/release.
-5. Add exact render/readback, fragmentation/capacity/stale-token/compatibility
-   rejection, validation-layer, allocation, and performance evidence plus an
-   independent sample and honest registry/docs updates.
+1. Audit `src/graph.ab` resource/pass/allocation identities and every place the
+   current sample/docs treat compatibility as an opaque integer. Preserve the
+   deterministic pure planner as a useful independent layer.
+2. Define typed graph texture declarations for imported versus transient
+   resources, complete `TextureDescriptor` compatibility, allocation-slot
+   capacity, execution lifetime, and observable errors. Do not silently map an
+   opaque compatibility number to a physically incompatible texture.
+3. Design an affine materialized-graph owner that retains homogeneous
+   `GraphicsTexturePool` instances and maps planned allocation slots to live
+   pool-scoped leases without moving dynamically indexed resources. Record how
+   imported textures remain caller-owned and how GPU completion precedes lease
+   release.
+4. Implement a useful cross-backend vertical slice, not another metadata-only
+   planner: materialize transient textures, expose checked upload/readback,
+   copy, and sampled-binding operations by graph resource id, and keep warmed
+   execute/reset paths allocation-free.
+5. Prove that two non-overlapping compatible logical resources reuse one stable
+   native object while overlapping or descriptor-incompatible resources do
+   not. Add stale/id/import/capacity rejection, exact copy/sample/readback,
+   validation-layer, handle, allocation, and live-memory evidence plus an
+   independent sample.
 6. Run focused gates, `make all`, and `make test-samples`, then commit and push
    with explicit-path review. Continue through every remaining `plan.md`
    milestone afterward; do not mark the persistent goal complete.
@@ -488,9 +588,9 @@ include:
 - the remaining GLSL 4.60 grammar, stages, includes/modules, diagnostics,
   reflection, specialization constants, interface validation, deterministic
   dual-backend generation, and shader/pipeline caches;
-- reusable command encoders, transient resource pools, texture allocation
-  strategy, descriptor reuse, frame pacing, render-graph scheduling, barriers,
-  aliasing, and device-loss/context-reset recovery;
+- reusable command encoders, render-graph texture materialization and execution,
+  descriptor reuse, backend-private heap allocation, frame scheduling, derived
+  barriers, aliasing, and device-loss/context-reset recovery;
 - geometry/tessellation, mesh/task, ray tracing, acceleration structures,
   multiview, variable-rate shading, sparse/external resources, video, device
   groups, protected work, calibrated timestamps, shader objects, and vendor
@@ -517,12 +617,16 @@ Core public surface and implementation:
   layouts, and portable validation;
 - `src/texture.ab` — affine common texture ownership and synchronous dispatch;
 - `src/texture_transfer.ab` — fixed-slot asynchronous texture API;
+- `src/texture_pool.ab` — homogeneous complete-object reuse, pool-scoped
+  generation leases, and checked texture operations;
 - `src/transfer.ab` — tickets, slots, generations, polling, and waits;
 - `src/binding.ab` — bind-group validation and sampled texture compatibility;
 - `src/driver/opengl.ab`, `src/driver/vulkan.ab` — backend image allocation,
   transfer, copy, synchronization, and layout state;
 - `src/driver/opengl_transfer.ab`, `src/driver/vulkan_transfer.ab` — reusable
   buffer-transfer slot patterns;
+- `src/graph.ab` — deterministic dependency, lifetime, barrier, and logical
+  transient-allocation planner; next checkpoint materializes its textures;
 - `src/shader/glsl.ab`, `src/shader/glsl_spirv.ab` — `$glsl` parsing,
   reflection, typing, and deterministic SPIR-V generation.
 
@@ -537,6 +641,8 @@ Tests and samples:
 - `tests/wider_texture_transfer/main.ab`,
   `tools/test-wider-texture-transfer.sh`;
 - `tests/transfer/main.ab`, `tools/test-transfer.sh`;
+- `tests/texture_pool/main.ab`, `tools/test-texture-pool.sh`, and
+  `examples/texture-pool/main.ab`;
 - `examples/common-texture/main.ab`, `examples/async-texture/main.ab`, and
   `examples/async-wider-texture/main.ab`;
 - `tools/test-samples.sh` — independent no-cache build and live backend matrix;
@@ -563,6 +669,7 @@ Useful focused commands:
 nix-shell --run 'make test-core test-texture-contract test-wider-texture test-wider-sampling'
 nix-shell --run 'make test-glsl'
 nix-shell --run 'make test-application test-transfer test-texture-transfer test-wider-texture-transfer'
+nix-shell --run 'make test-texture-pool'
 nix-shell --run 'make update-registry test-registry'
 ```
 
@@ -624,6 +731,18 @@ git -C ../ablac rev-parse '@{upstream}'
 - Large texture-owned staging is currently bounded by the existing backend
   design. Do not promise arbitrary-size staging or device-local texture
   suballocation without a separate validated design.
+- A texture pool retains complete affine textures because Abla cannot prove a
+  dynamically indexed moved array place was restored. Keep operational access
+  token-checked rather than moving resources out of runtime-selected slots.
+- Texture-pool integer leases are scoped to the pool that issued them; they are
+  deliberately compact, not globally unique identifiers.
+- `sampledTexturePoolEntry` snapshots native handles. Keep its lease live until
+  every derived bind group is dropped, and complete queued transfers/draws
+  before release or reuse.
+- Storage compatibility ignores diagnostic labels but is exact for extent,
+  dimension, format, mip levels, samples, and usage. Render-graph
+  materialization must recheck the complete descriptor even when planner
+  compatibility integers match.
 
 ## `abla-doom` side quest
 
