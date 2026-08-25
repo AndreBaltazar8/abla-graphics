@@ -1711,15 +1711,31 @@ resource's first and last scheduled pass.
 an intervening access already supplies the dependency path. Each record carries
 the resource ID, source/destination pass IDs, and both access masks. Explicit
 ordering edges do not fabricate resource barriers. These backend-neutral
-records are the direct input for the forthcoming OpenGL memory-barrier and
-Vulkan synchronization2 materialization layer.
+records remain the input for forthcoming OpenGL memory-barrier and Vulkan
+synchronization2 command materialization.
 
 Transient resources with disjoint lifetimes and the same compatibility class
 share the lowest available `GraphicsGraphAllocation` slot. Slot capacity grows
 to the largest aliased resource, while overlapping or incompatible lifetimes
-remain separate. Imported resources receive no allocation slot. This is the
-render-graph planning layer; command-encoder execution, backend barrier
-materialization, and real transient resource pools are not yet claimed.
+remain separate. Imported resources receive no allocation slot.
+
+`app.materializeRenderGraphTextures(resources, passes, declarations)` turns
+that plan into an affine, typed owner. Every transient logical resource has a
+complete `TextureDescriptor`; its computed storage size must equal the planner
+resource size. Equal opaque compatibility integers are insufficient on their
+own: extent, dimension, mips, samples, format, and usage are compared before
+sharing. One retained capacity-one `GraphicsTexturePool` backs each physical
+slot, so compatible non-overlapping resources resolve to one stable OpenGL
+texture or Vulkan image while overlapping/incompatible resources do not.
+
+Execution uses generation tokens and scheduled pass entry. Upload, readback,
+transient/imported copy, and sampled-entry helpers require the logical resource
+ID and verify its declared access in the current pass. Imported resources
+remain caller-owned and are borrowed only after application ownership and exact
+descriptor checks. Execution reset retains every lease and native object, so a
+warmed pass walk allocates nothing. This is real texture materialization; graph
+command encoding and backend barrier emission remain separate future work.
+The complete contract is in `docs/render-graph-textures.md`.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

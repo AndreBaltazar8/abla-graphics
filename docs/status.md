@@ -506,8 +506,21 @@ Updated: 2026-08-25.
   sampled offscreen pixel, stable native handles, and zero live-byte change
   across 1,000 warmed acquire/release cycles on OpenGL, Vulkan, and auto
   selection. `examples/texture-pool` repeats the public sampled workflow on
-  both explicit backends. Render-graph materialization and backend-private
-  Vulkan heap suballocation remain open and are not claimed by this contract.
+  both explicit backends. Backend-private Vulkan heap suballocation remains
+  open and is not claimed by this contract.
+- Typed render-graph texture materialization:
+  `GraphicsMaterializedRenderGraph` preserves the deterministic pure planner
+  and adds complete texture declarations, exact storage-size/descriptor
+  checks, one retained pool lease per physical slot, caller-owned imported
+  resources, scheduled pass/generation guards, and checked upload, readback,
+  copy, and sampled-binding operations by logical ID. The focused gate proves
+  exact alias/non-alias identities and transfers, rejection paths, one retained
+  native object and pool acquisition per slot, stable handles, and zero
+  live-byte growth through 1,000 executions on OpenGL, Vulkan, and auto
+  selection. The independent
+  `examples/materialized-render-graph` performs four live sampled frames on
+  both explicit backends. Backend graph-command recording and materialized
+  barrier submission remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1064,14 +1077,16 @@ validity gate unchanged.
 
 ## Not yet claimed
 
-- Render-graph execution with per-subpass input/preserve attachment lists,
+- Render-graph command execution with per-subpass input/preserve attachment lists,
   arbitrary attachment routing and dependency masks, complete synchronization2
   barrier/event migration, and offscreen/MRT dynamic rendering. The delivered
   pure-Abla graph planner validates stable explicit dependencies, derives
   declaration-order read/write hazards, rejects cycles, computes scheduled
   lifetimes, emits pruned resource-specific barrier records, and aliases
-  compatible non-overlapping transient allocations; it does not yet record
-  backend commands or materialize those barriers/pools.
+  compatible non-overlapping transient allocations. Its typed texture layer
+  now materializes those allocation slots as retained cross-backend texture
+  pools with checked logical-resource operations; it does not yet record
+  backend commands or submit the derived barriers.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
   color/depth/resolve attachment set and inserts

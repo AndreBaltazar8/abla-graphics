@@ -1,0 +1,190 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillGraphAtlas(var bytes: BufferBytes, rgba: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(rgba, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics materialized render graph",
+            width = 480,
+            height = 270
+        )
+    )
+    val atlasDescriptor = TextureDescriptor(
+        label = "graph-atlas",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "warm-atlas", true, 16, 1),
+        GraphicsGraphResource(1, "cool-atlas", true, 16, 1)
+    ], [
+        GraphicsGraphPass(10, "upload-warm", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "draw-warm", [
+            GraphicsGraphUse(0, graphAccessRead)
+        ]),
+        GraphicsGraphPass(30, "upload-cool", [
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "draw-cool", [
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, atlasDescriptor),
+        GraphicsGraphTextureDeclaration(1, TextureDescriptor(
+            label = "graph-atlas-reused",
+            size = Extent3D(2, 2),
+            format = textureFormatRgba8Unorm,
+            usage = atlasDescriptor.usage
+        ))
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val vertexBytes = bufferBytes(48)
+    val verticesStored = vertexBytes.storeF32(-0.8, 0) &&
+        vertexBytes.storeF32(-0.7, 4) &&
+        vertexBytes.storeF32(0.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(0.8, 16) &&
+        vertexBytes.storeF32(-0.7, 20) &&
+        vertexBytes.storeF32(1.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(0.0, 32) &&
+        vertexBytes.storeF32(0.8, 36) &&
+        vertexBytes.storeF32(0.5, 40) &&
+        vertexBytes.storeF32(1.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "graph-fullscreen-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val atlasBytes = bufferBytes(16)
+    val warm = 4291827215
+    val cool = 4284896580
+    val execution = graph.beginExecution()
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        verticesUploaded && sampler.valid() && execution > 0 &&
+        graph.samePhysicalTexture(0, 1) && graph.beginPass(execution, 10) &&
+        fillGraphAtlas(atlasBytes, warm) &&
+        app.writeGraphTextureBytes(graph, execution, 0, atlasBytes) &&
+        graph.beginPass(execution, 20)
+    val binding = app.bindGroup([
+        app.sampledGraphTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            graph,
+            execution,
+            0,
+            sampler
+        )
+    ])
+    val pipeline = app.renderPipeline(
+        shader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    val physical = graph.physicalIdentity(0)
+    val clear = Color(0.015, 0.02, 0.035)
+    var frame = 0
+    while (succeeded && frame < 2) {
+        succeeded = pipeline.valid() && app.presentRenderVertices(
+            pipeline,
+            vertices,
+            3,
+            clear
+        )
+        frame = frame + 1
+    }
+    succeeded = succeeded && graph.beginPass(execution, 30) &&
+        fillGraphAtlas(atlasBytes, cool) &&
+        app.writeGraphTextureBytes(graph, execution, 1, atlasBytes) &&
+        graph.beginPass(execution, 40)
+    while (succeeded && frame < 4) {
+        succeeded = app.presentRenderVertices(
+            pipeline,
+            vertices,
+            3,
+            clear
+        )
+        frame = frame + 1
+    }
+    succeeded = succeeded && graph.completeExecution(execution)
+
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        val token = graph.beginExecution()
+        var passIndex = 0
+        succeeded = token > execution
+        while (succeeded && passIndex < graph.plan.order.size) {
+            succeeded = graph.beginPass(token, graph.plan.order[passIndex])
+            passIndex = passIndex + 1
+        }
+        succeeded = succeeded && graph.completeExecution(token)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stable = physical != 0 && graph.physicalIdentity(0) == physical &&
+        graph.physicalIdentity(1) == physical &&
+        graph.pools[0].acquisitionCount == 1 &&
+        liveAfter == liveBefore
+    val passed = succeeded && frame == 4 && iteration == 1000 && stable &&
+        graph.completedExecutions == 1001
+    println(
+        "materialized-render-graph ${graphicsBackendName(app.backend)}: frames=$frame reuse=${graph.samePhysicalTexture(0, 1)} executions=${graph.completedExecutions} pools=${graph.pools.size} acquisitions=${graph.pools[0].acquisitionCount} live=${liveAfter - liveBefore} stable=$stable handle=$physical"
+    )
+    if (passed) 0 else 1
+}

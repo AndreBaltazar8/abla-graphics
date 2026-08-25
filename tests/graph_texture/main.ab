@@ -1,0 +1,290 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillGraphTextureBytes(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun graphTextureBytesEqual(bytes: BufferBytes, value: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == value
+        offset = offset + 4
+    }
+    exact
+}
+
+trusted fun graphTextureProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(backend = requestedBackend, validation = true),
+        WindowConfig(
+            title = "Abla materialized render graph",
+            width = 96,
+            height = 64
+        )
+    )
+    val rgba = TextureDescriptor(
+        label = "graph-rgba-4x4",
+        size = Extent3D(4, 4),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination |
+            textureUsageSampled
+    )
+    val rgbaAlias = TextureDescriptor(
+        label = "graph-rgba-alias",
+        size = Extent3D(4, 4),
+        format = textureFormatRgba8Unorm,
+        usage = rgba.usage
+    )
+    val incompatible = TextureDescriptor(
+        label = "graph-rgba-8x2",
+        size = Extent3D(8, 2),
+        format = textureFormatRgba8Unorm,
+        usage = rgba.usage
+    )
+    val resources = [
+        GraphicsGraphResource(0, "first", true, 64, 1),
+        GraphicsGraphResource(1, "reused", true, 64, 1),
+        GraphicsGraphResource(2, "overlap", true, 64, 1),
+        GraphicsGraphResource(3, "imported", false, 0, 1),
+        GraphicsGraphResource(4, "incompatible", true, 64, 2),
+        GraphicsGraphResource(5, "imported-output", false, 0, 1)
+    ]
+    val passes = [
+        GraphicsGraphPass(10, "first-write", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "first-read-overlap-write", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite),
+            GraphicsGraphUse(3, graphAccessRead)
+        ]),
+        GraphicsGraphPass(30, "overlap-copy-reused", [
+            GraphicsGraphUse(2, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "reused-read", [
+            GraphicsGraphUse(1, graphAccessRead),
+            GraphicsGraphUse(5, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(50, "incompatible-write", [
+            GraphicsGraphUse(4, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(60, "incompatible-read", [
+            GraphicsGraphUse(4, graphAccessRead)
+        ])
+    ]
+    val graph = app.materializeRenderGraphTextures(resources, passes, [
+        GraphicsGraphTextureDeclaration(0, rgba),
+        GraphicsGraphTextureDeclaration(1, rgbaAlias),
+        GraphicsGraphTextureDeclaration(2, rgba),
+        GraphicsGraphTextureDeclaration(3, rgba),
+        GraphicsGraphTextureDeclaration(4, incompatible),
+        GraphicsGraphTextureDeclaration(5, rgba)
+    ])
+    val typedExact = textureDescriptorStorageBytes(rgba) == 64 &&
+        textureDescriptorStorageBytes(TextureDescriptor(
+            size = Extent3D(4, 4),
+            mipLevels = 3,
+            format = textureFormatRgba8Unorm,
+            usage = textureUsageCopySource
+        )) == 84 && graph.valid() && graph.plan.allocations.size == 3 &&
+        graph.pools.size == 3 && graph.resourceSlot(0) == 0 &&
+        graph.resourceSlot(1) == 0 && graph.resourceSlot(2) == 1 &&
+        graph.resourceSlot(3) == -1 && graph.resourceSlot(4) == 2 &&
+        graph.resourceSlot(5) == -1 &&
+        graph.samePhysicalTexture(0, 1) &&
+        !graph.samePhysicalTexture(0, 2) &&
+        !graph.samePhysicalTexture(1, 4) &&
+        graph.physicalIdentity(0) != 0 &&
+        graph.physicalIdentity(2) != 0 &&
+        graph.physicalIdentity(4) != 0 &&
+        graph.pools[0].activeLeases == 1 &&
+        graph.pools[1].activeLeases == 1 &&
+        graph.pools[2].activeLeases == 1
+
+    val imported = app.texture(rgba)
+    val importedOutput = app.texture(rgba)
+    val wrongImported = app.texture(incompatible)
+    val firstValue = 4281541137
+    val overlapValue = 4284896580
+    val incompatibleValue = 4291827215
+    val source = bufferBytes(64)
+    val result = bufferBytes(64)
+    val importedSeeded = fillGraphTextureBytes(source, overlapValue) &&
+        imported.writeBytes(source)
+    val token = graph.beginExecution()
+    val lifecycleStart = importedSeeded && token > 0 &&
+        graph.beginExecution() == 0 &&
+        !graph.beginPass(token, 20) && graph.beginPass(token, 10) &&
+        fillGraphTextureBytes(source, firstValue) &&
+        app.writeGraphTextureBytes(graph, token, 0, source) &&
+        !app.readGraphTextureBytes(graph, token, 0, result) &&
+        !app.writeGraphTextureBytes(graph, token + 1, 0, source) &&
+        graph.beginPass(token, 20) && result.fill(0) &&
+        app.readGraphTextureBytes(graph, token, 0, result) &&
+        graphTextureBytesEqual(result, firstValue) &&
+        app.matchesImportedGraphTexture(graph, token, 3, imported) &&
+        !app.matchesImportedGraphTexture(graph, token, 3, wrongImported) &&
+        app.copyImportedToGraphTexture(graph, token, 3, imported, 2) &&
+        !app.copyImportedToGraphTexture(
+            graph,
+            token,
+            3,
+            wrongImported,
+            2
+        )
+
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val activeSampled = app.sampledGraphTextureEntry(
+        0,
+        shaderVisibilityFragment,
+        graph,
+        token,
+        0,
+        sampler
+    )
+    val writeOnlySampled = app.sampledGraphTextureEntry(
+        0,
+        shaderVisibilityFragment,
+        graph,
+        token,
+        2,
+        sampler
+    )
+    val importedSampled = app.sampledImportedGraphTextureEntry(
+        1,
+        shaderVisibilityFragment,
+        graph,
+        token,
+        3,
+        imported,
+        sampler
+    )
+    val copied = graph.beginPass(token, 30) && app.copyGraphTexture(
+        graph,
+        token,
+        2,
+        1
+    ) && !app.copyGraphTexture(graph, token, 1, 2) &&
+        graph.beginPass(token, 40) && result.fill(0) &&
+        app.readGraphTextureBytes(graph, token, 1, result) &&
+        graphTextureBytesEqual(result, overlapValue) &&
+        app.copyGraphTextureToImported(
+            graph,
+            token,
+            1,
+            5,
+            importedOutput
+        ) && result.fill(0) && importedOutput.readBytes(result) &&
+        graphTextureBytesEqual(result, overlapValue) &&
+        graph.beginPass(token, 50) &&
+        fillGraphTextureBytes(source, incompatibleValue) &&
+        app.writeGraphTextureBytes(graph, token, 4, source) &&
+        graph.beginPass(token, 60) && result.fill(0) &&
+        app.readGraphTextureBytes(graph, token, 4, result) &&
+        graphTextureBytesEqual(result, incompatibleValue) &&
+        graph.completeExecution(token) &&
+        !graph.completeExecution(token) &&
+        !app.readGraphTextureBytes(graph, token, 4, result)
+
+    val opaqueMismatch = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(10, "opaque-left", true, 64, 7),
+        GraphicsGraphResource(11, "opaque-right", true, 64, 7)
+    ], [
+        GraphicsGraphPass(1, "opaque-left-write", [
+            GraphicsGraphUse(10, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(2, "opaque-right-write", [
+            GraphicsGraphUse(11, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(10, rgba),
+        GraphicsGraphTextureDeclaration(11, incompatible)
+    ])
+    val wrongSize = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(12, "wrong-size", true, 63, 1)
+    ], [
+        GraphicsGraphPass(1, "wrong-size-write", [
+            GraphicsGraphUse(12, graphAccessWrite)
+        ])
+    ], [GraphicsGraphTextureDeclaration(12, rgba)])
+    val incomplete = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(13, "missing", true, 64, 1)
+    ], [
+        GraphicsGraphPass(1, "missing-write", [
+            GraphicsGraphUse(13, graphAccessWrite)
+        ])
+    ], [])
+    val rejected = !opaqueMismatch.valid() &&
+        opaqueMismatch.error.code == graphicsErrorInvalidConfiguration &&
+        opaqueMismatch.pools.size == 0 && !wrongSize.valid() &&
+        wrongSize.error.code == graphicsErrorInvalidConfiguration &&
+        !incomplete.valid() && incomplete.error.occurred()
+
+    val stableFirst = graph.physicalIdentity(0)
+    val stableOverlap = graph.physicalIdentity(2)
+    val stableIncompatible = graph.physicalIdentity(4)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    var steady = true
+    while (steady && iteration < 1000) {
+        val repeatedToken = graph.beginExecution()
+        var passIndex = 0
+        steady = repeatedToken > token
+        while (steady && passIndex < graph.plan.order.size) {
+            steady = graph.beginPass(
+                repeatedToken,
+                graph.plan.order[passIndex]
+            )
+            passIndex = passIndex + 1
+        }
+        steady = steady && graph.completeExecution(repeatedToken)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stableExact = steady && iteration == 1000 &&
+        liveAfter == liveBefore && graph.completedExecutions == 1001 &&
+        graph.physicalIdentity(0) == stableFirst &&
+        graph.physicalIdentity(2) == stableOverlap &&
+        graph.physicalIdentity(4) == stableIncompatible &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1 &&
+        graph.pools[2].acquisitionCount == 1
+
+    val passed = app.valid() && typedExact && lifecycleStart &&
+        sampler.valid() && activeSampled.valid() && importedSampled.valid() &&
+        !writeOnlySampled.valid() && copied && rejected && stableExact
+    println(
+        "graph-texture ${graphicsBackendName(app.backend)}: typed=$typedExact alias=${graph.samePhysicalTexture(0, 1)} overlap=${!graph.samePhysicalTexture(0, 2)} incompatible=${!graph.samePhysicalTexture(1, 4)} lifecycle=${lifecycleStart && copied} sampled=${activeSampled.valid() && !writeOnlySampled.valid()} rejected=$rejected steady=$stableExact executions=${graph.completedExecutions} live=${liveAfter - liveBefore} handles=$stableFirst/$stableOverlap/$stableIncompatible"
+    )
+    if (!passed) println(
+        "graph-texture detail: app=${app.valid()} graph=${graph.valid()} error=${graph.error.code}:${graph.error.operation}:${graph.error.message} plan=${graph.plan.valid()}/${graph.plan.allocations.size} pools=${graph.pools.size} typed=$typedExact lifecycle=$lifecycleStart copied=$copied active=${activeSampled.valid()} writeOnly=${writeOnlySampled.valid()} rejected=$rejected steady=$stableExact"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (graphTextureProbe(backend)) 42 else 1
+}

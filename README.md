@@ -57,7 +57,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   pure-Abla GLSL lexer with exact byte/line/column spans;
 - a deterministic pure-Abla render-graph planner with explicit dependencies,
   read/write hazard ordering, transient lifetimes, cycle rejection, and
-  compatible allocation-slot aliasing plus pruned synchronization records;
+  compatible allocation-slot aliasing plus pruned synchronization records,
+  together with affine typed texture materialization that maps scheduled
+  logical IDs to stable pooled OpenGL/Vulkan objects, retains caller-owned
+  imports, and rejects stale/access/descriptor mismatches;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets for
@@ -254,6 +257,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   homogeneous textures, pooled upload and sampled rendering, stable native
   objects, and 1,000 allocation-free acquire/release cycles on explicit OpenGL
   and Vulkan;
+- `examples/materialized-render-graph`: two scheduled logical atlases reuse one
+  typed physical texture, render four live sampled frames, and retain one
+  stable native handle through 1,000 allocation-free graph executions on
+  explicit OpenGL and Vulkan;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

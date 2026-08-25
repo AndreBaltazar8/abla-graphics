@@ -180,6 +180,12 @@ are values.
 
 The render graph is optional. It can derive barriers, transient lifetimes, and
 aliasing, but direct command encoders remain first-class for exact control.
+Its typed texture materializer is also optional: it retains one homogeneous
+texture-pool lease per planned slot, maps logical IDs through pass/generation
+checks, and borrows imported textures from their caller. The planner remains
+pure, while physical ownership remains affine and backend-neutral. Command and
+barrier emission can be layered over the same plan without changing direct
+resource APIs.
 
 ## Specification coverage
 

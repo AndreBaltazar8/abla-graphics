@@ -61,19 +61,20 @@ when that higher-level command layer is added.
 
 ## Render graph integration
 
-The existing graph planner assigns compatible, non-overlapping transient
-lifetimes to logical slots. A future graph materializer will own one or more
-homogeneous texture pools and map each planned allocation slot to one pool
-lease for the execution interval. The planner's compatibility value remains a
-logical class; materialization must still compare the complete texture
-descriptor before selecting a pool.
+`GraphicsMaterializedRenderGraph` now owns one capacity-one homogeneous pool
+and one retained lease for each allocation slot produced by the pure planner.
+It maps compatible non-overlapping logical textures to that stable object and
+rechecks the complete descriptor before accepting the planner's opaque
+compatibility class. Imported textures stay caller-owned. Pass-order and
+generation tokens guard upload, readback, copying, and sampled entries by
+logical resource ID. See `docs/render-graph-textures.md` for the full contract
+and evidence.
 
-This checkpoint does not claim graph materialization or physical memory
-aliasing. Vulkan heap suballocation can be added later as a backend-private
-implementation under the same common lease contract. It must classify Vulkan
-memory requirements, honor alignment and memory-type bits, bind only compatible
-images, and defer reuse until GPU completion. OpenGL will continue to reuse
-whole texture objects.
+This still does not claim Vulkan heap suballocation. It can be added later as a
+backend-private implementation under the same common ownership contract. It
+must classify Vulkan memory requirements, honor alignment and memory-type bits,
+bind only compatible images, and defer storage reuse until GPU completion.
+OpenGL will continue to reuse whole texture objects.
 
 ## Required evidence
 
