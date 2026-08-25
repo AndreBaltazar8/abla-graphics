@@ -80,13 +80,15 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
-- Published and synchronized tip before the current uncommitted work:
-  `a4162b99a88267924cd49c73eda4b36d136c1987`
-  (`Refresh compiler handoff state`).
+- Published and synchronized bounded-command implementation checkpoint:
+  `08d481ad5105c03b4858d341ffed31d606ce09cc`
+  (`Record bounded render graph commands`).
 - Relevant published implementation commits are `deecaa3` (`Execute render
-  graph barriers`) and `6ba1ec5` (`Compile render graph barrier schedules`).
-- At the time this handoff was refreshed, `HEAD` and `origin/main` both pointed
-  to `a4162b9`. Recheck instead of assuming this snapshot is still current.
+  graph barriers`), `6ba1ec5` (`Compile render graph barrier schedules`), and
+  `08d481a` (`Record bounded render graph commands`).
+- This handoff-only update is the intended successor to `08d481a`, so use
+  `git rev-parse HEAD` for the current tip instead of embedding a
+  self-referential handoff hash here. Recheck before release work.
 
 ### `ablac`
 
@@ -117,7 +119,7 @@ git -C ../ablac rev-parse HEAD
 git -C ../ablac rev-parse '@{upstream}'
 ```
 
-## Verified checkpoint awaiting publication
+## Published checkpoint: bounded render-graph commands
 
 The first bounded graph-command-recording slice is implemented and verified.
 It deliberately delivers a narrow command list:
@@ -172,7 +174,7 @@ Actual recorded render/compute commands, consolidated Vulkan command-buffer
 submission, frames in flight, and GPU-completion retention are later parts of
 milestone 5. Do not imply this first texture-copy slice delivers them.
 
-## Last published framework checkpoint
+## Published typed materialization foundation
 
 The published tip includes typed render-graph texture materialization from
 commit `b7d09cd` and its handoff commit `cdde6a1`.
