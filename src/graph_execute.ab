@@ -116,3 +116,37 @@ trusted fun GraphicsApplication.beginMaterializedRenderGraphPass(
     }
     succeeded
 }
+
+trusted fun GraphicsApplication.recordVulkanMaterializedRenderGraphPass(
+    var graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    passId: int
+): bool {
+    val next = graph.currentPassPosition + 1
+    var succeeded = this.valid() &&
+        this.backend == graphicsBackendVulkan && graph.active(token) &&
+        graph.backend == graphicsBackendVulkan && next >= 0 &&
+        next < graph.plan.order.size && graph.plan.order[next] == passId
+    val barrierCount = if (succeeded)
+        graph.compiledBarrierCounts[next] else 0
+    val sourceAccess = if (succeeded)
+        graph.compiledSourceAccesses[next] else 0
+    val destinationAccess = if (succeeded)
+        graph.compiledDestinationAccesses[next] else 0
+    succeeded = succeeded && barrierCount >= 0 &&
+        graph.currentExecutionBarriers <= graphicsMaximumInt - barrierCount
+    if (succeeded && barrierCount > 0) {
+        this.vulkanDevice.recordTransferMemoryBarrier(
+            graphicsGraphVulkanAllCommandsStage,
+            graphicsGraphVulkanAllCommandsStage,
+            graphicsGraphVulkanMemoryAccess(sourceAccess),
+            graphicsGraphVulkanMemoryAccess(destinationAccess)
+        )
+    }
+    if (succeeded) succeeded = graph.beginPass(token, passId)
+    if (succeeded) {
+        graph.currentExecutionBarriers =
+            graph.currentExecutionBarriers + barrierCount
+    }
+    succeeded
+}

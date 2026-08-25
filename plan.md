@@ -121,16 +121,19 @@ and exact expression-width rejection. Native attachment semantics for omitted
 components are verified by the live `vec3` output proof on both backends: RGBA8
 receives RGB and a zero alpha component.
 
-The optional materialized render graph now also has a first bounded reusable
-command slice. An affine fixed-capacity list records exact scheduled pass
-markers and graph-owned transient texture copies into preallocated primitive
-arrays, validates and fingerprints the whole stream at seal, binds it to the
-materialized graph's physical identities, and replays without warmed descriptor
-construction or live-memory growth. Exact OpenGL/Vulkan/auto tests cover
-different-graph and post-seal mutation rejection, abort/recovery, 1,001
-successful replays, stable native objects, and silent Vulkan validation.
-General render/compute recording, consolidated submission, and frames in flight
-remain milestone 5 work.
+The optional materialized render graph now also has a bounded reusable command
+slice. An affine fixed-capacity list records exact scheduled pass markers,
+graph-owned transient texture copies, and one typed procedural offscreen render
+into preallocated storage; it affinely owns the render target and pipeline,
+validates and fingerprints the whole stream at seal, and binds imported texture
+descriptors plus physical identities. Eligible Vulkan streams encode their
+barriers, copy, and render in one retained command buffer and submit once per
+complete replay; OpenGL preserves ordered direct replay. Exact
+OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
+mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
+stable native objects, exact output, submission counts, and silent Vulkan
+validation. General compute recording, broader render/copy forms, asynchronous
+GPU-completion retention, and frames in flight remain milestone 5 work.
 
 ## Non-negotiable design rules
 

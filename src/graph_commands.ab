@@ -8,13 +8,53 @@ import "texture_pool.ab"
 import "graph.ab"
 import "graph_texture.ab"
 import "graph_execute.ab"
+import "render.ab"
 
 val graphicsGraphCommandPass = 1
 val graphicsGraphCommandTextureCopy = 2
+val graphicsGraphCommandRender = 3
 val graphicsMaximumGraphCommands = 4096
 
 fun graphicsGraphCommandFingerprintMix(state: int, value: int): int =
     ((state << 7) | (state >>> 57)) ^ value ^ (value >>> 32)
+
+fun graphicsGraphTextureDescriptorFingerprint(
+    descriptor: TextureDescriptor
+): int {
+    var fingerprint = graphicsGraphCommandFingerprintMix(
+        4354685564936845355,
+        descriptor.size.width
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.size.height
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.size.depth
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.mipLevels
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.samples
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.dimension
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.format
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.usage
+    )
+    if (fingerprint == 0) 1 else fingerprint
+}
 
 fun graphicsGraphDeclaredAccess(
     graph: GraphicsMaterializedRenderGraph,
@@ -27,6 +67,42 @@ fun graphicsGraphDeclaredAccess(
     else 0
 }
 
+fun graphicsGraphRecordedRenderResourcesValid(
+    target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    backend: int
+): bool = target.valid() && pipeline.valid() &&
+    target.backend == backend && pipeline.backend == backend &&
+    target.colorCount() == 1 && !target.hasDepth() &&
+    !target.hasResolves() && target.texture.descriptor.samples == 1 &&
+    pipeline.targetHandle == (if (backend == graphicsBackendOpenGl)
+        target.openGl.handle else target.vulkan.framebuffer) &&
+    pipeline.targetWidth == target.texture.descriptor.size.width &&
+    pipeline.targetHeight == target.texture.descriptor.size.height &&
+    pipeline.targetColorCount == 1 && pipeline.targetSubpass == 0 &&
+    pipeline.pushConstantLayout.size == 0 &&
+    !pipeline.vertexLayout.buffered() && !pipeline.depth.enabled &&
+    pipeline.binding.empty()
+
+fun graphicsGraphRecordedRenderValid(
+    graph: GraphicsMaterializedRenderGraph,
+    passId: int,
+    resourceId: int,
+    target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    backend: int
+): bool = graphicsGraphRecordedRenderResourcesValid(
+    target,
+    pipeline,
+    backend
+) && graph.importedResource(resourceId) &&
+    (graphicsGraphDeclaredAccess(graph, passId, resourceId) &
+        graphAccessWrite) != 0 &&
+    textureDescriptorsStorageCompatible(
+        graph.textureDescriptor(resourceId),
+        target.texture.descriptor
+    )
+
 resource class GraphicsGraphCommandList(
     val capacity: int,
     val backend: int,
@@ -34,6 +110,9 @@ resource class GraphicsGraphCommandList(
     val resourceIds: array<int>,
     val resourceSlots: array<int>,
     val resourcePhysicalIdentities: array<int>,
+    val resourceDescriptorFingerprints: array<int>,
+    var renderTargets: array<GraphicsRenderTarget>,
+    var renderPipelines: array<GraphicsRenderPipeline>,
     val kinds: array<int>,
     val passIds: array<int>,
     val sourceResourceIds: array<int>,
@@ -49,15 +128,40 @@ resource class GraphicsGraphCommandList(
     val widths: array<int>,
     val heights: array<int>,
     val depths: array<int>,
+    val renderIndices: array<int>,
+    val renderResourceIds: array<int>,
+    val clearReds: array<f64>,
+    val clearGreens: array<f64>,
+    val clearBlues: array<f64>,
+    val clearAlphas: array<f64>,
+    val oldSourceLayouts: array<int>,
+    val oldDestinationLayouts: array<int>,
     var commandCount: int,
     var recordedPasses: int,
     var sealed: bool,
     var prepared: bool,
+    var consolidatedVulkan: bool,
     var sealedFingerprint: int,
     var executions: int,
     var failedExecutions: int,
+    var vulkanSubmissions: int,
     val error: GraphicsError
 ) {
+    fun renderResourcesValid(): bool {
+        var accepted = this.renderTargets.size == this.renderPipelines.size &&
+            this.renderTargets.size <= this.capacity
+        var index = 0
+        while (accepted && index < this.renderTargets.size) {
+            accepted = graphicsGraphRecordedRenderResourcesValid(
+                this.renderTargets[index],
+                this.renderPipelines[index],
+                this.backend
+            )
+            index = index + 1
+        }
+        accepted
+    }
+
     fun valid(): bool = !this.error.occurred() &&
         this.capacity >= 1 &&
         this.capacity <= graphicsMaximumGraphCommands &&
@@ -69,6 +173,8 @@ resource class GraphicsGraphCommandList(
         this.resourceIds.size <= graphicsMaximumGraphTextureResources &&
         this.resourceSlots.size == this.resourceIds.size &&
         this.resourcePhysicalIdentities.size == this.resourceIds.size &&
+        this.resourceDescriptorFingerprints.size == this.resourceIds.size &&
+        this.renderResourcesValid() &&
         this.kinds.size == this.capacity &&
         this.passIds.size == this.capacity &&
         this.sourceResourceIds.size == this.capacity &&
@@ -84,12 +190,21 @@ resource class GraphicsGraphCommandList(
         this.widths.size == this.capacity &&
         this.heights.size == this.capacity &&
         this.depths.size == this.capacity &&
+        this.renderIndices.size == this.capacity &&
+        this.renderResourceIds.size == this.capacity &&
+        this.clearReds.size == this.capacity &&
+        this.clearGreens.size == this.capacity &&
+        this.clearBlues.size == this.capacity &&
+        this.clearAlphas.size == this.capacity &&
+        this.oldSourceLayouts.size == this.capacity &&
+        this.oldDestinationLayouts.size == this.capacity &&
         this.commandCount >= 0 && this.commandCount <= this.capacity &&
         this.recordedPasses >= 0 &&
         this.recordedPasses <= this.passOrder.size &&
         (!this.prepared || this.sealed) &&
         (!this.prepared || this.sealedFingerprint != 0) &&
-        this.executions >= 0 && this.failedExecutions >= 0
+        this.executions >= 0 && this.failedExecutions >= 0 &&
+        this.vulkanSubmissions >= 0
 
     fun fingerprint(): int {
         var fingerprint = graphicsGraphCommandFingerprintMix(
@@ -99,6 +214,10 @@ resource class GraphicsGraphCommandList(
         fingerprint = graphicsGraphCommandFingerprintMix(
             fingerprint,
             this.recordedPasses
+        )
+        fingerprint = graphicsGraphCommandFingerprintMix(
+            fingerprint,
+            if (this.consolidatedVulkan) 1 else 0
         )
         var commandIndex = 0
         while (commandIndex < this.commandCount) {
@@ -162,6 +281,30 @@ resource class GraphicsGraphCommandList(
                 fingerprint,
                 this.depths[commandIndex]
             )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.renderIndices[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                this.renderResourceIds[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                f64ToBits(this.clearReds[commandIndex])
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                f64ToBits(this.clearGreens[commandIndex])
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                f64ToBits(this.clearBlues[commandIndex])
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                f64ToBits(this.clearAlphas[commandIndex])
+            )
             commandIndex = commandIndex + 1
         }
         if (fingerprint == 0) 1 else fingerprint
@@ -182,12 +325,20 @@ resource class GraphicsGraphCommandList(
         while (accepted && resourceIndex < this.resourceIds.size) {
             val resourceId = this.resourceIds[resourceIndex]
             accepted = resourceId == graph.resources[resourceIndex].id &&
-                graph.transientResource(resourceId) &&
                 this.resourceSlots[resourceIndex] ==
                     graph.resourceSlot(resourceId) &&
-                this.resourcePhysicalIdentities[resourceIndex] != 0 &&
-                this.resourcePhysicalIdentities[resourceIndex] ==
-                    graph.physicalIdentity(resourceId)
+                this.resourceDescriptorFingerprints[resourceIndex] ==
+                    graphicsGraphTextureDescriptorFingerprint(
+                        graph.textureDescriptor(resourceId)
+                    ) && (
+                    (graph.transientResource(resourceId) &&
+                     this.resourcePhysicalIdentities[resourceIndex] != 0 &&
+                     this.resourcePhysicalIdentities[resourceIndex] ==
+                        graph.physicalIdentity(resourceId)) ||
+                    (graph.importedResource(resourceId) &&
+                     this.resourceSlots[resourceIndex] == -1 &&
+                     this.resourcePhysicalIdentities[resourceIndex] == 0)
+                )
             resourceIndex = resourceIndex + 1
         }
         accepted
@@ -248,10 +399,91 @@ resource class GraphicsGraphCommandList(
                         this.heights[commandIndex],
                         this.depths[commandIndex]
                     )
+            } else if (kind == graphicsGraphCommandRender) {
+                val renderIndex = this.renderIndices[commandIndex]
+                val resourceId = this.renderResourceIds[commandIndex]
+                val passId = if (passPosition >= 0 &&
+                    passPosition < this.passOrder.size)
+                    this.passOrder[passPosition] else -1
+                accepted = passId >= 0 &&
+                    this.passIds[commandIndex] == passId &&
+                    renderIndex >= 0 &&
+                    renderIndex < this.renderTargets.size &&
+                    renderIndex < this.renderPipelines.size &&
+                    graphicsColorScalarsValid(
+                        this.clearReds[commandIndex],
+                        this.clearGreens[commandIndex],
+                        this.clearBlues[commandIndex],
+                        this.clearAlphas[commandIndex]
+                    ) && graphicsGraphRecordedRenderValid(
+                        graph,
+                        passId,
+                        resourceId,
+                        this.renderTargets[renderIndex],
+                        this.renderPipelines[renderIndex],
+                        this.backend
+                    )
             } else accepted = false
             commandIndex = commandIndex + 1
         }
         accepted && passPosition == this.passOrder.size - 1
+    }
+
+    fun vulkanCommandsConsolidatable(
+        graph: GraphicsMaterializedRenderGraph
+    ): bool {
+        var accepted = this.backend == graphicsBackendVulkan &&
+            this.graphCompatible(graph)
+        var commandIndex = 0
+        while (accepted && commandIndex < this.commandCount) {
+            val kind = this.kinds[commandIndex]
+            if (kind == graphicsGraphCommandTextureCopy) {
+                val source = graph.textureDescriptor(
+                    this.sourceResourceIds[commandIndex]
+                )
+                val destination = graph.textureDescriptor(
+                    this.destinationResourceIds[commandIndex]
+                )
+                accepted = source.dimension == textureDimension2D &&
+                    destination.dimension == textureDimension2D &&
+                    this.sourceZs[commandIndex] == 0 &&
+                    this.destinationZs[commandIndex] == 0 &&
+                    this.depths[commandIndex] == 1
+            } else accepted = kind == graphicsGraphCommandPass ||
+                kind == graphicsGraphCommandRender
+            commandIndex = commandIndex + 1
+        }
+        accepted
+    }
+
+    fun directVulkanSubmissionCount(
+        graph: GraphicsMaterializedRenderGraph
+    ): int {
+        if (this.backend != graphicsBackendVulkan) return 0
+        var accepted = this.graphCompatible(graph)
+        var submissions = 0
+        var passPosition = -1
+        var commandIndex = 0
+        while (accepted && commandIndex < this.commandCount) {
+            val kind = this.kinds[commandIndex]
+            var submits = false
+            if (kind == graphicsGraphCommandPass) {
+                passPosition = passPosition + 1
+                accepted = passPosition >= 0 &&
+                    passPosition < graph.compiledBarrierCounts.size
+                submits = accepted &&
+                    graph.compiledBarrierCounts[passPosition] > 0
+            } else if (kind == graphicsGraphCommandTextureCopy ||
+                kind == graphicsGraphCommandRender) {
+                submits = true
+            } else accepted = false
+            if (accepted && submits) {
+                accepted = submissions < graphicsMaximumInt
+                if (accepted) submissions = submissions + 1
+            }
+            commandIndex = commandIndex + 1
+        }
+        if (accepted) submissions else -1
     }
 
     trusted fun recordPass(
@@ -372,6 +604,45 @@ resource class GraphicsGraphCommandList(
             )
     }
 
+    trusted fun recordRenderTarget(
+        graph: GraphicsMaterializedRenderGraph,
+        resourceId: int,
+        own target: GraphicsRenderTarget,
+        own pipeline: GraphicsRenderPipeline,
+        clear: Color = Color(0.0, 0.0, 0.0)
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val renderIndex = this.renderTargets.size
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            renderIndex < this.capacity &&
+            renderIndex == this.renderPipelines.size && clear.valid() &&
+            graphicsGraphRecordedRenderValid(
+                graph,
+                passId,
+                resourceId,
+                target,
+                pipeline,
+                this.backend
+            )
+        if (accepted) {
+            val index = this.commandCount
+            this.renderTargets.append(move(target))
+            this.renderPipelines.append(move(pipeline))
+            this.kinds[index] = graphicsGraphCommandRender
+            this.passIds[index] = passId
+            this.renderIndices[index] = renderIndex
+            this.renderResourceIds[index] = resourceId
+            this.clearReds[index] = clear.red
+            this.clearGreens[index] = clear.green
+            this.clearBlues[index] = clear.blue
+            this.clearAlphas[index] = clear.alpha
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
     fun seal(graph: GraphicsMaterializedRenderGraph): bool {
         val accepted = this.graphCompatible(graph) && !this.sealed &&
             this.recordedPasses == this.passOrder.size &&
@@ -379,6 +650,8 @@ resource class GraphicsGraphCommandList(
         if (accepted) this.sealed = true
         val prepared = accepted && this.commandsValidFor(graph)
         if (prepared) {
+            this.consolidatedVulkan =
+                this.vulkanCommandsConsolidatable(graph)
             this.sealedFingerprint = this.fingerprint()
             this.prepared = true
         }
@@ -386,9 +659,6 @@ resource class GraphicsGraphCommandList(
         prepared
     }
 
-    fun drop(): void {
-        return
-    }
 }
 
 trusted fun GraphicsApplication.graphCommandList(
@@ -402,6 +672,9 @@ trusted fun GraphicsApplication.graphCommandList(
     val resourceIds: array<int> = []
     val resourceSlots: array<int> = []
     val resourcePhysicalIdentities: array<int> = []
+    val resourceDescriptorFingerprints: array<int> = []
+    val renderTargets: array<GraphicsRenderTarget> = []
+    val renderPipelines: array<GraphicsRenderPipeline> = []
     val kinds: array<int> = []
     val passIds: array<int> = []
     val sourceResourceIds: array<int> = []
@@ -417,6 +690,14 @@ trusted fun GraphicsApplication.graphCommandList(
     val widths: array<int> = []
     val heights: array<int> = []
     val depths: array<int> = []
+    val renderIndices: array<int> = []
+    val renderResourceIds: array<int> = []
+    val clearReds: array<f64> = []
+    val clearGreens: array<f64> = []
+    val clearBlues: array<f64> = []
+    val clearAlphas: array<f64> = []
+    val oldSourceLayouts: array<int> = []
+    val oldDestinationLayouts: array<int> = []
     var index = 0
     while (accepted && index < graph.plan.order.size) {
         passOrder.append(graph.plan.order[index])
@@ -426,10 +707,18 @@ trusted fun GraphicsApplication.graphCommandList(
     while (accepted && index < graph.resources.size) {
         val resourceId = graph.resources[index].id
         val physicalIdentity = graph.physicalIdentity(resourceId)
-        if (graph.transientResource(resourceId) && physicalIdentity != 0) {
+        if ((graph.transientResource(resourceId) && physicalIdentity != 0) ||
+            (graph.importedResource(resourceId) &&
+             graph.resourceSlot(resourceId) == -1 &&
+             physicalIdentity == 0)) {
             resourceIds.append(resourceId)
             resourceSlots.append(graph.resourceSlot(resourceId))
             resourcePhysicalIdentities.append(physicalIdentity)
+            resourceDescriptorFingerprints.append(
+                graphicsGraphTextureDescriptorFingerprint(
+                    graph.textureDescriptor(resourceId)
+                )
+            )
         } else accepted = false
         index = index + 1
     }
@@ -450,6 +739,14 @@ trusted fun GraphicsApplication.graphCommandList(
         widths.append(0)
         heights.append(0)
         depths.append(0)
+        renderIndices.append(-1)
+        renderResourceIds.append(-1)
+        clearReds.append(0.0)
+        clearGreens.append(0.0)
+        clearBlues.append(0.0)
+        clearAlphas.append(0.0)
+        oldSourceLayouts.append(-1)
+        oldDestinationLayouts.append(-1)
         index = index + 1
     }
     GraphicsGraphCommandList(
@@ -459,6 +756,9 @@ trusted fun GraphicsApplication.graphCommandList(
         resourceIds,
         resourceSlots,
         resourcePhysicalIdentities,
+        resourceDescriptorFingerprints,
+        move(renderTargets),
+        move(renderPipelines),
         kinds,
         passIds,
         sourceResourceIds,
@@ -474,10 +774,20 @@ trusted fun GraphicsApplication.graphCommandList(
         widths,
         heights,
         depths,
+        renderIndices,
+        renderResourceIds,
+        clearReds,
+        clearGreens,
+        clearBlues,
+        clearAlphas,
+        oldSourceLayouts,
+        oldDestinationLayouts,
         0,
         0,
         false,
         false,
+        false,
+        0,
         0,
         0,
         0,
@@ -486,7 +796,7 @@ trusted fun GraphicsApplication.graphCommandList(
                 graphicsErrorLimitExceeded
             else graphicsErrorInvalidConfiguration,
             "GraphicsApplication.graphCommandList",
-            "graph command lists require a compatible all-transient materialized graph and capacity for every pass"
+            "graph command lists require a compatible materialized graph and capacity for every pass"
         )
     )
 }
@@ -495,23 +805,154 @@ trusted fun GraphicsApplication.executeGraphCommands(
     var graph: GraphicsMaterializedRenderGraph,
     var commands: GraphicsGraphCommandList
 ): bool {
-    var succeeded = this.valid() && !graph.executing &&
+    val ready = this.valid() && !graph.executing &&
         commands.graphCompatible(graph) && commands.sealed &&
         commands.prepared && commands.sealedFingerprint != 0 &&
         commands.sealedFingerprint == commands.fingerprint() &&
         commands.executions < graphicsMaximumInt &&
-        commands.failedExecutions < graphicsMaximumInt
+        commands.failedExecutions < graphicsMaximumInt &&
+        commands.vulkanSubmissions < graphicsMaximumInt
+    var succeeded = false
+    if (ready && commands.consolidatedVulkan) {
+        succeeded = this.executeConsolidatedVulkanGraphCommands(
+            graph,
+            commands
+        )
+    } else if (ready) {
+        succeeded = this.executeDirectGraphCommands(graph, commands)
+    }
+    if (succeeded) commands.executions = commands.executions + 1
+    else if (commands.failedExecutions >= 0 &&
+        commands.failedExecutions < graphicsMaximumInt) {
+        commands.failedExecutions = commands.failedExecutions + 1
+    }
+    succeeded
+}
+
+trusted fun GraphicsApplication.executeRecordedGraphRender(
+    var graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    resourceId: int,
+    var target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    red: f64,
+    green: f64,
+    blue: f64,
+    alpha: f64
+): bool {
+    val passId = if (graph.currentPassPosition >= 0 &&
+        graph.currentPassPosition < graph.plan.order.size)
+        graph.plan.order[graph.currentPassPosition] else -1
+    var succeeded = this.valid() && graph.resourceActive(token, resourceId) &&
+        passId >= 0 && graphicsColorScalarsValid(red, green, blue, alpha) &&
+        graphicsGraphRecordedRenderValid(
+            graph,
+            passId,
+            resourceId,
+            target,
+            pipeline,
+            this.backend
+        )
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = this.openGl.renderProgramTarget(
+            target.openGl,
+            pipeline.openGl,
+            red,
+            green,
+            blue,
+            alpha,
+            pipeline.raster,
+            pipeline.depth,
+            pipeline.vertexLayout,
+            0,
+            3,
+            0,
+            0,
+            1,
+            pipeline.binding.openGlKinds,
+            pipeline.binding.openGlBindings,
+            pipeline.binding.openGlResources,
+            pipeline.binding.openGlOffsets,
+            pipeline.binding.openGlSizes,
+            pipeline.binding.openGlSamplers
+        )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = this.vulkanDevice.renderTargetProgram(
+            target.vulkan,
+            pipeline.vulkan,
+            red,
+            green,
+            blue,
+            alpha,
+            descriptorSet = pipeline.binding.vulkan.descriptorSet
+        )
+    } else if (succeeded) succeeded = false
+    if (succeeded) succeeded = this.finishRenderTarget(target)
+    succeeded
+}
+
+trusted fun GraphicsApplication.recordVulkanGraphRender(
+    var graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    resourceId: int,
+    target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    red: f64,
+    green: f64,
+    blue: f64,
+    alpha: f64
+): bool {
+    val passId = if (graph.currentPassPosition >= 0 &&
+        graph.currentPassPosition < graph.plan.order.size)
+        graph.plan.order[graph.currentPassPosition] else -1
+    return this.backend == graphicsBackendVulkan &&
+        graph.resourceActive(token, resourceId) && passId >= 0 &&
+        graphicsColorScalarsValid(red, green, blue, alpha) &&
+        graphicsGraphRecordedRenderValid(
+            graph,
+            passId,
+            resourceId,
+            target,
+            pipeline,
+            this.backend
+        ) && this.vulkanDevice.recordRenderTargetProgram(
+            target.vulkan,
+            pipeline.vulkan,
+            red,
+            green,
+            blue,
+            alpha,
+            descriptorSet = pipeline.binding.vulkan.descriptorSet
+        )
+}
+
+trusted fun GraphicsApplication.executeDirectGraphCommands(
+    var graph: GraphicsMaterializedRenderGraph,
+    var commands: GraphicsGraphCommandList
+): bool {
+    val requiredSubmissions = commands.directVulkanSubmissionCount(graph)
+    var succeeded = requiredSubmissions >= 0 &&
+        commands.vulkanSubmissions <=
+            graphicsMaximumInt - requiredSubmissions
     val token = if (succeeded) graph.beginExecution() else 0
     succeeded = token > 0
     var commandIndex = 0
     while (succeeded && commandIndex < commands.commandCount) {
         val kind = commands.kinds[commandIndex]
         if (kind == graphicsGraphCommandPass) {
+            val next = graph.currentPassPosition + 1
+            val barrierCount = if (next >= 0 &&
+                next < graph.compiledBarrierCounts.size)
+                graph.compiledBarrierCounts[next] else 0
             succeeded = this.beginMaterializedRenderGraphPass(
                 graph,
                 token,
                 commands.passIds[commandIndex]
             )
+            if (this.backend == graphicsBackendVulkan && barrierCount > 0 &&
+                this.vulkanDevice.transferSubmissionAccepted) {
+                commands.vulkanSubmissions = commands.vulkanSubmissions + 1
+            }
         } else if (kind == graphicsGraphCommandTextureCopy) {
             succeeded = this.copyGraphTextureRange(
                 graph,
@@ -530,17 +971,229 @@ trusted fun GraphicsApplication.executeGraphCommands(
                 commands.heights[commandIndex],
                 commands.depths[commandIndex]
             )
+            if (this.backend == graphicsBackendVulkan &&
+                this.vulkanDevice.transferSubmissionAccepted) {
+                commands.vulkanSubmissions = commands.vulkanSubmissions + 1
+            }
+        } else if (kind == graphicsGraphCommandRender) {
+            val renderIndex = commands.renderIndices[commandIndex]
+            succeeded = renderIndex >= 0 &&
+                renderIndex < commands.renderTargets.size &&
+                renderIndex < commands.renderPipelines.size &&
+                this.executeRecordedGraphRender(
+                    graph,
+                    token,
+                    commands.renderResourceIds[commandIndex],
+                    commands.renderTargets[renderIndex],
+                    commands.renderPipelines[renderIndex],
+                    commands.clearReds[commandIndex],
+                    commands.clearGreens[commandIndex],
+                    commands.clearBlues[commandIndex],
+                    commands.clearAlphas[commandIndex]
+                )
+            if (this.backend == graphicsBackendVulkan &&
+                this.vulkanDevice.transferSubmissionAccepted) {
+                commands.vulkanSubmissions = commands.vulkanSubmissions + 1
+            }
         } else succeeded = false
         commandIndex = commandIndex + 1
     }
     if (succeeded) succeeded = graph.completeExecution(token)
-    if (succeeded) commands.executions = commands.executions + 1
-    else {
-        if (token > 0 && graph.active(token)) graph.abortExecution(token)
-        if (commands.failedExecutions >= 0 &&
-            commands.failedExecutions < graphicsMaximumInt) {
-            commands.failedExecutions = commands.failedExecutions + 1
+    if (!succeeded && token > 0 && graph.active(token))
+        graph.abortExecution(token)
+    succeeded
+}
+
+trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
+    var graph: GraphicsMaterializedRenderGraph,
+    var commands: GraphicsGraphCommandList
+): bool {
+    var barrierCalls = 0
+    var totalBarriers = 0
+    var passPosition = 0
+    var countsValid = true
+    while (countsValid && passPosition < graph.compiledBarrierCounts.size) {
+        val count = graph.compiledBarrierCounts[passPosition]
+        countsValid = count >= 0 &&
+            totalBarriers <= graphicsMaximumInt - count
+        if (countsValid) totalBarriers = totalBarriers + count
+        if (countsValid && count > 0) {
+            countsValid = barrierCalls < graphicsMaximumInt
+            if (countsValid) barrierCalls = barrierCalls + 1
+        }
+        passPosition = passPosition + 1
+    }
+    var succeeded = countsValid && this.backend == graphicsBackendVulkan &&
+        commands.consolidatedVulkan &&
+        graph.totalExecutedBarriers <= graphicsMaximumInt - totalBarriers &&
+        graph.backendBarrierCalls <= graphicsMaximumInt - barrierCalls &&
+        commands.vulkanSubmissions < graphicsMaximumInt
+    val token = if (succeeded) graph.beginExecution() else 0
+    succeeded = token > 0 && this.vulkanDevice.beginTransfer()
+    var commandIndex = 0
+    while (commandIndex < commands.commandCount) {
+        commands.oldSourceLayouts[commandIndex] = -1
+        commands.oldDestinationLayouts[commandIndex] = -1
+        commandIndex = commandIndex + 1
+    }
+    commandIndex = 0
+    while (succeeded && commandIndex < commands.commandCount) {
+        val kind = commands.kinds[commandIndex]
+        if (kind == graphicsGraphCommandPass) {
+            succeeded = this.recordVulkanMaterializedRenderGraphPass(
+                graph,
+                token,
+                commands.passIds[commandIndex]
+            )
+        } else if (kind == graphicsGraphCommandTextureCopy) {
+            val sourceResourceId =
+                commands.sourceResourceIds[commandIndex]
+            val destinationResourceId =
+                commands.destinationResourceIds[commandIndex]
+            val sourceSlot = graph.resourceSlot(sourceResourceId)
+            val destinationSlot = graph.resourceSlot(destinationResourceId)
+            val sourceDescriptor = graph.textureDescriptor(sourceResourceId)
+            val destinationDescriptor =
+                graph.textureDescriptor(destinationResourceId)
+            val sourceTextureSlot = if (sourceSlot >= 0 &&
+                sourceSlot < graph.slotLeases.size)
+                texturePoolTokenSlot(graph.slotLeases[sourceSlot]) else -1
+            val destinationTextureSlot = if (destinationSlot >= 0 &&
+                destinationSlot < graph.slotLeases.size)
+                texturePoolTokenSlot(
+                    graph.slotLeases[destinationSlot]
+                ) else -1
+            succeeded = sourceSlot >= 0 && destinationSlot >= 0 &&
+                sourceTextureSlot >= 0 && destinationTextureSlot >= 0 &&
+                sourceSlot < graph.pools.size &&
+                destinationSlot < graph.pools.size &&
+                sourceTextureSlot < graph.pools[sourceSlot].textures.size &&
+                destinationTextureSlot <
+                    graph.pools[destinationSlot].textures.size
+            if (succeeded) {
+                commands.oldSourceLayouts[commandIndex] =
+                    graph.pools[sourceSlot].textures[
+                        sourceTextureSlot
+                    ].vulkan.loadLayout(
+                        sourceDescriptor,
+                        commands.sourceMipLevels[commandIndex],
+                        0
+                    )
+                commands.oldDestinationLayouts[commandIndex] =
+                    graph.pools[destinationSlot].textures[
+                        destinationTextureSlot
+                    ].vulkan.loadLayout(
+                        destinationDescriptor,
+                        commands.destinationMipLevels[commandIndex],
+                        0
+                    )
+                succeeded = commands.oldSourceLayouts[commandIndex] >= 0 &&
+                    commands.oldDestinationLayouts[commandIndex] >= 0 &&
+                    this.vulkanDevice.recordTextureCopyRange(
+                        graph.pools[sourceSlot].textures[
+                            sourceTextureSlot
+                        ].vulkan,
+                        sourceDescriptor,
+                        graph.pools[destinationSlot].textures[
+                            destinationTextureSlot
+                        ].vulkan,
+                        destinationDescriptor,
+                        commands.sourceMipLevels[commandIndex],
+                        commands.sourceXs[commandIndex],
+                        commands.sourceYs[commandIndex],
+                        0,
+                        commands.destinationMipLevels[commandIndex],
+                        commands.destinationXs[commandIndex],
+                        commands.destinationYs[commandIndex],
+                        0,
+                        commands.widths[commandIndex],
+                        commands.heights[commandIndex],
+                        1,
+                        true
+                    )
+            }
+        } else if (kind == graphicsGraphCommandRender) {
+            val renderIndex = commands.renderIndices[commandIndex]
+            succeeded = renderIndex >= 0 &&
+                renderIndex < commands.renderTargets.size &&
+                renderIndex < commands.renderPipelines.size &&
+                this.recordVulkanGraphRender(
+                    graph,
+                    token,
+                    commands.renderResourceIds[commandIndex],
+                    commands.renderTargets[renderIndex],
+                    commands.renderPipelines[renderIndex],
+                    commands.clearReds[commandIndex],
+                    commands.clearGreens[commandIndex],
+                    commands.clearBlues[commandIndex],
+                    commands.clearAlphas[commandIndex]
+                )
+        } else succeeded = false
+        commandIndex = commandIndex + 1
+    }
+    var submitted = false
+    if (succeeded) {
+        succeeded = this.vulkanDevice.submitTransfer()
+        submitted = this.vulkanDevice.transferSubmissionAccepted
+    }
+    if (submitted) {
+        graph.totalExecutedBarriers =
+            graph.totalExecutedBarriers + totalBarriers
+        graph.backendBarrierCalls = graph.backendBarrierCalls + barrierCalls
+        commands.vulkanSubmissions = commands.vulkanSubmissions + 1
+        commandIndex = 0
+        while (commandIndex < commands.commandCount) {
+            if (commands.kinds[commandIndex] ==
+                graphicsGraphCommandRender) {
+                commands.renderTargets[
+                    commands.renderIndices[commandIndex]
+                ].storeVulkanLayouts()
+            }
+            commandIndex = commandIndex + 1
+        }
+        if (succeeded) succeeded = graph.completeExecution(token)
+    }
+    if (!submitted) {
+        commandIndex = commands.commandCount - 1
+        while (commandIndex >= 0) {
+            if (commands.kinds[commandIndex] ==
+                graphicsGraphCommandTextureCopy &&
+                commands.oldSourceLayouts[commandIndex] >= 0 &&
+                commands.oldDestinationLayouts[commandIndex] >= 0) {
+                val sourceResourceId =
+                    commands.sourceResourceIds[commandIndex]
+                val destinationResourceId =
+                    commands.destinationResourceIds[commandIndex]
+                val sourceSlot = graph.resourceSlot(sourceResourceId)
+                val destinationSlot =
+                    graph.resourceSlot(destinationResourceId)
+                val sourceTextureSlot = texturePoolTokenSlot(
+                    graph.slotLeases[sourceSlot]
+                )
+                val destinationTextureSlot = texturePoolTokenSlot(
+                    graph.slotLeases[destinationSlot]
+                )
+                graph.pools[sourceSlot].textures[
+                    sourceTextureSlot
+                ].vulkan.storeSubresourceLayout(
+                    graph.textureDescriptor(sourceResourceId),
+                    commands.sourceMipLevels[commandIndex],
+                    0,
+                    commands.oldSourceLayouts[commandIndex]
+                )
+                graph.pools[destinationSlot].textures[
+                    destinationTextureSlot
+                ].vulkan.storeSubresourceLayout(
+                    graph.textureDescriptor(destinationResourceId),
+                    commands.destinationMipLevels[commandIndex],
+                    0,
+                    commands.oldDestinationLayouts[commandIndex]
+                )
+            }
+            commandIndex = commandIndex - 1
         }
     }
+    if (!succeeded && token > 0 && graph.active(token))
+        graph.abortExecution(token)
     succeeded
 }

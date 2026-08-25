@@ -174,11 +174,264 @@ trusted fun graphCommandProbe(requestedBackend: int): bool {
         graph.totalExecutedBarriers == 2006 &&
         graph.backendBarrierCalls == 2006 &&
         graph.pools[0].acquisitionCount == 1 &&
-        graph.pools[1].acquisitionCount == 1
+        graph.pools[1].acquisitionCount == 1 &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan) &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
     val passed = recorded && abortPassed && mismatchRejected &&
         tamperRejected && exact && stable
     println(
-        "graph-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} exact=$exact mismatch=$mismatchRejected tamper=$tamperRejected aborted=${graph.abortedExecutions} executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity"
+        "graph-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} exact=$exact mismatch=$mismatchRejected tamper=$tamperRejected aborted=${graph.abortedExecutions} executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity"
+    )
+    passed && graphRenderCommandProbe(app)
+}
+
+trusted fun graphRenderCommandProbe(var app: GraphicsApplication): bool {
+    val targetDescriptor = TextureDescriptor(
+        label = "recorded-render-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val copySourceDescriptor = TextureDescriptor(
+        label = "recorded-render-copy-source",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val copyDestinationDescriptor = TextureDescriptor(
+        label = "recorded-render-copy-destination",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(10, "recorded-target", false, 0, 30),
+        GraphicsGraphResource(11, "recorded-copy-source", true, 16, 31),
+        GraphicsGraphResource(12, "recorded-copy-destination", true, 16, 32)
+    ], [
+        GraphicsGraphPass(100, "recorded-prepare", [
+            GraphicsGraphUse(11, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(200, "recorded-copy", [
+            GraphicsGraphUse(11, graphAccessRead),
+            GraphicsGraphUse(12, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(300, "recorded-render", [
+            GraphicsGraphUse(12, graphAccessRead),
+            GraphicsGraphUse(10, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(400, "recorded-inspect", [
+            GraphicsGraphUse(10, graphAccessRead),
+            GraphicsGraphUse(12, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(10, targetDescriptor),
+        GraphicsGraphTextureDeclaration(11, copySourceDescriptor),
+        GraphicsGraphTextureDeclaration(12, copyDestinationDescriptor)
+    ])
+    val incompatibleGraph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(10, "incompatible-target", false, 0, 30),
+        GraphicsGraphResource(11, "incompatible-source", true, 16, 31),
+        GraphicsGraphResource(12, "incompatible-destination", true, 16, 32)
+    ], [
+        GraphicsGraphPass(100, "incompatible-prepare", [
+            GraphicsGraphUse(11, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(200, "incompatible-copy", [
+            GraphicsGraphUse(11, graphAccessRead),
+            GraphicsGraphUse(12, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(300, "incompatible-render", [
+            GraphicsGraphUse(12, graphAccessRead),
+            GraphicsGraphUse(10, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(400, "incompatible-inspect", [
+            GraphicsGraphUse(10, graphAccessRead),
+            GraphicsGraphUse(12, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(10, TextureDescriptor(
+            label = "incompatible-recorded-render-target",
+            size = Extent3D(8, 8),
+            format = textureFormatRgba8Unorm,
+            usage = targetDescriptor.usage
+        )),
+        GraphicsGraphTextureDeclaration(11, copySourceDescriptor),
+        GraphicsGraphTextureDeclaration(12, copyDestinationDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val wrongTexture = app.texture(TextureDescriptor(
+        label = "wrong-recorded-render-target",
+        size = Extent3D(8, 8),
+        format = textureFormatRgba8Unorm,
+        usage = targetDescriptor.usage
+    ))
+    val wrongTarget = app.renderTarget(move(wrongTexture))
+    val wrongPipeline = app.renderTargetPipeline(wrongTarget, shader)
+    val targetTexture = app.texture(targetDescriptor)
+    val target = app.renderTarget(move(targetTexture))
+    val pipeline = app.renderTargetPipeline(target, shader)
+    val commands = app.graphCommandList(graph, 6)
+    val timelineBeforeInvalid = if (app.backend == graphicsBackendVulkan)
+        app.vulkanDevice.transferTimelineValue else 0
+    val invalidDirectRejected = if (app.backend == graphicsBackendVulkan)
+        !app.vulkanDevice.renderTargetProgram(
+            target.vulkan,
+            pipeline.vulkan,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            vertexCount = 0
+        ) && app.vulkanDevice.valid() &&
+            !app.vulkanDevice.transferSubmissionAccepted &&
+            app.vulkanDevice.transferTimelineValue == timelineBeforeInvalid
+    else true
+    val incompatibleRecordRejected = app.valid() && graph.valid() &&
+        incompatibleGraph.valid() && shader.valid && wrongTarget.valid() &&
+        wrongPipeline.valid() && target.valid() && pipeline.valid() &&
+        commands.valid() && invalidDirectRejected &&
+        commands.recordPass(graph, 100) &&
+        !commands.recordRenderTarget(
+            graph,
+            10,
+            move(wrongTarget),
+            move(wrongPipeline),
+            Color(0.0, 0.0, 1.0)
+        ) && commands.commandCount == 1
+    val recorded = incompatibleRecordRejected &&
+        commands.recordPass(graph, 200) &&
+        commands.recordTextureCopy(graph, 11, 12) &&
+        commands.recordPass(graph, 300) && commands.recordRenderTarget(
+            graph,
+            10,
+            move(target),
+            move(pipeline),
+            Color(0.0, 0.0, 1.0)
+        ) && commands.recordPass(graph, 400) && commands.seal(graph) &&
+        commands.prepared && commands.commandCount == 6 &&
+        commands.renderTargets.size == 1 &&
+        commands.renderPipelines.size == 1 &&
+        commands.resourceDescriptorFingerprints[0] ==
+            graphicsGraphTextureDescriptorFingerprint(targetDescriptor) &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+    val incompatibleReplayRejected = recorded &&
+        !app.executeGraphCommands(incompatibleGraph, commands) &&
+        !incompatibleGraph.executing &&
+        incompatibleGraph.completedExecutions == 0 &&
+        commands.failedExecutions == 1
+    val copyValue = 4280427042
+    val sourceBytes = bufferBytes(16)
+    val destinationBytes = bufferBytes(16)
+    val initializationToken = graph.beginExecution()
+    val initialized = incompatibleReplayRejected &&
+        initializationToken > 0 &&
+        app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            100
+        ) && fillGraphCommandBytes(sourceBytes, copyValue) &&
+        app.writeGraphTextureBytes(
+            graph,
+            initializationToken,
+            11,
+            sourceBytes
+        ) && app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            200
+        ) && app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            300
+        ) && app.beginMaterializedRenderGraphPass(
+            graph,
+            initializationToken,
+            400
+        ) && graph.completeExecution(initializationToken)
+    val rendered = initialized && app.executeGraphCommands(graph, commands) &&
+        commands.renderTargets[0].texture.rgba8(8, 8) == 4294281759
+    val inspectionToken = graph.beginExecution()
+    val copied = rendered && inspectionToken > 0 &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 100) &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 200) &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 300) &&
+        app.beginMaterializedRenderGraphPass(graph, inspectionToken, 400) &&
+        destinationBytes.fill(0) && app.readGraphTextureBytes(
+            graph,
+            inspectionToken,
+            12,
+            destinationBytes
+        ) && graphCommandBytesEqual(destinationBytes, copyValue) &&
+        graph.completeExecution(inspectionToken)
+    val targetIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.renderTargets[0].texture.openGl.handle
+    else commands.renderTargets[0].texture.vulkan.image
+    val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.renderPipelines[0].openGl.handle
+    else commands.renderPipelines[0].vulkan.handle
+    val liveBefore = runtimeMemoryLiveBytes()
+    val sourceIdentity = graph.physicalIdentity(11)
+    val destinationIdentity = graph.physicalIdentity(12)
+    var steady = copied
+    var iteration = 0
+    while (steady && iteration < 1000) {
+        steady = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val finalPixel = commands.renderTargets[0].texture.rgba8(8, 8)
+    val stable = steady && iteration == 1000 &&
+        liveAfter == liveBefore && finalPixel == 4294281759 &&
+        targetIdentity != 0 && pipelineIdentity != 0 &&
+        sourceIdentity != 0 && destinationIdentity != 0 &&
+        sourceIdentity != destinationIdentity &&
+        graph.physicalIdentity(11) == sourceIdentity &&
+        graph.physicalIdentity(12) == destinationIdentity &&
+        (if (app.backend == graphicsBackendOpenGl)
+            commands.renderTargets[0].texture.openGl.handle == targetIdentity &&
+            commands.renderPipelines[0].openGl.handle == pipelineIdentity
+         else commands.renderTargets[0].texture.vulkan.image == targetIdentity &&
+            commands.renderPipelines[0].vulkan.handle == pipelineIdentity) &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1003 && graph.abortedExecutions == 0 &&
+        graph.lastExecutionBarriers == 4 &&
+        graph.totalExecutedBarriers == 4012 &&
+        graph.backendBarrierCalls == 3009 &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    val passed = invalidDirectRejected && incompatibleRecordRejected && recorded &&
+        incompatibleReplayRejected && initialized && rendered && copied && stable
+    println(
+        "graph-render-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} render=${finalPixel == 4294281759} copy=$copied rejected=$invalidDirectRejected/$incompatibleRecordRejected/$incompatibleReplayRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$targetIdentity/$pipelineIdentity"
     )
     passed
 }

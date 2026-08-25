@@ -189,13 +189,15 @@ dependency before the pass's direct work. Resource-specific Vulkan layout
 transitions remain owned by the direct texture/render operation. Barrier counts
 and access unions are compiled once into bounded primitive arrays indexed by
 scheduled pass position, avoiding a planner-barrier scan during repeated entry.
-The first optional affine command list preallocates primitive records for exact
-pass markers and all-transient texture copies, binds a sealed list to the
-materialized graph's physical identities, and replays without descriptor
-construction or live-memory growth. It deliberately reuses the current direct
-barrier/copy paths. A later multi-command encoder will add render/compute work
-and fold these dependencies into one submission without changing direct
-resource APIs.
+The optional affine command list preallocates primitive records for exact pass
+markers, all-transient texture copies, and a narrow typed procedural offscreen
+render. It affinely owns each recorded target/pipeline, binds imported texture
+descriptors and graph-owned physical identities at seal, and replays without
+descriptor construction or live-memory growth. OpenGL uses the existing direct
+operations. An eligible Vulkan stream records graph memory dependencies, the
+2D texture copy, and the render into one retained command buffer, then submits
+once; direct APIs remain unchanged. Later slices must add compute, broader
+render/copy forms, frames in flight, and GPU-completion-aware retention.
 
 ## Specification coverage
 

@@ -62,9 +62,11 @@ proves the architecture rather than stopping at placeholder interfaces:
   logical IDs to stable pooled OpenGL/Vulkan objects, retains caller-owned
   imports, rejects stale/access/descriptor mismatches, and submits combined
   conservative backend memory dependencies at ordered pass entry, plus a
-  fixed-capacity affine command list that seals and repeatedly replays exact
-  pass markers and all-transient texture copies without warmed descriptor
-  construction or live-memory growth;
+  fixed-capacity affine command list that owns recorded render resources,
+  seals and repeatedly replays exact pass markers, all-transient texture
+  copies, and a typed procedural offscreen render without warmed descriptor
+  construction or live-memory growth; eligible Vulkan streams record their
+  barriers, copy, and render into one command buffer and submit once;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets for
@@ -273,6 +275,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   exact 2x2 readback, 1,001 reusable executions, stable graph-owned textures,
   2,006 barrier calls, and zero warmed live-memory growth on explicit OpenGL
   and Vulkan;
+- `examples/recorded-graph-render`: a sealed six-record stream combining four
+  graph passes, a transient texture copy, and an owned procedural offscreen
+  render; it proves exact copy/render output, 1,001 allocation-free replays,
+  stable native resources, and one Vulkan submission per complete replay;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

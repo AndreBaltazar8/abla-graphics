@@ -32,7 +32,7 @@ for sample in x11-window wayland-info wayland-window wayland-pixels \
     multiple-render-targets subpasses common-compute gpu-timestamp \
     push-color push-transform push-draw push-expression narrow-input \
     frame-pacing render-graph materialized-render-graph graph-post-process \
-    recorded-graph-copy; do
+    recorded-graph-copy recorded-graph-render; do
     cd "$compiler_root"
     ABLA_MAX_MEMORY_MB=${ABLA_SAMPLE_TEST_MEMORY_MB:-6144} \
         ABLA_SYSROOT="$compiler_root" "$compiler" \
@@ -102,6 +102,8 @@ for backend in opengl vulkan; do
         "$output_directory/graph-post-process" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-copy" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/recorded-graph-render" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-texture" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

@@ -537,19 +537,23 @@ Updated: 2026-08-25.
   schedule without rescanning planner barriers. `examples/graph-post-process`
   repeats the public workflow on both explicit backends.
 - Bounded render-graph command recording: an affine fixed-capacity list records
-  exact ordered pass markers and same-format transient texture-copy ranges into
-  preallocated primitive arrays, seals with full access/descriptor/range
-  validation, binds to the graph's physical resource identities, fingerprints
-  command fields against post-seal mutation, and replays without descriptor
-  construction. Rejected different-graph and tampered-list executions begin no
-  graph generation; partial native failures abort and recover the generation.
-  OpenGL, Vulkan, and auto gates prove exact RGBA `4280427042`, one explicit
-  abort, 1,001 successful list executions, 1,003 completed graph executions,
-  2,006 logical/backend barriers, stable handles, one pool acquisition per
-  texture, and zero live-byte growth. Vulkan validation is silent.
-  `examples/recorded-graph-copy` repeats the public path on both backends.
-  Render/compute recording and consolidated multi-command submission remain
-  open.
+  exact ordered pass markers, same-format transient texture-copy ranges, and a
+  typed procedural offscreen render into preallocated storage. It affinely owns
+  the recorded target/pipeline, seals with full access/descriptor/range
+  validation, binds imported descriptor fingerprints plus graph-owned physical
+  identities, and rejects incompatible graphs/resources or post-seal mutation
+  before opening an execution. Eligible Vulkan streams record their barriers,
+  2D copy, and render into one retained command buffer and submit once per
+  replay; OpenGL uses ordered direct operations. The combined six-command
+  OpenGL/Vulkan/auto gate proves center pixel `4294281759`, copied RGBA
+  `4280427042`, 1,001 successful list executions, 1,003 completed graph
+  executions, 4,012 logical barriers, 3,009 batched backend barrier calls,
+  exactly 1,001 Vulkan submissions or zero on OpenGL, stable graph/render native
+  handles, one pool acquisition per transient physical texture, and zero
+  live-byte growth. Vulkan validation is silent. `examples/recorded-graph-copy`
+  and `examples/recorded-graph-render` repeat the public paths on both backends.
+  Compute and broader render/copy recording, asynchronous submission, and
+  frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1116,10 +1120,11 @@ validity gate unchanged.
   compatible non-overlapping transient allocations. Its typed texture layer
   now materializes those allocation slots as retained cross-backend texture
   pools with checked logical-resource operations. Ordered direct pass entry
-  submits conservative derived memory barriers. A bounded reusable first slice
-  records ordered pass markers and transient texture copies, but it does not
-  yet retain and record an arbitrary render/compute pass or complete frame
-  stream, nor consolidate Vulkan submissions.
+  submits conservative derived memory barriers. The bounded reusable slice
+  records ordered pass markers, transient texture copies, and one owned
+  procedural offscreen render, and consolidates an eligible Vulkan stream into
+  one submission. It does not yet record arbitrary render/compute resources or
+  a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
   color/depth/resolve attachment set and inserts

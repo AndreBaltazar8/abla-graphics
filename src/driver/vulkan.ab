@@ -1581,6 +1581,8 @@ resource class VulkanDevice(
     val timelineSemaphores: bool,
     val synchronization2: bool,
     val dynamicRendering: bool,
+    var transferHealthy: bool,
+    var transferSubmissionAccepted: bool,
     var transferBarrier2Count: int,
     var transferTimeline: int,
     var transferTimelineValue: int,
@@ -1589,7 +1591,8 @@ resource class VulkanDevice(
     val transferScratch: NativeByteBuffer
 ) {
     trusted fun valid(): bool =
-        !pointerIsNull(this.handle) && !pointerIsNull(this.queue)
+        this.transferHealthy && !pointerIsNull(this.handle) &&
+        !pointerIsNull(this.queue)
 
     trusted fun waitIdle(): bool =
         this.valid() && vkDeviceWaitIdle(this.handle) == vulkanSuccess
@@ -1730,6 +1733,7 @@ resource class VulkanDevice(
     }
 
     trusted fun transferValid(): bool = this.valid() &&
+        this.transferHealthy &&
         this.transferPool != 0 &&
         !pointerIsNull(this.transferCommand.load()) &&
         !this.transferScratch.closed && this.transferScratch.capacity >= 72
@@ -1812,10 +1816,12 @@ resource class VulkanDevice(
             this.transferPool = 0
             this.transferCommand.store(nativeNullPointer())
         }
+        if (!succeeded) this.transferHealthy = false
         succeeded
     }
 
     trusted fun beginTransfer(): bool {
+        this.transferSubmissionAccepted = false
         var succeeded = this.transferValid() && vkResetCommandPool(
             this.handle,
             this.transferPool,
@@ -1831,6 +1837,7 @@ resource class VulkanDevice(
                 this.transferScratch.address
             ) == vulkanSuccess
         }
+        if (!succeeded) this.transferHealthy = false
         succeeded
     }
 
@@ -1971,6 +1978,7 @@ resource class VulkanDevice(
     }
 
     trusted fun submitTransfer(): bool {
+        this.transferSubmissionAccepted = false
         var succeeded = this.transferValid() && vkEndCommandBuffer(
             this.transferCommand.load()
         ) == vulkanSuccess
@@ -2048,6 +2056,7 @@ resource class VulkanDevice(
                     0
                 ) == vulkanSuccess
             }
+            this.transferSubmissionAccepted = succeeded
         }
         if (succeeded && timelineCompletion) {
             this.transferScratch.storeI64(200, this.transferTimeline)
@@ -2072,6 +2081,7 @@ resource class VulkanDevice(
         } else if (succeeded) {
             succeeded = vkQueueWaitIdle(this.queue) == vulkanSuccess
         }
+        if (!succeeded) this.transferHealthy = false
         succeeded
     }
 
@@ -2079,6 +2089,7 @@ resource class VulkanDevice(
         sourceAccess: int,
         destinationAccess: int
     ): bool {
+        this.transferSubmissionAccepted = false
         var succeeded = sourceAccess > 0 && destinationAccess > 0 &&
             this.beginTransfer()
         if (succeeded) this.recordTransferMemoryBarrier(
@@ -2313,7 +2324,7 @@ resource class VulkanDevice(
         succeeded
     }
 
-    trusted fun copyTextureRange(
+    trusted fun recordTextureCopyRange(
         source: VulkanTexture,
         sourceDescriptor: TextureDescriptor,
         destination: VulkanTexture,
@@ -2328,7 +2339,8 @@ resource class VulkanDevice(
         destinationZ: int,
         width: int,
         height: int,
-        depth: int
+        depth: int,
+        trackLayouts: bool = false
     ): bool {
         var succeeded = this.transferValid() && source.valid() &&
             destination.valid() && source.device == this.handle &&
@@ -2346,7 +2358,7 @@ resource class VulkanDevice(
                 width,
                 height,
                 depth
-            ) && this.beginTransfer()
+            )
         val arrayed = textureDimensionArrayed(sourceDescriptor.dimension)
         val sourceBaseLayer = if (arrayed) sourceZ else 0
         val destinationBaseLayer = if (arrayed) destinationZ else 0
@@ -2507,8 +2519,7 @@ resource class VulkanDevice(
             )
             layer = layer + 1
         }
-        if (succeeded) succeeded = this.submitTransfer()
-        if (succeeded) {
+        if (succeeded && trackLayouts) {
             layer = 0
             while (layer < arrayLayers) {
                 ablaUnsafeStoreI64(
@@ -2537,6 +2548,144 @@ resource class VulkanDevice(
             }
         }
         succeeded
+    }
+
+    trusted fun commitTextureCopyRangeLayouts(
+        source: VulkanTexture,
+        sourceDescriptor: TextureDescriptor,
+        destination: VulkanTexture,
+        destinationDescriptor: TextureDescriptor,
+        sourceMipLevel: int,
+        sourceZ: int,
+        destinationMipLevel: int,
+        destinationZ: int,
+        depth: int
+    ): bool {
+        val arrayed = textureDimensionArrayed(sourceDescriptor.dimension)
+        val sourceBaseLayer = if (arrayed) sourceZ else 0
+        val destinationBaseLayer = if (arrayed) destinationZ else 0
+        val arrayLayers = if (arrayed) depth else 1
+        val sourceFinalLayout = if (
+            (sourceDescriptor.usage & textureUsageSampled) != 0
+        ) 5 else 1
+        val destinationFinalLayout = if (
+            (destinationDescriptor.usage & textureUsageSampled) != 0
+        ) 5 else 1
+        var succeeded = source.valid() && destination.valid() &&
+            source.device == this.handle && destination.device == this.handle &&
+            sourceMipLevel >= 0 && sourceMipLevel < sourceDescriptor.mipLevels &&
+            destinationMipLevel >= 0 &&
+            destinationMipLevel < destinationDescriptor.mipLevels &&
+            sourceBaseLayer >= 0 && destinationBaseLayer >= 0 &&
+            arrayLayers > 0
+        var layer = 0
+        while (succeeded && layer < arrayLayers) {
+            succeeded = source.layoutOffset(
+                sourceDescriptor,
+                sourceMipLevel,
+                sourceBaseLayer + layer
+            ) >= 0 && destination.layoutOffset(
+                destinationDescriptor,
+                destinationMipLevel,
+                destinationBaseLayer + layer
+            ) >= 0
+            if (succeeded) {
+                ablaUnsafeStoreI64(
+                    ablaUnsafePointerOffset(
+                        source.layouts.address,
+                        source.layoutOffset(
+                            sourceDescriptor,
+                            sourceMipLevel,
+                            sourceBaseLayer + layer
+                        )
+                    ),
+                    sourceFinalLayout
+                )
+                ablaUnsafeStoreI64(
+                    ablaUnsafePointerOffset(
+                        destination.layouts.address,
+                        destination.layoutOffset(
+                            destinationDescriptor,
+                            destinationMipLevel,
+                            destinationBaseLayer + layer
+                        )
+                    ),
+                    destinationFinalLayout
+                )
+            }
+            layer = layer + 1
+        }
+        succeeded
+    }
+
+    trusted fun copyTextureRange(
+        source: VulkanTexture,
+        sourceDescriptor: TextureDescriptor,
+        destination: VulkanTexture,
+        destinationDescriptor: TextureDescriptor,
+        sourceMipLevel: int,
+        sourceX: int,
+        sourceY: int,
+        sourceZ: int,
+        destinationMipLevel: int,
+        destinationX: int,
+        destinationY: int,
+        destinationZ: int,
+        width: int,
+        height: int,
+        depth: int
+    ): bool {
+        this.transferSubmissionAccepted = false
+        var succeeded = this.transferValid() && source.valid() &&
+            destination.valid() && source.device == this.handle &&
+            destination.device == this.handle && textureCopyRangeValid(
+                sourceDescriptor,
+                destinationDescriptor,
+                sourceMipLevel,
+                sourceX,
+                sourceY,
+                sourceZ,
+                destinationMipLevel,
+                destinationX,
+                destinationY,
+                destinationZ,
+                width,
+                height,
+                depth
+            ) && this.beginTransfer()
+        if (succeeded) succeeded = this.recordTextureCopyRange(
+            source,
+            sourceDescriptor,
+            destination,
+            destinationDescriptor,
+            sourceMipLevel,
+            sourceX,
+            sourceY,
+            sourceZ,
+            destinationMipLevel,
+            destinationX,
+            destinationY,
+            destinationZ,
+            width,
+            height,
+            depth
+        )
+        var completed = false
+        if (succeeded) completed = this.submitTransfer()
+        var layoutsCommitted = true
+        if (this.transferSubmissionAccepted) layoutsCommitted =
+            this.commitTextureCopyRangeLayouts(
+            source,
+            sourceDescriptor,
+            destination,
+            destinationDescriptor,
+            sourceMipLevel,
+            sourceZ,
+            destinationMipLevel,
+            destinationZ,
+            depth
+        )
+        completed && layoutsCommitted
     }
 
     trusted fun resolveTexture(
@@ -2773,6 +2922,8 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         timelineSupported,
         synchronization2Supported,
         dynamicRenderingSupported,
+        true,
+        false,
         0,
         0,
         0,
@@ -6006,7 +6157,7 @@ trusted fun VulkanDevice.clearRenderTarget(
     succeeded
 }
 
-trusted fun VulkanDevice.renderTargetProgram(
+trusted fun VulkanDevice.renderTargetProgramValid(
     target: VulkanRenderTarget,
     pipeline: VulkanRenderPipeline,
     clearRed: f64,
@@ -6021,7 +6172,6 @@ trusted fun VulkanDevice.renderTargetProgram(
     descriptorSet: int = 0,
     indirectBuffer: int = 0,
     indexedIndirect: bool = false,
-    clearStorage: i64* = nativeNullPointer(),
     compatibleRenderPass: int = 0,
     pushConstantData: i64* = nativeNullPointer(),
     pushConstantSize: int = 0,
@@ -6030,10 +6180,9 @@ trusted fun VulkanDevice.renderTargetProgram(
     indirectOffset: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
-    val colorCount = 1 + target.additionalViews.size
     val selectedRenderPass = if (compatibleRenderPass != 0)
         compatibleRenderPass else target.renderPass
-    var succeeded = this.transferValid() && target.valid() &&
+    this.transferValid() && target.valid() &&
         pipeline.valid() && graphicsColorScalarsValid(
             clearRed,
             clearGreen,
@@ -6061,8 +6210,58 @@ trusted fun VulkanDevice.renderTargetProgram(
         selectedRenderPass != 0 &&
         pipeline.framebuffers.size == 1 &&
         pipeline.framebuffers[0] == target.framebuffer &&
-        pipeline.width == target.width && pipeline.height == target.height &&
-        this.beginTransfer()
+        pipeline.width == target.width && pipeline.height == target.height
+}
+
+trusted fun VulkanDevice.recordRenderTargetProgram(
+    target: VulkanRenderTarget,
+    pipeline: VulkanRenderPipeline,
+    clearRed: f64,
+    clearGreen: f64,
+    clearBlue: f64,
+    clearAlpha: f64,
+    vertexBuffer: int = 0,
+    vertexCount: int = 3,
+    indexBuffer: int = 0,
+    indexCount: int = 0,
+    instanceCount: int = 1,
+    descriptorSet: int = 0,
+    indirectBuffer: int = 0,
+    indexedIndirect: bool = false,
+    clearStorage: i64* = nativeNullPointer(),
+    compatibleRenderPass: int = 0,
+    pushConstantData: i64* = nativeNullPointer(),
+    pushConstantSize: int = 0,
+    vertexOffset: int = 0,
+    indexOffset: int = 0,
+    indirectOffset: int = 0
+): bool {
+    val indexed = indexCount > 0 || indexedIndirect
+    val colorCount = 1 + target.additionalViews.size
+    val selectedRenderPass = if (compatibleRenderPass != 0)
+        compatibleRenderPass else target.renderPass
+    var succeeded = this.renderTargetProgramValid(
+        target,
+        pipeline,
+        clearRed,
+        clearGreen,
+        clearBlue,
+        clearAlpha,
+        vertexBuffer,
+        vertexCount,
+        indexBuffer,
+        indexCount,
+        instanceCount,
+        descriptorSet,
+        indirectBuffer,
+        indexedIndirect,
+        compatibleRenderPass,
+        pushConstantData,
+        pushConstantSize,
+        vertexOffset,
+        indexOffset,
+        indirectOffset
+    )
     if (succeeded) {
         this.transferScratch.storeI64(0, 43)
         this.transferScratch.storePointer(8, nativeNullPointer())
@@ -6204,8 +6403,80 @@ trusted fun VulkanDevice.renderTargetProgram(
                 0
             )
         vkCmdEndRenderPass(this.transferCommand.load())
-        succeeded = this.submitTransfer()
     }
+    succeeded
+}
+
+trusted fun VulkanDevice.renderTargetProgram(
+    target: VulkanRenderTarget,
+    pipeline: VulkanRenderPipeline,
+    clearRed: f64,
+    clearGreen: f64,
+    clearBlue: f64,
+    clearAlpha: f64,
+    vertexBuffer: int = 0,
+    vertexCount: int = 3,
+    indexBuffer: int = 0,
+    indexCount: int = 0,
+    instanceCount: int = 1,
+    descriptorSet: int = 0,
+    indirectBuffer: int = 0,
+    indexedIndirect: bool = false,
+    clearStorage: i64* = nativeNullPointer(),
+    compatibleRenderPass: int = 0,
+    pushConstantData: i64* = nativeNullPointer(),
+    pushConstantSize: int = 0,
+    vertexOffset: int = 0,
+    indexOffset: int = 0,
+    indirectOffset: int = 0
+): bool {
+    this.transferSubmissionAccepted = false
+    var succeeded = this.renderTargetProgramValid(
+        target,
+        pipeline,
+        clearRed,
+        clearGreen,
+        clearBlue,
+        clearAlpha,
+        vertexBuffer,
+        vertexCount,
+        indexBuffer,
+        indexCount,
+        instanceCount,
+        descriptorSet,
+        indirectBuffer,
+        indexedIndirect,
+        compatibleRenderPass,
+        pushConstantData,
+        pushConstantSize,
+        vertexOffset,
+        indexOffset,
+        indirectOffset
+    ) && this.beginTransfer()
+    if (succeeded) succeeded = this.recordRenderTargetProgram(
+        target,
+        pipeline,
+        clearRed,
+        clearGreen,
+        clearBlue,
+        clearAlpha,
+        vertexBuffer,
+        vertexCount,
+        indexBuffer,
+        indexCount,
+        instanceCount,
+        descriptorSet,
+        indirectBuffer,
+        indexedIndirect,
+        clearStorage,
+        compatibleRenderPass,
+        pushConstantData,
+        pushConstantSize,
+        vertexOffset,
+        indexOffset,
+        indirectOffset
+    )
+    if (succeeded) succeeded = this.submitTransfer()
     succeeded
 }
 
@@ -7310,6 +7581,8 @@ trusted fun VulkanAdapter.deviceForSurface(
         timelineSupported,
         synchronization2Supported,
         dynamicRenderingSupported,
+        true,
+        false,
         0,
         0,
         0,

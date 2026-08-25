@@ -1,0 +1,200 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillRecordedRenderBytes(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun recordedRenderBytesEqual(bytes: BufferBytes, value: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == value
+        offset = offset + 4
+    }
+    exact
+}
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded graph render",
+            width = 480,
+            height = 270
+        )
+    )
+    val targetDescriptor = TextureDescriptor(
+        label = "recorded-render-target",
+        size = Extent3D(64, 64),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val copySourceDescriptor = TextureDescriptor(
+        label = "recorded-render-copy-source",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val copyDestinationDescriptor = TextureDescriptor(
+        label = "recorded-render-copy-destination",
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "target", false, 0, 30),
+        GraphicsGraphResource(1, "copy-source", true, 16, 31),
+        GraphicsGraphResource(2, "copy-destination", true, 16, 32)
+    ], [
+        GraphicsGraphPass(10, "prepare", [
+            GraphicsGraphUse(1, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "copy", [
+            GraphicsGraphUse(1, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(30, "render", [
+            GraphicsGraphUse(2, graphAccessRead),
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(40, "inspect", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, targetDescriptor),
+        GraphicsGraphTextureDeclaration(1, copySourceDescriptor),
+        GraphicsGraphTextureDeclaration(2, copyDestinationDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID],
+                    0.0,
+                    1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val targetTexture = app.texture(targetDescriptor)
+    val target = app.renderTarget(move(targetTexture))
+    val pipeline = app.renderTargetPipeline(target, shader)
+    val commands = app.graphCommandList(graph, 6)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        target.valid() && pipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordPass(graph, 20) &&
+        commands.recordTextureCopy(graph, 1, 2) &&
+        commands.recordPass(graph, 30) &&
+        commands.recordRenderTarget(
+            graph,
+            0,
+            move(target),
+            move(pipeline),
+            Color(0.01, 0.02, 0.03)
+        ) && commands.recordPass(graph, 40) && commands.seal(graph) &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+
+    val copyValue = 4280427042
+    val sourceBytes = bufferBytes(16)
+    val outputBytes = bufferBytes(16)
+    val initialization = graph.beginExecution()
+    succeeded = succeeded && initialization > 0 &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 10) &&
+        fillRecordedRenderBytes(sourceBytes, copyValue) &&
+        app.writeGraphTextureBytes(graph, initialization, 1, sourceBytes) &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 20) &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 30) &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 40) &&
+        graph.completeExecution(initialization) &&
+        app.executeGraphCommands(graph, commands) &&
+        commands.renderTargets[0].texture.rgba8(32, 32) == 4294281759
+
+    val inspection = graph.beginExecution()
+    succeeded = succeeded && inspection > initialization &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 10) &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 20) &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 30) &&
+        app.beginMaterializedRenderGraphPass(graph, inspection, 40) &&
+        outputBytes.fill(0) &&
+        app.readGraphTextureBytes(graph, inspection, 2, outputBytes) &&
+        recordedRenderBytesEqual(outputBytes, copyValue) &&
+        graph.completeExecution(inspection)
+
+    val sourceIdentity = graph.physicalIdentity(1)
+    val destinationIdentity = graph.physicalIdentity(2)
+    val targetIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.renderTargets[0].texture.openGl.handle
+    else commands.renderTargets[0].texture.vulkan.image
+    val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.renderPipelines[0].openGl.handle
+    else commands.renderPipelines[0].vulkan.handle
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val renderExact = commands.renderTargets[0].texture.rgba8(32, 32) ==
+        4294281759
+    val copyExact = recordedRenderBytesEqual(outputBytes, copyValue)
+    val stable = iteration == 1000 && sourceIdentity != 0 &&
+        destinationIdentity != 0 && targetIdentity != 0 &&
+        pipelineIdentity != 0 && sourceIdentity != destinationIdentity &&
+        graph.physicalIdentity(1) == sourceIdentity &&
+        graph.physicalIdentity(2) == destinationIdentity &&
+        (if (app.backend == graphicsBackendOpenGl)
+            commands.renderTargets[0].texture.openGl.handle == targetIdentity &&
+            commands.renderPipelines[0].openGl.handle == pipelineIdentity
+         else commands.renderTargets[0].texture.vulkan.image == targetIdentity &&
+            commands.renderPipelines[0].vulkan.handle == pipelineIdentity) &&
+        commands.commandCount == 6 && commands.executions == 1001 &&
+        commands.failedExecutions == 0 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0) &&
+        graph.completedExecutions == 1003 &&
+        graph.lastExecutionBarriers == 4 &&
+        graph.totalExecutedBarriers == 4012 &&
+        graph.backendBarrierCalls == 3009 &&
+        graph.pools[0].acquisitionCount == 1 &&
+        graph.pools[1].acquisitionCount == 1 &&
+        liveAfter == liveBefore
+    val passed = succeeded && renderExact && copyExact && stable
+    println(
+        "recorded-graph-render ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} render=$renderExact copy=$copyExact executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$targetIdentity/$pipelineIdentity"
+    )
+    if (passed) 0 else 1
+}
