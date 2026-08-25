@@ -1,0 +1,335 @@
+// Bounded generation-checked reuse of complete GPU texture objects.
+
+import "core.ab"
+import "resources.ab"
+import "bytes.ab"
+import "application.ab"
+import "texture.ab"
+import "texture_transfer.ab"
+import "sampler.ab"
+import "binding.ab"
+
+val graphicsMaximumTexturePoolSlots = 64
+val graphicsTexturePoolTokenSlotBits = 6
+val graphicsTexturePoolTokenSlotMask = 63
+val graphicsMaximumTexturePoolTokenGeneration =
+    graphicsMaximumInt >>> graphicsTexturePoolTokenSlotBits
+
+fun textureDescriptorsStorageCompatible(
+    left: TextureDescriptor,
+    right: TextureDescriptor
+): bool = left.size.width == right.size.width &&
+    left.size.height == right.size.height &&
+    left.size.depth == right.size.depth &&
+    left.mipLevels == right.mipLevels && left.samples == right.samples &&
+    left.dimension == right.dimension && left.format == right.format &&
+    left.usage == right.usage
+
+class TexturePoolDescriptor(
+    val label: string = "texture-pool",
+    val texture: TextureDescriptor = TextureDescriptor(),
+    val capacity: int = 3
+) {
+    fun validation(): GraphicsDescriptorValidation {
+        var result = this.texture.validation()
+        if (this.capacity <= 0 ||
+            this.capacity > graphicsMaximumTexturePoolSlots) {
+            result = graphicsDescriptorInvalid(
+                "capacity",
+                "texture pools support between one and 64 slots"
+            )
+        }
+        result
+    }
+
+    fun valid(): bool = this.capacity > 0 &&
+        this.capacity <= graphicsMaximumTexturePoolSlots &&
+        this.texture.valid()
+}
+
+fun texturePoolToken(slot: int, generation: int): int = if (
+    slot >= 0 && slot < graphicsMaximumTexturePoolSlots &&
+    generation > 0 &&
+    generation <= graphicsMaximumTexturePoolTokenGeneration
+) (generation << graphicsTexturePoolTokenSlotBits) | slot
+else 0
+
+fun texturePoolTokenValid(token: int): bool =
+    token >= (1 << graphicsTexturePoolTokenSlotBits)
+
+fun texturePoolTokenSlot(token: int): int = if (
+    texturePoolTokenValid(token)
+) token & graphicsTexturePoolTokenSlotMask
+else -1
+
+fun texturePoolTokenGeneration(token: int): int = if (
+    texturePoolTokenValid(token)
+) token >>> graphicsTexturePoolTokenSlotBits
+else 0
+
+resource class GraphicsTexturePool(
+    val textures: array<GraphicsTexture>,
+    val descriptor: TexturePoolDescriptor,
+    val leased: array<bool>,
+    val generations: array<int>,
+    var activeLeases: int,
+    var peakActiveLeases: int,
+    var acquisitionCount: int,
+    val backend: int,
+    val error: GraphicsError
+) {
+    fun valid(): bool {
+        var accepted = !this.error.occurred() && this.descriptor.valid() &&
+            this.textures.size == this.descriptor.capacity &&
+            this.leased.size == this.descriptor.capacity &&
+            this.generations.size == this.descriptor.capacity &&
+            this.activeLeases >= 0 &&
+            this.activeLeases <= this.descriptor.capacity &&
+            this.peakActiveLeases >= this.activeLeases &&
+            this.peakActiveLeases <= this.descriptor.capacity &&
+            this.acquisitionCount >= this.activeLeases
+        var slot = 0
+        var counted = 0
+        while (accepted && slot < this.descriptor.capacity) {
+            accepted = this.textures[slot].valid() &&
+                this.textures[slot].backend == this.backend &&
+                textureDescriptorsStorageCompatible(
+                    this.textures[slot].descriptor,
+                    this.descriptor.texture
+                ) && this.generations[slot] >= 0 &&
+                this.generations[slot] <=
+                    graphicsMaximumTexturePoolTokenGeneration
+            if (this.leased[slot]) counted = counted + 1
+            slot = slot + 1
+        }
+        accepted && counted == this.activeLeases
+    }
+
+    fun available(): int = if (this.valid())
+        this.descriptor.capacity - this.activeLeases
+    else 0
+
+    fun leaseValid(token: int): bool {
+        val slot = texturePoolTokenSlot(token)
+        this.valid() && slot >= 0 && slot < this.descriptor.capacity &&
+            this.leased[slot] &&
+            this.generations[slot] == texturePoolTokenGeneration(token)
+    }
+
+    fun textureDescriptor(token: int): TextureDescriptor = if (
+        this.leaseValid(token)
+    ) this.textures[texturePoolTokenSlot(token)].descriptor
+    else TextureDescriptor()
+
+    trusted fun acquire(): int {
+        var token = 0
+        var slot = 0
+        var accepted = this.valid() &&
+            this.activeLeases < this.descriptor.capacity &&
+            this.acquisitionCount < graphicsMaximumInt
+        while (accepted && slot < this.descriptor.capacity &&
+            (this.leased[slot] ||
+             this.generations[slot] >=
+                graphicsMaximumTexturePoolTokenGeneration)) {
+            slot = slot + 1
+        }
+        if (accepted && slot < this.descriptor.capacity) {
+            val generation = this.generations[slot] + 1
+            this.leased[slot] = true
+            this.generations[slot] = generation
+            this.activeLeases = this.activeLeases + 1
+            if (this.activeLeases > this.peakActiveLeases) {
+                this.peakActiveLeases = this.activeLeases
+            }
+            this.acquisitionCount = this.acquisitionCount + 1
+            token = texturePoolToken(slot, generation)
+        }
+        token
+    }
+
+    trusted fun release(token: int): bool {
+        val slot = texturePoolTokenSlot(token)
+        val accepted = this.leaseValid(token)
+        if (accepted) {
+            this.leased[slot] = false
+            this.activeLeases = this.activeLeases - 1
+        }
+        accepted
+    }
+}
+
+fun GraphicsApplication.ownsTexturePool(pool: GraphicsTexturePool): bool =
+    pool.valid() && pool.textures.size > 0 &&
+    this.backend == pool.backend && this.ownsTexture(pool.textures[0])
+
+trusted fun GraphicsApplication.writeTexturePoolBytes(
+    var pool: GraphicsTexturePool,
+    lease: int,
+    source: BufferBytes,
+    selection: TextureRegion = TextureRegion(),
+    layout: TextureDataLayout = TextureDataLayout()
+): bool = this.ownsTexturePool(pool) && pool.leaseValid(lease) &&
+    pool.textures[texturePoolTokenSlot(lease)].writeBytes(
+        source,
+        selection,
+        layout
+    )
+
+trusted fun GraphicsApplication.readTexturePoolBytes(
+    var pool: GraphicsTexturePool,
+    lease: int,
+    var destination: BufferBytes,
+    selection: TextureRegion = TextureRegion(),
+    layout: TextureDataLayout = TextureDataLayout()
+): bool = this.ownsTexturePool(pool) && pool.leaseValid(lease) &&
+    pool.textures[texturePoolTokenSlot(lease)].readBytes(
+        destination,
+        selection,
+        layout
+    )
+
+trusted fun GraphicsApplication.texturePoolRgba8(
+    var pool: GraphicsTexturePool,
+    lease: int,
+    x: int,
+    y: int,
+    mipLevel: int = 0
+): int = if (this.ownsTexturePool(pool) && pool.leaseValid(lease))
+    pool.textures[texturePoolTokenSlot(lease)].rgba8(x, y, mipLevel)
+else -1
+
+trusted fun GraphicsApplication.generateTexturePoolMipmaps(
+    var pool: GraphicsTexturePool,
+    lease: int
+): bool = this.ownsTexturePool(pool) && pool.leaseValid(lease) &&
+    pool.textures[texturePoolTokenSlot(lease)].generateMipmaps()
+
+trusted fun GraphicsApplication.texturePool(
+    descriptor: TexturePoolDescriptor
+): GraphicsTexturePool {
+    val validation = descriptor.validation()
+    val textures: array<GraphicsTexture> = []
+    val leased: array<bool> = []
+    val generations: array<int> = []
+    var error = GraphicsError()
+    if (!this.valid()) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.texturePool",
+        "texture pools require a valid graphics application"
+    )
+    else if (!validation.succeeded) error = GraphicsError(
+        graphicsErrorInvalidConfiguration,
+        "GraphicsApplication.texturePool.${validation.field}",
+        validation.message
+    )
+    var slot = 0
+    while (!error.occurred() && slot < descriptor.capacity) {
+        val texture = this.texture(descriptor.texture)
+        if (!texture.valid()) error = GraphicsError(
+            texture.error.code,
+            "GraphicsApplication.texturePool",
+            texture.error.message
+        )
+        textures.append(move(texture))
+        leased.append(false)
+        generations.append(0)
+        slot = slot + 1
+    }
+    GraphicsTexturePool(
+        move(textures),
+        descriptor,
+        leased,
+        generations,
+        0,
+        0,
+        0,
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.copyTexturePoolLease(
+    sourcePool: GraphicsTexturePool,
+    source: int,
+    destinationPool: GraphicsTexturePool,
+    destination: int,
+    copy: TextureCopyDescriptor
+): bool = this.ownsTexturePool(sourcePool) &&
+    this.ownsTexturePool(destinationPool) &&
+    sourcePool.leaseValid(source) &&
+    destinationPool.leaseValid(destination) &&
+    this.copyTexture(
+        sourcePool.textures[texturePoolTokenSlot(source)],
+        destinationPool.textures[texturePoolTokenSlot(destination)],
+        copy
+    )
+
+trusted fun GraphicsApplication.sampledTexturePoolEntry(
+    binding: int,
+    visibility: int,
+    pool: GraphicsTexturePool,
+    lease: int,
+    sampler: GraphicsSampler
+): GraphicsBindingEntry {
+    if (this.ownsTexturePool(pool) && pool.leaseValid(lease)) {
+        return this.sampledTextureEntry(
+            binding,
+            visibility,
+            pool.textures[texturePoolTokenSlot(lease)],
+            sampler
+        )
+    }
+    GraphicsBindingEntry(
+        binding,
+        graphicsBindingSampledTexture,
+        visibility,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        pool.descriptor.texture,
+        pool.descriptor.texture.dimension,
+        this.backend,
+        GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.sampledTexturePoolEntry",
+            "sampled texture pool entries require a live lease"
+        )
+    )
+}
+
+trusted noescape fun GraphicsApplication.enqueueUploadTexturePoolBytes(
+    var queue: GraphicsTextureTransferQueue,
+    source: BufferBytes,
+    pool: GraphicsTexturePool,
+    lease: int,
+    selection: TextureRegion = TextureRegion(),
+    layout: TextureDataLayout = TextureDataLayout()
+): int = if (this.ownsTexturePool(pool) && pool.leaseValid(lease))
+    this.enqueueUploadTextureBytes(
+        queue,
+        source,
+        pool.textures[texturePoolTokenSlot(lease)],
+        selection,
+        layout
+    )
+else 0
+
+trusted noescape fun GraphicsApplication.enqueueReadbackTexturePoolBytes(
+    var queue: GraphicsTextureTransferQueue,
+    pool: GraphicsTexturePool,
+    lease: int,
+    selection: TextureRegion = TextureRegion(),
+    layout: TextureDataLayout = TextureDataLayout()
+): int = if (this.ownsTexturePool(pool) && pool.leaseValid(lease))
+    this.enqueueReadbackTextureBytes(
+        queue,
+        pool.textures[texturePoolTokenSlot(lease)],
+        selection,
+        layout
+    )
+else 0

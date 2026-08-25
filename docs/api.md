@@ -661,6 +661,47 @@ pool command targeting an index slice at byte 48 stores `firstIndex = 12` for
 return `false` before driver work. Complete GPU work before releasing or
 reusing any borrowed allocation.
 
+Textures that are repeatedly repurposed can reuse complete native objects
+through `GraphicsTexturePool`:
+
+```abla
+val pool = app.texturePool(TexturePoolDescriptor(
+    texture = TextureDescriptor(
+        size = Extent3D(1024, 1024),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopySource |
+            textureUsageCopyDestination
+    ),
+    capacity = 3
+))
+val atlas = pool.acquire()
+val uploaded = app.writeTexturePoolBytes(pool, atlas, pixels)
+val entry = app.sampledTexturePoolEntry(
+    0, shaderVisibilityFragment, pool, atlas, sampler
+)
+```
+
+Construction eagerly creates between one and 64 homogeneous textures. The
+pool keeps affine ownership and `acquire` returns a compact slot/generation
+lease rather than moving a dynamically indexed resource out of its owner.
+`release` invalidates that generation immediately. Exhaustion, stale access,
+and double release return `0` or `false` without driver work. Once warmed,
+acquire/release mutates only fixed integer/boolean arrays and performs no
+managed or driver allocation. Tokens are scoped to their issuing pool; fixed
+homogeneous slots have no external fragmentation.
+
+`writeTexturePoolBytes`, `readTexturePoolBytes`, `texturePoolRgba8`,
+`generateTexturePoolMipmaps`, `copyTexturePoolLease`, the asynchronous
+`enqueueUploadTexturePoolBytes`/`enqueueReadbackTexturePoolBytes` pair, and
+`sampledTexturePoolEntry` validate a live lease before borrowing the retained
+texture. Complete transfers and drop bind groups made from a lease before
+releasing it. OpenGL reuses immutable texture objects; Vulkan reuses complete
+images, bound device memory, transfer state, and layouts. The common contract
+does not expose Vulkan heap offsets. `docs/texture-pooling.md` records the
+portability rationale and future render-graph materialization boundary.
+The retained `textures` array is a borrowed low-level escape hatch; direct use
+bypasses lease validation but cannot transfer the pool's ownership.
+
 A map-write/copy-source buffer may start mapped without an intermediate upload:
 
 ```abla
@@ -1005,8 +1046,8 @@ produce zero runtime live-byte growth in the common-buffer sample.
 
 Fixed-slot asynchronous RGBA8/BGRA8 `PixelBuffer` and raw pitched
 `BufferBytes` texture upload/readback are available through
-`GraphicsTextureTransferQueue`. Device-local texture suballocation is not yet
-exposed.
+`GraphicsTextureTransferQueue`. Complete texture-object reuse is exposed by
+`GraphicsTexturePool`; physical device-memory suballocation is not exposed.
 An application must let child buffers drop before its device/context.
 
 Textures and views use the same backend-neutral ownership rule:

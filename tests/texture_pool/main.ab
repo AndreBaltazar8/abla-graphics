@@ -1,0 +1,319 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun bytesContainU32(bytes: BufferBytes, expected: int): bool {
+    var exact = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (exact && offset < bytes.size) {
+        exact = bytes.load(offset) + bytes.load(offset + 1) * 256 +
+            bytes.load(offset + 2) * 65536 +
+            bytes.load(offset + 3) * 16777216 == expected
+        offset = offset + 4
+    }
+    exact
+}
+
+fun fillU32(var bytes: BufferBytes, value: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(value, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+trusted fun texturePoolProbe(requestedBackend: int): bool {
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = requestedBackend,
+            requiredFeatures = graphicsFeaturePersistentMapping
+        ),
+        WindowConfig(
+            title = "Abla texture pool",
+            width = 96,
+            height = 64
+        )
+    )
+    val textureDescriptor = TextureDescriptor(
+        label = "pooled-rgba",
+        size = Extent3D(4, 4),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopySource | textureUsageCopyDestination |
+            textureUsageSampled
+    )
+    val descriptor = TexturePoolDescriptor(
+        label = "test-texture-pool",
+        texture = textureDescriptor,
+        capacity = 2
+    )
+    val pool = app.texturePool(descriptor)
+    val descriptorsRejected = !TexturePoolDescriptor(
+        texture = textureDescriptor,
+        capacity = 0
+    ).valid() && !TexturePoolDescriptor(
+        texture = textureDescriptor,
+        capacity = 65
+    ).valid() && !TexturePoolDescriptor(
+        texture = TextureDescriptor(
+            size = Extent3D(0, 4),
+            usage = textureUsageCopySource
+        ),
+        capacity = 1
+    ).valid()
+    val compatibilityExact = textureDescriptorsStorageCompatible(
+        textureDescriptor,
+        TextureDescriptor(
+            label = "diagnostic-label-does-not-change-storage",
+            size = Extent3D(4, 4),
+            format = textureFormatRgba8Unorm,
+            usage = textureUsageCopySource |
+                textureUsageCopyDestination | textureUsageSampled
+        )
+    ) && !textureDescriptorsStorageCompatible(
+        textureDescriptor,
+        TextureDescriptor(
+            size = Extent3D(8, 4),
+            format = textureFormatRgba8Unorm,
+            usage = textureDescriptor.usage
+        )
+    )
+
+    val first = pool.acquire()
+    val second = pool.acquire()
+    val exhausted = pool.acquire()
+    val capacityExact = pool.leaseValid(first) && pool.leaseValid(second) &&
+        !texturePoolTokenValid(exhausted) && pool.available() == 0 &&
+        pool.activeLeases == 2 && pool.peakActiveLeases == 2
+    val firstSlot = texturePoolTokenSlot(first)
+    val firstHandle = if (app.backend == graphicsBackendOpenGl)
+        pool.textures[firstSlot].openGl.handle
+    else pool.textures[firstSlot].vulkan.image
+    val released = pool.release(first)
+    val replacement = pool.acquire()
+    val reuseExact = released &&
+        texturePoolTokenSlot(replacement) == firstSlot &&
+        texturePoolTokenGeneration(replacement) ==
+            texturePoolTokenGeneration(first) + 1 &&
+        !pool.leaseValid(first) && !pool.release(first) &&
+        pool.leaseValid(replacement) &&
+        (if (app.backend == graphicsBackendOpenGl)
+            pool.textures[firstSlot].openGl.handle == firstHandle
+         else pool.textures[firstSlot].vulkan.image == firstHandle)
+
+    val sampledValue = 4281541137
+    val source = bufferBytes(64)
+    val directResult = bufferBytes(64)
+    val directExact = fillU32(source, sampledValue) &&
+        app.writeTexturePoolBytes(pool, replacement, source) &&
+        directResult.fill(0) &&
+        app.readTexturePoolBytes(pool, replacement, directResult) &&
+        bytesContainU32(directResult, sampledValue) &&
+        app.texturePoolRgba8(pool, replacement, 2, 2) == sampledValue &&
+        !app.writeTexturePoolBytes(pool, first, source) &&
+        !app.readTexturePoolBytes(pool, first, directResult) &&
+        app.texturePoolRgba8(pool, first, 0, 0) == -1
+    val copiedResult = bufferBytes(64)
+    val copyExact = app.copyTexturePoolLease(
+        pool,
+        replacement,
+        pool,
+        second,
+        TextureCopyDescriptor()
+    ) && copiedResult.fill(0) &&
+        app.readTexturePoolBytes(pool, second, copiedResult) &&
+        bytesContainU32(copiedResult, sampledValue) &&
+        !app.copyTexturePoolLease(
+            pool,
+            first,
+            pool,
+            second,
+            TextureCopyDescriptor()
+        )
+
+    val asynchronousValue = 4284896580
+    val asynchronousSource = bufferBytes(64)
+    val upload = app.textureTransferQueue(TextureTransferQueueDescriptor(
+        label = "texture-pool-upload",
+        direction = textureTransferDirectionUpload,
+        slotCapacity = 64,
+        slotCount = 1,
+        alignment = 16
+    ))
+    val uploadTicket = if (fillU32(
+        asynchronousSource,
+        asynchronousValue
+    )) app.enqueueUploadTexturePoolBytes(
+        upload,
+        asynchronousSource,
+        pool,
+        second
+    ) else 0
+    val uploadExact = textureTransferTicketValid(uploadTicket) &&
+        upload.wait(uploadTicket)
+    val download = app.textureTransferQueue(TextureTransferQueueDescriptor(
+        label = "texture-pool-readback",
+        direction = textureTransferDirectionReadback,
+        slotCapacity = 64,
+        slotCount = 1,
+        alignment = 16
+    ))
+    val downloadTicket = app.enqueueReadbackTexturePoolBytes(
+        download,
+        pool,
+        second
+    )
+    val asynchronousResult = bufferBytes(64)
+    val asynchronousExact = uploadExact &&
+        textureTransferTicketValid(downloadTicket) &&
+        asynchronousResult.fill(0) && app.waitTextureBytesReadback(
+            download,
+            downloadTicket,
+            asynchronousResult
+        ) && bytesContainU32(asynchronousResult, asynchronousValue) &&
+        !textureTransferTicketValid(app.enqueueUploadTexturePoolBytes(
+            upload,
+            asynchronousSource,
+            pool,
+            first
+        ))
+
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val vertexBytes = bufferBytes(48)
+    val verticesStored = vertexBytes.storeF32(-1.0, 0) &&
+        vertexBytes.storeF32(-1.0, 4) &&
+        vertexBytes.storeF32(0.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(3.0, 16) &&
+        vertexBytes.storeF32(-1.0, 20) &&
+        vertexBytes.storeF32(2.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(-1.0, 32) &&
+        vertexBytes.storeF32(3.0, 36) &&
+        vertexBytes.storeF32(0.0, 40) &&
+        vertexBytes.storeF32(2.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "texture-pool-fullscreen-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val entry = app.sampledTexturePoolEntry(
+        0,
+        shaderVisibilityFragment,
+        pool,
+        replacement,
+        sampler
+    )
+    val staleEntry = app.sampledTexturePoolEntry(
+        0,
+        shaderVisibilityFragment,
+        pool,
+        first,
+        sampler
+    )
+    val binding = app.bindGroup([entry])
+    val targetTexture = app.texture(TextureDescriptor(
+        label = "texture-pool-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(targetTexture))
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    val drawn = app.renderVerticesToTarget(
+        target,
+        pipeline,
+        vertices,
+        3,
+        Color(0.0, 0.0, 0.0)
+    )
+    val sampledExact = shader.valid && verticesUploaded && sampler.valid() &&
+        entry.valid() && !staleEntry.valid() && target.valid() &&
+        pipeline.valid() && drawn &&
+        target.texture.rgba8(8, 8) == sampledValue
+
+    val secondSlot = texturePoolTokenSlot(second)
+    val secondHandle = if (app.backend == graphicsBackendOpenGl)
+        pool.textures[secondSlot].openGl.handle
+    else pool.textures[secondSlot].vulkan.image
+    val secondReleased = pool.release(second)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var stable = secondReleased
+    var iteration = 0
+    while (stable && iteration < 1000) {
+        val temporary = pool.acquire()
+        stable = texturePoolTokenValid(temporary) &&
+            texturePoolTokenSlot(temporary) == secondSlot &&
+            pool.release(temporary)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val handleStable = firstHandle != 0 && secondHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            pool.textures[firstSlot].openGl.handle == firstHandle &&
+                pool.textures[secondSlot].openGl.handle == secondHandle
+         else pool.textures[firstSlot].vulkan.image == firstHandle &&
+            pool.textures[secondSlot].vulkan.image == secondHandle)
+    val steadyExact = stable && iteration == 1000 &&
+        liveAfter == liveBefore && handleStable && pool.activeLeases == 1 &&
+        pool.available() == 1 && pool.acquisitionCount == 1003
+    val passed = app.valid() && pool.valid() && descriptorsRejected &&
+        compatibilityExact && capacityExact && reuseExact && directExact &&
+        copyExact && asynchronousExact && sampledExact && steadyExact
+    println(
+        "texture-pool ${graphicsBackendName(app.backend)}: capacity=$capacityExact reuse=$reuseExact direct=$directExact copy=$copyExact async=$asynchronousExact sampled=$sampledExact stale=${!pool.leaseValid(first)} steady=$steadyExact live=${liveAfter - liveBefore} active=${pool.activeLeases} acquisitions=${pool.acquisitionCount}"
+    )
+    if (!sampledExact) println(
+        "texture-pool sampled detail: shader=${shader.valid} vertices=$verticesUploaded sampler=${sampler.valid()} entry=${entry.valid()} staleEntry=${staleEntry.valid()} target=${target.valid()} pipeline=${pipeline.valid()} error=${pipeline.error.code}:${pipeline.error.operation}:${pipeline.error.message} drawn=$drawn pixel=${target.texture.rgba8(8, 8)}/$sampledValue"
+    )
+    passed
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else ""
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    if (texturePoolProbe(backend)) 42 else 1
+}

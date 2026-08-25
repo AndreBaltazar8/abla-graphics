@@ -250,6 +250,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   direct/indexed/vertex-indirect/indexed-indirect rendering, stale and invalid
   range rejection, stable handles, and 1,000 allocation/release cycles with
   zero live-byte growth on explicit OpenGL and Vulkan;
+- `examples/texture-pool`: generation-checked leases over three eagerly warmed
+  homogeneous textures, pooled upload and sampled rendering, stable native
+  objects, and 1,000 allocation-free acquire/release cycles on explicit OpenGL
+  and Vulkan;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

@@ -169,6 +169,8 @@ are values.
 - Immutable creation descriptors are optimized away from steady-state work.
 - Frame-local commands and small payloads use resettable arenas.
 - Uploads use persistently mapped/staging rings where supported.
+- Portable texture pools reuse complete warmed native objects; Vulkan heap
+  suballocation may remain a private backend optimization.
 - Vulkan records into per-frame/per-thread pools and uses synchronization2.
 - OpenGL uses direct-state access and measured state filtering.
 - Pipeline/shader caches use full content and device/driver identities.

@@ -495,8 +495,19 @@ Updated: 2026-08-25.
   pass forms from the pooled backing; `push-color` repeats all pooled push
   target/pass/present forms. Indexed-indirect `firstIndex` is absolute to the
   complete index backing buffer on both backends, matching OpenGL's native
-  command semantics; Vulkan binds byte zero for this form. Texture
-  suballocation remains open.
+  command semantics; Vulkan binds byte zero for this form.
+- Portable texture-object reuse: `GraphicsTexturePool` eagerly owns one to 64
+  homogeneous real textures and lends compact slot/generation leases while
+  retaining affine ownership. OpenGL reuses complete immutable texture
+  objects; Vulkan reuses complete images, dedicated bound memory, transfer
+  state, and layout tracking. Capacity exhaustion, stale access, and double
+  release fail without driver work. The focused gate proves deterministic
+  first-free reuse, exact synchronous and asynchronous byte upload/readback, a
+  sampled offscreen pixel, stable native handles, and zero live-byte change
+  across 1,000 warmed acquire/release cycles on OpenGL, Vulkan, and auto
+  selection. `examples/texture-pool` repeats the public sampled workflow on
+  both explicit backends. Render-graph materialization and backend-private
+  Vulkan heap suballocation remain open and are not claimed by this contract.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

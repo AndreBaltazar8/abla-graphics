@@ -1,0 +1,160 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun fillTextureBytes(var bytes: BufferBytes, rgba: int): bool {
+    var stored = bytes.valid() && (bytes.size & 3) == 0
+    var offset = 0
+    while (stored && offset < bytes.size) {
+        stored = bytes.storeU32(rgba, offset)
+        offset = offset + 4
+    }
+    stored
+}
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics texture pool",
+            width = 480,
+            height = 270
+        )
+    )
+    val pool = app.texturePool(TexturePoolDescriptor(
+        label = "sample-texture-pool",
+        texture = TextureDescriptor(
+            label = "sample-pooled-atlas",
+            size = Extent3D(2, 2),
+            format = textureFormatRgba8Unorm,
+            usage = textureUsageSampled | textureUsageCopySource |
+                textureUsageCopyDestination
+        ),
+        capacity = 3
+    ))
+    val atlas = pool.acquire()
+    val atlasBytes = bufferBytes(16)
+    val uploaded = fillTextureBytes(atlasBytes, 4291827215) &&
+        app.writeTexturePoolBytes(pool, atlas, atlasBytes)
+
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val vertexBytes = bufferBytes(48)
+    val verticesStored = vertexBytes.storeF32(-0.8, 0) &&
+        vertexBytes.storeF32(-0.7, 4) &&
+        vertexBytes.storeF32(0.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(0.8, 16) &&
+        vertexBytes.storeF32(-0.7, 20) &&
+        vertexBytes.storeF32(1.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(0.0, 32) &&
+        vertexBytes.storeF32(0.8, 36) &&
+        vertexBytes.storeF32(0.5, 40) &&
+        vertexBytes.storeF32(1.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "pooled-texture-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val verticesUploaded = verticesStored &&
+        vertices.writeAllBytes(vertexBytes)
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val binding = app.bindGroup([
+        app.sampledTexturePoolEntry(
+            0,
+            shaderVisibilityFragment,
+            pool,
+            atlas,
+            sampler
+        )
+    ])
+    val bindingHandle = if (app.backend == graphicsBackendOpenGl)
+        binding.openGlResources[0]
+    else binding.vulkan.descriptorSet
+    val pipeline = app.renderPipeline(
+        shader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    val pooledHandle = if (app.backend == graphicsBackendOpenGl)
+        pool.textures[texturePoolTokenSlot(atlas)].openGl.handle
+    else pool.textures[texturePoolTokenSlot(atlas)].vulkan.image
+    val clear = Color(0.015, 0.02, 0.035)
+    val warmed = app.valid() && pool.valid() && pool.leaseValid(atlas) &&
+        uploaded && shader.valid && verticesUploaded && sampler.valid() &&
+        pipeline.valid() && app.presentRenderVertices(
+            pipeline,
+            vertices,
+            3,
+            clear
+        )
+    val liveBefore = runtimeMemoryLiveBytes()
+    var presented = warmed
+    var frame = 0
+    while (presented && frame < 4) {
+        presented = app.presentRenderVertices(
+            pipeline,
+            vertices,
+            3,
+            clear
+        )
+        frame = frame + 1
+    }
+    var iteration = 0
+    while (presented && iteration < 1000) {
+        val temporary = pool.acquire()
+        presented = texturePoolTokenValid(temporary) &&
+            pool.release(temporary)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val handleStable = pooledHandle != 0 && bindingHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            pool.textures[texturePoolTokenSlot(atlas)].openGl.handle ==
+                pooledHandle
+         else pool.textures[texturePoolTokenSlot(atlas)].vulkan.image ==
+            pooledHandle)
+    val passed = presented && frame == 4 && iteration == 1000 &&
+        liveAfter == liveBefore && handleStable &&
+        pool.activeLeases == 1 && pool.acquisitionCount == 1001
+    println(
+        "texture-pool ${graphicsBackendName(app.backend)}: frames=$frame reuse=$iteration live=${liveAfter - liveBefore} stable=$handleStable active=${pool.activeLeases}/${pool.descriptor.capacity} acquisitions=${pool.acquisitionCount}"
+    )
+    if (passed) 0 else 1
+}
