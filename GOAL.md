@@ -2,97 +2,110 @@
 
 Updated: 2026-08-25 (Europe/Lisbon).
 
-This is the operational handoff for the next person continuing Abla Graphics.
-Read this file first, then `plan.md`, `docs/status.md`, and `docs/api.md`.
+This file is the operational handoff for the next person continuing the goal.
+Read it before changing code, then read `plan.md`, `docs/status.md`,
+`docs/api.md`, and the documentation for the subsystem being changed.
 
-The framework is a large, active work in progress. It has many verified vertical
-slices, but it is not feature-complete and must not be described or released as
-such. The persistent goal remains active until the complete definition of done
-in `plan.md` is satisfied.
+Abla Graphics is an active, incomplete framework. A succession of working
+vertical slices is published, but the long-term goal is not complete and must
+not be marked complete until every exit condition in `plan.md` is satisfied.
 
-## The goal
+## Mission
 
-Build and publish `AndreBaltazar8/abla-graphics`, the native graphics and
-windowing framework for the Abla ecosystem. It must eventually provide:
+Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and
+windowing foundation for the Abla ecosystem. It should make ordinary graphics
+applications simple while retaining enough explicit control and predictable
+performance for advanced OpenGL and Vulkan applications.
 
-- a small, idiomatic common Abla API suitable for real applications;
-- optimized OpenGL 4.6 core and Vulkan 1.4 backends without hiding the native
-  capabilities advanced applications need;
-- the native window, input, event, surface, context, monitor, clipboard, cursor,
-  DPI, and fullscreen facilities on which a GLFW-like library would normally
-  rely;
-- generated and audited raw OpenGL and Vulkan APIs with broad, ultimately
-  classified specification coverage;
-- an Abla `$glsl` subparser with deterministic OpenGL GLSL and Vulkan SPIR-V
-  generation, reflection, interface validation, and source-accurate errors;
-- explicit affine ownership, predictable cleanup, structured errors, queried
-  capabilities, and zero general heap allocation in steady-state hot paths;
-- a broad catalog of independently buildable examples, golden-output tests,
-  performance gates, validation jobs, cross-platform support, and reproducible
-  releases.
+The finished framework must provide:
 
-`plan.md` is the authoritative implementation contract and full roadmap. A
-milestone is complete only when its implementation, tests, samples,
-documentation, and relevant performance/validation gates all pass.
+- an idiomatic common Abla API for windows, input, resources, shaders,
+  rendering, compute, synchronization, presentation, and diagnostics;
+- optimized OpenGL 4.6 core and Vulkan 1.4 backends, with capability-gated
+  advanced features and audited raw escape hatches;
+- the native window, event, input, monitor, clipboard, cursor, DPI, surface,
+  context, and fullscreen implementation that GLFW-like libraries ordinarily
+  hide;
+- a native Abla `$glsl` subparser with source-accurate diagnostics,
+  reflection, interface validation, deterministic OpenGL GLSL and Vulkan
+  SPIR-V, and caching;
+- explicit affine ownership and deterministic cleanup for every native
+  resource;
+- zero general heap allocation in measured steady-state frame paths, stable
+  native resources, bounded reusable storage, and repeatable performance
+  evidence;
+- broad specification coverage, many independently buildable samples,
+  golden-output and validation tests, cross-platform CI, and reproducible
+  source releases.
+
+`plan.md` is the authoritative roadmap and definition of done. A checkpoint is
+publishable only when its implementation, tests, live samples, public claims,
+and relevant validation/performance evidence agree.
 
 ## Non-negotiable constraints
 
-- All framework, platform/window, graphics-backend, shader, ABI-layout, test,
-  and sample implementation source is Abla. Do not add C, C++, Rust, or a
-  generated-C fallback.
-- Do not use GLFW, SDL, Xlib/XCB implementation code, `libwayland-client`, or a
-  similar native shim. Abla must call the OS, compositor, and graphics-driver
-  ABIs directly.
+- All framework, platform, backend, shader, ABI-layout, test, and sample
+  implementation source must be Abla.
+- Do not add C, C++, Rust, generated-C output, or a native shim.
+- Do not use GLFW, SDL, Xlib/XCB implementation libraries,
+  `libwayland-client`, or a similar windowing abstraction. Implement the
+  underlying platform behavior in Abla.
 - Direct native ABI declarations and calls from Abla are allowed and expected.
-  This is how the implementation reaches X11, Wayland, Win32, Cocoa, OpenGL,
-  and Vulkan while remaining Abla-only.
-- Use Abla's advanced language facilities when they improve correctness or the
-  API: affine `resource class` ownership, deterministic and idempotent cleanup,
-  subparsers, compile-time/reflection facilities, and checked native layouts.
-- Keep backend selection out of hot loops. Repeated frame, transfer, and command
-  paths should keep native handles stable and allocate no general heap memory.
-- A generated declaration is not feature support. A supported command family
-  needs a loader path, correct ABI, positive live evidence, and rejection or
-  unsupported-path evidence.
-- Generated registry files are reproducible output. Change an audit manifest or
-  generator and run `make update-registry`; never hand-edit coverage reports or
-  `src/raw/*_registry.ab`.
-- `../ablac` may be changed only when a real compiler/language need is proven.
-  Preserve unrelated changes, test it, commit and push its narrowly scoped
-  change first, and only then publish dependent `abla-graphics` work.
-- Preserve unrelated worktrees. Stage explicit paths, inspect the staged diff,
-  and confirm local/upstream commit IDs after pushing.
+  This is how Abla reaches OS, compositor, OpenGL, and Vulkan interfaces while
+  remaining Abla-only.
+- Use Abla's advanced features where they improve the design: affine
+  `resource class` ownership, deterministic cleanup, compile-time facilities,
+  subparsers, reflection, and checked native layouts.
+- Keep backend selection and avoidable allocation out of hot loops. Prefer
+  retained handles, fixed-capacity state, and scalar hot-path operations.
+- A declaration, token, or generated registry row is not feature support.
+  Support requires a loader/ABI path, capability handling, positive live
+  evidence, and rejection or unsupported-path evidence.
+- Preserve existing direct APIs when adding higher-level graph or scheduling
+  layers. Do not force every application through the render graph.
+- Preserve unrelated worktree changes. Stage explicit paths, inspect the
+  staged diff, and verify local/upstream commit IDs after publication.
 
-## Current repository state
+The mandatory source audit is:
+
+```bash
+nix-shell --run 'make check-abla-only'
+```
+
+## Repository and publication state
 
 ### `abla-graphics`
 
 - Path: `/home/andre/Desktop/projects/abla-graphics`
+- GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
-- Current implementation checkpoint:
-  `3be52d33ba22139172c267d786ca885332727689`
-  (`Add wider asynchronous texture transfers`)
-- Previous sampled-view checkpoint:
-  `3b31d3dd7f1c93e7f2732e12100098494fcea3c2`
-- This document is committed as a handoff-only successor to `3be52d3`, so use
-  `git rev-parse HEAD` rather than embedding its self-referential commit here.
-- The implementation and handoff commits are intended to be pushed together.
-  The worktree should be clean and synchronized after publication; recheck it
-  before continuing because the filesystem and remote are authoritative.
+- Published parent tip before this checkpoint:
+  `cdde6a1eae2696517a348c61c312ee27990a1b9f`
+  (`Update graphics continuation handoff`)
+- The ordered render-graph barrier implementation is committed locally as
+  `deecaa3` (`Execute render graph barriers`). This handoff is its intended
+  successor, so use `git rev-parse HEAD` for the final handoff commit rather
+  than embedding a self-referential hash here.
 
 ### `ablac`
 
 - Path: `/home/andre/Desktop/projects/ablac`
+- GitHub: `AndreBaltazar8/ablac`
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
   `93f8e2ff75cd46feb3e8f72f087ba56f65cdf063`
-- It is clean and synchronized. The current graphics slice required no compiler
-  change; the sibling compiler advanced independently during the graphics test
-  run.
+  (`Add compile-time independent program construction`)
+- It is currently clean and synchronized. The render-graph barrier checkpoint
+  did not require a compiler change.
 
-Verify rather than assuming these snapshots are still current:
+Changes to `../ablac` are authorized when a real language/compiler capability
+is required. Keep them minimal, test them in `ablac`, commit and push that repo
+first, then commit the dependent `abla-graphics` change. Do not add a C
+fallback to avoid a compiler limitation.
+
+Always recheck these snapshots:
 
 ```bash
 git status --short --branch
@@ -103,656 +116,307 @@ git -C ../ablac rev-parse HEAD
 git -C ../ablac rev-parse '@{upstream}'
 ```
 
-## Previous native wider-resource baseline
-
-The latest published texture checkpoint, `24fa296`, carries the portable wider
-texture model through native allocation and view ownership:
-
-- portable 1D, 2D, 2D-array, cube, and 3D dimensions;
-- explicit physical depth versus array-layer semantics;
-- dimension-aware mip and device-limit validation;
-- `TextureRegion` and `TextureDataLayout` with checked pitched/block footprints;
-- BC1 RGBA UNORM and sRGB block metadata and validation;
-- OpenGL immutable `glTexStorage1D/2D/3D` allocation and exact targets;
-- Vulkan image type, view type, cube/mutable flags, depth/layer counts, and
-  per-mip/per-layer layout storage;
-- aliased full OpenGL views and owned partial/reinterpreted `glTextureView`
-  names with deterministic deletion;
-- live creation and view-lifetime evidence on explicit OpenGL, explicit Vulkan,
-  and automatic backend selection.
-
-Its final source passed:
-
-```bash
-nix-shell --run 'make all'
-nix-shell --run 'make test-samples'
-```
-
-That published sample matrix independently rebuilt and ran 35 examples. The
-strict published registry ledger classified 101 OpenGL and 113 Vulkan commands,
-214 total.
-
-Earlier published work includes direct X11 and Wayland foundations, surfaced
-and headless backend selection, common resource ownership, bind groups,
-render/compute passes, offscreen and multisampled targets, resolves, mip
-generation, multiple render targets and subpasses, buffer pools and mappings,
-fixed-slot asynchronous buffer and 2D RGBA/BGRA texture transfers, timeline and
-synchronization2 Vulkan paths, dynamic-rendering fallback selection, reflected
-push values, indirect rendering, profiler queries, and the currently documented
-strict `$glsl` subset. `docs/status.md` contains the claim-by-claim evidence.
-
-## Current published checkpoint: pitched wider texture transfer and copy
-
-Implementation commit `569107e` completes this slice. It includes common API,
-both native backends, positive and negative tests, an independently buildable
-sample, public documentation, and regenerated registry evidence.
-
-### Portable/common API
-
-`src/resources.ab` adds scalar, allocation-free validation and footprint helpers
-for hot paths:
-
-- `textureRegionRangeValid`;
-- `textureDataRequiredBytesRange`;
-- `textureDataLayoutRangeValid`;
-- `textureCopyRangeValid`.
-
-`src/texture.ab` adds:
-
-- descriptor conveniences `GraphicsTexture.writeBytes` and `readBytes` using
-  `BufferBytes`, `TextureRegion`, and `TextureDataLayout`;
-- primitive `writeBytesRange` and `readBytesRange` overloads for measured hot
-  paths without immutable descriptor copies;
-- `GraphicsApplication.copyTextureRange` for exact subresource copies with
-  source/destination mip and xyz coordinates plus width/height/depth;
-- checked usage, bounds, pitch, block alignment, ownership, sample count,
-  dimension, and format compatibility before backend dispatch.
-
-Depth/stencil raw byte transfer is deliberately rejected for now. The new path
-supports color and compressed formats; `PixelBuffer` remains the ergonomic
-uncompressed 2D RGBA convenience.
-
-### OpenGL backend
-
-`src/driver/opengl.ab` now uses direct-state-access byte transfer calls:
-
-- `glTextureSubImage1D/2D/3D`;
-- `glCompressedTextureSubImage2D/3D` on the live claimed BC1 paths;
-- `glGetTextureSubImage` and `glGetCompressedTextureSubImage`;
-- scoped `glPixelStorei` pack/unpack row length, image height, alignment, and
-  compressed-block state, restored after each operation;
-- `glCopyImageSubData` for general region copies.
-
-Compressed `imageSize` is the active tight block-data byte count, while caller
-memory can still use a larger validated pitch. Do not replace it with the full
-pitched footprint: the driver rejects that interpretation.
-
-There is a declaration/dispatch branch for compressed 1D upload, but the live
-OpenGL driver rejected BC1 1D storage. Therefore it is not included in the
-common registry audit and must not be claimed without positive portable
-evidence.
-
-### Vulkan backend
-
-`src/driver/vulkan.ab` now:
-
-- indexes tracked image layout by mip and array layer;
-- distinguishes 3D physical z/depth from array base-layer/layer-count;
-- repacks arbitrary caller row/image pitch into tight texture-owned coherent
-  staging for upload and scatters tight readback back into the caller pitch;
-- emits correct `VkBufferImageCopy` and `VkImageCopy` layouts;
-- transitions every selected subresource and restores its normalized resting
-  layout;
-- inserts transfer-write-to-host-read visibility for mapped readback;
-- reuses existing texture/device staging, command-pool, command-buffer, and
-  transfer state in primitive repeated paths.
-
-Abla does not overload methods by arity, so the per-subresource layout writer is
-named `storeSubresourceLayout`; do not collapse it back into the existing
-legacy `storeLayout` name.
-
-### Verified evidence
-
-`tests/wider_texture/main.ab` now covers exact pitched byte round trips for:
-
-- uncompressed 1D;
-- raw R8 2D;
-- RGBA 2D arrays with offset, row pitch, and image pitch;
-- individual cube faces;
-- physical 3D volumes;
-- BC1 2D and BC1 arrays;
-- layered array copies and physical-volume copies;
-- short-buffer, crossing-range, and invalid-copy rejection;
-- preservation of caller padding;
-- stable native resources and zero runtime live-byte growth across repeated
-  primitive upload/readback/copy operations.
-
-The focused wider run passed all three selections:
-
-```bash
-nix-shell --run 'make test-wider-texture'
-```
-
-The OpenGL, Vulkan, and auto reports all had `resources=true`, `views=true`,
-`transfers=true`, `copies=true`, `bc1=true`, `repeated=true`, stable handles,
-zero live-byte growth, valid rejection checks, and clean affine drops.
-
-The generated ledger reports 108 classified OpenGL and 113 Vulkan commands,
-221 total. Its deterministic regeneration, strict evidence join, and raw-module
-compile gate pass.
-
-`examples/wider-texture` independently demonstrates pitched RGBA array upload,
-layered GPU copy, exact readback with padding preservation, wider resource/view
-creation, stable image handles, and zero-growth repeated primitive operations.
-It runs under both explicit backends in the sample matrix.
-
-The final source in `569107e` passed on 2026-08-24:
-
-```bash
-nix-shell --run 'make update-registry test-registry test-texture-contract test-wider-texture test-application test-texture-transfer'
-nix-shell --run 'make all'
-nix-shell --run 'make test-samples'
-```
-
-`make all` includes the Abla-only audit and every core, platform, backend,
-window, shader, application, transfer, pool, debug, and registry gate. The
-independent no-cache sample matrix built all 36 examples and ran its complete
-Wayland/headless/X11 plus explicit OpenGL/Vulkan execution matrix. The new
-wider sample reported `exact=true`, `repeated=true`, stable handles, and
-`live=0` on both backends. `../ablac` was not changed.
-
-## Current checkpoint: target-aware wider sampled textures
-
-Implementation commit `6d2e8cb` completes full-resource sampled binding for
-the existing portable wider texture dimensions without introducing a compiler
-dependency.
-
-### Reflection and common binding contract
-
-- `src/shader/glsl.ab` exposes `glslSamplerType`, retaining recognition of the
-  complete existing scalar/integer/shadow sampler vocabulary.
-- `src/binding.ab` maps `sampler2D`, `sampler2DArray`, `samplerCube`, and
-  `sampler3D` to exact portable texture dimensions.
-- Pipeline creation rejects a reflected sampler/bound-texture dimension
-  mismatch before backend pipeline work. Uniform-buffer matching rejects every
-  recognized sampler type rather than only `sampler2D`.
-- The current entry binds a complete `GraphicsTexture`. Explicitly binding a
-  partial or format-reinterpreted `GraphicsTextureView` remains upcoming and
-  must not be claimed from this checkpoint.
-
-### Native backends and deterministic shaders
-
-- OpenGL bind groups use core direct-state-access `glBindTextureUnit`, whose
-  target is inherent in the texture object. The old hard-coded `GL_TEXTURE_2D`
-  draw-time binding is gone.
-- Vulkan continues to create one correctly typed default full-resource image
-  view and descriptor per sampled entry; descriptors and views are not rebuilt
-  per draw.
-- `src/shader/glsl_spirv.ab` retains the byte/word-stable strict `sampler2D`
-  module and adds strict vec3-coordinate forms for `sampler2DArray`,
-  `samplerCube`, and `sampler3D`.
-- The emitted SPIR-V selects the correct `OpTypeImage` dimension/arrayed
-  operands and coordinate vector width. Unsupported source shapes reject
-  instead of being partially accepted.
-
-### Evidence and sample
-
-`tests/glsl_subparser.ab` verifies deterministic repeated output, valid module
-structure, exact wider `OpTypeImage` operands, vec3 coordinates, legacy module
-sizes, and invalid array-coordinate rejection. `tests/application/main.ab`
-verifies the portable dimension mapping and pre-driver mismatch rejection.
-
-`examples/wider-sampling` independently uploads distinct colors into two array
-layers, six cube faces, and two volume slices. One shared vec3-coordinate
-triangle selects array layer 1, cube +Z face, and volume slice 1. Both backends
-produce the exact center pixels:
-
-```text
-array=4283644703 cube=4279733203 volume=4290850661
-```
-
-The sample also rejects an array texture bound to a cube shader, repeats all
-three target draws four times, retains OpenGL pipeline/resource handles and
-Vulkan pipeline/descriptor/view handles, reports `live=0`, and succeeds under
-explicit OpenGL, explicit Vulkan, and automatic selection.
-
-The OpenGL audit now classifies `glBindTextureUnit`. Generated ledgers report
-109 OpenGL and 113 Vulkan commands, 222 total.
-
-The final source in `6d2e8cb` passed on 2026-08-24:
-
-```bash
-nix-shell --run 'make update-registry test-registry test-glsl test-application test-wider-sampling'
-nix-shell --run 'make all'
-nix-shell --run 'make test-samples'
-```
-
-`make all` includes the Abla-only source audit. The independent no-cache sample
-matrix built all 37 examples, including `wider-sampling`, and completed its
-Wayland/headless/X11 plus explicit OpenGL/Vulkan runtime matrix.
-
-## Current checkpoint: explicit sampled texture views
-
-Implementation commit `3b31d3d` adds `sampledTextureViewEntry`,
-`textureViewBinding`, and `textureViewUniformBinding`. A view retains its parent
-descriptor for resolved dimension/format validation and application ownership
-checks. Bind groups borrow the parent texture, view, and sampler; they do not
-take affine ownership.
-
-OpenGL binds the exact alias or owned `glTextureView` name. Vulkan accepts the
-caller-owned `VkImageView` directly and destroys only default views created
-inside the bind group. The live sample proves that no hidden Vulkan replacement
-views are created. It samples a narrowed array layer, cube face, and volume
-view with exact pixels on both backends, four repeated frames, stable handles,
-and `live=0`. Depth-view and reflected-dimension mismatches reject before
-driver work.
-
-Verified on 2026-08-25 with:
-
-```bash
-nix-shell --run 'make test-core test-texture-contract test-application test-wider-sampling'
-VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s "-screen 0 800x600x24" build/tests/wider-sampling vulkan
-nix-shell --run 'make all'
-nix-shell --run 'make test-samples'
-```
-
-The validation-layer run was silent, and the no-cache matrix built and ran all
-37 examples. No `ablac` change was required.
-
-## Current checkpoint: wider fixed-slot asynchronous texture transfer
-
-Implementation commit `3be52d3` extends the existing texture queue without
-removing its RGBA8/BGRA8 `PixelBuffer` conveniences.
-
-### Public contract and slot model
-
-`src/texture_transfer.ab` adds descriptor conveniences and primitive scalar
-hot paths:
-
-- `enqueueUploadTextureBytes` and `enqueueUploadTextureBytesRange`;
-- `enqueueReadbackTextureBytes` and `enqueueReadbackTextureBytesRange`;
-- `resolveTextureBytesReadback` and `waitTextureBytesReadback`.
-
-The raw calls accept `BufferBytes`, `TextureRegion`, and `TextureDataLayout` and
-support single-sample color/compressed 1D, 2D, 2D-array, cube, and 3D
-selections subject to native format support. Raw depth/stencil and multisample
-transfer are rejected.
-
-Each fixed queue slot contains tight active texture bytes. Upload enqueue
-gathers a caller's offset/row/image-pitched bytes into the slot; readback
-resolution scatters active rows back without touching caller padding. Slot
-capacity therefore bounds tight bytes, while the caller footprint is validated
-independently. Queue-owned fixed metadata retains format, extent, and output
-layout without steady-state allocation. Legacy `PixelBuffer` metadata is filled
-into the same extended slots and its API remains compatible.
-
-Descriptor calls are setup conveniences. The scalar `...BytesRange` calls are
-the measured allocation-free streaming path. Textures remain ordinary immutable
-bindings at public call sites; backend layout tracking does not force `var` on
-application code.
-
-### Native backends
-
-`src/driver/opengl_transfer.ab` submits tight PBO offsets through direct-state-
-access 1D/2D/3D or compressed subimage operations and reads them through
-`glGetTextureSubImage`/`glGetCompressedTextureSubImage`. It scopes pixel-store
-block state, restores it, and uses one `GLsync` per slot.
-
-`src/driver/vulkan_transfer.ab` records tight `VkBufferImageCopy` operations in
-each slot's reusable command buffer. Array/cube `z/depth` becomes base layer and
-layer count; 3D `z/depth` remains physical image offset/extent. Every selected
-mip/layer transitions to the transfer layout and back, readback receives a
-transfer-to-host barrier, and the existing slot fence provides targeted
-completion. `VulkanTexture.storeSubresourceLayout` now writes through the same
-trusted native-buffer boundary as the legacy layout writer, retaining the
-simple immutable public texture binding.
-
-### Exact evidence
-
-`tests/wider_texture_transfer/main.ab` and
-`tools/test-wider-texture-transfer.sh` prove on OpenGL, Vulkan, and auto:
-
-- four uploads and four readbacks queued before any targeted waits;
-- exact pitched two-layer array, cube-face, physical 3D-volume, and BC1 data;
-- untouched offset, row, and image padding;
-- tight slot-capacity and invalid-layout rejection without queue advancement;
-- generation-checked stale-ticket rejection;
-- stable OpenGL staging and Vulkan staging/pool/command resources;
-- five repeated primitive upload/readback cycles with zero live-byte growth.
-
-The focused output reported `queued=true/true`, `inFlight=true`, `exact=true`,
-`padding=true`, `invalid=true`, `stale=true`, `repeated=true`, `live=0`, and
-`stable=true` for every selection. A Khronos validation-layer Vulkan run was
-silent and returned the same evidence.
-
-`examples/async-wider-texture` is an independent sample. It streams a
-pitched two-layer array through both direction-specific queues, checks exact
-readback and padding, repeats six scalar frames, presents a window, and reports
-`live=0` on explicit OpenGL and Vulkan.
-
-The registry stays at 109 OpenGL plus 113 Vulkan commands, 222 total: no new
-native command was introduced, so existing DSA/PBO and buffer-image-copy rows
-were updated with the new implementation and live evidence rather than
-inflating coverage.
-
-Verified on 2026-08-25 with:
-
-```bash
-nix-shell --run 'make update-registry test-registry'
-nix-shell --run 'make test-wider-texture-transfer'
-nix-shell --run 'make all'
-nix-shell --run 'make test-samples'
-nix-shell --run "VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s '-screen 0 800x600x24' build/tests/wider-texture-transfer vulkan"
-```
-
-`make all` includes the Abla-only audit and the new focused gate. The complete
-no-cache matrix built all then-current 37 samples and ran its
-Wayland/headless/X11 plus
-explicit OpenGL/Vulkan runtime paths. No `ablac` change was required; its clean
-published tip remains `93f8e2f`.
-
-## Checkpoint: portable texture-object reuse
-
-Published framework commit
-`eab5e846ede3b30bc4b32775d5d88208f3066046` implements the portable texture
-reuse/allocation checkpoint without manufacturing a Vulkan-shaped OpenGL heap
-API.
-
-### Common semantics and ownership
-
-`docs/texture-pooling.md` records the decision. `GraphicsTexturePool` is a
-bounded homogeneous pool of one to 64 eagerly created complete textures. It
-retains affine ownership of every `GraphicsTexture`; `acquire()` and
-`release()` lend compact pool-scoped slot/generation tokens and mutate only
-fixed metadata after construction.
-
-This shape follows Abla's real ownership semantics. A statically known affine
-array place can be moved and restored, but a dynamically indexed moved place
-cannot be proven restored. The pool therefore never moves a runtime-selected
-texture out of its owner. Structural resource cleanup destroys the retained
-array exactly once. A stale or double-released token fails, capacity exhaustion
-returns `0`, labels do not change storage compatibility, and fixed whole slots
-have no external fragmentation.
-
-The common promise is complete-object reuse:
-
-- OpenGL retains immutable texture objects plus their reusable readback state;
-- Vulkan retains images, dedicated bound device memory, transfer state, command
-  resources, and per-subresource layout tracking;
-- warmed acquire/release performs no driver allocation and no managed
-  allocation;
-- physical Vulkan heap suballocation remains a future backend-private layer,
-  not a false portable guarantee.
-
-The intended generation-checked surface includes synchronous raw-byte
-write/read, scalar RGBA8 readback, mipmap generation, GPU copies, fixed-slot
-asynchronous upload/readback, and sampled binding entries. Every application
-operation validates both pool ownership and the live lease before borrowing the
-retained texture. Tokens are scoped to their issuing pool. The public
-`textures` field is a borrowed low-level escape hatch analogous to a buffer
-pool's `backing`; using it directly bypasses logical lease validation but does
-not transfer ownership.
-
-Binding entries snapshot native handles, as the pre-existing binding API does.
-The lease must remain live until bind groups made from it are dropped. All
-queued GPU work borrowing a lease must complete before release.
-
-### Exact evidence
-
-`tests/texture_pool/main.ab` and `tools/test-texture-pool.sh` prove on explicit
-OpenGL, explicit Vulkan, and automatic selection:
-
-- invalid descriptor/capacity rejection and exact descriptor compatibility;
-- two-slot exhaustion, deterministic first-free reuse, generation increment,
-  stale access, and double-release rejection;
-- exact synchronous raw-byte upload/readback and scalar pixel readback;
-- exact GPU copy between two live pooled leases plus stale-copy rejection;
-- exact asynchronous upload/readback through the existing fixed native slots;
-- a real sampled offscreen draw with the exact pixel `4281541137`;
-- stable OpenGL texture names and Vulkan image handles;
-- 1,000 warmed acquire/release cycles with `runtimeMemoryLiveBytes()` delta
-  zero.
-
-The focused output reports
-`capacity/reuse/direct/copy/async/sampled/stale/steady=true`, `live=0`, and
-`acquisitions=1003` for every selection. A Vulkan run with
-`VK_LAYER_KHRONOS_validation` returned 42 with zero stderr bytes.
-
-`examples/texture-pool` is an independently buildable public workflow. It
-uploads through a lease, renders four sampled frames, performs 1,000 warmed
-reuse cycles, and reports `live=0`, `stable=true`, and `active=1/3` on both
-explicit backends.
-
-The repository now contains 38 example directories: the published parent had
-37 and this checkpoint adds one. The preceding handoff's wording that called
-`async-wider-texture` the 38th sample was off by one; the filesystem and
-`tools/test-samples.sh` count are authoritative here.
-
-Verified on 2026-08-25 with:
-
-```bash
-nix-shell --run 'make check-abla-only test-texture-pool'
-nix-shell --run 'make all'
-nix-shell --run 'make test-samples'
-nix-shell --run 'validation_log=build/tests/texture-pool-validation.log; : > "$validation_log"; set +e; VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a -s "-screen 0 800x600x24" build/tests/texture-pool vulkan >build/tests/texture-pool-validation.out 2>"$validation_log"; status=$?; set -e; test "$status" -eq 42; ! rg -q "Validation Error|VUID-|ERROR" "$validation_log"'
-```
-
-`make all` passed the complete framework matrix. The no-cache sample gate built
-all 38 current roots and ran the Wayland/headless/X11 plus explicit
-OpenGL/Vulkan paths. The final ownership-tightened tree reran the Abla-only and
-focused pool gates successfully. No registry row or native command changed;
-the pool reuses the already audited texture, copy, transfer, binding, and draw
-paths. No `ablac` change was required; its clean published tip remains
-`93f8e2f`.
-
-## Committed typed render-graph texture checkpoint (2026-08-25)
-
-Framework commit `b7d09cd` turns the deterministic planner's logical texture
-slots into real cross-backend objects without weakening the Abla-only or affine
-ownership rules.
-
-`src/graph_texture.ab` adds:
-
-- `GraphicsGraphTextureDeclaration`, with one complete `TextureDescriptor` per
-  logical resource;
-- `textureDescriptorStorageBytes`, which accounts for complete mip chains,
-  array/depth layers, compressed blocks, and samples with overflow checks;
-- affine `GraphicsMaterializedRenderGraph` ownership, retaining one
-  capacity-one `GraphicsTexturePool` and one live lease per planned physical
-  slot;
-- an exact descriptor recheck above the planner's intentionally opaque
-  compatibility integer, so mismatched extents/dimensions/mips/samples/formats/
-  usage cannot silently alias;
-- monotonic execution tokens and strict `plan.order` pass entry, with stale,
-  skipped, out-of-order, unknown-resource, and wrong-access rejection;
-- checked transient upload, readback, texture copy, and sampled-binding APIs by
-  logical resource ID; and
-- caller-owned imported texture validation plus imported-to-transient,
-  transient-to-imported, and sampled-import helpers. The graph never moves or
-  destroys an imported texture.
-
-Compatible non-overlapping resources share one stable OpenGL texture or Vulkan
-image. Overlapping resources and different compatibility classes receive
-different objects. If one opaque compatibility class would alias different
-complete descriptors, construction fails before creating a pool. The graph
-retains every lease for its whole lifetime, so warmed execution reset neither
-releases nor reacquires native resources. This is portable complete-object
-reuse, not a claim of Vulkan heap-offset aliasing.
-
-`tests/graph_texture/main.ab` and `tools/test-graph-texture.sh` prove explicit
-OpenGL, explicit Vulkan, and automatic selection with the following common
-result:
-
-```text
-typed=true alias=true overlap=true incompatible=true lifecycle=true sampled=true rejected=true steady=true executions=1001 live=0
-```
-
-The gate additionally verifies exact `64`- and `84`-byte descriptor sizing,
-three planned/physical slots, imported ownership/descriptor rejection, exact
-upload and three copy directions, exact readback, sampled entry construction,
-one pool acquisition per slot, and stable native identities. A dedicated
-Vulkan run under `VK_LAYER_KHRONOS_validation` returned `42`; its validation
-stderr file contained zero lines and no `Validation Error`, `VUID-`, or
-`ERROR` match.
-
-`examples/materialized-render-graph` is the independent live public workflow.
-Two logical 2x2 atlases with disjoint scheduled lifetimes reuse one native
-object, receive different contents in ordered passes, and render four frames.
-Both explicit backends report `reuse=true`, `executions=1001`, `pools=1`,
-`acquisitions=1`, `live=0`, and `stable=true`.
-
-`nix-shell --run 'make all'` passed the complete framework matrix after the new
-gate was added. `nix-shell --run 'make test-samples'` rebuilt all 39 current
-sample roots with `--no-cache` and ran the full Wayland/headless/X11 plus
-explicit OpenGL/Vulkan matrix successfully. The new sample passed both live
-backends inside that matrix. No compiler or standard-library change was needed;
-`../ablac` remains at synchronized commit `93f8e2f`.
-
-`docs/render-graph-textures.md` is the authoritative ownership, execution,
-imported-resource, performance, and evidence contract. `docs/api.md`,
-`docs/architecture.md`, `docs/status.md`, `docs/texture-pooling.md`, and
-`README.md` now distinguish delivered physical texture materialization from
-the still-open graph command/barrier layer.
-
-## Immediate continuation checklist
-
-The next coherent checkpoint is real render-graph command and barrier
-materialization on top of the published pure planner and typed textures:
-
-1. Audit the current common render/compute/target/pass calls and the exact
-   OpenGL/Vulkan access/layout transitions they already perform. Preserve all
-   direct APIs and avoid double-transitioning resources.
-2. Define typed graph executable-pass descriptions and a reusable affine
-   execution owner. It must connect pass IDs to actual render/compute/copy work
-   while retaining every referenced resource without unsafe dynamic moves.
-3. Translate `GraphicsGraphBarrier` access pairs into conservative portable
-   stage/access/layout intent. Materialize them as measured OpenGL memory
-   barriers and Vulkan synchronization2 barriers where supported, with a
-   correct fallback and observable unsupported/error paths.
-4. Integrate the existing materialized texture identities and imported-resource
-   borrows. Enforce that backend submissions follow `plan.order`, do not reuse
-   aliased contents before the preceding lifetime is complete, and never
-   release physical storage before GPU completion.
-5. Deliver a real multi-pass offscreen/deferred-style vertical slice with exact
-   pixels/readbacks, emitted-barrier counts, stable command/native handles,
-   validation silence, and zero steady-state managed allocations on OpenGL and
-   Vulkan. Keep an independently buildable sample.
-6. Run focused gates, `make all`, and `make test-samples`, then commit and push
-   with explicit-path review. Continue through every remaining `plan.md`
-   milestone afterward; do not mark the persistent goal complete.
-
-## Major remaining framework work
-
-The project is far from its final definition of done. Important open areas
-include:
-
-- complete native window/input/monitor/clipboard/cursor/fullscreen behavior and
-  pure-Abla Win32 and Cocoa platform/surface backends;
-- broader OpenGL 4.6 and Vulkan 1.4 core/extension command families, callable
-  generated raw bindings, capability negotiation, and complete coverage-ledger
-  classification;
-- the remaining GLSL 4.60 grammar, stages, includes/modules, diagnostics,
-  reflection, specialization constants, interface validation, deterministic
-  dual-backend generation, and shader/pipeline caches;
-- reusable command encoders, render-graph command execution and derived barrier
-  submission, descriptor reuse, backend-private heap allocation, frame
-  scheduling, and device-loss/context-reset recovery;
-- geometry/tessellation, mesh/task, ray tracing, acceleration structures,
-  multiview, variable-rate shading, sparse/external resources, video, device
-  groups, protected work, calibrated timestamps, shader objects, and vendor
-  extensions behind queried capability types;
-- real Linux/Windows/macOS CI with validation and golden output, fuzzing,
-  repeatable startup/resource/transfer/submission/frame/memory benchmarks, and
-  reproducible signed releases;
-- the planned sample catalog: camera/mesh/material/glTF, particles, shadows,
-  HDR/PBR, deferred/render graph, UI/text, multi-window/monitor, profiler, raw
-  backend labs, stress benchmark, complete 2D game, complete 3D application,
-  and Abla Mobile/native-surface proof.
-
-Do not substitute a large enum/token surface for these implementation and
-evidence requirements.
-
-## Files to care about
-
-Core public surface and implementation:
-
-- `src/graphics.ab` — public module composition;
-- `src/core.ab` — configuration, features, limits, errors, and capability
-  contract;
-- `src/resources.ab` — descriptors, dimensions, formats, views, regions,
-  layouts, and portable validation;
-- `src/texture.ab` — affine common texture ownership and synchronous dispatch;
-- `src/texture_transfer.ab` — fixed-slot asynchronous texture API;
-- `src/texture_pool.ab` — homogeneous complete-object reuse, pool-scoped
-  generation leases, and checked texture operations;
-- `src/graph_texture.ab` — affine typed graph texture ownership, exact
-  descriptor/size validation, execution tokens, transient operations, and
-  caller-owned imported-resource borrowing;
-- `src/transfer.ab` — tickets, slots, generations, polling, and waits;
-- `src/binding.ab` — bind-group validation and sampled texture compatibility;
-- `src/driver/opengl.ab`, `src/driver/vulkan.ab` — backend image allocation,
-  transfer, copy, synchronization, and layout state;
-- `src/driver/opengl_transfer.ab`, `src/driver/vulkan_transfer.ab` — reusable
-  buffer-transfer slot patterns;
-- `src/graph.ab` — deterministic dependency, lifetime, barrier, and logical
-  transient-allocation planner; next checkpoint submits its ordered work and
-  barriers;
-- `src/shader/glsl.ab`, `src/shader/glsl_spirv.ab` — `$glsl` parsing,
-  reflection, typing, and deterministic SPIR-V generation.
+## Last published framework checkpoint
+
+The published tip includes typed render-graph texture materialization from
+commit `b7d09cd` and its handoff commit `cdde6a1`.
+
+That checkpoint turns the pure planner's logical transient slots into retained
+native textures:
+
+- `GraphicsMaterializedRenderGraph` owns one capacity-one
+  `GraphicsTexturePool` and one live lease per physical graph slot;
+- compatible resources with non-overlapping lifetimes reuse one stable native
+  texture, while overlapping or incompatible resources do not alias;
+- complete texture descriptors are rechecked above the planner's integer
+  compatibility class;
+- execution tokens enforce strict `plan.order` and declared resource access;
+- transient upload/readback/copy/sampling and caller-owned imported textures
+  are supported without transferring imported ownership;
+- 1,000 warmed executions retain stable native identities and zero live-byte
+  growth.
+
+Its focused test, validation-layer run, full `make all`, and 39-sample matrix
+passed before publication. `docs/render-graph-textures.md` is the detailed
+contract.
+
+## Verified checkpoint: ordered render-graph memory barriers
+
+Implementation commit `deecaa3` adds conservative backend memory dependency
+execution before each ordered materialized graph pass.
+
+### Intended public behavior
+
+- Start an execution with `graph.beginExecution()`.
+- Enter every planned pass using
+  `app.beginMaterializedRenderGraphPass(graph, token, passId)`.
+- The application call validates the exact next `plan.order` entry, combines
+  all logical barriers targeting that pass, executes one backend memory
+  barrier when needed, and advances the logical pass only after native success.
+- Perform the existing direct render, compute, copy, upload, or readback work
+  for that pass.
+- Finish with `graph.completeExecution(token)`.
+
+`graph.beginPass()` remains the planner's logical-only primitive. It does not
+execute a native barrier and must not be used as the physical execution entry
+point by barrier-aware applications.
+
+### Current backend mapping
+
+- OpenGL makes the retained context current and calls `glMemoryBarrier` with a
+  conservative combination of all relevant lower barrier bits.
+- Vulkan maps graph read/write access to conservative memory read/write masks,
+  uses the all-commands stage, records a memory barrier through the device's
+  retained transfer command state, and submits through its existing
+  synchronization2/fallback path.
+- The graph layer does not duplicate image-layout transitions. Existing
+  texture/render/copy operations still own exact Vulkan layout transitions.
+- The current Vulkan graph-barrier path is synchronous because it builds on the
+  existing direct-submission architecture. This is a correct first execution
+  layer, not the final high-throughput frame encoder.
+- Counters distinguish logical barriers from backend barrier calls:
+  `currentExecutionBarriers`, `lastExecutionBarriers`,
+  `totalExecutedBarriers`, and `backendBarrierCalls`.
+
+### Files delivered
+
+Core and backends:
+
+- `src/graph_execute.ab` — barrier intent mapping, per-pass aggregation, strict
+  ordered entry, native dispatch, and counters;
+- `src/graph_texture.ab` — execution barrier observability;
+- `src/graphics.ab` — public composition of graph execution;
+- `src/driver/opengl.ab` — retained-context `glMemoryBarrier` call;
+- `src/driver/vulkan.ab` — retained-command memory barrier submission.
 
 Tests and samples:
 
-- `tests/texture_contract.ab`, `tools/test-texture-contract.sh`;
-- `tests/wider_texture/main.ab`, `tools/test-wider-texture.sh`;
-- `examples/wider-sampling/main.ab`, `tools/test-wider-sampling.sh`;
-- `tests/glsl_subparser.ab`, `tools/test-glsl.sh`;
-- `tests/application/main.ab`;
-- `tests/texture_transfer/main.ab`, `tools/test-texture-transfer.sh`;
-- `tests/wider_texture_transfer/main.ab`,
-  `tools/test-wider-texture-transfer.sh`;
-- `tests/transfer/main.ab`, `tools/test-transfer.sh`;
-- `tests/texture_pool/main.ab`, `tools/test-texture-pool.sh`, and
-  `examples/texture-pool/main.ab`;
-- `tests/graph_texture/main.ab`, `tools/test-graph-texture.sh`, and
-  `examples/materialized-render-graph/main.ab`;
-- `examples/common-texture/main.ab`, `examples/async-texture/main.ab`, and
-  `examples/async-wider-texture/main.ab`;
-- `tools/test-samples.sh` — independent no-cache build and live backend matrix;
-- `Makefile` — authoritative gate map.
+- `tests/graph_execute/main.ab`, `tests/graph_execute/abla.toml` — sampled
+  upload to imported offscreen target, post copy, exact full readback, ordering
+  rejection, barrier counts, stable identities, and 1,000 warmed executions;
+- `tools/test-graph-execute.sh` and `Makefile` — focused gate and aggregate
+  integration;
+- `tests/graph_texture/main.ab` — existing typed graph coverage now enters
+  passes through the barrier-aware API;
+- `examples/graph-post-process/main.ab` and its `abla.toml` — independent
+  upload/render/copy/readback graph workflow;
+- `examples/materialized-render-graph/main.ab` — existing sample migrated to
+  the barrier-aware entry point;
+- `tools/test-samples.sh` — new sample in the explicit OpenGL/Vulkan matrix.
 
-Registry and public claims:
+Documentation:
 
-- `registry/audit/opengl.tsv`, `registry/audit/vulkan.tsv` — reviewed evidence
-  inputs;
-- `tools/update-registry.sh` and the registry importer sources;
-- `registry/coverage/*.md` and `src/raw/*_registry.ab` — generated outputs;
-- `README.md`, `docs/api.md`, `docs/status.md`,
-  `docs/specification-baseline.md`, `plan.md`, and this file;
-- `tools/check-abla-only.sh` — mandatory proof of the no-C implementation rule.
+- `docs/render-graph-execution.md` — detailed execution contract;
+- `docs/render-graph-textures.md`, `docs/api.md`, `docs/architecture.md`,
+  `docs/status.md`, and `README.md` — updated public claims and navigation.
 
-## Working and publication commands
+### Verified evidence
 
-Use the repository's Nix environment. Start focused, but never publish a slice
-on focused tests alone.
-
-Useful focused commands:
+The following focused runs passed during development:
 
 ```bash
-nix-shell --run 'make test-core test-texture-contract test-wider-texture test-wider-sampling'
-nix-shell --run 'make test-glsl'
-nix-shell --run 'make test-application test-transfer test-texture-transfer test-wider-texture-transfer'
-nix-shell --run 'make test-texture-pool test-graph-texture'
-nix-shell --run 'make update-registry test-registry'
+./tools/test-core.sh
+nix-shell --run 'make test-graph-texture'
+nix-shell --run 'make test-graph-execute'
 ```
 
-Mandatory final gates:
+Observed results include:
+
+- explicit OpenGL, explicit Vulkan, and automatic backend selection;
+- exact rendered and copied RGBA value `4281541137` across the complete 16x16
+  readback in `graph-execute`;
+- strict out-of-order rejection without a backend barrier call;
+- `graph-execute`: 3 barriers in the primary execution and 3,003 logical
+  barriers/backend calls after 1,001 executions;
+- a second live two-resource graph reports 2 incoming logical barriers and
+  exactly 1 backend barrier call, proving destination-pass batching;
+- `graph-texture`: 4,004 logical barriers/backend calls after 1,001
+  executions;
+- stable native texture identities and one retained pool acquisition per graph
+  slot;
+- zero `runtimeMemoryLiveBytes()` growth across the warmed loops;
+- synchronization2 counter growth on the Vulkan path;
+- both `examples/materialized-render-graph` and
+  `examples/graph-post-process` passed direct OpenGL and Vulkan runs.
+
+The combined source audit, core test, graph-texture test, graph-execute test,
+and Vulkan validation-layer run also completed successfully while this handoff
+was being written. `build/tests/graph-execute-validation.log` contained zero
+lines, and the validation run returned the same exact pixel, copy, 3/3,003
+barrier, 2/1 batching, stable-handle, 1,001-execution, and `live=0` evidence.
+The final implementation tree passed:
 
 ```bash
 nix-shell --run 'make all'
 nix-shell --run 'make test-samples'
 ```
 
-Review before committing:
+The no-cache sample gate rebuilt all 40 example roots independently and ran its
+complete Wayland/headless plus explicit OpenGL/Vulkan matrix. Both graph
+samples passed on both backends. `graph-post-process` reported the exact
+16x16 output, `3/3003/3003` barriers, 1,001 executions, stable handles, and
+`live=0`. The older materialization sample reported `2002/2002` barriers,
+one retained pool acquisition, a stable native handle, and `live=0`.
+
+No `ablac` source change was needed for this checkpoint. Recheck the sibling
+repository is still clean and synchronized before beginning compiler-dependent
+work.
+
+Suggested focused validation command:
+
+```bash
+nix-shell --run 'make check-abla-only test-core test-graph-texture test-graph-execute'
+validation_log=build/tests/graph-execute-validation.log
+validation_out=build/tests/graph-execute-validation.out
+: > "$validation_log"
+set +e
+VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
+  xvfb-run -a -s "-screen 0 800x600x24" \
+  build/tests/graph-execute vulkan \
+  >"$validation_out" 2>"$validation_log"
+status=$?
+set -e
+test "$status" -eq 42
+! rg -q 'Validation Error|VUID-|ERROR' "$validation_log"
+wc -l "$validation_log"
+cat "$validation_out"
+```
+
+Mandatory final gates for this checkpoint:
+
+```bash
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+There are 40 independently rebuilt example directories at this checkpoint.
+The sample count in older commits or handoffs may be lower; the filesystem and
+`tools/test-samples.sh` are authoritative.
+
+## Next coherent checkpoint after barrier execution
+
+Build the reusable bounded command/submission layer promised by milestone 5.
+The present executor orders direct operations correctly, but Vulkan currently
+submits and waits through the retained transfer path for each destination pass
+that has a graph barrier.
+
+The next layer should:
+
+1. Define typed render, compute, copy, and barrier command records with bounded
+   reusable storage and affine ownership.
+2. Record a complete graph/frame without managed allocation after warm-up.
+3. Compile `GraphicsGraphBarrier` records into the same native command stream
+   as the dependent work instead of separate synchronous barrier submissions.
+4. Preserve exact image-layout responsibility without double transitions.
+5. Batch backend submission, support frames in flight, and retain every
+   borrowed resource until GPU completion.
+6. Keep direct encoders and raw escape hatches available.
+7. Prove exact multi-pass output, native barrier/submission counts, stable
+   command resources, Vulkan validation silence, and zero steady-state live
+   allocation on OpenGL and Vulkan.
+8. Deliver an independently buildable deferred- or post-processing-style
+   sample using the real recorded command path.
+
+## Major remaining work from `plan.md`
+
+The project remains far from its final definition of done. Major open areas
+include:
+
+- complete window/input/monitor/clipboard/cursor/DPI/fullscreen behavior and
+  pure-Abla Win32 and Cocoa platform/surface implementations;
+- broader OpenGL 4.6 and Vulkan 1.4 core/extension implementation, callable
+  generated raw APIs, feature-chain/capability negotiation, and fully
+  classified coverage ledgers;
+- the remaining GLSL 4.60 grammar and stages, includes/modules, precise source
+  spans, reflection, specialization constants, interface validation,
+  deterministic dual-backend generation, and shader/pipeline caches;
+- reusable command encoders, frames in flight, presentation scheduling,
+  descriptor reuse, backend-private heap allocation/suballocation, persistent
+  pipeline caches, and device-loss/context-reset recovery;
+- geometry/tessellation, mesh/task, ray tracing, acceleration structures,
+  multiview, variable-rate shading, sparse/external resources, video, device
+  groups, protected work, calibrated timestamps, shader objects, and vendor
+  extensions behind queried capabilities;
+- Linux/Windows/macOS CI, golden image comparison, validation jobs, fuzzing,
+  repeatable startup/resource/transfer/submission/frame/memory benchmarks, and
+  reproducible signed releases;
+- the planned learning/sample catalog: camera/mesh/material/glTF, particles,
+  shadows, HDR/PBR, deferred rendering, UI/text, multi-window/monitor,
+  profiler, raw backend labs, stress benchmark, complete 2D game, complete 3D
+  application, and Abla Mobile/native-surface proof.
+
+Do not treat a wide enum or raw-token surface as completion of any of these
+areas.
+
+## Files to care about
+
+Public/common implementation:
+
+- `src/graphics.ab` — public module composition;
+- `src/core.ab` — configuration, adapters, limits, features, errors;
+- `src/application.ab` — backend selection and application ownership;
+- `src/resources.ab` — portable descriptors and validation;
+- `src/buffer.ab`, `src/texture.ab`, `src/binding.ab`, `src/pipeline.ab` —
+  common GPU resources and binding/pipeline contracts;
+- `src/transfer.ab`, `src/texture_transfer.ab` — fixed-slot asynchronous
+  transfers;
+- `src/pool.ab`, `src/texture_pool.ab` — bounded retained reuse;
+- `src/graph.ab` — pure dependency/lifetime/barrier/alias planner;
+- `src/graph_texture.ab` — typed physical texture materialization and ordered
+  execution tokens;
+- `src/graph_execute.ab` — current native graph memory-barrier execution.
+
+Native/platform implementation:
+
+- `src/driver/opengl.ab`, `src/driver/vulkan.ab` — primary backend resource,
+  command, synchronization, and presentation paths;
+- `src/driver/opengl_transfer.ab`, `src/driver/vulkan_transfer.ab` — retained
+  transfer-slot patterns worth following;
+- `src/platform/x11.ab`, `src/platform/wayland.ab` and neighboring platform
+  modules — direct native windowing/event implementation;
+- `src/raw/` — generated/audited raw declarations; do not hand-edit generated
+  registry modules.
+
+Shaders:
+
+- `src/shader/glsl.ab` — `$glsl` parser, reflection, and OpenGL source;
+- `src/shader/glsl_spirv.ab` — deterministic Vulkan SPIR-V generation;
+- `tests/glsl_subparser.ab`, `tools/test-glsl.sh` — compiler-facing shader
+  evidence.
+
+Tests, samples, and public claims:
+
+- `tests/graph_texture/`, `tools/test-graph-texture.sh`;
+- `tests/graph_execute/`, `tools/test-graph-execute.sh`;
+- `examples/materialized-render-graph/`;
+- `examples/graph-post-process/`;
+- `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
+- `Makefile` — authoritative gate aggregation;
+- `registry/audit/*.tsv` — reviewed coverage inputs;
+- `tools/update-registry.sh` — deterministic registry generation;
+- `registry/coverage/*.md`, `src/raw/*_registry.ab` — generated outputs;
+- `README.md`, `docs/api.md`, `docs/architecture.md`, `docs/status.md`,
+  `docs/specification-baseline.md`, `plan.md`, and this file — public contract
+  and claim surface;
+- `tools/check-abla-only.sh` — mandatory no-C implementation audit.
+
+## Working commands
+
+Use the repository Nix environment and the sibling compiler. Start focused,
+but never publish from focused tests alone.
+
+Useful commands:
+
+```bash
+nix-shell --run 'make check-abla-only test-core'
+nix-shell --run 'make test-graph-texture test-graph-execute'
+nix-shell --run 'make test-glsl test-application'
+nix-shell --run 'make update-registry test-registry'
+nix-shell --run 'make all'
+nix-shell --run 'make test-samples'
+```
+
+Review and publish with explicit paths:
 
 ```bash
 git status --short --branch
@@ -763,90 +427,67 @@ git add <explicit paths>
 git diff --cached --check
 git diff --cached --stat
 git diff --cached -- <explicit paths>
-```
-
-Verify after pushing:
-
-```bash
+git commit -m '<checkpoint message>'
+git push origin main
 git fetch origin main
 git rev-parse HEAD
 git rev-parse origin/main
 git status --short --branch
-git -C ../ablac status --short --branch
-git -C ../ablac rev-parse HEAD
-git -C ../ablac rev-parse '@{upstream}'
 ```
 
-## Known design and implementation cautions
+If `../ablac` changes, use the same explicit-path discipline there and publish
+that dependency first.
 
-- Descriptor overloads are for convenient setup. Primitive scalar range calls
-  are the measured allocation-free streaming path because immutable class value
-  copies can allocate in current Abla.
-- Vulkan 3D textures use one array subresource with physical z/depth; 2D arrays
-  and cubes use array layers. Do not apply one interpretation to both.
-- Vulkan layout state is per mip and per array layer. Whole-texture state updates
-  are insufficient for partial wider operations.
-- OpenGL synchronous compressed pixel-store state selects blocks from pitched
-  caller memory, but compressed upload `imageSize` is the tight active selection
-  size. Asynchronous slots are already repacked tight and use zero row/image
-  pitch at native submission.
-- Caller padding must remain untouched on readback; only active texel/block bytes
-  are semantically transferred.
-- Queue capacity applies to tight active texture bytes, not the larger caller
-  footprint. Resolve/wait must validate the stored footprint against the output
-  buffer before waiting or writing.
-- Keep the legacy 2D `PixelBuffer`, synchronous texture-copy, and layout methods
-  working when evolving the wider API.
-- `glBindTextureUnit` is core in the targeted OpenGL 4.6/4.5 path and avoids a
-  draw-time target table. Any future lower-version compatibility path must bind
-  the actual resolved target and must never restore a hard-coded 2D target.
-- Large texture-owned staging is currently bounded by the existing backend
-  design. Do not promise arbitrary-size staging or device-local texture
-  suballocation without a separate validated design.
-- A texture pool retains complete affine textures because Abla cannot prove a
-  dynamically indexed moved array place was restored. Keep operational access
-  token-checked rather than moving resources out of runtime-selected slots.
-- Texture-pool integer leases are scoped to the pool that issued them; they are
-  deliberately compact, not globally unique identifiers.
-- `sampledTexturePoolEntry` snapshots native handles. Keep its lease live until
-  every derived bind group is dropped, and complete queued transfers/draws
-  before release or reuse.
-- Storage compatibility ignores diagnostic labels but is exact for extent,
-  dimension, format, mip levels, samples, and usage. Render-graph texture
-  materialization rechecks the complete descriptor even when planner
-  compatibility integers match; keep that second validation layer.
-- A materialized graph permanently retains one capacity-one texture-pool lease
-  per physical slot. Do not introduce per-pass acquire/release churn or move a
-  dynamically indexed affine pool/texture out of the owner.
-- Graph execution tokens currently enforce logical schedule and access only.
-  They do not submit `GraphicsGraphBarrier` records, and
-  `completeExecution()` deliberately does not call `waitIdle()` per frame.
-  Direct raw command users remain responsible for ordering/completion until the
-  next command/barrier checkpoint supplies that layer.
-- `sampledGraphTextureEntry` and the imported sampled helper snapshot native
-  handles. Keep the materialized graph or caller-owned imported texture alive
-  until every derived bind group and submitted draw is complete.
+## Design cautions worth preserving
+
+- Immutable class copies can allocate in current Abla. Descriptor/object APIs
+  are ergonomic setup paths; warmed loops should use scalar state and retained
+  resources.
+- Never allocate `GraphicsGraphBarrierIntent` per logical barrier in the hot
+  executor. It is useful as an inspection value, not as the execution record.
+- A materialized graph retains one capacity-one texture-pool lease per physical
+  slot for its entire life. Do not introduce per-pass acquire/release churn.
+- Planner compatibility classes are opaque hints. Physical materialization
+  must continue to recheck the complete texture descriptor before aliasing.
+- Imported textures are borrowed. The graph must never move or destroy them.
+- Sampled binding entries snapshot native handles. Keep the graph or imported
+  owner alive until derived bind groups and submitted work are complete.
+- Vulkan 3D textures use physical z/depth in one array subresource; 2D arrays
+  and cubes use array layers. Layout state is tracked per mip/layer.
+- Caller padding must remain untouched on readback. Queue capacity refers to
+  tight active bytes, while caller footprints are validated independently.
+- The graph memory barrier is a visibility dependency, not an image-layout
+  transition. Do not double-transition images already managed by concrete
+  texture/render/copy operations.
+- `completeExecution()` intentionally does not call `waitIdle()` per frame.
+  Resource retention and eventual submission completion must stay explicit.
+- Generated coverage files are reproducible output. Change audit manifests or
+  generators and run `make update-registry`; never edit generated ledgers by
+  hand.
 
 ## `abla-doom` side quest
 
-The homage project is already complete and published separately. Its clean
+The homage project is already implemented and published separately. Its clean
 proof screenshot is:
 
 ```text
 /home/andre/Desktop/projects/abla-doom/screenshots/abla-doom.png
 ```
 
-Do not modify or republish `abla-doom` unless a later request explicitly
-expands that scope.
+Do not modify or republish `abla-doom` unless the user explicitly reopens that
+scope. If it is reopened, keep its implementation Abla-only and retain a clean
+repository screenshot showing only the Doom window as proof.
 
-## Completion and publication rule
+## Completion rule
 
-Verified incremental commits may be pushed to the GitHub repository as the
-framework grows. The persistent goal itself is complete only when every exit
-gate and the full definition of done in `plan.md` is genuinely satisfied.
+Continue through verified, reviewable checkpoints and publish them as the
+framework grows. Do not mark the persistent goal complete merely because a
+checkpoint compiles, passes focused tests, broadens a declaration surface, or
+renders one sample.
 
-Do not mark the goal complete because one checkpoint passes, because the token
-surface is broad, or because a backend compiles. Completion requires working
-Abla-only implementation, tests, samples, documentation, live backend evidence,
-performance evidence where promised, complete platform/release work, and a
-clean synchronized published state.
+The goal is complete only when every milestone and the definition of done in
+`plan.md` are genuinely satisfied: pleasant common APIs, complete supported
+platform behavior, working OpenGL and Vulkan backends, classified raw
+specification coverage, source-accurate deterministic shader tooling,
+validated advanced features, extensive live samples, measured performance,
+portable CI, reproducible releases, and a clean synchronized published state.
