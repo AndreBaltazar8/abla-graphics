@@ -80,13 +80,14 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
-- Published parent tip before this checkpoint:
-  `cdde6a1eae2696517a348c61c312ee27990a1b9f`
+- Published ordered-barrier tip before the compiled-schedule follow-up:
+  `2dcbfa384e9327e214cd918ffa712937ba21375c`
   (`Update graphics continuation handoff`)
-- The ordered render-graph barrier implementation is committed locally as
-  `deecaa3` (`Execute render graph barriers`). This handoff is its intended
+- The compiled barrier schedule is committed locally as `6ba1ec5`
+  (`Compile render graph barrier schedules`). This handoff is its intended
   successor, so use `git rev-parse HEAD` for the final handoff commit rather
-  than embedding a self-referential hash here.
+  than embedding a self-referential hash here. The ordered barrier
+  implementation itself is commit `deecaa3`.
 
 ### `ablac`
 
@@ -257,6 +258,15 @@ samples passed on both backends. `graph-post-process` reported the exact
 16x16 output, `3/3003/3003` barriers, 1,001 executions, stable handles, and
 `live=0`. The older materialization sample reported `2002/2002` barriers,
 one retained pool acquisition, a stable native handle, and `live=0`.
+
+Follow-up implementation commit `6ba1ec5` compiles per-pass barrier counts and
+source/destination access unions into bounded primitive arrays, and pass entry
+indexes those arrays instead of rescanning every planner barrier. Focused core,
+graph-texture, and graph-execute gates pass with exact `0/1/1/1` and `0/2`
+schedules on OpenGL, Vulkan, and auto. Its full `make all` and 40-root no-cache
+`make test-samples` gates pass. A dedicated Vulkan validation run produced zero
+validation-log lines and retained exact output, `3/3003/3003` barrier counts,
+`2/1` batching, stable handles, and `live=0`.
 
 No `ablac` source change was needed for this checkpoint. Recheck the sibling
 repository is still clean and synchronized before beginning compiler-dependent
