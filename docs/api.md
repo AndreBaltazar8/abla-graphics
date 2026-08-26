@@ -527,6 +527,14 @@ app.presentPixels(pixels)
 ```
 
 `PixelBuffer` bounds-checks dimensions, rectangles, channels, and pixel access.
+Software 2D applications can remain on the same reusable storage with
+`fillClippedRectRgba8`, `strokeRectRgba8`, `drawLineRgba8`, and
+`fillCircleRgba8`. The clipped forms accept geometry crossing the frame edge,
+while still rejecting out-of-contract dimensions, coordinate ranges, and color
+channels. All four primitives write directly into the affine native buffer and
+perform no managed allocation, so a warmed software renderer can draw and
+present each frame without growing runtime live memory.
+
 Its native storage is affine and released deterministically. OpenGL uploads it
 through a persistent nearest-filtered texture. Vulkan keeps a host-visible
 staging buffer, adapts RGBA/BGRA order for the selected swapchain format, and

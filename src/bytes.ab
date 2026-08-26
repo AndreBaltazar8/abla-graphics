@@ -3,14 +3,21 @@
 import "abla/unsafe/memory"
 import "core.ab"
 
-// Lowered directly to LLVM memcpy by the pinned Abla compiler. The graphics
-// boundary keeps a pointer-typed spelling distinct from the standard library's
-// integer-address intrinsic so imports remain unambiguous.
-trusted noescape extern:"intrinsic" fun graphicsUnsafeCopyMemory(
+// Keep the graphics boundary pointer-typed while delegating to the compiler's
+// standard integer-address memcpy intrinsic. This is an ordinary Abla adapter,
+// so both the regular and direct LLVM pipelines retain a definition.
+trusted noescape fun graphicsUnsafeCopyMemory(
     destination: i64*,
     source: i64*,
     size: int
-): void
+): void {
+    ablaUnsafeCopyMemory(
+        nativePointerAddress(destination),
+        nativePointerAddress(source),
+        size
+    )
+    return
+}
 
 resource class BufferBytes(
     val storage: NativeByteBuffer,

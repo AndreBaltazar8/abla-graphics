@@ -224,6 +224,17 @@ copy/compute forms, frames in flight, broader storage-image dimensions and
 general expression lowering, and GPU-completion-aware
 retention.
 
+## Software 2D drawing
+
+`PixelBuffer` is both the common software-rendering canvas and the upload owner.
+Its strict pixel/rectangle operations are joined by clipped fills, rectangle
+strokes, integer Bresenham lines, and filled integer circles. These are methods
+on the existing affine RGBA8 storage rather than scene objects: drawing creates
+no per-frame managed values and the same owner passes directly to
+`GraphicsApplication.presentPixels`. Backends remain free to optimize only the
+upload/presentation boundary; game and visualization code therefore stays
+identical across OpenGL and Vulkan.
+
 ## Specification coverage
 
 The common API aims at portable graphics and compute concepts, not a lossy union

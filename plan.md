@@ -32,8 +32,9 @@ suballocation with generation-checked slice transfers and aligned
 uniform/storage range binding plus generation-checked nonzero-offset surfaced
 and offscreen target/pass vertex/index/direct-indirect pool rendering,
 including reflected push-value forms, reusable
-copies/fills/pixel
-presentation, compute pipelines, strict initial
+copies/fills/pixel presentation, allocation-free clipped rectangle/stroke,
+integer-line, and filled-circle software drawing plus a complete portable 2D
+game, compute pipelines, strict initial
 `$glsl`-to-SPIR-V subsets, and the first procedural, common-vertex-buffer, and
 multi-attribute vertex, `uint32` indexed, and instanced render paths with
 immutable topology, culling, winding, independently configured color/alpha
@@ -349,7 +350,9 @@ backends unless it demonstrates a backend-specific feature:
 15. raw Vulkan feature lab;
 16. ray tracing when available;
 17. boids/particle stress benchmark;
-18. complete small 2D game;
+18. complete small 2D game (delivered by `examples/mini-breakout`, including
+    portable input, scoring/lives, win/loss/reset, and allocation-free
+    OpenGL/Vulkan automated proof);
 19. complete small 3D application;
 20. Abla Mobile/native surface integration proof.
 

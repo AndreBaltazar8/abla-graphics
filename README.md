@@ -109,8 +109,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   growth on both backends;
 - a backend-neutral affine headless application that selects a real Vulkan or
   surfaceless EGL/OpenGL device and probes it without connecting to a display;
-- reusable affine RGBA8 pixel storage, a persistent nearest-filtered OpenGL
-  allocation-free repeated upload path, and a configurable one-to-eight-frame
+- reusable affine RGBA8 pixel storage with allocation-free clipped rectangles,
+  outlined rectangles, integer lines, and filled circles, a persistent
+  nearest-filtered OpenGL allocation-free repeated upload path, and a
+  configurable one-to-eight-frame
   allocation-free repeated Vulkan
   staging/copy/present path with per-image
   presentation semaphores, fence-guarded slot reuse, and bounded automatic
@@ -245,6 +247,11 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
+- `examples/mini-breakout`: a complete playable pure-Abla 2D game with portable
+  keyboard controls, deterministic fixed-step simulation, bricks, scoring,
+  lives, win/loss/reset states, and the same allocation-free `PixelBuffer`
+  frame presented on OpenGL or Vulkan; its automated mode proves 1,001
+  allocation-stable frames and exact simulation transitions;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
   pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
   buffer and common index buffer rendered unchanged on explicit OpenGL and

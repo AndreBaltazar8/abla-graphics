@@ -96,6 +96,177 @@ resource class PixelBuffer(
         }
         inside
     }
+
+    // Draw the visible part of a rectangle. Unlike fillRectRgba8, coordinates
+    // may cross an edge; dimensions and colors remain strictly validated.
+    trusted fun fillClippedRectRgba8(
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool {
+        val validArguments = this.valid() &&
+            x >= -16384 && x <= 16384 && y >= -16384 && y <= 16384 &&
+            width >= 0 && width <= 16384 &&
+            height >= 0 && height <= 16384 &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255
+        var left = x
+        var top = y
+        var right = 0
+        var bottom = 0
+        if (validArguments) {
+            right = x + width
+            bottom = y + height
+            if (left < 0) left = 0
+            if (top < 0) top = 0
+            if (right > this.width) right = this.width
+            if (bottom > this.height) bottom = this.height
+        }
+        var drawn = validArguments
+        if (drawn && right > left && bottom > top) drawn = this.fillRectRgba8(
+            left,
+            top,
+            right - left,
+            bottom - top,
+            red,
+            green,
+            blue,
+            alpha
+        )
+        drawn
+    }
+
+    trusted fun strokeRectRgba8(
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        thickness: int,
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool {
+        val validArguments = thickness > 0 && thickness <= 16384 &&
+            width >= thickness && width <= 16384 &&
+            height >= thickness && height <= 16384
+        validArguments &&
+            this.fillClippedRectRgba8(
+                x, y, width, thickness, red, green, blue, alpha
+            ) &&
+            this.fillClippedRectRgba8(
+                x, y + height - thickness, width, thickness,
+                red, green, blue, alpha
+            ) &&
+            this.fillClippedRectRgba8(
+                x, y, thickness, height, red, green, blue, alpha
+            ) &&
+            this.fillClippedRectRgba8(
+                x + width - thickness, y, thickness, height,
+                red, green, blue, alpha
+            )
+    }
+
+    // Integer Bresenham line drawing with clipping at each generated pixel.
+    trusted fun drawLineRgba8(
+        firstX: int,
+        firstY: int,
+        secondX: int,
+        secondY: int,
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool {
+        val validArguments = this.valid() &&
+            firstX >= -65536 && firstX <= 65536 &&
+            firstY >= -65536 && firstY <= 65536 &&
+            secondX >= -65536 && secondX <= 65536 &&
+            secondY >= -65536 && secondY <= 65536 &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255
+        var x = firstX
+        var y = firstY
+        val deltaX = if (!validArguments) 0 else if (secondX >= firstX)
+            secondX - firstX else firstX - secondX
+        val deltaY = if (!validArguments) 0 else if (secondY >= firstY)
+            secondY - firstY else firstY - secondY
+        val stepX = if (firstX < secondX) 1 else -1
+        val stepY = if (firstY < secondY) 1 else -1
+        var error = deltaX - deltaY
+        var finished = false
+        while (validArguments && !finished) {
+            if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+                this.setRgba8(x, y, red, green, blue, alpha)
+            }
+            finished = x == secondX && y == secondY
+            if (!finished) {
+                val twiceError = error * 2
+                if (twiceError > -deltaY) {
+                    error = error - deltaY
+                    x = x + stepX
+                }
+                if (twiceError < deltaX) {
+                    error = error + deltaX
+                    y = y + stepY
+                }
+            }
+        }
+        validArguments
+    }
+
+    trusted fun fillCircleRgba8(
+        centerX: int,
+        centerY: int,
+        radius: int,
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): bool {
+        val validArguments = this.valid() &&
+            centerX >= -16384 && centerX <= 16384 &&
+            centerY >= -16384 && centerY <= 16384 &&
+            radius >= 0 && radius <= 8191 &&
+            red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255
+        var x = if (validArguments) radius else 0
+        var y = 0
+        var error = if (validArguments) 1 - radius else 0
+        var drawn = validArguments
+        while (drawn && x >= y) {
+            drawn = this.fillClippedRectRgba8(
+                centerX - x, centerY + y, x * 2 + 1, 1,
+                red, green, blue, alpha
+            )
+            if (drawn && y != 0) drawn = this.fillClippedRectRgba8(
+                centerX - x, centerY - y, x * 2 + 1, 1,
+                red, green, blue, alpha
+            )
+            if (drawn && x != y) drawn = this.fillClippedRectRgba8(
+                centerX - y, centerY + x, y * 2 + 1, 1,
+                red, green, blue, alpha
+            )
+            if (drawn && x != y && x != 0) {
+                drawn = this.fillClippedRectRgba8(
+                    centerX - y, centerY - x, y * 2 + 1, 1,
+                    red, green, blue, alpha
+                )
+            }
+            y = y + 1
+            if (error < 0) error = error + y * 2 + 1
+            else {
+                x = x - 1
+                error = error + (y - x) * 2 + 1
+            }
+        }
+        drawn
+    }
 }
 
 trusted fun pixelBuffer(width: int, height: int): PixelBuffer {
