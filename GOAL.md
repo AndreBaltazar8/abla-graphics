@@ -1658,6 +1658,52 @@ three-pass sequences with zero warmed live-byte growth. The forced Khronos
 validation-layer run is silent, and the executable resolves every shared
 library with `LD_LIBRARY_PATH` removed.
 
+### Verified checkpoint: allocation-free 2D canvas and complete game
+
+Implementation commit `a384f64c0338142e94535fe5053b3f4006b004ac`
+is published on `origin/main`.
+
+`PixelBuffer` now provides clipped rectangle fills, rectangle strokes, integer
+Bresenham lines, and filled integer circles on its existing affine RGBA8 native
+storage. Bounds, dimensions, and channels are checked; invalid geometry cannot
+overflow intermediate arithmetic. The methods create no managed frame values.
+The graphics-local pointer-copy spelling is now an ordinary pure-Abla adapter
+over the compiler-supported standard intrinsic, fixing the previously
+unresolved `graphicsUnsafeCopyMemory` symbol in direct `ablac --fast` builds
+without changing `../ablac`.
+
+The 69th independent sample, `examples/mini-breakout`, completes plan catalog
+item 18. It is a playable fixed-step Breakout game with portable arrows/A/D,
+Escape, and Space/Enter controls; bricks, collision, score, lives, latched
+win/loss, and reset states; deterministic automated paddle control and explicit
+simulation-transition checks; and a single reusable software frame presented
+unchanged through OpenGL or Vulkan. Its independently built normal release path
+completed 1,001 frames at the observed 4,322 FPS on OpenGL, 1,780 FPS on
+validation-enabled Vulkan, and 1,860 FPS under automatic selection on the
+current machine. Every run reported exact simulation success and zero
+managed-live-byte growth. A separate no-cache `--fast` build also linked and
+passed all three modes; its timing is a compiler-mode compatibility result, not
+the retained performance benchmark.
+
+Focused evidence passed:
+
+```bash
+nix-shell --run 'make check-abla-only test-core'
+# independent no-cache builds in both normal and --fast compiler modes
+# OpenGL, Vulkan, and auto: 1,001 frames, repeatNoGrowth=true, liveDelta=0
+# Vulkan: VK_LAYER_KHRONOS_validation with an empty diagnostic log
+# env -u LD_LIBRARY_PATH ldd: no unresolved shared library
+```
+
+`tools/test-samples.sh` now independently builds the game and runs it on both
+explicit backends. The full 69-root no-cache matrix was deliberately not
+repeated for this focused API/sample checkpoint. At this handoff `../ablac`
+contains unstaged `src/ir.ab` and `tests/cases/modules/nested-if-expression.ab`
+changes outside this checkpoint; they were not reviewed or committed here and
+must be preserved. No compiler change was needed for this work. The next
+high-value shared fixed-function milestone remains custom viewport/scissor
+state across direct render, target, subpass, and recorded command forms.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and
@@ -1706,7 +1752,7 @@ include:
   reproducible signed releases;
 - the planned learning/sample catalog: camera/mesh/material/glTF, particles,
   shadows, HDR/PBR, UI/text, multi-window/monitor,
-  profiler, raw backend labs, stress benchmark, complete 2D game, complete 3D
+  profiler, raw backend labs, stress benchmark, complete 3D
   application, and Abla Mobile/native-surface proof.
 
 Do not treat a wide enum or raw-token surface as completion of any of these
@@ -1770,6 +1816,8 @@ Tests, samples, and public claims:
   channel-write-mask proof;
 - `examples/stencil-masking/` — independently buildable depth/stencil
   clear/load/store and front/back operation proof;
+- `examples/mini-breakout/` — complete allocation-free software 2D game and
+  dual-backend pixel-presentation proof;
 - `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
 - `Makefile` — authoritative gate aggregation;
 - `registry/audit/*.tsv` — reviewed coverage inputs;
