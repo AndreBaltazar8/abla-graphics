@@ -1562,5 +1562,17 @@ readback. Its executable has no unresolved dependency with `LD_LIBRARY_PATH`
 removed, passes explicit OpenGL, and passes Vulkan with the Khronos validation
 layer enabled and no validation output.
 
+### Mutable storage-image value statements
+
+The generated read/write RGBA8 image subset now accepts mutable `vec4` locals
+with direct and `+=`, `-=`, `*=`, `/=` assignments. Each update is type checked
+and folded into the existing bounded postfix SSA expression, preserving pure-
+Abla deterministic emission without function-local storage or source templates.
+The focused GLSL gate accepts chained direct/add/subtract/multiply/divide
+updates and rejects unsupported `%=`. The retained array-image sample now uses
+one mutable initialization plus five updates and still reaches exact cyan
+`4294967040` through 1,001 OpenGL, Vulkan, and automatic-selection replays with
+zero warmed live-byte growth and zero/1,001 Vulkan submissions.
+
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

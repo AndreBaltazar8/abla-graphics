@@ -426,12 +426,14 @@ and automatic selection reject a sealed map mutation, replay 1,001 times, and
 retain `live=0` with zero/1,001 Vulkan submissions.
 
 `recorded-graph-storage-image-read-add` initializes one selected array layer
-to blue, then executes generated `imageLoad`, local `vec4` addition, and
-`imageStore`. A snapshotted green delta saturates to exact cyan `4294967040`
+to blue, then executes generated `imageLoad`, one mutable `vec4` initialization
+plus five updates, and `imageStore`. Direct and `+=`, `-=`, `*=`, `/=` updates
+lower through the bounded SSA expression IR rather than function-local storage. A
+snapshotted green delta saturates to exact cyan `4294967040`
 and remains exact across 1,001 replays; mutating the source delta to red cannot
 change the sealed command. The generated matrix covers all five dimensions
 and `+`, `-`, `*`, and `/`, while `%` rejection proves unsupported syntax is
 not ignored.
 
-Broader nested image-expression lowering and broader copy/dispatch forms remain
-milestone 5 work.
+Structured image control flow and broader copy/dispatch forms remain milestone
+5 work.

@@ -2726,8 +2726,11 @@ constructed SPIR-V module while OpenGL executes the same source through its
 push-block rewrite. Retained recording snapshots the complete values. General
 read/write composition may bind the image without an access qualifier, assign
 `imageLoad(image, coordinate)` to one arbitrarily named `vec4` local, and
-compose as many as fifteen further named `vec4` SSA locals before the final
-store. Local and store expressions share the typed raster expression parser,
+compose as many as fifteen further named `vec4` locals before the final store.
+Those locals are mutable through checked `=`, `+=`, `-=`, `*=`, and `/=`
+statements; the parser rewrites each assignment into a bounded typed SSA
+expression, so generated SPIR-V needs no function-local allocation. Local,
+assignment, and store expressions share the typed raster expression parser,
 including parentheses and precedence for `+`, `-`, `*`, and `/`; the image
 emitter consumes the resulting bounded postfix program rather than matching a
 fixed source template. Unsupported tokens, type mismatches, duplicate names,

@@ -7539,10 +7539,12 @@ fun glslStorageImageExpressionProgram(
     if (valid) locals.append(GlslRasterLocal(
         loadName,
         glslRasterTypeVector,
-        [GlslRasterToken(glslRasterTokenImageLoad)]
+        [GlslRasterToken(glslRasterTokenImageLoad)],
+        true
     ))
-    var declarationsDone = false
-    while (valid && !declarationsDone && locals.size < 16) {
+    var statementsDone = false
+    var statementCount = 0
+    while (valid && !statementsDone && statementCount < 32) {
         if (glslRasterTokenText(lexical.tokens, index, "vec4")) {
             index = index + 1
             var name = ""
@@ -7552,7 +7554,7 @@ fun glslStorageImageExpressionProgram(
                 index = index + 1
             } else valid = false
             var duplicate = name == "" || name == binding.name ||
-                name == push.name
+                name == push.name || locals.size >= 16
             var coordinateLocalIndex = 0
             while (!duplicate &&
                 coordinateLocalIndex < coordinateLocals.size) {
@@ -7580,18 +7582,93 @@ fun glslStorageImageExpressionProgram(
                 locals.append(GlslRasterLocal(
                     name,
                     glslRasterTypeVector,
-                    glslRasterTokensCopy(expression.tokens)
+                    glslRasterTokensCopy(expression.tokens),
+                    true
                 ))
                 index = index + 1
+                statementCount = statementCount + 1
             }
-        } else declarationsDone = true
+        } else {
+            val localName = if (index < lexical.tokens.size)
+                lexical.tokens[index].text else ""
+            var localIndex = -1
+            var candidate = 0
+            while (localIndex < 0 && candidate < locals.size) {
+                if (locals[candidate].name == localName) {
+                    localIndex = candidate
+                }
+                candidate = candidate + 1
+            }
+            val assignmentText = if (index + 1 < lexical.tokens.size)
+                lexical.tokens[index + 1].text else ""
+            val compoundOpcode = glslRasterCompoundOpcode(assignmentText)
+            if (localIndex >= 0 &&
+                (assignmentText == "=" || compoundOpcode != 0)) {
+                valid = locals[localIndex].canAssign
+                if (valid) index = index + 2
+                val rightExpression = if (valid) glslRasterExpression(
+                    lexical.tokens, index, 1, push, inputs, locals, 0
+                ) else GlslRasterExpression(false, [], index)
+                index = rightExpression.next
+                val assignedTokens: array<GlslRasterToken> = []
+                if (compoundOpcode != 0) {
+                    val previous = glslRasterTokensCopy(
+                        locals[localIndex].tokens
+                    )
+                    var previousIndex = 0
+                    while (previousIndex < previous.size) {
+                        assignedTokens.append(previous[previousIndex])
+                        previousIndex = previousIndex + 1
+                    }
+                }
+                if (valid) {
+                    val copied = glslRasterTokensCopy(rightExpression.tokens)
+                    var copiedIndex = 0
+                    while (copiedIndex < copied.size) {
+                        assignedTokens.append(copied[copiedIndex])
+                        copiedIndex = copiedIndex + 1
+                    }
+                    if (compoundOpcode != 0) assignedTokens.append(
+                        GlslRasterToken(
+                            glslRasterTokenOperation,
+                            opcode = compoundOpcode
+                        )
+                    )
+                }
+                val assignedExpression = GlslRasterExpression(
+                    valid && rightExpression.valid &&
+                        assignedTokens.size > 0 &&
+                        assignedTokens.size < 64,
+                    assignedTokens,
+                    index
+                )
+                valid = valid && assignedExpression.valid &&
+                    glslRasterExpressionType(
+                        assignedExpression, push, inputs
+                    ) == glslRasterTypeVector &&
+                    glslStorageImageExpressionTokensSupported(
+                        assignedExpression
+                    ) &&
+                    glslRasterTokenText(lexical.tokens, index, ";")
+                if (valid) {
+                    locals[localIndex] = GlslRasterLocal(
+                        locals[localIndex].name,
+                        glslRasterTypeVector,
+                        glslRasterTokensCopy(assignedExpression.tokens),
+                        true
+                    )
+                    index = index + 1
+                    statementCount = statementCount + 1
+                }
+            } else statementsDone = true
+        }
     }
-    if (valid && !declarationsDone && locals.size == 16) {
-        declarationsDone = !glslRasterTokenText(
-            lexical.tokens, index, "vec4"
+    if (valid && !statementsDone && statementCount == 32) {
+        statementsDone = glslRasterTokenText(
+            lexical.tokens, index, "imageStore"
         )
     }
-    valid = valid && declarationsDone && locals.size <= 16
+    valid = valid && statementsDone && locals.size <= 16
     val store = ["imageStore", "(", binding.name, ","]
     expected = 0
     while (valid && expected < store.size) {

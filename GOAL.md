@@ -1540,6 +1540,19 @@ Correctness follow-up commit
 (`Synchronize asynchronous graph readback`) is published and synchronized on
 `origin/main`.
 
+### Mutable storage-image value statements
+
+The next shader slice extends the generated read/write RGBA8 image program with
+typed mutable `vec4` locals. Direct assignment and `+=`, `-=`, `*=`, `/=` reuse
+the bounded raster-expression postfix IR and are folded into SSA expressions;
+no native shim, source template, runtime local allocation, or compiler change
+is involved. The focused GLSL suite covers chained updates and `%=` rejection.
+`recorded-graph-storage-image-read-add` now exercises one mutable initialization
+plus five updates and retains exact cyan `4294967040`, tamper rejection, 1,001
+successful replays, zero warmed live-byte growth, and zero/1,001 Vulkan
+submissions on explicit OpenGL, explicit Vulkan, and automatic selection.
+Structured image control flow is the next shader-language slice.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and

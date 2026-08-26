@@ -111,6 +111,23 @@ fun storageImagePushNestedLocalChainValid(): bool {
         ) && spirvContainsSequence(emitted.module, [262243, 19, 21, 28])
 }
 
+fun storageImagePushMutableLocalValid(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 composed=loaded; composed+=parameters.shade; composed-=vec4(0.25); composed*=vec4(0.5); composed/=vec4(0.5); composed=composed+parameters.shade; imageStore(target,parameters.point,composed); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        spirvContainsWord(emitted.module, 327809) &&
+        spirvContainsWord(emitted.module, 327811) &&
+        spirvContainsWord(emitted.module, 327813) &&
+        spirvContainsWord(emitted.module, 327816)
+}
+
+fun storageImagePushInvalidMutableLocalRejected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); loaded%=parameters.shade; imageStore(target,parameters.point,loaded); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    package.valid && !package.spirv(shaderStageCompute).succeeded
+}
+
 fun storageImagePushConstructedBuiltinChainValid(): bool {
     val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 reversed=loaded.wzyx; vec4 assembled=vec4(reversed.x,parameters.shade.y,loaded.z,1.0); vec4 bounded=clamp(assembled,vec4(0.0),vec4(1.0)); imageStore(target,parameters.point,max(bounded,loaded)); }"
     val package = glslPackage([shaderStageCompute], [source])
@@ -189,6 +206,8 @@ fun main: int {
     ), storageImagePushInvalidArithmeticRejected(
     ), storageImagePushInvalidStagedLocalRejected(
     ), storageImagePushNestedLocalChainValid(
+    ), storageImagePushMutableLocalValid(
+    ), storageImagePushInvalidMutableLocalRejected(
     ), storageImagePushConstructedBuiltinChainValid(
     ), storageImageComputedCoordinateValid(
         "image1D", "int", "0"
