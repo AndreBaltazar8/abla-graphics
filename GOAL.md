@@ -1618,6 +1618,9 @@ layer run was silent and the executable has no unresolved dependency with
 
 ### Verified checkpoint: generalized color blending
 
+Implementation commit `c00794414d574da3ffdc8ca9ec146f40d52544c3`
+is published on `origin/main`.
+
 The common raster API now has typed source/destination factors, independent
 color and alpha add/subtract/reverse/minimum/maximum operations, and RGBA write
 masks. `rasterPipelineState(blend = ...)` packs the setup descriptor into the
