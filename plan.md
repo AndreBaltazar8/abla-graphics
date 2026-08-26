@@ -168,6 +168,15 @@ precedence-aware arithmetic. Nested/general control flow, broader expression
 grammar, bind-group subpass records, and broader compute forms remain milestone
 5 work.
 
+Recorded render resources can now borrow one to eight sampled color attachments
+from earlier render records while the command list retains the sole affine
+texture owners. The first deferred sample uses a buffered MRT G-buffer and a
+two-texture procedural lighting pass; the deterministic Abla shader translator
+emits the matching set-zero/binding-zero-and-one Vulkan SPIR-V. Exact dual-
+backend output, post-seal mutation rejection, 1,001 replays, one Vulkan
+submission per replay, stripped-environment linkage, and zero warmed live-byte
+growth are verified. General sampled-expression lowering remains open.
+
 ## Non-negotiable design rules
 
 1. Application state, rendering policy, resource ownership, shader declarations,

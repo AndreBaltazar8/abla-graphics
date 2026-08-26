@@ -1,0 +1,199 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics deferred renderer",
+            width = 480,
+            height = 270
+        )
+    )
+    val gbufferDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageSampled |
+            textureUsageCopySource
+    )
+    val lightingDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val vertexDescriptor = BufferDescriptor(
+        size = 24, usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "albedo", false, 0, 10),
+        GraphicsGraphResource(1, "normal", false, 0, 11),
+        GraphicsGraphResource(2, "lighting", false, 0, 12),
+        GraphicsGraphResource(3, "geometry", false, 24, 13)
+    ], [
+        GraphicsGraphPass(10, "gbuffer", [
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(1, graphAccessWrite),
+            GraphicsGraphUse(3, graphAccessRead)
+        ]),
+        GraphicsGraphPass(20, "lighting", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessRead),
+            GraphicsGraphUse(2, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, gbufferDescriptor),
+        GraphicsGraphTextureDeclaration(1, gbufferDescriptor),
+        GraphicsGraphTextureDeclaration(2, lightingDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(3, vertexDescriptor)
+    ])
+    val gbufferShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 albedo;
+            layout(location = 1) out vec4 normal;
+            void main() {
+                albedo = vec4(1.0, 0.0, 0.0, 1.0);
+                normal = vec4(0.0, 1.0, 0.0, 1.0);
+            }
+        }
+    }
+    val lightingShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) out vec2 texCoord;
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            const vec2 texCoords[3] = vec2[3](
+                vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+                texCoord = texCoords[gl_VertexID];
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D albedo;
+            layout(binding = 1) uniform sampler2D normal;
+            void main() {
+                color = texture(albedo, texCoord) +
+                    texture(normal, texCoord);
+            }
+        }
+    }
+    val albedo = app.texture(gbufferDescriptor)
+    val normal = app.texture(gbufferDescriptor)
+    val gbufferTarget = app.renderTargetWithColors(
+        move(albedo), [move(normal)]
+    )
+    val gbufferPipeline = app.renderTargetPipeline(
+        gbufferTarget, gbufferShader, VertexBufferLayout(8, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2)
+        ])
+    )
+    val vertices = app.buffer(vertexDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val geometryInitialized = vertexBytes.storeF32(-1.0, 0) &&
+        vertexBytes.storeF32(-1.0, 4) &&
+        vertexBytes.storeF32(3.0, 8) &&
+        vertexBytes.storeF32(-1.0, 12) &&
+        vertexBytes.storeF32(-1.0, 16) &&
+        vertexBytes.storeF32(3.0, 20) &&
+        vertices.writeAllBytes(vertexBytes)
+    val lightingTarget = app.renderTarget(app.texture(lightingDescriptor))
+    val albedoSampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val normalSampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val lightingBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment,
+            gbufferTarget.texture, albedoSampler
+        ),
+        app.sampledTextureEntry(
+            1, shaderVisibilityFragment,
+            gbufferTarget.additionalTextures[0], normalSampler
+        )
+    ])
+    val lightingPipeline = app.renderTargetPipeline(
+        lightingTarget, lightingShader, VertexBufferLayout(),
+        RasterPipelineState(), DepthStencilState(), move(lightingBinding)
+    )
+    val lightingResources = graphRenderPriorAttachmentResources(
+        graphRenderProceduralResources(), [0, 1],
+        [move(albedoSampler), move(normalSampler)]
+    )
+    val commands = app.graphCommandList(graph, 4)
+    val baseValid = app.valid() && graph.valid() &&
+        gbufferShader.valid && lightingShader.valid &&
+        gbufferTarget.valid() && lightingTarget.valid() &&
+        gbufferPipeline.valid() && lightingPipeline.valid() &&
+        geometryInitialized && commands.valid()
+    val gbufferRecorded = baseValid && commands.recordPass(graph, 10) &&
+        commands.recordRenderAttachments(
+            graph, [0, 1], [], -1, move(gbufferTarget),
+            move(gbufferPipeline),
+            graphRenderVerticesResources(3, move(vertices), 3)
+        )
+    val lightingRecorded = gbufferRecorded && commands.recordPass(graph, 20) &&
+        commands.recordRenderAttachments(
+            graph, [2], [], -1, move(lightingTarget),
+            move(lightingPipeline), move(lightingResources)
+        )
+    var succeeded = lightingRecorded && commands.seal(graph)
+    var tamperRejected = false
+    if (succeeded) {
+        commands.renderResources[1].priorTextureResourceIds[0] = 1
+        tamperRejected = !app.executeGraphCommands(graph, commands)
+        commands.renderResources[1].priorTextureResourceIds[0] = 0
+        succeeded = tamperRejected &&
+            app.executeGraphCommands(graph, commands)
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val albedoExact = commands.renderTargets.size > 0 &&
+        commands.renderTargets[0].texture.rgba8(32, 32) == 4278190335
+    val normalExact = commands.renderTargets.size > 0 &&
+        commands.renderTargets[0].additionalTextures.size > 0 &&
+        commands.renderTargets[0].additionalTextures[0].rgba8(32, 32) ==
+            4278255360
+    val lightingPixel = if (commands.renderTargets.size > 1)
+        commands.renderTargets[1].texture.rgba8(32, 32) else 0
+    val lightingExact = lightingPixel == 4278255615
+    val stable = succeeded && iteration == 1000 && albedoExact &&
+        normalExact && lightingExact && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 && commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "deferred-renderer ${graphicsBackendName(app.backend)}: base=$baseValid recorded=$gbufferRecorded/$lightingRecorded resources=${commands.renderResources.size} gbuffer=$albedoExact/$normalExact lighting=$lightingPixel/$lightingExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

@@ -6671,6 +6671,62 @@ fun glslTexturedFragmentSampler(source: string): int =
 fun glslTexturedFragmentSource(source: string): bool =
     glslTexturedFragmentSampler(source) == glslSampler2D
 
+fun glslDualTexturedAddFragmentSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "location", "=", "0", ")",
+        "in", "vec2", "texCoord", ";",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec4", "color", ";",
+        "layout", "(", "binding", "=", "0", ")",
+        "uniform", "sampler2D", "albedo", ";",
+        "layout", "(", "binding", "=", "1", ")",
+        "uniform", "sampler2D", "normal", ";",
+        "void", "main", "(", ")", "{",
+        "color", "=", "texture", "(", "albedo", ",", "texCoord", ")",
+        "+", "texture", "(", "normal", ",", "texCoord", ")", ";", "}"
+    ])
+
+fun glslDualTexturedAddFragmentSpirv(): array<int> = [
+    119734787, 65536, 524299, 24, 0,
+    131089, 1,
+    393227, 1, 1280527431, 1685353262, 808793134, 0,
+    196622, 0, 1,
+    458767, 4, 4, 1852399981, 0, 9, 17,
+    196624, 4, 7,
+    262215, 9, 30, 0,
+    262215, 13, 33, 0,
+    262215, 13, 34, 0,
+    262215, 20, 33, 1,
+    262215, 20, 34, 0,
+    262215, 17, 30, 0,
+    131091, 2,
+    196641, 3, 2,
+    196630, 6, 32,
+    262167, 7, 6, 4,
+    262176, 8, 3, 7,
+    262203, 8, 9, 3,
+    589849, 10, 6, 1, 0, 0, 0, 1, 0,
+    196635, 11, 10,
+    262176, 12, 0, 11,
+    262203, 12, 13, 0,
+    262203, 12, 20, 0,
+    262167, 15, 6, 2,
+    262176, 16, 1, 15,
+    262203, 16, 17, 1,
+    327734, 2, 4, 0, 3,
+    131320, 5,
+    262205, 11, 14, 13,
+    262205, 11, 21, 20,
+    262205, 15, 18, 17,
+    327767, 7, 19, 14, 18,
+    327767, 7, 22, 21, 18,
+    327809, 7, 23, 19, 22,
+    196670, 9, 23,
+    65789,
+    65592
+]
+
 fun glslSamplerSpirvDimension(sampler: int): int =
     if (sampler == glslSampler3D) 2
     else if (sampler == glslSamplerCube) 3
@@ -8844,6 +8900,15 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         graphicsCommon && stage == shaderStageFragment
     ) glslTexturedFragmentSampler(this.source(shaderStageFragment)) else 0
     val texturedFragment = texturedFragmentSampler > 0
+    val dualTexturedAddFragment = graphicsCommon &&
+        stage == shaderStageFragment && this.bindings.size == 2 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "uniform" &&
+        this.bindings[0].dataType == "sampler2D" &&
+        this.bindings[1].set == 0 && this.bindings[1].binding == 1 &&
+        this.bindings[1].storage == "uniform" &&
+        this.bindings[1].dataType == "sampler2D" &&
+        glslDualTexturedAddFragmentSource(this.source(shaderStageFragment))
     val storageImageFragment = graphicsCommon &&
         stage == shaderStageFragment && this.bindings.size == 1 &&
         this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
@@ -8867,7 +8932,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         pushTransformVertex || uniformTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
         coloredVertex || coloredUintVertex || texturedVertex ||
-        texturedCubeVertex || transformCubeVertex || texturedFragment
+        texturedCubeVertex || transformCubeVertex || texturedFragment ||
+        dualTexturedAddFragment
     var error = ""
     var words: array<int> = []
     if (storageImageFragment) {
@@ -9233,6 +9299,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             65789,
             65592
         ]
+    } else if (dualTexturedAddFragment) {
+        words = glslDualTexturedAddFragmentSpirv()
     } else if (texturedFragment) {
         words = [
             119734787, 65536, 524299, 20, 0,

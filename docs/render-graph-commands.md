@@ -308,6 +308,7 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-depth-render`, and
 `examples/recorded-graph-resolve-render`, and
 `examples/recorded-graph-mrt-render`, and
+`examples/deferred-renderer`, and
 `examples/recorded-graph-subpasses`, and
 `examples/recorded-graph-binding-subpasses`, and
 `examples/recorded-graph-texture-render`, and
@@ -330,6 +331,16 @@ resolve mutation, and replays 1,001 times with zero growth and one Vulkan
 submission. Buffered callers compose one of four affine draw-resource factories
 with `recordRenderAttachments(...)` or its `Push` form; the proof uses
 indexed-indirect push and the sample uses direct vertices.
+
+`graphRenderPriorAttachmentResources(...)` wraps any procedural or buffered
+draw resources with one to eight sampled color attachments produced by earlier
+render records in the same command list. The wrapper owns the samplers but
+borrows texture identities through the list's existing affine target ownership.
+Recording accepts a binding only when each planner-visible read ID maps to an
+earlier primary or additional color attachment and the native bind-group entry
+matches that exact texture. IDs and sampler identities participate in the seal
+fingerprint and remain activity-checked on every replay. This is deliberately
+not an arbitrary raw-handle borrow.
 
 Ordinary retained-bind-group draws use
 `recordRenderBindingAttachments(...)` or its `Push` form. They compose one

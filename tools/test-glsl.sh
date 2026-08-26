@@ -30,6 +30,17 @@ if [[ $status -ne 42 ]]; then
     exit 1
 fi
 
+"$compiler" build "$project_root/tests/glsl_dual_texture.ab" \
+    -o "$output_directory/glsl-dual-texture" --no-cache
+set +e
+"$output_directory/glsl-dual-texture"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'GLSL dual-texture test returned %s, expected 42\n' "$status" >&2
+    exit 1
+fi
+
 "$compiler" build "$project_root/tests/glsl_storage_image_push.ab" \
     -o "$output_directory/glsl-storage-image-push" --no-cache
 set +e

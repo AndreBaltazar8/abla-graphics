@@ -518,7 +518,7 @@ fun graphicsGraphRecordedBufferedMultiRenderValid(
     graph, passId, resourceId, additionalResourceIds, depthResourceId,
     resolveResourceId, additionalResolveResourceIds, target, pipeline,
     backend, pushConstantSize, true,
-    resources.bindingResources.size == 1
+    resources.hasBindings()
 ) && resources.validFor(pipeline, backend) &&
     graphicsGraphRecordedRenderBuffersValid(graph, passId, resources)
 
@@ -1936,13 +1936,22 @@ resource class GraphicsGraphRenderResources(
     val indexSize: int,
     val indirectOffset: int,
     val indirectSize: int,
-    var bindingResources: array<GraphicsGraphSubpassBufferResources>
+    var bindingResources: array<GraphicsGraphSubpassBufferResources>,
+    var priorTextureResourceIds: array<int>,
+    var priorTextureSamplers: array<GraphicsSampler>
 ) {
+    fun hasBindings(): bool = this.bindingResources.size == 1 ||
+        this.priorTextureResourceIds.size > 0
+
     fun validFor(
         pipeline: GraphicsRenderPipeline,
         backend: int
     ): bool {
-        if (this.bindingResources.size > 1) return false
+        if (this.bindingResources.size > 1 ||
+            (this.bindingResources.size != 0 &&
+             this.priorTextureResourceIds.size != 0) ||
+            this.priorTextureResourceIds.size !=
+                this.priorTextureSamplers.size) return false
         if (this.form == graphicsGraphRenderProcedural)
             return this.resourceIds.size == 0 && this.buffers.size == 0 &&
                 this.vertexCount == 3 && this.indexCount == 0 &&
@@ -2025,12 +2034,78 @@ resource class GraphicsGraphRenderResources(
         resolveResourceIds: array<int>,
         depthResourceId: int
     ): bool = (this.bindingResources.size == 0 &&
+            this.priorTextureResourceIds.size == 0 &&
             pipeline.binding.empty()) ||
         (this.bindingResources.size == 1 && pipeline.binding.valid() &&
          this.bindingResources[0].validForPipelineAttachments(
             graph, passId, pipeline, backend, colorResourceIds,
             resolveResourceIds, depthResourceId
-         ))
+         )) || (this.bindingResources.size == 0 &&
+            this.priorBindingsValidForAttachments(
+                graph, passId, pipeline, backend, colorResourceIds,
+                resolveResourceIds, depthResourceId
+            ))
+
+    fun priorBindingsValidForAttachments(
+        graph: GraphicsMaterializedRenderGraph,
+        passId: int,
+        pipeline: GraphicsRenderPipeline,
+        backend: int,
+        colorResourceIds: array<int>,
+        resolveResourceIds: array<int>,
+        depthResourceId: int
+    ): bool {
+        var accepted = this.priorTextureResourceIds.size >= 1 &&
+            this.priorTextureResourceIds.size <= 8 &&
+            this.priorTextureResourceIds.size ==
+                this.priorTextureSamplers.size &&
+            pipeline.valid() && pipeline.backend == backend &&
+            pipeline.binding.valid() &&
+            pipeline.binding.entries.size ==
+                this.priorTextureResourceIds.size
+        var index = 0
+        while (accepted && index < this.priorTextureResourceIds.size) {
+            val resourceId = this.priorTextureResourceIds[index]
+            val descriptor = graph.textureDescriptor(resourceId)
+            val entry = pipeline.binding.entries[index]
+            val sampler = this.priorTextureSamplers[index]
+            accepted = graph.importedResource(resourceId) &&
+                graph.textureResource(resourceId) &&
+                (graphicsGraphDeclaredAccess(graph, passId, resourceId) &
+                    graphAccessRead) != 0 &&
+                (descriptor.usage & textureUsageSampled) != 0 &&
+                descriptor.samples == 1 &&
+                !textureFormatHasDepth(descriptor.format) &&
+                entry.kind == graphicsBindingSampledTexture &&
+                entry.textureDimension == descriptor.dimension &&
+                textureDescriptorsStorageCompatible(
+                    entry.texture, descriptor
+                ) && graphicsGraphSamplerValid(sampler, backend) &&
+                ((backend == graphicsBackendOpenGl &&
+                  entry.openGlSampler == sampler.openGl.handle) ||
+                 (backend == graphicsBackendVulkan &&
+                  entry.vulkanView == 0 &&
+                  entry.vulkanSampler == sampler.vulkan.handle)) &&
+                resourceId != depthResourceId
+            var earlier = 0
+            while (accepted && earlier < index) {
+                accepted = this.priorTextureResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            var attachment = 0
+            while (accepted && attachment < colorResourceIds.size) {
+                accepted = colorResourceIds[attachment] != resourceId
+                attachment = attachment + 1
+            }
+            attachment = 0
+            while (accepted && attachment < resolveResourceIds.size) {
+                accepted = resolveResourceIds[attachment] != resourceId
+                attachment = attachment + 1
+            }
+            index = index + 1
+        }
+        accepted
+    }
 }
 
 trusted fun graphicsGraphRenderResources(
@@ -2048,11 +2123,24 @@ trusted fun graphicsGraphRenderResources(
     indirectSize: int
 ): GraphicsGraphRenderResources {
     val bindingResources: array<GraphicsGraphSubpassBufferResources> = []
+    val priorTextureResourceIds: array<int> = []
+    val priorTextureSamplers: array<GraphicsSampler> = []
     GraphicsGraphRenderResources(
         form, resourceIds, move(buffers), vertexCount, indexCount,
         instanceCount, vertexOffset, vertexSize, indexOffset, indexSize,
-        indirectOffset, indirectSize, move(bindingResources)
+        indirectOffset, indirectSize, move(bindingResources),
+        priorTextureResourceIds, move(priorTextureSamplers)
     )
+}
+
+trusted fun graphRenderPriorAttachmentResources(
+    own resources: GraphicsGraphRenderResources,
+    resourceIds: array<int>,
+    own samplers: array<GraphicsSampler>
+): GraphicsGraphRenderResources {
+    resources.priorTextureResourceIds = resourceIds
+    resources.priorTextureSamplers = move(samplers)
+    move(resources)
 }
 
 trusted fun graphRenderProceduralResources(): GraphicsGraphRenderResources {
@@ -2159,6 +2247,14 @@ fun graphicsGraphRecordedRenderBindingsValid(
         graph, passId, pipeline, backend, additionalResourceIds,
         additionalResolveResourceIds, depthResourceId
     )
+    var priorIndex = 0
+    while (accepted && priorIndex <
+        resources.priorTextureResourceIds.size) {
+        accepted = resources.priorTextureResourceIds[priorIndex] !=
+            resourceId && resources.priorTextureResourceIds[priorIndex] !=
+            resolveResourceId
+        priorIndex = priorIndex + 1
+    }
     if (resources.bindingResources.size == 0) return accepted
     val bindings = resources.bindingResources[0]
     var index = 0
@@ -2188,10 +2284,17 @@ fun graphicsGraphRecordedRenderBindingsActive(
     token: int,
     resources: GraphicsGraphRenderResources
 ): bool {
-    if (resources.bindingResources.size == 0) return true
+    var active = true
+    var priorIndex = 0
+    while (active && priorIndex < resources.priorTextureResourceIds.size) {
+        active = graph.resourceActive(
+            token, resources.priorTextureResourceIds[priorIndex]
+        )
+        priorIndex = priorIndex + 1
+    }
+    if (resources.bindingResources.size == 0) return active
     if (resources.bindingResources.size != 1) return false
     val bindings = resources.bindingResources[0]
-    var active = true
     var index = 0
     while (active && index < bindings.resourceIds.size) {
         active = graph.resourceActive(token, bindings.resourceIds[index])
@@ -2492,7 +2595,7 @@ fun graphicsGraphRecordedBufferedRenderValid(
     resolveResourceId >= 0,
     1,
     if (resolveResourceId >= 0) 1 else 0,
-    resources.bindingResources.size == 1
+    resources.hasBindings()
 ) && graph.importedResource(resourceId) &&
     (graphicsGraphDeclaredAccess(graph, passId, resourceId) &
         graphAccessWrite) != 0 &&
@@ -3003,7 +3106,7 @@ resource class GraphicsGraphCommandList(
                 (if (this.renderResolveResourceIds[index] >= 0)
                     1 + this.renderAdditionalResolveResourceIds[index].size
                  else 0),
-                resources.bindingResources.size == 1
+                resources.hasBindings()
             )
             index = index + 1
         }
@@ -3470,6 +3573,33 @@ resource class GraphicsGraphCommandList(
                                 this.backend
                             )
                     }
+                    fingerprint = graphicsGraphCommandFingerprintMix(
+                        fingerprint, resources.priorTextureResourceIds.size
+                    )
+                    var priorTextureIndex = 0
+                    while (priorTextureIndex <
+                        resources.priorTextureResourceIds.size) {
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint,
+                            resources.priorTextureResourceIds[
+                                priorTextureIndex
+                            ]
+                        )
+                        if (priorTextureIndex <
+                            resources.priorTextureSamplers.size) {
+                            fingerprint = graphicsGraphCommandFingerprintMix(
+                                fingerprint,
+                                if (this.backend == graphicsBackendOpenGl)
+                                    resources.priorTextureSamplers[
+                                        priorTextureIndex
+                                    ].openGl.handle
+                                else resources.priorTextureSamplers[
+                                    priorTextureIndex
+                                ].vulkan.handle
+                            )
+                        }
+                        priorTextureIndex = priorTextureIndex + 1
+                    }
                 }
             }
             val computeIndex = this.computeIndices[commandIndex]
@@ -3892,7 +4022,7 @@ resource class GraphicsGraphCommandList(
                             this.backend,
                             pushSize,
                             false,
-                            resources.bindingResources.size == 1
+                            resources.hasBindings()
                         )
                     else if (resources.form ==
                         graphicsGraphRenderProcedural)
@@ -3906,7 +4036,7 @@ resource class GraphicsGraphCommandList(
                             pushSize,
                             this.renderDepthResourceIds[renderIndex],
                             this.renderResolveResourceIds[renderIndex],
-                            resources.bindingResources.size == 1
+                            resources.hasBindings()
                         )
                     else if (this.renderAdditionalColorResourceIds[
                         renderIndex
@@ -4467,6 +4597,69 @@ resource class GraphicsGraphCommandList(
             )
     }
 
+    fun priorRenderAttachmentsOwned(
+        pipeline: GraphicsRenderPipeline,
+        resources: GraphicsGraphRenderResources
+    ): bool {
+        var accepted = resources.priorTextureResourceIds.size ==
+            resources.priorTextureSamplers.size &&
+            (resources.priorTextureResourceIds.size == 0 ||
+             (pipeline.binding.valid() && pipeline.binding.entries.size ==
+                resources.priorTextureResourceIds.size))
+        var priorIndex = 0
+        while (accepted && priorIndex <
+            resources.priorTextureResourceIds.size) {
+            val resourceId = resources.priorTextureResourceIds[priorIndex]
+            val entry = pipeline.binding.entries[priorIndex]
+            var found = false
+            var commandIndex = 0
+            while (!found && commandIndex < this.commandCount) {
+                if (this.kinds[commandIndex] == graphicsGraphCommandRender) {
+                    val renderIndex = this.renderIndices[commandIndex]
+                    if (renderIndex >= 0 &&
+                        renderIndex < this.renderTargets.size) {
+                        val priorTarget = this.renderTargets[renderIndex]
+                        if (this.renderResourceIds[commandIndex] ==
+                            resourceId) {
+                            found = (this.backend == graphicsBackendOpenGl &&
+                                entry.openGlResource ==
+                                    priorTarget.texture.openGl.handle) ||
+                                (this.backend == graphicsBackendVulkan &&
+                                 entry.vulkanResource ==
+                                    priorTarget.texture.vulkan.image)
+                        }
+                        var attachmentIndex = 0
+                        while (!found && attachmentIndex <
+                            this.renderAdditionalColorResourceIds[
+                                renderIndex
+                            ].size && attachmentIndex <
+                            priorTarget.additionalTextures.size) {
+                            if (this.renderAdditionalColorResourceIds[
+                                renderIndex
+                            ][attachmentIndex] == resourceId) {
+                                val texture = priorTarget.additionalTextures[
+                                    attachmentIndex
+                                ]
+                                found = (this.backend ==
+                                    graphicsBackendOpenGl &&
+                                    entry.openGlResource ==
+                                        texture.openGl.handle) ||
+                                    (this.backend == graphicsBackendVulkan &&
+                                     entry.vulkanResource ==
+                                        texture.vulkan.image)
+                            }
+                            attachmentIndex = attachmentIndex + 1
+                        }
+                    }
+                }
+                commandIndex = commandIndex + 1
+            }
+            accepted = found
+            priorIndex = priorIndex + 1
+        }
+        accepted
+    }
+
     trusted fun recordRenderResourcesInternal(
         graph: GraphicsMaterializedRenderGraph,
         resourceId: int,
@@ -4488,13 +4681,13 @@ resource class GraphicsGraphCommandList(
                 graph, passId, resourceId, additionalResourceIds,
                 depthResourceId, resolveResourceId,
                 additionalResolveResourceIds, target, pipeline, this.backend,
-                0, false, resources.bindingResources.size == 1
+                0, false, resources.hasBindings()
             )
         else if (resources.form == graphicsGraphRenderProcedural)
             graphicsGraphRecordedRenderValid(
                 graph, passId, resourceId, target, pipeline, this.backend,
                 0, depthResourceId, resolveResourceId,
-                resources.bindingResources.size == 1
+                resources.hasBindings()
             )
         else if (additionalResourceIds.size != 0)
             graphicsGraphRecordedBufferedMultiRenderValid(
@@ -4522,7 +4715,8 @@ resource class GraphicsGraphCommandList(
             renderIndex == this.renderResolveResourceIds.size &&
             renderIndex == this.renderAdditionalColorResourceIds.size &&
             renderIndex == this.renderAdditionalResolveResourceIds.size &&
-            clear.valid() && resourcesValid
+            clear.valid() && resourcesValid &&
+            this.priorRenderAttachmentsOwned(pipeline, resources)
         if (accepted) {
             val index = this.commandCount
             this.renderTargets.append(move(target))
@@ -4574,7 +4768,7 @@ resource class GraphicsGraphCommandList(
                 additionalResolveResourceIds, target, pipeline, this.backend,
                 pushSize,
                 false,
-                resources.bindingResources.size == 1
+                resources.hasBindings()
             )
         else if (resources.form == graphicsGraphRenderProcedural)
             graphicsGraphRecordedRenderValid(
@@ -4587,7 +4781,7 @@ resource class GraphicsGraphCommandList(
                 pushSize,
                 depthResourceId,
                 resolveResourceId,
-                resources.bindingResources.size == 1
+                resources.hasBindings()
             )
         else if (additionalResourceIds.size != 0)
             graphicsGraphRecordedBufferedMultiRenderValid(
@@ -4626,7 +4820,9 @@ resource class GraphicsGraphCommandList(
             constants.valid() &&
             constants.layout.matches(pipeline.pushConstantLayout) &&
             pushSize > 0 &&
-            pushSize <= graphicsMaximumGraphPushConstantBytes && resourcesValid
+            pushSize <= graphicsMaximumGraphPushConstantBytes &&
+            resourcesValid &&
+            this.priorRenderAttachmentsOwned(pipeline, resources)
         if (accepted) {
             val index = this.commandCount
             ablaUnsafeCopyMemory(
@@ -5392,7 +5588,8 @@ resource class GraphicsGraphCommandList(
         own bindings: GraphicsGraphSubpassBufferResources,
         clear: Color = Color(0.0, 0.0, 0.0)
     ): bool {
-        if (resources.bindingResources.size != 0) return false
+        if (resources.bindingResources.size != 0 ||
+            resources.priorTextureResourceIds.size != 0) return false
         resources.bindingResources.append(move(bindings))
         this.recordRenderAttachments(
             graph, colorResourceIds, resolveResourceIds, depthResourceId,
@@ -5412,7 +5609,8 @@ resource class GraphicsGraphCommandList(
         constants: GraphicsPushConstants,
         clear: Color = Color(0.0, 0.0, 0.0)
     ): bool {
-        if (resources.bindingResources.size != 0) return false
+        if (resources.bindingResources.size != 0 ||
+            resources.priorTextureResourceIds.size != 0) return false
         resources.bindingResources.append(move(bindings))
         this.recordRenderAttachmentsPush(
             graph, colorResourceIds, resolveResourceIds, depthResourceId,
@@ -6254,7 +6452,7 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
             additionalResolveResourceIds, target, pipeline, this.backend,
             pushConstantSize,
             false,
-            resources.bindingResources.size == 1
+            resources.hasBindings()
         )
     else if (resources.form == graphicsGraphRenderProcedural)
         graphicsGraphRecordedRenderValid(
@@ -6267,7 +6465,7 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
             pushConstantSize,
             depthResourceId,
             resolveResourceId,
-            resources.bindingResources.size == 1
+            resources.hasBindings()
         )
     else if (additionalResourceIds.size != 0)
         graphicsGraphRecordedBufferedMultiRenderValid(
@@ -6477,7 +6675,7 @@ trusted fun GraphicsApplication.recordVulkanGraphRender(
             additionalResolveResourceIds, target, pipeline, this.backend,
             pushConstantSize,
             false,
-            resources.bindingResources.size == 1
+            resources.hasBindings()
         )
     else if (resources.form == graphicsGraphRenderProcedural)
         graphicsGraphRecordedRenderValid(
@@ -6490,7 +6688,7 @@ trusted fun GraphicsApplication.recordVulkanGraphRender(
             pushConstantSize,
             depthResourceId,
             resolveResourceId,
-            resources.bindingResources.size == 1
+            resources.hasBindings()
         )
     else if (additionalResourceIds.size != 0)
         graphicsGraphRecordedBufferedMultiRenderValid(

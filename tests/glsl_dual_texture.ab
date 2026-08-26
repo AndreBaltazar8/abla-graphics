@@ -1,0 +1,48 @@
+import "../src/shader/glsl.ab"
+import "../src/shader/glsl_spirv.ab"
+
+fun dualTextureWordsEqual(left: SpirvModule, right: SpirvModule): bool {
+    var equal = left.words.size == right.words.size
+    var index = 0
+    while (equal && index < left.words.size) {
+        equal = left.words[index] == right.words[index]
+        index = index + 1
+    }
+    equal
+}
+
+fun dualTextureContains(module: SpirvModule, sequence: array<int>): bool {
+    var found = false
+    var begin = 0
+    while (!found && begin <= module.words.size - sequence.size) {
+        var matches = true
+        var index = 0
+        while (matches && index < sequence.size) {
+            matches = module.words[begin + index] == sequence[index]
+            index = index + 1
+        }
+        found = matches
+        begin = begin + 1
+    }
+    found
+}
+
+trusted fun main: int {
+    val shader = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) out vec2 texCoord; const vec2 positions[3]=vec2[3](vec2(-0.75,-0.65),vec2(0.75,-0.65),vec2(0.0,0.75)); const vec2 texCoords[3]=vec2[3](vec2(0.0,0.0),vec2(1.0,0.0),vec2(0.0,1.0)); void main(){ gl_Position=vec4(positions[gl_VertexID],0.0,1.0); texCoord=texCoords[gl_VertexID]; }",
+            "#version 450\nlayout(location=0) in vec2 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2D albedo; layout(binding=1) uniform sampler2D normal; void main(){ color=texture(albedo,texCoord)+texture(normal,texCoord); }"
+        ]
+    )
+    val first = shader.spirv(shaderStageFragment)
+    val second = shader.spirv(shaderStageFragment)
+    if (shader.valid && shader.bindings.size == 2 &&
+        shader.bindings[0].binding == 0 &&
+        shader.bindings[1].binding == 1 && first.succeeded &&
+        first.module.valid() && first.module.bound() == 24 &&
+        dualTextureContains(first.module, [262215, 20, 33, 1]) &&
+        dualTextureContains(first.module, [262215, 20, 34, 0]) &&
+        dualTextureContains(first.module, [327809, 7, 23, 19, 22]) &&
+        dualTextureWordsEqual(first.module, second.module)) 42 else 1
+}

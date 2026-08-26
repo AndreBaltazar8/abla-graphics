@@ -357,6 +357,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-mrt-render`: a buffered draw owns vertices plus two
   4x colors, two resolves, and depth, producing exact red/green output through
   1,001 allocation-free replays;
+- `examples/deferred-renderer`: a buffered fullscreen geometry pass writes an
+  albedo/normal G-buffer, then a recorded lighting pass samples both prior
+  attachments through planner-visible IDs and affine samplers, producing exact
+  yellow output through 1,001 allocation-free replays;
 - `examples/recorded-graph-subpasses`: one graph record owns a compatible pass,
   target, ordered two-stage procedural sequence, and snapshotted reflected
   values, producing exact output through 1,001 allocation-free replays and one

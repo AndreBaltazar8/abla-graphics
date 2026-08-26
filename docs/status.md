@@ -1584,5 +1584,23 @@ tests cover every comparison, present/missing `else`, mismatched branch targets,
 and vector-condition rejection. The retained sample executes the `>`/`else`
 form on both production backends with the same exact output and replay evidence.
 
+### Recorded deferred rendering
+
+`graphRenderPriorAttachmentResources(...)` lets any recorded procedural or
+buffered draw sample one to eight color attachments from earlier render records
+in the same sealed list. The command list remains the sole affine owner of the
+textures; the wrapper owns samplers and records planner IDs. Recording verifies
+the exact earlier target/native binding relationship, while activity checks and
+seal fingerprints reject stale or mutated metadata.
+
+The deterministic `$glsl` path now includes a dual-`sampler2D` add fragment
+form with exact Vulkan set 0 bindings 0 and 1. The 65th sample,
+`examples/deferred-renderer`, writes red/green albedo/normal MRT attachments and
+samples both in a lighting pass to exact yellow `4278255615`. Explicit OpenGL,
+explicit Vulkan, and automatic selection each reject post-seal ID mutation and
+complete 1,001 successful replays with `live=0`; submission counts are
+zero/1,001. Its embedded Nix rpaths also pass the stripped-`LD_LIBRARY_PATH`
+dependency audit.
+
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

@@ -1573,6 +1573,26 @@ component `>` if/else and preserves its exact OpenGL/Vulkan/auto result, replay,
 submission, tamper, and zero-growth evidence. Nested/general control flow is
 still open.
 
+### Verified checkpoint: recorded deferred rendering
+
+Recorded draw resources now compose with
+`graphRenderPriorAttachmentResources(...)`. The wrapper keeps sampler ownership
+affine while borrowing one to eight color textures from earlier render records
+already owned by the same command list. Recording proves each logical read ID
+and native binding maps to an earlier primary/additional attachment; activity
+checks and the seal fingerprint cover the retained metadata and sampler
+identities. Arbitrary external raw-handle borrowing is not accepted.
+
+The pure-Abla deterministic shader translator adds a two-`sampler2D` fragment
+form that samples set 0 bindings 0 and 1 and adds their `vec4` values. The 65th
+independent sample, `examples/deferred-renderer`, records a buffered fullscreen
+MRT geometry pass followed by a sampled lighting pass. OpenGL, Vulkan, and
+automatic selection all produced exact red/green G-buffer words
+`4278190335/4278255360` and exact yellow lighting `4278255615`, rejected a
+post-seal logical-ID mutation, completed 1,001 replays with zero warmed
+live-byte growth, and reported zero/1,001 Vulkan submissions. Its executable
+also has no unresolved dependency with `LD_LIBRARY_PATH` removed.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and
@@ -1593,8 +1613,8 @@ The later layers should:
 6. Prove exact multi-pass output, native barrier/submission counts, stable
    command resources, Vulkan validation silence, and zero steady-state live
    allocation on OpenGL and Vulkan.
-7. Deliver independently buildable deferred-rendering and compute/render
-   samples using the real recorded command path.
+7. Expand the delivered deferred-rendering proof into compute/render and
+   presentation-scheduled samples using the real recorded command path.
 
 ## Major remaining work from `plan.md`
 
@@ -1620,7 +1640,7 @@ include:
   repeatable startup/resource/transfer/submission/frame/memory benchmarks, and
   reproducible signed releases;
 - the planned learning/sample catalog: camera/mesh/material/glTF, particles,
-  shadows, HDR/PBR, deferred rendering, UI/text, multi-window/monitor,
+  shadows, HDR/PBR, UI/text, multi-window/monitor,
   profiler, raw backend labs, stress benchmark, complete 2D game, complete 3D
   application, and Abla Mobile/native-surface proof.
 
@@ -1677,6 +1697,8 @@ Tests, samples, and public claims:
 - `examples/materialized-render-graph/`;
 - `examples/graph-post-process/`;
 - `examples/recorded-graph-copy/` — independently buildable sealed-copy proof;
+- `examples/deferred-renderer/` — independently buildable two-pass MRT and
+  prior-attachment sampling proof;
 - `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
 - `Makefile` — authoritative gate aggregation;
 - `registry/audit/*.tsv` — reviewed coverage inputs;
