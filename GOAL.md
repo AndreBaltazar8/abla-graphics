@@ -193,14 +193,13 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `37a5e4458cbc7f5be1a474e1f51ee00c011cc306`
-  (`Add zero-argument native void calls`).
-- HEAD is synchronized with `origin/master`. The worktree is not clean: it
-  contains concurrent scalar-global/export program-build work in
-  `src/backend/llvm/{analysis,backend,core,exports,functions}.ab`,
-  `tools/test-programmable-build.sh`, and two new program-build fixtures. The
-  raw-call commit staged only its six owned paths/hunks and left all of that
-  unrelated work untouched.
+  `d30a3fe5e28c2b6de5fe6fe73685321aec7a8f89`
+  (`Accept full i32 native call values`).
+- HEAD is synchronized with `origin/master` and the worktree is clean. The
+  concurrent scalar-global/export program-build work was independently
+  published first as `e40193b6a1a6d022d07dc5fb70eeaa9eb7ac6a85`;
+  this checkpoint then published only its owned native-call paths in
+  `e584ad0f58ec877e05fba9c6d10e8106f8468a9e` and `d30a3fe5e28c2b6de5fe6fe73685321aec7a8f89`.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
   compiler/GLSL parser sources still used `type` as an identifier. For the
@@ -1955,6 +1954,49 @@ nix-shell --run 'make update-registry test-registry'
 nix-shell --run 'make test-raw-commands'
 nix-shell --run 'make check-abla-only test-core test-application'
 ```
+
+### Current checkpoint: one- and two-scalar raw OpenGL calls
+
+Published compiler commits `e584ad0f58ec877e05fba9c6d10e8106f8468a9e`
+and `d30a3fe5e28c2b6de5fe6fe73685321aec7a8f89`, plus graphics implementation
+`3cb9067c90cf59ebcf92157fd18215eb46683088`, are synchronized with their
+upstreams. This checkpoint adds exact LLVM indirect-call lowering and trusted
+standard-library wrappers for `void(i32)` and `void(i32,i32)`. The registry
+generator now emits a
+separate canonical ABI-family tag alongside every normalized specification
+shape. It recognizes only verified 32-bit OpenGL scalar typedefs and leaves
+unhandled parameter/return layouts explicitly `unsupported`.
+
+The pinned OpenGL registry now classifies 49 `void()`, 146 `void(i32)`, and 157
+`void(i32,i32)` commands as callable: 352 of 2,892 entries. The remaining
+2,540 OpenGL entries and all 842 Vulkan entries stay unsupported. Do not infer
+callability from a resolved address or a normalized specification shape.
+
+`RawNativeCommand.callAbi` is resolved once with the command. The allocation-
+stable `RawOpenGlApi.callVoidI32` and `callVoidI32I32` methods require an exact
+ABI tag and the originating context before dispatch. The normal and optimized
+raw sample each execute 1,000 loops that call `glFinish`, enable and observe
+scissoring, disable and observe it again, set and query pack alignment through
+the two-scalar path, and restore the caller's original states. Both modes
+reported `live=0`; Vulkan address resolution remained valid without claiming a
+call family.
+
+The compiler boundary test calls exported pure-Abla `void(i32)` and
+`void(i32,i32)` functions through their dynamic addresses and verifies each
+argument independently, including full unsigned 32-bit bit patterns that
+truncate to `-1`, `-2`, and `-2147483648` in signed target parameters. Verified
+gates were the compiler self-rebuild, cache-independent unsafe-boundary test,
+deterministic update/registry test, normal and optimized live raw-command test,
+stripped-environment linkage audit inside that test, Abla-only audit, and pure
+core test. The broad common-application and full 71-root matrices were not
+repeated because this slice changes only opt-in raw APIs and their exact
+compiler intrinsics. No C/C++/Rust implementation or shim was introduced.
+
+Remaining raw priorities after this slice are pointer/handle plus scalar
+families (which dominate Vulkan), typed return families, generated native
+types/flags/structure builders, command ownership/capability metadata, feature
+chains, and representative live positive/unsupported tests for each enabled
+family. Keep the full goal active.
 
 ## Working commands
 
