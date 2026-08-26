@@ -66,7 +66,9 @@ class ShaderBinding(
     val dataType: string = "",
     val name: string = "",
     val arraySize: int = 1,
-    val members: array<ShaderBlockMember> = []
+    val members: array<ShaderBlockMember> = [],
+    val access: string = "",
+    val imageFormat: string = ""
 )
 
 class ShaderPushConstant(
@@ -240,7 +242,8 @@ class GlslLayout(
     val pushConstant: bool,
     val constantId: int,
     val next: int,
-    val error: string
+    val error: string,
+    val imageFormat: string
 )
 
 class GlslStageReflection(
@@ -263,7 +266,8 @@ class GlslDeclaration(
     val members: array<ShaderBlockMember>,
     val declarators: array<GlslDeclarator>,
     val next: int,
-    val valid: bool
+    val valid: bool,
+    val access: string
 )
 
 class GlslDeclarator(val name: string, val arraySize: int)
@@ -479,6 +483,7 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
     var setSpecified = false
     var pushConstant = false
     var constantId = -1
+    var imageFormat = ""
     var done = false
     while (valid && !done && index < source.size) {
         index = glslSkipTrivia(source, index)
@@ -547,6 +552,9 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
             } else if (valid && name.text == "push_constant") {
                 if (pushConstant) valid = false
                 else pushConstant = true
+            } else if (valid && name.text == "rgba8") {
+                if (imageFormat != "") valid = false
+                else imageFormat = name.text
             } else if (valid &&
                 (name.text == "location" || name.text == "set" ||
                  name.text == "binding" || name.text == "local_size_x" ||
@@ -587,7 +595,8 @@ fun glslParseLayout(source: string, begin: int): GlslLayout {
         pushConstant,
         constantId,
         index,
-        if (valid) "" else "malformed GLSL layout qualifier"
+        if (valid) "" else "malformed GLSL layout qualifier",
+        imageFormat
     )
 }
 
@@ -944,12 +953,18 @@ fun glslDeclarationAfterLayout(
 ): GlslDeclaration {
     var index = begin
     var storage = ""
+    var access = ""
+    var accessValid = true
     var attempts = 0
     while (storage == "" && attempts < 16) {
         val part = glslReadName(source, index)
         if (part.text == "in" || part.text == "out" ||
             part.text == "uniform" || part.text == "buffer") {
             storage = part.text
+        }
+        if (part.text == "readonly" || part.text == "writeonly") {
+            if (access != "" && access != part.text) accessValid = false
+            else access = part.text
         }
         if (part.text == "") attempts = 16
         else index = part.next
@@ -962,7 +977,14 @@ fun glslDeclarationAfterLayout(
         while (searching && attempts < 16) {
             val part = glslReadName(source, index)
             if (part.text == "") searching = false
-            else if (glslDeclarationQualifier(part.text)) index = part.next
+            else if (glslDeclarationQualifier(part.text)) {
+                if (part.text == "readonly" || part.text == "writeonly") {
+                    if (access != "" && access != part.text) {
+                        accessValid = false
+                    } else access = part.text
+                }
+                index = part.next
+            }
             else {
                 type = part
                 index = part.next
@@ -995,9 +1017,10 @@ fun glslDeclarationAfterLayout(
         parsedBlock.members,
         declarators.values,
         declarators.next,
-        storage != "" && type.text != "" &&
+        storage != "" && type.text != "" && accessValid &&
             (variable.text != "" || block) && arraySize.valid &&
-            parsedBlock.valid && declarators.valid
+            parsedBlock.valid && declarators.valid,
+        access
     )
 }
 
@@ -1711,6 +1734,8 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                                 (previous.storage != declaration.storage ||
                                  previous.dataType != declaration.dataType ||
                                  previous.arraySize != declarator.arraySize ||
+                                 previous.access != declaration.access ||
+                                 previous.imageFormat != layout.imageFormat ||
                                  !glslBlockMembersEqual(
                                      previous.members,
                                      declaration.members
@@ -1729,7 +1754,9 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
                                 declaration.dataType,
                                 declarator.name,
                                 declarator.arraySize,
-                                declaration.members
+                                declaration.members,
+                                declaration.access,
+                                layout.imageFormat
                             ))
                         }
                         declaratorIndex = declaratorIndex + 1

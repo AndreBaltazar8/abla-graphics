@@ -597,6 +597,27 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform writeonly image2D outputImage; void main(){ imageStore(outputImage,ivec2(1,0),vec4(1.0,0.0,0.0,1.0)); }"]
     ).spirv(shaderStageCompute)
+    val storageImageReadWrite = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform image2D outputImage;
+            void main() {
+                vec4 color = imageLoad(outputImage, ivec2(0, 0));
+                imageStore(
+                    outputImage,
+                    ivec2(0, 0),
+                    vec4(color.g, color.r, 0.0, 1.0)
+                );
+            }
+        }
+    }
+    val storageImageReadWriteSpirv = storageImageReadWrite.spirv(
+        shaderStageCompute
+    )
+    val storageImageReadWriteSpirvAgain = storageImageReadWrite.spirv(
+        shaderStageCompute
+    )
     val unsupportedSampledStorage = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) uniform sampler2D atlas; layout(std430,binding=1) buffer Destination { uint value; } destination; void main(){ destination.value += uint(texture(atlas,vec2(0.25,0.5)).r); }"]
@@ -3119,6 +3140,8 @@ fun main: int {
         storageImage.valid && storageImage.bindings.size == 1 &&
         storageImage.bindings[0].dataType == "image2D" &&
         storageImage.bindings[0].stage == shaderStageCompute &&
+        storageImage.bindings[0].access == "writeonly" &&
+        storageImage.bindings[0].imageFormat == "rgba8" &&
         storageImageSpirv.succeeded && storageImageSpirv.module.valid() &&
         storageImageSpirv.module.bound() == 23 &&
         spirvContainsWord(storageImageSpirv.module, 262243) &&
@@ -3126,6 +3149,19 @@ fun main: int {
             storageImageSpirv.module,
             storageImageSpirvAgain.module
         ) && !unsupportedStorageImage.succeeded &&
+        storageImageReadWrite.valid &&
+        storageImageReadWrite.bindings.size == 1 &&
+        storageImageReadWrite.bindings[0].access == "" &&
+        storageImageReadWrite.bindings[0].imageFormat == "rgba8" &&
+        storageImageReadWriteSpirv.succeeded &&
+        storageImageReadWriteSpirv.module.valid() &&
+        storageImageReadWriteSpirv.module.bound() == 33 &&
+        spirvContainsWord(storageImageReadWriteSpirv.module, 327778) &&
+        spirvContainsWord(storageImageReadWriteSpirv.module, 262243) &&
+        spirvWordsEqual(
+            storageImageReadWriteSpirv.module,
+            storageImageReadWriteSpirvAgain.module
+        ) &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
         !misplacedStorageProfile.succeeded &&

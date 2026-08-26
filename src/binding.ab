@@ -63,6 +63,15 @@ fun graphicsStorageTextureOpenGlAccess(access: int): int =
     else if (access == graphicsStorageTextureReadWrite) 35002
     else 0
 
+fun graphicsStorageTextureReflectedAccess(access: string): int =
+    if (access == "readonly") graphicsStorageTextureReadOnly
+    else if (access == "writeonly") graphicsStorageTextureWriteOnly
+    else graphicsStorageTextureReadWrite
+
+fun graphicsStorageTextureReflectedFormat(format: string): int =
+    if (format == "rgba8") textureFormatRgba8Unorm
+    else textureFormatUndefined
+
 class GraphicsBindingEntry(
     val binding: int,
     val kind: int,
@@ -145,7 +154,12 @@ class GraphicsBindingEntry(
              reflected.storage == "uniform" &&
              storageDimension != textureDimensionUndefined &&
              this.textureDimension == storageDimension &&
-             this.bufferSize == graphicsStorageTextureWriteOnly)
+             this.bufferSize == graphicsStorageTextureReflectedAccess(
+                reflected.access
+             ) && this.texture.format ==
+                graphicsStorageTextureReflectedFormat(
+                    reflected.imageFormat
+                ))
         reflected.set == 0 && reflected.binding == this.binding &&
             reflected.arraySize == 1 && stageVisibility != 0 &&
             (this.visibility & stageVisibility) != 0 && typeMatches
@@ -364,6 +378,85 @@ trusted fun GraphicsApplication.storageTextureEntry(
         access,
         texture.descriptor,
         texture.descriptor.dimension,
+        this.backend,
+        error
+    )
+}
+
+trusted fun GraphicsApplication.storageTextureViewEntry(
+    binding: int,
+    visibility: int,
+    var texture: GraphicsTexture,
+    view: GraphicsTextureView,
+    access: int = graphicsStorageTextureWriteOnly
+): GraphicsBindingEntry {
+    var error = GraphicsError()
+    val validation = view.descriptor.validation(texture.descriptor)
+    val format = view.descriptor.resolvedFormat(texture.descriptor)
+    val dimension = view.descriptor.resolvedDimension(texture.descriptor)
+    var prepared = true
+    if (this.backend == graphicsBackendVulkan && texture.valid() &&
+        view.valid() && this.ownsTexture(texture) &&
+        this.ownsTextureView(view)) {
+        prepared = this.vulkanDevice.prepareStorageTexture(
+            texture.vulkan,
+            texture.descriptor,
+            view.descriptor.baseMipLevel,
+            view.descriptor.resolvedMipLevelCount(texture.descriptor),
+            view.descriptor.baseArrayLayer,
+            view.descriptor.resolvedArrayLayerCount(texture.descriptor)
+        )
+    }
+    if (!this.valid() || !texture.valid() || !view.valid() ||
+        !this.ownsTexture(texture) || !this.ownsTextureView(view) ||
+        !validation.succeeded ||
+        !textureDescriptorsStorageCompatible(
+            view.texture, texture.descriptor
+        ) || binding < 0 || binding > 31 ||
+        !graphicsBindingVisibilityValid(visibility) ||
+        !graphicsStorageTextureAccessValid(access) ||
+        !this.capabilities.supports(graphicsFeatureStorageTextures) ||
+        (texture.descriptor.usage & textureUsageStorage) == 0 ||
+        dimension != textureDimension2D || texture.descriptor.samples != 1 ||
+        view.descriptor.resolvedMipLevelCount(texture.descriptor) != 1 ||
+        view.descriptor.resolvedArrayLayerCount(texture.descriptor) != 1 ||
+        format != textureFormatRgba8Unorm || !prepared) {
+        error = GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.storageTextureViewEntry",
+            "storage texture-view entries require an owned one-mip, one-layer RGBA8 two-dimensional storage view, matching parent texture, valid access, binding, and visibility"
+        )
+    }
+    GraphicsBindingEntry(
+        binding,
+        graphicsBindingStorageTexture,
+        visibility,
+        if (this.backend == graphicsBackendOpenGl) view.openGl.handle else 0,
+        if (this.backend == graphicsBackendOpenGl)
+            openGlTextureInternalFormat(format) else 0,
+        0,
+        if (this.backend == graphicsBackendVulkan) view.vulkan.handle else 0,
+        0,
+        0,
+        if (this.backend == graphicsBackendOpenGl)
+            graphicsStorageTextureOpenGlAccess(access) else 0,
+        access,
+        TextureDescriptor(
+            size = Extent3D(
+                textureMipDimension(
+                    texture.descriptor.size.width,
+                    view.descriptor.baseMipLevel
+                ),
+                textureMipDimension(
+                    texture.descriptor.size.height,
+                    view.descriptor.baseMipLevel
+                )
+            ),
+            dimension = dimension,
+            format = format,
+            usage = texture.descriptor.usage
+        ),
+        dimension,
         this.backend,
         error
     )

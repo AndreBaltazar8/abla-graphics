@@ -1486,8 +1486,26 @@ map, activity, and seal fingerprint. The 57th sample,
 `recorded-graph-storage-image-compute`, passed stripped-`LD_LIBRARY_PATH`
 OpenGL, Vulkan, and auto launches with exact red `4278190335`, sealed-map
 tamper rejection, 1,001 successful replays, zero/1,001 Vulkan submissions,
-and `live=0`. Broader formats, read/read-write image programs, views, and
-fragment-stage images remain open.
+and `live=0`. Broader formats/dimensions and fragment-stage images remain open.
+
+### Storage-image views and read-write lowering
+
+Shader binding reflection now retains image access qualification and the
+`rgba8` layout format. Pipeline matching rejects an access or format mismatch;
+unqualified `image2D` maps to explicit read-write access. The pure-Abla SPIR-V
+translator adds a deterministic `imageLoad` plus channel-swapping `imageStore`
+program alongside the earlier write-only form.
+
+`storageTextureViewEntry(...)` binds one affine mip/layer view. Vulkan performs
+a one-time transition only for its selected parent range and uses the existing
+view directly; OpenGL binds the re-indexed view object. The retained graph table
+owns and fingerprints parent, view descriptor/native identity, logical ID,
+access, and encoded stage map. The 58th independent sample,
+`recorded-graph-storage-image-view-compute`, passed stripped-`LD_LIBRARY_PATH`
+OpenGL/Vulkan/auto launches with exact green `4278255360`, 1,001 replays,
+post-seal tamper rejection, zero/1,001 submissions, and `live=0`. Its first
+performance run exposed and then removed a 416-byte-per-replay descriptor
+validation allocation from the warmed path.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

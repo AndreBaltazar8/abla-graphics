@@ -275,6 +275,7 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-transient-compute`, and
 `examples/recorded-graph-texture-compute`, and
 `examples/recorded-graph-storage-image-compute`, and
+`examples/recorded-graph-storage-image-view-compute`, and
 `examples/recorded-graph-buffered-render`, and
 `examples/recorded-graph-indirect-render`, and
 `examples/recorded-graph-push-render`, and
@@ -361,5 +362,11 @@ one-time `GENERAL` transition. The independent proof preserves exact red,
 rejects a sealed stage-map mutation, and completes 1,001 OpenGL/Vulkan/auto
 replays with zero warmed growth and zero/1,001 Vulkan submissions.
 
-Broader storage-image formats/access/views, broader copy/dispatch forms, frames in flight, and
+`graphSubpassStorageTextureViewResources(...)` extends the same contract to an
+exact affine parent/view pair. The reflection now fingerprints and matches
+`rgba8` plus read/write qualification. Its live proof targets mip one, loads
+red, stores swapped green, and reaches exact `4278255360` after 1,001 replays
+on OpenGL, Vulkan, and automatic selection with `live=0`.
+
+Broader storage-image formats/dimensions, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

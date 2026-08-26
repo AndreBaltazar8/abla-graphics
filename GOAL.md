@@ -160,12 +160,11 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `82a66da3a978d63adbe49922f74eebc76eea892a`
-  (`Export lifted functions from independent modules`)
-- HEAD remains synchronized, but the worktree currently contains substantial
-  unrelated in-progress compiler/parser/LLVM/MMIO changes. Preserve them and
-  stage nothing in `../ablac` for this graphics checkpoint. The recorded
-  subpass implementation itself required no compiler source change.
+  `940f5f87f0cdc7acfa23ea87229f568b0b6b4a03`
+  (`Bound native C string lifetimes`).
+- HEAD is synchronized and the worktree is clean. This graphics checkpoint
+  required no compiler source change, so there is nothing to stage or publish
+  in `../ablac`.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
   compiler/GLSL parser sources still used `type` as an identifier. For the
@@ -515,10 +514,9 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Implement storage-image bindings through the existing typed retained table:
-   OpenGL image units, Vulkan storage-image descriptors/layouts, `$glsl`
-   reflection plus `imageLoad`/`imageStore`, and live recorded-compute proof.
-   Sampled recorded compute is published and allocation-free.
+1. Expand the now-published RGBA8 2D storage-image and exact-view path to
+   broader formats/dimensions and fragment-stage images while preserving
+   reflected access/format matching and allocation-free retained replay.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -812,8 +810,30 @@ RGBA8 `4278190335`, rejected post-seal map mutation, completed 1,001 successful
 replays with zero warmed live-byte growth, and reported zero/1,001 Vulkan
 submissions. `make check-abla-only test-core test-glsl test-graph-commands`
 passed. No `../ablac` source change was required. Broader storage-image
-formats, read/read-write lowering, views, and fragment-stage images remain
-follow-up work; do not mark the persistent goal complete.
+formats/dimensions and fragment-stage images remain follow-up work; do not mark
+the persistent goal complete.
+
+### Storage-image views and read-write lowering
+
+Image reflection now retains `rgba8` plus `readonly`/`writeonly`/unqualified
+access, and bind-group matching rejects format or access mismatch before driver
+pipeline work. The deterministic pure-Abla emitter supports a read-write
+`image2D` program that loads one texel and stores its red/green channels swapped.
+
+`storageTextureViewEntry(...)` accepts an affine parent plus exact one-mip,
+one-layer 2D view. OpenGL binds the re-indexed view object; Vulkan uses the
+caller-owned image view and transitions only its selected parent subresources
+to `GENERAL`. `graphSubpassStorageTextureViewResources(...)` owns the parent and
+view, encodes view indices internally, and validates/fingerprints graph access,
+descriptor, native identities, access, and stage mapping.
+
+`examples/recorded-graph-storage-image-view-compute/` brings the sample matrix
+to 58 roots. The focused stripped-linkage gate passed OpenGL, Vulkan, and auto
+with exact green RGBA8 `4278255360`, sealed-map tamper rejection, 1,001
+successful replays, zero warmed live-byte growth, and zero/1,001 Vulkan
+submissions. An initial correct-output run exposed 416 bytes of live growth per
+replay from redundant descriptor validation; the retained validator now uses
+scalar creation-time-validated state and passes `live=0`.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

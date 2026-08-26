@@ -1,0 +1,114 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded storage image view compute",
+            width = 480,
+            height = 270
+        )
+    )
+    val descriptor = TextureDescriptor(
+        size = Extent3D(2, 2),
+        format = textureFormatRgba8Unorm,
+        mipLevels = 2,
+        usage = textureUsageStorage | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "view-parent", false, 0, 10)
+    ], [
+        GraphicsGraphPass(10, "swap-view-channels", [
+            GraphicsGraphUse(0, graphAccessReadWrite)
+        ])
+    ], [GraphicsGraphTextureDeclaration(0, descriptor)], [])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform image2D outputImage;
+            void main() {
+                vec4 color = imageLoad(outputImage, ivec2(0, 0));
+                imageStore(
+                    outputImage,
+                    ivec2(0, 0),
+                    vec4(color.g, color.r, 0.0, 1.0)
+                );
+            }
+        }
+    }
+    val texture = app.texture(descriptor)
+    val pixels = pixelBuffer(1, 1)
+    val initialized = pixels.setRgba8(0, 0, 255, 0, 0) &&
+        texture.writePixels(pixels, TextureWriteDescriptor(mipLevel = 1))
+    val view = texture.view(TextureViewDescriptor(
+        dimension = textureDimension2D,
+        baseMipLevel = 1,
+        mipLevelCount = 1,
+        arrayLayerCount = 1
+    ))
+    val binding = app.bindGroup([
+        app.storageTextureViewEntry(
+            0,
+            shaderVisibilityCompute,
+            texture,
+            view,
+            graphicsStorageTextureReadWrite
+        )
+    ])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val resources = graphSubpassStorageTextureViewResources(
+        [0],
+        [move(texture)],
+        [move(view)],
+        [graphicsStorageTextureReadWrite],
+        [[0]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        initialized && pipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordComputeBindingResources(
+            graph, move(resources), move(pipeline), 1
+        ) && commands.seal(graph)
+    commands.computeResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = -2
+    val tamperRejected = succeeded &&
+        !app.executeGraphCommands(graph, commands)
+    commands.computeResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = -1
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && tamperRejected && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val pixel = if (succeeded)
+        commands.computeResources[0].bindingResources[0].storageViewTextures[
+            0
+        ].rgba8(0, 0, 1)
+        else -1
+    val stable = succeeded && tamperRejected && iteration == 1001 &&
+        pixel == 4278255360 && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-storage-image-view-compute ${graphicsBackendName(app.backend)}: resources=${commands.computeResources[0].bindingResources[0].storageViewResourceIds.size} pixel=$pixel tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

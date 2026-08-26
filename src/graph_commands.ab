@@ -687,7 +687,11 @@ resource class GraphicsGraphSubpassBufferResources(
     var transientTextureSamplers: array<GraphicsSampler>,
     val storageTextureResourceIds: array<int>,
     var storageTextures: array<GraphicsTexture>,
-    val storageTextureAccesses: array<int>
+    val storageTextureAccesses: array<int>,
+    val storageViewResourceIds: array<int>,
+    var storageViewTextures: array<GraphicsTexture>,
+    var storageViews: array<GraphicsTextureView>,
+    val storageViewAccesses: array<int>
 ) {
     fun validForAttachments(
         graph: GraphicsMaterializedRenderGraph,
@@ -1113,7 +1117,8 @@ resource class GraphicsGraphSubpassBufferResources(
         val totalResources = this.resourceIds.size +
             this.textureResourceIds.size + this.viewResourceIds.size +
             this.transientTextureResourceIds.size +
-            this.storageTextureResourceIds.size
+            this.storageTextureResourceIds.size +
+            this.storageViewResourceIds.size
         var accepted = totalResources >= 1 && totalResources <= 128 &&
             binding.valid() && binding.backend == backend &&
             totalResources <= binding.entries.size &&
@@ -1131,6 +1136,11 @@ resource class GraphicsGraphSubpassBufferResources(
                 this.storageTextures.size &&
             this.storageTextureResourceIds.size ==
                 this.storageTextureAccesses.size &&
+            this.storageViewResourceIds.size ==
+                this.storageViewTextures.size &&
+            this.storageViewResourceIds.size == this.storageViews.size &&
+            this.storageViewResourceIds.size ==
+                this.storageViewAccesses.size &&
             this.stageResourceIndices.size == 1 &&
             this.stageResourceIndices[0].size ==
                 binding.entries.size
@@ -1353,6 +1363,73 @@ resource class GraphicsGraphSubpassBufferResources(
             }
             storageTextureIndex = storageTextureIndex + 1
         }
+        var storageViewIndex = 0
+        while (accepted && storageViewIndex < this.storageViewResourceIds.size) {
+            val resourceId = this.storageViewResourceIds[storageViewIndex]
+            val texture = this.storageViewTextures[storageViewIndex]
+            val view = this.storageViews[storageViewIndex]
+            val access = this.storageViewAccesses[storageViewIndex]
+            val declared = graphicsGraphDeclaredAccess(
+                graph, passId, resourceId
+            )
+            accepted = texture.valid() && texture.backend == backend &&
+                view.valid() && view.backend == backend &&
+                graph.importedResource(resourceId) &&
+                graph.textureResource(resourceId) &&
+                graphicsStorageTextureAccessValid(access) &&
+                ((access == graphicsStorageTextureReadOnly &&
+                  (declared & graphAccessRead) != 0) ||
+                 (access == graphicsStorageTextureWriteOnly &&
+                  (declared & graphAccessWrite) != 0) ||
+                 (access == graphicsStorageTextureReadWrite &&
+                  declared == graphAccessReadWrite)) &&
+                (texture.descriptor.usage & textureUsageStorage) != 0 &&
+                texture.descriptor.samples == 1 &&
+                view.descriptor.resolvedDimension(texture.descriptor) ==
+                    textureDimension2D &&
+                view.descriptor.resolvedMipLevelCount(texture.descriptor) == 1 &&
+                view.descriptor.resolvedArrayLayerCount(texture.descriptor) == 1 &&
+                view.descriptor.resolvedFormat(texture.descriptor) ==
+                    textureFormatRgba8Unorm &&
+                textureDescriptorsStorageCompatible(
+                    graph.textureDescriptor(resourceId), texture.descriptor
+                ) && textureDescriptorsStorageCompatible(
+                    view.texture, texture.descriptor
+                ) && resourceId != depthResourceId
+            var earlier = 0
+            while (accepted && earlier < storageViewIndex) {
+                accepted = this.storageViewResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier < this.resourceIds.size) {
+                accepted = this.resourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier < this.textureResourceIds.size) {
+                accepted = this.textureResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier < this.viewResourceIds.size) {
+                accepted = this.viewResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier <
+                this.transientTextureResourceIds.size) {
+                accepted = this.transientTextureResourceIds[earlier] !=
+                    resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier < this.storageTextureResourceIds.size) {
+                accepted = this.storageTextureResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            storageViewIndex = storageViewIndex + 1
+        }
         val indices = this.stageResourceIndices[0]
         var entryIndex = 0
         while (accepted && entryIndex < indices.size) {
@@ -1444,9 +1521,11 @@ resource class GraphicsGraphSubpassBufferResources(
                     }
                 }
             } else if (entry.kind == graphicsBindingStorageTexture) {
-                accepted = resourceIndex >= 0 && resourceIndex <
-                    this.storageTextures.size
-                if (accepted) {
+                accepted = (resourceIndex >= 0 && resourceIndex <
+                    this.storageTextures.size) ||
+                    (resourceIndex < 0 && resourceIndex >=
+                        -this.storageViews.size)
+                if (accepted && resourceIndex >= 0) {
                     val texture = this.storageTextures[resourceIndex]
                     accepted = entry.bufferSize ==
                             this.storageTextureAccesses[resourceIndex] &&
@@ -1462,6 +1541,29 @@ resource class GraphicsGraphSubpassBufferResources(
                           )) || (backend == graphicsBackendVulkan &&
                           entry.vulkanResource == texture.vulkan.image &&
                           entry.vulkanView == 0 && entry.vulkanSampler == 0))
+                }
+                if (accepted && resourceIndex < 0) {
+                    storageViewIndex = -resourceIndex - 1
+                    val texture = this.storageViewTextures[storageViewIndex]
+                    val view = this.storageViews[storageViewIndex]
+                    val format = view.descriptor.resolvedFormat(
+                        texture.descriptor
+                    )
+                    accepted = entry.bufferSize ==
+                            this.storageViewAccesses[storageViewIndex] &&
+                        entry.textureDimension == view.descriptor.resolvedDimension(
+                            texture.descriptor
+                        ) && entry.texture.format == format &&
+                        ((backend == graphicsBackendOpenGl &&
+                          entry.openGlResource == view.openGl.handle &&
+                          entry.openGlSampler == openGlTextureInternalFormat(
+                            format
+                          ) && entry.size == graphicsStorageTextureOpenGlAccess(
+                            this.storageViewAccesses[storageViewIndex]
+                          )) || (backend == graphicsBackendVulkan &&
+                          entry.vulkanResource == 0 &&
+                          entry.vulkanView == view.vulkan.handle &&
+                          entry.vulkanSampler == 0))
                 }
             } else {
                 accepted = resourceIndex >= 0 &&
@@ -1563,6 +1665,19 @@ resource class GraphicsGraphSubpassBufferResources(
             accepted = used
             storageTextureIndex = storageTextureIndex + 1
         }
+        storageViewIndex = 0
+        while (accepted && storageViewIndex < this.storageViewResourceIds.size) {
+            var used = false
+            entryIndex = 0
+            while (!used && entryIndex < indices.size) {
+                used = binding.entries[entryIndex].kind ==
+                        graphicsBindingStorageTexture &&
+                    indices[entryIndex] == -storageViewIndex - 1
+                entryIndex = entryIndex + 1
+            }
+            accepted = used
+            storageViewIndex = storageViewIndex + 1
+        }
         accepted
     }
 
@@ -1608,7 +1723,8 @@ trusted fun graphSubpassBufferResources(
         resourceIds, move(buffers), stageResourceIndices,
         [], move(textures), move(samplers),
         [], move(viewTextures), move(views), move(viewSamplers),
-        [], [], move(transientSamplers), [], move(storageTextures), []
+        [], [], move(transientSamplers), [], move(storageTextures), [],
+        [], [], [], []
     )
 }
 
@@ -1628,7 +1744,8 @@ trusted fun graphSubpassTextureResources(
         [], move(buffers), stageResourceIndices,
         resourceIds, move(textures), move(samplers),
         [], move(viewTextures), move(views), move(viewSamplers),
-        [], [], move(transientSamplers), [], move(storageTextures), []
+        [], [], move(transientSamplers), [], move(storageTextures), [],
+        [], [], [], []
     )
 }
 
@@ -1660,7 +1777,8 @@ trusted fun graphSubpassTextureViewResources(
         [], move(buffers), encoded,
         [], move(sampledTextures), move(sampledSamplers),
         resourceIds, move(textures), move(views), move(samplers),
-        [], [], move(transientSamplers), [], move(storageTextures), []
+        [], [], move(transientSamplers), [], move(storageTextures), [],
+        [], [], [], []
     )
 }
 
@@ -1702,7 +1820,8 @@ trusted fun graphSubpassTransientTextureResources(
         [], move(buffers), encoded,
         [], move(textures), move(sampledSamplers),
         [], move(viewTextures), move(views), move(viewSamplers),
-        resourceIds, identities, move(samplers), [], move(storageTextures), []
+        resourceIds, identities, move(samplers), [], move(storageTextures), [],
+        [], [], [], []
     )
 }
 
@@ -1723,7 +1842,8 @@ trusted fun graphSubpassBindingResources(
         bufferResourceIds, move(buffers), stageResourceIndices,
         textureResourceIds, move(textures), move(samplers),
         [], move(viewTextures), move(views), move(viewSamplers),
-        [], [], move(transientSamplers), [], move(storageTextures), []
+        [], [], move(transientSamplers), [], move(storageTextures), [],
+        [], [], [], []
     )
 }
 
@@ -1745,7 +1865,44 @@ trusted fun graphSubpassStorageTextureResources(
         [], move(sampledTextures), move(sampledSamplers),
         [], move(viewTextures), move(views), move(viewSamplers),
         [], [], move(transientSamplers),
-        resourceIds, move(textures), accesses
+        resourceIds, move(textures), accesses, [], [], [], []
+    )
+}
+
+trusted fun graphSubpassStorageTextureViewResources(
+    resourceIds: array<int>,
+    own textures: array<GraphicsTexture>,
+    own views: array<GraphicsTextureView>,
+    accesses: array<int>,
+    stageResourceIndices: array<array<int>>
+): GraphicsGraphSubpassBufferResources {
+    val buffers: array<GraphicsBuffer> = []
+    val sampledTextures: array<GraphicsTexture> = []
+    val sampledSamplers: array<GraphicsSampler> = []
+    val sampledViewTextures: array<GraphicsTexture> = []
+    val sampledViews: array<GraphicsTextureView> = []
+    val viewSamplers: array<GraphicsSampler> = []
+    val transientSamplers: array<GraphicsSampler> = []
+    val storageTextures: array<GraphicsTexture> = []
+    val encoded: array<array<int>> = []
+    var stage = 0
+    while (stage < stageResourceIndices.size) {
+        val indices: array<int> = []
+        var entryIndex = 0
+        while (entryIndex < stageResourceIndices[stage].size) {
+            indices.append(-stageResourceIndices[stage][entryIndex] - 1)
+            entryIndex = entryIndex + 1
+        }
+        encoded.append(indices)
+        stage = stage + 1
+    }
+    return GraphicsGraphSubpassBufferResources(
+        [], move(buffers), encoded,
+        [], move(sampledTextures), move(sampledSamplers),
+        [], move(sampledViewTextures), move(sampledViews), move(viewSamplers),
+        [], [], move(transientSamplers),
+        [], move(storageTextures), [],
+        resourceIds, move(textures), move(views), accesses
     )
 }
 
@@ -2175,6 +2332,51 @@ fun graphicsGraphRecordedBindingResourcesFingerprint(
         }
         index = index + 1
     }
+    index = 0
+    while (index < resources.storageViewResourceIds.size) {
+        fingerprint = graphicsGraphCommandFingerprintMix(
+            fingerprint, resources.storageViewResourceIds[index]
+        )
+        if (index < resources.storageViewTextures.size &&
+            index < resources.storageViews.size &&
+            index < resources.storageViewAccesses.size) {
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                if (backend == graphicsBackendOpenGl)
+                    resources.storageViewTextures[index].openGl.handle
+                else resources.storageViewTextures[index].vulkan.image
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                if (backend == graphicsBackendOpenGl)
+                    resources.storageViews[index].openGl.handle
+                else resources.storageViews[index].vulkan.handle
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, resources.storageViewAccesses[index]
+            )
+            val descriptor = resources.storageViews[index].descriptor
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, descriptor.format
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, descriptor.dimension
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, descriptor.baseMipLevel
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, descriptor.mipLevelCount
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, descriptor.baseArrayLayer
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint, descriptor.arrayLayerCount
+            )
+        }
+        index = index + 1
+    }
     var stage = 0
     while (stage < resources.stageResourceIndices.size) {
         index = 0
@@ -2494,6 +2696,13 @@ fun graphicsGraphBindingResourcesActive(
     while (active && index < resources.storageTextureResourceIds.size) {
         active = graph.resourceActive(
             token, resources.storageTextureResourceIds[index]
+        )
+        index = index + 1
+    }
+    index = 0
+    while (active && index < resources.storageViewResourceIds.size) {
+        active = graph.resourceActive(
+            token, resources.storageViewResourceIds[index]
         )
         index = index + 1
     }

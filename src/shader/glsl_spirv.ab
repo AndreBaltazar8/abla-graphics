@@ -6592,6 +6592,49 @@ fun glslStorageImageComputeSpirv(): array<int> = [
     9, 262243, 10, 14, 18, 65789, 65592
 ]
 
+fun glslStorageImageReadWriteComputeSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "rgba8", ",", "binding", "=", "0", ")",
+        "uniform", "image2D", "outputImage", ";",
+        "void", "main", "(", ")", "{",
+        "vec4", "color", "=", "imageLoad", "(", "outputImage", ",",
+        "ivec2", "(", "0", ",", "0", ")", ")", ";",
+        "imageStore", "(", "outputImage", ",", "ivec2", "(", "0", ",",
+        "0", ")", ",", "vec4", "(", "color", ".", "g", ",",
+        "color", ".", "r", ",", "0.0", ",", "1.0", ")", ")",
+        ";", "}"
+    ])
+
+fun glslStorageImageReadWriteComputeSpirv(): array<int> = [
+    119734787, 65536, 524299, 33, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    327695, 5, 4, 1852399981, 0, 393232, 4, 17,
+    1, 1, 1, 196611, 2, 450, 262149, 4,
+    1852399981, 0, 262149, 9, 1869377379, 114, 327685,
+    12, 1886680431, 1833530485, 6645601, 262215, 12, 33,
+    0, 262215, 12, 34, 0, 262215, 32, 11,
+    25, 131091, 2, 196641, 3, 2, 196630, 6,
+    32, 262167, 7, 6, 4, 262176, 8, 7,
+    7, 589849, 10, 6, 1, 0, 0, 0,
+    2, 4, 262176, 11, 0, 10, 262203, 11,
+    12, 0, 262165, 14, 32, 1, 262167, 15,
+    14, 2, 262187, 14, 16, 0, 327724, 15,
+    17, 16, 16, 262165, 20, 32, 0, 262187,
+    20, 21, 1, 262176, 22, 7, 6, 262187,
+    20, 25, 0, 262187, 6, 28, 0, 262187,
+    6, 29, 1065353216, 262167, 31, 20, 3, 393260,
+    31, 32, 21, 21, 21, 327734, 2, 4,
+    0, 3, 131320, 5, 262203, 8, 9, 7,
+    262205, 10, 13, 12, 327778, 7, 18, 13,
+    17, 196670, 9, 18, 262205, 10, 19, 12,
+    327745, 22, 23, 9, 21, 262205, 6, 24,
+    23, 327745, 22, 26, 9, 25, 262205, 6,
+    27, 26, 458832, 7, 30, 24, 27, 28,
+    29, 262243, 19, 17, 30, 65789, 65592
+]
+
 fun glslSampledStorageComputeSpirv(): array<int> = [
     119734787, 65536, 524299, 35, 0, 131089, 1, 393227,
     1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
@@ -6744,6 +6787,16 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.pushConstants.size == 0 &&
         this.specializationConstants.size == 0 &&
         glslStorageImageComputeSource(this.stages[0].source)
+    val storageImageReadWrite = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 1 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "uniform" &&
+        this.bindings[0].dataType == "image2D" &&
+        this.bindings[0].access == "" &&
+        this.bindings[0].imageFormat == "rgba8" &&
+        this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslStorageImageReadWriteComputeSource(this.stages[0].source)
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val rasterFragmentProgram = if (graphicsCommon &&
@@ -6791,7 +6844,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || pushStorage || dualStorage ||
-        sampledStorage || storageImage ||
+        sampledStorage || storageImage || storageImageReadWrite ||
         vertex || proceduralTexturedVertex ||
         pushTransformVertex || uniformTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
@@ -6799,7 +6852,9 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
-    if (storageImage) {
+    if (storageImageReadWrite) {
+        words = glslStorageImageReadWriteComputeSpirv()
+    } else if (storageImage) {
         words = glslStorageImageComputeSpirv()
     } else if (sampledStorage) {
         words = glslSampledStorageComputeSpirv()

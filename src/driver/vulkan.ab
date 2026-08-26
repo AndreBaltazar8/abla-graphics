@@ -6940,19 +6940,31 @@ trusted fun VulkanTexture.view(
 
 trusted fun VulkanDevice.prepareStorageTexture(
     var texture: VulkanTexture,
-    descriptor: TextureDescriptor
+    descriptor: TextureDescriptor,
+    baseMipLevel: int = 0,
+    mipLevelCount: int = 0,
+    baseArrayLayer: int = 0,
+    arrayLayerCount: int = 0
 ): bool {
+    val levels = if (mipLevelCount == 0)
+        descriptor.mipLevels - baseMipLevel else mipLevelCount
+    val layers = if (arrayLayerCount == 0)
+        textureArrayLayerCount(descriptor) - baseArrayLayer else arrayLayerCount
     var succeeded = this.valid() && texture.valid() && descriptor.valid() &&
         texture.device == this.handle &&
         (descriptor.usage & textureUsageStorage) != 0 &&
         descriptor.samples == 1 && !textureFormatHasDepth(descriptor.format) &&
+        baseMipLevel >= 0 && levels > 0 &&
+        baseMipLevel <= descriptor.mipLevels - levels &&
+        baseArrayLayer >= 0 && layers > 0 &&
+        baseArrayLayer <= textureArrayLayerCount(descriptor) - layers &&
         texture.layouts.capacity >= descriptor.mipLevels *
             textureArrayLayerCount(descriptor) * 8
     var needsTransition = false
-    var layer = 0
-    while (succeeded && layer < textureArrayLayerCount(descriptor)) {
-        var level = 0
-        while (succeeded && level < descriptor.mipLevels) {
+    var layer = baseArrayLayer
+    while (succeeded && layer < baseArrayLayer + layers) {
+        var level = baseMipLevel
+        while (succeeded && level < baseMipLevel + levels) {
             val oldLayout = texture.loadLayout(descriptor, level, layer)
             succeeded = oldLayout >= 0
             needsTransition = needsTransition || oldLayout != 1
@@ -6961,11 +6973,11 @@ trusted fun VulkanDevice.prepareStorageTexture(
         layer = layer + 1
     }
     if (succeeded && needsTransition) succeeded = this.beginTransfer()
-    layer = 0
+    layer = baseArrayLayer
     while (succeeded && needsTransition &&
-        layer < textureArrayLayerCount(descriptor)) {
-        var level = 0
-        while (succeeded && level < descriptor.mipLevels) {
+        layer < baseArrayLayer + layers) {
+        var level = baseMipLevel
+        while (succeeded && level < baseMipLevel + levels) {
             val oldLayout = texture.loadLayout(descriptor, level, layer)
             if (oldLayout != 1) this.recordTransferImageBarrier(
                 texture.image,
@@ -6988,10 +7000,10 @@ trusted fun VulkanDevice.prepareStorageTexture(
     }
     if (succeeded && needsTransition) succeeded = this.submitTransfer()
     if (succeeded && needsTransition) {
-        layer = 0
-        while (layer < textureArrayLayerCount(descriptor)) {
-            var level = 0
-            while (level < descriptor.mipLevels) {
+        layer = baseArrayLayer
+        while (layer < baseArrayLayer + layers) {
+            var level = baseMipLevel
+            while (level < baseMipLevel + levels) {
                 texture.storeSubresourceLayout(descriptor, level, layer, 1)
                 level = level + 1
             }

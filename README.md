@@ -307,6 +307,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   RGBA8 storage texture executes deterministic `$glsl` `imageStore`, rejects
   sealed-map mutation, and preserves exact red through 1,001 allocation-free
   OpenGL/Vulkan/auto replays;
+- `examples/recorded-graph-storage-image-view-compute`: an affine mip view
+  executes reflected read-write `imageLoad`/`imageStore`, swaps exact red to
+  green over 1,001 allocation-free OpenGL/Vulkan/auto graph replays, and
+  rejects sealed-map mutation;
 - `examples/recorded-graph-buffered-render`: one sealed four-record stream owns
   separate planner-declared vertex and indexed draws, produces exact pixels
   through 1,001 allocation-free replays, and uses one Vulkan submission per

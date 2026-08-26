@@ -259,6 +259,15 @@ format, and access for `glBindImageTexture`; Vulkan creates a storage-image
 descriptor, transitions every selected subresource to `GENERAL` once before
 use, and keeps that resting layout across dispatch and readback.
 
+`storageTextureViewEntry(binding, visibility, texture, view, access)` selects
+one validated mip and array layer without giving ownership to the bind group.
+It requires the parent and view to belong to the application and agree on the
+complete parent descriptor. OpenGL binds mip zero of the re-indexed texture-view
+object. Vulkan uses the caller-owned `VkImageView` and transitions only the
+selected parent subresource range. Reflection carries `readonly`, `writeonly`,
+or unqualified read-write access plus the `rgba8` layout format, so access or
+format mismatches fail before pipeline creation.
+
 `sampledTextureViewEntry` binds an existing `GraphicsTextureView` instead of a
 texture's default view. Its resolved format, dimension, mip range, layer range,
 aspect, sample count, application ownership, and sampled usage are checked
@@ -2670,8 +2679,9 @@ descriptors in the hot path; pipeline destruction releases the bind group.
 Creation rejects missing, extra, reordered, wrong-kind, wrong-range, or
 wrong-backend entries before driver pipeline creation. The portable emitter
 proves a strict two-storage-buffer form, a compute-visible `sampler2D` plus
-storage-buffer form, and a write-only RGBA8 `image2D` form. The sampled form
-reads a fixed coordinate; the image form lowers exact `imageStore` to
+storage-buffer form, and write-only/read-write RGBA8 `image2D` forms. The
+sampled form reads a fixed coordinate; the image forms lower exact
+`imageStore` or `imageLoad` plus `imageStore` to
 deterministic pure-Abla SPIR-V. OpenGL and Vulkan both reach exact
 repeated results with stable handles and zero warmed live-byte growth.
 
@@ -2708,6 +2718,11 @@ commands.recordComputeBindingResources(
 The graph pass must declare compatible read/write access for the entry access;
 logical ID, descriptor, native image identity, access, and stage mapping join
 the seal fingerprint.
+
+`graphSubpassStorageTextureViewResources(...)` is the corresponding affine
+view table. Its stage indices are ordinary zero-based view indices at the API
+boundary and are encoded internally, keeping whole textures and views
+unambiguous without exposing sentinel values.
 
 The first executable push-constant slice combines the reflected value API with
 storage compute. `shader.pushConstants()` creates a reusable value block,
