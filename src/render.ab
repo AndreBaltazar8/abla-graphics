@@ -120,7 +120,8 @@ trusted fun GraphicsApplication.renderPipeline(
     targetDepthView: int = 0,
     targetColorCount: int = 1,
     targetSamples: int = 1,
-    targetSubpass: int = 0
+    targetSubpass: int = 0,
+    targetDepthFormat: int = 0
 ): GraphicsRenderPipeline {
     var openGl = OpenGlProgram(0, 0, 0, 0, "")
     var vulkan = VulkanRenderPipeline(
@@ -153,12 +154,17 @@ trusted fun GraphicsApplication.renderPipeline(
     val offscreen = targetHandle != 0
     val targetValid = (!offscreen && targetRenderPass == 0 &&
         targetView == 0 && targetFormat == 0 && targetDepthView == 0 &&
+        targetDepthFormat == 0 &&
         targetWidth == 0 && targetHeight == 0 && targetSamples == 1 &&
         targetSubpass == 0) ||
         (offscreen && targetWidth > 0 && targetHeight > 0 &&
          (targetSamples == 1 || targetSamples == 2 || targetSamples == 4 ||
          targetSamples == 8 || targetSamples == 16) &&
          targetSubpass >= 0 && targetSubpass <= 7 &&
+         depth.enabled == (targetDepthFormat != 0) &&
+         (targetDepthFormat == 0 || textureFormatHasDepth(targetDepthFormat)) &&
+         (!depth.stencilEnabled() ||
+          textureFormatHasStencil(targetDepthFormat)) &&
          ((this.backend == graphicsBackendOpenGl &&
            targetRenderPass == 0 && targetView == 0) ||
           (this.backend == graphicsBackendVulkan &&
@@ -282,7 +288,9 @@ trusted fun GraphicsApplication.renderPipeline(
                 targetSubpass,
                 pushConstantSize = pushLayout.size,
                 pushConstantStageMask = pushLayout.stageMask,
-                blend = raster.resolvedBlend()
+                blend = raster.resolvedBlend(),
+                stencil = depth.resolvedStencil(),
+                targetDepthFormat = targetDepthFormat
             )
         }
         if (!vulkan.valid()) error = GraphicsError(
@@ -346,7 +354,9 @@ trusted fun GraphicsApplication.renderTargetPipeline(
         if (this.backend == graphicsBackendVulkan)
             target.vulkan.depthView else 0,
         target.colorCount(),
-        target.texture.descriptor.samples
+        target.texture.descriptor.samples,
+        0,
+        if (target.hasDepth()) target.depthTexture.descriptor.format else 0
     )
 }
 
@@ -389,7 +399,8 @@ trusted fun GraphicsApplication.renderPassPipeline(
             target.vulkan.depthView else 0,
         target.colorCount(),
         target.texture.descriptor.samples,
-        subpassIndex
+        subpassIndex,
+        if (target.hasDepth()) target.depthTexture.descriptor.format else 0
     )
 }
 

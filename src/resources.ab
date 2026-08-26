@@ -139,14 +139,121 @@ val compareFunctionNotEqual = 6
 val compareFunctionGreaterEqual = 7
 val compareFunctionAlways = 8
 
-class DepthStencilState(
-    val enabled: bool = false,
-    val write: bool = false,
-    val compare: int = compareFunctionLess
+val stencilOperationKeep = 0
+val stencilOperationZero = 1
+val stencilOperationReplace = 2
+val stencilOperationIncrementClamp = 3
+val stencilOperationDecrementClamp = 4
+val stencilOperationInvert = 5
+val stencilOperationIncrementWrap = 6
+val stencilOperationDecrementWrap = 7
+
+class StencilFaceState(
+    val compare: int = compareFunctionAlways,
+    val fail: int = stencilOperationKeep,
+    val depthFail: int = stencilOperationKeep,
+    val pass: int = stencilOperationKeep
 ) {
     fun valid(): bool = this.compare >= compareFunctionNever &&
         this.compare <= compareFunctionAlways &&
-        (!this.write || this.enabled)
+        this.fail >= stencilOperationKeep &&
+        this.fail <= stencilOperationDecrementWrap &&
+        this.depthFail >= stencilOperationKeep &&
+        this.depthFail <= stencilOperationDecrementWrap &&
+        this.pass >= stencilOperationKeep &&
+        this.pass <= stencilOperationDecrementWrap
+}
+
+class StencilState(
+    val enabled: bool = false,
+    val front: StencilFaceState = StencilFaceState(),
+    val back: StencilFaceState = StencilFaceState(),
+    val readMask: int = 255,
+    val writeMask: int = 255,
+    val reference: int = 0
+) {
+    fun valid(): bool = this.front.valid() && this.back.valid() &&
+        this.readMask >= 0 && this.readMask <= 255 &&
+        this.writeMask >= 0 && this.writeMask <= 255 &&
+        this.reference >= 0 && this.reference <= 255
+}
+
+fun graphicsPackedStencilState(stencil: StencilState): int =
+    (if (stencil.enabled) 1 else 0) |
+    (stencil.front.compare << 1) |
+    (stencil.front.fail << 5) |
+    (stencil.front.depthFail << 8) |
+    (stencil.front.pass << 11) |
+    (stencil.back.compare << 14) |
+    (stencil.back.fail << 18) |
+    (stencil.back.depthFail << 21) |
+    (stencil.back.pass << 24) |
+    (stencil.readMask << 27) |
+    (stencil.writeMask << 35) |
+    (stencil.reference << 43)
+
+class DepthStencilState(
+    val enabled: bool = false,
+    val write: bool = false,
+    val compare: int = compareFunctionLess,
+    val packedStencilState: int = 8795958935568
+) {
+    fun stencilEnabled(): bool = (this.packedStencilState & 1) != 0
+    fun frontStencilCompare(): int =
+        (this.packedStencilState >>> 1) & 15
+    fun frontStencilFail(): int = (this.packedStencilState >>> 5) & 7
+    fun frontStencilDepthFail(): int =
+        (this.packedStencilState >>> 8) & 7
+    fun frontStencilPass(): int = (this.packedStencilState >>> 11) & 7
+    fun backStencilCompare(): int =
+        (this.packedStencilState >>> 14) & 15
+    fun backStencilFail(): int = (this.packedStencilState >>> 18) & 7
+    fun backStencilDepthFail(): int =
+        (this.packedStencilState >>> 21) & 7
+    fun backStencilPass(): int = (this.packedStencilState >>> 24) & 7
+    fun stencilReadMask(): int = (this.packedStencilState >>> 27) & 255
+    fun stencilWriteMask(): int = (this.packedStencilState >>> 35) & 255
+    fun stencilReference(): int = (this.packedStencilState >>> 43) & 255
+
+    fun valid(): bool = this.compare >= compareFunctionNever &&
+        this.compare <= compareFunctionAlways &&
+        (!this.write || this.enabled) && this.packedStencilState >= 0 &&
+        (this.packedStencilState >>> 51) == 0 &&
+        this.frontStencilCompare() >= compareFunctionNever &&
+        this.frontStencilCompare() <= compareFunctionAlways &&
+        this.backStencilCompare() >= compareFunctionNever &&
+        this.backStencilCompare() <= compareFunctionAlways &&
+        (!this.stencilEnabled() || this.enabled)
+
+    fun resolvedStencil(): StencilState = StencilState(
+        this.stencilEnabled(),
+        StencilFaceState(
+            this.frontStencilCompare(),
+            this.frontStencilFail(),
+            this.frontStencilDepthFail(),
+            this.frontStencilPass()
+        ),
+        StencilFaceState(
+            this.backStencilCompare(),
+            this.backStencilFail(),
+            this.backStencilDepthFail(),
+            this.backStencilPass()
+        ),
+        this.stencilReadMask(),
+        this.stencilWriteMask(),
+        this.stencilReference()
+    )
+}
+
+fun depthStencilState(
+    enabled: bool = false,
+    write: bool = false,
+    compare: int = compareFunctionLess,
+    stencil: StencilState = StencilState()
+): DepthStencilState {
+    val packed = if (stencil.valid()) graphicsPackedStencilState(stencil)
+        else 2251799813685248
+    DepthStencilState(enabled, write, compare, packed)
 }
 
 val attachmentLoadOperationLoad = 0
@@ -209,7 +316,8 @@ resource class RenderPassClearValues(
                 this.blue,
                 this.alpha
             ) && this.depth >= 0.0 && this.depth <= 1.0 &&
-            this.stencil == 0 && !pointerIsNull(this.address) &&
+            this.stencil >= 0 && this.stencil <= 255 &&
+            !pointerIsNull(this.address) &&
             this.capacity >= colorCount * 16 + 8
         valid && (hasDepth || (this.depth == 1.0 && this.stencil == 0))
     }

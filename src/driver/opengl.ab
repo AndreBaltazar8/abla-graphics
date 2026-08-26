@@ -96,6 +96,11 @@ noescape extern:"c" fun glClearBufferfv(
     drawBuffer: i32,
     value: i64*
 ): void
+noescape extern:"c" fun glClearBufferiv(
+    buffer: i32,
+    drawBuffer: i32,
+    value: i64*
+): void
 noescape extern:"c" fun glFinish(): void
 noescape extern:"c" fun glFenceSync(condition: i32, flags: i32): i64*
 noescape extern:"c" fun glClientWaitSync(
@@ -209,6 +214,20 @@ noescape extern:"c" fun glColorMask(
 noescape extern:"c" fun glDepthFunc(operation: i32): void
 noescape extern:"c" fun glDepthMask(enabled: i32): void
 noescape extern:"c" fun glClearDepth(depth: f64): void
+noescape extern:"c" fun glStencilFuncSeparate(
+    face: i32,
+    operation: i32,
+    reference: i32,
+    mask: i32
+): void
+noescape extern:"c" fun glStencilOpSeparate(
+    face: i32,
+    fail: i32,
+    depthFail: i32,
+    pass: i32
+): void
+noescape extern:"c" fun glStencilMask(mask: i32): void
+noescape extern:"c" fun glStencilMaskSeparate(face: i32, mask: i32): void
 noescape extern:"c" fun glGenVertexArrays(count: i32, arrays: i64*): void
 noescape extern:"c" fun glBindVertexArray(array: i32): void
 noescape extern:"c" fun glDeleteVertexArrays(count: i32, arrays: i64*): void
@@ -661,6 +680,18 @@ fun openGlCompareOperation(compare: int): int {
     operation
 }
 
+fun openGlStencilOperation(operation: int): int {
+    var result = 7680
+    if (operation == stencilOperationZero) result = 0
+    else if (operation == stencilOperationReplace) result = 7681
+    else if (operation == stencilOperationIncrementClamp) result = 7682
+    else if (operation == stencilOperationDecrementClamp) result = 7683
+    else if (operation == stencilOperationInvert) result = 5386
+    else if (operation == stencilOperationIncrementWrap) result = 34055
+    else if (operation == stencilOperationDecrementWrap) result = 34056
+    result
+}
+
 trusted fun openGlApplyDepthState(state: DepthStencilState): bool {
     var succeeded = state.valid()
     if (succeeded) {
@@ -673,6 +704,38 @@ trusted fun openGlApplyDepthState(state: DepthStencilState): bool {
         } else {
             glDisable(2929)
             glDepthMask(0)
+        }
+        if (state.stencilEnabled()) {
+            glEnable(2960)
+            glStencilFuncSeparate(
+                1028,
+                openGlCompareOperation(state.frontStencilCompare()),
+                state.stencilReference(),
+                state.stencilReadMask()
+            )
+            glStencilFuncSeparate(
+                1029,
+                openGlCompareOperation(state.backStencilCompare()),
+                state.stencilReference(),
+                state.stencilReadMask()
+            )
+            glStencilOpSeparate(
+                1028,
+                openGlStencilOperation(state.frontStencilFail()),
+                openGlStencilOperation(state.frontStencilDepthFail()),
+                openGlStencilOperation(state.frontStencilPass())
+            )
+            glStencilOpSeparate(
+                1029,
+                openGlStencilOperation(state.backStencilFail()),
+                openGlStencilOperation(state.backStencilDepthFail()),
+                openGlStencilOperation(state.backStencilPass())
+            )
+            glStencilMaskSeparate(1028, state.stencilWriteMask())
+            glStencilMaskSeparate(1029, state.stencilWriteMask())
+        } else {
+            glDisable(2960)
+            glStencilMask(255)
         }
         succeeded = glGetError() == 0
     }
@@ -1339,7 +1402,7 @@ resource class OpenGlBuffer(
             sourceOffset >= 0 && sourceOffset < source.size &&
             byteCount > 0 && byteCount <= source.size - sourceOffset &&
             this.mappedContains(destinationOffset, byteCount)
-        if (succeeded) ablaUnsafeCopyMemory(
+        if (succeeded) graphicsUnsafeCopyMemory(
             ablaUnsafePointerOffset(
                 this.mappedAddress.load(),
                 destinationOffset - this.mappedOffset
@@ -1360,7 +1423,7 @@ resource class OpenGlBuffer(
             destinationOffset >= 0 && destinationOffset < destination.size &&
             byteCount > 0 && byteCount <= destination.size - destinationOffset &&
             this.mappedContains(sourceOffset, byteCount)
-        if (succeeded) ablaUnsafeCopyMemory(
+        if (succeeded) graphicsUnsafeCopyMemory(
             destination.storage.pointerAt(destinationOffset),
             ablaUnsafePointerOffset(
                 this.mappedAddress.load(),
@@ -2334,7 +2397,8 @@ resource class OpenGlRenderTarget(
     val samples: int,
     val display: i64*,
     val surface: i64*,
-    val context: i64*
+    val context: i64*,
+    val stencil: bool = false
 ) {
     fun valid(): bool = this.handle != 0 && this.texture != 0 &&
         this.additionalTextures.size <= 7 &&
@@ -2343,7 +2407,8 @@ resource class OpenGlRenderTarget(
          this.samples == 8 || this.samples == 16) &&
         ((this.samples == 1 && this.resolveFramebuffer == 0) ||
          (this.samples > 1 && this.resolveFramebuffer != 0)) &&
-        !pointerIsNull(this.display) && !pointerIsNull(this.context)
+        !pointerIsNull(this.display) && !pointerIsNull(this.context) &&
+        (!this.stencil || this.depthTexture != 0)
 
     trusted fun drop(): void {
         if (this.resolveFramebuffer != 0) {
@@ -2389,7 +2454,7 @@ fun openGlInvalidateRenderTarget(
         colorIndex = colorIndex + 1
     }
     if (target.depthTexture != 0 && (mask & (1 << 8)) != 0) {
-        openGlStoreI32(storage, count, 36096)
+        openGlStoreI32(storage, count, if (target.stencil) 33306 else 36096)
         count = count + 1
     }
     if (count > 0) glInvalidateFramebuffer(36160, count, storage.address)
@@ -2400,7 +2465,8 @@ trusted fun OpenGlWindowContext.renderTarget(
     texture: OpenGlTexture,
     descriptor: TextureDescriptor,
     depthTexture: int = 0,
-    additionalTextures: array<int> = []
+    additionalTextures: array<int> = [],
+    depthStencil: bool = false
 ): OpenGlRenderTarget {
     var handle = 0
     var resolveFramebuffer = 0
@@ -2449,7 +2515,7 @@ trusted fun OpenGlWindowContext.renderTarget(
         glDrawBuffers(1 + additionalTextures.size, drawBuffers.address)
         if (depthTexture != 0) glFramebufferTexture2D(
             36160,
-            36096,
+            if (depthStencil) 33306 else 36096,
             texture.target,
             depthTexture,
             0
@@ -2485,7 +2551,8 @@ trusted fun OpenGlWindowContext.renderTarget(
         descriptor.samples,
         this.display,
         this.surface,
-        this.context
+        this.context,
+        depthStencil
     )
 }
 
@@ -2585,6 +2652,26 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
                     1065353216
                 )
                 glClearBufferfv(6145, 0, this.clearScratch.address)
+            }
+            if (target.stencil) {
+                glStencilMask(255)
+                if (!pointerIsNull(clearStorage)) glClearBufferiv(
+                    6146,
+                    0,
+                    nativePointerFromAddress(
+                        nativePointerAddress(clearStorage) +
+                            (1 + target.additionalTextures.size) * 16 + 4
+                    )
+                ) else {
+                    openGlStoreI32(this.clearScratch, 1, 0)
+                    glClearBufferiv(
+                        6146,
+                        0,
+                        nativePointerFromAddress(
+                            nativePointerAddress(this.clearScratch.address) + 4
+                        )
+                    )
+                }
             }
         }
         succeeded = glGetError() == 0
@@ -2701,6 +2788,26 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
                     1065353216
                 )
                 glClearBufferfv(6145, 0, this.clearScratch.address)
+            }
+            if (target.stencil) {
+                glStencilMask(255)
+                if (!pointerIsNull(clearStorage)) glClearBufferiv(
+                    6146,
+                    0,
+                    nativePointerFromAddress(
+                        nativePointerAddress(clearStorage) +
+                            (1 + target.additionalTextures.size) * 16 + 4
+                    )
+                ) else {
+                    openGlStoreI32(this.clearScratch, 1, 0)
+                    glClearBufferiv(
+                        6146,
+                        0,
+                        nativePointerFromAddress(
+                            nativePointerAddress(this.clearScratch.address) + 4
+                        )
+                    )
+                }
             }
         }
         glUseProgram(program.handle)

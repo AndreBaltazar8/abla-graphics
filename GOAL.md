@@ -1636,6 +1636,25 @@ All execute 1,001 renders with zero warmed live-byte growth, invalid state is
 rejected, the explicit Khronos validation-layer run is silent, and the binary
 launches with `LD_LIBRARY_PATH` removed and no unresolved dependency.
 
+### Verified checkpoint: typed stencil masking
+
+`depthStencilState(stencil = ...)` adds independent front/back compare, fail,
+depth-fail, and pass operations plus shared 8-bit read/write masks and reference.
+The setup descriptor packs into the fourth retained depth-state scalar. OpenGL
+now attaches and clears combined depth/stencil textures, applies separate face
+state, and restores masks; Vulkan creates a combined-aspect image view, carries
+stencil through compatible render-pass load/store operations, and fills both
+native face structures. The framework-local pointer memcpy intrinsic was also
+renamed to avoid a latent collision with the newer standard-library intrinsic.
+
+The 68th independent sample, `examples/stencil-masking`, clears stencil to zero,
+replaces the drawn triangle with reference one, proves reference-zero rejection,
+then proves reference-one acceptance with exact green output over a preserved
+blue background. OpenGL, Vulkan, and automatic selection each complete 1,001
+three-pass sequences with zero warmed live-byte growth. The forced Khronos
+validation-layer run is silent, and the executable resolves every shared
+library with `LD_LIBRARY_PATH` removed.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and
@@ -1746,6 +1765,8 @@ Tests, samples, and public claims:
   to sampled-render handoff proof;
 - `examples/color-blending/` — independently buildable typed blend-state and
   channel-write-mask proof;
+- `examples/stencil-masking/` — independently buildable depth/stencil
+  clear/load/store and front/back operation proof;
 - `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
 - `Makefile` — authoritative gate aggregation;
 - `registry/audit/*.tsv` — reviewed coverage inputs;

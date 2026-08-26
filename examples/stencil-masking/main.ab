@@ -1,0 +1,172 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics stencil masking",
+            width = 480,
+            height = 270
+        )
+    )
+    val writerShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(1.0, 0.0, 0.0, 1.0); }
+        }
+    }
+    val testShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(0.0, 1.0, 0.0, 1.0); }
+        }
+    }
+    val color = app.texture(TextureDescriptor(
+        label = "stencil-color",
+        size = Extent3D(64, 64),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val depthStencil = app.texture(TextureDescriptor(
+        label = "stencil-depth",
+        size = Extent3D(64, 64),
+        format = textureFormatDepth24Stencil8,
+        usage = textureUsageRenderAttachment
+    ))
+    val target = app.renderTargetWithDepth(
+        move(color), move(depthStencil)
+    )
+    val replace = StencilFaceState(
+        compare = compareFunctionAlways,
+        pass = stencilOperationReplace
+    )
+    val keepZero = StencilFaceState(compare = compareFunctionEqual)
+    val writerDepth = depthStencilState(
+        enabled = true,
+        compare = compareFunctionAlways,
+        stencil = StencilState(
+            enabled = true,
+            front = replace,
+            back = replace,
+            reference = 1
+        )
+    )
+    val rejectDepth = depthStencilState(
+        enabled = true,
+        compare = compareFunctionAlways,
+        stencil = StencilState(
+            enabled = true,
+            front = keepZero,
+            back = keepZero,
+            reference = 0
+        )
+    )
+    val keepOne = StencilFaceState(compare = compareFunctionEqual)
+    val acceptDepth = depthStencilState(
+        enabled = true,
+        compare = compareFunctionAlways,
+        stencil = StencilState(
+            enabled = true,
+            front = keepOne,
+            back = keepOne,
+            reference = 1
+        )
+    )
+    val writerRaster = rasterPipelineState(
+        blend = ColorBlendState(writeMask = 0)
+    )
+    val writerPipeline = app.renderTargetPipeline(
+        target, writerShader, VertexBufferLayout(), writerRaster, writerDepth
+    )
+    val rejectPipeline = app.renderTargetPipeline(
+        target, testShader, VertexBufferLayout(), RasterPipelineState(),
+        rejectDepth
+    )
+    val acceptPipeline = app.renderTargetPipeline(
+        target, testShader, VertexBufferLayout(), RasterPipelineState(),
+        acceptDepth
+    )
+    val clearPass = app.renderPass(
+        target,
+        renderPassClearValues(Color(0.0, 0.0, 1.0), [], 1.0, 0)
+    )
+    val loadPass = app.renderPass(
+        target,
+        renderPassClearValues(Color(1.0, 0.0, 1.0), [], 0.0, 255),
+        RenderPassOperations(
+            color = RenderAttachmentOperations(
+                load = attachmentLoadOperationLoad
+            ),
+            depth = RenderAttachmentOperations(
+                load = attachmentLoadOperationLoad
+            )
+        )
+    )
+    val validationPassed = writerDepth.valid() && rejectDepth.valid() &&
+        acceptDepth.valid() && writerDepth.stencilEnabled() &&
+        writerDepth.frontStencilPass() == stencilOperationReplace &&
+        writerDepth.stencilReference() == 1 &&
+        !StencilState(reference = 256).valid()
+    var rendered = app.valid() && writerShader.valid && testShader.valid &&
+        target.valid() && writerPipeline.valid() && rejectPipeline.valid() &&
+        acceptPipeline.valid() && clearPass.valid() && loadPass.valid() &&
+        validationPassed && app.renderPassToTarget(
+            target, writerPipeline, clearPass
+        ) && app.renderPassToTarget(target, rejectPipeline, loadPass)
+    val rejectedCenter = target.texture.rgba8(32, 32)
+    rendered = rendered && rejectedCenter == 4294901760 &&
+        app.renderPassToTarget(target, acceptPipeline, loadPass)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var frame = 0
+    while (rendered && frame < 1000) {
+        rendered = app.renderPassToTarget(
+            target, writerPipeline, clearPass
+        ) && app.renderPassToTarget(
+            target, rejectPipeline, loadPass
+        ) && app.renderPassToTarget(
+            target, acceptPipeline, loadPass
+        )
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val center = target.texture.rgba8(32, 32)
+    val corner = target.texture.rgba8(0, 0)
+    val stable = rendered && frame == 1000 && validationPassed &&
+        rejectedCenter == 4294901760 && center == 4278255360 &&
+        corner == 4294901760 && liveAfter == liveBefore
+    println(
+        "stencil-masking ${graphicsBackendName(app.backend)}: rejected=$rejectedCenter center=$center corner=$corner reference=${writerDepth.stencilReference()} validation=$validationPassed frames=${frame + 1} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

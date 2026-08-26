@@ -288,6 +288,14 @@ Updated: 2026-08-26.
   byte; resize rebuilds the per-image set at 640x480. The complete path is clean
   under `VK_LAYER_KHRONOS_validation` after an explicit 36-byte
   `VkAttachmentDescription` array-stride regression check.
+- Common stencil state: `depthStencilState(stencil = ...)` packs independent
+  front/back compare, fail, depth-fail, and pass operations plus shared 8-bit
+  read/write masks and reference into the fourth retained scalar. OpenGL uses
+  the combined depth/stencil attachment and separate face state; Vulkan creates
+  a combined-aspect view, persists stencil through compatible pass load/store,
+  and writes both native face structures. `examples/stencil-masking` proves
+  exact clear/replace/reject/accept behavior through 3,003 pass executions per
+  run on OpenGL, Vulkan, and auto with validation silence and zero live growth.
 - General bind groups: `GraphicsBindGroup` accepts up to 16 unique set-zero
   entries spanning sampled textures, storage textures, uniform buffers, and
   storage buffers with

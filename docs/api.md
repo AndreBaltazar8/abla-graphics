@@ -393,6 +393,36 @@ frames in flight never race on depth storage. Depth clear values reuse the
 existing frame scratch. Repeated draws preserve every depth image/view handle
 and runtime live bytes.
 
+Offscreen depth/stencil targets use `textureFormatDepth24Stencil8`. Typed front
+and back faces independently select compare, fail, depth-fail, and pass
+operations, with shared 8-bit read/write masks and reference:
+
+```abla
+val depth = depthStencilState(
+    enabled = true,
+    compare = compareFunctionAlways,
+    stencil = StencilState(
+        enabled = true,
+        front = StencilFaceState(
+            compare = compareFunctionEqual,
+            pass = stencilOperationReplace
+        ),
+        back = StencilFaceState(
+            compare = compareFunctionEqual,
+            pass = stencilOperationReplace
+        ),
+        reference = 1
+    )
+)
+```
+
+The factory packs setup-only stencil descriptors into the fourth scalar of
+`DepthStencilState`. OpenGL uses the combined framebuffer attachment, clears
+both aspects, and restores masks around common operations. Vulkan creates a
+combined-aspect view, mirrors depth load/store operations for stencil, and
+bakes both `VkStencilOpState` values. `examples/stencil-masking` proves clear,
+replace, reject, accept, load/store persistence, and zero-growth replay.
+
 `GraphicsRenderPipeline` retains its immutable shader, vertex layout, and
 raster recipe. A copied Vulkan resize event updates the desired surface extent
 but deliberately defers swapchain recreation until presentation, when the
@@ -1325,6 +1355,10 @@ val depth = app.texture(TextureDescriptor(
 ))
 val depthTarget = app.renderTargetWithDepth(move(depthColor), move(depth))
 ```
+
+Use `textureFormatDepth24Stencil8` for the depth texture when pipeline stencil
+state is enabled; other depth formats reject stencil pipelines before driver
+creation.
 
 Color and depth sample counts must match. A render-attachment-only multisampled
 target uses the same ownership and pipeline API:

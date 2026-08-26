@@ -44,8 +44,9 @@ allocation-free transform-uniform indexed textured/depth cube sample plus
 GPU-buffer-driven direct/indexed indirect draws and affine color render-target
 ownership with allocation-free clear/readback plus procedural, direct,
 indexed, instanced, bind-group, and GPU-indirect offscreen draws and sampled
-fullscreen post-processing passes plus affine depth attachment ownership and
-depth-tested offscreen pipelines plus reflected two-to-eight color render
+fullscreen post-processing passes plus affine depth/stencil attachment
+ownership and depth/stencil-tested offscreen pipelines plus reflected
+two-to-eight color render
 targets combinable with depth and reusable per-attachment clear passes with
 procedural, direct, indexed, and GPU-indirect encoding plus allocation-free
 exact-output validation and portable per-attachment clear/load/discard and

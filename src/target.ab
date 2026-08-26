@@ -170,7 +170,8 @@ resource class GraphicsRenderPass(
             this.green,
             this.blue,
             this.alpha
-        ) && this.depth >= 0.0 && this.depth <= 1.0 && this.stencil == 0 &&
+        ) && this.depth >= 0.0 && this.depth <= 1.0 &&
+        this.stencil >= 0 && this.stencil <= 255 &&
         this.clearMask >= 0 && this.clearMask <= 511 &&
         this.discardBeforeMask >= 0 && this.discardBeforeMask <= 511 &&
         this.discardAfterMask >= 0 && this.discardAfterMask <= 511 &&
@@ -254,6 +255,8 @@ trusted fun GraphicsApplication.renderPass(
     var valid = this.valid() && target.valid() &&
         target.backend == this.backend &&
         values.valid(target.colorCount(), target.hasDepth()) &&
+        (values.stencil == 0 || (target.hasDepth() &&
+         textureFormatHasStencil(target.depthTexture.descriptor.format))) &&
         operations.valid(target.colorCount(), target.hasDepth()) &&
         subpassCount >= 1 && subpassCount <= 8
     var clearMask = 0
@@ -528,7 +531,9 @@ trusted fun GraphicsApplication.renderTargetWithDepth(
         openGl = this.openGl.renderTarget(
             texture.openGl,
             texture.descriptor,
-            depthTexture.openGl.handle
+            depthTexture.openGl.handle,
+            [],
+            textureFormatHasStencil(depthTexture.descriptor.format)
         )
         if (!openGl.valid()) error = GraphicsError(
             graphicsErrorAttachmentMismatch,
@@ -792,7 +797,8 @@ trusted fun GraphicsApplication.renderTargetWithColorsAndDepth(
             texture.openGl,
             texture.descriptor,
             depthTexture.openGl.handle,
-            openGlHandles
+            openGlHandles,
+            textureFormatHasStencil(depthTexture.descriptor.format)
         )
         if (!openGl.valid()) error = GraphicsError(
             graphicsErrorAttachmentMismatch,

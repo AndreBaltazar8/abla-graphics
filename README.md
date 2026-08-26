@@ -93,7 +93,7 @@ proves the architecture rather than stopping at placeholder interfaces:
   and GPU-buffer-driven indirect submission,
   then records
   point/line/triangle topology, culling/front-face state, independent typed
-  color/alpha blending and channel masks plus checked depth testing/writes
+  color/alpha blending and channel masks plus checked depth/stencil state
   before presenting a real Vulkan
   render pass or OpenGL draw without steady-state runtime allocation; affine
   multi-entry bind groups feed sampled textures or explicit subresource views
@@ -254,6 +254,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/color-blending`: typed independent color/alpha blend factors and
   operations plus an RGB-only write mask produce the exact permitted RGBA8
   result through 1,001 allocation-free OpenGL/Vulkan/auto renders;
+- `examples/stencil-masking`: typed front/back stencil compare and operations,
+  masks, and reference values first reject then accept an exact green draw
+  through 1,001 allocation-free OpenGL/Vulkan/auto frame sequences;
 - `examples/common-buffer`: affine buffers with reusable byte ranges,
   mapped-at-creation upload, post-creation write/read remapping, coherent
   persistent transfers, bounded aligned upload/readback rings, GPU copies, and

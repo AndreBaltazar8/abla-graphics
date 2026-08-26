@@ -3378,7 +3378,7 @@ resource class VulkanBuffer(
             ) == vulkanSuccess
         }
         if (succeeded) {
-            ablaUnsafeCopyMemory(
+            graphicsUnsafeCopyMemory(
                 ablaUnsafePointerOffset(
                     this.mapped.load(),
                     copy.destinationOffset
@@ -3405,7 +3405,7 @@ resource class VulkanBuffer(
             this.mapped.address
         ) == vulkanSuccess
         if (succeeded) {
-            ablaUnsafeCopyMemory(
+            graphicsUnsafeCopyMemory(
                 this.mapped.load(),
                 source.storage.address,
                 this.size
@@ -3434,7 +3434,7 @@ resource class VulkanBuffer(
             ) == vulkanSuccess
         }
         if (succeeded) {
-            ablaUnsafeCopyMemory(
+            graphicsUnsafeCopyMemory(
                 destination.storage.pointerAt(copy.destinationOffset),
                 ablaUnsafePointerOffset(
                     this.mapped.load(),
@@ -3458,7 +3458,7 @@ resource class VulkanBuffer(
             sourceOffset >= 0 && sourceOffset < source.size &&
             byteCount > 0 && byteCount <= source.size - sourceOffset &&
             this.mappedContains(destinationOffset, byteCount)
-        if (succeeded) ablaUnsafeCopyMemory(
+        if (succeeded) graphicsUnsafeCopyMemory(
             ablaUnsafePointerOffset(
                 this.mapped.load(),
                 destinationOffset
@@ -3479,7 +3479,7 @@ resource class VulkanBuffer(
             destinationOffset >= 0 && destinationOffset < destination.size &&
             byteCount > 0 && byteCount <= destination.size - destinationOffset &&
             this.mappedContains(sourceOffset, byteCount)
-        if (succeeded) ablaUnsafeCopyMemory(
+        if (succeeded) graphicsUnsafeCopyMemory(
             destination.storage.pointerAt(destinationOffset),
             ablaUnsafePointerOffset(this.mapped.load(), sourceOffset),
             byteCount
@@ -5876,11 +5876,15 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             )
             attachments.storeI64(
                 depthOffset + 16,
-                2 * 4294967296 + depthStoreOperation
+                (if (textureFormatHasStencil(target.depthFormat))
+                    depthLoadOperation else 2) * 4294967296 +
+                    depthStoreOperation
             )
             attachments.storeI64(
                 depthOffset + 24,
-                depthInitialLayout * 4294967296 + 1
+                depthInitialLayout * 4294967296 +
+                    (if (textureFormatHasStencil(target.depthFormat))
+                        depthStoreOperation else 1)
             )
             attachments.storeI64(depthOffset + 32, 3)
         }
@@ -6161,7 +6165,10 @@ trusted fun VulkanDevice.renderTarget(
             this.handle,
             depthImage,
             depthDescriptor,
-            TextureViewDescriptor(aspect = textureAspectDepth)
+            TextureViewDescriptor(
+                aspect = if (textureFormatHasStencil(depthDescriptor.format))
+                    textureAspectAll else textureAspectDepth
+            )
         )
         succeeded = depthView != 0
     }
@@ -8224,7 +8231,9 @@ trusted fun VulkanDevice.renderPipeline(
     preferDynamicRendering: bool = true,
     pushConstantSize: int = 0,
     pushConstantStageMask: int = 0,
-    blend: ColorBlendState = ColorBlendState()
+    blend: ColorBlendState = ColorBlendState(),
+    stencil: StencilState = StencilState(),
+    targetDepthFormat: int = 0
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -8262,6 +8271,9 @@ trusted fun VulkanDevice.renderPipeline(
         (!depthWrite || depthEnabled) &&
         (!offscreen || depthEnabled == (targetDepthView != 0)) &&
         blend.valid() && (!alphaBlend || !blend.enabled) &&
+        stencil.valid() && (!stencil.enabled || (
+            offscreen && textureFormatHasStencil(targetDepthFormat)
+        )) &&
         ((pushConstantSize == 0 && pushConstantStageMask == 0) ||
          (pushConstantSize > 0 && pushConstantSize <= 128 &&
           pushConstantStageMask != 0))
@@ -8546,14 +8558,40 @@ trusted fun VulkanDevice.renderPipeline(
             (depthCompare - 1) * 4294967296 +
                 (if (depthWrite) 1 else 0)
         )
-        depthStencil.storeI64(32, 0)
-        depthStencil.storeI64(40, 0)
-        depthStencil.storeI64(48, 0)
-        depthStencil.storeI64(56, 0)
-        depthStencil.storeI64(64, 0)
-        depthStencil.storeI64(72, 0)
-        depthStencil.storeI64(80, 0)
-        depthStencil.storeI64(88, 0)
+        depthStencil.storeI64(
+            32,
+            (if (stencil.enabled) 1 else 0) * 4294967296
+        )
+        depthStencil.storeI64(
+            40,
+            stencil.front.pass * 4294967296 + stencil.front.fail
+        )
+        depthStencil.storeI64(
+            48,
+            (stencil.front.compare - 1) * 4294967296 +
+                stencil.front.depthFail
+        )
+        depthStencil.storeI64(
+            56,
+            stencil.writeMask * 4294967296 + stencil.readMask
+        )
+        depthStencil.storeI64(
+            64,
+            stencil.back.fail * 4294967296 + stencil.reference
+        )
+        depthStencil.storeI64(
+            72,
+            stencil.back.depthFail * 4294967296 + stencil.back.pass
+        )
+        depthStencil.storeI64(
+            80,
+            stencil.readMask * 4294967296 +
+                (stencil.back.compare - 1)
+        )
+        depthStencil.storeI64(
+            88,
+            stencil.reference * 4294967296 + stencil.writeMask
+        )
         depthStencil.storeI64(96, 1065353216 * 4294967296)
         val colorAttachment = nativeByteBuffer(colorAttachmentCount * 32)
         var colorAttachmentIndex = 0
