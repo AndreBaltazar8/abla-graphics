@@ -467,8 +467,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups, buffered depth, resolves, MRT,
-   and subpasses without unbounded command
+1. Generalize render records to bind groups, resolves, MRT, and subpasses
+   without unbounded command
    variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
@@ -500,6 +500,23 @@ API. Its no-cache executable has no unresolved `ldd` entries with
 zero growth, and zero/1,001 OpenGL/Vulkan submissions. The explicit sample
 matrix now contains 48 roots. No `../ablac` change was required; preserve its
 unrelated LLVM/MMIO work.
+
+## Verified checkpoint awaiting publication: buffered graph depth
+
+The four buffered render methods and all four matching `Push` forms now accept
+one final optional depth resource ID. A nonnegative ID reuses the same exact
+imported descriptor, pass-write, enabled-pipeline, sealed-fingerprint, and
+active-resource checks as procedural depth without creating eight new methods.
+Existing calls remain source-compatible through the default `-1` value.
+
+The focused boundary proof records direct vertices and indexed-indirect push
+with separate planner-visible depth attachments. OpenGL, Vulkan, and auto each
+reject depth-ID mutation, preserve snapshotted red output, render exact RGBA8
+`4278190335`, and complete 1,001 replays with `live=0`; Vulkan remains one
+submission per replay. The existing depth sample now demonstrates the buffered
+public call, rebuilds without unresolved shared libraries when
+`LD_LIBRARY_PATH` is removed, and passes both explicit backends. No `../ablac`
+change was required.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

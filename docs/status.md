@@ -578,9 +578,10 @@ Updated: 2026-08-26.
   declarations, wrong native binding, and post-seal handle mutation reject.
   Oversized post-seal push-size mutation is bounded and rejects before
   fingerprinting.
-  Procedural depth records bind a second planner-visible imported attachment,
-  require exact color/depth descriptors and pass writes, and require enabled
-  depth state. The depth-plus-push gate rejects sealed depth-ID mutation and
+  Every procedural, direct, indexed, and indirect depth record binds a second
+  planner-visible imported attachment, requires exact color/depth descriptors
+  and pass writes, and requires enabled depth state. The direct plus
+  indexed-indirect-push boundary gate rejects sealed depth-ID mutation and
   retains exact snapshotted output through 1,001 zero-growth replays.
   Owned buffer/pipeline handles stay stable with zero growth and zero/1,001
   OpenGL/Vulkan submissions. The multi-binding proofs reach exact `5007/5`

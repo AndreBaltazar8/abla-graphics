@@ -310,7 +310,7 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   snapshot reflected red tint data before its source is changed to green, then
   preserve exact red output through 1,001 allocation-free dual-backend replays;
 - `examples/recorded-graph-depth-render`: a planner-visible color/depth pair
-  drives an owned depth-tested procedural target through 1,001 exact,
+  drives an owned depth-tested buffered target through 1,001 exact,
   allocation-free replays and one Vulkan submission per replay;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and

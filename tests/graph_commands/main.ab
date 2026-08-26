@@ -1111,6 +1111,187 @@ trusted fun graphDepthRenderCommandProbe(
     println(
         "graph-depth-render ${graphicsBackendName(app.backend)}: recorded=$recorded depth=${commands.renderDepthResourceIds[0]} exact=$exact snapshot=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
+    recorded && tamperRejected && stable &&
+        graphBufferedDepthRenderCommandProbe(app)
+}
+
+trusted fun graphBufferedDepthRenderCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val depthDescriptor = TextureDescriptor(
+        size = Extent3D(16, 16),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    )
+    val vertexDescriptor = BufferDescriptor(
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val indexDescriptor = BufferDescriptor(
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    )
+    val drawDescriptor = BufferDescriptor(
+        size = 20,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(122, "direct-color", false, 0, 122),
+        GraphicsGraphResource(123, "direct-depth", false, 0, 123),
+        GraphicsGraphResource(124, "indirect-color", false, 0, 124),
+        GraphicsGraphResource(125, "indirect-depth", false, 0, 125),
+        GraphicsGraphResource(126, "direct-vertices", false, 24, 126),
+        GraphicsGraphResource(127, "indirect-vertices", false, 24, 127),
+        GraphicsGraphResource(128, "indirect-indices", false, 12, 128),
+        GraphicsGraphResource(129, "indirect-draw", false, 20, 129)
+    ], [
+        GraphicsGraphPass(931, "direct-depth", [
+            GraphicsGraphUse(122, graphAccessWrite),
+            GraphicsGraphUse(123, graphAccessWrite),
+            GraphicsGraphUse(126, graphAccessRead)
+        ]),
+        GraphicsGraphPass(932, "indirect-depth", [
+            GraphicsGraphUse(124, graphAccessWrite),
+            GraphicsGraphUse(125, graphAccessWrite),
+            GraphicsGraphUse(127, graphAccessRead),
+            GraphicsGraphUse(128, graphAccessRead),
+            GraphicsGraphUse(129, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(122, colorDescriptor),
+        GraphicsGraphTextureDeclaration(123, depthDescriptor),
+        GraphicsGraphTextureDeclaration(124, colorDescriptor),
+        GraphicsGraphTextureDeclaration(125, depthDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(126, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(127, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(128, indexDescriptor),
+        GraphicsGraphBufferDeclaration(129, drawDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec3 tint;
+                float alpha;
+            } draw;
+            void main() {
+                color = vec4(draw.tint.x, draw.tint.y, draw.tint.z, draw.alpha);
+            }
+        }
+    }
+    val fixedShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(1.0, 0.0, 0.0, 1.0); }
+        }
+    }
+    val layout = VertexBufferLayout(8, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
+    ])
+    val directColor = app.texture(colorDescriptor)
+    val directDepth = app.texture(depthDescriptor)
+    val directTarget = app.renderTargetWithDepth(
+        move(directColor),
+        move(directDepth)
+    )
+    val directPipeline = app.renderTargetPipeline(
+        directTarget, fixedShader, layout, RasterPipelineState(),
+        DepthStencilState(enabled = true, write = true,
+            compare = compareFunctionLess)
+    )
+    val indirectColor = app.texture(colorDescriptor)
+    val indirectDepth = app.texture(depthDescriptor)
+    val indirectTarget = app.renderTargetWithDepth(
+        move(indirectColor),
+        move(indirectDepth)
+    )
+    val indirectPipeline = app.renderTargetPipeline(
+        indirectTarget, shader, layout, RasterPipelineState(),
+        DepthStencilState(enabled = true, write = true,
+            compare = compareFunctionLess)
+    )
+    val directVertices = app.buffer(vertexDescriptor)
+    val indirectVertices = app.buffer(vertexDescriptor)
+    val indices = app.buffer(indexDescriptor)
+    val draw = app.buffer(drawDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val indexBytes = bufferBytes(12)
+    val drawBytes = bufferBytes(20)
+    val values = shader.pushConstants()
+    val initialized = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20) &&
+        indexBytes.storeU32(0, 0) && indexBytes.storeU32(1, 4) &&
+        indexBytes.storeU32(2, 8) &&
+        drawBytes.storeI64(4294967299, 0) &&
+        drawBytes.storeI64(0, 8) && drawBytes.storeU32(0, 16) &&
+        directVertices.writeAllBytes(vertexBytes) &&
+        indirectVertices.writeAllBytes(vertexBytes) &&
+        indices.writeAllBytes(indexBytes) && draw.writeAllBytes(drawBytes) &&
+        values.storeF32(1.0, 0) && values.storeF32(0.0, 4) &&
+        values.storeF32(0.0, 8) && values.storeF32(1.0, 12)
+    val commands = app.graphCommandList(graph, 4)
+    val recorded = graph.valid() && shader.valid && fixedShader.valid &&
+        initialized && commands.valid() && commands.recordPass(graph, 931) &&
+        commands.recordRenderVertices(
+            graph, 122, 126, move(directTarget), move(directPipeline),
+            move(directVertices), 3, Color(0.0, 0.0, 0.0), 1, 0, -1, 123
+        ) && commands.recordPass(graph, 932) &&
+        commands.recordRenderIndexedIndirectPush(
+            graph, 124, 127, 128, 129, move(indirectTarget),
+            move(indirectPipeline), values, move(indirectVertices),
+            move(indices), move(draw), Color(0.0, 0.0, 0.0),
+            0, -1, 0, -1, 0, -1, 125
+        ) && commands.seal(graph) &&
+        commands.renderDepthResourceIds[0] == 123 &&
+        commands.renderDepthResourceIds[1] == 125 &&
+        values.storeF32(0.0, 0) && values.storeF32(1.0, 4)
+    commands.renderDepthResourceIds[1] = 999
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.renderDepthResourceIds[1] = 125
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val directExact = commands.renderTargets[0].texture.rgba8(8, 8) ==
+        4278190335
+    val indirectExact = commands.renderTargets[1].texture.rgba8(8, 8) ==
+        4278190335
+    val stable = succeeded && iteration == 1001 && directExact &&
+        indirectExact && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 && commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-buffered-depth ${graphicsBackendName(app.backend)}: forms=${commands.renderResources[0].form}/${commands.renderResources[1].form} depth=${commands.renderDepthResourceIds[0]}/${commands.renderDepthResourceIds[1]} exact=$directExact/$indirectExact snapshot=$indirectExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 

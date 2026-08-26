@@ -252,7 +252,10 @@ Procedural depth records use `recordRenderTargetDepth(...)` or
 `recordRenderTargetDepthPush(...)`. The command owns the complete color/depth
 target and pipeline, while the graph makes both imported attachment identities,
 descriptors, and pass writes explicit. Depth presence must exactly match an
-enabled pipeline. The focused push proof rejects a mutated sealed depth ID,
+enabled pipeline. Direct, indexed, and both indirect buffered methods expose
+the same contract through a final optional depth resource ID, including every
+`Push` form. The focused boundary proof executes direct vertices and
+indexed-indirect push records. It rejects a mutated sealed depth ID,
 preserves its recorded red value after source mutation, renders exact RGBA8
 `4278190335`, and completes 1,001 replays with zero live growth and zero/1,001
 OpenGL/Vulkan submissions.
@@ -274,6 +277,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Compute sampled/image bindings and buffered-depth/resolve/MRT/subpass render
+Compute sampled/image bindings and resolve/MRT/subpass render
 records, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

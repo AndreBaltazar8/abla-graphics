@@ -30,28 +30,32 @@ trusted fun main: int {
         format = textureFormatDepth32Float,
         usage = textureUsageRenderAttachment
     )
-    val graph = app.materializeRenderGraphTextures([
+    val vertexDescriptor = BufferDescriptor(
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
         GraphicsGraphResource(0, "color", false, 0, 10),
-        GraphicsGraphResource(1, "depth", false, 0, 11)
+        GraphicsGraphResource(1, "depth", false, 0, 11),
+        GraphicsGraphResource(2, "vertices", false, 24, 12)
     ], [
         GraphicsGraphPass(10, "depth-render", [
             GraphicsGraphUse(0, graphAccessWrite),
-            GraphicsGraphUse(1, graphAccessWrite)
+            GraphicsGraphUse(1, graphAccessWrite),
+            GraphicsGraphUse(2, graphAccessRead)
         ])
     ], [
         GraphicsGraphTextureDeclaration(0, colorDescriptor),
         GraphicsGraphTextureDeclaration(1, depthDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(2, vertexDescriptor)
     ])
     val shader = $glsl {
         vertex {
             #version 450
-            const vec2 positions[3] = vec2[3](
-                vec2(-0.75, -0.65),
-                vec2(0.75, -0.65),
-                vec2(0.0, 0.75)
-            );
+            layout(location = 0) in vec2 position;
             void main() {
-                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+                gl_Position = vec4(position, 0.0, 1.0);
             }
         }
         fragment {
@@ -66,7 +70,9 @@ trusted fun main: int {
     val pipeline = app.renderTargetPipeline(
         target,
         shader,
-        VertexBufferLayout(),
+        VertexBufferLayout(8, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2)
+        ]),
         RasterPipelineState(),
         DepthStencilState(
             enabled = true,
@@ -74,17 +80,22 @@ trusted fun main: int {
             compare = compareFunctionLess
         )
     )
+    val vertices = app.buffer(vertexDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val initialized = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20) &&
+        vertices.writeAllBytes(vertexBytes)
     val commands = app.graphCommandList(graph, 2)
     var succeeded = app.valid() && graph.valid() && shader.valid &&
-        target.valid() && pipeline.valid() && commands.valid() &&
+        target.valid() && pipeline.valid() && initialized && commands.valid() &&
         commands.recordPass(graph, 10) &&
-        commands.recordRenderTargetDepth(
-            graph,
-            0,
-            1,
-            move(target),
-            move(pipeline),
-            Color(0.0, 0.0, 0.0)
+        commands.recordRenderVertices(
+            graph, 0, 2, move(target), move(pipeline), move(vertices), 3,
+            Color(0.0, 0.0, 0.0), 1, 0, -1, 1
         ) && commands.seal(graph)
     val liveBefore = runtimeMemoryLiveBytes()
     var iteration = 0
@@ -102,7 +113,7 @@ trusted fun main: int {
         graph.completedExecutions == 1001 && commands.vulkanSubmissions ==
             (if (app.backend == graphicsBackendVulkan) 1001 else 0)
     println(
-        "recorded-graph-depth-render ${graphicsBackendName(app.backend)}: depth=${commands.renderDepthResourceIds[0]} exact=$exact executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+        "recorded-graph-depth-render ${graphicsBackendName(app.backend)}: form=${commands.renderResources[0].form} depth=${commands.renderDepthResourceIds[0]} exact=$exact executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
     if (stable) 0 else 1
 }
