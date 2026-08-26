@@ -136,6 +136,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized ordinary recorded-render binding implementation:
   `748160757a5d972b260b921857f586858e1098b0`
   (`Retain bindings for recorded renders`).
+- Published and synchronized recorded sampled-compute implementation:
+  `9395497a9c998e7466a05beb134b781730eb6bc5`
+  (`Record sampled compute bindings`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -509,9 +512,10 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize recorded compute sampled/storage-image bindings through the same
-   typed retained resource table. Ordinary render bindings now cover every
-   procedural/direct/indexed/indirect draw form without warmed allocation.
+1. Implement storage-image bindings through the existing typed retained table:
+   OpenGL image units, Vulkan storage-image descriptors/layouts, `$glsl`
+   reflection plus `imageLoad`/`imageStore`, and live recorded-compute proof.
+   Sampled recorded compute is published and allocation-free.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
