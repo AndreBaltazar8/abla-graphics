@@ -145,6 +145,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized storage-image-view/read-write implementation:
   `27358b310ddaf4f3977bd7065c892d3f3c954e80`
   (`Add read-write storage image views`).
+- Published and synchronized extended-format/fragment-image implementation:
+  `37b2bea591135c3bb13cf627fecea147767b0bed`
+  (`Add extended fragment storage images`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -846,7 +849,10 @@ scalar creation-time-validated state and passes `live=0`.
 test-graph-commands`, and the prior write-only storage-image sample all passed.
 No `../ablac` source change was required.
 
-### Extended-format and fragment storage images
+### Published checkpoint: extended-format and fragment storage images
+
+Implementation commit `37b2bea591135c3bb13cf627fecea147767b0bed`
+is published on `origin/main`.
 
 The portable feature mask now distinguishes base storage images,
 fragment-stage stores, and extended shader-image formats. Vulkan queries and
