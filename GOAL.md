@@ -193,13 +193,15 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `d30a3fe5e28c2b6de5fe6fe73685321aec7a8f89`
-  (`Accept full i32 native call values`).
+  `4924bb782bc621cd3cd8a89d3216c51269550650`
+  (`Add pointer scalar native void calls`).
 - HEAD is synchronized with `origin/master` and the worktree is clean. The
   concurrent scalar-global/export program-build work was independently
   published first as `e40193b6a1a6d022d07dc5fb70eeaa9eb7ac6a85`;
   this checkpoint then published only its owned native-call paths in
-  `e584ad0f58ec877e05fba9c6d10e8106f8468a9e` and `d30a3fe5e28c2b6de5fe6fe73685321aec7a8f89`.
+  `e584ad0f58ec877e05fba9c6d10e8106f8468a9e`,
+  `d30a3fe5e28c2b6de5fe6fe73685321aec7a8f89`, and
+  `4924bb782bc621cd3cd8a89d3216c51269550650`.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
   compiler/GLSL parser sources still used `type` as an identifier. For the
@@ -1997,6 +1999,47 @@ families (which dominate Vulkan), typed return families, generated native
 types/flags/structure builders, command ownership/capability metadata, feature
 chains, and representative live positive/unsupported tests for each enabled
 family. Keep the full goal active.
+
+### Published checkpoint: first callable Vulkan command family
+
+Compiler dependency `4924bb782bc621cd3cd8a89d3216c51269550650` and
+graphics implementation `6fc50494684f8fc7330505d4f53fee1e7a6dff7a`
+are synchronized with their upstreams. The compiler adds exact
+`void(pointer,i32)` indirect-call lowering while retaining an Abla `int` at the
+safe wrapper boundary so every unsigned 32-bit bit pattern reaches the native
+call. The compiler boundary test passes a real non-null pointer plus
+`4294967295` and observes `-1` in the target's signed `i32` parameter.
+
+The generator recognizes only `VkCommandBuffer` followed by `VkBool32`,
+`uint32_t`, or `int32_t`. This classifies 35 of 842 pinned Vulkan commands as
+`void(pointer,i32)` and leaves the other 807 explicitly unsupported. The
+deterministic fixture contains a positive pointer-scalar command, while the
+full registry test proves `vkCmdSetDeviceMask` has the exact normalized shape
+and ABI family.
+
+`RawVulkanApi.callVoidPointerI32` requires a device-resolved command, matching
+device owner, exact ABI tag, and non-null dispatchable handle. The sample waits
+for the application queue, resets and begins one presenter command buffer,
+records 1,000 `vkCmdSetDeviceMask(command, 1)` calls without live-byte growth,
+ends/submits/waits it, and resets the pool for the application's later use. It
+also rejects `vkDeviceWaitIdle` through the wrong family and rejects a null
+command buffer before driver dispatch. Normal and optimized builds both report
+`calls=1000 live=0 stable=true`; their Vulkan validation logs contain no
+`Validation Error`, `VUID-`, or `ERROR` records.
+
+Verified gates were the compiler self-rebuild and cache-independent unsafe
+boundary test; deterministic five-command fixture and full pinned-registry
+test; normal and optimized raw builds with stripped-environment linkage; live
+OpenGL and validation-enabled Vulkan runs; two exactly empty Vulkan validation
+logs; the repository-wide Abla-only audit; and the pure core test. The broad
+common-application and full 71-root matrices were not repeated because this
+slice changes only opt-in raw modules and their exact compiler intrinsic.
+
+This is the first executable Vulkan raw family, not general Vulkan call
+coverage. Next priorities are dispatchable pointer-only calls with a legally
+paired operation, pointer-plus-multiple-scalars, pointer/structure families,
+typed `VkResult` returns, command feature/extension ownership, and generated
+types/flags/builders/feature chains. Keep the full goal active.
 
 ## Working commands
 
