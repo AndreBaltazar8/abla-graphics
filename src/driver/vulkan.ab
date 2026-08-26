@@ -3577,7 +3577,8 @@ class VulkanBindingEntry(
     val offset: int,
     val size: int,
     val texture: TextureDescriptor = TextureDescriptor(),
-    val view: int = 0
+    val view: int = 0,
+    val imageLayout: int = 0
 ) {
     fun valid(): bool = this.binding >= 0 && this.binding <= 31 &&
         this.stageFlags > 0 &&
@@ -3585,13 +3586,15 @@ class VulkanBindingEntry(
           (this.handle != 0 || this.view != 0) && this.sampler != 0 &&
           this.offset == 0 && this.size == 0 && this.texture.valid() &&
           (this.texture.usage & textureUsageSampled) != 0 &&
-          !textureFormatHasDepth(this.texture.format)) ||
+          !textureFormatHasDepth(this.texture.format) &&
+          (this.imageLayout == 1 || this.imageLayout == 5)) ||
          (this.descriptorType == 3 &&
           (this.handle != 0 || this.view != 0) && this.sampler == 0 &&
           this.offset == 0 && this.size == 0 && this.texture.valid() &&
           (this.texture.usage & textureUsageStorage) != 0 &&
           this.texture.samples == 1 &&
-          !textureFormatHasDepth(this.texture.format)) ||
+          !textureFormatHasDepth(this.texture.format) &&
+          this.imageLayout == 1) ||
          ((this.descriptorType == 6 || this.descriptorType == 7) &&
           this.handle != 0 && this.view == 0 && this.sampler == 0 &&
           this.offset >= 0 && this.size > 0))
@@ -7322,7 +7325,7 @@ trusted fun VulkanDevice.bindGroup(
                 imageInfos.storeI64(imageIndex * 24 + 8, view)
                 imageInfos.storeI64(
                     imageIndex * 24 + 16,
-                    if (entry.descriptorType == 3) 1 else 5
+                    entry.imageLayout
                 )
                 imageIndex = imageIndex + 1
             }

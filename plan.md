@@ -177,6 +177,14 @@ backend output, post-seal mutation rejection, 1,001 replays, one Vulkan
 submission per replay, stripped-environment linkage, and zero warmed live-byte
 growth are verified. General sampled-expression lowering remains open.
 
+The same list-owned borrow now recognizes full storage textures retained by an
+earlier compute binding. Vulkan sampled descriptors explicitly snapshot the
+tracked `GENERAL` layout for storage+sampled textures; the derived graph memory
+barrier provides compute-write to fragment-read visibility without an extra
+submission or layout transition. The retained compute/render sample verifies
+exact output, validation silence, 1,001 single-submission replays, linkage, and
+zero warmed growth on both backends.
+
 ## Non-negotiable design rules
 
 1. Application state, rendering policy, resource ownership, shader declarations,

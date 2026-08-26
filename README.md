@@ -361,6 +361,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   albedo/normal G-buffer, then a recorded lighting pass samples both prior
   attachments through planner-visible IDs and affine samplers, producing exact
   yellow output through 1,001 allocation-free replays;
+- `examples/recorded-compute-render`: a retained compute pass writes a dual-
+  usage storage/sampled texture, then a later recorded render samples it
+  without duplicating ownership or changing Vulkan out of `GENERAL` layout;
 - `examples/recorded-graph-subpasses`: one graph record owns a compatible pass,
   target, ordered two-stage procedural sequence, and snapshotted reflected
   values, producing exact output through 1,001 allocation-free replays and one

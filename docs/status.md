@@ -1602,5 +1602,21 @@ complete 1,001 successful replays with `live=0`; submission counts are
 zero/1,001. Its embedded Nix rpaths also pass the stripped-`LD_LIBRARY_PATH`
 dependency audit.
 
-These remain milestones in [the implementation plan](../plan.md); they are not
-represented as delivered.
+### Recorded compute-to-render handoff
+
+The prior-texture wrapper now accepts a full storage texture owned by an earlier
+recorded compute binding, while retaining the same exact logical-ID/native-
+identity proof used for render attachments. Vulkan sampled bind-group entries
+snapshot the tracked image layout; a storage+sampled texture prepared in
+`GENERAL` stays there for fragment sampling, and the graph's write-to-read
+memory barrier supplies visibility without another submission.
+
+The 66th sample, `examples/recorded-compute-render`, writes exact red from
+compute and samples it in a later render pass. OpenGL, Vulkan, and automatic
+selection each reject sealed-ID mutation and complete 1,001 replays with
+`live=0`; Vulkan uses exactly 1,001 submissions and passes the Khronos
+validation layer with empty stderr. The executable also resolves every shared
+dependency with `LD_LIBRARY_PATH` removed.
+
+Later milestones remain tracked in [the implementation plan](../plan.md); only
+the checkpoints described above are represented as delivered.

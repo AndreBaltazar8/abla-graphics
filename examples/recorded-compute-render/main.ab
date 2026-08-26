@@ -1,0 +1,152 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded compute render",
+            width = 480,
+            height = 270
+        )
+    )
+    val generatedDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1), format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageSampled |
+            textureUsageCopySource
+    )
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "generated", false, 0, 10),
+        GraphicsGraphResource(1, "color", false, 0, 11)
+    ], [
+        GraphicsGraphPass(10, "generate", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(20, "display", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, generatedDescriptor),
+        GraphicsGraphTextureDeclaration(1, colorDescriptor)
+    ], [])
+    val computeShader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform writeonly image2D outputImage;
+            void main() {
+                imageStore(
+                    outputImage, ivec2(0, 0),
+                    vec4(1.0, 0.0, 0.0, 1.0)
+                );
+            }
+        }
+    }
+    val renderShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) out vec2 texCoord;
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            const vec2 texCoords[3] = vec2[3](
+                vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+                texCoord = texCoords[gl_VertexID];
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() { color = texture(atlas, texCoord); }
+        }
+    }
+    val generated = app.texture(generatedDescriptor)
+    val storageBinding = app.bindGroup([
+        app.storageTextureEntry(
+            0, shaderVisibilityCompute, generated,
+            graphicsStorageTextureWriteOnly
+        )
+    ])
+    val computePipeline = app.computeBindingPipeline(
+        computeShader, move(storageBinding)
+    )
+    val sampler = app.sampler(SamplerDescriptor())
+    val renderBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment, generated, sampler
+        )
+    ])
+    val target = app.renderTarget(app.texture(colorDescriptor))
+    val renderPipeline = app.renderTargetPipeline(
+        target, renderShader, VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(), move(renderBinding)
+    )
+    val computeResources = graphSubpassStorageTextureResources(
+        [0], [move(generated)], [graphicsStorageTextureWriteOnly], [[0]]
+    )
+    val renderResources = graphRenderPriorTextureResources(
+        graphRenderProceduralResources(), [0], [move(sampler)]
+    )
+    val commands = app.graphCommandList(graph, 4)
+    var succeeded = app.valid() && graph.valid() && computeShader.valid &&
+        renderShader.valid && computePipeline.valid() && target.valid() &&
+        renderPipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordComputeBindingResources(
+            graph, move(computeResources), move(computePipeline), 1
+        ) && commands.recordPass(graph, 20) &&
+        commands.recordRenderAttachments(
+            graph, [1], [], -1, move(target), move(renderPipeline),
+            move(renderResources)
+        ) && commands.seal(graph)
+    var tamperRejected = false
+    if (succeeded) {
+        commands.renderResources[0].priorTextureResourceIds[0] = 1
+        tamperRejected = !app.executeGraphCommands(graph, commands)
+        commands.renderResources[0].priorTextureResourceIds[0] = 0
+        succeeded = tamperRejected &&
+            app.executeGraphCommands(graph, commands)
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val generatedExact = commands.computeResources.size > 0 &&
+        commands.computeResources[0].bindingResources.size > 0 &&
+        commands.computeResources[0].bindingResources[0].storageTextures[
+            0
+        ].rgba8(0, 0) == 4278190335
+    val renderedExact = commands.renderTargets.size > 0 &&
+        commands.renderTargets[0].texture.rgba8(32, 32) == 4278190335
+    val stable = succeeded && iteration == 1000 && generatedExact &&
+        renderedExact && tamperRejected && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 && commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-compute-render ${graphicsBackendName(app.backend)}: generated=$generatedExact rendered=$renderedExact layout=${commands.renderPipelines[0].binding.entries[0].vulkanImageLayout} tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

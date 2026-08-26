@@ -1597,6 +1597,22 @@ post-seal logical-ID mutation, completed 1,001 replays with zero warmed
 live-byte growth, and reported zero/1,001 Vulkan submissions. Its executable
 also has no unresolved dependency with `LD_LIBRARY_PATH` removed.
 
+### Verified checkpoint: recorded compute-to-render handoff
+
+`graphRenderPriorTextureResources(...)` generalizes the list-owned borrow to a
+full storage texture retained by an earlier compute binding. Vulkan sampled
+entries now snapshot the tracked image layout, allowing a storage+sampled image
+to remain in `GENERAL`; the graph's derived write-to-read barrier supplies the
+required visibility without a second submission or duplicate owner.
+
+The 66th independent sample, `examples/recorded-compute-render`, writes exact
+red in compute and samples it in a later render pass. OpenGL, Vulkan, and
+automatic selection each produced the exact compute/render result, rejected a
+post-seal ID mutation, completed 1,001 replays with zero warmed live-byte
+growth, and reported zero/1,001 Vulkan submissions. The explicit validation-
+layer run was silent and the executable has no unresolved dependency with
+`LD_LIBRARY_PATH` removed.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and
@@ -1703,6 +1719,8 @@ Tests, samples, and public claims:
 - `examples/recorded-graph-copy/` — independently buildable sealed-copy proof;
 - `examples/deferred-renderer/` — independently buildable two-pass MRT and
   prior-attachment sampling proof;
+- `examples/recorded-compute-render/` — independently buildable compute-write
+  to sampled-render handoff proof;
 - `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
 - `Makefile` — authoritative gate aggregation;
 - `registry/audit/*.tsv` — reviewed coverage inputs;

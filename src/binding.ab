@@ -153,7 +153,8 @@ class GraphicsBindingEntry(
     val texture: TextureDescriptor,
     val textureDimension: int,
     val backend: int,
-    val error: GraphicsError
+    val error: GraphicsError,
+    val vulkanImageLayout: int = 0
 ) {
     fun openGlValid(): bool = this.openGlResource != 0 &&
         ((this.kind == graphicsBindingSampledTexture &&
@@ -178,7 +179,8 @@ class GraphicsBindingEntry(
          (this.vulkanResource != 0 || this.vulkanView != 0) &&
          this.vulkanSampler != 0 && this.offset == 0 &&
          this.size == 0 && this.bufferSize == 0 &&
-         this.texture.valid()) ||
+         this.texture.valid() &&
+         (this.vulkanImageLayout == 1 || this.vulkanImageLayout == 5)) ||
         ((this.kind == graphicsBindingUniformBuffer ||
           this.kind == graphicsBindingStorageBuffer) &&
          this.vulkanResource != 0 && this.vulkanView == 0 &&
@@ -327,6 +329,11 @@ trusted fun GraphicsApplication.sampledTextureEntry(
     sampler: GraphicsSampler
 ): GraphicsBindingEntry {
     var error = GraphicsError()
+    val vulkanImageLayout = if (this.backend == graphicsBackendVulkan) {
+        if (texture.valid() && texture.vulkan.loadLayout(
+            texture.descriptor, 0, 0
+        ) == 1) 1 else 5
+    } else 0
     if (!this.valid() || !texture.valid() || !sampler.valid() ||
         !this.ownsTexture(texture) || !this.ownsSampler(sampler) ||
         binding < 0 || binding > 31 ||
@@ -354,7 +361,8 @@ trusted fun GraphicsApplication.sampledTextureEntry(
         texture.descriptor,
         texture.descriptor.dimension,
         this.backend,
-        error
+        error,
+        vulkanImageLayout
     )
 }
 
@@ -395,7 +403,8 @@ trusted fun GraphicsApplication.sampledTextureViewEntry(
         view.texture,
         dimension,
         this.backend,
-        error
+        error,
+        if (this.backend == graphicsBackendVulkan) 5 else 0
     )
 }
 
@@ -731,7 +740,11 @@ trusted fun GraphicsApplication.bindGroup(
                 entry.offset,
                 entry.size,
                 entry.texture,
-                entry.vulkanView
+                entry.vulkanView,
+                if (entry.kind == graphicsBindingSampledTexture)
+                    entry.vulkanImageLayout
+                else if (entry.kind == graphicsBindingStorageTexture) 1
+                else 0
             ))
             index = index + 1
         }

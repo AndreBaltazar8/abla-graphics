@@ -309,6 +309,7 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-resolve-render`, and
 `examples/recorded-graph-mrt-render`, and
 `examples/deferred-renderer`, and
+`examples/recorded-compute-render`, and
 `examples/recorded-graph-subpasses`, and
 `examples/recorded-graph-binding-subpasses`, and
 `examples/recorded-graph-texture-render`, and
@@ -341,6 +342,13 @@ earlier primary or additional color attachment and the native bind-group entry
 matches that exact texture. IDs and sampler identities participate in the seal
 fingerprint and remain activity-checked on every replay. This is deliberately
 not an arbitrary raw-handle borrow.
+
+The more general `graphRenderPriorTextureResources(...)` also accepts a full
+storage texture owned by an earlier recorded compute binding. A texture with
+both storage and sampled usage can keep Vulkan's `GENERAL` layout in its sampled
+descriptor, so the graph's derived write-to-read memory barrier is sufficient
+between compute and render without a redundant image-layout transition.
+`examples/recorded-compute-render` is the exact-output proof.
 
 Ordinary retained-bind-group draws use
 `recordRenderBindingAttachments(...)` or its `Push` form. They compose one
