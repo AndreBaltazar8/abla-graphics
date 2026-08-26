@@ -1638,6 +1638,9 @@ launches with `LD_LIBRARY_PATH` removed and no unresolved dependency.
 
 ### Verified checkpoint: typed stencil masking
 
+Implementation commit `303b29db71276af654b2b1c1bd19bb1c74a57165`
+is published on `origin/main`.
+
 `depthStencilState(stencil = ...)` adds independent front/back compare, fail,
 depth-fail, and pass operations plus shared 8-bit read/write masks and reference.
 The setup descriptor packs into the fourth retained depth-state scalar. OpenGL
