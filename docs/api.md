@@ -1867,6 +1867,22 @@ commands.recordRenderAttachments(
     move(draw)
 )
 // recordRenderAttachmentsPush(...) accepts the same affine draw plus values.
+val texturedDraw = graphRenderProceduralResources()
+val renderTextures = graphSubpassTextureResources(
+    [atlasId], [move(atlas)], [move(atlasSampler)], [[0]]
+)
+commands.recordRenderBindingAttachments(
+    graph,
+    [colorId],
+    [],
+    -1,
+    move(texturedTarget),
+    move(texturedPipeline),
+    move(texturedDraw),
+    move(renderTextures)
+)
+// recordRenderBindingAttachmentsPush(...) composes the same retained binding
+// table with a copied GraphicsPushConstants snapshot.
 commands.recordRenderSubpasses(
     graph,
     [firstColorId, secondColorId],
@@ -1972,7 +1988,13 @@ identities. `recordRenderTargetAttachments` and its `Push` form accept two to
 eight ordered colors, no resolves or one resolve per color, and optional depth;
 every attachment is descriptor/access checked and sealed. Buffered callers
 compose one of the four `graphRender*Resources` affine factories with
-`recordRenderAttachments` or its `Push` form. `recordRenderSubpasses` takes
+`recordRenderAttachments` or its `Push` form. Ordinary recorded draws with
+bind groups use `recordRenderBindingAttachments` or its `Push` form. One API
+accepts procedural, direct, indexed, direct-indirect, or indexed-indirect draw
+resources and the same typed buffer/texture/view/transient-texture table used
+by subpass recording. The command retains every affine owner, seals logical
+and native identities plus the one-stage mapping, and performs no allocation
+in warmed replay. `recordRenderSubpasses` takes
 affine ownership of one target, compatible pass, and two-to-eight-stage
 procedural sequence. It binds ordered imported color IDs, zero or one resolve
 ID per color, and optional depth to exact pass writes and descriptors. OpenGL

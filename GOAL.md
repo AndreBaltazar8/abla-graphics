@@ -728,6 +728,28 @@ OpenGL/Vulkan/auto replays with zero/1,001 submissions.
 `examples/recorded-graph-transient-texture-subpasses` independently repeats the
 public workflow, passes both explicit backends, and has no unresolved direct
 `ldd` entry with `LD_LIBRARY_PATH` removed. The sample matrix now has 54 roots.
+
+### Ordinary recorded render bindings
+
+The command recorder now accepts one typed planner-visible binding-resource
+table alongside any existing procedural, direct, indexed, direct-indirect, or
+indexed-indirect draw form through `recordRenderBindingAttachments(...)` and
+`recordRenderBindingAttachmentsPush(...)`. This closes the ordinary-render
+ownership gap without adding texture-specific methods for every draw form.
+Imported buffers, full sampled textures, explicit views, graph-owned transient
+sampled textures, and samplers use the same logical/native validation as
+recorded subpasses. The command seal fingerprints the bind group, retained
+owners, logical IDs, and one-stage mapping; replay checks active graph
+resources without constructing temporary attachment arrays.
+
+`examples/recorded-graph-texture-render/` brings the sample matrix to 55 roots.
+Its focused gate compiled with the current pure-Abla compiler and launched with
+`LD_LIBRARY_PATH` removed. OpenGL, Vulkan, and automatic selection all rendered
+exact RGBA8 `4294281759`, rejected a post-seal stage-map mutation, completed
+1,001 successful replays with zero warmed live-byte growth, and reported
+zero/1,001 Vulkan submissions. A first OpenGL measurement exposed 72 bytes of
+growth per replay from temporary validation arrays; the final implementation
+removes those allocations rather than weakening the performance proof.
 Buffer, imported texture, imported view, and transient-texture recorded subpass
 forms are now covered; no C, GLFW, SDL, or native shim is used.
 

@@ -194,6 +194,8 @@ markers, all-transient texture copies, typed procedural/direct/indexed and
 vertex-/indexed-indirect offscreen renders with copied reflected push values,
 color/depth targets across every render form, single-color multisample resolves,
 and procedural or buffered two-to-eight-color targets with ordered resolve IDs,
+ordinary retained-bind-group renders that compose the same typed one-stage
+buffer/texture/view/transient-texture table with every draw form,
 ordered procedural subpass records that own their target, compatible pass, and
 two-to-eight-stage pipeline sequence, including planner-visible imported
 uniform/storage buffers and imported or graph-owned sampled

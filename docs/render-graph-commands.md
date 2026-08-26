@@ -281,6 +281,7 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-mrt-render`, and
 `examples/recorded-graph-subpasses`, and
 `examples/recorded-graph-binding-subpasses`, and
+`examples/recorded-graph-texture-render`, and
 `examples/recorded-graph-texture-subpasses`, and
 `examples/recorded-graph-transient-texture-subpasses` are
 independently buildable and repeat the public initialization, seal, replay,
@@ -300,6 +301,18 @@ resolve mutation, and replays 1,001 times with zero growth and one Vulkan
 submission. Buffered callers compose one of four affine draw-resource factories
 with `recordRenderAttachments(...)` or its `Push` form; the proof uses
 indexed-indirect push and the sample uses direct vertices.
+
+Ordinary retained-bind-group draws use
+`recordRenderBindingAttachments(...)` or its `Push` form. They compose one
+typed binding table with any existing draw-resource form instead of exposing a
+texture-specific method for every procedural/direct/indexed/indirect variant.
+Imported buffers, full sampled textures, explicit views, and graph-owned
+transient sampled textures share the same planner validation and affine
+retention rules as recorded subpasses. The one-stage resource map, bind-group
+native handles, owners, and logical IDs participate in the seal fingerprint.
+The independent textured procedural proof rejects a post-seal map mutation,
+then renders exact RGBA8 `4294281759` through 1,001 OpenGL, Vulkan, and
+automatic-selection executions with zero warmed live-byte growth.
 
 Procedural subpass records use `recordRenderSubpasses(...)`,
 `recordRenderPushSubpasses(...)`, or

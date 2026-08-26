@@ -1,0 +1,120 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded texture render",
+            width = 480,
+            height = 270
+        )
+    )
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val sampledDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1), format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "color", false, 0, 10),
+        GraphicsGraphResource(1, "atlas", false, 0, 11)
+    ], [
+        GraphicsGraphPass(10, "sample-atlas", [
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, colorDescriptor),
+        GraphicsGraphTextureDeclaration(1, sampledDescriptor)
+    ], [])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) out vec2 texCoord;
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            const vec2 texCoords[3] = vec2[3](
+                vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+                texCoord = texCoords[gl_VertexID];
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() { color = texture(atlas, texCoord); }
+        }
+    }
+    val target = app.renderTarget(app.texture(colorDescriptor))
+    val texture = app.texture(sampledDescriptor)
+    val pixels = pixelBuffer(1, 1)
+    val uploaded = pixels.setRgba8(0, 0, 31, 138, 245) &&
+        texture.writePixels(pixels, TextureWriteDescriptor())
+    val sampler = app.sampler(SamplerDescriptor())
+    val binding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment, texture, sampler
+        )
+    ])
+    val pipeline = app.renderTargetPipeline(
+        target, shader, VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(), move(binding)
+    )
+    val draw = graphRenderProceduralResources()
+    val resources = graphSubpassTextureResources(
+        [1], [move(texture)], [move(sampler)], [[0]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        target.valid() && pipeline.valid() && uploaded && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordRenderBindingAttachments(
+            graph, [0], [], -1, move(target), move(pipeline), move(draw),
+            move(resources)
+        ) && commands.seal(graph)
+    commands.renderResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = -1
+    val tamperRejected = succeeded &&
+        !app.executeGraphCommands(graph, commands)
+    commands.renderResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = 0
+    succeeded = succeeded && tamperRejected &&
+        app.executeGraphCommands(graph, commands)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1000) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val exact = commands.renderTargets[0].texture.rgba8(32, 32) ==
+        4294281759
+    val stable = succeeded && iteration == 1000 && exact &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        commands.failedExecutions == 1 && graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-texture-render ${graphicsBackendName(app.backend)}: form=${commands.renderResources[0].form} textures=${commands.renderResources[0].bindingResources[0].textures.size} exact=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

@@ -1435,5 +1435,23 @@ validity gate unchanged.
   full-resource and explicit-view wider sampled bindings are present.
 - The complete sample catalog, driver/platform CI matrix, or tagged release.
 
+### Recorded ordinary render bindings
+
+Ordinary recorded renders now compose the existing procedural/direct/indexed/
+indirect draw-resource forms with the typed planner-visible binding table.
+`recordRenderBindingAttachments(...)` and its push form retain imported
+buffers, full sampled textures, explicit texture views, graph-owned transient
+sampled textures, and their affine samplers without multiplying public methods
+per draw form. Record, seal, and replay check declared access, usage,
+descriptors, attachment separation, native identities, and the one-stage entry
+map. The seal also fingerprints the render bind group and retained owners.
+
+`examples/recorded-graph-texture-render` is the 55th independent sample root.
+Its focused stripped-`LD_LIBRARY_PATH` gate passed OpenGL, Vulkan, and automatic
+selection with exact RGBA8 `4294281759`, post-seal map-tamper rejection, 1,001
+successful executions, zero/1,001 Vulkan submissions, and zero warmed
+live-byte growth. The complete 55-root matrix remains scheduled for the next
+broad sample-infrastructure gate.
+
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.
