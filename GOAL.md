@@ -104,6 +104,9 @@ nix-shell --run 'make check-abla-only'
 - Published tip before the recorded-subpass checkpoint:
   `1a231b41c11bf92ca3c676f0334d6bef6d2dc3ff`
   (`Update graphics continuation handoff`).
+- Recorded-subpass implementation commit:
+  `f69c0ba12b6f756bbdb7a7c2bb6941df9d25bddc`
+  (`Record graph subpass sequences`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -591,7 +594,7 @@ MRT sample now uses the direct-vertex factory and passes its no-cache stripped-
 `LD_LIBRARY_PATH` build plus OpenGL and validation-layer Vulkan launches. No
 new sample root or `../ablac` change was required.
 
-## Verified checkpoint: recorded graph subpasses
+## Published checkpoint: recorded graph subpasses
 
 `recordRenderSubpasses(...)` records one ordered two-to-eight-stage procedural
 sequence while taking affine ownership of its target, compatible render pass,
