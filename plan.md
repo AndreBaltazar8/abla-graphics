@@ -153,9 +153,10 @@ subresource-readback evidence. Cube-storage capability is separately queried
 and enabled on Vulkan. A generated typed push-expression form derives signed
 coordinate width from every supported image dimension, consumes reflected
 layout offsets/names, and writes a runtime `vec4` value. Generated read/write
-composition additionally lowers `imageLoad` through one local and vector
-add/subtract/multiply/divide either directly into `imageStore` or through a
-second named SSA local. Broader nesting and expression grammar,
+composition additionally seeds `imageLoad` into the shared typed expression IR
+and lowers precedence-aware, parenthesized vector add/subtract/multiply/divide
+through as many as fifteen further named SSA locals into `imageStore`. Vector
+constructors, builtins, coordinate expressions, and broader expression grammar,
 bind-group subpass records, broader compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 

@@ -329,8 +329,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   snapshots layer two and exact yellow before host mutation, then proves the
   result through 1,001 allocation-free OpenGL/Vulkan/auto replays;
 - `examples/recorded-graph-storage-image-read-add`: a generated read/write
-  program lowers `imageLoad` into a typed local, assigns its reflected `vec4`
-  addition to a second named SSA local, and stores exact cyan; saturation keeps
+  program lowers `imageLoad` into a typed local, composes three named SSA locals
+  with addition and multiplication, and stores exact cyan; saturation keeps
   1,001 retained replays exact while snapshot mutation, resource-map rejection,
   and zero growth are proven;
 - `examples/fragment-storage-image`: a fragment-stage `imageStore` writes exact

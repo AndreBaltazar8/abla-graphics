@@ -85,6 +85,22 @@ fun storageImagePushInvalidStagedLocalRejected(): bool {
     package.valid && !package.spirv(shaderStageCompute).succeeded
 }
 
+fun storageImagePushNestedLocalChainValid(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image3D target; layout(push_constant) uniform Dynamic { ivec3 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 first=loaded+parameters.shade; vec4 second=(first*parameters.shade)-loaded; imageStore(target,parameters.point,second/parameters.shade); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        emitted.module.bound() == 29 && spirvContainsSequence(
+            emitted.module, [327809, 9, 25, 24, 23]
+        ) && spirvContainsSequence(
+            emitted.module, [327813, 9, 26, 25, 23]
+        ) && spirvContainsSequence(
+            emitted.module, [327811, 9, 27, 26, 24]
+        ) && spirvContainsSequence(
+            emitted.module, [327816, 9, 28, 27, 23]
+        ) && spirvContainsSequence(emitted.module, [262243, 19, 21, 28])
+}
+
 fun main: int {
     val checks = [storageImagePushDimensionValid(
         "image1D", "int", 0, 0, false
@@ -114,7 +130,8 @@ fun main: int {
         "image2D", "ivec2", 1, 0, false, "/", 327816
     ), storageImagePushStagedArithmeticValid(
     ), storageImagePushInvalidArithmeticRejected(
-    ), storageImagePushInvalidStagedLocalRejected()]
+    ), storageImagePushInvalidStagedLocalRejected(
+    ), storageImagePushNestedLocalChainValid()]
     var index = 0
     while (index < checks.size && checks[index]) index = index + 1
     if (index == checks.size) 42 else index + 1
