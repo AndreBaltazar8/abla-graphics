@@ -89,6 +89,9 @@ nix-shell --run 'make check-abla-only'
 - Procedural-depth implementation commit:
   `38c99cc908e2fff49b93273f9379b50bc9ff7b46`
   (`Record procedural graph depth rendering`).
+- Buffered-depth implementation commit:
+  `caf5712cdfad28841acdc6f35ff645b255bb6911`
+  (`Support depth across recorded draw forms`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -501,7 +504,7 @@ zero growth, and zero/1,001 OpenGL/Vulkan submissions. The explicit sample
 matrix now contains 48 roots. No `../ablac` change was required; preserve its
 unrelated LLVM/MMIO work.
 
-## Verified checkpoint awaiting publication: buffered graph depth
+## Published checkpoint: buffered graph depth
 
 The four buffered render methods and all four matching `Push` forms now accept
 one final optional depth resource ID. A nonnegative ID reuses the same exact
