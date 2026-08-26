@@ -154,8 +154,8 @@ and enabled on Vulkan. A generated typed push-expression form derives signed
 coordinate width from every supported image dimension, consumes reflected
 layout offsets/names, and writes a runtime `vec4` value. Generated read/write
 composition additionally lowers `imageLoad` through one local and vector
-add/subtract/multiply/divide into `imageStore`. Broader nesting and
-expression grammar,
+add/subtract/multiply/divide either directly into `imageStore` or through a
+second named SSA local. Broader nesting and expression grammar,
 bind-group subpass records, broader compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 

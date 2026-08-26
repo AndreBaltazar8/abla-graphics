@@ -67,6 +67,24 @@ fun storageImagePushInvalidArithmeticRejected(): bool {
     package.valid && !package.spirv(shaderStageCompute).succeeded
 }
 
+fun storageImagePushStagedArithmeticValid(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2DArray target; layout(push_constant) uniform Dynamic { ivec3 point; vec4 shade; } parameters; void main(){ vec4 sampled=imageLoad(target,parameters.point); vec4 composed=sampled+parameters.shade; imageStore(target,parameters.point,composed); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        emitted.module.bound() == 26 && spirvContainsSequence(
+            emitted.module, [327778, 9, 24, 19, 21]
+        ) && spirvContainsSequence(
+            emitted.module, [327809, 9, 25, 24, 23]
+        ) && spirvContainsSequence(emitted.module, [262243, 19, 21, 25])
+}
+
+fun storageImagePushInvalidStagedLocalRejected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 sampled=imageLoad(target,parameters.point); vec4 composed=missing+parameters.shade; imageStore(target,parameters.point,composed); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    package.valid && !package.spirv(shaderStageCompute).succeeded
+}
+
 fun main: int {
     val checks = [storageImagePushDimensionValid(
         "image1D", "int", 0, 0, false
@@ -94,7 +112,9 @@ fun main: int {
         "image2D", "ivec2", 1, 0, false, "*", 327813
     ), storageImagePushReadArithmeticDimensionValid(
         "image2D", "ivec2", 1, 0, false, "/", 327816
-    ), storageImagePushInvalidArithmeticRejected()]
+    ), storageImagePushStagedArithmeticValid(
+    ), storageImagePushInvalidArithmeticRejected(
+    ), storageImagePushInvalidStagedLocalRejected()]
     var index = 0
     while (index < checks.size && checks[index]) index = index + 1
     if (index == checks.size) 42 else index + 1

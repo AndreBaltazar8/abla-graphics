@@ -2720,9 +2720,11 @@ constructed SPIR-V module while OpenGL executes the same source through its
 push-block rewrite. Retained recording snapshots the complete values. General
 read/write composition may bind the image without an access qualifier, assign
 `imageLoad(image, coordinate)` to one arbitrarily named `vec4` local, and
-store `local +|-|*|/ value`. Each operator maps to its typed SPIR-V vector
-operation; unsupported operators fail emission. Broader nesting, multiple
-locals/statements, and arbitrary coordinate/value expressions remain next.
+either store `local +|-|*|/ value` directly or assign that operation to a
+second arbitrarily named `vec4` SSA local before storing it. Each operator maps
+to its typed SPIR-V vector operation; unsupported operators and references to
+an undeclared load local fail emission. Broader nesting, longer statement
+sequences, and arbitrary coordinate/value expressions remain next.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

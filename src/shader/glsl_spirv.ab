@@ -6947,6 +6947,25 @@ fun glslStorageImageReadLocalName(source: string): string {
     name
 }
 
+fun glslStorageImageArithmeticLocalName(
+    source: string,
+    loadedName: string
+): string {
+    val lexical = glslLex(source)
+    var name = ""
+    var index = 3
+    while (name == "" && lexical.valid && index < lexical.tokens.size) {
+        if (lexical.tokens[index].text == loadedName &&
+            lexical.tokens[index - 1].text == "=" &&
+            lexical.tokens[index - 2].kind == glslTokenIdentifier &&
+            lexical.tokens[index - 3].text == "vec4") {
+            name = lexical.tokens[index - 2].text
+        }
+        index = index + 1
+    }
+    name
+}
+
 fun glslStorageImagePushReadArithmeticSource(
     source: string,
     binding: ShaderBinding,
@@ -6955,6 +6974,7 @@ fun glslStorageImagePushReadArithmeticSource(
 ): bool {
     val coordinateType = glslStorageImagePushCoordinateType(binding.dataType)
     val localName = glslStorageImageReadLocalName(source)
+    val resultName = glslStorageImageArithmeticLocalName(source, localName)
     coordinateType != "" && localName != "" &&
     (operation == "+" || operation == "-" || operation == "*" ||
      operation == "/") &&
@@ -6967,7 +6987,7 @@ fun glslStorageImagePushReadArithmeticSource(
     push.members[0].arraySize == 1 &&
     push.members[1].dataType == "vec4" &&
     push.members[1].arraySize == 1 &&
-    glslSourceMatchesTokens(source, [
+    (glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
         "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
         "layout", "(", "rgba8", ",", "binding", "=",
@@ -6981,7 +7001,23 @@ fun glslStorageImagePushReadArithmeticSource(
         "(", binding.name, ",", push.name, ".", push.members[0].name,
         ",", localName, operation, push.name, ".", push.members[1].name,
         ")", ";", "}"
-    ])
+    ]) || (resultName != "" && resultName != localName &&
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "rgba8", ",", "binding", "=",
+        "${binding.binding}", ")", "uniform", binding.dataType,
+        binding.name, ";", "layout", "(", "push_constant", ")",
+        "uniform", push.dataType, "{", coordinateType,
+        push.members[0].name, ";", "vec4", push.members[1].name, ";",
+        "}", push.name, ";", "void", "main", "(", ")", "{",
+        "vec4", localName, "=", "imageLoad", "(", binding.name, ",",
+        push.name, ".", push.members[0].name, ")", ";", "vec4",
+        resultName, "=", localName, operation, push.name, ".",
+        push.members[1].name, ";", "imageStore", "(", binding.name, ",",
+        push.name, ".", push.members[0].name, ",", resultName, ")", ";",
+        "}"
+    ])))
 }
 
 fun glslStorageImagePushReadArithmeticOpcode(
