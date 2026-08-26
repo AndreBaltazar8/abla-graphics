@@ -110,6 +110,9 @@ nix-shell --run 'make check-abla-only'
 - Published tip before the reflected-subpass checkpoint:
   `b6b7d82644fa155fc161d8d2da20ef4620441d9f`
   (`Update graphics continuation handoff`).
+- Reflected-subpass implementation commit:
+  `c5f777fa2f854f9a454c4202df81e54660890935`
+  (`Snapshot recorded subpass values`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
