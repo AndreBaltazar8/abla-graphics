@@ -261,9 +261,12 @@ the other formats require
 `graphicsFeatureStorageTextureExtendedFormats`. Compute visibility is portable,
 fragment visibility additionally requires
 `graphicsFeatureFragmentStorageTextures`, and vertex visibility remains
-rejected. OpenGL precomputes the image unit, internal format, access, and
-layered flag for `glBindImageTexture`; Vulkan creates a matching storage-image
-view and descriptor, transitions
+rejected. Cube entries additionally require
+`graphicsFeatureCubeStorageTextures`; Vulkan exposes it only when the required
+`imageCubeArray` device feature was queried and enabled. OpenGL precomputes the
+image unit, internal format, access, and layered flag for
+`glBindImageTexture`; Vulkan creates a matching storage-image view and
+descriptor, transitions
 every selected subresource to `GENERAL` once before use, and keeps that resting
 layout across dispatch, rendering, and readback.
 
@@ -1619,7 +1622,8 @@ Selection is performed once and never becomes a silent per-frame fallback.
 `graphicsFeatureSamplerAnisotropy`, `graphicsFeatureTimestampQueries`,
 `graphicsFeaturePersistentMapping`, `graphicsFeatureStorageTextures`,
 `graphicsFeatureFragmentStorageTextures`, and
-`graphicsFeatureStorageTextureExtendedFormats`.
+`graphicsFeatureStorageTextureExtendedFormats`, and
+`graphicsFeatureCubeStorageTextures`.
 Creation fails with
 `graphicsErrorUnsupportedFeature` when an installed requested backend cannot
 provide every required bit. Automatic selection may skip such a backend and
@@ -2704,8 +2708,9 @@ deterministic pure-Abla SPIR-V. OpenGL and Vulkan both reach exact
 repeated results with stable handles and zero warmed live-byte growth.
 The deterministic layered form writes fixed coordinates in one RGBA8
 `image2DArray` and one RGBA8 `image3D`; exact selected-layer/slice readback is
-covered on both drivers. Deterministic 1D/cube programs and general image
-expressions remain forthcoming.
+covered on both drivers. A second exact form writes one RGBA8 `image1D` and one
+RGBA8 `imageCube`, completing live dimensional execution; general coordinates
+and values remain forthcoming.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

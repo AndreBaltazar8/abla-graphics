@@ -108,7 +108,8 @@ fun graphicsStorageTextureFormatValid(format: int): bool =
 
 fun graphicsStorageTextureRequiredFeatures(
     format: int,
-    visibility: int
+    visibility: int,
+    dimension: int = textureDimensionUndefined
 ): int {
     var features = graphicsFeatureStorageTextures
     if (format != textureFormatRgba32Float) {
@@ -117,6 +118,9 @@ fun graphicsStorageTextureRequiredFeatures(
     if ((visibility & shaderVisibilityFragment) != 0) {
         features = features | graphicsFeatureFragmentStorageTextures
     }
+    if (dimension == textureDimensionCube) {
+        features = features | graphicsFeatureCubeStorageTextures
+    }
     if ((visibility & shaderVisibilityVertex) != 0) features = -1
     features
 }
@@ -124,9 +128,12 @@ fun graphicsStorageTextureRequiredFeatures(
 fun graphicsStorageTextureSupported(
     capabilities: GraphicsCapabilities,
     format: int,
-    visibility: int
+    visibility: int,
+    dimension: int = textureDimensionUndefined
 ): bool {
-    val required = graphicsStorageTextureRequiredFeatures(format, visibility)
+    val required = graphicsStorageTextureRequiredFeatures(
+        format, visibility, dimension
+    )
     graphicsStorageTextureFormatValid(format) && required >= 0 &&
         capabilities.supports(required)
 }
@@ -413,7 +420,8 @@ trusted fun GraphicsApplication.storageTextureEntry(
         !graphicsBindingVisibilityValid(visibility) ||
         !graphicsStorageTextureAccessValid(access) ||
         !graphicsStorageTextureSupported(
-            this.capabilities, texture.descriptor.format, visibility
+            this.capabilities, texture.descriptor.format, visibility,
+            texture.descriptor.dimension
         ) ||
         (texture.descriptor.usage & textureUsageStorage) == 0 ||
         !graphicsStorageTextureDimensionValid(texture.descriptor.dimension) ||
@@ -481,7 +489,7 @@ trusted fun GraphicsApplication.storageTextureViewEntry(
         !graphicsBindingVisibilityValid(visibility) ||
         !graphicsStorageTextureAccessValid(access) ||
         !graphicsStorageTextureSupported(
-            this.capabilities, format, visibility
+            this.capabilities, format, visibility, dimension
         ) ||
         (texture.descriptor.usage & textureUsageStorage) == 0 ||
         !graphicsStorageTextureDimensionValid(dimension) ||

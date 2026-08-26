@@ -384,6 +384,13 @@ replays, explicit subresource readback observes green `4278255360` at array
 layer two and blue `4294901760` at volume slice one, with `live=0` and
 zero/1,001 Vulkan submissions.
 
-Deterministic 1D/cube programs and general image-expression lowering,
+`recorded-graph-storage-image-dimensions` closes the remaining executable
+dimension gap with one `image1D` and one `imageCube`. It reads exact red
+`4278190335` from the line and magenta `4294902015` from cube face four after
+the same tamper-rejected 1,001-replay contract. Vulkan reports and enables the
+SPIR-V `ImageCubeArray` device prerequisite rather than accepting cube entries
+optimistically.
+
+General image-expression lowering,
 broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

@@ -710,6 +710,44 @@ fun main: int {
             storageImageLayeredSpirv.module,
             storageImageLayeredSpirvAgain.module
         )
+    val storageImageDimensions = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform writeonly image1D lineImage;
+            layout(rgba8, binding = 1) uniform writeonly imageCube cubeImage;
+            void main() {
+                imageStore(
+                    lineImage,
+                    0,
+                    vec4(1.0, 0.0, 0.0, 1.0)
+                );
+                imageStore(
+                    cubeImage,
+                    ivec3(0, 0, 4),
+                    vec4(1.0, 0.0, 1.0, 1.0)
+                );
+            }
+        }
+    }
+    val storageImageDimensionsSpirv = storageImageDimensions.spirv(
+        shaderStageCompute
+    )
+    val storageImageDimensionsSpirvAgain = storageImageDimensions.spirv(
+        shaderStageCompute
+    )
+    val storageImageDimensionsValid = storageImageDimensions.valid &&
+        storageImageDimensions.bindings.size == 2 &&
+        storageImageDimensions.bindings[0].dataType == "image1D" &&
+        storageImageDimensions.bindings[1].dataType == "imageCube" &&
+        storageImageDimensionsSpirv.succeeded &&
+        storageImageDimensionsSpirv.module.valid() &&
+        storageImageDimensionsSpirv.module.bound() == 29 &&
+        spirvContainsWord(storageImageDimensionsSpirv.module, 262243) &&
+        spirvWordsEqual(
+            storageImageDimensionsSpirv.module,
+            storageImageDimensionsSpirvAgain.module
+        )
     val unsupportedSampledStorage = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) uniform sampler2D atlas; layout(std430,binding=1) buffer Destination { uint value; } destination; void main(){ destination.value += uint(texture(atlas,vec2(0.25,0.5)).r); }"]
@@ -3276,7 +3314,7 @@ fun main: int {
         spirvWordsEqual(
             storageImageFragmentSpirv.module,
             storageImageFragmentSpirvAgain.module
-        ) && storageImageLayeredValid &&
+        ) && storageImageLayeredValid && storageImageDimensionsValid &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
         !misplacedStorageProfile.succeeded &&

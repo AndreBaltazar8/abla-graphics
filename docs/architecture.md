@@ -219,7 +219,7 @@ after render writes. An eligible Vulkan stream records
 graph memory dependencies, the 2D texture copy, render, and compute dispatch
 into one retained command buffer, then submits once; direct APIs remain
 unchanged. Vulkan storage-image capability reporting mirrors enabled fragment
-store and extended-format device features. Later slices must add broader
+store, extended-format, and cube-storage device features. Later slices must add broader
 copy/compute forms, frames in flight, broader storage-image dimensions and
 general expression lowering, and GPU-completion-aware
 retention.

@@ -1,0 +1,155 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            validation = true,
+            requiredFeatures = graphicsFeatureStorageTextures |
+                graphicsFeatureStorageTextureExtendedFormats |
+                graphicsFeatureCubeStorageTextures
+        ),
+        WindowConfig(
+            title = "Abla Graphics storage image dimensions",
+            width = 480,
+            height = 270
+        )
+    )
+    val lineDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1, 1),
+        dimension = textureDimension1D,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageCopySource
+    )
+    val cubeDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1, 6),
+        dimension = textureDimensionCube,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageCopySource
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "line-image", false, 0, 10),
+        GraphicsGraphResource(1, "cube-image", false, 0, 10)
+    ], [
+        GraphicsGraphPass(10, "store-image-dimensions", [
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, lineDescriptor),
+        GraphicsGraphTextureDeclaration(1, cubeDescriptor)
+    ], [])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform writeonly image1D lineImage;
+            layout(rgba8, binding = 1) uniform writeonly imageCube cubeImage;
+            void main() {
+                imageStore(
+                    lineImage,
+                    0,
+                    vec4(1.0, 0.0, 0.0, 1.0)
+                );
+                imageStore(
+                    cubeImage,
+                    ivec3(0, 0, 4),
+                    vec4(1.0, 0.0, 1.0, 1.0)
+                );
+            }
+        }
+    }
+    val lineTexture = app.texture(lineDescriptor)
+    val cubeTexture = app.texture(cubeDescriptor)
+    val lineEntry = app.storageTextureEntry(
+        0, shaderVisibilityCompute, lineTexture,
+        graphicsStorageTextureWriteOnly
+    )
+    val cubeEntry = app.storageTextureEntry(
+        1, shaderVisibilityCompute, cubeTexture,
+        graphicsStorageTextureWriteOnly
+    )
+    val binding = app.bindGroup([lineEntry, cubeEntry])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val pipelineValid = pipeline.valid()
+    val pipelineError = pipeline.error.message
+    val resources = graphSubpassStorageTextureResources(
+        [0, 1],
+        [move(lineTexture), move(cubeTexture)],
+        [
+            graphicsStorageTextureWriteOnly,
+            graphicsStorageTextureWriteOnly
+        ],
+        [[0, 1]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var lineReadback = bufferBytes(4)
+    var cubeReadback = bufferBytes(4)
+    val prerequisites = app.valid() && graph.valid() && shader.valid &&
+        app.capabilities.supports(graphicsFeatureCubeStorageTextures) &&
+        lineEntry.valid() && cubeEntry.valid() && pipelineValid &&
+        commands.valid() && lineReadback.fill(0) && cubeReadback.fill(0)
+    val passRecorded = prerequisites && commands.recordPass(graph, 10)
+    val resourcesRecorded = passRecorded &&
+        commands.recordComputeBindingResources(
+            graph, move(resources), move(pipeline), 1
+        )
+    var succeeded = resourcesRecorded && commands.seal(graph)
+    var tamperRejected = false
+    if (succeeded) {
+        commands.computeResources[0].bindingResources[
+            0
+        ].stageResourceIndices[0][0] = 1
+        tamperRejected = !app.executeGraphCommands(graph, commands)
+        commands.computeResources[0].bindingResources[
+            0
+        ].stageResourceIndices[0][0] = 0
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && tamperRejected && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val lineDownloaded = succeeded && commands.computeResources[
+        0
+    ].bindingResources[0].storageTextures[0].readBytes(
+        lineReadback,
+        TextureRegion(width = 1, height = 1, depth = 1)
+    )
+    val cubeDownloaded = succeeded && commands.computeResources[
+        0
+    ].bindingResources[0].storageTextures[1].readBytes(
+        cubeReadback,
+        TextureRegion(z = 4, width = 1, height = 1, depth = 1)
+    )
+    val linePixel = if (lineDownloaded)
+        lineReadback.load(0) | (lineReadback.load(1) << 8) |
+        (lineReadback.load(2) << 16) | (lineReadback.load(3) << 24)
+        else 0
+    val cubePixel = if (cubeDownloaded)
+        cubeReadback.load(0) | (cubeReadback.load(1) << 8) |
+        (cubeReadback.load(2) << 16) | (cubeReadback.load(3) << 24)
+        else 0
+    val stable = lineDownloaded && cubeDownloaded && tamperRejected &&
+        iteration == 1001 && linePixel == 4278190335 &&
+        cubePixel == 4294902015 && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-storage-image-dimensions ${graphicsBackendName(app.backend)}: line=$linePixel cube=$cubePixel ready=$prerequisites/$passRecorded/$resourcesRecorded entries=${lineEntry.valid()}/${cubeEntry.valid()} pipeline=$pipelineValid/'$pipelineError' tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

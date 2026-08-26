@@ -12,9 +12,9 @@ Updated: 2026-08-26.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 61 roots; samples 59 and 60 passed focused stripped-link
-  live gates, and sample 61 passed exact OpenGL/Vulkan/auto layered-image
-  readback. They are queued for the next periodic complete matrix.
+  The matrix now has 62 roots; samples 59 and 60 passed focused stripped-link
+  live gates, while samples 61 and 62 passed exact OpenGL/Vulkan/auto storage-
+  dimension readback. They are queued for the next periodic complete matrix.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
   structured errors, window configuration,

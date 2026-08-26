@@ -148,8 +148,9 @@ Storage images are format- and dimension-reflected across 1D, 2D, 2D-array,
 R32F compute and RGBA8 write-only/read-write compute execute through native
 OpenGL image units and Vulkan storage-image descriptors in `GENERAL`;
 fragment-stage RGBA8 stores are independently live. Exact 2D-array and 3D
-stores have dual-backend retained replay and subresource-readback evidence.
-Deterministic 1D/cube programs and general image-expression lowering,
+stores plus exact 1D and cube stores have dual-backend retained replay and
+subresource-readback evidence. Cube-storage capability is separately queried
+and enabled on Vulkan. General image-expression lowering,
 bind-group subpass records, broader copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 
