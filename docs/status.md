@@ -10,8 +10,10 @@ Updated: 2026-08-26.
   `test-runtime-linkage` gate clears `LD_LIBRARY_PATH` and all project graphics
   discovery overrides, proves zero unresolved shared libraries, and directly
   runs one freshly built Abla executable through both headless backends. The
-  54-root no-cache sample matrix separately audits every canonical executable
-  and runs its full live suite after unsetting `LD_LIBRARY_PATH`.
+  last complete 54-root no-cache sample matrix audited every then-canonical
+  executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
+  The matrix now has 60 roots; samples 59 and 60 passed focused stripped-link
+  live gates and are queued for the next periodic complete matrix.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
   structured errors, window configuration,
@@ -1219,8 +1221,8 @@ validity gate unchanged.
 - Broad OpenGL buffer/texture/framebuffer/compute and extension coverage.
 - Complete Vulkan feature-structure and OpenGL extension negotiation, optional
   feature preferences, broader per-stage limits, and typed extension objects.
-  The current common capability report covers the initial seven-feature mask
-  and ten directly queried limits documented in the API contract.
+  The current common capability report covers twelve portable feature bits and
+  the directly queried limits documented in the API contract.
 - Full GLSL 4.60 grammar validation/reflection or SPIR-V emission. The current
   subparser and shared source-spanned lexer own stage structure/source
   preservation plus the initial explicit
@@ -1486,7 +1488,8 @@ map, activity, and seal fingerprint. The 57th sample,
 `recorded-graph-storage-image-compute`, passed stripped-`LD_LIBRARY_PATH`
 OpenGL, Vulkan, and auto launches with exact red `4278190335`, sealed-map
 tamper rejection, 1,001 successful replays, zero/1,001 Vulkan submissions,
-and `live=0`. Broader formats/dimensions and fragment-stage images remain open.
+and `live=0`. Broader formats/dimensions and fragment-stage images were the
+next checkpoint.
 
 ### Storage-image views and read-write lowering
 
@@ -1506,6 +1509,29 @@ OpenGL/Vulkan/auto launches with exact green `4278255360`, 1,001 replays,
 post-seal tamper rejection, zero/1,001 submissions, and `live=0`. Its first
 performance run exposed and then removed a 416-byte-per-replay descriptor
 validation allocation from the warmed path.
+
+### Extended-format and fragment storage images
+
+The common capability mask now distinguishes storage images, fragment-stage
+stores, and Vulkan's extended shader-image formats. Vulkan queries and enables
+`fragmentStoresAndAtomics` and `shaderStorageImageExtendedFormats`; OpenGL 4.3+
+advertises both portable capabilities. Entry creation rejects vertex-stage
+storage images and rejects a fragment or extended-format entry when its
+specific capability was not enabled.
+
+Reflection and bind-group matching cover R8/RG8/RGBA8 unorm and R16/RG16/
+RGBA16/R32/RG32/RGBA32 float layout formats. The pure-Abla emitter adds an
+exact R32F compute store and an exact fragment RGBA8 store. OpenGL render paths
+now issue storage/image barriers after draw writes, while Vulkan's `GENERAL`
+resting access includes shader reads and writes before transfer readback.
+
+The 59th sample, `recorded-graph-storage-image-r32f-compute`, preserves exact
+IEEE `1.0f`, rejects sealed-map mutation, and completes 1,001 OpenGL/Vulkan/auto
+replays with zero/1,001 submissions and `live=0`. The 60th sample,
+`fragment-storage-image`, writes exact green to its storage image and exact red
+to its color attachment through 1,001 allocation-free renders on both
+backends. Both executables pass stripped-`LD_LIBRARY_PATH` linkage. Broader
+image dimensions and general image-expression lowering remain open.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

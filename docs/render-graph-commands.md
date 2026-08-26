@@ -353,7 +353,7 @@ coordinate and accumulates the channel into a storage buffer. Its independent
 proof rejects a sealed map mutation, reaches exact `1001` through 1,001
 OpenGL/Vulkan/automatic-selection replays, and retains zero warmed live growth.
 
-`graphSubpassStorageTextureResources(...)` retains imported single-mip RGBA8
+`graphSubpassStorageTextureResources(...)` retains imported single-mip 2D
 storage textures without artificial samplers. Its explicit read/write access
 must agree with the graph use and binding entry. The first `$glsl` form lowers
 write-only `image2D` `imageStore`; OpenGL binds an image unit and emits the
@@ -368,5 +368,14 @@ exact affine parent/view pair. The reflection now fingerprints and matches
 red, stores swapped green, and reaches exact `4278255360` after 1,001 replays
 on OpenGL, Vulkan, and automatic selection with `live=0`.
 
-Broader storage-image formats/dimensions, broader copy/dispatch forms, frames in flight, and
+`recorded-graph-storage-image-r32f-compute` proves the extended-format path:
+reflected `r32f` must match an R32F entry, Vulkan must have enabled
+`shaderStorageImageExtendedFormats`, and exact IEEE `1.0f` survives 1,001
+retained replays with sealed-map rejection and `live=0`. The independent
+`fragment-storage-image` proof requires the fragment-storage feature, writes
+exact green through `imageStore` while its color attachment becomes exact red,
+and repeats 1,001 times without managed growth on both backends.
+
+Broader storage-image dimensions and general image-expression lowering,
+broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

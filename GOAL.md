@@ -163,11 +163,13 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `940f5f87f0cdc7acfa23ea87229f568b0b6b4a03`
-  (`Bound native C string lifetimes`).
-- HEAD is synchronized and the worktree is clean. This graphics checkpoint
-  required no compiler source change, so there is nothing to stage or publish
-  in `../ablac`.
+  `6c3d23bc3336131ea7cf81f80dd821330612f89b`
+  (`Infer chained nominal global initializers`).
+- HEAD is synchronized, but the worktree currently contains unrelated active
+  edits in `docs/language.md`, `src/backend/llvm/core.ab`,
+  `src/backend/llvm/functions.ab`, `src/parser.ab`, and
+  `tests/cases/modules/strings-runtime.ab`. Preserve and do not stage them.
+  This graphics checkpoint required no compiler source change.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
   compiler/GLSL parser sources still used `type` as an identifier. For the
@@ -517,9 +519,9 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Expand the now-published RGBA8 2D storage-image and exact-view path to
-   broader formats/dimensions and fragment-stage images while preserving
-   reflected access/format matching and allocation-free retained replay.
+1. Expand the now-published 2D storage-image path to 1D/array/3D/cube
+   dimensions and general `imageLoad`/`imageStore` expression lowering while
+   preserving reflected access/format matching and allocation-free replay.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -843,6 +845,34 @@ scalar creation-time-validated state and passes `live=0`.
 `make check-abla-only`, `make test-application test-headless test-glsl
 test-graph-commands`, and the prior write-only storage-image sample all passed.
 No `../ablac` source change was required.
+
+### Extended-format and fragment storage images
+
+The portable feature mask now distinguishes base storage images,
+fragment-stage stores, and extended shader-image formats. Vulkan queries and
+enables `fragmentStoresAndAtomics` and `shaderStorageImageExtendedFormats`;
+OpenGL advertises both on the framework's 4.3+ execution path. Entry creation
+rejects vertex-stage storage images or a fragment/extended-format request whose
+capability was not actually enabled.
+
+Reflection and exact bind-group matching cover R8/RG8/RGBA8 unorm plus
+R16/RG16/RGBA16/R32/RG32/RGBA32 float 2D images. The deterministic pure-Abla
+emitter adds exact R32F compute and RGBA8 fragment store programs. OpenGL emits
+the image/storage barrier after render writes; Vulkan tracks shader read/write
+access for storage images resting in `GENERAL` before transfer readback.
+
+`examples/recorded-graph-storage-image-r32f-compute/` and
+`examples/fragment-storage-image/` bring the sample matrix to 60 roots. Their
+stripped-linkage OpenGL/Vulkan/auto runs passed with exact IEEE `1.0f`, exact
+green storage output, exact red color output, 1,001 repetitions, sealed-map
+rejection for retained compute, zero/1,001 Vulkan graph submissions, and
+`live=0`. The enlarged composition root crosses the historical 6 GiB compiler
+guard, so the isolated no-cache sample gate now uses 8 GiB; no `../ablac`
+source change was required. `make check-abla-only test-core test-glsl
+test-application test-headless` passed, as did optimized no-cache builds and
+stripped-link live runs of the two new samples plus fast no-cache regressions
+of both prior storage-image samples. Broader image dimensions and general
+expression lowering remain follow-up work.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

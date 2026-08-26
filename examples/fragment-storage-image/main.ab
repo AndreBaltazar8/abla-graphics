@@ -1,0 +1,115 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            validation = true,
+            requiredFeatures = graphicsFeatureStorageTextures |
+                graphicsFeatureFragmentStorageTextures |
+                graphicsFeatureStorageTextureExtendedFormats
+        ),
+        WindowConfig(
+            title = "Abla Graphics fragment storage image",
+            width = 480,
+            height = 270
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(rgba8, binding = 0) uniform writeonly image2D outputImage;
+            void main() {
+                imageStore(
+                    outputImage,
+                    ivec2(0, 0),
+                    vec4(0.0, 1.0, 0.0, 1.0)
+                );
+                color = vec4(1.0, 0.0, 0.0, 1.0);
+            }
+        }
+    }
+    val storage = app.texture(TextureDescriptor(
+        label = "fragment-storage-output",
+        size = Extent3D(1, 1),
+        usage = textureUsageStorage | textureUsageCopySource
+    ))
+    val invalidVertexEntry = app.storageTextureEntry(
+        0,
+        shaderVisibilityVertex,
+        storage,
+        graphicsStorageTextureWriteOnly
+    )
+    val binding = app.bindGroup([
+        app.storageTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            storage,
+            graphicsStorageTextureWriteOnly
+        )
+    ])
+    val targetTexture = app.texture(TextureDescriptor(
+        label = "fragment-storage-color",
+        size = Extent3D(64, 64),
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(targetTexture))
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(binding)
+    )
+    val clear = Color(0.0, 0.0, 0.0, 1.0)
+    var rendered = app.valid() && shader.valid && storage.valid() &&
+        !invalidVertexEntry.valid() && target.valid() && pipeline.valid() &&
+        app.renderToTarget(target, pipeline, clear)
+    val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
+        pipeline.openGl.handle else pipeline.vulkan.handle
+    val storageIdentity = if (app.backend == graphicsBackendOpenGl)
+        storage.openGl.handle else storage.vulkan.image
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (rendered && iteration < 1001) {
+        rendered = app.renderToTarget(target, pipeline, clear)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val storagePixel = if (rendered) storage.rgba8(0, 0) else -1
+    val colorPixel = if (rendered) target.texture.rgba8(32, 32) else -1
+    val identitiesStable = pipelineIdentity != 0 && storageIdentity != 0 &&
+        pipelineIdentity == (if (app.backend == graphicsBackendOpenGl)
+            pipeline.openGl.handle else pipeline.vulkan.handle) &&
+        storageIdentity == (if (app.backend == graphicsBackendOpenGl)
+            storage.openGl.handle else storage.vulkan.image)
+    val stable = rendered && iteration == 1001 &&
+        storagePixel == 4278255360 && colorPixel == 4278190335 &&
+        liveAfter == liveBefore && identitiesStable
+    println(
+        "fragment-storage-image ${graphicsBackendName(app.backend)}: storage=$storagePixel color=$colorPixel vertexRejected=${!invalidVertexEntry.valid()} frames=$iteration live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

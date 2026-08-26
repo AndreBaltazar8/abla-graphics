@@ -142,10 +142,12 @@ replay. Exact
 OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
 mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
 stable native objects, exact render/copy/storage output, submission counts, and
-silent Vulkan validation. Imported RGBA8 write-only and read-write compute
-storage images, including explicit one-mip/one-layer views, are retained and
-replayed through native OpenGL image units and Vulkan storage-image descriptors
-in `GENERAL` layout. Broader storage-image formats/dimensions,
+silent Vulkan validation. Portable R8/RG8/RGBA8, 16-bit float, and 32-bit float
+2D storage images are format-reflected and matched, including explicit
+one-mip/one-layer views. Retained R32F compute and RGBA8 write-only/read-write
+compute execute through native OpenGL image units and Vulkan storage-image
+descriptors in `GENERAL`; fragment-stage RGBA8 stores are independently live.
+Broader storage-image dimensions and general image-expression lowering,
 bind-group subpass records, broader copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 

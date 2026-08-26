@@ -212,11 +212,14 @@ native identity, draw range, workgroup, and copied render/compute push byte.
 Transient buffer slots use bounded one-allocation buffer
 pools and reuse complete native buffers only across compatible disjoint
 lifetimes. Replay performs no descriptor construction or live-memory growth.
-OpenGL uses the existing direct operations. An eligible Vulkan stream records
+OpenGL uses the existing direct operations and issues image/storage barriers
+after render writes. An eligible Vulkan stream records
 graph memory dependencies, the 2D texture copy, render, and compute dispatch
 into one retained command buffer, then submits once; direct APIs remain
-unchanged. Later slices must add broader copy/compute forms, frames in flight,
-broader storage-image formats/dimensions, and GPU-completion-aware
+unchanged. Vulkan storage-image capability reporting mirrors enabled fragment
+store and extended-format device features. Later slices must add broader
+copy/compute forms, frames in flight, broader storage-image dimensions and
+general expression lowering, and GPU-completion-aware
 retention.
 
 ## Specification coverage

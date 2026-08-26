@@ -1241,6 +1241,16 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
         features = features | graphicsFeatureCompute |
             graphicsFeatureStorageBuffers | graphicsFeatureStorageTextures
     }
+    if ((features & graphicsFeatureStorageTextures) != 0 &&
+        // VkPhysicalDeviceFeatures::fragmentStoresAndAtomics.
+        (deviceFeatures.loadI64(104) & 4294967295) != 0) {
+        features = features | graphicsFeatureFragmentStorageTextures
+    }
+    if ((features & graphicsFeatureStorageTextures) != 0 &&
+        // VkPhysicalDeviceFeatures::shaderStorageImageExtendedFormats.
+        (deviceFeatures.loadI64(120) & 4294967295) != 0) {
+        features = features | graphicsFeatureStorageTextureExtendedFormats
+    }
     val maximumAnisotropy = graphicsPositiveF32Floor(
         properties.loadI64(568) & 4294967295
     )
@@ -1295,6 +1305,13 @@ trusted fun VulkanAdapter.enabledDeviceFeatures(): NativeByteBuffer {
     }
     if (((available.loadI64(72) >>> 32) & 4294967295) != 0) {
         enabled.store(76, 1)
+    }
+    // Preserve the exact VkPhysicalDeviceFeatures byte offsets queried above.
+    if ((available.loadI64(104) & 4294967295) != 0) {
+        enabled.store(104, 1)
+    }
+    if ((available.loadI64(120) & 4294967295) != 0) {
+        enabled.store(120, 1)
     }
     enabled
 }
@@ -4233,6 +4250,13 @@ fun vulkanTextureRestingAccessForUsage(
     else if (layout == 2) access = 384
     else if (layout == 3) access = 1536
     else {
+        if (layout == 1 &&
+            (usage & (textureUsageSampled | textureUsageStorage)) != 0) {
+            access = access | 32
+        }
+        if (layout == 1 && (usage & textureUsageStorage) != 0) {
+            access = access | 64
+        }
         if ((usage & textureUsageCopySource) != 0) {
             access = access | 2048
         }

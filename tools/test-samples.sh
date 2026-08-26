@@ -40,12 +40,13 @@ samples=(x11-window wayland-info wayland-window wayland-pixels \
     recorded-graph-binding-subpasses recorded-graph-texture-render \
     recorded-graph-texture-compute recorded-graph-storage-image-compute \
     recorded-graph-storage-image-view-compute \
+    recorded-graph-storage-image-r32f-compute fragment-storage-image \
     recorded-graph-texture-subpasses \
     recorded-graph-transient-texture-subpasses)
 
 for sample in "${samples[@]}"; do
     cd "$compiler_root"
-    ABLA_MAX_MEMORY_MB=${ABLA_SAMPLE_TEST_MEMORY_MB:-6144} \
+    ABLA_MAX_MEMORY_MB=${ABLA_SAMPLE_TEST_MEMORY_MB:-8192} \
         ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
         -o "$output_directory/$sample" --no-cache
@@ -154,6 +155,10 @@ for backend in opengl vulkan; do
         "$output_directory/recorded-graph-storage-image-compute" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-storage-image-view-compute" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/recorded-graph-storage-image-r32f-compute" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/fragment-storage-image" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-texture-subpasses" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

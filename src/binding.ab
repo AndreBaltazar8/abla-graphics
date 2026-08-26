@@ -69,8 +69,49 @@ fun graphicsStorageTextureReflectedAccess(access: string): int =
     else graphicsStorageTextureReadWrite
 
 fun graphicsStorageTextureReflectedFormat(format: string): int =
-    if (format == "rgba8") textureFormatRgba8Unorm
+    if (format == "r8") textureFormatR8Unorm
+    else if (format == "rg8") textureFormatRg8Unorm
+    else if (format == "rgba8") textureFormatRgba8Unorm
+    else if (format == "r16f") textureFormatR16Float
+    else if (format == "rg16f") textureFormatRg16Float
+    else if (format == "rgba16f") textureFormatRgba16Float
+    else if (format == "r32f") textureFormatR32Float
+    else if (format == "rg32f") textureFormatRg32Float
+    else if (format == "rgba32f") textureFormatRgba32Float
     else textureFormatUndefined
+
+fun graphicsStorageTextureFormatValid(format: int): bool =
+    format == textureFormatR8Unorm || format == textureFormatRg8Unorm ||
+    format == textureFormatRgba8Unorm ||
+    format == textureFormatR16Float || format == textureFormatRg16Float ||
+    format == textureFormatRgba16Float ||
+    format == textureFormatR32Float || format == textureFormatRg32Float ||
+    format == textureFormatRgba32Float
+
+fun graphicsStorageTextureRequiredFeatures(
+    format: int,
+    visibility: int
+): int {
+    var features = graphicsFeatureStorageTextures
+    if (format != textureFormatRgba32Float) {
+        features = features | graphicsFeatureStorageTextureExtendedFormats
+    }
+    if ((visibility & shaderVisibilityFragment) != 0) {
+        features = features | graphicsFeatureFragmentStorageTextures
+    }
+    if ((visibility & shaderVisibilityVertex) != 0) features = -1
+    features
+}
+
+fun graphicsStorageTextureSupported(
+    capabilities: GraphicsCapabilities,
+    format: int,
+    visibility: int
+): bool {
+    val required = graphicsStorageTextureRequiredFeatures(format, visibility)
+    graphicsStorageTextureFormatValid(format) && required >= 0 &&
+        capabilities.supports(required)
+}
 
 class GraphicsBindingEntry(
     val binding: int,
@@ -351,16 +392,17 @@ trusted fun GraphicsApplication.storageTextureEntry(
         binding < 0 || binding > 31 ||
         !graphicsBindingVisibilityValid(visibility) ||
         !graphicsStorageTextureAccessValid(access) ||
-        !this.capabilities.supports(graphicsFeatureStorageTextures) ||
+        !graphicsStorageTextureSupported(
+            this.capabilities, texture.descriptor.format, visibility
+        ) ||
         (texture.descriptor.usage & textureUsageStorage) == 0 ||
         texture.descriptor.dimension != textureDimension2D ||
         texture.descriptor.samples != 1 || texture.descriptor.mipLevels != 1 ||
-        texture.descriptor.format != textureFormatRgba8Unorm ||
         format == 0 || !prepared) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.storageTextureEntry",
-            "storage texture entries currently require an owned single-mip RGBA8 two-dimensional storage texture, valid access, binding, and visibility"
+            "storage texture entries require an owned single-mip two-dimensional storage texture with a supported image format and stage, valid access, binding, and visibility"
         )
     }
     GraphicsBindingEntry(
@@ -415,16 +457,18 @@ trusted fun GraphicsApplication.storageTextureViewEntry(
         ) || binding < 0 || binding > 31 ||
         !graphicsBindingVisibilityValid(visibility) ||
         !graphicsStorageTextureAccessValid(access) ||
-        !this.capabilities.supports(graphicsFeatureStorageTextures) ||
+        !graphicsStorageTextureSupported(
+            this.capabilities, format, visibility
+        ) ||
         (texture.descriptor.usage & textureUsageStorage) == 0 ||
         dimension != textureDimension2D || texture.descriptor.samples != 1 ||
         view.descriptor.resolvedMipLevelCount(texture.descriptor) != 1 ||
         view.descriptor.resolvedArrayLayerCount(texture.descriptor) != 1 ||
-        format != textureFormatRgba8Unorm || !prepared) {
+        !prepared) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.storageTextureViewEntry",
-            "storage texture-view entries require an owned one-mip, one-layer RGBA8 two-dimensional storage view, matching parent texture, valid access, binding, and visibility"
+            "storage texture-view entries require an owned one-mip, one-layer two-dimensional storage view with a supported image format and stage, matching parent texture, valid access, binding, and visibility"
         )
     }
     GraphicsBindingEntry(

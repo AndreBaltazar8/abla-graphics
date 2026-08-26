@@ -311,6 +311,13 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   executes reflected read-write `imageLoad`/`imageStore`, swaps exact red to
   green over 1,001 allocation-free OpenGL/Vulkan/auto graph replays, and
   rejects sealed-map mutation;
+- `examples/recorded-graph-storage-image-r32f-compute`: an extended-format
+  R32F storage image executes retained `$glsl` compute, preserves exact IEEE
+  `1.0f` through 1,001 allocation-free dual-backend replays, and rejects sealed
+  stage-map mutation;
+- `examples/fragment-storage-image`: a fragment-stage `imageStore` writes exact
+  green to a separate RGBA8 image while the same draw writes exact red to its
+  color attachment through 1,001 allocation-free OpenGL/Vulkan/auto renders;
 - `examples/recorded-graph-buffered-render`: one sealed four-record stream owns
   separate planner-declared vertex and indexed draws, produces exact pixels
   through 1,001 allocation-free replays, and uses one Vulkan submission per

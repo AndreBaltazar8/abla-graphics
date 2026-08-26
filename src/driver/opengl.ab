@@ -739,6 +739,17 @@ trusted fun openGlApplyBindGroup(
     succeeded && glGetError() == 0
 }
 
+trusted fun openGlApplyBindGroupWriteBarrier(kinds: array<int>): void {
+    var bits = 0
+    var index = 0
+    while (index < kinds.size) {
+        if (kinds[index] == 3) bits = bits | 8192
+        else if (kinds[index] == 4) bits = bits | 32
+        index = index + 1
+    }
+    if (bits != 0) glMemoryBarrier(bits)
+}
+
 trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     val major = nativeI64Cell(0)
     val minor = nativeI64Cell(0)
@@ -806,7 +817,9 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
         graphicsFeatureTimestampQueries
     if (compute) {
         features = features | graphicsFeatureCompute |
-            graphicsFeatureStorageBuffers | graphicsFeatureStorageTextures
+            graphicsFeatureStorageBuffers | graphicsFeatureStorageTextures |
+            graphicsFeatureFragmentStorageTextures |
+            graphicsFeatureStorageTextureExtendedFormats
     }
     if (maximumAnisotropy > 1) {
         features = features | graphicsFeatureSamplerAnisotropy
@@ -2704,11 +2717,14 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
                 vertexCount,
                 instanceCount
             )
-        if (rendered) openGlInvalidateRenderTarget(
-            target,
-            discardAfterMask,
-            this.clearScratch
-        )
+        if (rendered) {
+            openGlApplyBindGroupWriteBarrier(bindingKinds)
+            openGlInvalidateRenderTarget(
+                target,
+                discardAfterMask,
+                this.clearScratch
+            )
+        }
         rendered = rendered && glGetError() == 0
         glBindFramebuffer(36160, 0)
     }
@@ -3697,6 +3713,7 @@ resource class OpenGlWindowContext(
                 0,
                 3
             )
+            if (presented) openGlApplyBindGroupWriteBarrier(bindingKinds)
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -3803,6 +3820,7 @@ resource class OpenGlWindowContext(
                     vertexCount,
                     instanceCount
                 )
+            if (presented) openGlApplyBindGroupWriteBarrier(bindingKinds)
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -3920,6 +3938,7 @@ resource class OpenGlWindowContext(
                 nativePointerFromAddress(indexOffset),
                 instanceCount
             )
+            if (presented) openGlApplyBindGroupWriteBarrier(bindingKinds)
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }

@@ -250,14 +250,18 @@ before either backend creates a pipeline. Other GLSL sampler families remain
 recognized as sampled resources but are rejected until their corresponding
 portable texture dimensions are available.
 
-`storageTextureEntry(binding, visibility, texture, access)` currently accepts
-an owned single-mip, single-sample two-dimensional `textureFormatRgba8Unorm`
-texture with `textureUsageStorage`. The first portable shader subset is
-write-only `image2D`, so reflected pipeline matching requires
-`graphicsStorageTextureWriteOnly`. OpenGL precomputes the image unit, internal
-format, and access for `glBindImageTexture`; Vulkan creates a storage-image
-descriptor, transitions every selected subresource to `GENERAL` once before
-use, and keeps that resting layout across dispatch and readback.
+`storageTextureEntry(binding, visibility, texture, access)` accepts an owned
+single-mip, single-sample two-dimensional texture with `textureUsageStorage`.
+Portable image formats are R8/RG8/RGBA8 unorm, R16/RG16/RGBA16 float, and
+R32/RG32/RGBA32 float. `rgba32f` is the baseline Vulkan shader-image format;
+the other formats require
+`graphicsFeatureStorageTextureExtendedFormats`. Compute visibility is portable,
+fragment visibility additionally requires
+`graphicsFeatureFragmentStorageTextures`, and vertex visibility remains
+rejected. OpenGL precomputes the image unit, internal format, and access for
+`glBindImageTexture`; Vulkan creates a storage-image descriptor, transitions
+every selected subresource to `GENERAL` once before use, and keeps that resting
+layout across dispatch, rendering, and readback.
 
 `storageTextureViewEntry(binding, visibility, texture, view, access)` selects
 one validated mip and array layer without giving ownership to the bind group.
@@ -265,8 +269,9 @@ It requires the parent and view to belong to the application and agree on the
 complete parent descriptor. OpenGL binds mip zero of the re-indexed texture-view
 object. Vulkan uses the caller-owned `VkImageView` and transitions only the
 selected parent subresource range. Reflection carries `readonly`, `writeonly`,
-or unqualified read-write access plus the `rgba8` layout format, so access or
-format mismatches fail before pipeline creation.
+or unqualified read-write access plus `r8`, `rg8`, `rgba8`, `r16f`, `rg16f`,
+`rgba16f`, `r32f`, `rg32f`, or `rgba32f`, so access or format mismatches fail
+before pipeline creation.
 
 `sampledTextureViewEntry` binds an existing `GraphicsTextureView` instead of a
 texture's default view. Its resolved format, dimension, mip range, layer range,
@@ -1604,9 +1609,12 @@ Selection is performed once and never becomes a silent per-frame fallback.
 `GraphicsConfig.requiredFeatures` is a bit mask of
 `graphicsFeatureCompute`, `graphicsFeatureStorageBuffers`,
 `graphicsFeatureSampledTextures`, `graphicsFeatureDepthTextures`,
-`graphicsFeatureComparisonSamplers`, and
-`graphicsFeatureViewFormatReinterpretation`, and
-`graphicsFeatureSamplerAnisotropy`, and `graphicsFeatureTimestampQueries`.
+`graphicsFeatureComparisonSamplers`,
+`graphicsFeatureViewFormatReinterpretation`,
+`graphicsFeatureSamplerAnisotropy`, `graphicsFeatureTimestampQueries`,
+`graphicsFeaturePersistentMapping`, `graphicsFeatureStorageTextures`,
+`graphicsFeatureFragmentStorageTextures`, and
+`graphicsFeatureStorageTextureExtendedFormats`.
 Creation fails with
 `graphicsErrorUnsupportedFeature` when an installed requested backend cannot
 provide every required bit. Automatic selection may skip such a backend and
@@ -1623,8 +1631,13 @@ These values come from
 the selected Vulkan queue family. OpenGL 4.3+ advertises view-format
 reinterpretation through immutable texture storage and owned `glTextureView`
 resources; Vulkan advertises it through the implemented mutable-format
-image-view path. Unknown requirement bits are
-an invalid configuration.
+image-view path. Unknown requirement bits are an invalid configuration.
+
+OpenGL 4.3 advertises fragment storage images and the portable extended format
+family directly. Vulkan reports and enables the corresponding
+`fragmentStoresAndAtomics` and `shaderStorageImageExtendedFormats` feature bits;
+automatic selection therefore cannot choose a backend that merely accepts the
+descriptor while lacking the shader-stage capability.
 
 This is the delivered portable capability subset, not a claim of complete
 extension/feature-chain negotiation. Optional feature preferences and typed

@@ -618,6 +618,58 @@ fun main: int {
     val storageImageReadWriteSpirvAgain = storageImageReadWrite.spirv(
         shaderStageCompute
     )
+    val storageImageFloat = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(r32f, binding = 0) uniform writeonly image2D outputImage;
+            void main() {
+                imageStore(
+                    outputImage,
+                    ivec2(0, 0),
+                    vec4(1.0, 0.0, 0.0, 1.0)
+                );
+            }
+        }
+    }
+    val storageImageFloatSpirv = storageImageFloat.spirv(
+        shaderStageCompute
+    )
+    val storageImageFloatSpirvAgain = storageImageFloat.spirv(
+        shaderStageCompute
+    )
+    val storageImageFragment = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(rgba8, binding = 0) uniform writeonly image2D outputImage;
+            void main() {
+                imageStore(
+                    outputImage,
+                    ivec2(0, 0),
+                    vec4(0.0, 1.0, 0.0, 1.0)
+                );
+                color = vec4(1.0, 0.0, 0.0, 1.0);
+            }
+        }
+    }
+    val storageImageFragmentSpirv = storageImageFragment.spirv(
+        shaderStageFragment
+    )
+    val storageImageFragmentSpirvAgain = storageImageFragment.spirv(
+        shaderStageFragment
+    )
     val unsupportedSampledStorage = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) uniform sampler2D atlas; layout(std430,binding=1) buffer Destination { uint value; } destination; void main(){ destination.value += uint(texture(atlas,vec2(0.25,0.5)).r); }"]
@@ -3161,6 +3213,29 @@ fun main: int {
         spirvWordsEqual(
             storageImageReadWriteSpirv.module,
             storageImageReadWriteSpirvAgain.module
+        ) && storageImageFloat.valid &&
+        storageImageFloat.bindings.size == 1 &&
+        storageImageFloat.bindings[0].access == "writeonly" &&
+        storageImageFloat.bindings[0].imageFormat == "r32f" &&
+        storageImageFloatSpirv.succeeded &&
+        storageImageFloatSpirv.module.valid() &&
+        storageImageFloatSpirv.module.bound() == 23 &&
+        spirvContainsWord(storageImageFloatSpirv.module, 262243) &&
+        spirvWordsEqual(
+            storageImageFloatSpirv.module,
+            storageImageFloatSpirvAgain.module
+        ) && storageImageFragment.valid &&
+        storageImageFragment.bindings.size == 1 &&
+        storageImageFragment.bindings[0].stage == shaderStageFragment &&
+        storageImageFragment.bindings[0].access == "writeonly" &&
+        storageImageFragment.bindings[0].imageFormat == "rgba8" &&
+        storageImageFragmentSpirv.succeeded &&
+        storageImageFragmentSpirv.module.valid() &&
+        storageImageFragmentSpirv.module.bound() == 22 &&
+        spirvContainsWord(storageImageFragmentSpirv.module, 262243) &&
+        spirvWordsEqual(
+            storageImageFragmentSpirv.module,
+            storageImageFragmentSpirvAgain.module
         ) &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
