@@ -1498,11 +1498,46 @@ There are 40 independently rebuilt example directories at this checkpoint.
 The sample count in older commits or handoffs may be lower; the filesystem and
 `tools/test-samples.sh` are authoritative.
 
-## Milestone 5 direction after the published recorded-render slice
+### Published checkpoint: bounded asynchronous graph submissions
 
-Pass markers, transient 2D copies, a narrow owned procedural render, and one
-submission for an eligible Vulkan replay are published. Submission is still
-synchronous, while compute and most render resource/command forms remain direct.
+Implementation commit:
+`477799a1cc1ab1f133fc28ba4a1dc13354924665`
+(`Submit recorded graphs across frame slots`).
+
+Eligible consolidated Vulkan graph replay now returns after `vkQueueSubmit2`
+acceptance instead of waiting after every replay. The Vulkan device allocates a
+fixed eight-command-buffer reserve from its existing transfer pool; each list
+activates exactly its configured `framesInFlight` count, retains timeline values
+in bounded scalar metadata, waits only on a reused slot, and offers explicit
+poll/drain methods. A synchronous transfer drains device slots before resetting
+the shared pool. OpenGL remains direct and ordered. No C/C++/Rust shim or GLFW/
+SDL dependency was introduced.
+
+`examples/recorded-graph-copy` configures three frames in flight. Its optimized
+standalone binary passed explicit OpenGL with `retained=0/0->0` and validation-
+layer Vulkan with `submissions=1001 retained=3/3->0`; array and volume output
+were exact, `stable=true`, and warmed live-byte growth was zero. Vulkan emitted
+no validation diagnostics. `make check-abla-only` passed, and `ldd` reported no
+unresolved dependency with `LD_LIBRARY_PATH` removed. Build inside `nix-shell`:
+a direct host `make test-graph-commands` cannot find `-lvulkan`, `-lX11`,
+`-lEGL`, or `-lGL`, while Nix-built binaries contain the project shell's rpaths
+and launch with `LD_LIBRARY_PATH` removed.
+
+Do not currently claim the combined `make test-graph-commands` gate passes.
+With the current sibling `build/ablac`, it reaches all render/subpass OpenGL
+proofs through `graph-transient-texture-subpasses`, then traps while entering
+the first compute shader probe. A detached worktree at the already-published
+graphics commit `1a0b120` reproduced the identical trap at the identical point,
+so it is not introduced by `477799a`; diagnose the current compiler/test
+combination before the next broad gate. No `../ablac` source was changed for
+this checkpoint, and its pre-existing dirty files remain untouched.
+
+## Milestone 5 direction after bounded asynchronous replay
+
+Pass markers, dimension-aware copies, the retained render/subpass forms, and
+typed compute/image forms are published. Eligible Vulkan replay now uses a
+bounded frames-in-flight ring; broader command forms and presentation scheduling
+remain open.
 
 The later layers should:
 
@@ -1511,8 +1546,8 @@ The later layers should:
 2. Record a complete graph/frame without managed allocation after warm-up.
 3. Preserve exact image-layout responsibility without double transitions as
    more copy/render forms join the consolidated command stream.
-4. Support frames in flight and retain every
-   borrowed resource until GPU completion.
+4. Extend completion-aware retention from the graph ring into presentation and
+   broader encoders while preserving explicit owner lifetimes.
 5. Keep direct encoders and raw escape hatches available.
 6. Prove exact multi-pass output, native barrier/submission counts, stable
    command resources, Vulkan validation silence, and zero steady-state live
@@ -1533,8 +1568,8 @@ include:
 - the remaining GLSL 4.60 grammar and stages, includes/modules, precise source
   spans, reflection, specialization constants, interface validation,
   deterministic dual-backend generation, and shader/pipeline caches;
-- reusable command encoders, frames in flight, presentation scheduling,
-  descriptor reuse, backend-private heap allocation/suballocation, persistent
+- reusable command encoders, presentation scheduling, descriptor reuse,
+  backend-private heap allocation/suballocation, persistent
   pipeline caches, and device-loss/context-reset recovery;
 - geometry/tessellation, mesh/task, ray tracing, acceleration structures,
   multiview, variable-rate shading, sparse/external resources, video, device
@@ -1571,7 +1606,8 @@ Public/common implementation:
   execution.
 - `src/graph_commands.ab` — verified bounded pass/copy/render recording,
   affine render ownership, sealing, graph/descriptor binding, direct and
-  consolidated replay, submission accounting, and diagnostics.
+  consolidated frames-in-flight replay, completion polling/draining, submission
+  accounting, and diagnostics.
 
 Native/platform implementation:
 
@@ -1613,7 +1649,13 @@ Tests, samples, and public claims:
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
-but never publish from focused tests alone.
+then record the relevant broad-gate result or independently reproduced baseline
+failure before publication.
+
+On NixOS, do not build native gates with bare `make`: the host linker may report
+missing Vulkan/X11/EGL/GL libraries. Enter through `nix-shell --run ...`; the
+shell also embeds absolute rpaths so the produced executable can subsequently
+launch with `LD_LIBRARY_PATH` removed.
 
 Useful commands:
 
