@@ -502,8 +502,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups without unbounded command variants
-   or warmed allocation.
+1. Extend recorded subpass bindings from imported full textures to sampled
+   views and graph-owned transient textures without warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -666,8 +666,29 @@ inside the graph's single retained command buffer.
 The focused test mutates the source push aggregate after sealing, rejects a
 sealed logical buffer-ID mutation, and keeps exact RGBA8 `4294281759` through
 1,001 OpenGL, Vulkan, and automatic-selection replays with `live=0` and
-zero/1,001 submissions. No new sample root or compiler change was needed;
-sampled-texture subpass resources are the next missing binding form.
+zero/1,001 submissions. No new sample root or compiler change was needed.
+
+### Planner-visible sampled textures and samplers
+
+The binding resource table now composes imported buffers, full sampled
+textures, and affine samplers. `graphSubpassTextureResources(...)` is the
+texture-only convenience factory; `graphSubpassBindingResources(...)` accepts
+mixed typed tables. Per-stage indices resolve against the table implied by each
+reflected bind-group entry. Record, seal, replay, and fingerprint validation
+cover logical IDs, exact descriptors, read access, sampled usage, native
+texture/sampler identities, stage maps, and attachment alias rejection.
+
+The strict `$glsl` translator now includes a procedural textured vertex form
+with constant position/UV arrays and a real location-zero varying. The focused
+gate selects two different 1x1 sampled resources across two recorded stages,
+rejects sealed map mutation, and preserves exact RGBA8 `4294281759` through
+1,001 OpenGL, Vulkan, and automatic-selection replays with `live=0` and
+zero/1,001 submissions. `examples/recorded-graph-texture-subpasses` repeats the
+public path, passes both explicit backends, and has no unresolved direct `ldd`
+entry with `LD_LIBRARY_PATH` removed. The sample matrix now has 53 roots.
+
+Sampled texture views and graph-owned transient sampled textures remain the
+next binding-resource extensions. No C, GLFW, SDL, or native shim is used.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

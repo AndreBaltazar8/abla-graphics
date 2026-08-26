@@ -1883,6 +1883,15 @@ val subpassBuffers = graphSubpassBufferResources(
     [move(firstUniform), move(secondUniform)],
     [[0], [1]]
 )
+val subpassTextures = graphSubpassTextureResources(
+    [firstAtlasId, secondAtlasId],
+    [move(firstAtlas), move(secondAtlas)],
+    [move(firstSampler), move(secondSampler)],
+    [[0], [1]]
+)
+// graphSubpassBindingResources(...) composes buffer and texture tables for
+// mixed bind groups. Each stage index addresses the table selected by the
+// reflected entry kind.
 commands.recordRenderBindingSubpasses(
     graph,
     [firstColorId, secondColorId],
@@ -1957,8 +1966,8 @@ ID per color, and optional depth to exact pass writes and descriptors. OpenGL
 executes the stages in order; eligible Vulkan graph streams record the native
 sequence into the same retained command buffer and submit once. Buffer-backed
 bind-group subpasses use `recordRenderBindingSubpasses` as described below.
-Compute sampled/image bindings, sampled-texture subpass forms, broader
-copy/dispatch forms, frames in flight,
+Compute sampled/image bindings, sampled texture-view and transient-texture
+subpass forms, broader copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 
@@ -1968,18 +1977,21 @@ complete reflected per-stage aggregate into command-owned storage, bounded at
 stage's stored range through its persistent push UBO; Vulkan records matching
 `vkCmdPushConstants` ranges inside the same consolidated graph submission.
 
-`recordRenderBindingSubpasses` accepts pipelines with retained buffer bind
-groups. `graphSubpassBufferResources` takes affine ownership of a unique,
-flattened imported-buffer table and a per-stage array mapping each bind-group
-entry to that table. Uniform and storage entries are validated against exact
-graph declarations, pass access, ranges, usage flags, backend identities, and
-the sealed fingerprint. OpenGL performs ordered stage draws; Vulkan records all
-descriptor-set binds and subpasses into the graph's one retained command
-buffer. `recordRenderBindingPushSubpasses` composes this ownership with the
-1,024-byte snapshotted push aggregate, retaining descriptor binds and push
-commands in the same ordered OpenGL replay or consolidated Vulkan command
-buffer. This first binding resource table intentionally excludes sampled
-textures.
+`recordRenderBindingSubpasses` accepts pipelines with retained bind groups.
+`graphSubpassBufferResources`, `graphSubpassTextureResources`, and
+`graphSubpassBindingResources` take affine ownership of unique flattened
+imported-resource tables and a per-stage array mapping each bind-group entry to
+its kind-specific table. Buffer entries validate exact declarations, pass
+access, ranges, usage flags, and backend identities. Sampled entries validate
+single-sample color descriptors, sampled usage, pass reads, texture and sampler
+identities, and reject attachment aliasing. Every field participates in record,
+seal, replay, and fingerprint checks. OpenGL performs ordered stage draws;
+Vulkan records all descriptor-set binds and subpasses into the graph's one
+retained command buffer. `recordRenderBindingPushSubpasses` composes this
+ownership with the 1,024-byte snapshotted push aggregate, retaining descriptor
+binds and push commands in the same ordered OpenGL replay or consolidated
+Vulkan command buffer. Texture views and graph-owned transient sampled textures
+remain future extensions of the same table.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:
@@ -2553,6 +2565,9 @@ one location-zero `vec2` position or an interleaved location-zero `vec2`
 position plus a location-one `vec4` tint or `vec2` texture coordinate passed
 through a location-zero varying. The texture form also accepts one binding-zero
 fragment `sampler2D` and emits the corresponding sampled-image operation.
+The procedural textured form emits constant position and texture-coordinate
+arrays, selects both with `gl_VertexID`, and feeds the same fragment sample
+operation without requiring a vertex buffer.
 The procedural form may apply one vertex-visible binding-zero std140 `mat4`
 uniform to the selected position. This emits a real uniform-block descriptor
 access and matrix-vector multiply and is exercised by recorded binding

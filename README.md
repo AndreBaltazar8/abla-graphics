@@ -325,6 +325,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-binding-subpasses`: two planner-declared uniform
   buffers feed distinct stages of one owned subpass sequence, producing exact
   output through 1,001 allocation-free OpenGL/Vulkan replays;
+- `examples/recorded-graph-texture-subpasses`: two planner-declared sampled
+  textures and affine samplers feed distinct recorded stages with exact output,
+  zero warmed growth, and one Vulkan submission per replay;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;
