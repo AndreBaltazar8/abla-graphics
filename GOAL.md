@@ -80,6 +80,12 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
+- Published tip before the buffered-render checkpoint:
+  `39b54a776703666ac21d528c3cb09909c8a519ec`
+  (`Update graphics continuation handoff`).
+- Buffered-render implementation commit:
+  `c527dc9bc49fcf676f9873903d890639d7fe809a`
+  (`Record buffered graph rendering`).
 - Published tip before the multi-binding/transient-buffer checkpoint:
   `29a7be7dd17bd3eedeaf3d9797d8a6220523bf28`
   (`Update graphics continuation handoff`).
@@ -250,6 +256,46 @@ example roots and ran the full OpenGL/Vulkan live matrix. The new
 
 No `../ablac` change was needed. It remained clean and synchronized at
 `82a66da3a978d63adbe49922f74eebc76eea892a`.
+
+## Published checkpoint: recorded vertex and indexed rendering
+
+Implementation commit `c527dc9bc49fcf676f9873903d890639d7fe809a`
+adds `recordRenderVertices(...)` and `recordRenderIndexed(...)` without changing
+the low-level drivers. Each record moves its target, pipeline, and
+planner-declared imported vertex/index buffers into one affine
+`GraphicsGraphRenderResources` group. The containing pass must declare buffer
+reads and target writes; exact descriptors, usage bits, aligned byte ranges,
+counts, native identities, and draw form participate in validation and the
+sealed fingerprint.
+
+OpenGL replay calls the retained scalar render encoder directly. Vulkan records
+the same buffer handles, counts, instances, and offsets into the graph's one
+consolidated command buffer. An initial convenience-API replay allocated one
+temporary `Color` per execution; the focused no-growth test exposed it, and
+the final scalar replay removes that allocation.
+
+Focused evidence on the published implementation source:
+
+- `make test-graph-commands` passes OpenGL, Vulkan, and automatic selection;
+- the new proof produces exact vertex and indexed center pixels `4294281759`,
+  rejects a sealed native vertex-buffer handle mutation before execution,
+  performs 1,001 successful replays, uses zero/1,001 OpenGL/Vulkan submissions,
+  and reports `live=0`;
+- forced `VK_LAYER_KHRONOS_validation` replay returns the same evidence without
+  a validation message;
+- `make check-abla-only` passes; and
+- `examples/recorded-graph-buffered-render` builds with its own native-library
+  manifest, has no unresolved `ldd` dependency with `LD_LIBRARY_PATH` removed,
+  and runs both explicit backends with exact output and `live=0`.
+
+Important paths are `src/graph_commands.ab`,
+`tests/graph_commands/main.ab`, `tools/test-graph-commands.sh`,
+`examples/recorded-graph-buffered-render/`, `tools/test-samples.sh`, and the
+render-graph API/status/architecture documentation. The complete sample list
+now contains 45 roots, but the full matrix has not been rerun for this focused
+slice. Continue using the efficient validation policy below: review and publish
+future focused checkpoints with targeted evidence, beginning with indirect and
+reflected push render records. No `../ablac` change has been required.
 
 ## Published checkpoint: multi-binding compute and transient graph buffers
 
