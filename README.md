@@ -182,7 +182,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   compiled raw metadata modules leave every unaudited row visibly
   unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
   `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
-  other entry unsupported;
+  other OpenGL entry unsupported, plus 35 Vulkan
+  `void(pointer,i32)` command-buffer commands while leaving the other 807
+  Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
@@ -265,7 +267,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   command addresses through explicit application-scoped raw views, rejects
   unknown or mismatched call ABIs, and executes 1,000 allocation-stable
   indirect `glFinish`, scissor enable/disable, and pack-alignment state changes
-  with exact state observation/restoration in normal and optimized builds;
+  with exact state observation/restoration; its Vulkan path records and submits
+  1,000 raw device-mask commands, resets the borrowed command pool, and stays
+  validation-clean in normal and optimized builds;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
   pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
   buffer and common index buffer rendered unchanged on explicit OpenGL and
@@ -509,9 +513,10 @@ resource descriptors, encoders, and render/compute passes described in
 `graphics/raw/opengl` and `graphics/raw/vulkan`. Their first executable slice
 resolves every known name through the appropriate EGL or Vulkan loader,
 retains its normalized call shape in `RawNativeCommand`, and safely invokes
-OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands; other signatures
-remain explicitly unavailable until their checked native-call families are
-implemented.
+OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands. The first Vulkan
+`void(pointer,i32)` command-buffer family is also callable.
+Other signatures remain explicitly unavailable until their checked native-call
+families are implemented.
 
 GPU/window resources are affine Abla `resource class` values. Frame command
 data will use reusable arenas and backend selection is kept out of inner draw

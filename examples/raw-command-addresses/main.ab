@@ -81,16 +81,99 @@ trusted fun main: int {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")
         val idle = raw.deviceCommand("vkDeviceWaitIdle")
+        val setDeviceMask = raw.deviceCommand("vkCmdSetDeviceMask")
         val missing = raw.deviceCommand("vkAblaMissing")
+        val command = app.vulkanPixels.frames[0].command.load()
+        var recorded = raw.available && !pointerIsNull(command) &&
+            !app.vulkanPixels.frames[0].inFlight &&
+            vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
+            vkResetCommandPool(
+                app.vulkanDevice.handle,
+                app.vulkanPixels.frames[0].commandPool,
+                0
+            ) == vulkanSuccess
+        if (recorded) {
+            app.vulkanPixels.frames[0].scratch.storeI64(0, 42)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                8, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(16, 1)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                24, nativeNullPointer()
+            )
+            recorded = vkBeginCommandBuffer(
+                command,
+                app.vulkanPixels.frames[0].scratch.address
+            ) == vulkanSuccess
+        }
+        val unsupportedRejected =
+            !raw.callVoidPointerI32(idle, command, 1) &&
+            !raw.callVoidPointerI32(
+                setDeviceMask,
+                nativeNullPointer(),
+                1
+            )
+        val liveBefore = runtimeMemoryLiveBytes()
+        var call = 0
+        while (recorded && call < 1000) {
+            recorded = raw.callVoidPointerI32(
+                setDeviceMask,
+                command,
+                1
+            )
+            call = call + 1
+        }
+        val liveAfter = runtimeMemoryLiveBytes()
+        recorded = recorded && call == 1000 &&
+            vkEndCommandBuffer(command) == vulkanSuccess
+        if (recorded) {
+            app.vulkanPixels.frames[0].scratch.storeI64(0, 4)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                8, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(16, 0)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                24, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                32, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(40, 1)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                48,
+                app.vulkanPixels.frames[0].command.address
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(56, 0)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                64, nativeNullPointer()
+            )
+            recorded = vkQueueSubmit(
+                app.vulkanDevice.queue,
+                1,
+                app.vulkanPixels.frames[0].scratch.address,
+                0
+            ) == vulkanSuccess &&
+                vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess
+        }
+        val restored = vkResetCommandPool(
+            app.vulkanDevice.handle,
+            app.vulkanPixels.frames[0].commandPool,
+            0
+        ) == vulkanSuccess
         stable = raw.available && enumerate.valid() && idle.valid() &&
+            setDeviceMask.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
+            setDeviceMask.callShape ==
+                "void(VkCommandBuffer,uint32_t)" &&
+            setDeviceMask.callAbi == "void(pointer,i32)" &&
             enumerate.callAbi == "unsupported" &&
             idle.callAbi == "unsupported" &&
             !missing.valid() && missing.callShape == "" &&
-            missing.callAbi == "unsupported"
-        detail = "enumerate=${enumerate.address} idle=${idle.address}"
+            missing.callAbi == "unsupported" && unsupportedRejected &&
+            recorded && restored && liveAfter == liveBefore
+        detail = "enumerate=${enumerate.address} mask=${setDeviceMask.address} calls=$call live=${liveAfter - liveBefore}"
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"

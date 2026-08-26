@@ -2273,6 +2273,12 @@ fun registryOpenGlI32Type(name: string): bool =
     name == "GLint" || name == "GLsizei" || name == "GLfixed" ||
     name == "GLclampx" || name == "GLhandleARB"
 
+fun registryVulkanDispatchableType(name: string): bool =
+    name == "VkCommandBuffer"
+
+fun registryVulkanI32Type(name: string): bool =
+    name == "VkBool32" || name == "uint32_t" || name == "int32_t"
+
 fun registryCommandCallAbis(
     api: string,
     inventory: RegistryInventory,
@@ -2283,6 +2289,8 @@ fun registryCommandCallAbis(
     while (commandIndex < inventory.commands.size) {
         val command = inventory.commands[commandIndex]
         var compatible = signatures.returnTypes[commandIndex] == "void"
+        var vulkanPointerI32 = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "void"
         var parameterIndex = 0
         var count = 0
         while (parameterIndex < signatures.parameterOwners.size) {
@@ -2292,6 +2300,17 @@ fun registryCommandCallAbis(
                     !registryOpenGlI32Type(
                         signatures.parameterTypes[parameterIndex]
                     )) compatible = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanPointerI32 = false
+                else if (count == 1 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanI32Type(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanPointerI32 = false
+                else if (count > 1) vulkanPointerI32 = false
                 count = count + 1
             }
             parameterIndex = parameterIndex + 1
@@ -2300,6 +2319,9 @@ fun registryCommandCallAbis(
         if (compatible && count == 0) abi = "void()"
         else if (compatible && count == 1) abi = "void(i32)"
         else if (compatible && count == 2) abi = "void(i32,i32)"
+        else if (vulkanPointerI32 && count == 2) {
+            abi = "void(pointer,i32)"
+        }
         abis.append(abi)
         commandIndex = commandIndex + 1
     }

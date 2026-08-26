@@ -253,9 +253,11 @@ families.
 Every command already has a deterministic normalized call shape. The first
 runtime family resolves application-scoped OpenGL/Vulkan addresses and invokes
 checked OpenGL zero-, one-, and two-`i32` void commands through exact
-compiler-supported indirect calls. Generated ABI-family tags make the
-currently callable 352 OpenGL commands explicit and retain `unsupported` for
-the other 2,540 OpenGL and all 842 Vulkan commands. Further signatures remain
+compiler-supported indirect calls. Vulkan additionally supports the first
+dispatchable-handle family, `void(pointer,i32)`, for command-buffer plus
+`VkBool32`/`uint32_t` commands. Generated ABI-family tags make the currently
+callable 352 OpenGL and 35 Vulkan commands explicit and retain `unsupported`
+for the other 2,540 OpenGL and 807 Vulkan commands. Further signatures remain
 unsupported until each has matching ABI, positive, negative, and live-driver
 evidence.
 

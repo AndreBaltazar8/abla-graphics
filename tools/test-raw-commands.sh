@@ -25,6 +25,15 @@ for mode in normal fast; do
     fi
     LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 800x600x24" \
         "$executable" opengl
-    xvfb-run -a -s "-screen 0 800x600x24" \
-        "$executable" vulkan
+    validation_log="$output_directory/vulkan-$mode.validation.log"
+    validation_output="$output_directory/vulkan-$mode.out"
+    : > "$validation_log"
+    VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
+        xvfb-run -a -s "-screen 0 800x600x24" \
+        "$executable" vulkan >"$validation_output" 2>"$validation_log"
+    cat "$validation_output"
+    if rg -q 'Validation Error|VUID-|ERROR' "$validation_log"; then
+        cat "$validation_log" >&2
+        exit 1
+    fi
 done
