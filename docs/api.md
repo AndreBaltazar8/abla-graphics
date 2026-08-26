@@ -1820,6 +1820,15 @@ commands.recordRenderIndexedIndirect(
     move(indexBuffer),
     move(indexedDrawCommand)
 )
+
+// Every render form has a Push suffix that snapshots reflected bytes.
+commands.recordRenderTargetPush(
+    graph,
+    importedPushTargetId,
+    move(pushTarget),
+    move(pushPipeline),
+    pushValues
+)
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1842,7 +1851,9 @@ the exact pass order, logical resources, physical slots, native identities, and
 storage descriptors. Recording accepts ordered pass markers, graph-owned
 transient texture range copies, procedural/direct/indexed/indirect offscreen
 renders to imported targets, and planner-visible imported or graph-owned buffer compute
-dispatches. Buffered render records require exact imported buffer declarations
+dispatches. Every render form has a matching `Push` method that copies one
+exact reflected block into bounded command-owned storage. Later source mutation
+or destruction cannot affect replay. Buffered render records require exact imported buffer declarations
 with pass read access, checked byte ranges, and vertex/index usage. The command
 list takes affine ownership of render targets, pipelines, caller render/compute
 buffers, and retained bind groups; transient buffers stay owned by the graph.
@@ -1861,7 +1872,7 @@ unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
 and current-limit contract. Compute sampled/image bindings,
-push/depth/MRT/subpass render records, broader copy/dispatch forms, frames in flight,
+depth/MRT/subpass render records, broader copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 

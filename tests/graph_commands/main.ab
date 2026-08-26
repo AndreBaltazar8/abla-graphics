@@ -813,6 +813,191 @@ trusted fun graphIndirectRenderCommandProbe(
     println(
         "graph-indirect-render ${graphicsBackendName(app.backend)}: recorded=$recorded forms=$firstForm/$secondForm exact=$indirectExact/$indexedExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
+    recorded && tamperRejected && stable && graphPushRenderCommandProbe(app)
+}
+
+trusted fun graphPushRenderCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val targetDescriptor = TextureDescriptor(
+        label = "recorded-push-render-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val vertexDescriptor = BufferDescriptor(
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val indexDescriptor = BufferDescriptor(
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    )
+    val drawDescriptor = BufferDescriptor(
+        size = 20,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(100, "push-procedural-target", false, 0, 100),
+        GraphicsGraphResource(110, "push-indexed-target", false, 0, 110),
+        GraphicsGraphResource(111, "push-vertices", false, 24, 111),
+        GraphicsGraphResource(112, "push-indices", false, 12, 112),
+        GraphicsGraphResource(113, "push-indexed-draw", false, 20, 113)
+    ], [
+        GraphicsGraphPass(920, "push-procedural", [
+            GraphicsGraphUse(100, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(921, "push-indexed-indirect", [
+            GraphicsGraphUse(110, graphAccessWrite),
+            GraphicsGraphUse(111, graphAccessRead),
+            GraphicsGraphUse(112, graphAccessRead),
+            GraphicsGraphUse(113, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(100, targetDescriptor),
+        GraphicsGraphTextureDeclaration(110, targetDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(111, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(112, indexDescriptor),
+        GraphicsGraphBufferDeclaration(113, drawDescriptor)
+    ])
+    val proceduralShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec3 tint;
+                float alpha;
+            } draw;
+            void main() {
+                color = vec4(draw.tint.x, draw.tint.y, draw.tint.z, draw.alpha);
+            }
+        }
+    }
+    val bufferedShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec3 tint;
+                float alpha;
+            } draw;
+            void main() {
+                color = vec4(draw.tint.x, draw.tint.y, draw.tint.z, draw.alpha);
+            }
+        }
+    }
+    val layout = VertexBufferLayout(8, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
+    ])
+    val proceduralTexture = app.texture(targetDescriptor)
+    val proceduralTarget = app.renderTarget(move(proceduralTexture))
+    val proceduralPipeline = app.renderTargetPipeline(
+        proceduralTarget,
+        proceduralShader
+    )
+    val indexedTexture = app.texture(targetDescriptor)
+    val indexedTarget = app.renderTarget(move(indexedTexture))
+    val indexedPipeline = app.renderTargetPipeline(
+        indexedTarget,
+        bufferedShader,
+        layout
+    )
+    val vertices = app.buffer(vertexDescriptor)
+    val indices = app.buffer(indexDescriptor)
+    val draw = app.buffer(drawDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val indexBytes = bufferBytes(12)
+    val drawBytes = bufferBytes(20)
+    val values = proceduralShader.pushConstants()
+    val initialized = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20) &&
+        indexBytes.storeU32(0, 0) && indexBytes.storeU32(1, 4) &&
+        indexBytes.storeU32(2, 8) &&
+        drawBytes.storeI64(4294967299, 0) &&
+        drawBytes.storeI64(0, 8) && drawBytes.storeU32(0, 16) &&
+        vertices.writeAllBytes(vertexBytes) &&
+        indices.writeAllBytes(indexBytes) && draw.writeAllBytes(drawBytes) &&
+        values.storeF32(1.0, 0) && values.storeF32(0.0, 4) &&
+        values.storeF32(0.0, 8) && values.storeF32(1.0, 12)
+    val commands = app.graphCommandList(graph, 4)
+    val recorded = app.valid() && graph.valid() &&
+        proceduralShader.valid && bufferedShader.valid && initialized &&
+        commands.valid() && commands.recordPass(graph, 920) &&
+        commands.recordRenderTargetPush(
+            graph,
+            100,
+            move(proceduralTarget),
+            move(proceduralPipeline),
+            values,
+            Color(0.0, 0.0, 0.0)
+        ) && commands.recordPass(graph, 921) &&
+        commands.recordRenderIndexedIndirectPush(
+            graph,
+            110,
+            111,
+            112,
+            113,
+            move(indexedTarget),
+            move(indexedPipeline),
+            values,
+            move(vertices),
+            move(indices),
+            move(draw),
+            Color(0.0, 0.0, 0.0)
+        ) && commands.seal(graph) && commands.prepared &&
+        commands.renderPushSizes[1] == 16 &&
+        commands.renderPushSizes[3] == 16 &&
+        values.storeF32(0.0, 0) && values.storeF32(1.0, 4)
+    commands.renderPushSizes[1] =
+        graphicsMaximumGraphPushConstantBytes + 1
+    val tamperRejected = recorded && !commands.valid() &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.renderPushSizes[1] = 16
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected && commands.valid()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val proceduralExact = commands.renderTargets[0].texture.rgba8(8, 8) ==
+        4278190335
+    val indexedExact = commands.renderTargets[1].texture.rgba8(8, 8) ==
+        4278190335
+    val stable = succeeded && iteration == 1001 && proceduralExact &&
+        indexedExact && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-push-render ${graphicsBackendName(app.backend)}: recorded=$recorded forms=${commands.renderResources[0].form}/${commands.renderResources[1].form} exact=$proceduralExact/$indexedExact snapshot=$proceduralExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 

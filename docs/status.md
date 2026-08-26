@@ -547,7 +547,7 @@ Updated: 2026-08-26.
 - Bounded render-graph command recording: an affine fixed-capacity list records
   exact ordered pass markers, same-format transient texture-copy ranges, a
   typed procedural, direct/indexed, and vertex-/indexed-indirect offscreen
-  renders, and
+  renders with snapshotted reflected push values, and
   planner-visible imported or graph-owned multi-buffer compute dispatches into
   preallocated storage. It affinely owns render resources and imported
   render/compute buffers, pipelines, and bind groups while borrowing transient
@@ -567,7 +567,8 @@ Updated: 2026-08-26.
   `examples/recorded-graph-render`, `examples/recorded-graph-compute`, and
   `examples/recorded-graph-transient-compute`, and
   `examples/recorded-graph-buffered-render`, and
-  `examples/recorded-graph-indirect-render` repeat the public paths on both
+  `examples/recorded-graph-indirect-render`, and
+  `examples/recorded-graph-push-render` repeat the public paths on both
   backends. The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -1155,7 +1156,7 @@ validity gate unchanged.
   records ordered pass markers, transient texture copies, and owned
   procedural/vertex/indexed offscreen renders, and consolidates an eligible
   Vulkan stream into one submission. It does not yet record arbitrary
-  push/depth/MRT/subpass render resources or
+  depth/MRT/subpass render resources or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
