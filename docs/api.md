@@ -2729,8 +2729,12 @@ and undeclared local references fail emission. The same path accepts scalar
 and `vec4` literals, scalar-splat and four-scalar `vec4` constructors, checked
 components and four-component swizzles, `dot`, and typed scalar/`vec4` extended
 builtins. Vector/scalar overloads use the same checked splat rules as raster
-expressions; the live proof composes `clamp` and `max`. Arbitrary coordinate
-expressions remain next.
+expressions; the live proof composes `clamp` and `max`. Computed coordinate
+expressions use a separate signed-integer postfix IR: `int`, `ivec2`, and
+`ivec3` locals, matching-width constructors, checked components, unary signs,
+parentheses, and precedence-aware add/subtract/multiply/divide feed load and
+store independently. The image dimension fixes the required result width, and
+cross-width coordinates reject before backend emission.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

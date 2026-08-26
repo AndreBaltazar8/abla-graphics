@@ -20,6 +20,16 @@ fun spirvContainsSequence(
     false
 }
 
+fun spirvContainsWord(module: SpirvModule, word: int): bool {
+    var found = false
+    var index = 0
+    while (!found && index < module.words.size) {
+        found = module.words[index] == word
+        index = index + 1
+    }
+    found
+}
+
 fun storageImagePushDimensionValid(
     dataType: string,
     coordinateType: string,
@@ -113,6 +123,30 @@ fun storageImagePushConstructedBuiltinChainValid(): bool {
         spirvContainsSequence(emitted.module, [24, 40])
 }
 
+fun storageImageComputedCoordinateValid(
+    dataType: string,
+    coordinateType: string,
+    coordinateValue: string
+): bool {
+    val coordinateLocals = if (coordinateType == "int")
+        "int selected=(parameters.point+1)-1;"
+    else "int zero=0; $coordinateType selected=parameters.point+$coordinateValue;"
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform $dataType target; layout(push_constant) uniform Dynamic { $coordinateType point; vec4 shade; } parameters; void main(){ $coordinateLocals vec4 loaded=imageLoad(target,selected); imageStore(target,selected*1,loaded+parameters.shade); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        spirvContainsWord(emitted.module, 327808) &&
+        spirvContainsWord(emitted.module, 327812) &&
+        (coordinateType != "int" ||
+         spirvContainsWord(emitted.module, 327810))
+}
+
+fun storageImageInvalidCoordinateWidthRejected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ ivec3 wrong=ivec3(0,0,0); vec4 loaded=imageLoad(target,wrong); imageStore(target,wrong,loaded+parameters.shade); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    package.valid && !package.spirv(shaderStageCompute).succeeded
+}
+
 fun main: int {
     val checks = [storageImagePushDimensionValid(
         "image1D", "int", 0, 0, false
@@ -144,7 +178,18 @@ fun main: int {
     ), storageImagePushInvalidArithmeticRejected(
     ), storageImagePushInvalidStagedLocalRejected(
     ), storageImagePushNestedLocalChainValid(
-    ), storageImagePushConstructedBuiltinChainValid()]
+    ), storageImagePushConstructedBuiltinChainValid(
+    ), storageImageComputedCoordinateValid(
+        "image1D", "int", "0"
+    ), storageImageComputedCoordinateValid(
+        "image2D", "ivec2", "ivec2(zero,zero)"
+    ), storageImageComputedCoordinateValid(
+        "image2DArray", "ivec3", "ivec3(zero,zero,zero)"
+    ), storageImageComputedCoordinateValid(
+        "image3D", "ivec3", "ivec3(zero,zero,zero)"
+    ), storageImageComputedCoordinateValid(
+        "imageCube", "ivec3", "ivec3(zero,zero,zero)"
+    ), storageImageInvalidCoordinateWidthRejected()]
     var index = 0
     while (index < checks.size && checks[index]) index = index + 1
     if (index == checks.size) 42 else index + 1

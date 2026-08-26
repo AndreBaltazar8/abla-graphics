@@ -331,8 +331,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-storage-image-read-add`: a generated read/write
   program lowers `imageLoad` into a typed local, composes literal `vec4`
   constructors, `clamp`/`max`, addition, and multiplication across named SSA
-  locals, and stores exact cyan; 1,001 retained replays preserve exact output
-  while snapshot mutation, resource-map rejection, and zero growth are proven;
+  locals, computes an `ivec3` through signed locals and vector arithmetic, and
+  stores exact cyan; 1,001 retained replays preserve exact output while
+  snapshot mutation, resource-map rejection, and zero growth are proven;
 - `examples/fragment-storage-image`: a fragment-stage `imageStore` writes exact
   green to a separate RGBA8 image while the same draw writes exact red to its
   color attachment through 1,001 allocation-free OpenGL/Vulkan/auto renders;

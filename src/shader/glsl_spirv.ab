@@ -170,9 +170,45 @@ class GlslRasterFragmentProgram(
     val expressions: array<GlslRasterExpression> = []
 )
 
+val glslImageCoordinateTokenPush = 0
+val glslImageCoordinateTokenLiteral = 1
+val glslImageCoordinateTokenConstruct = 2
+val glslImageCoordinateTokenOperation = 3
+val glslImageCoordinateTokenComponent = 4
+
+class GlslImageCoordinateToken(
+    val kind: int,
+    val value: int = 0,
+    val width: int = 1,
+    val opcode: int = 0
+)
+
+class GlslImageCoordinateExpression(
+    val valid: bool,
+    val tokens: array<GlslImageCoordinateToken>,
+    val next: int
+)
+
+class GlslImageCoordinateLocal(
+    val name: string,
+    val width: int,
+    val tokens: array<GlslImageCoordinateToken>
+)
+
+class GlslImageCoordinateSpirvEmission(
+    val words: array<int>,
+    val valueId: int,
+    val nextId: int,
+    val error: string = ""
+)
+
 class GlslStorageImageExpressionProgram(
     val valid: bool,
     val expression: GlslRasterExpression,
+    val loadCoordinate: GlslImageCoordinateExpression =
+        GlslImageCoordinateExpression(false, [], 0),
+    val storeCoordinate: GlslImageCoordinateExpression =
+        GlslImageCoordinateExpression(false, [], 0),
     val error: string = ""
 )
 
@@ -6913,6 +6949,427 @@ fun glslStorageImagePushDimension(dataType: string): int {
     else if (dataType == "imageCube") 3 else -1
 }
 
+fun glslImageCoordinateTokensCopy(
+    source: array<GlslImageCoordinateToken>
+): array<GlslImageCoordinateToken> {
+    val result: array<GlslImageCoordinateToken> = []
+    var index = 0
+    while (index < source.size) {
+        result.append(source[index])
+        index = index + 1
+    }
+    result
+}
+
+fun glslImageCoordinateLocalIndex(
+    locals: array<GlslImageCoordinateLocal>,
+    name: string
+): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < locals.size) {
+        if (locals[index].name == name) result = index
+        index = index + 1
+    }
+    result
+}
+
+fun glslImageCoordinateExpressionType(
+    expression: GlslImageCoordinateExpression,
+    pushWidth: int
+): int {
+    val stack: array<int> = []
+    var stackSize = 0
+    var valid = expression.valid && pushWidth >= 1 && pushWidth <= 3
+    var index = 0
+    while (valid && index < expression.tokens.size) {
+        val token = expression.tokens[index]
+        var width = 0
+        if (token.kind == glslImageCoordinateTokenPush) {
+            width = pushWidth
+        } else if (token.kind == glslImageCoordinateTokenLiteral) {
+            width = 1
+        } else if (token.kind == glslImageCoordinateTokenConstruct) {
+            valid = (token.width == 2 || token.width == 3) &&
+                token.value == token.width && stackSize >= token.value
+            var argument = 0
+            while (valid && argument < token.value) {
+                valid = stack[stackSize - token.value + argument] == 1
+                argument = argument + 1
+            }
+            if (valid) {
+                stackSize = stackSize - token.value
+                width = token.width
+            }
+        } else if (token.kind == glslImageCoordinateTokenComponent) {
+            valid = stackSize >= 1 && token.value >= 0 &&
+                token.value < stack[stackSize - 1]
+            if (valid) {
+                stackSize = stackSize - 1
+                width = 1
+            }
+        } else if (token.kind == glslImageCoordinateTokenOperation &&
+            token.opcode == 262270) {
+            valid = stackSize >= 1
+            if (valid) {
+                width = stack[stackSize - 1]
+                stackSize = stackSize - 1
+            }
+        } else if (token.kind == glslImageCoordinateTokenOperation) {
+            valid = stackSize >= 2 &&
+                (token.opcode == 327808 || token.opcode == 327810 ||
+                 token.opcode == 327812 || token.opcode == 327815)
+            if (valid) {
+                val rightWidth = stack[stackSize - 1]
+                val leftWidth = stack[stackSize - 2]
+                stackSize = stackSize - 2
+                valid = leftWidth == rightWidth ||
+                    ((token.opcode == 327812 || token.opcode == 327815) &&
+                     leftWidth > 1 && rightWidth == 1)
+                width = leftWidth
+            }
+        } else valid = false
+        valid = valid && width >= 1 && width <= 3
+        if (valid) {
+            if (stackSize < stack.size) stack[stackSize] = width
+            else stack.append(width)
+            stackSize = stackSize + 1
+        }
+        index = index + 1
+    }
+    if (valid && stackSize == 1) stack[0] else 0
+}
+
+fun glslImageCoordinatePrimary(
+    tokens: array<GlslToken>,
+    begin: int,
+    push: ShaderPushConstant,
+    locals: array<GlslImageCoordinateLocal>,
+    pushWidth: int,
+    depth: int
+): GlslImageCoordinateExpression {
+    val result: array<GlslImageCoordinateToken> = []
+    var index = begin
+    var valid = depth < 32 && index < tokens.size
+    if (valid && (tokens[index].text == "+" ||
+        tokens[index].text == "-")) {
+        val negate = tokens[index].text == "-"
+        val nested = glslImageCoordinatePrimary(
+            tokens, index + 1, push, locals, pushWidth, depth + 1
+        )
+        valid = nested.valid
+        index = nested.next
+        if (valid) {
+            val copied = glslImageCoordinateTokensCopy(nested.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                result.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            if (negate) result.append(GlslImageCoordinateToken(
+                glslImageCoordinateTokenOperation,
+                opcode = 262270
+            ))
+        }
+    } else if (valid && tokens[index].text == "(") {
+        val nested = glslImageCoordinateExpression(
+            tokens, index + 1, 1, push, locals, pushWidth, depth + 1
+        )
+        index = nested.next
+        valid = nested.valid && glslRasterTokenText(tokens, index, ")")
+        if (valid) {
+            val copied = glslImageCoordinateTokensCopy(nested.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                result.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            index = index + 1
+        }
+    } else if (valid && ((pushWidth == 2 &&
+        tokens[index].text == "ivec2") || (pushWidth == 3 &&
+        tokens[index].text == "ivec3"))) {
+        val width = pushWidth
+        index = index + 1
+        valid = glslRasterTokenText(tokens, index, "(")
+        if (valid) index = index + 1
+        var argument = 0
+        while (valid && argument < width) {
+            val parsed = glslImageCoordinateExpression(
+                tokens, index, 1, push, locals, pushWidth, depth + 1
+            )
+            valid = parsed.valid &&
+                glslImageCoordinateExpressionType(parsed, pushWidth) == 1
+            if (valid) {
+                val copied = glslImageCoordinateTokensCopy(parsed.tokens)
+                var copiedIndex = 0
+                while (copiedIndex < copied.size) {
+                    result.append(copied[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                index = parsed.next
+                val separator = if (argument + 1 < width) "," else ")"
+                valid = glslRasterTokenText(tokens, index, separator)
+                if (valid) index = index + 1
+            }
+            argument = argument + 1
+        }
+        if (valid) result.append(GlslImageCoordinateToken(
+            glslImageCoordinateTokenConstruct,
+            value = width,
+            width = width
+        ))
+    } else if (valid && tokens[index].text == push.name) {
+        valid = glslRasterTokenText(tokens, index + 1, ".") &&
+            glslRasterTokenText(tokens, index + 2, push.members[0].name)
+        if (valid) {
+            result.append(GlslImageCoordinateToken(
+                glslImageCoordinateTokenPush,
+                width = pushWidth
+            ))
+            index = index + 3
+        }
+    } else if (valid && tokens[index].kind == glslTokenInteger) {
+        val parsed = glslIntegerDefault(tokens[index].text, true)
+        valid = parsed.valid
+        if (valid) {
+            result.append(GlslImageCoordinateToken(
+                glslImageCoordinateTokenLiteral,
+                value = parsed.bits
+            ))
+            index = index + 1
+        }
+    } else if (valid && tokens[index].kind == glslTokenIdentifier) {
+        val localIndex = glslImageCoordinateLocalIndex(
+            locals, tokens[index].text
+        )
+        valid = localIndex >= 0
+        if (valid) {
+            val copied = glslImageCoordinateTokensCopy(
+                locals[localIndex].tokens
+            )
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                result.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            index = index + 1
+        }
+    } else valid = false
+    if (valid && glslRasterTokenText(tokens, index, ".") &&
+        index + 1 < tokens.size) {
+        val component = glslRasterComponentIndex(tokens[index + 1].text)
+        valid = component >= 0
+        if (valid) {
+            result.append(GlslImageCoordinateToken(
+                glslImageCoordinateTokenComponent,
+                value = component
+            ))
+            index = index + 2
+        }
+    }
+    GlslImageCoordinateExpression(valid && result.size > 0, result, index)
+}
+
+fun glslImageCoordinateExpression(
+    tokens: array<GlslToken>,
+    begin: int,
+    minimumPrecedence: int,
+    push: ShaderPushConstant,
+    locals: array<GlslImageCoordinateLocal>,
+    pushWidth: int,
+    depth: int
+): GlslImageCoordinateExpression {
+    if (depth >= 32) return GlslImageCoordinateExpression(false, [], begin)
+    val first = glslImageCoordinatePrimary(
+        tokens, begin, push, locals, pushWidth, depth
+    )
+    val result = glslImageCoordinateTokensCopy(first.tokens)
+    var valid = first.valid
+    var index = first.next
+    var done = false
+    while (valid && !done && result.size < 64 && index < tokens.size) {
+        val text = tokens[index].text
+        val precedence = if (text == "*" || text == "/") 12
+            else if (text == "+" || text == "-") 11 else 0
+        if (precedence >= minimumPrecedence) {
+            val opcode = if (text == "+") 327808
+                else if (text == "-") 327810
+                else if (text == "*") 327812
+                else if (text == "/") 327815 else 0
+            val right = glslImageCoordinateExpression(
+                tokens,
+                index + 1,
+                precedence + 1,
+                push,
+                locals,
+                pushWidth,
+                depth + 1
+            )
+            valid = opcode != 0 && right.valid
+            if (valid) {
+                val copied = glslImageCoordinateTokensCopy(right.tokens)
+                var copiedIndex = 0
+                while (copiedIndex < copied.size) {
+                    result.append(copied[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                result.append(GlslImageCoordinateToken(
+                    glslImageCoordinateTokenOperation,
+                    opcode = opcode
+                ))
+                index = right.next
+            }
+        } else done = true
+    }
+    GlslImageCoordinateExpression(
+        valid && result.size > 0 && result.size < 64,
+        result,
+        index
+    )
+}
+
+fun glslImageCoordinateSpirv(
+    expression: GlslImageCoordinateExpression,
+    pushValueId: int,
+    coordinateWidth: int,
+    vectorTypeId: int,
+    constantBits: array<int>,
+    constantIds: array<int>,
+    beginId: int
+): GlslImageCoordinateSpirvEmission {
+    val words: array<int> = []
+    val stack: array<int> = []
+    val widths: array<int> = []
+    var stackSize = 0
+    var nextId = beginId
+    var valid = expression.valid && coordinateWidth >= 1 &&
+        coordinateWidth <= 3 &&
+        (coordinateWidth == 1 || vectorTypeId > 0)
+    var index = 0
+    while (valid && index < expression.tokens.size) {
+        val token = expression.tokens[index]
+        var valueId = 0
+        var width = 0
+        if (token.kind == glslImageCoordinateTokenPush) {
+            valueId = pushValueId
+            width = coordinateWidth
+        } else if (token.kind == glslImageCoordinateTokenLiteral) {
+            var constantIndex = 0
+            while (valueId == 0 && constantIndex < constantBits.size) {
+                if (constantBits[constantIndex] == token.value) {
+                    valueId = constantIds[constantIndex]
+                }
+                constantIndex = constantIndex + 1
+            }
+            valid = valueId != 0
+            width = 1
+        } else if (token.kind == glslImageCoordinateTokenConstruct) {
+            valid = coordinateWidth > 1 && token.width == coordinateWidth &&
+                token.value == coordinateWidth && stackSize >= token.value
+            var argument = 0
+            while (valid && argument < token.value) {
+                valid = widths[stackSize - token.value + argument] == 1
+                argument = argument + 1
+            }
+            if (valid) {
+                stackSize = stackSize - token.value
+                valueId = nextId
+                nextId = nextId + 1
+                words.append((coordinateWidth + 3) * 65536 + 80)
+                words.append(vectorTypeId)
+                words.append(valueId)
+                argument = 0
+                while (argument < coordinateWidth) {
+                    words.append(stack[stackSize + argument])
+                    argument = argument + 1
+                }
+                width = coordinateWidth
+            }
+        } else if (token.kind == glslImageCoordinateTokenComponent) {
+            valid = stackSize >= 1 && token.value >= 0 &&
+                token.value < widths[stackSize - 1]
+            if (valid) {
+                val sourceValue = stack[stackSize - 1]
+                stackSize = stackSize - 1
+                valueId = nextId
+                nextId = nextId + 1
+                words.append(327761)
+                words.append(7)
+                words.append(valueId)
+                words.append(sourceValue)
+                words.append(token.value)
+                width = 1
+            }
+        } else if (token.kind == glslImageCoordinateTokenOperation &&
+            token.opcode == 262270) {
+            valid = stackSize >= 1
+            if (valid) {
+                valueId = nextId
+                nextId = nextId + 1
+                width = widths[stackSize - 1]
+                words.append(262270)
+                words.append(if (width == 1) 7 else vectorTypeId)
+                words.append(valueId)
+                words.append(stack[stackSize - 1])
+                stackSize = stackSize - 1
+            }
+        } else if (token.kind == glslImageCoordinateTokenOperation) {
+            valid = stackSize >= 2 &&
+                (token.opcode == 327808 || token.opcode == 327810 ||
+                 token.opcode == 327812 || token.opcode == 327815)
+            if (valid) {
+                var right = stack[stackSize - 1]
+                val left = stack[stackSize - 2]
+                val rightWidth = widths[stackSize - 1]
+                val leftWidth = widths[stackSize - 2]
+                stackSize = stackSize - 2
+                valid = leftWidth == rightWidth ||
+                    ((token.opcode == 327812 || token.opcode == 327815) &&
+                     leftWidth == coordinateWidth && rightWidth == 1)
+                width = leftWidth
+                if (valid && leftWidth != rightWidth) {
+                    val splat = nextId
+                    nextId = nextId + 1
+                    words.append((coordinateWidth + 3) * 65536 + 80)
+                    words.append(vectorTypeId)
+                    words.append(splat)
+                    var component = 0
+                    while (component < coordinateWidth) {
+                        words.append(right)
+                        component = component + 1
+                    }
+                    right = splat
+                }
+                if (valid) {
+                    valueId = nextId
+                    nextId = nextId + 1
+                    words.append(token.opcode)
+                    words.append(if (width == 1) 7 else vectorTypeId)
+                    words.append(valueId)
+                    words.append(left)
+                    words.append(right)
+                }
+            }
+        } else valid = false
+        if (valid) {
+            if (stackSize < stack.size) stack[stackSize] = valueId
+            else stack.append(valueId)
+            if (stackSize < widths.size) widths[stackSize] = width
+            else widths.append(width)
+            stackSize = stackSize + 1
+        }
+        index = index + 1
+    }
+    valid = valid && stackSize == 1 && widths[0] == coordinateWidth
+    GlslImageCoordinateSpirvEmission(
+        words,
+        if (valid) stack[0] else 0,
+        nextId,
+        if (valid) "" else "invalid signed storage-image coordinate program"
+    )
+}
+
 fun glslStorageImageExpressionTokensSupported(
     expression: GlslRasterExpression
 ): bool {
@@ -6948,6 +7405,9 @@ fun glslStorageImageExpressionProgram(
 ): GlslStorageImageExpressionProgram {
     val lexical = glslLex(source)
     val coordinateType = glslStorageImagePushCoordinateType(binding.dataType)
+    val coordinateWidth = if (coordinateType == "int") 1
+        else if (coordinateType == "ivec2") 2
+        else if (coordinateType == "ivec3") 3 else 0
     var valid = lexical.valid && coordinateType != "" &&
         binding.stage == shaderStageCompute && binding.set == 0 &&
         binding.binding >= 0 && binding.binding <= 31 &&
@@ -6979,7 +7439,7 @@ fun glslStorageImageExpressionProgram(
         binding.name, ";", "layout", "(", "push_constant", ")",
         "uniform", push.dataType, "{", coordinateType,
         push.members[0].name, ";", "vec4", push.members[1].name, ";",
-        "}", push.name, ";", "void", "main", "(", ")", "{", "vec4"
+        "}", push.name, ";", "void", "main", "(", ")", "{"
     ]
     expected = 0
     while (valid && expected < declarations.size) {
@@ -6989,6 +7449,59 @@ fun glslStorageImageExpressionProgram(
         if (valid) index = index + 1
         expected = expected + 1
     }
+    val coordinateLocals: array<GlslImageCoordinateLocal> = []
+    var coordinatesDone = false
+    while (valid && !coordinatesDone && coordinateLocals.size < 8) {
+        val localType = if (index < lexical.tokens.size)
+            lexical.tokens[index].text else ""
+        val localWidth = if (localType == "int") 1
+            else if (localType == coordinateType) coordinateWidth else 0
+        if (localWidth > 0) {
+            index = index + 1
+            var name = ""
+            if (index < lexical.tokens.size &&
+                lexical.tokens[index].kind == glslTokenIdentifier) {
+                name = lexical.tokens[index].text
+                index = index + 1
+            } else valid = false
+            valid = valid && name != "" && name != binding.name &&
+                name != push.name && glslImageCoordinateLocalIndex(
+                    coordinateLocals, name
+                ) < 0 && glslRasterTokenText(lexical.tokens, index, "=")
+            if (valid) index = index + 1
+            val coordinate = if (valid) glslImageCoordinateExpression(
+                lexical.tokens,
+                index,
+                1,
+                push,
+                coordinateLocals,
+                coordinateWidth,
+                0
+            ) else GlslImageCoordinateExpression(false, [], index)
+            index = coordinate.next
+            valid = valid && coordinate.valid &&
+                glslImageCoordinateExpressionType(
+                    coordinate, coordinateWidth
+                ) == localWidth &&
+                glslRasterTokenText(lexical.tokens, index, ";")
+            if (valid) {
+                coordinateLocals.append(GlslImageCoordinateLocal(
+                    name,
+                    localWidth,
+                    glslImageCoordinateTokensCopy(coordinate.tokens)
+                ))
+                index = index + 1
+            }
+        } else coordinatesDone = true
+    }
+    if (valid && !coordinatesDone && coordinateLocals.size == 8) {
+        val nextType = if (index < lexical.tokens.size)
+            lexical.tokens[index].text else ""
+        coordinatesDone = nextType != "int" && nextType != coordinateType
+    }
+    valid = valid && coordinatesDone &&
+        glslRasterTokenText(lexical.tokens, index, "vec4")
+    if (valid) index = index + 1
     var loadName = ""
     if (valid && index < lexical.tokens.size &&
         lexical.tokens[index].kind == glslTokenIdentifier) {
@@ -6996,16 +7509,30 @@ fun glslStorageImageExpressionProgram(
         valid = loadName != binding.name && loadName != push.name
         index = index + 1
     } else valid = false
-    val load = [
-        "=", "imageLoad", "(", binding.name, ",", push.name, ".",
-        push.members[0].name, ")", ";"
-    ]
+    val load = ["=", "imageLoad", "(", binding.name, ","]
     expected = 0
     while (valid && expected < load.size) {
         valid = glslRasterTokenText(lexical.tokens, index, load[expected])
         if (valid) index = index + 1
         expected = expected + 1
     }
+    val loadCoordinate = if (valid) glslImageCoordinateExpression(
+        lexical.tokens,
+        index,
+        1,
+        push,
+        coordinateLocals,
+        coordinateWidth,
+        0
+    ) else GlslImageCoordinateExpression(false, [], index)
+    index = loadCoordinate.next
+    valid = valid && loadCoordinate.valid &&
+        glslImageCoordinateExpressionType(
+            loadCoordinate, coordinateWidth
+        ) == coordinateWidth &&
+        glslRasterTokenText(lexical.tokens, index, ")") &&
+        glslRasterTokenText(lexical.tokens, index + 1, ";")
+    if (valid) index = index + 2
     val inputs: array<ShaderLocation> = []
     val locals: array<GlslRasterLocal> = []
     if (valid) locals.append(GlslRasterLocal(
@@ -7025,6 +7552,12 @@ fun glslStorageImageExpressionProgram(
             } else valid = false
             var duplicate = name == "" || name == binding.name ||
                 name == push.name
+            var coordinateLocalIndex = 0
+            while (!duplicate &&
+                coordinateLocalIndex < coordinateLocals.size) {
+                duplicate = coordinateLocals[coordinateLocalIndex].name == name
+                coordinateLocalIndex = coordinateLocalIndex + 1
+            }
             var localIndex = 0
             while (!duplicate && localIndex < locals.size) {
                 duplicate = locals[localIndex].name == name
@@ -7058,16 +7591,29 @@ fun glslStorageImageExpressionProgram(
         )
     }
     valid = valid && declarationsDone && locals.size <= 16
-    val store = [
-        "imageStore", "(", binding.name, ",", push.name, ".",
-        push.members[0].name, ","
-    ]
+    val store = ["imageStore", "(", binding.name, ","]
     expected = 0
     while (valid && expected < store.size) {
         valid = glslRasterTokenText(lexical.tokens, index, store[expected])
         if (valid) index = index + 1
         expected = expected + 1
     }
+    val storeCoordinate = if (valid) glslImageCoordinateExpression(
+        lexical.tokens,
+        index,
+        1,
+        push,
+        coordinateLocals,
+        coordinateWidth,
+        0
+    ) else GlslImageCoordinateExpression(false, [], index)
+    index = storeCoordinate.next
+    valid = valid && storeCoordinate.valid &&
+        glslImageCoordinateExpressionType(
+            storeCoordinate, coordinateWidth
+        ) == coordinateWidth &&
+        glslRasterTokenText(lexical.tokens, index, ",")
+    if (valid) index = index + 1
     val expression = if (valid) glslRasterExpression(
         lexical.tokens, index, 1, push, inputs, locals, 0
     ) else GlslRasterExpression(false, [], index)
@@ -7084,8 +7630,10 @@ fun glslStorageImageExpressionProgram(
     GlslStorageImageExpressionProgram(
         valid,
         expression,
+        loadCoordinate,
+        storeCoordinate,
         if (valid) "" else
-            "storage-image expressions require typed vec4 locals and a sealed imageLoad/imageStore flow"
+            "storage-image programs require typed signed coordinates, vec4 locals, and a sealed imageLoad/imageStore flow"
     )
 }
 
@@ -7123,7 +7671,11 @@ fun glslStorageImagePushStoreSpirv(
     binding: ShaderBinding,
     push: ShaderPushConstant,
     layout: ShaderPushConstantLayout,
-    expression: GlslRasterExpression = GlslRasterExpression(false, [], 0)
+    expression: GlslRasterExpression = GlslRasterExpression(false, [], 0),
+    loadCoordinate: GlslImageCoordinateExpression =
+        GlslImageCoordinateExpression(false, [], 0),
+    storeCoordinate: GlslImageCoordinateExpression =
+        GlslImageCoordinateExpression(false, [], 0)
 ): GlslStorageSpirvEmission {
     val coordinateTypeName =
         glslStorageImagePushCoordinateType(binding.dataType)
@@ -7149,7 +7701,14 @@ fun glslStorageImagePushStoreSpirv(
         layout.members[1].arraySize == 1 &&
         binding.binding >= 0 && binding.binding <= 31 &&
         (!readArithmetic ||
-         glslStorageImageExpressionTokensSupported(expression))
+         (glslStorageImageExpressionTokensSupported(expression) &&
+          loadCoordinate.valid && storeCoordinate.valid &&
+          glslImageCoordinateExpressionType(
+              loadCoordinate, coordinateWidth
+          ) == coordinateWidth &&
+          glslImageCoordinateExpressionType(
+              storeCoordinate, coordinateWidth
+          ) == coordinateWidth))
     val words: array<int> = [
         spirvMagic, spirvVersion10, 0, if (readArithmetic) 26 else 24, 0,
         131089, 1
@@ -7277,6 +7836,8 @@ fun glslStorageImagePushStoreSpirv(
         var nextId = firstDynamicId
         val constantBits: array<int> = []
         val constantIds: array<int> = []
+        val coordinateConstantBits: array<int> = []
+        val coordinateConstantIds: array<int> = []
         scanToken = 0
         while (scanToken < expression.tokens.size) {
             val token = expression.tokens[scanToken]
@@ -7310,6 +7871,39 @@ fun glslStorageImagePushStoreSpirv(
             }
             scanToken = scanToken + 1
         }
+        val coordinateExpressions = [loadCoordinate, storeCoordinate]
+        var coordinateExpressionIndex = 0
+        while (coordinateExpressionIndex < coordinateExpressions.size) {
+            var coordinateTokenIndex = 0
+            while (coordinateTokenIndex < coordinateExpressions[
+                coordinateExpressionIndex
+            ].tokens.size) {
+                val token = coordinateExpressions[
+                    coordinateExpressionIndex
+                ].tokens[coordinateTokenIndex]
+                if (token.kind == glslImageCoordinateTokenLiteral) {
+                    var constantIndex = 0
+                    var found = false
+                    while (!found &&
+                        constantIndex < coordinateConstantBits.size) {
+                        found = coordinateConstantBits[constantIndex] ==
+                            token.value
+                        constantIndex = constantIndex + 1
+                    }
+                    if (!found) {
+                        words.append(262187)
+                        words.append(7)
+                        words.append(nextId)
+                        words.append(token.value)
+                        coordinateConstantBits.append(token.value)
+                        coordinateConstantIds.append(nextId)
+                        nextId = nextId + 1
+                    }
+                }
+                coordinateTokenIndex = coordinateTokenIndex + 1
+            }
+            coordinateExpressionIndex = coordinateExpressionIndex + 1
+        }
         words.append(327734)
         words.append(1)
         words.append(17)
@@ -7340,12 +7934,57 @@ fun glslStorageImagePushStoreSpirv(
         words.append(23)
         words.append(22)
         var resultId = 23
+        var loadCoordinateId = 21
+        var storeCoordinateId = 21
         if (readArithmetic) {
+            val loadCoordinateEmission = glslImageCoordinateSpirv(
+                loadCoordinate,
+                21,
+                coordinateWidth,
+                if (coordinateWidth == 1) 0 else 8,
+                coordinateConstantBits,
+                coordinateConstantIds,
+                nextId
+            )
+            valid = loadCoordinateEmission.error == ""
+            var emittedWord = 0
+            while (valid &&
+                emittedWord < loadCoordinateEmission.words.size) {
+                words.append(loadCoordinateEmission.words[emittedWord])
+                emittedWord = emittedWord + 1
+            }
+            if (valid) {
+                loadCoordinateId = loadCoordinateEmission.valueId
+                nextId = loadCoordinateEmission.nextId
+            }
+            val storeCoordinateEmission = if (valid)
+                glslImageCoordinateSpirv(
+                    storeCoordinate,
+                    21,
+                    coordinateWidth,
+                    if (coordinateWidth == 1) 0 else 8,
+                    coordinateConstantBits,
+                    coordinateConstantIds,
+                    nextId
+                ) else GlslImageCoordinateSpirvEmission(
+                    [], 0, nextId, "invalid prior coordinate"
+                )
+            valid = valid && storeCoordinateEmission.error == ""
+            emittedWord = 0
+            while (valid &&
+                emittedWord < storeCoordinateEmission.words.size) {
+                words.append(storeCoordinateEmission.words[emittedWord])
+                emittedWord = emittedWord + 1
+            }
+            if (valid) {
+                storeCoordinateId = storeCoordinateEmission.valueId
+                nextId = storeCoordinateEmission.nextId
+            }
             words.append(327778)
             words.append(9)
             words.append(nextId)
             words.append(19)
-            words.append(21)
+            words.append(loadCoordinateId)
             val imageValue = nextId
             nextId = nextId + 1
             val stack: array<int> = []
@@ -7641,7 +8280,7 @@ fun glslStorageImagePushStoreSpirv(
         }
         words.append(262243)
         words.append(19)
-        words.append(21)
+        words.append(storeCoordinateId)
         words.append(resultId)
         words.append(65789)
         words.append(65592)
@@ -7650,7 +8289,7 @@ fun glslStorageImagePushStoreSpirv(
     GlslStorageSpirvEmission(
         words,
         if (valid) "" else
-            "storage-image push expressions require one signed coordinate and one vec4 push member"
+            "storage-image push programs require one signed coordinate and one vec4 push member"
     )
 }
 
@@ -7866,7 +8505,9 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             this.bindings[0],
             this.pushConstants[0],
             this.pushConstantLayout(),
-            storageImagePushExpression.expression
+            storageImagePushExpression.expression,
+            storageImagePushExpression.loadCoordinate,
+            storageImagePushExpression.storeCoordinate
         )
         words = pushEmission.words
         if (pushEmission.error != "") {
