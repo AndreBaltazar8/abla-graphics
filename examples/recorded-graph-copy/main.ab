@@ -40,51 +40,96 @@ fun main: int {
             height = 270
         )
     )
-    val sourceDescriptor = TextureDescriptor(
-        label = "recorded-source",
-        size = Extent3D(2, 2),
+    val arrayDescriptor = TextureDescriptor(
+        label = "recorded-array",
+        size = Extent3D(2, 2, 3),
+        dimension = textureDimension2DArray,
         format = textureFormatRgba8Unorm,
         usage = textureUsageCopySource | textureUsageCopyDestination
     )
-    val destinationDescriptor = TextureDescriptor(
-        label = "recorded-destination",
-        size = Extent3D(2, 2),
+    val volumeDescriptor = TextureDescriptor(
+        label = "recorded-volume",
+        size = Extent3D(2, 2, 3),
+        dimension = textureDimension3D,
         format = textureFormatRgba8Unorm,
         usage = textureUsageCopySource | textureUsageCopyDestination
     )
     val graph = app.materializeRenderGraphTextures([
-        GraphicsGraphResource(0, "source", true, 16, 10),
-        GraphicsGraphResource(1, "destination", true, 16, 11)
+        GraphicsGraphResource(0, "array-source", true, 48, 10),
+        GraphicsGraphResource(1, "array-destination", true, 48, 11),
+        GraphicsGraphResource(2, "volume-source", true, 48, 12),
+        GraphicsGraphResource(3, "volume-destination", true, 48, 13)
     ], [
         GraphicsGraphPass(10, "prepare", [
-            GraphicsGraphUse(0, graphAccessWrite)
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(2, graphAccessWrite)
         ]),
         GraphicsGraphPass(20, "copy", [
             GraphicsGraphUse(0, graphAccessRead),
-            GraphicsGraphUse(1, graphAccessWrite)
+            GraphicsGraphUse(1, graphAccessWrite),
+            GraphicsGraphUse(2, graphAccessRead),
+            GraphicsGraphUse(3, graphAccessWrite)
         ]),
         GraphicsGraphPass(30, "inspect", [
-            GraphicsGraphUse(1, graphAccessRead)
+            GraphicsGraphUse(1, graphAccessRead),
+            GraphicsGraphUse(3, graphAccessRead)
         ])
     ], [
-        GraphicsGraphTextureDeclaration(0, sourceDescriptor),
-        GraphicsGraphTextureDeclaration(1, destinationDescriptor)
+        GraphicsGraphTextureDeclaration(0, arrayDescriptor),
+        GraphicsGraphTextureDeclaration(1, arrayDescriptor),
+        GraphicsGraphTextureDeclaration(2, volumeDescriptor),
+        GraphicsGraphTextureDeclaration(3, volumeDescriptor)
     ])
-    val commands = app.graphCommandList(graph, 4)
+    val commands = app.graphCommandList(graph, 5)
     var succeeded = app.valid() && graph.valid() && commands.valid() &&
         commands.recordPass(graph, 10) &&
         commands.recordPass(graph, 20) &&
-        commands.recordTextureCopy(graph, 0, 1) &&
+        commands.recordTextureCopyRange(
+            graph, 0, 1,
+            0, 0, 0, 1,
+            0, 0, 0, 0,
+            2, 2, 2
+        ) && commands.recordTextureCopyRange(
+            graph, 2, 3,
+            0, 0, 0, 0,
+            0, 0, 0, 1,
+            2, 2, 2
+        ) &&
         commands.recordPass(graph, 30) && commands.seal(graph)
+    commands.depths[2] = 1
+    val tamperRejected = succeeded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing
+    commands.depths[2] = 2
+    succeeded = tamperRejected
 
-    val value = 4280427042
-    val sourceBytes = bufferBytes(16)
-    val outputBytes = bufferBytes(16)
+    val arrayValue = 4280427042
+    val volumeValue = 4278255360
+    val arrayBytes = bufferBytes(32)
+    val volumeBytes = bufferBytes(32)
+    val arrayOutput = bufferBytes(32)
+    val volumeOutput = bufferBytes(32)
+    val arraySourceRegion = TextureRegion(
+        z = 1, width = 2, height = 2, depth = 2
+    )
+    val arrayDestinationRegion = TextureRegion(
+        z = 0, width = 2, height = 2, depth = 2
+    )
+    val volumeSourceRegion = TextureRegion(
+        z = 0, width = 2, height = 2, depth = 2
+    )
+    val volumeDestinationRegion = TextureRegion(
+        z = 1, width = 2, height = 2, depth = 2
+    )
     val initialization = graph.beginExecution()
     succeeded = succeeded && initialization > 0 &&
         app.beginMaterializedRenderGraphPass(graph, initialization, 10) &&
-        fillRecordedCopyBytes(sourceBytes, value) &&
-        app.writeGraphTextureBytes(graph, initialization, 0, sourceBytes) &&
+        fillRecordedCopyBytes(arrayBytes, arrayValue) &&
+        fillRecordedCopyBytes(volumeBytes, volumeValue) &&
+        app.writeGraphTextureBytes(
+            graph, initialization, 0, arrayBytes, arraySourceRegion
+        ) && app.writeGraphTextureBytes(
+            graph, initialization, 2, volumeBytes, volumeSourceRegion
+        ) &&
         app.beginMaterializedRenderGraphPass(graph, initialization, 20) &&
         app.beginMaterializedRenderGraphPass(graph, initialization, 30) &&
         graph.completeExecution(initialization) &&
@@ -95,13 +140,19 @@ fun main: int {
         app.beginMaterializedRenderGraphPass(graph, inspection, 10) &&
         app.beginMaterializedRenderGraphPass(graph, inspection, 20) &&
         app.beginMaterializedRenderGraphPass(graph, inspection, 30) &&
-        outputBytes.fill(0) &&
-        app.readGraphTextureBytes(graph, inspection, 1, outputBytes) &&
-        recordedCopyBytesEqual(outputBytes, value) &&
+        arrayOutput.fill(0) && volumeOutput.fill(0) &&
+        app.readGraphTextureBytes(
+            graph, inspection, 1, arrayOutput, arrayDestinationRegion
+        ) && app.readGraphTextureBytes(
+            graph, inspection, 3, volumeOutput, volumeDestinationRegion
+        ) && recordedCopyBytesEqual(arrayOutput, arrayValue) &&
+        recordedCopyBytesEqual(volumeOutput, volumeValue) &&
         graph.completeExecution(inspection)
 
     val sourceIdentity = graph.physicalIdentity(0)
     val destinationIdentity = graph.physicalIdentity(1)
+    val volumeSourceIdentity = graph.physicalIdentity(2)
+    val volumeDestinationIdentity = graph.physicalIdentity(3)
     val liveBefore = runtimeMemoryLiveBytes()
     var iteration = 0
     while (succeeded && iteration < 1000) {
@@ -111,21 +162,28 @@ fun main: int {
     val liveAfter = runtimeMemoryLiveBytes()
     val stable = iteration == 1000 && sourceIdentity != 0 &&
         destinationIdentity != 0 && sourceIdentity != destinationIdentity &&
+        volumeSourceIdentity != 0 && volumeDestinationIdentity != 0 &&
+        volumeSourceIdentity != volumeDestinationIdentity &&
         graph.physicalIdentity(0) == sourceIdentity &&
         graph.physicalIdentity(1) == destinationIdentity &&
-        commands.commandCount == 4 && commands.executions == 1001 &&
-        commands.failedExecutions == 0 &&
+        graph.physicalIdentity(2) == volumeSourceIdentity &&
+        graph.physicalIdentity(3) == volumeDestinationIdentity &&
+        commands.commandCount == 5 && commands.executions == 1001 &&
+        commands.failedExecutions == 1 &&
         graph.completedExecutions == 1003 &&
-        graph.lastExecutionBarriers == 2 &&
-        graph.totalExecutedBarriers == 2006 &&
+        graph.lastExecutionBarriers == 4 &&
+        graph.totalExecutedBarriers == 4012 &&
         graph.backendBarrierCalls == 2006 &&
         graph.pools[0].acquisitionCount == 1 &&
         graph.pools[1].acquisitionCount == 1 &&
+        graph.pools[2].acquisitionCount == 1 &&
+        graph.pools[3].acquisitionCount == 1 &&
         liveAfter == liveBefore
     val passed = succeeded &&
-        recordedCopyBytesEqual(outputBytes, value) && stable
+        recordedCopyBytesEqual(arrayOutput, arrayValue) &&
+        recordedCopyBytesEqual(volumeOutput, volumeValue) && stable
     println(
-        "recorded-graph-copy ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} exact=${recordedCopyBytesEqual(outputBytes, value)} executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity"
+        "recorded-graph-copy ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} array=${recordedCopyBytesEqual(arrayOutput, arrayValue)} volume=${recordedCopyBytesEqual(volumeOutput, volumeValue)} tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$volumeSourceIdentity/$volumeDestinationIdentity"
     )
     if (passed) 0 else 1
 }

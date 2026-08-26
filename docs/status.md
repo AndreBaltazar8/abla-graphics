@@ -562,8 +562,9 @@ Updated: 2026-08-26.
   validation, binds imported descriptor fingerprints plus graph-owned physical
   identities, and rejects incompatible graphs/resources or post-seal mutation
   before opening an execution. Eligible Vulkan streams record their barriers,
-  2D copy, render, and compute work into one retained command buffer and submit once per
-  replay; OpenGL uses ordered direct operations. The combined six-command
+  dimension-aware copy, render, and compute work into one retained command
+  buffer and submit once per replay; OpenGL uses ordered direct operations. The
+  combined six-command
   OpenGL/Vulkan/auto gate proves center pixel `4294281759`, copied RGBA
   `4280427042`, 1,001 successful list executions, 1,003 completed graph
   executions, 4,012 logical barriers, 3,009 batched backend barrier calls,

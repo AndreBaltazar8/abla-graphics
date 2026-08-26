@@ -45,7 +45,11 @@ affine resource arrays. Recording never grows those arrays.
 only distinct graph-owned physical slots for which that pass declares source
 read and destination write access. It validates both complete texture
 descriptors and the mip/origin/extent range. `recordTextureCopy` is the concise
-whole-2D-texture form.
+whole-2D-texture form. The range form preserves `z` and `depth`: array and cube
+textures interpret them as base layer and layer count, while 3D textures use
+physical slice offsets and extent. Eligible Vulkan records keep these copies
+inside the command list's single submission and restore every provisionally
+tracked layer if recording fails before submission.
 
 `recordRenderTarget` belongs to the most recently recorded pass and accepts an
 imported logical texture for which that pass declares write access. It moves
@@ -249,6 +253,11 @@ reflected values, mutates the source to green after sealing, and still produces
 exact red RGBA8 word `4278190335`. Oversized sealed push metadata rejects
 before execution; 1,001 valid replays retain zero live growth and the same
 zero/1,001 OpenGL/Vulkan submission counts.
+
+The copy proof records one two-layer 2D-array range and one two-slice 3D range
+in the same graph stream. It rejects a valid-looking post-seal depth mutation,
+reads both destination ranges back exactly, and completes 1,001 replays with
+zero live growth and zero/1,001 OpenGL/Vulkan submissions.
 
 Procedural depth records use `recordRenderTargetDepth(...)` or
 `recordRenderTargetDepthPush(...)`. The command owns the complete color/depth

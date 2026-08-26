@@ -281,10 +281,11 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   offscreen rendering into a caller-owned imported target, post-pass copy into
   another transient, exact 16x16 readback, and 3,003 allocation-free backend
   barrier calls on explicit OpenGL and Vulkan;
-- `examples/recorded-graph-copy`: a sealed four-record pass/copy stream with
-  exact 2x2 readback, 1,001 reusable executions, stable graph-owned textures,
-  2,006 barrier calls, and zero warmed live-memory growth on explicit OpenGL
-  and Vulkan;
+- `examples/recorded-graph-copy`: a sealed five-record stream copies two array
+  layers and two physical 3D slices, rejects sealed-range mutation, and proves
+  exact readback through 1,001 reusable executions with stable graph-owned
+  textures, one Vulkan submission per replay, and zero warmed live-memory
+  growth on both explicit backends;
 - `examples/recorded-graph-render`: a sealed six-record stream combining four
   graph passes, a transient texture copy, and an owned procedural offscreen
   render; it proves exact copy/render output, 1,001 allocation-free replays,

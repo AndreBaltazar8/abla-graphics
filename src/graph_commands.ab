@@ -3942,11 +3942,21 @@ resource class GraphicsGraphCommandList(
                 val destination = graph.textureDescriptor(
                     this.destinationResourceIds[commandIndex]
                 )
-                accepted = source.dimension == textureDimension2D &&
-                    destination.dimension == textureDimension2D &&
-                    this.sourceZs[commandIndex] == 0 &&
-                    this.destinationZs[commandIndex] == 0 &&
-                    this.depths[commandIndex] == 1
+                accepted = textureCopyRangeValid(
+                    source,
+                    destination,
+                    this.sourceMipLevels[commandIndex],
+                    this.sourceXs[commandIndex],
+                    this.sourceYs[commandIndex],
+                    this.sourceZs[commandIndex],
+                    this.destinationMipLevels[commandIndex],
+                    this.destinationXs[commandIndex],
+                    this.destinationYs[commandIndex],
+                    this.destinationZs[commandIndex],
+                    this.widths[commandIndex],
+                    this.heights[commandIndex],
+                    this.depths[commandIndex]
+                )
             } else accepted = kind == graphicsGraphCommandPass ||
                 kind == graphicsGraphCommandRender ||
                 kind == graphicsGraphCommandCompute ||
@@ -7336,13 +7346,22 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
                 destinationTextureSlot <
                     graph.pools[destinationPool].textures.size
             if (succeeded) {
+                val arrayed = textureDimensionArrayed(
+                    sourceDescriptor.dimension
+                )
+                val sourceBaseLayer = if (arrayed)
+                    commands.sourceZs[commandIndex] else 0
+                val destinationBaseLayer = if (arrayed)
+                    commands.destinationZs[commandIndex] else 0
+                val arrayLayers = if (arrayed)
+                    commands.depths[commandIndex] else 1
                 commands.oldSourceLayouts[commandIndex] =
                     graph.pools[sourcePool].textures[
                         sourceTextureSlot
                     ].vulkan.loadLayout(
                         sourceDescriptor,
                         commands.sourceMipLevels[commandIndex],
-                        0
+                        sourceBaseLayer
                     )
                 commands.oldDestinationLayouts[commandIndex] =
                     graph.pools[destinationPool].textures[
@@ -7350,10 +7369,29 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
                     ].vulkan.loadLayout(
                         destinationDescriptor,
                         commands.destinationMipLevels[commandIndex],
-                        0
+                        destinationBaseLayer
                     )
                 succeeded = commands.oldSourceLayouts[commandIndex] >= 0 &&
-                    commands.oldDestinationLayouts[commandIndex] >= 0 &&
+                    commands.oldDestinationLayouts[commandIndex] >= 0
+                var layer = 1
+                while (succeeded && layer < arrayLayers) {
+                    succeeded = graph.pools[sourcePool].textures[
+                        sourceTextureSlot
+                    ].vulkan.loadLayout(
+                        sourceDescriptor,
+                        commands.sourceMipLevels[commandIndex],
+                        sourceBaseLayer + layer
+                    ) == commands.oldSourceLayouts[commandIndex] &&
+                        graph.pools[destinationPool].textures[
+                            destinationTextureSlot
+                        ].vulkan.loadLayout(
+                            destinationDescriptor,
+                            commands.destinationMipLevels[commandIndex],
+                            destinationBaseLayer + layer
+                        ) == commands.oldDestinationLayouts[commandIndex]
+                    layer = layer + 1
+                }
+                succeeded = succeeded &&
                     this.vulkanDevice.recordTextureCopyRange(
                         graph.pools[sourcePool].textures[
                             sourceTextureSlot
@@ -7366,14 +7404,14 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
                         commands.sourceMipLevels[commandIndex],
                         commands.sourceXs[commandIndex],
                         commands.sourceYs[commandIndex],
-                        0,
+                        commands.sourceZs[commandIndex],
                         commands.destinationMipLevels[commandIndex],
                         commands.destinationXs[commandIndex],
                         commands.destinationYs[commandIndex],
-                        0,
+                        commands.destinationZs[commandIndex],
                         commands.widths[commandIndex],
                         commands.heights[commandIndex],
-                        1,
+                        commands.depths[commandIndex],
                         true
                     )
             }
@@ -7580,22 +7618,39 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
                 val destinationTextureSlot = texturePoolTokenSlot(
                     graph.slotLeases[destinationPool]
                 )
-                graph.pools[sourcePool].textures[
-                    sourceTextureSlot
-                ].vulkan.storeSubresourceLayout(
-                    graph.textureDescriptor(sourceResourceId),
-                    commands.sourceMipLevels[commandIndex],
-                    0,
-                    commands.oldSourceLayouts[commandIndex]
+                val sourceDescriptor =
+                    graph.textureDescriptor(sourceResourceId)
+                val destinationDescriptor =
+                    graph.textureDescriptor(destinationResourceId)
+                val arrayed = textureDimensionArrayed(
+                    sourceDescriptor.dimension
                 )
-                graph.pools[destinationPool].textures[
-                    destinationTextureSlot
-                ].vulkan.storeSubresourceLayout(
-                    graph.textureDescriptor(destinationResourceId),
-                    commands.destinationMipLevels[commandIndex],
-                    0,
-                    commands.oldDestinationLayouts[commandIndex]
-                )
+                val sourceBaseLayer = if (arrayed)
+                    commands.sourceZs[commandIndex] else 0
+                val destinationBaseLayer = if (arrayed)
+                    commands.destinationZs[commandIndex] else 0
+                val arrayLayers = if (arrayed)
+                    commands.depths[commandIndex] else 1
+                var layer = 0
+                while (layer < arrayLayers) {
+                    graph.pools[sourcePool].textures[
+                        sourceTextureSlot
+                    ].vulkan.storeSubresourceLayout(
+                        sourceDescriptor,
+                        commands.sourceMipLevels[commandIndex],
+                        sourceBaseLayer + layer,
+                        commands.oldSourceLayouts[commandIndex]
+                    )
+                    graph.pools[destinationPool].textures[
+                        destinationTextureSlot
+                    ].vulkan.storeSubresourceLayout(
+                        destinationDescriptor,
+                        commands.destinationMipLevels[commandIndex],
+                        destinationBaseLayer + layer,
+                        commands.oldDestinationLayouts[commandIndex]
+                    )
+                    layer = layer + 1
+                }
             }
             commandIndex = commandIndex - 1
         }
