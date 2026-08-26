@@ -1555,7 +1555,14 @@ is involved. The focused GLSL suite covers chained updates and `%=` rejection.
 plus five updates and retains exact cyan `4294967040`, tamper rejection, 1,001
 successful replays, zero warmed live-byte growth, and zero/1,001 Vulkan
 submissions on explicit OpenGL, explicit Vulkan, and automatic selection.
-The following checkpoint adds the first structured image value flow. Scalar
+
+### Conditional storage-image value flow
+
+Implementation commit `6d99e2badad7bee9702b402d9243be67da6e2463`
+(`Lower conditional storage image values`) is published and synchronized on
+`origin/main`.
+
+This checkpoint adds the first structured image value flow. Scalar
 floating expressions support all six comparisons in a bounded `if` with an
 optional `else`; both branches assign the same mutable `vec4`, and a missing
 branch retains the prior SSA value. Vulkan emits scalar/vector boolean types,
