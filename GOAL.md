@@ -710,6 +710,8 @@ textures are now the remaining sampled subpass ownership form.
 
 ### Graph-owned transient sampled textures
 
+Implementation commit `dce5189586770002b9a193423b81241e13115d27`
+adds retained transient sampling.
 `sampledRetainedGraphTextureEntry(...)` builds a bind-group entry against the
 materialized graph's stable one-slot texture-pool lease before command
 recording. `graphSubpassTransientTextureResources(...)` owns the sampler,
