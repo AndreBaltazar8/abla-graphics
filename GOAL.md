@@ -86,6 +86,9 @@ nix-shell --run 'make check-abla-only'
 - Render-push implementation commit:
   `c78b5d7e7158b10cf1647f879dca5602377e256f`
   (`Snapshot recorded render push values`).
+- Procedural-depth implementation commit:
+  `38c99cc908e2fff49b93273f9379b50bc9ff7b46`
+  (`Record procedural graph depth rendering`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -479,7 +482,7 @@ affected executable.
 5. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
 
-## Verified checkpoint awaiting publication: procedural graph depth
+## Published checkpoint: procedural graph depth
 
 Recorded procedural renders now accept an owned depth-capable target through
 `recordRenderTargetDepth(...)` and `recordRenderTargetDepthPush(...)`. Both
