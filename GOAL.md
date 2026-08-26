@@ -625,6 +625,8 @@ workflow; its no-cache executable has no unresolved `ldd` entry with
 
 ## Current checkpoint: planner-visible recorded subpass buffers
 
+Implementation commit `746c144632cd2d328e54eb31d1a8f39cd61dc3f9`
+adds this slice.
 `recordRenderBindingSubpasses(...)` owns the compatible target, render pass,
 ordered pipeline sequence, and a `graphSubpassBufferResources(...)` table.
 Every per-stage bind-group entry maps to one unique imported graph buffer; the
@@ -642,6 +644,14 @@ replays with `live=0` and zero/1,001 submissions.
 bringing the sample matrix to 52 roots. Sampled textures and combined push plus
 bind-group subpasses remain follow-up work. No graphics implementation uses C,
 GLFW, SDL, or a native shim.
+
+Focused validation used the pinned pure-Abla compiler and clean sysroot because
+the concurrent `../ablac/build/ablac.bin` currently reserves `type`. The graph
+command executable passed OpenGL, Vulkan, and automatic selection. The sample
+passed both explicit backends for 1,001 replays, and its direct `ldd` audit with
+`LD_LIBRARY_PATH` removed found no unresolved library. `make check-abla-only`
+and `git diff --check` passed. The unrelated dirty `../ablac` worktree was not
+staged, changed, or committed by this checkpoint.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
