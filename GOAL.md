@@ -148,6 +148,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized extended-format/fragment-image implementation:
   `37b2bea591135c3bb13cf627fecea147767b0bed`
   (`Add extended fragment storage images`).
+- Published and synchronized layered storage-image implementation:
+  `1dc051f41700c9c1e8f96a7057d64c0e735f9d9d`
+  (`Add layered storage images`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -169,9 +172,12 @@ nix-shell --run 'make check-abla-only'
   `6c3d23bc3336131ea7cf81f80dd821330612f89b`
   (`Infer chained nominal global initializers`).
 - HEAD is synchronized, but the worktree currently contains unrelated active
-  edits in `docs/language.md`, `src/backend/llvm/core.ab`,
-  `src/backend/llvm/functions.ab`, `src/parser.ab`, and
-  `tests/cases/modules/strings-runtime.ab`. Preserve and do not stage them.
+  edits in `docs/language.md`, `src/backend/llvm/analysis.ab`,
+  `src/backend/llvm/core.ab`, `src/backend/llvm/functions.ab`, `src/parser.ab`,
+  `stdlib/abla/unsafe/memory/entry.ab`,
+  `tests/cases/modules/strings-runtime.ab`,
+  `tools/test-native-cstring-lifetime.sh`, and untracked
+  `tests/cases/modules/native-string-address.ab`. Preserve and do not stage them.
   This graphics checkpoint required no compiler source change.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
@@ -522,9 +528,10 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Expand the now-published 2D storage-image path to 1D/array/3D/cube
-   dimensions and general `imageLoad`/`imageStore` expression lowering while
-   preserving reflected access/format matching and allocation-free replay.
+1. Complete deterministic 1D/cube storage-image programs and general
+   `imageLoad`/`imageStore` expression lowering. Dimension-aware binding now
+   covers 1D/2D/2D-array/3D/cube and exact array/3D retained execution is
+   published; preserve its access/format matching and allocation-free replay.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -879,6 +886,39 @@ test-application test-headless` passed, as did optimized no-cache builds and
 stripped-link live runs of the two new samples plus fast no-cache regressions
 of both prior storage-image samples. Broader image dimensions and general
 expression lowering remain follow-up work.
+
+### Published checkpoint: layered array and volume storage images
+
+Implementation commit `1dc051f41700c9c1e8f96a7057d64c0e735f9d9d`
+is published and synchronized on `origin/main`.
+
+Storage binding/reflection now maps `image1D`, `image2D`, `image2DArray`,
+`image3D`, and `imageCube`, including signed and unsigned forms, to the exact
+portable texture dimension. Whole textures and one-mip affine views share that
+validation. OpenGL retains the required `glBindImageTexture` layered flag for
+array, 3D, and cube entries; Vulkan retains the matching image or view type.
+The sealed graph fingerprint checks this dimension-derived native identity.
+OpenGL 3D texture views now correctly expose the selected mip's physical depth.
+
+The pure-Abla deterministic `$glsl` path adds one exact compute program with a
+write-only RGBA8 `image2DArray` and RGBA8 `image3D`. The new
+`examples/recorded-graph-layered-storage-images/` sample brings the matrix to
+61 roots. It rejects a sealed stage-map swap between the two differently
+dimensioned resources, replays 1,001 times, then reads exact green
+`4278255360` from array layer two and blue `4294901760` from volume slice one.
+Optimized no-cache OpenGL, Vulkan, and automatic-selection runs passed with
+`LD_LIBRARY_PATH` removed, no unresolved `ldd` entry, zero warmed live-byte
+growth, and zero/1,001 Vulkan submissions. `make check-abla-only`, the core
+suite, and the isolated GLSL subparser build/run also passed. The new GLSL
+assertions are grouped under one named Boolean because extending the already
+very deep final test conjunction directly exposed a compiler expression-depth
+crash; no `../ablac` change was needed.
+
+The next storage-image slice is deterministic 1D/cube emission plus general
+image coordinate/value expression lowering. Array/3D binding is already
+general even though the currently executable deterministic shader form is
+intentionally exact. Keep the next gate similarly focused unless shared sample
+infrastructure or linkage changes.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
