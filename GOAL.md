@@ -1058,9 +1058,9 @@ explicit backends under Xvfb, and the Vulkan run with
 `VK_LAYER_KHRONOS_validation` emitted no validation message. No `../ablac`
 change was needed for this slice. At handoff, `../ablac` remains at published
 commit `8b6c6e5305049e2e1e2669556909286384eaa009` but contains independent uncommitted
-changes in `src/backend/llvm/functions.ab`,
-`stdlib/abla/unsafe/memory/entry.ab`, `tools/test-unsafe-stack-memory.sh`, and
-`GOAL.md`; do not stage them as graphics work.
+changes in `docs/performance.md`, `src/backend/llvm/functions.ab`,
+`src/backend/llvm/runtime.ab`, `src/toolchain.ab`, and
+`tools/test-import-aliases.sh`; do not stage them as graphics work.
 
 Continue with broader generated GLSL expression composition, query/debug
 records, asynchronous GPU-completion retention, and frames in flight. Keep
