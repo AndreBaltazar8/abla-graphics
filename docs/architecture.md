@@ -201,9 +201,11 @@ two-to-eight-stage pipeline sequence, including planner-visible imported
 uniform/storage buffers and imported or graph-owned sampled
 textures/views/samplers through a flattened affine resource table,
 and planner-visible compute dispatches over the same imported-buffer and
-imported/view/transient sampled-texture resource table plus imported RGBA8
-storage-texture and storage-view tables with explicit access. It affinely owns each
-recorded target/pipeline, caller-owned
+imported/view/transient sampled-texture resource table plus imported storage-
+texture and storage-view tables with explicit access, reflected format, and
+1D/2D/2D-array/3D/cube dimension identity. OpenGL records whether the image
+unit is layered; Vulkan retains the corresponding exact image-view type. It
+affinely owns each recorded target/pipeline, caller-owned
 render/compute buffer, sampled or storage texture/sampler, compute pipeline,
 and retained
 bind group; graph-owned resources remain in the graph. Seal binds every logical

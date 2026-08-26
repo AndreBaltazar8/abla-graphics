@@ -670,6 +670,46 @@ fun main: int {
     val storageImageFragmentSpirvAgain = storageImageFragment.spirv(
         shaderStageFragment
     )
+    val storageImageLayered = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform writeonly image2DArray layers;
+            layout(rgba8, binding = 1) uniform writeonly image3D volume;
+            void main() {
+                imageStore(
+                    layers,
+                    ivec3(0, 0, 2),
+                    vec4(0.0, 1.0, 0.0, 1.0)
+                );
+                imageStore(
+                    volume,
+                    ivec3(0, 0, 1),
+                    vec4(0.0, 0.0, 1.0, 1.0)
+                );
+            }
+        }
+    }
+    val storageImageLayeredSpirv = storageImageLayered.spirv(
+        shaderStageCompute
+    )
+    val storageImageLayeredSpirvAgain = storageImageLayered.spirv(
+        shaderStageCompute
+    )
+    val storageImageLayeredValid = storageImageLayered.valid &&
+        storageImageLayered.bindings.size == 2 &&
+        storageImageLayered.bindings[0].dataType == "image2DArray" &&
+        storageImageLayered.bindings[0].imageFormat == "rgba8" &&
+        storageImageLayered.bindings[1].dataType == "image3D" &&
+        storageImageLayered.bindings[1].imageFormat == "rgba8" &&
+        storageImageLayeredSpirv.succeeded &&
+        storageImageLayeredSpirv.module.valid() &&
+        storageImageLayeredSpirv.module.bound() == 31 &&
+        spirvContainsWord(storageImageLayeredSpirv.module, 262243) &&
+        spirvWordsEqual(
+            storageImageLayeredSpirv.module,
+            storageImageLayeredSpirvAgain.module
+        )
     val unsupportedSampledStorage = glslPackage(
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) uniform sampler2D atlas; layout(std430,binding=1) buffer Destination { uint value; } destination; void main(){ destination.value += uint(texture(atlas,vec2(0.25,0.5)).r); }"]
@@ -3236,7 +3276,7 @@ fun main: int {
         spirvWordsEqual(
             storageImageFragmentSpirv.module,
             storageImageFragmentSpirvAgain.module
-        ) &&
+        ) && storageImageLayeredValid &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
         !misplacedStorageProfile.succeeded &&

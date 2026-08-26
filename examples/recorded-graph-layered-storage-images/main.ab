@@ -1,0 +1,161 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            validation = true,
+            requiredFeatures = graphicsFeatureStorageTextures |
+                graphicsFeatureStorageTextureExtendedFormats
+        ),
+        WindowConfig(
+            title = "Abla Graphics layered storage images",
+            width = 480,
+            height = 270
+        )
+    )
+    val arrayDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1, 3),
+        dimension = textureDimension2DArray,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageCopySource
+    )
+    val volumeDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1, 2),
+        dimension = textureDimension3D,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageCopySource
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "layer-array", false, 0, 10),
+        GraphicsGraphResource(1, "volume", false, 0, 10)
+    ], [
+        GraphicsGraphPass(10, "store-layered-images", [
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(1, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, arrayDescriptor),
+        GraphicsGraphTextureDeclaration(1, volumeDescriptor)
+    ], [])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x=1) in;
+            layout(rgba8,binding=0) uniform writeonly image2DArray layers;
+            layout(rgba8,binding=1) uniform writeonly image3D volume;
+            void main() {
+                imageStore(
+                    layers,
+                    ivec3(0, 0, 2),
+                    vec4(0.0, 1.0, 0.0, 1.0)
+                );
+                imageStore(
+                    volume,
+                    ivec3(0, 0, 1),
+                    vec4(0.0, 0.0, 1.0, 1.0)
+                );
+            }
+        }
+    }
+    val arrayTexture = app.texture(arrayDescriptor)
+    val volumeTexture = app.texture(volumeDescriptor)
+    val arrayEntry = app.storageTextureEntry(
+        0,
+        shaderVisibilityCompute,
+        arrayTexture,
+        graphicsStorageTextureWriteOnly
+    )
+    val volumeEntry = app.storageTextureEntry(
+        1,
+        shaderVisibilityCompute,
+        volumeTexture,
+        graphicsStorageTextureWriteOnly
+    )
+    val binding = app.bindGroup([arrayEntry, volumeEntry])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val pipelineValid = pipeline.valid()
+    val pipelineError = pipeline.error.message
+    val resources = graphSubpassStorageTextureResources(
+        [0, 1],
+        [move(arrayTexture), move(volumeTexture)],
+        [
+            graphicsStorageTextureWriteOnly,
+            graphicsStorageTextureWriteOnly
+        ],
+        [[0, 1]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var arrayReadback = bufferBytes(4)
+    var volumeReadback = bufferBytes(4)
+    val prerequisites = app.valid() && graph.valid() && shader.valid &&
+        app.capabilities.supports(graphicsFeatureStorageTextures) &&
+        app.capabilities.supports(
+            graphicsFeatureStorageTextureExtendedFormats
+        ) && arrayEntry.valid() && volumeEntry.valid() && pipelineValid &&
+        commands.valid() && arrayReadback.fill(0) &&
+        volumeReadback.fill(0)
+    val passRecorded = prerequisites && commands.recordPass(graph, 10)
+    val resourcesRecorded = passRecorded &&
+        commands.recordComputeBindingResources(
+            graph, move(resources), move(pipeline), 1
+        )
+    var succeeded = resourcesRecorded && commands.seal(graph)
+    var tamperRejected = false
+    if (succeeded) {
+        commands.computeResources[0].bindingResources[
+            0
+        ].stageResourceIndices[0][0] = 1
+        tamperRejected = !app.executeGraphCommands(graph, commands)
+        commands.computeResources[0].bindingResources[
+            0
+        ].stageResourceIndices[0][0] = 0
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && tamperRejected && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val arrayDownloaded = succeeded && commands.computeResources[
+        0
+    ].bindingResources[0].storageTextures[0].readBytes(
+        arrayReadback,
+        TextureRegion(z = 2, width = 1, height = 1, depth = 1)
+    )
+    val volumeDownloaded = succeeded && commands.computeResources[
+        0
+    ].bindingResources[0].storageTextures[1].readBytes(
+        volumeReadback,
+        TextureRegion(z = 1, width = 1, height = 1, depth = 1)
+    )
+    val arrayPixel = if (arrayDownloaded)
+        arrayReadback.load(0) | (arrayReadback.load(1) << 8) |
+        (arrayReadback.load(2) << 16) | (arrayReadback.load(3) << 24)
+        else 0
+    val volumePixel = if (volumeDownloaded)
+        volumeReadback.load(0) | (volumeReadback.load(1) << 8) |
+        (volumeReadback.load(2) << 16) | (volumeReadback.load(3) << 24)
+        else 0
+    val stable = arrayDownloaded && volumeDownloaded && tamperRejected &&
+        iteration == 1001 && arrayPixel == 4278255360 &&
+        volumePixel == 4294901760 && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-layered-storage-images ${graphicsBackendName(app.backend)}: array=$arrayPixel volume=$volumePixel ready=$prerequisites/$passRecorded/$resourcesRecorded entries=${arrayEntry.valid()}/${volumeEntry.valid()} pipeline=$pipelineValid/'$pipelineError' tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

@@ -730,9 +730,10 @@ trusted fun openGlApplyBindGroup(
             glBindBufferBase(37074, binding, handle)
         } else if (succeeded && kind == 3 && sampler == 0 && size > 0) {
             glBindBufferRange(37074, binding, handle, offset, size)
-        } else if (succeeded && kind == 4 && sampler != 0 && offset >= 0 &&
+        } else if (succeeded && kind == 4 && sampler != 0 &&
+            (offset == 0 || offset == 1) &&
             (size == 35000 || size == 35001 || size == 35002)) {
-            glBindImageTexture(binding, handle, offset, 0, 0, size, sampler)
+            glBindImageTexture(binding, handle, 0, offset, 0, size, sampler)
         } else succeeded = false
         index = index + 1
     }
@@ -2830,8 +2831,14 @@ fun OpenGlTexture.view(
                     selected.internalFormat,
                     descriptor.baseMipLevel,
                     descriptor.resolvedMipLevelCount(texture),
-                    descriptor.baseArrayLayer,
-                    descriptor.resolvedArrayLayerCount(texture)
+                    if (texture.dimension == textureDimension3D) 0
+                    else descriptor.baseArrayLayer,
+                    if (texture.dimension == textureDimension3D)
+                        textureMipDimension(
+                            texture.size.depth,
+                            descriptor.baseMipLevel
+                        )
+                    else descriptor.resolvedArrayLayerCount(texture)
                 )
                 if (glGetError() == 0) owned = true
                 else {

@@ -315,6 +315,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   R32F storage image executes retained `$glsl` compute, preserves exact IEEE
   `1.0f` through 1,001 allocation-free dual-backend replays, and rejects sealed
   stage-map mutation;
+- `examples/recorded-graph-layered-storage-images`: one retained dispatch owns
+  a 2D-array image and a 3D volume, writes exact green to layer two and exact
+  blue to slice one, rejects a swapped sealed resource map, and reads both
+  subresources back after 1,001 allocation-free OpenGL/Vulkan/auto replays;
 - `examples/fragment-storage-image`: a fragment-stage `imageStore` writes exact
   green to a separate RGBA8 image while the same draw writes exact red to its
   color attachment through 1,001 allocation-free OpenGL/Vulkan/auto renders;

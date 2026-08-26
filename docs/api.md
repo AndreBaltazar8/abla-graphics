@@ -251,20 +251,25 @@ recognized as sampled resources but are rejected until their corresponding
 portable texture dimensions are available.
 
 `storageTextureEntry(binding, visibility, texture, access)` accepts an owned
-single-mip, single-sample two-dimensional texture with `textureUsageStorage`.
+single-mip, single-sample 1D, 2D, 2D-array, 3D, or cube texture with
+`textureUsageStorage`; its dimension must exactly match reflected `image1D`,
+`image2D`, `image2DArray`, `image3D`, or `imageCube` (and signed/unsigned
+forms).
 Portable image formats are R8/RG8/RGBA8 unorm, R16/RG16/RGBA16 float, and
 R32/RG32/RGBA32 float. `rgba32f` is the baseline Vulkan shader-image format;
 the other formats require
 `graphicsFeatureStorageTextureExtendedFormats`. Compute visibility is portable,
 fragment visibility additionally requires
 `graphicsFeatureFragmentStorageTextures`, and vertex visibility remains
-rejected. OpenGL precomputes the image unit, internal format, and access for
-`glBindImageTexture`; Vulkan creates a storage-image descriptor, transitions
+rejected. OpenGL precomputes the image unit, internal format, access, and
+layered flag for `glBindImageTexture`; Vulkan creates a matching storage-image
+view and descriptor, transitions
 every selected subresource to `GENERAL` once before use, and keeps that resting
 layout across dispatch, rendering, and readback.
 
 `storageTextureViewEntry(binding, visibility, texture, view, access)` selects
-one validated mip and array layer without giving ownership to the bind group.
+one validated mip and its dimension-valid layer or depth range without giving
+ownership to the bind group.
 It requires the parent and view to belong to the application and agree on the
 complete parent descriptor. OpenGL binds mip zero of the re-indexed texture-view
 object. Vulkan uses the caller-owned `VkImageView` and transitions only the
@@ -2697,6 +2702,10 @@ sampled form reads a fixed coordinate; the image forms lower exact
 `imageStore` or `imageLoad` plus `imageStore` to
 deterministic pure-Abla SPIR-V. OpenGL and Vulkan both reach exact
 repeated results with stable handles and zero warmed live-byte growth.
+The deterministic layered form writes fixed coordinates in one RGBA8
+`image2DArray` and one RGBA8 `image3D`; exact selected-layer/slice readback is
+covered on both drivers. Deterministic 1D/cube programs and general image
+expressions remain forthcoming.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

@@ -6707,6 +6707,53 @@ fun glslStorageImageFragmentSpirv(): array<int> = [
     10, 14, 18, 196670, 20, 21, 65789, 65592
 ]
 
+fun glslStorageImageLayeredComputeSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "rgba8", ",", "binding", "=", "0", ")",
+        "uniform", "writeonly", "image2DArray", "layers", ";",
+        "layout", "(", "rgba8", ",", "binding", "=", "1", ")",
+        "uniform", "writeonly", "image3D", "volume", ";",
+        "void", "main", "(", ")", "{",
+        "imageStore", "(", "layers", ",", "ivec3", "(", "0", ",",
+        "0", ",", "2", ")", ",", "vec4", "(", "0.0", ",",
+        "1.0", ",", "0.0", ",", "1.0", ")", ")", ";",
+        "imageStore", "(", "volume", ",", "ivec3", "(", "0", ",",
+        "0", ",", "1", ")", ",", "vec4", "(", "0.0", ",",
+        "0.0", ",", "1.0", ",", "1.0", ")", ")", ";", "}"
+    ])
+
+fun glslStorageImageLayeredComputeSpirv(): array<int> = [
+    119734787, 65536, 524299, 31, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    327695, 5, 4, 1852399981, 0, 393232, 4, 17,
+    1, 1, 1, 196611, 2, 450, 262149, 4,
+    1852399981, 0, 262149, 9, 1702453612, 29554, 262149,
+    22, 1970040694, 25965, 196679, 9, 25, 262215,
+    9, 33, 0, 262215, 9, 34, 0, 196679,
+    22, 25, 262215, 22, 33, 1, 262215, 22,
+    34, 0, 262215, 30, 11, 25, 131091, 2,
+    196641, 3, 2, 196630, 6, 32, 589849, 7,
+    6, 1, 0, 1, 0, 2, 4, 262176,
+    8, 0, 7, 262203, 8, 9, 0, 262165,
+    11, 32, 1, 262167, 12, 11, 3, 262187,
+    11, 13, 0, 262187, 11, 14, 2, 393260,
+    12, 15, 13, 13, 14, 262167, 16, 6,
+    4, 262187, 6, 17, 0, 262187, 6, 18,
+    1065353216, 458796, 16, 19, 17, 18, 17, 18,
+    589849, 20, 6, 2, 0, 0, 0, 2,
+    4, 262176, 21, 0, 20, 262203, 21, 22,
+    0, 262187, 11, 24, 1, 393260, 12, 25,
+    13, 13, 24, 458796, 16, 26, 17, 17,
+    18, 18, 262165, 27, 32, 0, 262167, 28,
+    27, 3, 262187, 27, 29, 1, 393260, 28,
+    30, 29, 29, 29, 327734, 2, 4, 0,
+    3, 131320, 5, 262205, 7, 10, 9, 262243,
+    10, 15, 19, 262205, 20, 23, 22, 262243,
+    23, 25, 26, 65789, 65592
+]
+
 fun glslSampledStorageComputeSpirv(): array<int> = [
     119734787, 65536, 524299, 35, 0, 131089, 1, 393227,
     1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
@@ -6879,6 +6926,21 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.pushConstants.size == 0 &&
         this.specializationConstants.size == 0 &&
         glslStorageImageFloatComputeSource(this.stages[0].source)
+    val storageImageLayered = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 2 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "uniform" &&
+        this.bindings[0].dataType == "image2DArray" &&
+        this.bindings[0].access == "writeonly" &&
+        this.bindings[0].imageFormat == "rgba8" &&
+        this.bindings[1].set == 0 && this.bindings[1].binding == 1 &&
+        this.bindings[1].storage == "uniform" &&
+        this.bindings[1].dataType == "image3D" &&
+        this.bindings[1].access == "writeonly" &&
+        this.bindings[1].imageFormat == "rgba8" &&
+        this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslStorageImageLayeredComputeSource(this.stages[0].source)
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val rasterFragmentProgram = if (graphicsCommon &&
@@ -6938,7 +7000,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || pushStorage || dualStorage ||
         sampledStorage || storageImage || storageImageReadWrite ||
-        storageImageFloat || storageImageFragment ||
+        storageImageFloat || storageImageLayered || storageImageFragment ||
         vertex || proceduralTexturedVertex ||
         pushTransformVertex || uniformTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
@@ -6948,6 +7010,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     var words: array<int> = []
     if (storageImageFragment) {
         words = glslStorageImageFragmentSpirv()
+    } else if (storageImageLayered) {
+        words = glslStorageImageLayeredComputeSpirv()
     } else if (storageImageFloat) {
         words = glslStorageImageFloatComputeSpirv()
     } else if (storageImageReadWrite) {

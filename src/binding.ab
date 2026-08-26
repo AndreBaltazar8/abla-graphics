@@ -49,9 +49,27 @@ fun graphicsSampledTextureDimension(dataType: string): int =
     else textureDimensionUndefined
 
 fun graphicsStorageTextureDimension(dataType: string): int =
-    if (dataType == "image2D" || dataType == "iimage2D" ||
+    if (dataType == "image1D" || dataType == "iimage1D" ||
+        dataType == "uimage1D") textureDimension1D
+    else if (dataType == "image2D" || dataType == "iimage2D" ||
         dataType == "uimage2D") textureDimension2D
+    else if (dataType == "image3D" || dataType == "iimage3D" ||
+        dataType == "uimage3D") textureDimension3D
+    else if (dataType == "image2DArray" || dataType == "iimage2DArray" ||
+        dataType == "uimage2DArray") textureDimension2DArray
+    else if (dataType == "imageCube" || dataType == "iimageCube" ||
+        dataType == "uimageCube") textureDimensionCube
     else textureDimensionUndefined
+
+fun graphicsStorageTextureDimensionValid(dimension: int): bool =
+    dimension == textureDimension1D || dimension == textureDimension2D ||
+    dimension == textureDimension3D ||
+    dimension == textureDimension2DArray || dimension == textureDimensionCube
+
+fun graphicsStorageTextureOpenGlLayered(dimension: int): int =
+    if (dimension == textureDimension3D ||
+        dimension == textureDimension2DArray ||
+        dimension == textureDimensionCube) 1 else 0
 
 fun graphicsStorageTextureAccessValid(access: int): bool =
     access >= graphicsStorageTextureReadOnly &&
@@ -140,7 +158,9 @@ class GraphicsBindingEntry(
           this.size > 0 && this.bufferSize > 0 &&
           this.offset <= this.bufferSize - this.size) ||
          (this.kind == graphicsBindingStorageTexture &&
-          this.openGlSampler != 0 && this.offset == 0 &&
+          this.openGlSampler != 0 &&
+          graphicsStorageTextureOpenGlLayered(this.textureDimension) ==
+            this.offset &&
           (this.size == 35000 || this.size == 35001 ||
            this.size == 35002) &&
           graphicsStorageTextureAccessValid(this.bufferSize) &&
@@ -396,13 +416,13 @@ trusted fun GraphicsApplication.storageTextureEntry(
             this.capabilities, texture.descriptor.format, visibility
         ) ||
         (texture.descriptor.usage & textureUsageStorage) == 0 ||
-        texture.descriptor.dimension != textureDimension2D ||
+        !graphicsStorageTextureDimensionValid(texture.descriptor.dimension) ||
         texture.descriptor.samples != 1 || texture.descriptor.mipLevels != 1 ||
         format == 0 || !prepared) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.storageTextureEntry",
-            "storage texture entries require an owned single-mip two-dimensional storage texture with a supported image format and stage, valid access, binding, and visibility"
+            "storage texture entries require an owned single-mip storage texture with a supported dimension, image format, and stage, valid access, binding, and visibility"
         )
     }
     GraphicsBindingEntry(
@@ -414,7 +434,10 @@ trusted fun GraphicsApplication.storageTextureEntry(
         if (this.backend == graphicsBackendVulkan) texture.vulkan.image else 0,
         0,
         0,
-        0,
+        if (this.backend == graphicsBackendOpenGl)
+            graphicsStorageTextureOpenGlLayered(
+                texture.descriptor.dimension
+            ) else 0,
         if (this.backend == graphicsBackendOpenGl)
             graphicsStorageTextureOpenGlAccess(access) else 0,
         access,
@@ -461,14 +484,14 @@ trusted fun GraphicsApplication.storageTextureViewEntry(
             this.capabilities, format, visibility
         ) ||
         (texture.descriptor.usage & textureUsageStorage) == 0 ||
-        dimension != textureDimension2D || texture.descriptor.samples != 1 ||
+        !graphicsStorageTextureDimensionValid(dimension) ||
+        texture.descriptor.samples != 1 ||
         view.descriptor.resolvedMipLevelCount(texture.descriptor) != 1 ||
-        view.descriptor.resolvedArrayLayerCount(texture.descriptor) != 1 ||
         !prepared) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.storageTextureViewEntry",
-            "storage texture-view entries require an owned one-mip, one-layer two-dimensional storage view with a supported image format and stage, matching parent texture, valid access, binding, and visibility"
+            "storage texture-view entries require an owned one-mip storage view with a supported dimension, image format, and stage, matching parent texture, valid access, binding, and visibility"
         )
     }
     GraphicsBindingEntry(
@@ -481,7 +504,8 @@ trusted fun GraphicsApplication.storageTextureViewEntry(
         0,
         if (this.backend == graphicsBackendVulkan) view.vulkan.handle else 0,
         0,
-        0,
+        if (this.backend == graphicsBackendOpenGl)
+            graphicsStorageTextureOpenGlLayered(dimension) else 0,
         if (this.backend == graphicsBackendOpenGl)
             graphicsStorageTextureOpenGlAccess(access) else 0,
         access,
@@ -491,10 +515,18 @@ trusted fun GraphicsApplication.storageTextureViewEntry(
                     texture.descriptor.size.width,
                     view.descriptor.baseMipLevel
                 ),
-                textureMipDimension(
+                if (dimension == textureDimension1D) 1
+                else textureMipDimension(
                     texture.descriptor.size.height,
                     view.descriptor.baseMipLevel
-                )
+                ),
+                if (dimension == textureDimension3D) textureMipDimension(
+                    texture.descriptor.size.depth,
+                    view.descriptor.baseMipLevel
+                ) else if (textureDimensionArrayed(dimension))
+                    view.descriptor.resolvedArrayLayerCount(
+                        texture.descriptor
+                    ) else 1
             ),
             dimension = dimension,
             format = format,

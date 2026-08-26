@@ -376,6 +376,14 @@ retained replays with sealed-map rejection and `live=0`. The independent
 exact green through `imageStore` while its color attachment becomes exact red,
 and repeats 1,001 times without managed growth on both backends.
 
-Broader storage-image dimensions and general image-expression lowering,
+`recorded-graph-layered-storage-images` retains one 2D-array image and one 3D
+volume in the same dispatch. Dimension matching is sealed into the resource
+table; swapping their stage indices is rejected. OpenGL binds both as layered
+image units and Vulkan uses their exact storage-image views. After 1,001
+replays, explicit subresource readback observes green `4278255360` at array
+layer two and blue `4294901760` at volume slice one, with `live=0` and
+zero/1,001 Vulkan submissions.
+
+Deterministic 1D/cube programs and general image-expression lowering,
 broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.
