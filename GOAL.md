@@ -151,6 +151,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized layered storage-image implementation:
   `1dc051f41700c9c1e8f96a7057d64c0e735f9d9d`
   (`Add layered storage images`).
+- Published and synchronized full storage-dimension implementation:
+  `79a27e52d19a9399823622a695ce6ab0dc42619f`
+  (`Complete storage image dimensions`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -528,10 +531,10 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Complete deterministic 1D/cube storage-image programs and general
-   `imageLoad`/`imageStore` expression lowering. Dimension-aware binding now
-   covers 1D/2D/2D-array/3D/cube and exact array/3D retained execution is
-   published; preserve its access/format matching and allocation-free replay.
+1. Generalize `imageLoad`/`imageStore` coordinate and value expression
+   lowering beyond the published exact programs. Dimension-aware binding and
+   deterministic retained execution now cover 1D/2D/2D-array/3D/cube;
+   preserve access/format matching and allocation-free replay.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -914,11 +917,38 @@ assertions are grouped under one named Boolean because extending the already
 very deep final test conjunction directly exposed a compiler expression-depth
 crash; no `../ablac` change was needed.
 
-The next storage-image slice is deterministic 1D/cube emission plus general
-image coordinate/value expression lowering. Array/3D binding is already
-general even though the currently executable deterministic shader form is
-intentionally exact. Keep the next gate similarly focused unless shared sample
-infrastructure or linkage changes.
+The next storage-image slice was deterministic 1D/cube emission, now published
+below. General image coordinate/value expression lowering remains. Keep the
+next gate similarly focused unless shared sample infrastructure or linkage
+changes.
+
+### Published checkpoint: complete storage-image dimensions
+
+Implementation commit `79a27e52d19a9399823622a695ce6ab0dc42619f`
+is published and synchronized on `origin/main`.
+
+The deterministic pure-Abla translator now also emits one exact RGBA8
+`image1D` plus RGBA8 `imageCube` compute program. Cube storage has its own
+portable `graphicsFeatureCubeStorageTextures` bit: OpenGL 4.3+ advertises it,
+while Vulkan reports it only when `VkPhysicalDeviceFeatures.imageCubeArray` is
+available and enables that exact feature before the SPIR-V `ImageCubeArray`
+capability reaches pipeline creation. Binding and compute-pipeline feature
+checks propagate the requirement, so unsupported devices reject early.
+
+`examples/recorded-graph-storage-image-dimensions/` brings the matrix to 62
+roots. Its OpenGL, Vulkan, and automatic-selection runs reject a sealed map
+swap, replay 1,001 times, and read exact red `4278190335` from the 1D image and
+magenta `4294902015` from cube face four, with zero warmed live-byte growth and
+zero/1,001 Vulkan submissions. The optimized no-cache executable had no
+unresolved `ldd` entry and ran with `LD_LIBRARY_PATH` removed. The core suite,
+isolated GLSL subparser build/run, Abla-only audit, and independent Khronos
+`spirv-val --target-env vulkan1.0` validation of the emitted reference module
+passed. No compiler source or dirty `../ablac` path was changed.
+
+All five portable storage-image dimensions now have live driver evidence. The
+next shader slice should replace exact coordinate/color recognition with typed
+general image coordinate and value expressions, ideally reusing the existing
+GLSL expression IR rather than multiplying fixed-program recognizers.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
