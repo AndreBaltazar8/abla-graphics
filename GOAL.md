@@ -95,6 +95,9 @@ nix-shell --run 'make check-abla-only'
 - Recorded-resolve implementation commit:
   `b7c8a35bf2e6f004ddf352ed9fa58a4b3a15a079`
   (`Record multisample graph resolves`).
+- Recorded-MRT implementation commit:
+  `12ed3138edb421c4fa23d3672f9d3755df0d5f68`
+  (`Record generalized MRT attachments`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -540,7 +543,7 @@ API. Its no-cache executable has no unresolved `ldd` entries with
 validation is silent. The sample matrix now contains 49 roots. No `../ablac`
 change was required.
 
-## Verified checkpoint awaiting publication: recorded MRT attachments
+## Published checkpoint: recorded MRT attachments
 
 `recordRenderTargetAttachments(...)` and its `Push` form record two to eight
 ordered imported colors, zero resolves or one resolve per color, and optional
