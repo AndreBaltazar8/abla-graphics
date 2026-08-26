@@ -166,6 +166,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized storage-image SSA implementation:
   `a770a257819893f0a478871541451fdc100826c1`
   (`Compose storage image SSA locals`).
+- Published and synchronized storage-image expression-program implementation:
+  `19b8965231bbb7f851f1fcb813c20b61fd59f51c`
+  (`Parse storage image expression programs`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -540,11 +543,9 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Broaden the generated image-expression grammar beyond the now-supported
-   load local plus optional arithmetic-result local: support nested
-   coordinate/value expressions, longer statement sequences, and additional
-   typed builtins while preserving all-dimension access/format matching and
-   allocation-free replay.
+1. Extend the new storage-image expression-program IR with vector
+   constructors, typed builtins, and computed coordinate expressions while
+   preserving all-dimension access/format matching and allocation-free replay.
 2. Introduce GPU-completion-aware resource retention and bounded frames in
    flight, replacing synchronous per-replay waiting without weakening affine
    ownership.
@@ -1086,10 +1087,46 @@ rebuilt live sample had no unresolved clean-environment `ldd` entry, Vulkan
 validation emitted no message, and `make check-abla-only` passed. No `../ablac`
 files were modified or staged by this work.
 
-Continue by replacing the bounded two-local recognition with a typed statement
-and expression representation that can compose longer local chains, nested
-value/coordinate expressions, and builtins without multiplying fixed source
-templates.
+The following `19b8965` checkpoint replaces the bounded two-local recognition
+with a typed statement/expression program. Continue from that representation
+rather than restoring fixed source templates.
+
+### Published checkpoint: parsed storage-image expression programs
+
+Implementation commit `19b8965231bbb7f851f1fcb813c20b61fd59f51c`
+is published and synchronized on `origin/main`.
+
+The read/write image path now lexes and validates its declarations and complete
+`main` body, seeds `imageLoad` as a typed `vec4` value in the existing raster
+postfix expression IR, and parses as many as fifteen further named `vec4` SSA
+locals. Local and final-store expressions preserve parentheses and arithmetic
+precedence across arbitrary `+`, `-`, `*`, and `/` chains. Duplicate names,
+undeclared references, type mismatches, excess locals, unsupported tokens, and
+unconsumed trailing source reject before emission.
+
+The pure-Abla SPIR-V emitter now evaluates the bounded postfix stream with a
+checked value stack and dynamically assigned result IDs/bound instead of
+selecting one hard-coded arithmetic opcode. The old one-/two-local source
+template recognizers were removed. The write-only pushed-image form remains a
+separate concise path.
+
+The independent shader test covers every image dimension and single operator,
+then proves a parenthesized three-local/four-operation 3D chain with exact
+`OpImageRead`, `OpFAdd`, `OpFMul`, `OpFSub`, `OpFDiv`, final store, and module
+bound. Invalid operator and undeclared-local programs reject. The live retained
+sample uses load plus three named locals and still reports exact cyan
+`4294967040`, snapshot/resource-map rejection, 1,001 executions, zero growth,
+and zero/1,001 OpenGL/Vulkan submissions across OpenGL, validation-enabled
+Vulkan, and automatic selection.
+
+`make check-abla-only test-glsl` passed during the implementation; the final
+optimized no-cache focused root returned 42 after obsolete matcher removal.
+The rebuilt sample had no unresolved clean-environment `ldd` entry and Vulkan
+validation emitted no message. No `../ablac` file was modified or staged.
+
+Next, teach this IR/emitter the already-parsed typed vector constructors and
+builtins, then generalize the coordinate operand beyond a direct reflected push
+member. Do not regress to source-shape enumeration.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
