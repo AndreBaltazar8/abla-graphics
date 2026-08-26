@@ -641,9 +641,8 @@ different GPU uniform buffers, rejects sealed stage-map mutation, and produces
 exact RGBA8 `4294281759` across 1,001 OpenGL, Vulkan, and automatic-selection
 replays with `live=0` and zero/1,001 submissions.
 `examples/recorded-graph-binding-subpasses` is the independent public proof,
-bringing the sample matrix to 52 roots. Sampled textures and combined push plus
-bind-group subpasses remain follow-up work. No graphics implementation uses C,
-GLFW, SDL, or a native shim.
+bringing the sample matrix to 52 roots. Sampled textures remain follow-up work.
+No graphics implementation uses C, GLFW, SDL, or a native shim.
 
 Focused validation used the pinned pure-Abla compiler and clean sysroot because
 the concurrent `../ablac/build/ablac.bin` currently reserves `type`. The graph
@@ -652,6 +651,21 @@ passed both explicit backends for 1,001 replays, and its direct `ldd` audit with
 `LD_LIBRARY_PATH` removed found no unresolved library. `make check-abla-only`
 and `git diff --check` passed. The unrelated dirty `../ablac` worktree was not
 staged, changed, or committed by this checkpoint.
+
+### Combined retained buffers and push snapshots
+
+`recordRenderBindingPushSubpasses(...)` composes the planner-visible affine
+buffer table with the bounded command-owned per-stage push snapshot. A shared
+uniform buffer may feed multiple stages while every stage retains its own
+descriptor set and push range. Direct OpenGL replay binds both resources before
+each draw; Vulkan records both descriptor and `vkCmdPushConstants` operations
+inside the graph's single retained command buffer.
+
+The focused test mutates the source push aggregate after sealing, rejects a
+sealed logical buffer-ID mutation, and keeps exact RGBA8 `4294281759` through
+1,001 OpenGL, Vulkan, and automatic-selection replays with `live=0` and
+zero/1,001 submissions. No new sample root or compiler change was needed;
+sampled-texture subpass resources are the next missing binding form.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

@@ -610,7 +610,7 @@ Updated: 2026-08-26.
   zero growth. Sealed logical/bind-group identity and transient backing-usage
   tampering reject before execution. Planner-visible uniform/storage buffer
   subpass bind groups are delivered; compute sampled/image bindings,
-  sampled-texture and combined push-plus-binding subpass forms, broader command forms, asynchronous
+  sampled-texture subpass forms, broader command forms, asynchronous
   submission, and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
@@ -1185,7 +1185,7 @@ validity gate unchanged.
   Vulkan stream into one submission. Imported uniform/storage buffers can now
   be mapped to retained bind groups for every recorded stage. It does not yet
   record arbitrary per-subpass input/preserve attachment routing,
-  sampled-texture or combined push-plus-binding subpasses, or
+  sampled-texture subpasses, or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete

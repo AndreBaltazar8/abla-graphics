@@ -1893,6 +1893,8 @@ commands.recordRenderBindingSubpasses(
     move(bindingSequence),
     move(subpassBuffers)
 )
+// recordRenderBindingPushSubpasses(...) accepts the same owned buffer table
+// plus one reflected GraphicsSubpassPushConstants aggregate and snapshots it.
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1955,8 +1957,8 @@ ID per color, and optional depth to exact pass writes and descriptors. OpenGL
 executes the stages in order; eligible Vulkan graph streams record the native
 sequence into the same retained command buffer and submit once. Buffer-backed
 bind-group subpasses use `recordRenderBindingSubpasses` as described below.
-Compute sampled/image bindings, sampled-texture and combined push-plus-binding
-subpass forms, broader copy/dispatch forms, frames in flight,
+Compute sampled/image bindings, sampled-texture subpass forms, broader
+copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 
@@ -1973,8 +1975,11 @@ entry to that table. Uniform and storage entries are validated against exact
 graph declarations, pass access, ranges, usage flags, backend identities, and
 the sealed fingerprint. OpenGL performs ordered stage draws; Vulkan records all
 descriptor-set binds and subpasses into the graph's one retained command
-buffer. This first binding form intentionally excludes sampled textures and a
-simultaneous push aggregate.
+buffer. `recordRenderBindingPushSubpasses` composes this ownership with the
+1,024-byte snapshotted push aggregate, retaining descriptor binds and push
+commands in the same ordered OpenGL replay or consolidated Vulkan command
+buffer. This first binding resource table intentionally excludes sampled
+textures.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

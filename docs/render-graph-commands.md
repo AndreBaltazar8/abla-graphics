@@ -310,12 +310,15 @@ table of imported graph buffers and maps every stage binding entry to one table
 index. Uniform entries require declared read access; storage entries require
 declared access. Exact descriptor, byte-range, usage, and native identity checks
 run at record, seal, and replay, while one owned buffer may be shared by stages.
+`recordRenderBindingPushSubpasses(...)` composes both contracts: it owns the
+same buffer table and snapshots the complete reflected per-stage push aggregate
+before sealing.
 OpenGL replays the stages in order. Vulkan records the entire native subpass
 sequence inside the graph's retained command buffer and preserves one submit
 per complete replay. The focused proof rejects sealed depth-ID and cached
 Vulkan sequence-handle mutation, then replays exact RGBA8 `4294281759` 1,001
 times with zero live growth.
 
-Sampled-texture subpass bindings, combined push-and-binding subpasses, compute
-sampled/image bindings, broader copy/dispatch forms, frames in flight, and
+Sampled-texture subpass bindings, compute sampled/image bindings, broader
+copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.
