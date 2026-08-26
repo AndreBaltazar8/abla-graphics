@@ -1548,6 +1548,13 @@ selected slot. Command-list polling/wait APIs retire slots without allocation.
 A conflicting direct transfer drains the shared device ring
 before command-pool reset, and device teardown waits idle before final pool
 destruction. Callers retain the graph and list until explicit retirement.
+Synchronous non-persistent Vulkan buffer reads and writes wait for accepted
+queue work before mapping, so an immediate readback after asynchronous replay
+cannot observe stale data. Persistent mapped ranges remain explicitly
+caller-synchronized. The shader dispatcher now establishes a reflected RGBA8
+storage-image shape before entering image-expression lowering; an ordinary
+storage-buffer plus push-constant regression prevents speculative image-member
+access from returning.
 
 `recorded-graph-copy` configures three slots and, after 1,001 exact replays,
 observes `retained=3/3->0`, zero warmed live-byte growth, and exact array/volume

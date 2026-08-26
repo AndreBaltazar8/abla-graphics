@@ -7413,7 +7413,8 @@ fun glslStorageImageExpressionProgram(
         binding.binding >= 0 && binding.binding <= 31 &&
         binding.storage == "uniform" && binding.access == "" &&
         binding.imageFormat == "rgba8" && binding.arraySize == 1 &&
-        push.stage == shaderStageCompute && push.members.size == 2 &&
+        push.stage == shaderStageCompute && push.members.size == 2
+    if (valid) valid =
         push.members[0].dataType == coordinateType &&
         push.members[0].arraySize == 1 &&
         push.members[1].dataType == "vec4" &&
@@ -7643,15 +7644,18 @@ fun glslStorageImagePushStoreSource(
     push: ShaderPushConstant
 ): bool {
     val coordinateType = glslStorageImagePushCoordinateType(binding.dataType)
-    coordinateType != "" && binding.stage == shaderStageCompute &&
+    var matches = coordinateType != "" &&
+    binding.stage == shaderStageCompute &&
     binding.set == 0 && binding.binding >= 0 && binding.binding <= 31 &&
     binding.storage == "uniform" && binding.access == "writeonly" &&
     binding.imageFormat == "rgba8" && binding.arraySize == 1 &&
-    push.stage == shaderStageCompute && push.members.size == 2 &&
+    push.stage == shaderStageCompute && push.members.size == 2
+    if (matches) matches =
     push.members[0].dataType == coordinateType &&
     push.members[0].arraySize == 1 &&
     push.members[1].dataType == "vec4" &&
-    push.members[1].arraySize == 1 &&
+    push.members[1].arraySize == 1
+    matches &&
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
         "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
@@ -8407,18 +8411,23 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.pushConstants.size == 0 &&
         this.specializationConstants.size == 0 &&
         glslStorageImageDimensionComputeSource(this.stages[0].source)
-    val storageImagePush = computeCommon && !specializedWorkgroup &&
+    val storageImagePushCommon = computeCommon && !specializedWorkgroup &&
         this.bindings.size == 1 && this.pushConstants.size == 1 &&
+        this.bindings[0].storage == "uniform" &&
+        this.bindings[0].imageFormat == "rgba8" &&
+        glslStorageImagePushCoordinateType(
+            this.bindings[0].dataType
+        ) != "" &&
         this.specializationConstants.size == 0 &&
+        this.pushConstants[0].members.size == 2
+    val storageImagePush = storageImagePushCommon &&
         glslStorageImagePushStoreSource(
             this.stages[0].source,
             this.bindings[0],
             this.pushConstants[0]
         )
     val storageImagePushExpression = if (
-        computeCommon && !specializedWorkgroup && this.bindings.size == 1 &&
-        this.pushConstants.size == 1 &&
-        this.specializationConstants.size == 0
+        storageImagePushCommon
     ) glslStorageImageExpressionProgram(
             this.stages[0].source,
             this.bindings[0],

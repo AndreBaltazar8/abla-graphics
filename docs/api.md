@@ -2024,7 +2024,10 @@ timeline values gate slot reuse. Callers poll or drain the list explicitly, and
 must keep the materialized graph and list alive through pending work. A direct
 transfer drains the shared ring before pool reset, and device teardown waits
 idle as the final native-pool backstop. OpenGL and unsupported copy shapes use
-the direct paths. A failed partial replay aborts
+the direct paths. Non-persistent Vulkan buffer host access remains synchronous:
+`readI64`, `writeI64`, and byte/pixel reads or writes wait for accepted queue
+work before mapping. Persistent mapped ranges retain their explicit caller-
+synchronization contract. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
 and current-limit contract. A single-color multisample target uses

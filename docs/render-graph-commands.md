@@ -165,6 +165,10 @@ retained transfer pool. A list activates exactly `framesInFlight` slots and
 retains their completion values in its existing bounded scalar storage until
 polling, an explicit wait, or reuse. The graph must outlive the list and every
 pending value; callers drain the list before either owner leaves scope.
+An immediate non-persistent Vulkan buffer read or write is a synchronous host
+completion boundary and waits for accepted queue work before mapping. Persistent
+mapped ranges remain caller-synchronized and therefore still require explicit
+polling or draining before host reuse.
 
 ## Replay and failure
 

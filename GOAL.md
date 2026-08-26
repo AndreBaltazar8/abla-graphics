@@ -1523,14 +1523,17 @@ a direct host `make test-graph-commands` cannot find `-lvulkan`, `-lX11`,
 `-lEGL`, or `-lGL`, while Nix-built binaries contain the project shell's rpaths
 and launch with `LD_LIBRARY_PATH` removed.
 
-Do not currently claim the combined `make test-graph-commands` gate passes.
-With the current sibling `build/ablac`, it reaches all render/subpass OpenGL
-proofs through `graph-transient-texture-subpasses`, then traps while entering
-the first compute shader probe. A detached worktree at the already-published
-graphics commit `1a0b120` reproduced the identical trap at the identical point,
-so it is not introduced by `477799a`; diagnose the current compiler/test
-combination before the next broad gate. No `../ablac` source was changed for
-this checkpoint, and its pre-existing dirty files remain untouched.
+The previously recorded combined-gate trap is resolved in the following
+checkpoint. It was not a compiler failure: the storage-image expression parser
+was speculatively entered for an ordinary storage-buffer/push-constant compute
+shader and indexed image-only reflection members before establishing that the
+binding was an image. Image lowering now has an explicit reflected-image gate
+and guarded member access, with an ordinary storage-push regression. Vulkan
+synchronous host reads and writes also wait for accepted asynchronous graph
+work before mapping coherent memory. The optimized `make test-glsl
+test-graph-commands` gate passes OpenGL, Vulkan, and automatic selection. No
+`../ablac` source was changed, and its pre-existing dirty files remain
+untouched.
 
 ## Milestone 5 direction after bounded asynchronous replay
 

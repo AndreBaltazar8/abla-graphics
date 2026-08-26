@@ -147,6 +147,17 @@ fun storageImageInvalidCoordinateWidthRejected(): bool {
     package.valid && !package.spirv(shaderStageCompute).succeeded
 }
 
+fun ordinaryStoragePushUnaffected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; layout(push_constant) uniform Push { uint addend; } push; void main(){ values.value=values.value+push.addend; }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && package.bindings.size == 1 &&
+        package.bindings[0].storage == "buffer" &&
+        package.pushConstants.size == 1 &&
+        package.pushConstants[0].members.size == 1 &&
+        emitted.succeeded && emitted.module.valid()
+}
+
 fun main: int {
     val checks = [storageImagePushDimensionValid(
         "image1D", "int", 0, 0, false
@@ -189,7 +200,8 @@ fun main: int {
         "image3D", "ivec3", "ivec3(zero,zero,zero)"
     ), storageImageComputedCoordinateValid(
         "imageCube", "ivec3", "ivec3(zero,zero,zero)"
-    ), storageImageInvalidCoordinateWidthRejected()]
+    ), storageImageInvalidCoordinateWidthRejected(
+    ), ordinaryStoragePushUnaffected()]
     var index = 0
     while (index < checks.size && checks[index]) index = index + 1
     if (index == checks.size) 42 else index + 1

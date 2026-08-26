@@ -3211,6 +3211,11 @@ resource class VulkanBuffer(
         offset <= this.size - size &&
         offset - this.mappedOffset <= this.mappedSize - size
 
+    trusted fun hostAccessReady(): bool = this.valid() &&
+        !this.mappedActive() &&
+        !pointerIsNull(this.queue) &&
+        vkQueueWaitIdle(this.queue) == vulkanSuccess
+
     trusted fun clearMappedState(): bool {
         val cleared = this.mapped.store(nativeNullPointer())
         if (cleared) {
@@ -3223,7 +3228,7 @@ resource class VulkanBuffer(
 
     trusted fun readI64(offset: int = 0): int {
         var result = 0
-        if (this.valid() && !this.mappedActive() &&
+        if (this.hostAccessReady() &&
             offset >= 0 && offset <= this.size - 8) {
             if (vkMapMemory(
                 this.device,
@@ -3245,7 +3250,7 @@ resource class VulkanBuffer(
 
     trusted fun writeI64(value: int, offset: int = 0): bool {
         var succeeded = false
-        if (this.valid() && !this.mappedActive() &&
+        if (this.hostAccessReady() &&
             offset >= 0 && offset <= this.size - 8) {
             if (vkMapMemory(
                 this.device,
@@ -3272,7 +3277,8 @@ resource class VulkanBuffer(
         format: int
     ): bool {
         val required = pixels.width * pixels.height * 4
-        var succeeded = this.valid() && !this.mappedActive() && pixels.valid() &&
+        var succeeded = this.hostAccessReady() &&
+            pixels.valid() &&
             required <= this.size &&
             (format == 37 || format == 43 || format == 44 || format == 50)
         if (succeeded) {
@@ -3321,7 +3327,7 @@ resource class VulkanBuffer(
 
     trusted fun rgba8(format: int): int {
         var result = -1
-        if (this.valid() && !this.mappedActive() && this.size >= 4 &&
+        if (this.hostAccessReady() && this.size >= 4 &&
             vkMapMemory(
                 this.device,
                 this.memory,
@@ -3358,7 +3364,8 @@ resource class VulkanBuffer(
         source: BufferBytes,
         copy: BufferCopyDescriptor
     ): bool {
-        var succeeded = this.valid() && !this.mappedActive() && source.valid() &&
+        var succeeded = this.hostAccessReady() &&
+            source.valid() &&
             copy.valid(source.size, this.size)
         if (succeeded) {
             succeeded = vkMapMemory(
@@ -3386,7 +3393,8 @@ resource class VulkanBuffer(
     }
 
     trusted fun writeAllBytes(source: BufferBytes): bool {
-        var succeeded = this.valid() && !this.mappedActive() && source.valid() &&
+        var succeeded = this.hostAccessReady() &&
+            source.valid() &&
             source.size == this.size
         if (succeeded) succeeded = vkMapMemory(
             this.device,
@@ -3412,7 +3420,7 @@ resource class VulkanBuffer(
         var destination: BufferBytes,
         copy: BufferCopyDescriptor
     ): bool {
-        var succeeded = this.valid() && !this.mappedActive() &&
+        var succeeded = this.hostAccessReady() &&
             destination.valid() &&
             copy.valid(this.size, destination.size)
         if (succeeded) {
