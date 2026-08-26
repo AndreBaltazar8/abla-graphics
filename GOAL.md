@@ -172,6 +172,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized storage-image builtin implementation:
   `b1bc3302277d5c872e4b58e97066186fc5f8696c`
   (`Emit storage image constructors and builtins`).
+- Published and synchronized computed image-coordinate implementation:
+  `330a43ee754b442c306741e1f653177cfda33cb9`
+  (`Generate computed storage image coordinates`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -546,12 +549,11 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Extend the storage-image program with computed signed coordinate
-   expressions, then mutable statements/control flow, while preserving
-   all-dimension access/format matching and allocation-free replay.
-2. Introduce GPU-completion-aware resource retention and bounded frames in
+1. Introduce GPU-completion-aware resource retention and bounded frames in
    flight, replacing synchronous per-replay waiting without weakening affine
    ownership.
+2. Extend storage-image programs with mutable statements/control flow and
+   additional typed image operations without regressing to fixed templates.
 3. Add independent generalized-render and deferred-rendering samples with exact
    outputs, stable resources, native submission counts, validation silence,
    and frame-rate/memory evidence.
@@ -1158,9 +1160,43 @@ the same exact proof. `make check-abla-only test-glsl` passed, the optimized
 no-cache executable had no unresolved clean-environment dependency, and no
 `../ablac` file was modified or staged.
 
-Next, represent signed coordinate expressions with a typed integer IR instead
-of requiring the first push member verbatim at load and store. Preserve exact
-dimension widths (`int`, `ivec2`, `ivec3`) and range-safe backend behavior.
+The following `330a43e` checkpoint replaces the direct coordinate requirement
+with a typed signed-integer IR. Continue from that path rather than restoring
+verbatim push-member matching.
+
+### Published checkpoint: computed storage-image coordinates
+
+Implementation commit `330a43ee754b442c306741e1f653177cfda33cb9`
+is published and synchronized on `origin/main`.
+
+Image load and store coordinates now use an independent signed-integer postfix
+IR. It parses bounded `int` plus dimension-matched `ivec2`/`ivec3` locals,
+matching-width constructors, checked components, unary signs, parentheses, and
+precedence-aware add/subtract/multiply/divide. Vector/scalar multiply and divide
+explicitly splat the scalar. Load and store expressions are typed and emitted
+independently; the image dimension requires width one, two, or three exactly.
+
+Pure-Abla SPIR-V generation predeclares deduplicated signed constants and emits
+checked integer composite/arithmetic operations before passing the resulting
+IDs to `OpImageRead` and `OpImageWrite`. Direct reflected coordinates still
+take the zero-extra-instruction path. Cross-width local declarations and final
+coordinates reject before backend pipeline creation.
+
+The independent test covers computed coordinates for image1D, image2D,
+image2DArray, image3D, and imageCube, verifies integer add/multiply plus scalar
+subtraction, and rejects `ivec3` for image2D. The retained live array sample
+computes a selected `ivec3` through scalar/vector locals and uses separately
+emitted load and store expressions. OpenGL, validation-enabled Vulkan, and
+automatic selection preserve exact cyan `4294967040`, rejection checks, 1,001
+executions, zero/1,001 submissions, and zero warmed growth.
+
+`make check-abla-only test-glsl` passed. The optimized no-cache executable had
+no unresolved dependency with `LD_LIBRARY_PATH` removed, and the final Vulkan
+run emitted no validation message. No `../ablac` file was modified or staged.
+
+Shift the next broad implementation round to GPU-completion-aware command
+retention and bounded frames in flight. Return to shader mutable/control-flow
+statements afterward, using these typed value and coordinate IRs as the base.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
