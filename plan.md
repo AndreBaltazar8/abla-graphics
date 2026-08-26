@@ -157,13 +157,16 @@ coordinate width from every supported image dimension, consumes reflected
 layout offsets/names, and writes a runtime `vec4` value. Generated read/write
 composition additionally seeds `imageLoad` into the shared typed expression IR
 and lowers precedence-aware, parenthesized vector add/subtract/multiply/divide
-through as many as fifteen further named SSA locals into `imageStore`. The same
-emitter handles scalar/`vec4` literals and constructors, components, vec4
+through as many as fifteen further named mutable SSA locals into `imageStore`.
+Direct and compound assignments plus scalar floating comparisons and bounded
+same-local `if`/optional-`else` value flow emit deterministic selection IR. The
+same emitter handles scalar/`vec4` literals and constructors, components, vec4
 swizzles, dot products, and typed extended builtins with vector/scalar splats.
 Load/store coordinates use a separate signed integer postfix IR with scalar or
 dimension-matched vector locals, constructors, components, unary signs, and
-precedence-aware arithmetic. Broader expression grammar, bind-group subpass
-records, and broader compute forms remain milestone 5 work.
+precedence-aware arithmetic. Nested/general control flow, broader expression
+grammar, bind-group subpass records, and broader compute forms remain milestone
+5 work.
 
 ## Non-negotiable design rules
 

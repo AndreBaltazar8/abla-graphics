@@ -1555,7 +1555,16 @@ is involved. The focused GLSL suite covers chained updates and `%=` rejection.
 plus five updates and retains exact cyan `4294967040`, tamper rejection, 1,001
 successful replays, zero warmed live-byte growth, and zero/1,001 Vulkan
 submissions on explicit OpenGL, explicit Vulkan, and automatic selection.
-Structured image control flow is the next shader-language slice.
+The following checkpoint adds the first structured image value flow. Scalar
+floating expressions support all six comparisons in a bounded `if` with an
+optional `else`; both branches assign the same mutable `vec4`, and a missing
+branch retains the prior SSA value. Vulkan emits scalar/vector boolean types,
+an ordered float comparison, the required four-lane condition splat, and
+`OpSelect`; OpenGL consumes the original GLSL. Different branch targets and
+vector conditions reject. The retained read/add sample now runs a
+component `>` if/else and preserves its exact OpenGL/Vulkan/auto result, replay,
+submission, tamper, and zero-growth evidence. Nested/general control flow is
+still open.
 
 ## Milestone 5 direction after bounded asynchronous replay
 

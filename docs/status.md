@@ -1562,7 +1562,7 @@ readback. Its executable has no unresolved dependency with `LD_LIBRARY_PATH`
 removed, passes explicit OpenGL, and passes Vulkan with the Khronos validation
 layer enabled and no validation output.
 
-### Mutable storage-image value statements
+### Mutable and conditional storage-image value statements
 
 The generated read/write RGBA8 image subset now accepts mutable `vec4` locals
 with direct and `+=`, `-=`, `*=`, `/=` assignments. Each update is type checked
@@ -1573,6 +1573,16 @@ updates and rejects unsupported `%=`. The retained array-image sample now uses
 one mutable initialization plus five updates and still reaches exact cyan
 `4294967040` through 1,001 OpenGL, Vulkan, and automatic-selection replays with
 zero warmed live-byte growth and zero/1,001 Vulkan submissions.
+
+Scalar component/literal expressions now support all six ordered floating
+comparisons as conditions for a bounded `if` with optional `else`. Each branch
+contains one direct assignment to the same mutable `vec4`; missing `else` keeps
+the prior SSA value. Vulkan emission declares scalar/vector boolean types,
+splats the scalar condition to the selected `vec4` width, and emits the
+comparison plus `OpSelect`, while OpenGL consumes the original GLSL. Focused
+tests cover every comparison, present/missing `else`, mismatched branch targets,
+and vector-condition rejection. The retained sample executes the `>`/`else`
+form on both production backends with the same exact output and replay evidence.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

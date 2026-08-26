@@ -128,6 +128,42 @@ fun storageImagePushInvalidMutableLocalRejected(): bool {
     package.valid && !package.spirv(shaderStageCompute).succeeded
 }
 
+fun storageImagePushConditionalLocalValid(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 chosen=loaded; if(parameters.shade.x>0.5){ chosen=parameters.shade; } else { chosen=loaded; } if(loaded.x<=1.0){ chosen=chosen+vec4(0.0); } imageStore(target,parameters.point,chosen); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        spirvContainsWord(emitted.module, 131092) &&
+        spirvContainsSequence(emitted.module, [262167, 25, 24, 4]) &&
+        spirvContainsWord(emitted.module, 327866) &&
+        spirvContainsWord(emitted.module, 327868) &&
+        spirvContainsWord(emitted.module, 393385)
+}
+
+fun storageImagePushInvalidConditionalLocalRejected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 first=loaded; vec4 second=parameters.shade; if(parameters.shade.x>0.5){ first=parameters.shade; } else { second=loaded; } imageStore(target,parameters.point,first); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    package.valid && !package.spirv(shaderStageCompute).succeeded
+}
+
+fun storageImagePushComparisonOperatorValid(
+    operator: string,
+    opcode: int
+): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 chosen=loaded; if(parameters.shade.x$operator 0.5){ chosen=parameters.shade; } imageStore(target,parameters.point,chosen); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        spirvContainsWord(emitted.module, opcode) &&
+        spirvContainsWord(emitted.module, 393385)
+}
+
+fun storageImagePushVectorConditionRejected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); if(parameters.shade>loaded){ loaded=parameters.shade; } imageStore(target,parameters.point,loaded); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    package.valid && !package.spirv(shaderStageCompute).succeeded
+}
+
 fun storageImagePushConstructedBuiltinChainValid(): bool {
     val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); vec4 reversed=loaded.wzyx; vec4 assembled=vec4(reversed.x,parameters.shade.y,loaded.z,1.0); vec4 bounded=clamp(assembled,vec4(0.0),vec4(1.0)); imageStore(target,parameters.point,max(bounded,loaded)); }"
     val package = glslPackage([shaderStageCompute], [source])
@@ -208,6 +244,13 @@ fun main: int {
     ), storageImagePushNestedLocalChainValid(
     ), storageImagePushMutableLocalValid(
     ), storageImagePushInvalidMutableLocalRejected(
+    ), storageImagePushConditionalLocalValid(
+    ), storageImagePushInvalidConditionalLocalRejected(
+    ), storageImagePushComparisonOperatorValid("==", 327860
+    ), storageImagePushComparisonOperatorValid("!=", 327862
+    ), storageImagePushComparisonOperatorValid("<", 327864
+    ), storageImagePushComparisonOperatorValid(">=", 327870
+    ), storageImagePushVectorConditionRejected(
     ), storageImagePushConstructedBuiltinChainValid(
     ), storageImageComputedCoordinateValid(
         "image1D", "int", "0"

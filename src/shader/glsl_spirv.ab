@@ -2,8 +2,9 @@
 //
 // The executable subsets are intentionally strict: compute packages cover
 // fixed or specialized local sizes, scalar specialization constants, and the
-// documented storage arithmetic forms. Typed fragment vec4/scalar expressions
-// and immutable locals use a bounded postfix IR and generated SPIR-V. Any
+// documented storage arithmetic forms. Typed fragment vec4/scalar expressions,
+// mutable SSA locals, and bounded conditional value flow use a postfix IR and
+// generated SPIR-V. Any
 // declaration or statement outside those subsets is rejected rather than lost.
 
 import "glsl.ab"
@@ -100,6 +101,7 @@ val glslRasterTypeScalar = 1
 val glslRasterTypeVector2 = 2
 val glslRasterTypeVector3 = 3
 val glslRasterTypeVector = 4
+val glslRasterTypeBoolean = 5
 
 fun glslRasterTypeVectorWidth(valueType: int): int {
     if (valueType == glslRasterTypeVector2) 2
@@ -282,6 +284,19 @@ fun glslRasterCompoundOpcode(text: string): int {
     else if (text == "*=") 327813
     else if (text == "/=") 327816 else 0
 }
+
+fun glslRasterComparisonOpcode(text: string): int {
+    if (text == "==") 327860
+    else if (text == "!=") 327862
+    else if (text == "<") 327864
+    else if (text == ">") 327866
+    else if (text == "<=") 327868
+    else if (text == ">=") 327870 else 0
+}
+
+fun glslRasterComparisonOpcodeValid(opcode: int): bool =
+    opcode == 327860 || opcode == 327862 || opcode == 327864 ||
+    opcode == 327866 || opcode == 327868 || opcode == 327870
 
 fun glslRasterDerivativeOpcode(text: string): int {
     if (text == "dFdx") 262351
@@ -1092,6 +1107,26 @@ fun glslRasterExpressionType(
                 valueType = stack[stackSize - 1]
                 stackSize = stackSize - 1
             }
+        } else if (token.kind == glslRasterTokenOperation &&
+            glslRasterComparisonOpcodeValid(token.opcode)) {
+            valid = stackSize >= 2 &&
+                stack[stackSize - 2] == glslRasterTypeScalar &&
+                stack[stackSize - 1] == glslRasterTypeScalar
+            if (valid) {
+                stackSize = stackSize - 2
+                valueType = glslRasterTypeBoolean
+            }
+        } else if (token.kind == glslRasterTokenOperation &&
+            token.opcode == 393385) {
+            valid = stackSize >= 3 &&
+                stack[stackSize - 3] == glslRasterTypeBoolean &&
+                stack[stackSize - 2] == stack[stackSize - 1] &&
+                (stack[stackSize - 2] == glslRasterTypeScalar ||
+                 glslRasterTypeIsVector(stack[stackSize - 2]))
+            if (valid) {
+                valueType = stack[stackSize - 2]
+                stackSize = stackSize - 3
+            }
         } else if (token.kind == glslRasterTokenOperation) {
             valid = stackSize >= 2
             if (valid) {
@@ -1128,6 +1163,91 @@ fun glslRasterExpressionType(
         tokenIndex = tokenIndex + 1
     }
     if (valid && stackSize == 1) stack[0] else glslRasterTypeInvalid
+}
+
+fun glslRasterConditionExpression(
+    sourceTokens: array<GlslToken>,
+    begin: int,
+    push: ShaderPushConstant,
+    inputs: array<ShaderLocation>,
+    locals: array<GlslRasterLocal>
+): GlslRasterExpression {
+    val left = glslRasterExpression(
+        sourceTokens, begin, 1, push, inputs, locals, 0
+    )
+    var index = left.next
+    val opcode = if (index < sourceTokens.size)
+        glslRasterComparisonOpcode(sourceTokens[index].text) else 0
+    if (opcode != 0) index = index + 1
+    val right = if (opcode != 0) glslRasterExpression(
+        sourceTokens, index, 1, push, inputs, locals, 0
+    ) else GlslRasterExpression(false, [], index)
+    val tokens = glslRasterTokensCopy(left.tokens)
+    var valid = left.valid && right.valid && opcode != 0 &&
+        glslRasterExpressionType(left, push, inputs) ==
+            glslRasterTypeScalar &&
+        glslRasterExpressionType(right, push, inputs) ==
+            glslRasterTypeScalar
+    if (valid) {
+        val copied = glslRasterTokensCopy(right.tokens)
+        var copiedIndex = 0
+        while (copiedIndex < copied.size) {
+            tokens.append(copied[copiedIndex])
+            copiedIndex = copiedIndex + 1
+        }
+        tokens.append(GlslRasterToken(
+            glslRasterTokenOperation,
+            opcode = opcode
+        ))
+    }
+    val expression = GlslRasterExpression(
+        valid && tokens.size > 0 && tokens.size < 64,
+        tokens,
+        right.next
+    )
+    valid = glslRasterExpressionType(expression, push, inputs) ==
+        glslRasterTypeBoolean
+    GlslRasterExpression(valid, tokens, right.next)
+}
+
+class GlslRasterDirectAssignment(
+    val valid: bool,
+    val localIndex: int,
+    val expression: GlslRasterExpression,
+    val next: int
+)
+
+fun glslRasterDirectAssignment(
+    sourceTokens: array<GlslToken>,
+    begin: int,
+    push: ShaderPushConstant,
+    inputs: array<ShaderLocation>,
+    locals: array<GlslRasterLocal>
+): GlslRasterDirectAssignment {
+    var index = begin
+    val localName = if (index < sourceTokens.size)
+        sourceTokens[index].text else ""
+    var localIndex = -1
+    var candidate = 0
+    while (localIndex < 0 && candidate < locals.size) {
+        if (locals[candidate].name == localName) localIndex = candidate
+        candidate = candidate + 1
+    }
+    var valid = localIndex >= 0
+    if (valid) valid = locals[localIndex].canAssign &&
+        glslRasterTokenText(sourceTokens, index + 1, "=")
+    if (valid) index = index + 2
+    val expression = if (valid) glslRasterExpression(
+        sourceTokens, index, 1, push, inputs, locals, 0
+    ) else GlslRasterExpression(false, [], index)
+    index = expression.next
+    if (valid) valid = expression.valid &&
+        glslRasterExpressionType(expression, push, inputs) ==
+            locals[localIndex].valueType &&
+        glslStorageImageExpressionTokensSupported(expression) &&
+        glslRasterTokenText(sourceTokens, index, ";")
+    if (valid) index = index + 1
+    GlslRasterDirectAssignment(valid, localIndex, expression, index)
 }
 
 fun glslRasterTokenText(
@@ -7392,7 +7512,8 @@ fun glslStorageImageExpressionTokensSupported(
             (token.kind == glslRasterTokenOperation &&
              (token.opcode == 262271 || token.opcode == 327809 ||
               token.opcode == 327811 || token.opcode == 327813 ||
-              token.opcode == 327816))
+              token.opcode == 327816 || token.opcode == 393385 ||
+              glslRasterComparisonOpcodeValid(token.opcode)))
         index = index + 1
     }
     valid
@@ -7588,6 +7709,103 @@ fun glslStorageImageExpressionProgram(
                 index = index + 1
                 statementCount = statementCount + 1
             }
+        } else if (glslRasterTokenText(
+            lexical.tokens, index, "if"
+        )) {
+            index = index + 1
+            valid = glslRasterTokenText(lexical.tokens, index, "(")
+            if (valid) index = index + 1
+            val condition = if (valid) glslRasterConditionExpression(
+                lexical.tokens, index, push, inputs, locals
+            ) else GlslRasterExpression(false, [], index)
+            index = condition.next
+            valid = valid && condition.valid &&
+                glslRasterTokenText(lexical.tokens, index, ")") &&
+                glslRasterTokenText(lexical.tokens, index + 1, "{")
+            if (valid) index = index + 2
+            val whenTrue = if (valid) glslRasterDirectAssignment(
+                lexical.tokens, index, push, inputs, locals
+            ) else GlslRasterDirectAssignment(
+                false, -1, GlslRasterExpression(false, [], index), index
+            )
+            index = whenTrue.next
+            valid = valid && whenTrue.valid &&
+                glslRasterTokenText(lexical.tokens, index, "}")
+            if (valid) index = index + 1
+            var whenFalse = GlslRasterExpression(false, [], index)
+            if (valid) whenFalse = GlslRasterExpression(
+                true,
+                glslRasterTokensCopy(locals[
+                    whenTrue.localIndex
+                ].tokens),
+                index
+            )
+            if (valid && glslRasterTokenText(
+                lexical.tokens, index, "else"
+            )) {
+                index = index + 1
+                valid = glslRasterTokenText(lexical.tokens, index, "{")
+                if (valid) index = index + 1
+                val alternative = if (valid) glslRasterDirectAssignment(
+                    lexical.tokens, index, push, inputs, locals
+                ) else GlslRasterDirectAssignment(
+                    false, -1, GlslRasterExpression(false, [], index), index
+                )
+                index = alternative.next
+                valid = valid && alternative.valid &&
+                    alternative.localIndex == whenTrue.localIndex &&
+                    glslRasterTokenText(lexical.tokens, index, "}")
+                if (valid) {
+                    whenFalse = alternative.expression
+                    index = index + 1
+                }
+            }
+            val selectedTokens: array<GlslRasterToken> = []
+            if (valid) {
+                val conditionTokens = glslRasterTokensCopy(condition.tokens)
+                var copiedIndex = 0
+                while (copiedIndex < conditionTokens.size) {
+                    selectedTokens.append(conditionTokens[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                val trueTokens = glslRasterTokensCopy(
+                    whenTrue.expression.tokens
+                )
+                copiedIndex = 0
+                while (copiedIndex < trueTokens.size) {
+                    selectedTokens.append(trueTokens[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                val falseTokens = glslRasterTokensCopy(whenFalse.tokens)
+                copiedIndex = 0
+                while (copiedIndex < falseTokens.size) {
+                    selectedTokens.append(falseTokens[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+                selectedTokens.append(GlslRasterToken(
+                    glslRasterTokenOperation,
+                    opcode = 393385
+                ))
+            }
+            val selectedExpression = GlslRasterExpression(
+                valid && selectedTokens.size > 0 && selectedTokens.size < 64,
+                selectedTokens,
+                index
+            )
+            valid = valid && selectedExpression.valid &&
+                glslRasterExpressionType(
+                    selectedExpression, push, inputs
+                ) == glslRasterTypeVector &&
+                glslStorageImageExpressionTokensSupported(selectedExpression)
+            if (valid) {
+                locals[whenTrue.localIndex] = GlslRasterLocal(
+                    locals[whenTrue.localIndex].name,
+                    glslRasterTypeVector,
+                    glslRasterTokensCopy(selectedExpression.tokens),
+                    true
+                )
+                statementCount = statementCount + 1
+            }
         } else {
             val localName = if (index < lexical.tokens.size)
                 lexical.tokens[index].text else ""
@@ -7766,14 +7984,26 @@ fun glslStorageImagePushStoreSpirv(
         else if (coordinateTypeName == "ivec3") 3 else 0
     val readArithmetic = expression.valid
     var usesExtendedInstructions = false
+    var usesConditions = false
     var scanToken = 0
     while (scanToken < expression.tokens.size) {
         usesExtendedInstructions = usesExtendedInstructions ||
             expression.tokens[scanToken].kind == glslRasterTokenExtInst
+        usesConditions = usesConditions ||
+            (expression.tokens[scanToken].kind ==
+                glslRasterTokenOperation &&
+             (expression.tokens[scanToken].opcode == 393385 ||
+              glslRasterComparisonOpcodeValid(
+                  expression.tokens[scanToken].opcode
+              )))
         scanToken = scanToken + 1
     }
     val extendedInstructionSet = if (usesExtendedInstructions) 24 else 0
-    val firstDynamicId = if (usesExtendedInstructions) 25 else 24
+    val booleanType = if (usesConditions)
+        (if (usesExtendedInstructions) 25 else 24) else 0
+    val booleanVectorType = if (usesConditions) booleanType + 1 else 0
+    val firstDynamicId = 24 + (if (usesExtendedInstructions) 1 else 0) +
+        (if (usesConditions) 2 else 0)
     var valid = coordinateWidth > 0 && dimension >= 0 && layout.valid &&
         layout.members.size == 2 && layout.stageMask == shaderStageMaskCompute &&
         layout.members[0].dataType == coordinateTypeName &&
@@ -7876,6 +8106,14 @@ fun glslStorageImagePushStoreSpirv(
         words.append(7)
         words.append(32)
         words.append(1)
+        if (booleanType != 0) {
+            words.append(131092)
+            words.append(booleanType)
+            words.append(262167)
+            words.append(booleanVectorType)
+            words.append(booleanType)
+            words.append(4)
+        }
         if (coordinateWidth > 1) {
             words.append(262167)
             words.append(8)
@@ -8284,6 +8522,54 @@ fun glslStorageImagePushStoreSpirv(
                         words.append(valueId)
                         words.append(stack[stackSize - 1])
                         stackSize = stackSize - 1
+                    }
+                } else if (token.kind == glslRasterTokenOperation &&
+                    glslRasterComparisonOpcodeValid(token.opcode)) {
+                    valid = booleanType != 0 && stackSize >= 2 &&
+                        stackTypes[stackSize - 2] == glslRasterTypeScalar &&
+                        stackTypes[stackSize - 1] == glslRasterTypeScalar
+                    if (valid) {
+                        val right = stack[stackSize - 1]
+                        val left = stack[stackSize - 2]
+                        stackSize = stackSize - 2
+                        valueId = nextId
+                        nextId = nextId + 1
+                        words.append(token.opcode)
+                        words.append(booleanType)
+                        words.append(valueId)
+                        words.append(left)
+                        words.append(right)
+                        valueType = glslRasterTypeBoolean
+                    }
+                } else if (token.kind == glslRasterTokenOperation &&
+                    token.opcode == 393385) {
+                    valid = booleanType != 0 && stackSize >= 3 &&
+                        stackTypes[stackSize - 3] == glslRasterTypeBoolean &&
+                        stackTypes[stackSize - 2] == glslRasterTypeVector &&
+                        stackTypes[stackSize - 1] == glslRasterTypeVector
+                    if (valid) {
+                        val scalarCondition = stack[stackSize - 3]
+                        val whenTrue = stack[stackSize - 2]
+                        val whenFalse = stack[stackSize - 1]
+                        stackSize = stackSize - 3
+                        val condition = nextId
+                        nextId = nextId + 1
+                        words.append(458832)
+                        words.append(booleanVectorType)
+                        words.append(condition)
+                        words.append(scalarCondition)
+                        words.append(scalarCondition)
+                        words.append(scalarCondition)
+                        words.append(scalarCondition)
+                        valueId = nextId
+                        nextId = nextId + 1
+                        words.append(393385)
+                        words.append(9)
+                        words.append(valueId)
+                        words.append(condition)
+                        words.append(whenTrue)
+                        words.append(whenFalse)
+                        valueType = glslRasterTypeVector
                     }
                 } else if (token.kind == glslRasterTokenOperation) {
                     valid = stackSize >= 2 &&

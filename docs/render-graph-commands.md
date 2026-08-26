@@ -428,12 +428,14 @@ retain `live=0` with zero/1,001 Vulkan submissions.
 `recorded-graph-storage-image-read-add` initializes one selected array layer
 to blue, then executes generated `imageLoad`, one mutable `vec4` initialization
 plus five updates, and `imageStore`. Direct and `+=`, `-=`, `*=`, `/=` updates
-lower through the bounded SSA expression IR rather than function-local storage. A
-snapshotted green delta saturates to exact cyan `4294967040`
+lower through the bounded SSA expression IR rather than function-local storage.
+Its final update is a scalar-component `>` conditional with two same-local
+branches; Vulkan emits an ordered comparison and `OpSelect`, while OpenGL runs
+the source GLSL. A snapshotted green delta saturates to exact cyan `4294967040`
 and remains exact across 1,001 replays; mutating the source delta to red cannot
 change the sealed command. The generated matrix covers all five dimensions
 and `+`, `-`, `*`, and `/`, while `%` rejection proves unsupported syntax is
 not ignored.
 
-Structured image control flow and broader copy/dispatch forms remain milestone
-5 work.
+Nested/general image control flow and broader copy/dispatch forms remain
+milestone 5 work.

@@ -2745,6 +2745,15 @@ parentheses, and precedence-aware add/subtract/multiply/divide feed load and
 store independently. The image dimension fixes the required result width, and
 cross-width coordinates reject before backend emission.
 
+The same image subset accepts bounded `if (scalar comparison) { local = value;
+}` with an optional `else` assigning the same mutable `vec4` local. Comparisons
+support `==`, `!=`, `<`, `>`, `<=`, and `>=` over scalar floating expressions.
+Branches are pure typed expressions and lower to `OpTypeBool`, an exact-width
+boolean-vector condition splat, ordered floating comparison instructions, and
+`OpSelect`; an omitted `else` selects the local's prior SSA value. Different
+branch targets, vector conditions, compound branch assignments, nested blocks,
+and general side effects reject rather than being silently approximated.
+
 Recorded compute composes the same typed planner resource table as rendering:
 
 ```abla
