@@ -80,6 +80,12 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
+- Published tip before the render-push checkpoint:
+  `5a9bda60bee797f5e8bfb371192055fb1db0b133`
+  (`Update graphics continuation handoff`).
+- Render-push implementation commit:
+  `c78b5d7e7158b10cf1647f879dca5602377e256f`
+  (`Snapshot recorded render push values`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -336,6 +342,29 @@ now contains 46 roots; the full matrix is intentionally reserved for the next
 broad/sample-infrastructure coverage checkpoint. Continue with recorded
 reflected push values. No `../ablac` change was required.
 
+## Published checkpoint: recorded reflected render push values
+
+Implementation commit `c78b5d7e7158b10cf1647f879dca5602377e256f`
+adds a separate bounded render-push arena and matching `Push` APIs for
+procedural, direct, indexed, vertex-indirect, and indexed-indirect graph render
+records. Recording requires an exact reflected layout and copies at most 128
+bytes per command. Push size and every copied byte join the sealed fingerprint;
+replay reads only command-owned native storage.
+
+The focused proof records the two extreme forms (procedural and
+indexed-indirect) with a red reflected tint, mutates the source values to green,
+and still renders exact red RGBA8 word `4278190335`. Oversized sealed metadata
+rejects before execution. OpenGL, Vulkan, and auto each complete 1,001 replays
+with exact output and `live=0`; Vulkan submits once per replay.
+
+`examples/recorded-graph-push-render` independently builds with its
+native-library manifest, has no unresolved dependency with `LD_LIBRARY_PATH`
+removed, and reports the same snapshot/exact/submission/no-growth evidence on
+both explicit backends. The sample list now contains 47 roots. Important paths
+are `src/graph_commands.ab`, `tests/graph_commands/main.ab`, the new sample,
+`tools/test-samples.sh`, and the graph API/status/architecture documentation.
+No `../ablac` change is required; preserve its unrelated LLVM/MMIO work.
+
 ## Published checkpoint: multi-binding compute and transient graph buffers
 
 Implementation commit `d5adb4aa8776cebb742b1dabe14e96eace4389cb`
@@ -435,8 +464,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to buffered/indexed/indirect forms, bind groups,
-   push constants, depth, resolves, MRT, and subpasses without unbounded command
+1. Generalize render records to bind groups, depth, resolves, MRT, and
+   subpasses without unbounded command
    variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
