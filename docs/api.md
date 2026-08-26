@@ -2725,8 +2725,12 @@ store. Local and store expressions share the typed raster expression parser,
 including parentheses and precedence for `+`, `-`, `*`, and `/`; the image
 emitter consumes the resulting bounded postfix program rather than matching a
 fixed source template. Unsupported tokens, type mismatches, duplicate names,
-and undeclared local references fail emission. Vector constructors, builtins,
-and arbitrary coordinate expressions remain next.
+and undeclared local references fail emission. The same path accepts scalar
+and `vec4` literals, scalar-splat and four-scalar `vec4` constructors, checked
+components and four-component swizzles, `dot`, and typed scalar/`vec4` extended
+builtins. Vector/scalar overloads use the same checked splat rules as raster
+expressions; the live proof composes `clamp` and `max`. Arbitrary coordinate
+expressions remain next.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

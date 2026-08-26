@@ -155,8 +155,10 @@ coordinate width from every supported image dimension, consumes reflected
 layout offsets/names, and writes a runtime `vec4` value. Generated read/write
 composition additionally seeds `imageLoad` into the shared typed expression IR
 and lowers precedence-aware, parenthesized vector add/subtract/multiply/divide
-through as many as fifteen further named SSA locals into `imageStore`. Vector
-constructors, builtins, coordinate expressions, and broader expression grammar,
+through as many as fifteen further named SSA locals into `imageStore`. The same
+emitter handles scalar/`vec4` literals and constructors, components, vec4
+swizzles, dot products, and typed extended builtins with vector/scalar splats.
+Coordinate expressions and broader expression grammar,
 bind-group subpass records, broader compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 
