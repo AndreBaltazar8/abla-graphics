@@ -670,6 +670,8 @@ zero/1,001 submissions. No new sample root or compiler change was needed.
 
 ### Planner-visible sampled textures and samplers
 
+Implementation commit `6eb6c55f086f88545be50d8a28eaad2e66309ff1`
+adds this resource form.
 The binding resource table now composes imported buffers, full sampled
 textures, and affine samplers. `graphSubpassTextureResources(...)` is the
 texture-only convenience factory; `graphSubpassBindingResources(...)` accepts
