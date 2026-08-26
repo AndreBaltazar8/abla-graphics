@@ -2166,14 +2166,16 @@ trusted fun graphTextureSubpassCommandProbe(
         minFilter = samplerFilterNearest,
         mipmapFilter = samplerFilterNearest
     ))
+    val firstView = firstTexture.view()
+    val secondView = secondTexture.view()
     val firstBinding = app.bindGroup([
-        app.sampledTextureEntry(
-            0, shaderVisibilityFragment, firstTexture, firstSampler
+        app.sampledTextureViewEntry(
+            0, shaderVisibilityFragment, firstView, firstSampler
         )
     ])
     val secondBinding = app.bindGroup([
-        app.sampledTextureEntry(
-            0, shaderVisibilityFragment, secondTexture, secondSampler
+        app.sampledTextureViewEntry(
+            0, shaderVisibilityFragment, secondView, secondSampler
         )
     ])
     val first = app.renderPassPipeline(
@@ -2193,8 +2195,9 @@ trusted fun graphTextureSubpassCommandProbe(
     val sequence = app.subpassPipelines(
         target, pass, [move(first), move(second)]
     )
-    val resources = graphSubpassTextureResources(
+    val resources = graphSubpassTextureViewResources(
         [163, 164], [move(firstTexture), move(secondTexture)],
+        [move(firstView), move(secondView)],
         [move(firstSampler), move(secondSampler)], [[0], [1]]
     )
     val commands = app.graphCommandList(graph, 2)
@@ -2209,7 +2212,7 @@ trusted fun graphTextureSubpassCommandProbe(
     val tamperRejected = recorded &&
         !app.executeGraphCommands(graph, commands) && !graph.executing &&
         commands.failedExecutions == 1
-    commands.subpassBufferResources[0].stageResourceIndices[1][0] = 1
+    commands.subpassBufferResources[0].stageResourceIndices[1][0] = -2
     val liveBefore = runtimeMemoryLiveBytes()
     var succeeded = tamperRejected
     var iteration = 0
@@ -2225,7 +2228,7 @@ trusted fun graphTextureSubpassCommandProbe(
         commands.vulkanSubmissions ==
             (if (app.backend == graphicsBackendVulkan) 1001 else 0)
     println(
-        "graph-texture-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} textures=${commands.subpassBufferResources[0].textures.size} exact=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+        "graph-texture-view-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} views=${commands.subpassBufferResources[0].views.size} exact=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }

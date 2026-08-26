@@ -595,7 +595,11 @@ resource class GraphicsGraphSubpassBufferResources(
     val stageResourceIndices: array<array<int>>,
     val textureResourceIds: array<int>,
     var textures: array<GraphicsTexture>,
-    var samplers: array<GraphicsSampler>
+    var samplers: array<GraphicsSampler>,
+    val viewResourceIds: array<int>,
+    var viewTextures: array<GraphicsTexture>,
+    var views: array<GraphicsTextureView>,
+    var viewSamplers: array<GraphicsSampler>
 ) {
     fun validForAttachments(
         graph: GraphicsMaterializedRenderGraph,
@@ -607,11 +611,16 @@ resource class GraphicsGraphSubpassBufferResources(
         depthResourceId: int
     ): bool {
         var accepted = this.resourceIds.size +
-                this.textureResourceIds.size >= 1 &&
-            this.resourceIds.size + this.textureResourceIds.size <= 128 &&
+                this.textureResourceIds.size + this.viewResourceIds.size >=
+                    1 &&
+            this.resourceIds.size + this.textureResourceIds.size +
+                this.viewResourceIds.size <= 128 &&
             this.resourceIds.size == this.buffers.size &&
             this.textureResourceIds.size == this.textures.size &&
             this.textureResourceIds.size == this.samplers.size &&
+            this.viewResourceIds.size == this.viewTextures.size &&
+            this.viewResourceIds.size == this.views.size &&
+            this.viewResourceIds.size == this.viewSamplers.size &&
             this.stageResourceIndices.size == sequence.pipelines.size
         var resourceIndex = 0
         while (accepted && resourceIndex < this.resourceIds.size) {
@@ -669,6 +678,54 @@ resource class GraphicsGraphSubpassBufferResources(
             }
             textureIndex = textureIndex + 1
         }
+        var viewIndex = 0
+        while (accepted && viewIndex < this.viewResourceIds.size) {
+            val resourceId = this.viewResourceIds[viewIndex]
+            val texture = this.viewTextures[viewIndex]
+            val view = this.views[viewIndex]
+            val sampler = this.viewSamplers[viewIndex]
+            accepted = texture.valid() && texture.backend == backend &&
+                view.valid() && view.backend == backend &&
+                graphicsGraphSamplerValid(sampler, backend) &&
+                graph.importedResource(resourceId) &&
+                graph.textureResource(resourceId) &&
+                (graphicsGraphDeclaredAccess(graph, passId, resourceId) &
+                    graphAccessRead) != 0 &&
+                (texture.descriptor.usage & textureUsageSampled) != 0 &&
+                texture.descriptor.samples == 1 &&
+                !textureFormatHasDepth(texture.descriptor.format) &&
+                textureDescriptorsStorageCompatible(
+                    graph.textureDescriptor(resourceId), texture.descriptor
+                ) && textureDescriptorsStorageCompatible(
+                    view.texture, texture.descriptor
+                ) && resourceId != depthResourceId
+            var earlier = 0
+            while (accepted && earlier < viewIndex) {
+                accepted = this.viewResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier < this.resourceIds.size) {
+                accepted = this.resourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            earlier = 0
+            while (accepted && earlier < this.textureResourceIds.size) {
+                accepted = this.textureResourceIds[earlier] != resourceId
+                earlier = earlier + 1
+            }
+            var attachment = 0
+            while (accepted && attachment < colorResourceIds.size) {
+                accepted = colorResourceIds[attachment] != resourceId
+                attachment = attachment + 1
+            }
+            attachment = 0
+            while (accepted && attachment < resolveResourceIds.size) {
+                accepted = resolveResourceIds[attachment] != resourceId
+                attachment = attachment + 1
+            }
+            viewIndex = viewIndex + 1
+        }
         var stage = 0
         while (accepted && stage < sequence.pipelines.size) {
             val pipeline = sequence.pipelines[stage]
@@ -680,9 +737,13 @@ resource class GraphicsGraphSubpassBufferResources(
                 val entry = pipeline.binding.entries[entryIndex]
                 resourceIndex = indices[entryIndex]
                 if (entry.kind == graphicsBindingSampledTexture) {
-                    accepted = resourceIndex >= 0 &&
-                        resourceIndex < this.textures.size
-                    if (accepted) {
+                    if (resourceIndex >= 0) {
+                        accepted = resourceIndex < this.textures.size
+                    } else {
+                        accepted = resourceIndex >= -this.views.size
+                        if (accepted) viewIndex = -resourceIndex - 1
+                    }
+                    if (accepted && resourceIndex >= 0) {
                         val texture = this.textures[resourceIndex]
                         val sampler = this.samplers[resourceIndex]
                         accepted = entry.textureDimension ==
@@ -696,6 +757,24 @@ resource class GraphicsGraphSubpassBufferResources(
                               entry.vulkanResource == texture.vulkan.image &&
                               entry.vulkanView == 0 &&
                               entry.vulkanSampler == sampler.vulkan.handle))
+                    }
+                    if (accepted && resourceIndex < 0) {
+                        val texture = this.viewTextures[viewIndex]
+                        val view = this.views[viewIndex]
+                        val sampler = this.viewSamplers[viewIndex]
+                        accepted = entry.textureDimension ==
+                                view.descriptor.resolvedDimension(
+                                    texture.descriptor
+                                ) && textureDescriptorsStorageCompatible(
+                                    entry.texture, texture.descriptor
+                                ) && ((backend == graphicsBackendOpenGl &&
+                                  entry.openGlResource == view.openGl.handle &&
+                                  entry.openGlSampler == sampler.openGl.handle) ||
+                                 (backend == graphicsBackendVulkan &&
+                                  entry.vulkanResource == 0 &&
+                                  entry.vulkanView == view.vulkan.handle &&
+                                  entry.vulkanSampler ==
+                                    sampler.vulkan.handle))
                     }
                 } else {
                     accepted = resourceIndex >= 0 &&
@@ -769,6 +848,26 @@ resource class GraphicsGraphSubpassBufferResources(
             accepted = used
             textureIndex = textureIndex + 1
         }
+        viewIndex = 0
+        while (accepted && viewIndex < this.viewResourceIds.size) {
+            var used = false
+            stage = 0
+            while (!used && stage < this.stageResourceIndices.size) {
+                var entryIndex = 0
+                while (!used && entryIndex <
+                    this.stageResourceIndices[stage].size) {
+                    used = sequence.pipelines[stage].binding.entries[
+                        entryIndex
+                    ].kind == graphicsBindingSampledTexture &&
+                        this.stageResourceIndices[stage][entryIndex] ==
+                            -viewIndex - 1
+                    entryIndex = entryIndex + 1
+                }
+                stage = stage + 1
+            }
+            accepted = used
+            viewIndex = viewIndex + 1
+        }
         accepted
     }
 
@@ -789,9 +888,13 @@ trusted fun graphSubpassBufferResources(
 ): GraphicsGraphSubpassBufferResources {
     val textures: array<GraphicsTexture> = []
     val samplers: array<GraphicsSampler> = []
+    val viewTextures: array<GraphicsTexture> = []
+    val views: array<GraphicsTextureView> = []
+    val viewSamplers: array<GraphicsSampler> = []
     return GraphicsGraphSubpassBufferResources(
         resourceIds, move(buffers), stageResourceIndices,
-        [], move(textures), move(samplers)
+        [], move(textures), move(samplers),
+        [], move(viewTextures), move(views), move(viewSamplers)
     )
 }
 
@@ -802,9 +905,42 @@ trusted fun graphSubpassTextureResources(
     stageResourceIndices: array<array<int>>
 ): GraphicsGraphSubpassBufferResources {
     val buffers: array<GraphicsBuffer> = []
+    val viewTextures: array<GraphicsTexture> = []
+    val views: array<GraphicsTextureView> = []
+    val viewSamplers: array<GraphicsSampler> = []
     return GraphicsGraphSubpassBufferResources(
         [], move(buffers), stageResourceIndices,
-        resourceIds, move(textures), move(samplers)
+        resourceIds, move(textures), move(samplers),
+        [], move(viewTextures), move(views), move(viewSamplers)
+    )
+}
+
+trusted fun graphSubpassTextureViewResources(
+    resourceIds: array<int>,
+    own textures: array<GraphicsTexture>,
+    own views: array<GraphicsTextureView>,
+    own samplers: array<GraphicsSampler>,
+    stageResourceIndices: array<array<int>>
+): GraphicsGraphSubpassBufferResources {
+    val buffers: array<GraphicsBuffer> = []
+    val sampledTextures: array<GraphicsTexture> = []
+    val sampledSamplers: array<GraphicsSampler> = []
+    val encoded: array<array<int>> = []
+    var stage = 0
+    while (stage < stageResourceIndices.size) {
+        val indices: array<int> = []
+        var entryIndex = 0
+        while (entryIndex < stageResourceIndices[stage].size) {
+            indices.append(-stageResourceIndices[stage][entryIndex] - 1)
+            entryIndex = entryIndex + 1
+        }
+        encoded.append(indices)
+        stage = stage + 1
+    }
+    return GraphicsGraphSubpassBufferResources(
+        [], move(buffers), encoded,
+        [], move(sampledTextures), move(sampledSamplers),
+        resourceIds, move(textures), move(views), move(samplers)
     )
 }
 
@@ -815,11 +951,16 @@ trusted fun graphSubpassBindingResources(
     own textures: array<GraphicsTexture>,
     own samplers: array<GraphicsSampler>,
     stageResourceIndices: array<array<int>>
-): GraphicsGraphSubpassBufferResources =
-    GraphicsGraphSubpassBufferResources(
+): GraphicsGraphSubpassBufferResources {
+    val viewTextures: array<GraphicsTexture> = []
+    val views: array<GraphicsTextureView> = []
+    val viewSamplers: array<GraphicsSampler> = []
+    return GraphicsGraphSubpassBufferResources(
         bufferResourceIds, move(buffers), stageResourceIndices,
-        textureResourceIds, move(textures), move(samplers)
+        textureResourceIds, move(textures), move(samplers),
+        [], move(viewTextures), move(views), move(viewSamplers)
     )
+}
 
 resource class GraphicsGraphRenderResources(
     val form: int,
@@ -2010,6 +2151,56 @@ resource class GraphicsGraphCommandList(
                             fingerprint, samplerIdentity
                         )
                         textureIndex = textureIndex + 1
+                    }
+                    var viewIndex = 0
+                    while (viewIndex < resources.viewResourceIds.size) {
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, resources.viewResourceIds[viewIndex]
+                        )
+                        val textureIdentity = if (this.backend ==
+                            graphicsBackendOpenGl)
+                            resources.viewTextures[viewIndex].openGl.handle
+                        else resources.viewTextures[viewIndex].vulkan.image
+                        val viewIdentity = if (this.backend ==
+                            graphicsBackendOpenGl)
+                            resources.views[viewIndex].openGl.handle
+                        else resources.views[viewIndex].vulkan.handle
+                        val samplerIdentity = if (this.backend ==
+                            graphicsBackendOpenGl)
+                            resources.viewSamplers[viewIndex].openGl.handle
+                        else resources.viewSamplers[viewIndex].vulkan.handle
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, textureIdentity
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, viewIdentity
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, samplerIdentity
+                        )
+                        val descriptor = resources.views[viewIndex].descriptor
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.format
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.dimension
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.aspect
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.baseMipLevel
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.mipLevelCount
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.baseArrayLayer
+                        )
+                        fingerprint = graphicsGraphCommandFingerprintMix(
+                            fingerprint, descriptor.arrayLayerCount
+                        )
+                        viewIndex = viewIndex + 1
                     }
                     var stage = 0
                     while (stage < resources.stageResourceIndices.size) {
@@ -4851,6 +5042,11 @@ trusted fun GraphicsApplication.executeRecordedGraphBindingSubpasses(
         )
         index = index + 1
     }
+    index = 0
+    while (active && index < resources.viewResourceIds.size) {
+        active = graph.resourceActive(token, resources.viewResourceIds[index])
+        index = index + 1
+    }
     return this.valid() && active &&
         graphicsGraphRecordedSubpassesValid(
             graph, passId, colorResourceIds, resolveResourceIds,
@@ -4900,6 +5096,11 @@ trusted fun GraphicsApplication.executeRecordedGraphBindingPushSubpasses(
         active = graph.resourceActive(
             token, resources.textureResourceIds[index]
         )
+        index = index + 1
+    }
+    index = 0
+    while (active && index < resources.viewResourceIds.size) {
+        active = graph.resourceActive(token, resources.viewResourceIds[index])
         index = index + 1
     }
     return this.valid() && active &&
@@ -5037,6 +5238,11 @@ trusted fun GraphicsApplication.recordVulkanGraphBindingSubpasses(
         )
         index = index + 1
     }
+    index = 0
+    while (active && index < resources.viewResourceIds.size) {
+        active = graph.resourceActive(token, resources.viewResourceIds[index])
+        index = index + 1
+    }
     return this.valid() && this.backend == graphicsBackendVulkan && active &&
         graphicsGraphRecordedSubpassesValid(
             graph, passId, colorResourceIds, resolveResourceIds,
@@ -5094,6 +5300,11 @@ trusted fun GraphicsApplication.recordVulkanGraphBindingPushSubpasses(
         active = graph.resourceActive(
             token, resources.textureResourceIds[index]
         )
+        index = index + 1
+    }
+    index = 0
+    while (active && index < resources.viewResourceIds.size) {
+        active = graph.resourceActive(token, resources.viewResourceIds[index])
         index = index + 1
     }
     return this.valid() && this.backend == graphicsBackendVulkan && active &&

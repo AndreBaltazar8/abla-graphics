@@ -502,8 +502,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Extend recorded subpass bindings from imported full textures to sampled
-   views and graph-owned transient textures without warmed allocation.
+1. Extend recorded subpass bindings to graph-owned transient sampled textures
+   without warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -689,8 +689,22 @@ zero/1,001 submissions. `examples/recorded-graph-texture-subpasses` repeats the
 public path, passes both explicit backends, and has no unresolved direct `ldd`
 entry with `LD_LIBRARY_PATH` removed. The sample matrix now has 53 roots.
 
-Sampled texture views and graph-owned transient sampled textures remain the
-next binding-resource extensions. No C, GLFW, SDL, or native shim is used.
+Graph-owned transient sampled textures remain the next binding-resource
+extension. No C, GLFW, SDL, or native shim is used.
+
+### Imported sampled texture views
+
+`graphSubpassTextureViewResources(...)` takes affine ownership of each imported
+parent texture, native view, and sampler. Its stage mapping is encoded into the
+same sealed kind-specific table, while exact parent descriptors, graph reads,
+sampled usage, native texture/view/sampler identities, attachment separation,
+and every mapping participate in record, replay, and fingerprint validation.
+
+The focused gate uses two different native views, rejects sealed view-map
+mutation, and preserves exact RGBA8 `4294281759` through 1,001 OpenGL, Vulkan,
+and automatic-selection replays with `live=0` and zero/1,001 submissions. No
+new sample root or compiler change was needed. Graph-owned transient sampled
+textures are now the remaining sampled subpass ownership form.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

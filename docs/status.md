@@ -592,6 +592,9 @@ Updated: 2026-08-26.
   imported sampled textures and samplers. Two stages select different exact
   resources; the gate rejects sealed map mutation and preserves exact output,
   zero growth, and zero/1,001 submissions on OpenGL/Vulkan/auto.
+  The same focused gate also owns imported parent textures plus affine native
+  views and samplers, rejects encoded view-map mutation, and retains the same
+  exact output and replay evidence on all three backend selections.
   The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -615,8 +618,8 @@ Updated: 2026-08-26.
   tampering reject before execution. Planner-visible uniform/storage buffers
   and full sampled textures/samplers are delivered for subpass bind groups;
   compute sampled/image bindings,
-  sampled texture-view and transient-texture subpass forms, broader command
-  forms, asynchronous submission, and frames in flight remain open.
+  transient sampled-texture subpass forms, broader command forms, asynchronous
+  submission, and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1190,7 +1193,7 @@ validity gate unchanged.
   Vulkan stream into one submission. Imported uniform/storage buffers can now
   be mapped to retained bind groups for every recorded stage. It does not yet
   record arbitrary per-subpass input/preserve attachment routing,
-  sampled texture-view or transient-texture subpasses, or
+  transient sampled-texture subpasses, or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
