@@ -157,6 +157,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized generated pushed-image implementation:
   `8d00c94744b0223f63f52f3ee75a9df11cae1fd7`
   (`Generate pushed storage image writes`).
+- Published and synchronized generated image-arithmetic implementation:
+  `1608cc9f94db8a8a588de0fa9f012bdc76150cef`
+  (`Generate storage image read arithmetic`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -175,16 +178,11 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `6c3d23bc3336131ea7cf81f80dd821330612f89b`
-  (`Infer chained nominal global initializers`).
-- HEAD is synchronized, but the worktree currently contains unrelated active
-  edits in `docs/language.md`, `src/backend/llvm/analysis.ab`,
-  `src/backend/llvm/core.ab`, `src/backend/llvm/functions.ab`, `src/parser.ab`,
-  `stdlib/abla/unsafe/memory/entry.ab`,
-  `tests/cases/modules/strings-runtime.ab`,
-  `tools/test-native-cstring-lifetime.sh`, and untracked
-  `tests/cases/modules/native-string-address.ab`. Preserve and do not stage them.
-  This graphics checkpoint required no compiler source change.
+  `8b6c6e5305049e2e1e2669556909286384eaa009`
+  (`Support binary string data in native backends`).
+- HEAD is synchronized and the worktree is clean. The previously listed
+  unrelated compiler edits were published concurrently by their owner; this
+  graphics checkpoint did not modify or commit any compiler path.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
   compiler/GLSL parser sources still used `type` as an identifier. For the
@@ -196,8 +194,8 @@ nix-shell --run 'make check-abla-only'
   `ldd` with `LD_LIBRARY_PATH` removed.
 - During the ordinary-render checkpoint, concurrent compiler work removed the
   historical `build/ablac-pure-self` artifact. The final gate successfully
-  used the current pure-Abla `build/ablac` launcher. The unrelated dirty
-  compiler files remain untouched and uncommitted by this graphics work.
+  used the current pure-Abla `build/ablac` launcher. Those historical compiler
+  paths remained untouched by this graphics work.
 
 Changes to `../ablac` are authorized when a real language/compiler capability
 is required. Keep them minimal, test them in `ablac`, commit and push that repo
@@ -534,10 +532,10 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Add arithmetic, `imageLoad`, and local-variable composition around the
-   published generated push coordinate/value form. Dimension-aware binding and
-   generated member-driven stores cover 1D/2D/2D-array/3D/cube; preserve
-   access/format matching and allocation-free replay.
+1. Broaden the generated image-expression grammar beyond one local and one
+   binary operation: support nested coordinate/value expressions, multiple
+   locals/statements, and additional typed builtins while preserving all-
+   dimension access/format matching and allocation-free replay.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -981,6 +979,34 @@ because appending it to the historical mega-test reproduced the compiler's
 deep composition-root crash; `tools/test-glsl.sh` still runs both, preserving
 one public gate while making future shader coverage faster and safer. The
 Abla-only audit passes, and no `../ablac` source or dirty path was changed.
+
+### Published checkpoint: generated image read arithmetic
+
+Implementation commit `1608cc9f94db8a8a588de0fa9f012bdc76150cef`
+is published and synchronized on `origin/main`.
+
+The generated read/write form now accepts an unqualified RGBA8 storage image,
+loads it through `imageLoad` into one arbitrarily named `vec4` local, combines
+that local with the reflected runtime value through `+`, `-`, `*`, or `/`, and
+feeds the typed result to `imageStore`. Abla emission adds `OpImageRead` and
+the selected vector arithmetic instruction; `%` is explicitly rejected. The
+independent generated-module root covers every storage-image dimension plus
+all four operations without enlarging the historical mega-test again.
+
+`examples/recorded-graph-storage-image-read-add/` brings the sample matrix to
+64 roots. It initializes array layer one to blue, snapshots a green runtime
+delta, then mutates the host delta to red after sealing. OpenGL, Vulkan, and
+automatic selection reject resource-map tampering, replay 1,001 times, and
+read exact saturated cyan `4294967040` with zero warmed live-byte growth and
+zero/1,001 Vulkan submissions. The optimized no-cache executable has no
+unresolved `ldd` entry and runs with `LD_LIBRARY_PATH` removed. The focused
+generated-module gate and Abla-only audit pass. No `../ablac` change was made;
+that repository independently became clean and synchronized at
+`8b6c6e5305049e2e1e2669556909286384eaa009` during this checkpoint.
+
+The next expression slice is broader nesting, multiple locals/statements,
+coordinate arithmetic, and typed builtins. Do not claim general GLSL image
+expression completion from this bounded but generated read/arithmetic form.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
