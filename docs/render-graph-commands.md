@@ -248,12 +248,22 @@ exact red RGBA8 word `4278190335`. Oversized sealed push metadata rejects
 before execution; 1,001 valid replays retain zero live growth and the same
 zero/1,001 OpenGL/Vulkan submission counts.
 
+Procedural depth records use `recordRenderTargetDepth(...)` or
+`recordRenderTargetDepthPush(...)`. The command owns the complete color/depth
+target and pipeline, while the graph makes both imported attachment identities,
+descriptors, and pass writes explicit. Depth presence must exactly match an
+enabled pipeline. The focused push proof rejects a mutated sealed depth ID,
+preserves its recorded red value after source mutation, renders exact RGBA8
+`4278190335`, and completes 1,001 replays with zero live growth and zero/1,001
+OpenGL/Vulkan submissions.
+
 `examples/recorded-graph-copy`, `examples/recorded-graph-render`,
 `examples/recorded-graph-compute`, and
 `examples/recorded-graph-transient-compute`, and
 `examples/recorded-graph-buffered-render`, and
 `examples/recorded-graph-indirect-render`, and
-`examples/recorded-graph-push-render` are
+`examples/recorded-graph-push-render`, and
+`examples/recorded-graph-depth-render` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -264,6 +274,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Compute sampled/image bindings and depth/MRT/subpass render
+Compute sampled/image bindings and buffered-depth/resolve/MRT/subpass render
 records, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

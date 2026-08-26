@@ -464,8 +464,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups, depth, resolves, MRT, and
-   subpasses without unbounded command
+1. Generalize render records to bind groups, buffered depth, resolves, MRT,
+   and subpasses without unbounded command
    variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
@@ -478,6 +478,25 @@ affected executable.
    and frame-rate/memory evidence.
 5. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
+
+## Verified checkpoint awaiting publication: procedural graph depth
+
+Recorded procedural renders now accept an owned depth-capable target through
+`recordRenderTargetDepth(...)` and `recordRenderTargetDepthPush(...)`. Both
+color and depth are explicit imported graph resources: their exact descriptors
+must match the owned attachments, and the active pass must declare write access
+to both. Depth presence must also match enabled pipeline depth state. The depth
+identity participates in the sealed fingerprint and replay validation.
+
+The focused OpenGL/Vulkan/auto graph gate rejects depth-ID mutation, preserves
+snapshotted push values, renders exact red RGBA8 `4278190335`, and completes
+1,001 replays with `live=0`; Vulkan remains one submission per replay.
+`examples/recorded-graph-depth-render` independently exercises the non-push
+API. Its no-cache executable has no unresolved `ldd` entries with
+`LD_LIBRARY_PATH` removed and passes both explicit backends with exact output,
+zero growth, and zero/1,001 OpenGL/Vulkan submissions. The explicit sample
+matrix now contains 48 roots. No `../ablac` change was required; preserve its
+unrelated LLVM/MMIO work.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

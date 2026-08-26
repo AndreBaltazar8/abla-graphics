@@ -34,7 +34,8 @@ samples=(x11-window wayland-info wayland-window wayland-pixels \
     frame-pacing render-graph materialized-render-graph graph-post-process \
     recorded-graph-copy recorded-graph-render recorded-graph-compute \
     recorded-graph-transient-compute recorded-graph-buffered-render \
-    recorded-graph-indirect-render recorded-graph-push-render)
+    recorded-graph-indirect-render recorded-graph-push-render \
+    recorded-graph-depth-render)
 
 for sample in "${samples[@]}"; do
     cd "$compiler_root"
@@ -129,6 +130,8 @@ for backend in opengl vulkan; do
         "$output_directory/recorded-graph-indirect-render" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-push-render" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/recorded-graph-depth-render" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-texture" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

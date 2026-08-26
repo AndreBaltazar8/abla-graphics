@@ -568,7 +568,8 @@ Updated: 2026-08-26.
   `examples/recorded-graph-transient-compute`, and
   `examples/recorded-graph-buffered-render`, and
   `examples/recorded-graph-indirect-render`, and
-  `examples/recorded-graph-push-render` repeat the public paths on both
+  `examples/recorded-graph-push-render`, and
+  `examples/recorded-graph-depth-render` repeat the public paths on both
   backends. The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -577,6 +578,10 @@ Updated: 2026-08-26.
   declarations, wrong native binding, and post-seal handle mutation reject.
   Oversized post-seal push-size mutation is bounded and rejects before
   fingerprinting.
+  Procedural depth records bind a second planner-visible imported attachment,
+  require exact color/depth descriptors and pass writes, and require enabled
+  depth state. The depth-plus-push gate rejects sealed depth-ID mutation and
+  retains exact snapshotted output through 1,001 zero-growth replays.
   Owned buffer/pipeline handles stay stable with zero growth and zero/1,001
   OpenGL/Vulkan submissions. The multi-binding proofs reach exact `5007/5`
   destination/source values for imported buffers and exact `5007` for

@@ -998,6 +998,119 @@ trusted fun graphPushRenderCommandProbe(
     println(
         "graph-push-render ${graphicsBackendName(app.backend)}: recorded=$recorded forms=${commands.renderResources[0].form}/${commands.renderResources[1].form} exact=$proceduralExact/$indexedExact snapshot=$proceduralExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
+    recorded && tamperRejected && stable && graphDepthRenderCommandProbe(app)
+}
+
+trusted fun graphDepthRenderCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val colorDescriptor = TextureDescriptor(
+        label = "recorded-depth-color",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val depthDescriptor = TextureDescriptor(
+        label = "recorded-depth-attachment",
+        size = Extent3D(16, 16),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(120, "depth-color", false, 0, 120),
+        GraphicsGraphResource(121, "depth-attachment", false, 0, 121)
+    ], [
+        GraphicsGraphPass(930, "depth-render", [
+            GraphicsGraphUse(120, graphAccessWrite),
+            GraphicsGraphUse(121, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(120, colorDescriptor),
+        GraphicsGraphTextureDeclaration(121, depthDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec3 tint;
+                float alpha;
+            } draw;
+            void main() {
+                color = vec4(draw.tint.x, draw.tint.y, draw.tint.z, draw.alpha);
+            }
+        }
+    }
+    val color = app.texture(colorDescriptor)
+    val depth = app.texture(depthDescriptor)
+    val target = app.renderTargetWithDepth(move(color), move(depth))
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        )
+    )
+    val values = shader.pushConstants()
+    val initialized = values.storeF32(1.0, 0) &&
+        values.storeF32(0.0, 4) && values.storeF32(0.0, 8) &&
+        values.storeF32(1.0, 12)
+    val commands = app.graphCommandList(graph, 2)
+    val recorded = graph.valid() && shader.valid && target.valid() &&
+        pipeline.valid() && initialized && commands.valid() &&
+        commands.recordPass(graph, 930) &&
+        commands.recordRenderTargetDepthPush(
+            graph,
+            120,
+            121,
+            move(target),
+            move(pipeline),
+            values,
+            Color(0.0, 0.0, 0.0)
+        ) && commands.seal(graph) && commands.prepared &&
+        commands.renderDepthResourceIds.size == 1 &&
+        commands.renderDepthResourceIds[0] == 121 &&
+        commands.renderPushSizes[1] == 16 &&
+        values.storeF32(0.0, 0) && values.storeF32(1.0, 4)
+    commands.renderDepthResourceIds[0] = 999
+    val tamperRejected = recorded && commands.valid() &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.renderDepthResourceIds[0] = 121
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected && commands.valid()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val exact = commands.renderTargets[0].texture.rgba8(8, 8) ==
+        4278190335
+    val stable = succeeded && iteration == 1001 && exact &&
+        commands.renderTargets[0].hasDepth() &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        commands.failedExecutions == 1 && graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-depth-render ${graphicsBackendName(app.backend)}: recorded=$recorded depth=${commands.renderDepthResourceIds[0]} exact=$exact snapshot=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 

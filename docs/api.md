@@ -1829,6 +1829,16 @@ commands.recordRenderTargetPush(
     move(pushPipeline),
     pushValues
 )
+
+// A depth target declares and records both imported attachment identities.
+commands.recordRenderTargetDepth(
+    graph,
+    importedColorId,
+    importedDepthId,
+    move(depthTarget),
+    move(depthPipeline)
+)
+// recordRenderTargetDepthPush(...) also snapshots reflected push bytes.
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1855,6 +1865,9 @@ dispatches. Every render form has a matching `Push` method that copies one
 exact reflected block into bounded command-owned storage. Later source mutation
 or destruction cannot affect replay. Buffered render records require exact imported buffer declarations
 with pass read access, checked byte ranges, and vertex/index usage. The command
+list also accepts procedural depth targets through `recordRenderTargetDepth`
+and `recordRenderTargetDepthPush`; both color and depth must be imported texture
+resources with exact descriptors and write access in the active pass. The command
 list takes affine ownership of render targets, pipelines, caller render/compute
 buffers, and retained bind groups; transient buffers stay owned by the graph.
 Single-buffer compatibility APIs remain, while
@@ -1871,8 +1884,8 @@ Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL an
 unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
-and current-limit contract. Compute sampled/image bindings,
-depth/MRT/subpass render records, broader copy/dispatch forms, frames in flight,
+and current-limit contract. Compute sampled/image bindings, buffered depth,
+resolve/MRT/subpass render records, broader copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 
