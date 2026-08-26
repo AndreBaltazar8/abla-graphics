@@ -1,6 +1,6 @@
 # Abla Graphics goal and continuation handoff
 
-Updated: 2026-08-25 (Europe/Lisbon).
+Updated: 2026-08-26 (Europe/Lisbon).
 
 This file is the operational handoff for the next person continuing the goal.
 Read it before changing code, then read `plan.md`, `docs/status.md`,
@@ -81,16 +81,17 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
 - Published implementation tip immediately before this handoff document:
-  `d38676f5f54dcd46b7e3bf51ac9ee9a73fb49074`
-  (`Consolidate recorded graph rendering`).
-- Published and synchronized consolidated recorded-render implementation:
-  `d38676f5f54dcd46b7e3bf51ac9ee9a73fb49074`.
+  `57492c65287bfba25da8c3b7d938dbb0bd26d2b0`
+  (`Record graph compute and fix direct launches`).
+- Published and synchronized recorded-compute/direct-linkage implementation:
+  `57492c65287bfba25da8c3b7d938dbb0bd26d2b0`.
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
   graph barriers`), `6ba1ec5` (`Compile render graph barrier schedules`),
   `08d481a` (`Record bounded render graph commands`), and `d38676f`
-  (`Consolidate recorded graph rendering`).
+  (`Consolidate recorded graph rendering`), and `57492c6` (`Record graph
+  compute and fix direct launches`).
 - Before committing this handoff only `GOAL.md` is modified. No implementation
   delta is intentionally left uncommitted.
 - Recheck `git status` and commit IDs before release work. A commit hash in
@@ -105,8 +106,8 @@ nix-shell --run 'make check-abla-only'
 - Local/upstream tip at this handoff:
   `82a66da3a978d63adbe49922f74eebc76eea892a`
   (`Export lifted functions from independent modules`)
-- It is currently clean and synchronized. The recorded-render checkpoint did
-  not require a compiler change.
+- It is currently clean and synchronized. The recorded-compute/direct-linkage
+  checkpoint did not require a compiler change.
 
 Changes to `../ablac` are authorized when a real language/compiler capability
 is required. Keep them minimal, test them in `ablac`, commit and push that repo
@@ -250,8 +251,9 @@ No `../ablac` change was needed. It remained clean and synchronized at
 
 ### Immediate continuation sequence
 
-1. Add typed compute command records with owned pipeline/binding resources and
-   exact storage-buffer output on both backends.
+1. Generalize recorded compute to planner-visible buffer resources, multiple
+   bindings, push constants, and derived buffer hazards without warmed
+   allocation.
 2. Generalize render records to buffered/indexed/indirect forms, bind groups,
    push constants, depth, resolves, MRT, and subpasses without unbounded command
    variants or warmed allocation.
@@ -266,6 +268,55 @@ No `../ablac` change was needed. It remained clean and synchronized at
    frame-rate/memory evidence.
 6. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
+
+## Published checkpoint: recorded storage compute and direct launches
+
+Implementation commit `57492c65287bfba25da8c3b7d938dbb0bd26d2b0`
+adds `GraphicsGraphCommandList.recordComputeStorage(...)`.
+It moves one binding-zero storage buffer and the exact pipeline created against
+that native buffer into affine command-list ownership, seals workgroup counts
+and concrete native identities, rejects a mismatched bound buffer and post-seal
+pipeline-handle mutation, and replays without warmed allocation. OpenGL uses
+the existing direct dispatch and memory barrier. Eligible Vulkan lists record
+the dispatch into the retained device command buffer and submit once.
+
+`VulkanComputePipeline.recordDispatch(...)` is the non-submitting primitive;
+the existing direct `dispatch(...)` remains its wrapper. The pipeline now
+retains the bound storage handle and tracks health plus queue-submission
+acceptance so direct-fallback failure accounting does not confuse accepted work
+with completed work.
+
+The first form deliberately has one storage binding and no push constants. Its
+buffer is not yet a logical planner resource, so general buffer hazards and
+sharing one affine buffer across multiple records remain open.
+
+Published implementation files are `src/compute.ab`, `src/driver/vulkan.ab`,
+`src/graph_commands.ab`, `tests/graph_commands/main.ab`,
+`examples/recorded-graph-compute/`, `tools/test-samples.sh`, `README.md`,
+`docs/api.md`, `docs/architecture.md`, `docs/render-graph-commands.md`,
+`docs/status.md`, `plan.md`, `shell.nix`, `Makefile`,
+`tools/test-runtime-linkage.sh`, and this handoff.
+
+This checkpoint also fixes direct launch of Nix-built applications. The old
+executables retained only mkShell's transient synthetic RUNPATH, so Vulkan,
+X11, EGL, and OpenGL were unresolved after leaving the shell. `shell.nix` now
+adds the concrete loader directories, and `make test-runtime-linkage` builds a
+combined headless application, clears `LD_LIBRARY_PATH` and project discovery
+overrides, audits its dependencies, and launches it directly. Keep this gate in
+the aggregate suite; a sample that runs only while inheriting the development
+shell is not distributable evidence.
+
+Verified on the final source: focused OpenGL/Vulkan/auto graph-command tests produce exact
+storage value `1001` through 1,001 replays, zero/1,001 Vulkan submissions,
+stable buffer/pipeline/command-pool handles, mismatch/tamper rejection, and
+`live=0`; the independent sample passes both explicit backends; Vulkan
+validation is silent with a zero-line log; and the final `make all` passes. The
+complete 43-root no-cache sample matrix builds every sample, audits every
+canonical executable with `LD_LIBRARY_PATH` removed, then passes the complete
+live OpenGL/Vulkan matrix in that stripped environment. The direct-linkage gate
+also clears all project graphics discovery overrides and starts both headless
+backends. No `../ablac` change was required; it remained clean and synchronized
+at `82a66da3a978d63adbe49922f74eebc76eea892a`.
 
 ## Published typed materialization foundation
 
@@ -576,6 +627,7 @@ Useful commands:
 nix-shell --run 'make check-abla-only test-core'
 nix-shell --run 'make test-graph-texture test-graph-execute test-graph-commands'
 nix-shell --run 'make test-glsl test-application'
+nix-shell --run 'make test-runtime-linkage'
 nix-shell --run 'make update-registry test-registry'
 nix-shell --run 'make all'
 nix-shell --run 'make test-samples'
