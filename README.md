@@ -315,8 +315,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-resolve-render`: a planner-visible 4x multisample
   color/resolve pair produces exact resolved output through 1,001 zero-growth
   replays and one Vulkan submission per replay;
-- `examples/recorded-graph-mrt-render`: two 4x colors, two resolves, and depth
-  produce exact red/green output through 1,001 allocation-free replays;
+- `examples/recorded-graph-mrt-render`: a buffered draw owns vertices plus two
+  4x colors, two resolves, and depth, producing exact red/green output through
+  1,001 allocation-free replays;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

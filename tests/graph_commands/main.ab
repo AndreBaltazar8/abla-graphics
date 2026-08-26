@@ -1408,19 +1408,34 @@ trusted fun graphMrtRenderCommandProbe(var app: GraphicsApplication): bool {
         usage = textureUsageRenderAttachment |
             textureUsageCopyDestination | textureUsageCopySource
     )
-    val graph = app.materializeRenderGraphTextures([
+    val vertexDescriptor = BufferDescriptor(
+        size = 24, usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val indexDescriptor = BufferDescriptor(
+        size = 12, usage = bufferUsageIndex | bufferUsageCopyDestination
+    )
+    val drawDescriptor = BufferDescriptor(
+        size = 20, usage = bufferUsageIndirect | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
         GraphicsGraphResource(140, "mrt-color-zero", false, 0, 140),
         GraphicsGraphResource(141, "mrt-color-one", false, 0, 141),
         GraphicsGraphResource(142, "mrt-depth", false, 0, 142),
         GraphicsGraphResource(143, "mrt-resolve-zero", false, 0, 143),
-        GraphicsGraphResource(144, "mrt-resolve-one", false, 0, 144)
+        GraphicsGraphResource(144, "mrt-resolve-one", false, 0, 144),
+        GraphicsGraphResource(145, "mrt-vertices", false, 24, 145),
+        GraphicsGraphResource(146, "mrt-indices", false, 12, 146),
+        GraphicsGraphResource(147, "mrt-draw", false, 20, 147)
     ], [
         GraphicsGraphPass(950, "mrt-render", [
             GraphicsGraphUse(140, graphAccessWrite),
             GraphicsGraphUse(141, graphAccessWrite),
             GraphicsGraphUse(142, graphAccessWrite),
             GraphicsGraphUse(143, graphAccessWrite),
-            GraphicsGraphUse(144, graphAccessWrite)
+            GraphicsGraphUse(144, graphAccessWrite),
+            GraphicsGraphUse(145, graphAccessRead),
+            GraphicsGraphUse(146, graphAccessRead),
+            GraphicsGraphUse(147, graphAccessRead)
         ])
     ], [
         GraphicsGraphTextureDeclaration(140, colorDescriptor),
@@ -1428,16 +1443,16 @@ trusted fun graphMrtRenderCommandProbe(var app: GraphicsApplication): bool {
         GraphicsGraphTextureDeclaration(142, depthDescriptor),
         GraphicsGraphTextureDeclaration(143, resolveDescriptor),
         GraphicsGraphTextureDeclaration(144, resolveDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(145, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(146, indexDescriptor),
+        GraphicsGraphBufferDeclaration(147, drawDescriptor)
     ])
     val shader = $glsl {
         vertex {
             #version 450
-            const vec2 positions[3] = vec2[3](
-                vec2(-0.75, -0.65), vec2(0.75, -0.65), vec2(0.0, 0.75)
-            );
-            void main() {
-                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
-            }
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0.0, 1.0); }
         }
         fragment {
             #version 450
@@ -1464,21 +1479,44 @@ trusted fun graphMrtRenderCommandProbe(var app: GraphicsApplication): bool {
         [move(firstResolve), move(secondResolve)]
     )
     val pipeline = app.renderTargetPipeline(
-        target, shader, VertexBufferLayout(), RasterPipelineState(),
+        target, shader, VertexBufferLayout(8, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2)
+        ]), RasterPipelineState(),
         DepthStencilState(enabled = true, write = true,
             compare = compareFunctionLess)
     )
+    val vertices = app.buffer(vertexDescriptor)
+    val indices = app.buffer(indexDescriptor)
+    val draw = app.buffer(drawDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val indexBytes = bufferBytes(12)
+    val drawBytes = bufferBytes(20)
     val values = shader.pushConstants()
-    val initialized = values.storeF32(1.0, 0) &&
+    val initialized = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20) &&
+        indexBytes.storeU32(0, 0) && indexBytes.storeU32(1, 4) &&
+        indexBytes.storeU32(2, 8) &&
+        drawBytes.storeI64(4294967299, 0) &&
+        drawBytes.storeI64(0, 8) && drawBytes.storeU32(0, 16) &&
+        vertices.writeAllBytes(vertexBytes) &&
+        indices.writeAllBytes(indexBytes) && draw.writeAllBytes(drawBytes) &&
+        values.storeF32(1.0, 0) &&
         values.storeF32(0.0, 4) && values.storeF32(0.0, 8) &&
         values.storeF32(1.0, 12)
+    val renderResources = graphRenderIndexedIndirectResources(
+        145, 146, 147, move(vertices), move(indices), move(draw)
+    )
     val commands = app.graphCommandList(graph, 2)
     val recorded = graph.valid() && shader.valid && target.valid() &&
         pipeline.valid() && initialized && commands.valid() &&
         commands.recordPass(graph, 950) &&
-        commands.recordRenderTargetAttachmentsPush(
+        commands.recordRenderAttachmentsPush(
             graph, [140, 141], [143, 144], 142,
-            move(target), move(pipeline), values
+            move(target), move(pipeline), move(renderResources), values
         ) && commands.seal(graph) && commands.prepared &&
         commands.renderAdditionalColorResourceIds[0][0] == 141 &&
         commands.renderAdditionalResolveResourceIds[0][0] == 144 &&

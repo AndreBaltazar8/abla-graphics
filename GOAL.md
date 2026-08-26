@@ -476,7 +476,7 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups, buffered MRT, and subpasses
+1. Generalize render records to bind groups and subpasses
    without unbounded command
    variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
@@ -558,6 +558,22 @@ replays with `live=0`; Vulkan stays at one submission. The independent MRT
 sample has no missing `ldd` dependency without `LD_LIBRARY_PATH` and passes
 OpenGL plus silent validation-layer Vulkan. The matrix now contains 50 roots.
 No `../ablac` change was required.
+
+## Verified checkpoint awaiting publication: buffered recorded MRT
+
+Four affine factories now build typed direct, indexed, vertex-indirect, or
+indexed-indirect `GraphicsGraphRenderResources`. The generalized
+`recordRenderAttachments(...)` and `recordRenderAttachmentsPush(...)` methods
+compose one such owned draw with the published color/resolve/depth attachment
+set. This covers every buffered form without adding eight attachment-specific
+method variants; the older convenience methods remain source-compatible.
+
+The focused MRT gate now uses indexed-indirect push and preserves its exact
+red/green resolved output, snapshot, tamper rejection, `live=0`, and
+zero/1,001 submission evidence on OpenGL/Vulkan/auto. The existing independent
+MRT sample now uses the direct-vertex factory and passes its no-cache stripped-
+`LD_LIBRARY_PATH` build plus OpenGL and validation-layer Vulkan launches. No
+new sample root or `../ablac` change was required.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

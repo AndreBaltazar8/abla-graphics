@@ -287,12 +287,14 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Generalized procedural attachment records accept two to eight ordered colors,
+Generalized attachment records accept two to eight ordered colors,
 zero resolves or one per color, and optional depth. The focused 4x MRT proof
 resolves exact red/green `4278190335/4278255360`, rejects sealed additional
 resolve mutation, and replays 1,001 times with zero growth and one Vulkan
-submission.
+submission. Buffered callers compose one of four affine draw-resource factories
+with `recordRenderAttachments(...)` or its `Push` form; the proof uses
+indexed-indirect push and the sample uses direct vertices.
 
-Compute sampled/image bindings and buffered MRT/subpass render
+Compute sampled/image bindings and subpass render
 records, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

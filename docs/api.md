@@ -1856,6 +1856,17 @@ commands.recordRenderTargetAttachments(
     move(mrtPipeline)
 )
 // recordRenderTargetAttachmentsPush(...) snapshots reflected push bytes.
+val draw = graphRenderVerticesResources(vertexId, move(vertices), 3)
+commands.recordRenderAttachments(
+    graph,
+    [firstColorId, secondColorId],
+    [firstResolveId, secondResolveId],
+    depthId,
+    move(mrtTarget),
+    move(mrtPipeline),
+    move(draw)
+)
+// recordRenderAttachmentsPush(...) accepts the same affine draw plus values.
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1909,8 +1920,10 @@ and current-limit contract. A single-color multisample target uses
 single-sample resolve output are exact imported pass writes and sealed
 identities. `recordRenderTargetAttachments` and its `Push` form accept two to
 eight ordered colors, no resolves or one resolve per color, and optional depth;
-every attachment is descriptor/access checked and sealed. Compute sampled/image
-bindings, buffered MRT/subpass render records, broader
+every attachment is descriptor/access checked and sealed. Buffered callers
+compose one of the four `graphRender*Resources` affine factories with
+`recordRenderAttachments` or its `Push` form. Compute sampled/image bindings
+and subpass render records, broader
 copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.

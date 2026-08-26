@@ -364,7 +364,8 @@ fun graphicsGraphRecordedMultiRenderValid(
     target: GraphicsRenderTarget,
     pipeline: GraphicsRenderPipeline,
     backend: int,
-    pushConstantSize: int = 0
+    pushConstantSize: int = 0,
+    buffered: bool = false
 ): bool {
     val colorCount = 1 + additionalResourceIds.size
     val resolveCount = if (resolveResourceId >= 0)
@@ -379,7 +380,7 @@ fun graphicsGraphRecordedMultiRenderValid(
             resourceId, additionalResourceIds, depthResourceId,
             resolveResourceId, additionalResolveResourceIds
         ) && graphicsGraphRecordedRenderResourcesValid(
-            target, pipeline, backend, false, pushConstantSize,
+            target, pipeline, backend, buffered, pushConstantSize,
             depthResourceId >= 0, resolveResourceId >= 0,
             colorCount, resolveCount
         ) && graphicsGraphRecordedTextureWriteValid(
@@ -414,6 +415,26 @@ fun graphicsGraphRecordedMultiRenderValid(
     }
     accepted
 }
+
+fun graphicsGraphRecordedBufferedMultiRenderValid(
+    graph: GraphicsMaterializedRenderGraph,
+    passId: int,
+    resourceId: int,
+    additionalResourceIds: array<int>,
+    depthResourceId: int,
+    resolveResourceId: int,
+    additionalResolveResourceIds: array<int>,
+    target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    resources: GraphicsGraphRenderResources,
+    backend: int,
+    pushConstantSize: int = 0
+): bool = graphicsGraphRecordedMultiRenderValid(
+    graph, passId, resourceId, additionalResourceIds, depthResourceId,
+    resolveResourceId, additionalResolveResourceIds, target, pipeline,
+    backend, pushConstantSize, true
+) && resources.validFor(pipeline, backend) &&
+    graphicsGraphRecordedRenderBuffersValid(graph, passId, resources)
 
 resource class GraphicsGraphRenderResources(
     val form: int,
@@ -505,6 +526,86 @@ resource class GraphicsGraphRenderResources(
         }
         accepted
     }
+}
+
+trusted fun graphRenderVerticesResources(
+    vertexResourceId: int,
+    own vertices: GraphicsBuffer,
+    vertexCount: int,
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1
+): GraphicsGraphRenderResources {
+    val buffers = [move(vertices)]
+    GraphicsGraphRenderResources(
+        graphicsGraphRenderVertices, [vertexResourceId], move(buffers),
+        vertexCount, 0, instanceCount, vertexOffset, vertexSize,
+        0, -1, 0, -1
+    )
+}
+
+trusted fun graphRenderIndexedResources(
+    vertexResourceId: int,
+    indexResourceId: int,
+    own vertices: GraphicsBuffer,
+    own indices: GraphicsBuffer,
+    vertexCount: int,
+    indexCount: int,
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1
+): GraphicsGraphRenderResources {
+    val buffers = [move(vertices), move(indices)]
+    GraphicsGraphRenderResources(
+        graphicsGraphRenderIndexed, [vertexResourceId, indexResourceId],
+        move(buffers), vertexCount, indexCount, instanceCount,
+        vertexOffset, vertexSize, indexOffset, indexSize, 0, -1
+    )
+}
+
+trusted fun graphRenderVerticesIndirectResources(
+    vertexResourceId: int,
+    indirectResourceId: int,
+    own vertices: GraphicsBuffer,
+    own indirect: GraphicsBuffer,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indirectOffset: int = 0,
+    indirectSize: int = -1
+): GraphicsGraphRenderResources {
+    val buffers = [move(vertices), move(indirect)]
+    GraphicsGraphRenderResources(
+        graphicsGraphRenderVerticesIndirect,
+        [vertexResourceId, indirectResourceId], move(buffers),
+        1, 0, 1, vertexOffset, vertexSize, 0, -1,
+        indirectOffset, indirectSize
+    )
+}
+
+trusted fun graphRenderIndexedIndirectResources(
+    vertexResourceId: int,
+    indexResourceId: int,
+    indirectResourceId: int,
+    own vertices: GraphicsBuffer,
+    own indices: GraphicsBuffer,
+    own indirect: GraphicsBuffer,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1,
+    indirectOffset: int = 0,
+    indirectSize: int = -1
+): GraphicsGraphRenderResources {
+    val buffers = [move(vertices), move(indices), move(indirect)]
+    GraphicsGraphRenderResources(
+        graphicsGraphRenderIndexedIndirect,
+        [vertexResourceId, indexResourceId, indirectResourceId],
+        move(buffers), 1, 0, 1,
+        vertexOffset, vertexSize, indexOffset, indexSize,
+        indirectOffset, indirectSize
+    )
 }
 
 fun graphicsGraphRecordedRenderBufferValid(
@@ -1483,6 +1584,19 @@ resource class GraphicsGraphCommandList(
                             this.renderDepthResourceIds[renderIndex],
                             this.renderResolveResourceIds[renderIndex]
                         )
+                    else if (this.renderAdditionalColorResourceIds[
+                        renderIndex
+                    ].size != 0)
+                        graphicsGraphRecordedBufferedMultiRenderValid(
+                            graph, passId, resourceId,
+                            this.renderAdditionalColorResourceIds[renderIndex],
+                            this.renderDepthResourceIds[renderIndex],
+                            this.renderResolveResourceIds[renderIndex],
+                            this.renderAdditionalResolveResourceIds[renderIndex],
+                            this.renderTargets[renderIndex],
+                            this.renderPipelines[renderIndex], resources,
+                            this.backend, pushSize
+                        )
                     else graphicsGraphRecordedBufferedRenderValid(
                         graph,
                         passId,
@@ -1721,6 +1835,69 @@ resource class GraphicsGraphCommandList(
             )
     }
 
+    trusted fun recordRenderResourcesInternal(
+        graph: GraphicsMaterializedRenderGraph,
+        resourceId: int,
+        own target: GraphicsRenderTarget,
+        own pipeline: GraphicsRenderPipeline,
+        own resources: GraphicsGraphRenderResources,
+        clear: Color,
+        additionalResourceIds: array<int>,
+        additionalResolveResourceIds: array<int>,
+        depthResourceId: int = -1,
+        resolveResourceId: int = -1
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val renderIndex = this.renderTargets.size
+        val resourcesValid = if (additionalResourceIds.size != 0)
+            graphicsGraphRecordedBufferedMultiRenderValid(
+                graph, passId, resourceId, additionalResourceIds,
+                depthResourceId, resolveResourceId,
+                additionalResolveResourceIds, target, pipeline, resources,
+                this.backend
+            )
+        else graphicsGraphRecordedBufferedRenderValid(
+            graph, passId, resourceId, target, pipeline, resources,
+            this.backend, 0, depthResourceId, resolveResourceId
+        )
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            resources.form != graphicsGraphRenderProcedural &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            renderIndex < this.capacity &&
+            renderIndex == this.renderPipelines.size &&
+            renderIndex == this.renderResources.size &&
+            renderIndex == this.renderDepthResourceIds.size &&
+            renderIndex == this.renderResolveResourceIds.size &&
+            renderIndex == this.renderAdditionalColorResourceIds.size &&
+            renderIndex == this.renderAdditionalResolveResourceIds.size &&
+            clear.valid() && resourcesValid
+        if (accepted) {
+            val index = this.commandCount
+            this.renderTargets.append(move(target))
+            this.renderPipelines.append(move(pipeline))
+            this.renderResources.append(move(resources))
+            this.renderDepthResourceIds.append(depthResourceId)
+            this.renderResolveResourceIds.append(resolveResourceId)
+            this.renderAdditionalColorResourceIds.append(
+                additionalResourceIds
+            )
+            this.renderAdditionalResolveResourceIds.append(
+                additionalResolveResourceIds
+            )
+            this.kinds[index] = graphicsGraphCommandRender
+            this.passIds[index] = passId
+            this.renderIndices[index] = renderIndex
+            this.renderResourceIds[index] = resourceId
+            this.clearReds[index] = clear.red
+            this.clearGreens[index] = clear.green
+            this.clearBlues[index] = clear.blue
+            this.clearAlphas[index] = clear.alpha
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
     trusted fun recordRenderResourcesPushInternal(
         graph: GraphicsMaterializedRenderGraph,
         resourceId: int,
@@ -1757,6 +1934,13 @@ resource class GraphicsGraphCommandList(
                 pushSize,
                 depthResourceId,
                 resolveResourceId
+            )
+        else if (additionalResourceIds.size != 0)
+            graphicsGraphRecordedBufferedMultiRenderValid(
+                graph, passId, resourceId, additionalResourceIds,
+                depthResourceId, resolveResourceId,
+                additionalResolveResourceIds, target, pipeline, resources,
+                this.backend, pushSize
             )
         else graphicsGraphRecordedBufferedRenderValid(
             graph,
@@ -2460,6 +2644,83 @@ resource class GraphicsGraphCommandList(
         )
     }
 
+    trusted fun recordRenderAttachments(
+        graph: GraphicsMaterializedRenderGraph,
+        colorResourceIds: array<int>,
+        resolveResourceIds: array<int>,
+        depthResourceId: int,
+        own target: GraphicsRenderTarget,
+        own pipeline: GraphicsRenderPipeline,
+        own resources: GraphicsGraphRenderResources,
+        clear: Color = Color(0.0, 0.0, 0.0)
+    ): bool {
+        val resourceId = if (colorResourceIds.size > 0)
+            colorResourceIds[0] else -1
+        val resolveResourceId = if (resolveResourceIds.size > 0)
+            resolveResourceIds[0] else -1
+        val additionalResourceIds: array<int> = []
+        val additionalResolveResourceIds: array<int> = []
+        var attachmentIndex = 1
+        while (attachmentIndex < colorResourceIds.size) {
+            additionalResourceIds.append(colorResourceIds[attachmentIndex])
+            attachmentIndex = attachmentIndex + 1
+        }
+        attachmentIndex = 1
+        while (attachmentIndex < resolveResourceIds.size) {
+            additionalResolveResourceIds.append(
+                resolveResourceIds[attachmentIndex]
+            )
+            attachmentIndex = attachmentIndex + 1
+        }
+        if (colorResourceIds.size < 1 || colorResourceIds.size > 8 ||
+            (resolveResourceIds.size != 0 &&
+             resolveResourceIds.size != colorResourceIds.size)) return false
+        return this.recordRenderResourcesInternal(
+            graph, resourceId, move(target), move(pipeline), move(resources),
+            clear, additionalResourceIds, additionalResolveResourceIds,
+            depthResourceId, resolveResourceId
+        )
+    }
+
+    trusted fun recordRenderAttachmentsPush(
+        graph: GraphicsMaterializedRenderGraph,
+        colorResourceIds: array<int>,
+        resolveResourceIds: array<int>,
+        depthResourceId: int,
+        own target: GraphicsRenderTarget,
+        own pipeline: GraphicsRenderPipeline,
+        own resources: GraphicsGraphRenderResources,
+        constants: GraphicsPushConstants,
+        clear: Color = Color(0.0, 0.0, 0.0)
+    ): bool {
+        val resourceId = if (colorResourceIds.size > 0)
+            colorResourceIds[0] else -1
+        val resolveResourceId = if (resolveResourceIds.size > 0)
+            resolveResourceIds[0] else -1
+        val additionalResourceIds: array<int> = []
+        val additionalResolveResourceIds: array<int> = []
+        var attachmentIndex = 1
+        while (attachmentIndex < colorResourceIds.size) {
+            additionalResourceIds.append(colorResourceIds[attachmentIndex])
+            attachmentIndex = attachmentIndex + 1
+        }
+        attachmentIndex = 1
+        while (attachmentIndex < resolveResourceIds.size) {
+            additionalResolveResourceIds.append(
+                resolveResourceIds[attachmentIndex]
+            )
+            attachmentIndex = attachmentIndex + 1
+        }
+        if (colorResourceIds.size < 1 || colorResourceIds.size > 8 ||
+            (resolveResourceIds.size != 0 &&
+             resolveResourceIds.size != colorResourceIds.size)) return false
+        return this.recordRenderResourcesPushInternal(
+            graph, resourceId, move(target), move(pipeline), move(resources),
+            constants, clear, additionalResourceIds,
+            additionalResolveResourceIds, depthResourceId, resolveResourceId
+        )
+    }
+
     trusted fun recordRenderVerticesPush(
         graph: GraphicsMaterializedRenderGraph,
         resourceId: int,
@@ -3152,6 +3413,13 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
             depthResourceId,
             resolveResourceId
         )
+    else if (additionalResourceIds.size != 0)
+        graphicsGraphRecordedBufferedMultiRenderValid(
+            graph, passId, resourceId, additionalResourceIds,
+            depthResourceId, resolveResourceId,
+            additionalResolveResourceIds, target, pipeline, resources,
+            this.backend, pushConstantSize
+        )
     else graphicsGraphRecordedBufferedRenderValid(
         graph,
         passId,
@@ -3355,6 +3623,13 @@ trusted fun GraphicsApplication.recordVulkanGraphRender(
             pushConstantSize,
             depthResourceId,
             resolveResourceId
+        )
+    else if (additionalResourceIds.size != 0)
+        graphicsGraphRecordedBufferedMultiRenderValid(
+            graph, passId, resourceId, additionalResourceIds,
+            depthResourceId, resolveResourceId,
+            additionalResolveResourceIds, target, pipeline, resources,
+            this.backend, pushConstantSize
         )
     else graphicsGraphRecordedBufferedRenderValid(
         graph,

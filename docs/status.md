@@ -573,8 +573,9 @@ Updated: 2026-08-26.
   backends. `examples/recorded-graph-resolve-render` adds planner-visible 4x
   multisample source and single-sample resolve identities, exact output,
   sealed-ID tamper rejection, and zero-growth replay on both backends.
-  `examples/recorded-graph-mrt-render` extends this to two 4x colors, two
-  resolves, and depth with exact red/green output and ordered planner IDs.
+  `examples/recorded-graph-mrt-render` extends this to a buffered vertex draw
+  over two 4x colors, two resolves, and depth with exact red/green output and
+  ordered planner IDs. The matching focused push proof uses indexed-indirect.
   The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
