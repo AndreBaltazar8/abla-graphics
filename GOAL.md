@@ -473,7 +473,7 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups, MRT, and subpasses
+1. Generalize render records to bind groups, buffered MRT, and subpasses
    without unbounded command
    variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
@@ -539,6 +539,22 @@ API. Its no-cache executable has no unresolved `ldd` entries with
 `LD_LIBRARY_PATH` removed and passes both explicit backends; forced Vulkan
 validation is silent. The sample matrix now contains 49 roots. No `../ablac`
 change was required.
+
+## Verified checkpoint awaiting publication: recorded MRT attachments
+
+`recordRenderTargetAttachments(...)` and its `Push` form record two to eight
+ordered imported colors, zero resolves or one resolve per color, and optional
+depth. Bounded per-render arrays extend the existing primary attachment IDs.
+Every attachment must be distinct, active, declared for pass write,
+descriptor-compatible with the owned target, and unchanged after sealing.
+
+The focused proof combines two 4x colors, two single-sample resolves, depth,
+and copied push data. OpenGL, Vulkan, and auto resolve exact red/green RGBA8
+`4278190335/4278255360`, reject additional-resolve mutation, and complete 1,001
+replays with `live=0`; Vulkan stays at one submission. The independent MRT
+sample has no missing `ldd` dependency without `LD_LIBRARY_PATH` and passes
+OpenGL plus silent validation-layer Vulkan. The matrix now contains 50 roots.
+No `../ablac` change was required.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

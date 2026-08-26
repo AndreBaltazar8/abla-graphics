@@ -1847,6 +1847,15 @@ commands.recordRenderTargetResolve(
     move(resolvePipeline)
 )
 // recordRenderTargetResolvePush(...) snapshots reflected push bytes.
+commands.recordRenderTargetAttachments(
+    graph,
+    [firstColorId, secondColorId],
+    [firstResolveId, secondResolveId],
+    depthId,
+    move(mrtTarget),
+    move(mrtPipeline)
+)
+// recordRenderTargetAttachmentsPush(...) snapshots reflected push bytes.
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1898,7 +1907,10 @@ the graph generation so it can be used again. See
 and current-limit contract. A single-color multisample target uses
 `recordRenderTargetResolve` or its `Push` form; both multisample source and
 single-sample resolve output are exact imported pass writes and sealed
-identities. Compute sampled/image bindings, MRT/subpass render records, broader
+identities. `recordRenderTargetAttachments` and its `Push` form accept two to
+eight ordered colors, no resolves or one resolve per color, and optional depth;
+every attachment is descriptor/access checked and sealed. Compute sampled/image
+bindings, buffered MRT/subpass render records, broader
 copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.

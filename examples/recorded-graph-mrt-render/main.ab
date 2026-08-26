@@ -1,0 +1,117 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(title = "Abla Graphics recorded MRT", width = 480,
+            height = 270)
+    )
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), samples = 4,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment
+    )
+    val depthDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), samples = 4,
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    )
+    val resolveDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment |
+            textureUsageCopyDestination | textureUsageCopySource
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "color-zero", false, 0, 10),
+        GraphicsGraphResource(1, "color-one", false, 0, 11),
+        GraphicsGraphResource(2, "depth", false, 0, 12),
+        GraphicsGraphResource(3, "resolve-zero", false, 0, 13),
+        GraphicsGraphResource(4, "resolve-one", false, 0, 14)
+    ], [
+        GraphicsGraphPass(10, "mrt-render", [
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(1, graphAccessWrite),
+            GraphicsGraphUse(2, graphAccessWrite),
+            GraphicsGraphUse(3, graphAccessWrite),
+            GraphicsGraphUse(4, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, colorDescriptor),
+        GraphicsGraphTextureDeclaration(1, colorDescriptor),
+        GraphicsGraphTextureDeclaration(2, depthDescriptor),
+        GraphicsGraphTextureDeclaration(3, resolveDescriptor),
+        GraphicsGraphTextureDeclaration(4, resolveDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65), vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 firstColor;
+            layout(location = 1) out vec4 secondColor;
+            void main() {
+                firstColor = vec4(1.0, 0.0, 0.0, 1.0);
+                secondColor = vec4(0.0, 1.0, 0.0, 1.0);
+            }
+        }
+    }
+    val first = app.texture(colorDescriptor)
+    val second = app.texture(colorDescriptor)
+    val depth = app.texture(depthDescriptor)
+    val firstResolve = app.texture(resolveDescriptor)
+    val secondResolve = app.texture(resolveDescriptor)
+    val target = app.renderTargetWithColorsAndDepth(
+        move(first), [move(second)], move(depth),
+        [move(firstResolve), move(secondResolve)]
+    )
+    val pipeline = app.renderTargetPipeline(
+        target, shader, VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(enabled = true, write = true,
+            compare = compareFunctionLess)
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        target.valid() && pipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordRenderTargetAttachments(
+            graph, [0, 1], [3, 4], 2, move(target), move(pipeline)
+        ) && commands.seal(graph)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val firstExact = commands.renderTargets[0].resolveTextures[0].rgba8(
+        32, 32
+    ) == 4278190335
+    val secondExact = commands.renderTargets[0].resolveTextures[1].rgba8(
+        32, 32
+    ) == 4278255360
+    val stable = succeeded && iteration == 1001 && firstExact &&
+        secondExact && liveAfter == liveBefore &&
+        commands.executions == 1001 && graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-mrt-render ${graphicsBackendName(app.backend)}: colors=${commands.renderTargets[0].colorCount()} resolves=${commands.renderTargets[0].resolveTextures.size} depth=${commands.renderDepthResourceIds[0]} exact=$firstExact/$secondExact executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

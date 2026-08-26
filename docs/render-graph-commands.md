@@ -275,7 +275,8 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-indirect-render`, and
 `examples/recorded-graph-push-render`, and
 `examples/recorded-graph-depth-render`, and
-`examples/recorded-graph-resolve-render` are
+`examples/recorded-graph-resolve-render`, and
+`examples/recorded-graph-mrt-render` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -286,6 +287,12 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Compute sampled/image bindings and MRT/subpass render
+Generalized procedural attachment records accept two to eight ordered colors,
+zero resolves or one per color, and optional depth. The focused 4x MRT proof
+resolves exact red/green `4278190335/4278255360`, rejects sealed additional
+resolve mutation, and replays 1,001 times with zero growth and one Vulkan
+submission.
+
+Compute sampled/image bindings and buffered MRT/subpass render
 records, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.
