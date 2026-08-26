@@ -2230,6 +2230,153 @@ trusted fun graphTextureSubpassCommandProbe(
     println(
         "graph-texture-view-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} views=${commands.subpassBufferResources[0].views.size} exact=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
+    recorded && tamperRejected && stable &&
+        graphTransientTextureSubpassCommandProbe(app)
+}
+
+trusted fun graphTransientTextureSubpassCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(16, 16), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val depthDescriptor = TextureDescriptor(
+        size = Extent3D(16, 16), format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    )
+    val sampledDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1), format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(165, "transient-sample-color", false, 0, 165),
+        GraphicsGraphResource(166, "transient-sample-depth", false, 0, 166),
+        GraphicsGraphResource(167, "transient-sample-atlas", true, 4, 167)
+    ], [
+        GraphicsGraphPass(965, "prepare-transient-sample", [
+            GraphicsGraphUse(167, graphAccessWrite)
+        ]),
+        GraphicsGraphPass(966, "render-transient-sample", [
+            GraphicsGraphUse(165, graphAccessWrite),
+            GraphicsGraphUse(166, graphAccessWrite),
+            GraphicsGraphUse(167, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(165, colorDescriptor),
+        GraphicsGraphTextureDeclaration(166, depthDescriptor),
+        GraphicsGraphTextureDeclaration(167, sampledDescriptor)
+    ], [])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) out vec2 texCoord;
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            const vec2 texCoords[3] = vec2[3](
+                vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0)
+            );
+            void main() {
+                gl_Position = vec4(
+                    positions[gl_VertexID], 0.0, 1.0
+                );
+                texCoord = texCoords[gl_VertexID];
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() { color = texture(atlas, texCoord); }
+        }
+    }
+    val target = app.renderTargetWithDepth(
+        app.texture(colorDescriptor), app.texture(depthDescriptor)
+    )
+    val pass = app.renderPass(
+        target,
+        renderPassClearValues(Color(0.0, 0.0, 0.0), [], 1.0),
+        RenderPassOperations(), 2
+    )
+    val sampler = app.sampler(SamplerDescriptor())
+    val firstBinding = app.bindGroup([
+        app.sampledRetainedGraphTextureEntry(
+            0, shaderVisibilityFragment, graph, 167, sampler
+        )
+    ])
+    val secondBinding = app.bindGroup([
+        app.sampledRetainedGraphTextureEntry(
+            0, shaderVisibilityFragment, graph, 167, sampler
+        )
+    ])
+    val first = app.renderPassPipeline(
+        target, pass, 0, shader,
+        VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(
+            enabled = true, write = true, compare = compareFunctionNever
+        ), move(firstBinding)
+    )
+    val second = app.renderPassPipeline(
+        target, pass, 1, shader,
+        VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(
+            enabled = true, write = false, compare = compareFunctionAlways
+        ), move(secondBinding)
+    )
+    val sequence = app.subpassPipelines(
+        target, pass, [move(first), move(second)]
+    )
+    val resources = graphSubpassTransientTextureResources(
+        graph, [167], [move(sampler)], [[0], [0]]
+    )
+    val initialBytes = bufferBytes(4)
+    val initialization = graph.beginExecution()
+    val initialized = initialization > 0 && initialBytes.store(0, 31) &&
+        initialBytes.store(1, 138) && initialBytes.store(2, 245) &&
+        initialBytes.store(3, 255) &&
+        app.beginMaterializedRenderGraphPass(graph, initialization, 965) &&
+        app.writeGraphTextureBytes(
+            graph, initialization, 167, initialBytes
+        ) && app.beginMaterializedRenderGraphPass(
+            graph, initialization, 966
+        ) && graph.completeExecution(initialization)
+    val commands = app.graphCommandList(graph, 3)
+    val recorded = graph.valid() && shader.valid && target.valid() &&
+        pass.valid() && sequence.valid() && initialized && commands.valid() &&
+        commands.recordPass(graph, 965) && commands.recordPass(graph, 966) &&
+        commands.recordRenderBindingSubpasses(
+            graph, [165], [], 166,
+            move(target), move(pass), move(sequence), move(resources)
+        ) && commands.seal(graph) && commands.prepared
+    commands.subpassBufferResources[0].stageResourceIndices[1][0] = 0
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.subpassBufferResources[0].stageResourceIndices[1][0] =
+        -graphicsGraphSubpassTransientTextureIndexBase
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val exact = commands.subpassTargets[0].texture.rgba8(8, 8) == 4294281759
+    val stable = succeeded && iteration == 1001 && exact &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        commands.failedExecutions == 1 && graph.completedExecutions == 1002 &&
+        graph.pools.size == 1 && graph.pools[0].acquisitionCount == 1 &&
+        graph.physicalIdentity(167) ==
+            commands.subpassBufferResources[0].transientTextureIdentities[0] &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-transient-texture-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} textures=${commands.subpassBufferResources[0].transientTextureResourceIds.size} identity=${graph.physicalIdentity(167)} exact=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 

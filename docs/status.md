@@ -10,7 +10,7 @@ Updated: 2026-08-26.
   `test-runtime-linkage` gate clears `LD_LIBRARY_PATH` and all project graphics
   discovery overrides, proves zero unresolved shared libraries, and directly
   runs one freshly built Abla executable through both headless backends. The
-  53-root no-cache sample matrix separately audits every canonical executable
+  54-root no-cache sample matrix separately audits every canonical executable
   and runs its full live suite after unsetting `LD_LIBRARY_PATH`.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
@@ -595,6 +595,10 @@ Updated: 2026-08-26.
   The same focused gate also owns imported parent textures plus affine native
   views and samplers, rejects encoded view-map mutation, and retains the same
   exact output and replay evidence on all three backend selections.
+  `examples/recorded-graph-transient-texture-subpasses` binds a prebuilt
+  descriptor to the graph's retained one-slot texture lease. Initialization and
+  1,001 replays preserve one physical identity, one pool acquisition, exact
+  output, zero growth, and zero/1,001 submissions.
   The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -618,8 +622,8 @@ Updated: 2026-08-26.
   tampering reject before execution. Planner-visible uniform/storage buffers
   and full sampled textures/samplers are delivered for subpass bind groups;
   compute sampled/image bindings,
-  transient sampled-texture subpass forms, broader command forms, asynchronous
-  submission, and frames in flight remain open.
+  broader command forms, asynchronous submission, and frames in flight remain
+  open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1193,7 +1197,7 @@ validity gate unchanged.
   Vulkan stream into one submission. Imported uniform/storage buffers can now
   be mapped to retained bind groups for every recorded stage. It does not yet
   record arbitrary per-subpass input/preserve attachment routing,
-  transient sampled-texture subpasses, or
+  broader sampled/image command forms, or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete

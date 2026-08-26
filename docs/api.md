@@ -1896,6 +1896,12 @@ val subpassViews = graphSubpassTextureViewResources(
     [move(firstSampler), move(secondSampler)],
     [[0], [1]]
 )
+val retainedEntry = app.sampledRetainedGraphTextureEntry(
+    0, shaderVisibilityFragment, graph, transientAtlasId, sampler
+)
+val transientTextures = graphSubpassTransientTextureResources(
+    graph, [transientAtlasId], [move(sampler)], [[0], [0]]
+)
 // graphSubpassBindingResources(...) composes buffer and texture tables for
 // mixed bind groups. Each stage index addresses the table selected by the
 // reflected entry kind.
@@ -1973,8 +1979,7 @@ ID per color, and optional depth to exact pass writes and descriptors. OpenGL
 executes the stages in order; eligible Vulkan graph streams record the native
 sequence into the same retained command buffer and submit once. Buffer-backed
 bind-group subpasses use `recordRenderBindingSubpasses` as described below.
-Compute sampled/image bindings, transient sampled-texture subpass forms,
-broader copy/dispatch forms, frames in flight,
+Compute sampled/image bindings, broader copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 
@@ -1986,21 +1991,24 @@ stage's stored range through its persistent push UBO; Vulkan records matching
 
 `recordRenderBindingSubpasses` accepts pipelines with retained bind groups.
 `graphSubpassBufferResources`, `graphSubpassTextureResources`,
-`graphSubpassTextureViewResources`, and `graphSubpassBindingResources` take
-affine ownership of unique flattened
+`graphSubpassTextureViewResources`, `graphSubpassTransientTextureResources`,
+and `graphSubpassBindingResources` take affine ownership of unique flattened
 imported-resource tables and a per-stage array mapping each bind-group entry to
 its kind-specific table. Buffer entries validate exact declarations, pass
 access, ranges, usage flags, and backend identities. Sampled entries validate
 single-sample color descriptors, sampled usage, pass reads, texture and sampler
 identities, and reject attachment aliasing. View resources additionally retain
-their parent texture and fingerprint the native view. Every field participates
-in record, seal, replay, and fingerprint checks. OpenGL performs ordered stage draws;
+their parent texture and fingerprint the native view. Transient entries use
+`sampledRetainedGraphTextureEntry` to build a descriptor against the graph's
+stable one-slot pool lease; the command owns the sampler and seals the logical
+ID, physical slot, native identity, and lease validity without owning the graph
+texture. Every field participates in record, seal, replay, and fingerprint
+checks. OpenGL performs ordered stage draws;
 Vulkan records all descriptor-set binds and subpasses into the graph's one
 retained command buffer. `recordRenderBindingPushSubpasses` composes this
 ownership with the 1,024-byte snapshotted push aggregate, retaining descriptor
 binds and push commands in the same ordered OpenGL replay or consolidated
-Vulkan command buffer. Graph-owned transient sampled textures remain a future
-extension of the same table.
+Vulkan command buffer.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

@@ -328,6 +328,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-texture-subpasses`: two planner-declared sampled
   textures and affine samplers feed distinct recorded stages with exact output,
   zero warmed growth, and one Vulkan submission per replay;
+- `examples/recorded-graph-transient-texture-subpasses`: a graph-owned sampled
+  texture keeps one physical pool lease and one prebuilt descriptor across
+  1,001 exact allocation-free recorded subpass replays;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

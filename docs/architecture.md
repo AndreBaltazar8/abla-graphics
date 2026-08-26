@@ -196,8 +196,8 @@ color/depth targets across every render form, single-color multisample resolves,
 and procedural or buffered two-to-eight-color targets with ordered resolve IDs,
 ordered procedural subpass records that own their target, compatible pass, and
 two-to-eight-stage pipeline sequence, including planner-visible imported
-uniform/storage buffers and sampled textures/views/samplers through a
-flattened affine resource table,
+uniform/storage buffers and imported or graph-owned sampled
+textures/views/samplers through a flattened affine resource table,
 and planner-visible imported or graph-owned buffer compute
 dispatches. It affinely owns each recorded target/pipeline, caller-owned
 render/compute buffer, sampled texture/sampler, compute pipeline, and retained
@@ -210,8 +210,7 @@ lifetimes. Replay performs no descriptor construction or live-memory growth.
 OpenGL uses the existing direct operations. An eligible Vulkan stream records
 graph memory dependencies, the 2D texture copy, render, and compute dispatch
 into one retained command buffer, then submits once; direct APIs remain
-unchanged. Later slices must add transient sampled-texture subpass forms,
-broader copy/compute forms, frames in
+unchanged. Later slices must add broader copy/compute forms, frames in
 flight, and GPU-completion-aware retention.
 
 ## Specification coverage

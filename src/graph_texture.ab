@@ -904,6 +904,50 @@ trusted fun GraphicsApplication.sampledGraphTextureEntry(
     )
 }
 
+trusted fun GraphicsApplication.sampledRetainedGraphTextureEntry(
+    binding: int,
+    visibility: int,
+    graph: GraphicsMaterializedRenderGraph,
+    resourceId: int,
+    sampler: GraphicsSampler
+): GraphicsBindingEntry {
+    val pool = graph.texturePoolIndex(resourceId)
+    if (graph.valid() && graph.transientResource(resourceId) &&
+        graph.textureResource(resourceId) &&
+        (graph.textureDescriptor(resourceId).usage & textureUsageSampled) != 0 &&
+        pool >= 0 && pool < graph.pools.size &&
+        graph.pools[pool].leaseValid(graph.slotLeases[pool])) {
+        return this.sampledTexturePoolEntry(
+            binding,
+            visibility,
+            graph.pools[pool],
+            graph.slotLeases[pool],
+            sampler
+        )
+    }
+    GraphicsBindingEntry(
+        binding,
+        graphicsBindingSampledTexture,
+        visibility,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        graph.textureDescriptor(resourceId),
+        graph.textureDescriptor(resourceId).dimension,
+        this.backend,
+        GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.sampledRetainedGraphTextureEntry",
+            "retained graph texture entries require a sampled transient texture with a stable pool lease"
+        )
+    )
+}
+
 trusted fun GraphicsApplication.graphBufferEntry(
     binding: int,
     visibility: int,

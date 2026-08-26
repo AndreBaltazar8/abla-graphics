@@ -502,8 +502,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Extend recorded subpass bindings to graph-owned transient sampled textures
-   without warmed allocation.
+1. Generalize remaining recorded render and compute sampled/image bindings
+   without unbounded command variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -707,6 +707,27 @@ mutation, and preserves exact RGBA8 `4294281759` through 1,001 OpenGL, Vulkan,
 and automatic-selection replays with `live=0` and zero/1,001 submissions. No
 new sample root or compiler change was needed. Graph-owned transient sampled
 textures are now the remaining sampled subpass ownership form.
+
+### Graph-owned transient sampled textures
+
+`sampledRetainedGraphTextureEntry(...)` builds a bind-group entry against the
+materialized graph's stable one-slot texture-pool lease before command
+recording. `graphSubpassTransientTextureResources(...)` owns the sampler,
+captures the logical resource and physical identity, and maps stage entries
+into the same sealed binding table without taking ownership away from the
+graph. Record and replay require a transient sampled color declaration, exact
+pass read access, a valid retained lease, matching descriptor and native
+identity, and attachment separation.
+
+The focused gate initializes the transient resource through the public graph
+write API, rejects sealed map mutation, and preserves one pool acquisition,
+one physical identity, exact RGBA8 `4294281759`, and `live=0` through 1,001
+OpenGL/Vulkan/auto replays with zero/1,001 submissions.
+`examples/recorded-graph-transient-texture-subpasses` independently repeats the
+public workflow, passes both explicit backends, and has no unresolved direct
+`ldd` entry with `LD_LIBRARY_PATH` removed. The sample matrix now has 54 roots.
+Buffer, imported texture, imported view, and transient-texture recorded subpass
+forms are now covered; no C, GLFW, SDL, or native shim is used.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

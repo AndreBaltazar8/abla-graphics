@@ -281,7 +281,8 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-mrt-render`, and
 `examples/recorded-graph-subpasses`, and
 `examples/recorded-graph-binding-subpasses`, and
-`examples/recorded-graph-texture-subpasses` are
+`examples/recorded-graph-texture-subpasses`, and
+`examples/recorded-graph-transient-texture-subpasses` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -313,9 +314,12 @@ maps every stage binding entry to its kind-specific table index. Uniform
 entries require declared read access; storage entries require declared access;
 sampled entries require imported single-sample color declarations with read
 access and sampled usage. View entries retain the parent texture and use an
-encoded negative table index internally. Exact descriptors, byte ranges,
-usage, native texture/view/sampler identities, and attachment alias rejection
-run at record, seal, and replay. One affine resource may be shared by stages.
+encoded negative table index internally. Transient sampled entries borrow the
+graph's retained one-slot texture-pool lease while the command owns their
+sampler; descriptors are created once before recording. Exact descriptors,
+byte ranges, usage, native texture/view/sampler/lease identities, and attachment
+alias rejection run at record, seal, and replay. One affine resource may be
+shared by stages.
 `recordRenderBindingPushSubpasses(...)` composes both contracts: it owns the
 same binding table and snapshots the complete reflected per-stage push aggregate
 before sealing.
@@ -325,6 +329,6 @@ per complete replay. The focused proof rejects sealed depth-ID and cached
 Vulkan sequence-handle mutation, then replays exact RGBA8 `4294281759` 1,001
 times with zero live growth.
 
-Transient graph sampled textures, compute sampled/image bindings, broader
-copy/dispatch forms, frames in flight, and
+Compute sampled/image bindings, broader copy/dispatch forms, frames in flight,
+and
 GPU-completion-aware retention remain milestone 5 work.
