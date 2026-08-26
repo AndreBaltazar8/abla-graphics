@@ -1599,6 +1599,9 @@ also has no unresolved dependency with `LD_LIBRARY_PATH` removed.
 
 ### Verified checkpoint: recorded compute-to-render handoff
 
+Implementation commit `dbe20e44c59ffadb0eb1174c31ff6a637731256c`
+is published on `origin/main`.
+
 `graphRenderPriorTextureResources(...)` generalizes the list-owned borrow to a
 full storage texture retained by an earlier compute binding. Vulkan sampled
 entries now snapshot the tracked image layout, allowing a storage+sampled image
