@@ -80,9 +80,12 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
-- Published implementation tip immediately before this handoff document:
-  `57492c65287bfba25da8c3b7d938dbb0bd26d2b0`
-  (`Record graph compute and fix direct launches`).
+- Published tip before the multi-binding/transient-buffer checkpoint:
+  `29a7be7dd17bd3eedeaf3d9797d8a6220523bf28`
+  (`Update graphics continuation handoff`).
+- Multi-binding/transient-buffer implementation commit:
+  `d5adb4aa8776cebb742b1dabe14e96eace4389cb`
+  (`Add transient graph compute bindings`).
 - Published and synchronized recorded-compute/direct-linkage implementation:
   `57492c65287bfba25da8c3b7d938dbb0bd26d2b0`.
 - Earlier bounded-command implementation checkpoint:
@@ -90,10 +93,9 @@ nix-shell --run 'make check-abla-only'
 - Relevant published implementation commits are `deecaa3` (`Execute render
   graph barriers`), `6ba1ec5` (`Compile render graph barrier schedules`),
   `08d481a` (`Record bounded render graph commands`), and `d38676f`
-  (`Consolidate recorded graph rendering`), and `57492c6` (`Record graph
-  compute and fix direct launches`).
-- Before committing this handoff only `GOAL.md` is modified. No implementation
-  delta is intentionally left uncommitted.
+  (`Consolidate recorded graph rendering`), `57492c6` (`Record graph compute
+  and fix direct launches`), and `f9609a5` (`Record planner buffers and compute
+  push data`).
 - Recheck `git status` and commit IDs before release work. A commit hash in
   this file is a snapshot, not proof of current synchronization.
 
@@ -249,24 +251,118 @@ example roots and ran the full OpenGL/Vulkan live matrix. The new
 No `../ablac` change was needed. It remained clean and synchronized at
 `82a66da3a978d63adbe49922f74eebc76eea892a`.
 
+## Published checkpoint: multi-binding compute and transient graph buffers
+
+Implementation commit `d5adb4aa8776cebb742b1dabe14e96eace4389cb`
+generalizes `GraphicsComputePipeline` to retain an affine
+`GraphicsBindGroup`. `computeBindingPipeline(...)` validates the exact
+reflected resources, required capabilities, portable pure-Abla SPIR-V
+emission, and workgroup limits. OpenGL dispatch uses precomputed bind arrays;
+Vulkan uses the retained descriptor-set layout/set without transferring layout
+ownership to the pipeline. The strict portable dual-storage shader proof
+performs `destination.value += sourceData.value` with writable binding zero
+and readonly binding one. Existing empty and binding-zero storage pipeline
+forms remain source-compatible.
+
+Recorded graph compute now supports one to 16 imported buffer bindings through
+`recordComputeBindings(...)` and graph-owned transient bindings through
+`recordTransientComputeBindings(...)`, with matching push forms. Sealing binds
+every logical resource, caller/native buffer identity, retained bind-group
+identity, descriptor, access, workgroup, and push byte. Caller-owned arrays move
+into affine resource groups. Transient records borrow exact buffer-pool ranges
+from the graph and reject duplicate logical IDs or aliased physical slots in
+one dispatch.
+
+Materialized graphs now own separate texture and buffer pool maps. A transient
+buffer must be device-local, unmapped, no larger than one GiB, and compatible
+in complete logical storage descriptor with anything reusing its planner slot.
+Pool block size/capacity are chosen without overflow and stay within 65,536
+blocks. Compatible disjoint lifetimes reuse one native buffer; overlaps,
+cross-kind aliases, descriptor mismatches, and usage absent from the retained
+backing reject. `storageGraphBufferEntry(...)` and
+`uniformGraphBufferEntry(...)` expose the exact retained range.
+
+The Vulkan consolidated recorder now permits a pending per-execution barrier
+count while command recording is active; completed totals are still updated
+only after queue submission is accepted. This fixes the previously latent case
+where a barrier followed by another pass invalidated the graph before submit.
+The active count is bounded by the compiled plan barrier count.
+
+Verified evidence on the published implementation source:
+
+- `make test-glsl test-application` proves direct two-buffer compute on explicit
+  OpenGL, explicit Vulkan, auto Vulkan, and fallback OpenGL with exact values
+  `7/27/5` and zero warmed live-byte growth;
+- `make test-graph-commands` proves imported values `5007/5`, transient slot
+  mapping `0/1/0`, exact transient result `5007`, one barrier per replay,
+  zero/1,001 OpenGL/Vulkan submissions, stable native identities, one retained
+  allocation per physical pool, sealed identity/backing tamper rejection, and
+  zero live growth through 1,001 replays on OpenGL/Vulkan/auto;
+- `make test-graph-texture` passes unchanged texture ownership, aliasing, and
+  execution regression evidence;
+- `make check-abla-only test-runtime-linkage` passes with
+  `runtime-linkage direct=true unresolved=0`; and
+- `examples/recorded-graph-transient-compute` independently builds and runs
+  both explicit backends with `LD_LIBRARY_PATH` removed, no unresolved shared
+  libraries, exact `5007`, slots `0/1/0`, stable handles, and `live=0`.
+
+The uninterrupted `make all` release gate passed on 2026-08-26. It includes
+the Abla-only source audit, all core/window/backend/transfer/pool/graph tests,
+the direct runtime-linkage audit, debug checks, and registry generation. Four
+broad compiler invocations (`test-core`, `test-headless`,
+`test-wider-texture`, and `test-wider-sampling`) now use an isolated 8 GiB
+default ceiling after the expanded source exceeded their old 6 GiB ceiling;
+the ordinary compiler limit is unchanged. A forced
+`VK_LAYER_KHRONOS_validation` graph replay produced no validation messages.
+
+The changed sample was then re-audited and run directly with the inherited
+`LD_LIBRARY_PATH` removed. `ldd` reported no `not found` dependencies and both
+OpenGL and Vulkan runs reported four of four commands, exact result `5007`,
+slots `0/1/0`, `1/1001/1001` barriers, stable handles, and `live=0`.
+
+Important paths are `src/compute.ab`, `src/driver/opengl.ab`,
+`src/driver/vulkan.ab`, `src/shader/glsl_spirv.ab`, `src/graph_texture.ab`,
+`src/graph_commands.ab`, `tests/application/main.ab`,
+`tests/glsl_subparser.ab`, `tests/graph_commands/main.ab`,
+`examples/recorded-graph-compute/`,
+`examples/recorded-graph-transient-compute/`, `tools/test-samples.sh`, and the
+public documentation. No `../ablac` change has been required; it remains clean
+and synchronized at `82a66da3a978d63adbe49922f74eebc76eea892a`.
+
+The complete 44-root no-cache sample rebuild was deliberately not repeated
+after this already-complete aggregate gate: only the new sample/build manifest
+changed, and that executable received the stricter focused direct-link and
+dual-backend live check above. `tools/test-samples.sh` includes it in the next
+scheduled complete sample matrix. Do not mark the persistent goal complete.
+
+### Efficient validation policy
+
+Keep implementation moving with change-driven gates. While developing, run
+the smallest focused test that executes the changed path, plus the affected
+backend when backend code changes. Run `make all` once at a publication
+checkpoint, not after each edit. Run the full no-cache sample matrix when
+sample infrastructure, shared-library embedding, broad public interfaces, or
+window/platform behavior changes, and at periodic coverage checkpoints; do not
+rerun it merely to duplicate an unchanged aggregate gate. For a direct-launch
+regression, prioritize `make test-runtime-linkage`, `ldd` with
+`LD_LIBRARY_PATH` removed, and an actual clean-environment launch of the
+affected executable.
+
 ### Immediate continuation sequence
 
-1. Generalize planner-visible buffers from the delivered imported single-
-   binding form to multiple compute bindings and bounded transient-buffer
-   pooling/aliasing without warmed allocation.
-2. Generalize render records to buffered/indexed/indirect forms, bind groups,
+1. Generalize render records to buffered/indexed/indirect forms, bind groups,
    push constants, depth, resolves, MRT, and subpasses without unbounded command
    variants or warmed allocation.
-3. Generalize consolidated Vulkan texture copies beyond the current 2D slice
+2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
-4. Introduce GPU-completion-aware resource retention and bounded frames in
+3. Introduce GPU-completion-aware resource retention and bounded frames in
    flight, replacing synchronous per-replay waiting without weakening affine
    ownership.
-5. Add independent compute/render and deferred-rendering samples with exact
-   outputs, stable resources, native submission counts, validation silence, and
-   frame-rate/memory evidence.
-6. Continue the larger milestone/coverage/platform work in `plan.md`; do not
+4. Add independent generalized-render and deferred-rendering samples with exact
+   outputs, stable resources, native submission counts, validation silence,
+   and frame-rate/memory evidence.
+5. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
 
 ## Published checkpoint: planner buffers and sealed compute push data
@@ -749,6 +845,9 @@ that dependency first.
   executor. It is useful as an inspection value, not as the execution record.
 - A materialized graph retains one capacity-one texture-pool lease per physical
   slot for its entire life. Do not introduce per-pass acquire/release churn.
+- A transient buffer slot retains one bounded buffer-pool allocation for the
+  graph lifetime. Keep texture/buffer pool maps distinct and reject cross-kind
+  aliasing before native allocation.
 - Planner compatibility classes are opaque hints. Physical materialization
   must continue to recheck the complete texture descriptor before aliasing.
 - Imported textures are borrowed. The graph must never move or destroy them.
@@ -766,6 +865,10 @@ that dependency first.
 - Generated coverage files are reproducible output. Change audit manifests or
   generators and run `make update-registry`; never edit generated ledgers by
   hand.
+- Every independently buildable native sample needs an `abla.toml`
+  `nativeLibraries` manifest. Keep `make test-runtime-linkage` and the sample
+  matrix's stripped-`LD_LIBRARY_PATH` `ldd`/launch audit: building only inside
+  the Nix shell is not proof that users can launch the executable directly.
 
 ## `abla-doom` side quest
 
