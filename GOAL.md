@@ -1535,6 +1535,11 @@ test-graph-commands` gate passes OpenGL, Vulkan, and automatic selection. No
 `../ablac` source was changed, and its pre-existing dirty files remain
 untouched.
 
+Correctness follow-up commit
+`e9463d37e61f88b2433e272426261cd868823dd2`
+(`Synchronize asynchronous graph readback`) is published and synchronized on
+`origin/main`.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and
