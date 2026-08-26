@@ -169,6 +169,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized storage-image expression-program implementation:
   `19b8965231bbb7f851f1fcb813c20b61fd59f51c`
   (`Parse storage image expression programs`).
+- Published and synchronized storage-image builtin implementation:
+  `b1bc3302277d5c872e4b58e97066186fc5f8696c`
+  (`Emit storage image constructors and builtins`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -543,9 +546,9 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Extend the new storage-image expression-program IR with vector
-   constructors, typed builtins, and computed coordinate expressions while
-   preserving all-dimension access/format matching and allocation-free replay.
+1. Extend the storage-image program with computed signed coordinate
+   expressions, then mutable statements/control flow, while preserving
+   all-dimension access/format matching and allocation-free replay.
 2. Introduce GPU-completion-aware resource retention and bounded frames in
    flight, replacing synchronous per-replay waiting without weakening affine
    ownership.
@@ -1124,9 +1127,40 @@ optimized no-cache focused root returned 42 after obsolete matcher removal.
 The rebuilt sample had no unresolved clean-environment `ldd` entry and Vulkan
 validation emitted no message. No `../ablac` file was modified or staged.
 
-Next, teach this IR/emitter the already-parsed typed vector constructors and
-builtins, then generalize the coordinate operand beyond a direct reflected push
-member. Do not regress to source-shape enumeration.
+The following `b1bc330` checkpoint teaches this IR/emitter constructors and
+builtins. Continue by generalizing the coordinate operand beyond a direct
+reflected push member. Do not regress to source-shape enumeration.
+
+### Published checkpoint: storage-image constructors and builtins
+
+Implementation commit `b1bc3302277d5c872e4b58e97066186fc5f8696c`
+is published and synchronized on `origin/main`.
+
+Storage-image value programs now emit scalar and `vec4` constants, scalar-splat
+and four-scalar constructors, checked scalar components, four-component
+swizzles, dot products, vector/scalar multiply and divide overloads, and the
+shared typed extended-builtin set. Extended instructions receive a real
+`GLSL.std.450` import, checked arity/result types, and the same explicit scalar
+splat rules as raster expressions.
+
+The independent proof composes a full swizzle, component-based constructor,
+literal vectors, `clamp`, and `max`; it checks the import/instructions and a
+valid dynamic module bound. The retained live sample uses literal lower/upper
+vectors and `clamp`/`max` around its existing add/multiply chain while
+preserving exact cyan `4294967040`, rejection checks, 1,001 executions,
+zero/1,001 submissions, and zero growth.
+
+The first validation-enabled Vulkan run caught an invalid placement of
+`OpConstantComposite` inside the function. The emitter was corrected to use
+function-body `OpCompositeConstruct`; the rebuilt Vulkan run then completed
+1,001 exact replays with no validation message. Explicit OpenGL also completed
+the same exact proof. `make check-abla-only test-glsl` passed, the optimized
+no-cache executable had no unresolved clean-environment dependency, and no
+`../ablac` file was modified or staged.
+
+Next, represent signed coordinate expressions with a typed integer IR instead
+of requiring the first push member verbatim at load and store. Preserve exact
+dimension widths (`int`, `ivec2`, `ivec3`) and range-safe backend behavior.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
