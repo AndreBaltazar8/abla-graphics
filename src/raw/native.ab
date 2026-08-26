@@ -1,0 +1,43 @@
+// Shared explicit raw-command value. Resolving a command is separate from
+// calling it so steady-state indirect calls do not scan or allocate registry
+// metadata.
+
+class RawNativeCommand(
+    val name: string,
+    val callShape: string,
+    val address: int,
+    val owner: int
+) {
+    fun valid(): bool = this.address != 0
+    fun callableAsVoid0(): bool =
+        this.valid() && this.callShape == "void()"
+}
+
+fun rawRegistryCommandIndex(
+    commands: array<string>,
+    wanted: string
+): int {
+    var index = 0
+    var found = -1
+    while (found < 0 && index < commands.size) {
+        if (commands[index] == wanted) found = index
+        index = index + 1
+    }
+    found
+}
+
+fun rawRegistryCommand(
+    commands: array<string>,
+    callShapes: array<string>,
+    name: string,
+    address: int,
+    owner: int
+): RawNativeCommand {
+    val index = rawRegistryCommandIndex(commands, name)
+    RawNativeCommand(
+        name,
+        if (index >= 0 && index < callShapes.size) callShapes[index] else "",
+        if (index >= 0) address else 0,
+        if (index >= 0) owner else 0
+    )
+}

@@ -1,0 +1,62 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/raw/opengl.ab"
+import "../../src/raw/vulkan.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl else
+        if (requested == "vulkan") graphicsBackendVulkan else
+        graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics raw command addresses",
+            width = 160,
+            height = 120,
+            visible = false
+        )
+    )
+    var stable = false
+    var detail = "unavailable"
+    if (app.valid() && app.backend == graphicsBackendOpenGl) {
+        val raw = app.rawOpenGlApi()
+        val finish = raw.command("glFinish")
+        val clear = raw.command("glClear")
+        val missing = raw.command("glAblaMissing")
+        val unsupportedRejected = !raw.callVoid0(clear) &&
+            !raw.callVoid0(missing)
+        val liveBefore = runtimeMemoryLiveBytes()
+        var call = 0
+        var called = true
+        while (called && call < 1000) {
+            called = raw.callVoid0(finish)
+            call = call + 1
+        }
+        val liveAfter = runtimeMemoryLiveBytes()
+        stable = raw.available && finish.valid() &&
+            finish.callShape == "void()" &&
+            clear.callShape == "void(GLbitfield)" &&
+            !missing.valid() && missing.callShape == "" &&
+            unsupportedRejected && called && call == 1000 &&
+            liveAfter == liveBefore
+        detail = "finish=${finish.address} calls=$call live=${liveAfter - liveBefore}"
+    } else if (app.valid() && app.backend == graphicsBackendVulkan) {
+        val raw = app.rawVulkanApi()
+        val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")
+        val idle = raw.deviceCommand("vkDeviceWaitIdle")
+        val missing = raw.deviceCommand("vkAblaMissing")
+        stable = raw.available && enumerate.valid() && idle.valid() &&
+            enumerate.callShape ==
+                "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
+            idle.callShape == "VkResult(VkDevice)" &&
+            !missing.valid() && missing.callShape == ""
+        detail = "enumerate=${enumerate.address} idle=${idle.address}"
+    }
+    println(
+        "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"
+    )
+    if (stable) 0 else 1
+}

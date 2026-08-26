@@ -12,14 +12,26 @@ Updated: 2026-08-26.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 70 roots. Samples 65 through 68 cover deferred rendering,
+  The matrix now has 71 roots. Samples 65 through 68 cover deferred rendering,
   compute-to-render handoff, typed blending, and typed stencil masking. Sample
   69 is the complete `mini-breakout` 2D game: its independently built stripped-
   environment binary passed OpenGL, validation-enabled Vulkan, and automatic
   selection for 1,001 frames with zero live-byte growth. Sample 70 proves exact
   asymmetric top-left viewport/scissor output through the same three modes.
+  Sample 71 resolves both generated raw loader paths and proves 1,000 checked
+  indirect OpenGL `void()` calls with zero live-byte growth in normal and
+  optimized builds; both binaries also pass stripped-environment linkage.
   These newer roots are
   queued for the next periodic complete matrix.
+- Generated raw command ABI foundation: all 2,892 OpenGL and 842 Vulkan
+  commands have deterministic normalized call shapes. Separately generated
+  compact name/shape modules prevent full coverage/type reports from entering
+  raw application builds. `RawOpenGlApi` resolves through `eglGetProcAddress`
+  with process-symbol fallback, `RawVulkanApi` resolves instance/device
+  commands through the Vulkan loaders, and exact-shape checking enables the
+  first allocation-stable OpenGL `void()` indirect call family. Remaining
+  signatures and Vulkan invocation are still open and are not claimed by
+  address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
   structured errors, window configuration,

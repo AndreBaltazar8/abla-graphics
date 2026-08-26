@@ -2232,6 +2232,84 @@ fun registryStatuses(
     statuses
 }
 
+fun registryCommandCallShapes(
+    inventory: RegistryInventory,
+    signatures: RegistryCommandSignatures
+): array<string> {
+    val shapes: array<string> = []
+    var commandIndex = 0
+    while (commandIndex < inventory.commands.size) {
+        val command = inventory.commands[commandIndex]
+        var shape = "${signatures.returnTypes[commandIndex]}("
+        var parameterIndex = 0
+        var count = 0
+        while (parameterIndex < signatures.parameterOwners.size) {
+            if (signatures.parameterOwners[parameterIndex] == command) {
+                if (count > 0) shape = "$shape,"
+                if (signatures.parameterConstness[parameterIndex] == "true") {
+                    shape = "${shape}const "
+                }
+                shape = "$shape${signatures.parameterTypes[parameterIndex]}"
+                val pointers = signatures.parameterPointerLevels[
+                    parameterIndex
+                ]
+                if (pointers == "1") shape = "$shape*"
+                else if (pointers == "2") shape = "$shape**"
+                else if (pointers == "3") shape = "$shape***"
+                else if (pointers != "0") shape = "$shape*[$pointers]"
+                count = count + 1
+            }
+            parameterIndex = parameterIndex + 1
+        }
+        shape = "$shape)"
+        shapes.append(shape)
+        commandIndex = commandIndex + 1
+    }
+    shapes
+}
+
+fun registryCallSourcePrefix(api: string): string =
+    if (api == "vulkan") "rawVulkanCall" else "rawOpenGlCall"
+
+fun registryWriteCallSource(
+    output: Path,
+    api: string,
+    revision: string,
+    sha256: string,
+    inventory: RegistryInventory,
+    signatures: RegistryCommandSignatures
+): bool {
+    val prefix = registryCallSourcePrefix(api)
+    val shapes = registryCommandCallShapes(inventory, signatures)
+    var success = output.writeText("")
+    var batch = ""
+    if (success) batch = registryAppend(
+        output,
+        batch,
+        "// Generated callable-command metadata. Do not edit."
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(
+        output, batch, "val ${prefix}Revision = \"$revision\""
+    )
+    if (success) batch = registryAppend(
+        output, batch, "val ${prefix}Sha256 = \"$sha256\""
+    )
+    if (success) batch = registryAppend(
+        output, batch, "val ${prefix}Count = ${inventory.commands.size}"
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}Names", inventory.commands
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}Shapes", shapes, false
+    )
+    if (batch == "#write-failed") success = false
+    if (success && batch != "") success = output.appendText(batch)
+    success
+}
+
 fun registryWriteSource(
     output: Path,
     api: string,
@@ -2259,6 +2337,10 @@ fun registryWriteSource(
         audit,
         "extension",
         inventory.extensions
+    )
+    val commandCallShapes = registryCommandCallShapes(
+        inventory,
+        signatures
     )
     var success = output.writeText("")
     var batch = ""
@@ -2434,6 +2516,12 @@ fun registryWriteSource(
     if (success) batch = registryWriteSourceArray(
         output,
         batch,
+        "${prefix}CommandCallShapes",
+        commandCallShapes
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
         "${prefix}CommandStatuses",
         commandStatuses
     )
@@ -2468,8 +2556,8 @@ fun registryWriteSource(
 }
 
 fun main: int {
-    if (processArgumentCount() != 7) {
-        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256>")
+    if (processArgumentCount() != 7 && processArgumentCount() != 8) {
+        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256> [calls.ab]")
         2
     } else {
         val api = processArgument(0)
@@ -2534,6 +2622,17 @@ fun main: int {
                 aggregates
             )) {
                 eprintln("failed to write raw registry source: ${sourceOutput.text}")
+                5
+            } else if (processArgumentCount() == 8 &&
+                !registryWriteCallSource(
+                    Path(processArgument(7)),
+                    api,
+                    processArgument(5),
+                    processArgument(6),
+                    inventory,
+                    signatures
+                )) {
+                eprintln("failed to write callable registry source: ${processArgument(7)}")
                 5
             } else {
                 println("$api: ${inventory.commands.size} commands, ${inventory.features.size} core features, ${inventory.extensions.size} extensions")

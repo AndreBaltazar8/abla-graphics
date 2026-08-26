@@ -61,9 +61,11 @@ cd "$compiler_root"
     "$project_root/registry/audit/vulkan.tsv" \
     "$project_root/registry/coverage/vulkan.md" \
     "$project_root/src/raw/vulkan_registry.ab" \
-    "$vulkan_revision" "$vulkan_sha256"
+    "$vulkan_revision" "$vulkan_sha256" \
+    "$project_root/src/raw/vulkan_calls.ab"
 "$generator" opengl "$cache_directory/gl.xml" \
     "$project_root/registry/audit/opengl.tsv" \
     "$project_root/registry/coverage/opengl.md" \
     "$project_root/src/raw/opengl_registry.ab" \
-    "$opengl_revision" "$opengl_sha256"
+    "$opengl_revision" "$opengl_sha256" \
+    "$project_root/src/raw/opengl_calls.ab"

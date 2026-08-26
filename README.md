@@ -175,9 +175,12 @@ proves the architecture rather than stopping at placeholder interfaces:
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,
   43 desktop OpenGL type records, 2,497 selected Vulkan type records, and
   structured ABI signatures for 9,526 OpenGL and 2,845 Vulkan command
-  parameters, plus declaration-ordered metadata for 1,450 Vulkan aggregates
-  and 7,413 members; the independently compiled raw metadata modules leave
-  every unaudited row visibly unclassified;
+  parameters, normalized call shapes for all 2,892 OpenGL and 842 Vulkan
+  commands, plus declaration-ordered metadata for 1,450 Vulkan aggregates and
+  7,413 members; compact separately generated callable-command modules avoid
+  pulling the full audit/type reports into applications, while independently
+  compiled raw metadata modules leave every unaudited row visibly
+  unclassified;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
@@ -194,6 +197,7 @@ The framework is developed alongside `../ablac`. On NixOS:
 nix-shell --run 'make test'
 nix-shell --run 'make test-toolchain'
 nix-shell --run 'make test-registry'
+nix-shell --run 'make test-raw-commands'
 ```
 
 Executables built in that Nix environment retain the concrete Vulkan, X11,
@@ -255,6 +259,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/viewport-scissor`: immutable top-left viewport/depth-range and
   scissor rectangles produce one exact asymmetric region through 1,001
   allocation-free OpenGL/Vulkan/auto draws;
+- `examples/raw-command-addresses`: resolves generated OpenGL and Vulkan
+  command addresses through explicit application-scoped raw views, rejects
+  unknown or mismatched call shapes, and executes 1,000 allocation-stable
+  indirect `glFinish` calls in both normal and optimized builds;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
   pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
   buffer and common index buffer rendered unchanged on explicit OpenGL and
@@ -492,10 +500,14 @@ OpenGL and Vulkan and publishes a reproducible window-only proof screenshot.
 
 ## API direction
 
-Normal applications will use the backend-neutral `graphicsApplication`,
+Normal applications use the backend-neutral `graphicsApplication`,
 resource descriptors, encoders, and render/compute passes described in
-[the API contract](docs/api.md). Complete generated escape hatches will live
-under `graphics/raw/opengl` and `graphics/raw/vulkan`.
+[the API contract](docs/api.md). Generated escape hatches live under
+`graphics/raw/opengl` and `graphics/raw/vulkan`. Their first executable slice
+resolves every known name through the appropriate EGL or Vulkan loader,
+retains its normalized call shape in `RawNativeCommand`, and safely invokes
+OpenGL `void()` commands; other signatures remain explicitly unavailable
+until their checked native-call families are implemented.
 
 GPU/window resources are affine Abla `resource class` values. Frame command
 data will use reusable arenas and backend selection is kept out of inner draw

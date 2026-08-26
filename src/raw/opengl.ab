@@ -1,3 +1,66 @@
-// Explicit OpenGL raw surface. Generated ABI declarations extend this facade.
+// Explicit OpenGL raw surface. Registry metadata is generated from gl.xml;
+// command resolution and indirect calls remain explicit and backend-specific.
 
-import "opengl_registry.ab"
+import "opengl_calls.ab"
+import "native.ab"
+import "../application.ab"
+import "../driver/native_symbols.ab"
+import "abla/unsafe/native"
+
+// This non-owning view must not outlive the GraphicsApplication it came from.
+class RawOpenGlApi(
+    val display: i64*,
+    val surface: i64*,
+    val context: i64*,
+    val commands: array<string>,
+    val callShapes: array<string>,
+    val available: bool
+) {
+    trusted fun makeCurrent(): bool = this.available &&
+        eglMakeCurrent(
+            this.display,
+            this.surface,
+            this.surface,
+            this.context
+        ) == eglTrue
+
+    trusted fun command(name: string): RawNativeCommand {
+        var address = 0
+        val index = rawRegistryCommandIndex(this.commands, name)
+        if (index >= 0 && this.makeCurrent()) {
+            address = nativePointerAddress(eglGetProcAddress(name))
+            if (address == 0) address = nativePointerAddress(dlsym(
+                nativeNullPointer(),
+                name
+            ))
+        }
+        rawRegistryCommand(
+            this.commands,
+            this.callShapes,
+            name,
+            address,
+            nativePointerAddress(this.context)
+        )
+    }
+
+    trusted fun callVoid0(command: RawNativeCommand): bool {
+        val callable = command.callableAsVoid0() &&
+            command.owner == nativePointerAddress(this.context) &&
+            this.makeCurrent()
+        if (callable) callNativeVoid0(command.address)
+        callable
+    }
+}
+
+trusted fun GraphicsApplication.rawOpenGlApi(): RawOpenGlApi {
+    val available = this.valid() && this.backend == graphicsBackendOpenGl &&
+        this.openGl.valid()
+    RawOpenGlApi(
+        this.openGl.display,
+        this.openGl.surface,
+        this.openGl.context,
+        rawOpenGlCallNames(),
+        rawOpenGlCallShapes(),
+        available
+    )
+}

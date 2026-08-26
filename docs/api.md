@@ -3276,14 +3276,26 @@ native handle explicitly, and issue generated raw commands. Crossing this
 boundary disables common-layer state assumptions for the affected object until
 the documented synchronization/import operation is performed.
 
-The repository now has stable `src/raw/opengl.ab` and `src/raw/vulkan.ab`
-facades backed by deterministic generated registry modules. The delivered raw
-slice exposes pinned revisions/hashes and complete command, form, feature,
-extension, and audit-status metadata, plus all 6,271 selected OpenGL registry
-constants as directly usable Abla values. Its full modules compile in the
-offline registry gate. Vulkan constants, ABI layouts, native handles, and
-callable generated commands remain future raw-generator stages, so metadata or
-constant presence is not represented as executable specification coverage.
+The repository has stable `src/raw/opengl.ab` and `src/raw/vulkan.ab` facades
+backed by deterministic generated registry modules. Full modules expose pinned
+revisions/hashes and complete command, form, feature, extension, audit-status,
+parameter, aggregate, and normalized call-shape metadata, plus all 6,271
+selected OpenGL constants as directly usable Abla values. Compact generated
+name/shape modules keep those audit tables out of normal raw application
+builds.
+
+`app.rawOpenGlApi()` and `app.rawVulkanApi()` return non-owning views that must
+not outlive `app`. `command`, `instanceCommand`, and `deviceCommand` resolve a
+known registry name once and return a `RawNativeCommand` with its name, call
+shape, address, and owning context/dispatch handle. Unknown names return an
+invalid command. The first callable family,
+`rawOpenGl.callVoid0(command)`, accepts only a valid exact `void()` shape,
+makes the owning EGL context current, rejects a command resolved by another
+context, and performs the indirect call without steady-state allocation. Other
+signatures and Vulkan invocation remain
+explicitly unavailable until matching compiler ABI primitives and tests land;
+metadata or address presence is not represented as executable specification
+coverage.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are

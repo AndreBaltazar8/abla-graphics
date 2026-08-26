@@ -2,7 +2,7 @@ PROJECT_DIR := $(abspath .)
 export ABLA_MAX_MEMORY_MB ?= 4096
 
 .PHONY: all test test-core test-x11 test-wayland test-headless test-vulkan test-opengl \
-	test-vulkan-window test-opengl-window test-glsl test-samples test-toolchain \
+	test-vulkan-window test-opengl-window test-glsl test-raw-commands test-samples test-toolchain \
 	test-application test-transfer test-texture-transfer test-wider-texture-transfer test-debug test-registry update-registry \
 	test-texture-contract test-wider-texture test-wider-sampling test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage check-abla-only clean
 
@@ -85,6 +85,9 @@ test-debug:
 
 test-registry:
 	./tools/test-registry.sh
+
+test-raw-commands:
+	./tools/test-raw-commands.sh
 
 update-registry:
 	./tools/update-registry.sh

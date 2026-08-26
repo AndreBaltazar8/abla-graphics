@@ -1,3 +1,55 @@
-// Explicit Vulkan raw surface. Generated ABI declarations extend this facade.
+// Explicit Vulkan raw surface. Registry metadata is generated from vk.xml;
+// instance and device command resolution stays visible to the caller.
 
-import "vulkan_registry.ab"
+import "vulkan_calls.ab"
+import "native.ab"
+import "../application.ab"
+
+// This non-owning view must not outlive the GraphicsApplication it came from.
+class RawVulkanApi(
+    val instance: i64*,
+    val device: i64*,
+    val commands: array<string>,
+    val callShapes: array<string>,
+    val available: bool
+) {
+    trusted fun instanceCommand(name: string): RawNativeCommand {
+        val index = rawRegistryCommandIndex(this.commands, name)
+        val address = if (this.available && index >= 0)
+            nativePointerAddress(vkGetInstanceProcAddr(this.instance, name))
+            else 0
+        rawRegistryCommand(
+            this.commands,
+            this.callShapes,
+            name,
+            address,
+            nativePointerAddress(this.instance)
+        )
+    }
+
+    trusted fun deviceCommand(name: string): RawNativeCommand {
+        val index = rawRegistryCommandIndex(this.commands, name)
+        val address = if (this.available && index >= 0)
+            nativePointerAddress(vkGetDeviceProcAddr(this.device, name))
+            else 0
+        rawRegistryCommand(
+            this.commands,
+            this.callShapes,
+            name,
+            address,
+            nativePointerAddress(this.device)
+        )
+    }
+}
+
+trusted fun GraphicsApplication.rawVulkanApi(): RawVulkanApi {
+    val available = this.valid() && this.backend == graphicsBackendVulkan &&
+        this.vulkanInstance.valid() && this.vulkanDevice.valid()
+    RawVulkanApi(
+        this.vulkanInstance.handle,
+        this.vulkanDevice.handle,
+        rawVulkanCallNames(),
+        rawVulkanCallShapes(),
+        available
+    )
+}

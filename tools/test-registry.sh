@@ -16,19 +16,22 @@ cd "$compiler_root"
     "$project_root/registry/fixtures/registry.xml" \
     "$project_root/registry/fixtures/audit.tsv" \
     "$output_directory/first.md" "$output_directory/first.ab" \
-    fixture-revision fixture-sha256
+    fixture-revision fixture-sha256 "$output_directory/first.calls.ab"
 "$generator" vulkan \
     "$project_root/registry/fixtures/registry.xml" \
     "$project_root/registry/fixtures/audit.tsv" \
     "$output_directory/second.md" "$output_directory/second.ab" \
-    fixture-revision fixture-sha256
+    fixture-revision fixture-sha256 "$output_directory/second.calls.ab"
 
 cmp "$output_directory/first.md" "$output_directory/second.md"
 cmp "$output_directory/first.ab" "$output_directory/second.ab"
+cmp "$output_directory/first.calls.ab" "$output_directory/second.calls.ab"
 cmp "$output_directory/first.md" \
     "$project_root/registry/fixtures/vulkan.expected.md"
 cmp "$output_directory/first.ab" \
     "$project_root/registry/fixtures/vulkan.expected.ab"
+cmp "$output_directory/first.calls.ab" \
+    "$project_root/registry/fixtures/vulkan.calls.expected.ab"
 
 if "$generator" vulkan \
     "$project_root/registry/fixtures/missing-definition.xml" \

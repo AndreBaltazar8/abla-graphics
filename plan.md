@@ -99,8 +99,14 @@ scalar-factor/edge `mix`/`step`/`smoothstep` forms. Core fragment
 `dFdx`/`dFdy`/`fwidth` derivatives preserve scalar/vector types; fine/coarse
 variants conditionally declare `DerivativeControl`. Repeated clear, pixel,
 transfer, compute, event-poll, and triangle hot paths have stable native
-handles and zero runtime live-byte growth. The remaining milestone work below
-is intentionally still open.
+handles and zero runtime live-byte growth. Generated normalized call shapes
+now cover every pinned OpenGL and Vulkan command, compact callable-command
+modules keep audit metadata out of application builds, both backends expose
+explicit per-application address resolution, and the first checked indirect
+family executes OpenGL `void()` commands without steady-state allocation. The
+remaining signature families, generated types/builders, capability gates, and
+complete raw coverage are intentionally still open, as is the remaining
+milestone work below.
 
 Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
 without perturbing established `vec4` modules. Their exact-width and scalar-splat

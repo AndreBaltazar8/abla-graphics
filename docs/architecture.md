@@ -138,9 +138,12 @@ polled into Abla values; the platform never retains an Abla closure.
 selection is performed once. Backend objects store the specialized operations
 needed by their command path, avoiding a backend branch per vertex or resource.
 
-`src/raw/opengl/` and `src/raw/vulkan/` are deterministic registry-generated
-surfaces. They are explicit escape hatches, not implementation details of the
-common API. Native handles require importing an unsafe/raw module.
+`src/raw/opengl.ab` and `src/raw/vulkan.ab` are explicit escape hatches over
+deterministic registry-generated surfaces, not implementation details of the
+common API. Full audit/type metadata is generated separately from compact
+name/call-shape modules so importing a callable raw view does not inflate an
+application with coverage-report data. The views borrow application-owned
+native handles and must not outlive their `GraphicsApplication`.
 
 `src/shader/` contains the `$glsl` parser, reflection model, and target emitters.
 The parser is an ordinary Abla compile-time subparser registered through
@@ -246,6 +249,12 @@ of two APIs. Generated raw APIs target the complete pinned Khronos registries.
 A coverage ledger classifies every core command and extension as common, raw,
 intentionally unsupported, or platform-inapplicable, with evidence for supported
 families.
+
+Every command already has a deterministic normalized call shape. The first
+runtime family resolves application-scoped OpenGL/Vulkan addresses and invokes
+checked OpenGL `void()` commands through a compiler-supported indirect call.
+Further signatures remain unsupported until each has matching ABI, positive,
+negative, and live-driver evidence.
 
 The initial baselines are OpenGL 4.6 core/GLSL 4.60 and Vulkan 1.4. Registry
 patch revisions are pinned by the generator manifest and updated deliberately.
