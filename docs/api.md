@@ -1798,6 +1798,28 @@ commands.recordRenderIndexed(
     move(indexBuffer),
     3
 )
+commands.recordRenderVerticesIndirect(
+    graph,
+    importedIndirectTargetId,
+    indirectVertexResourceId,
+    drawResourceId,
+    move(indirectTarget),
+    move(indirectPipeline),
+    move(indirectVertices),
+    move(drawCommand)
+)
+commands.recordRenderIndexedIndirect(
+    graph,
+    importedIndexedIndirectTargetId,
+    indexedIndirectVertexResourceId,
+    indexResourceId,
+    indexedDrawResourceId,
+    move(indexedIndirectTarget),
+    move(indexedIndirectPipeline),
+    move(indexedIndirectVertices),
+    move(indexBuffer),
+    move(indexedDrawCommand)
+)
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1818,8 +1840,8 @@ if (commands.seal(graph)) {
 Creation preallocates capacity for at most 4,096 primitive records and captures
 the exact pass order, logical resources, physical slots, native identities, and
 storage descriptors. Recording accepts ordered pass markers, graph-owned
-transient texture range copies, procedural/vertex/indexed offscreen renders to
-imported targets, and planner-visible imported or graph-owned buffer compute
+transient texture range copies, procedural/direct/indexed/indirect offscreen
+renders to imported targets, and planner-visible imported or graph-owned buffer compute
 dispatches. Buffered render records require exact imported buffer declarations
 with pass read access, checked byte ranges, and vertex/index usage. The command
 list takes affine ownership of render targets, pipelines, caller render/compute
@@ -1838,8 +1860,8 @@ Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL an
 unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
-and current-limit contract. Compute sampled/image bindings, indirect rendering,
-push/depth/MRT/subpass records, broader copy/dispatch forms, frames in flight,
+and current-limit contract. Compute sampled/image bindings,
+push/depth/MRT/subpass render records, broader copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 

@@ -22,6 +22,8 @@ val graphicsMaximumGraphPushConstantBytes = 128
 val graphicsGraphRenderProcedural = 0
 val graphicsGraphRenderVertices = 1
 val graphicsGraphRenderIndexed = 2
+val graphicsGraphRenderVerticesIndirect = 3
+val graphicsGraphRenderIndexedIndirect = 4
 
 fun graphicsGraphCommandFingerprintMix(state: int, value: int): int =
     ((state << 7) | (state >>> 57)) ^ value ^ (value >>> 32)
@@ -264,7 +266,9 @@ resource class GraphicsGraphRenderResources(
     val vertexOffset: int,
     val vertexSize: int,
     val indexOffset: int,
-    val indexSize: int
+    val indexSize: int,
+    val indirectOffset: int,
+    val indirectSize: int
 ) {
     fun validFor(
         pipeline: GraphicsRenderPipeline,
@@ -274,15 +278,23 @@ resource class GraphicsGraphRenderResources(
             return this.resourceIds.size == 0 && this.buffers.size == 0 &&
                 this.vertexCount == 3 && this.indexCount == 0 &&
                 this.instanceCount == 1
-        val indexed = this.form == graphicsGraphRenderIndexed
-        var accepted = (this.form == graphicsGraphRenderVertices || indexed) &&
-            this.resourceIds.size == (if (indexed) 2 else 1) &&
+        val indirect = this.form == graphicsGraphRenderVerticesIndirect ||
+            this.form == graphicsGraphRenderIndexedIndirect
+        val indexed = this.form == graphicsGraphRenderIndexed ||
+            this.form == graphicsGraphRenderIndexedIndirect
+        val expectedBuffers = if (indirect)
+            (if (indexed) 3 else 2)
+        else if (indexed) 2 else 1
+        var accepted = (this.form == graphicsGraphRenderVertices ||
+            this.form == graphicsGraphRenderIndexed || indirect) &&
+            this.resourceIds.size == expectedBuffers &&
             this.buffers.size == this.resourceIds.size &&
             pipeline.valid() && pipeline.backend == backend &&
             pipeline.vertexLayout.buffered() &&
             this.vertexCount > 0 && this.instanceCount > 0 &&
-            ((!indexed && this.indexCount == 0) ||
-             (indexed && this.indexCount > 0))
+            ((!indexed && this.indexCount == 0) || (indexed && indirect &&
+              this.indexCount == 0) || (indexed && !indirect &&
+              this.indexCount > 0))
         if (accepted) {
             val vertices = this.buffers[0]
             val vertexBytes = graphicsDrawBufferRangeSize(
@@ -298,8 +310,9 @@ resource class GraphicsGraphRenderResources(
                     this.vertexSize,
                     vertices.descriptor.size,
                     pipeline.vertexLayout.stride
-                ) && this.vertexCount <=
-                    vertexBytes / pipeline.vertexLayout.stride
+                ) && vertexBytes / pipeline.vertexLayout.stride > 0 &&
+                (indirect || this.vertexCount <=
+                    vertexBytes / pipeline.vertexLayout.stride)
         }
         if (accepted && indexed) {
             val indices = this.buffers[1]
@@ -315,40 +328,87 @@ resource class GraphicsGraphRenderResources(
                     this.indexSize,
                     indices.descriptor.size,
                     4
-                ) && this.indexCount <= indexBytes / 4
+                ) && indexBytes / 4 > 0 &&
+                (indirect || this.indexCount <= indexBytes / 4)
+        }
+        if (accepted && indirect) {
+            val indirectIndex = if (indexed) 2 else 1
+            val indirectBuffer = this.buffers[indirectIndex]
+            accepted = indirectBuffer.valid() &&
+                indirectBuffer.backend == backend &&
+                (indirectBuffer.descriptor.usage & bufferUsageIndirect) != 0 &&
+                graphicsDrawBufferRangeValid(
+                    this.indirectOffset,
+                    this.indirectSize,
+                    indirectBuffer.descriptor.size,
+                    if (indexed) 20 else 16
+                )
         }
         accepted
     }
 }
+
+fun graphicsGraphRecordedRenderBufferValid(
+    graph: GraphicsMaterializedRenderGraph,
+    passId: int,
+    resourceId: int,
+    buffer: GraphicsBuffer,
+    requiredUsage: int
+): bool = requiredUsage != 0 && graph.importedResource(resourceId) &&
+    graph.bufferResource(resourceId) &&
+    (graphicsGraphDeclaredAccess(graph, passId, resourceId) &
+        graphAccessRead) != 0 &&
+    (buffer.descriptor.usage & requiredUsage) != 0 &&
+    graphicsGraphBufferDescriptorsCompatible(
+        graph.bufferDescriptor(resourceId),
+        buffer.descriptor
+    )
 
 fun graphicsGraphRecordedRenderBuffersValid(
     graph: GraphicsMaterializedRenderGraph,
     passId: int,
     resources: GraphicsGraphRenderResources
 ): bool {
-    var accepted = resources.resourceIds.size == resources.buffers.size
-    var index = 0
-    while (accepted && index < resources.resourceIds.size) {
-        val resourceId = resources.resourceIds[index]
-        val requiredUsage = if (index == 0) bufferUsageVertex
-            else bufferUsageIndex
-        accepted = graph.importedResource(resourceId) &&
-            graph.bufferResource(resourceId) &&
-            (graphicsGraphDeclaredAccess(graph, passId, resourceId) &
-                graphAccessRead) != 0 &&
-            (resources.buffers[index].descriptor.usage & requiredUsage) != 0 &&
-            graphicsGraphBufferDescriptorsCompatible(
-                graph.bufferDescriptor(resourceId),
-                resources.buffers[index].descriptor
+    val count = resources.resourceIds.size
+    if (count != resources.buffers.size) return false
+    if (resources.form == graphicsGraphRenderVertices && count == 1)
+        return graphicsGraphRecordedRenderBufferValid(
+            graph, passId, resources.resourceIds[0], resources.buffers[0],
+            bufferUsageVertex
+        )
+    if (resources.form == graphicsGraphRenderIndexed && count == 2)
+        return resources.resourceIds[0] != resources.resourceIds[1] &&
+            graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[0], resources.buffers[0],
+                bufferUsageVertex
+            ) && graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[1], resources.buffers[1],
+                bufferUsageIndex
             )
-        var earlier = 0
-        while (accepted && earlier < index) {
-            accepted = resources.resourceIds[earlier] != resourceId
-            earlier = earlier + 1
-        }
-        index = index + 1
-    }
-    accepted
+    if (resources.form == graphicsGraphRenderVerticesIndirect && count == 2)
+        return resources.resourceIds[0] != resources.resourceIds[1] &&
+            graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[0], resources.buffers[0],
+                bufferUsageVertex
+            ) && graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[1], resources.buffers[1],
+                bufferUsageIndirect
+            )
+    if (resources.form == graphicsGraphRenderIndexedIndirect && count == 3)
+        return resources.resourceIds[0] != resources.resourceIds[1] &&
+            resources.resourceIds[0] != resources.resourceIds[2] &&
+            resources.resourceIds[1] != resources.resourceIds[2] &&
+            graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[0], resources.buffers[0],
+                bufferUsageVertex
+            ) && graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[1], resources.buffers[1],
+                bufferUsageIndex
+            ) && graphicsGraphRecordedRenderBufferValid(
+                graph, passId, resources.resourceIds[2], resources.buffers[2],
+                bufferUsageIndirect
+            )
+    false
 }
 
 fun graphicsGraphRecordedBufferedRenderValid(
@@ -916,6 +976,14 @@ resource class GraphicsGraphCommandList(
                         fingerprint,
                         resources.indexSize
                     )
+                    fingerprint = graphicsGraphCommandFingerprintMix(
+                        fingerprint,
+                        resources.indirectOffset
+                    )
+                    fingerprint = graphicsGraphCommandFingerprintMix(
+                        fingerprint,
+                        resources.indirectSize
+                    )
                     var bufferIndex = 0
                     while (bufferIndex < resources.resourceIds.size) {
                         fingerprint = graphicsGraphCommandFingerprintMix(
@@ -1371,6 +1439,8 @@ resource class GraphicsGraphCommandList(
             0,
             -1,
             0,
+            -1,
+            0,
             -1
         )
         val accepted = this.graphCompatible(graph) && !this.sealed &&
@@ -1430,6 +1500,8 @@ resource class GraphicsGraphCommandList(
             instanceCount,
             vertexOffset,
             vertexSize,
+            0,
+            -1,
             0,
             -1
         )
@@ -1503,7 +1575,150 @@ resource class GraphicsGraphCommandList(
             vertexOffset,
             vertexSize,
             indexOffset,
-            indexSize
+            indexSize,
+            0,
+            -1
+        )
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            renderIndex < this.capacity &&
+            renderIndex == this.renderPipelines.size &&
+            renderIndex == this.renderResources.size && clear.valid() &&
+            graphicsGraphRecordedBufferedRenderValid(
+                graph,
+                passId,
+                resourceId,
+                target,
+                pipeline,
+                resources,
+                this.backend
+            )
+        if (accepted) {
+            val index = this.commandCount
+            this.renderTargets.append(move(target))
+            this.renderPipelines.append(move(pipeline))
+            this.renderResources.append(move(resources))
+            this.kinds[index] = graphicsGraphCommandRender
+            this.passIds[index] = passId
+            this.renderIndices[index] = renderIndex
+            this.renderResourceIds[index] = resourceId
+            this.clearReds[index] = clear.red
+            this.clearGreens[index] = clear.green
+            this.clearBlues[index] = clear.blue
+            this.clearAlphas[index] = clear.alpha
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
+    trusted fun recordRenderVerticesIndirect(
+        graph: GraphicsMaterializedRenderGraph,
+        resourceId: int,
+        vertexResourceId: int,
+        indirectResourceId: int,
+        own target: GraphicsRenderTarget,
+        own pipeline: GraphicsRenderPipeline,
+        own vertices: GraphicsBuffer,
+        own indirect: GraphicsBuffer,
+        clear: Color = Color(0.0, 0.0, 0.0),
+        vertexOffset: int = 0,
+        vertexSize: int = -1,
+        indirectOffset: int = 0,
+        indirectSize: int = -1
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val renderIndex = this.renderTargets.size
+        val buffers = [move(vertices), move(indirect)]
+        val resources = GraphicsGraphRenderResources(
+            graphicsGraphRenderVerticesIndirect,
+            [vertexResourceId, indirectResourceId],
+            move(buffers),
+            1,
+            0,
+            1,
+            vertexOffset,
+            vertexSize,
+            0,
+            -1,
+            indirectOffset,
+            indirectSize
+        )
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            renderIndex < this.capacity &&
+            renderIndex == this.renderPipelines.size &&
+            renderIndex == this.renderResources.size && clear.valid() &&
+            graphicsGraphRecordedBufferedRenderValid(
+                graph,
+                passId,
+                resourceId,
+                target,
+                pipeline,
+                resources,
+                this.backend
+            )
+        if (accepted) {
+            val index = this.commandCount
+            this.renderTargets.append(move(target))
+            this.renderPipelines.append(move(pipeline))
+            this.renderResources.append(move(resources))
+            this.kinds[index] = graphicsGraphCommandRender
+            this.passIds[index] = passId
+            this.renderIndices[index] = renderIndex
+            this.renderResourceIds[index] = resourceId
+            this.clearReds[index] = clear.red
+            this.clearGreens[index] = clear.green
+            this.clearBlues[index] = clear.blue
+            this.clearAlphas[index] = clear.alpha
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
+    trusted fun recordRenderIndexedIndirect(
+        graph: GraphicsMaterializedRenderGraph,
+        resourceId: int,
+        vertexResourceId: int,
+        indexResourceId: int,
+        indirectResourceId: int,
+        own target: GraphicsRenderTarget,
+        own pipeline: GraphicsRenderPipeline,
+        own vertices: GraphicsBuffer,
+        own indices: GraphicsBuffer,
+        own indirect: GraphicsBuffer,
+        clear: Color = Color(0.0, 0.0, 0.0),
+        vertexOffset: int = 0,
+        vertexSize: int = -1,
+        indexOffset: int = 0,
+        indexSize: int = -1,
+        indirectOffset: int = 0,
+        indirectSize: int = -1
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val renderIndex = this.renderTargets.size
+        val vertexBytes = graphicsDrawBufferRangeSize(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size
+        )
+        val availableVertices = if (pipeline.vertexLayout.stride > 0)
+            vertexBytes / pipeline.vertexLayout.stride else 0
+        val buffers = [move(vertices), move(indices), move(indirect)]
+        val resources = GraphicsGraphRenderResources(
+            graphicsGraphRenderIndexedIndirect,
+            [vertexResourceId, indexResourceId, indirectResourceId],
+            move(buffers),
+            availableVertices,
+            0,
+            1,
+            vertexOffset,
+            vertexSize,
+            indexOffset,
+            indexSize,
+            indirectOffset,
+            indirectSize
         )
         val accepted = this.graphCompatible(graph) && !this.sealed &&
             this.commandCount < this.capacity && passId >= 0 &&
@@ -2054,9 +2269,12 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
     )
     var succeeded = this.valid() && active && passId >= 0 &&
         graphicsColorScalarsValid(red, green, blue, alpha) && resourcesValid
-    val buffered = resources.form == graphicsGraphRenderVertices ||
-        resources.form == graphicsGraphRenderIndexed
-    val indexed = resources.form == graphicsGraphRenderIndexed
+    val buffered = resources.form != graphicsGraphRenderProcedural
+    val indexed = resources.form == graphicsGraphRenderIndexed ||
+        resources.form == graphicsGraphRenderIndexedIndirect
+    val indirect = resources.form == graphicsGraphRenderVerticesIndirect ||
+        resources.form == graphicsGraphRenderIndexedIndirect
+    val indirectIndex = if (indexed) 2 else 1
     if (succeeded && buffered && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -2080,8 +2298,9 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
                 pipeline.binding.openGlOffsets,
                 pipeline.binding.openGlSizes,
                 pipeline.binding.openGlSamplers,
-                0,
-                false,
+                if (indirect)
+                    resources.buffers[indirectIndex].openGl.handle else 0,
+                resources.form == graphicsGraphRenderIndexedIndirect,
                 nativeNullPointer(),
                 -1,
                 0,
@@ -2089,7 +2308,8 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
                 nativeNullPointer(),
                 0,
                 resources.vertexOffset,
-                resources.indexOffset
+                resources.indexOffset,
+                resources.indirectOffset
             )
     } else if (succeeded && buffered &&
         this.backend == graphicsBackendVulkan) {
@@ -2107,14 +2327,16 @@ trusted fun GraphicsApplication.executeRecordedGraphRender(
                 resources.indexCount,
                 resources.instanceCount,
                 pipeline.binding.vulkan.descriptorSet,
-                0,
-                false,
+                if (indirect)
+                    resources.buffers[indirectIndex].vulkan.handle else 0,
+                resources.form == graphicsGraphRenderIndexedIndirect,
                 nativeNullPointer(),
                 0,
                 nativeNullPointer(),
                 0,
                 resources.vertexOffset,
-                resources.indexOffset
+                resources.indexOffset,
+                resources.indirectOffset
             )
     } else if (succeeded && resources.form ==
         graphicsGraphRenderProcedural &&
@@ -2203,9 +2425,16 @@ trusted fun GraphicsApplication.recordVulkanGraphRender(
     )
     val vertexBuffer = if (resources.buffers.size >= 1)
         resources.buffers[0].vulkan.handle else 0
-    val indexBuffer = if (resources.form == graphicsGraphRenderIndexed &&
+    val indexed = resources.form == graphicsGraphRenderIndexed ||
+        resources.form == graphicsGraphRenderIndexedIndirect
+    val indirect = resources.form == graphicsGraphRenderVerticesIndirect ||
+        resources.form == graphicsGraphRenderIndexedIndirect
+    val indexBuffer = if (indexed &&
         resources.buffers.size >= 2)
         resources.buffers[1].vulkan.handle else 0
+    val indirectIndex = if (indexed) 2 else 1
+    val indirectBuffer = if (indirect && resources.buffers.size > indirectIndex)
+        resources.buffers[indirectIndex].vulkan.handle else 0
     return this.backend == graphicsBackendVulkan && active && passId >= 0 &&
         graphicsColorScalarsValid(red, green, blue, alpha) && resourcesValid &&
         this.vulkanDevice.recordRenderTargetProgram(
@@ -2221,8 +2450,12 @@ trusted fun GraphicsApplication.recordVulkanGraphRender(
             indexCount = resources.indexCount,
             instanceCount = resources.instanceCount,
             descriptorSet = pipeline.binding.vulkan.descriptorSet,
+            indirectBuffer = indirectBuffer,
+            indexedIndirect = resources.form ==
+                graphicsGraphRenderIndexedIndirect,
             vertexOffset = resources.vertexOffset,
-            indexOffset = resources.indexOffset
+            indexOffset = resources.indexOffset,
+            indirectOffset = resources.indirectOffset
         )
 }
 

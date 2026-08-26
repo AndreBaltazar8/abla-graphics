@@ -1,8 +1,8 @@
 # Bounded render-graph command lists
 
 The reusable render-graph command slice records ordered pass entry,
-graph-owned transient texture copies, typed procedural, vertex-buffer, and
-indexed offscreen renders, and planner-visible imported or graph-owned buffer
+graph-owned transient texture copies, typed procedural, direct/indexed, and
+vertex-/indexed-indirect offscreen renders, and planner-visible imported or graph-owned buffer
 compute dispatches into
 fixed-capacity affine storage. It is an optional layer over the existing direct
 APIs and materialized graph executor; it does not replace either one.
@@ -62,6 +62,14 @@ alongside every native buffer identity. Both forms retain the current narrow
 single-color, single-sample, no-depth/no-resolve/no-bind-group/no-push target
 contract.
 
+`recordRenderVerticesIndirect` adds a distinct 16-byte draw-command buffer;
+`recordRenderIndexedIndirect` adds distinct vertex, index, and 20-byte indexed
+draw-command buffers. The indirect ranges and usage are checked exactly, and
+their logical/native identities and offsets are sealed. OpenGL binds the
+retained draw buffer for `glDrawArraysIndirect`/`glDrawElementsIndirect`;
+Vulkan records `vkCmdDrawIndirect`/`vkCmdDrawIndexedIndirect` into the same
+consolidated graph command buffer.
+
 `recordComputeStorage` names an imported logical buffer resource, then moves one
 storage buffer and the `GraphicsComputePipeline` created against that exact
 native buffer into the list. The current pass must declare that resource as
@@ -96,7 +104,7 @@ The current command kinds are deliberately limited to:
   dependency;
 - a same-format, single-sample transient texture range copy through the
   existing common texture-copy path; and
-- one procedural, vertex-buffer, or indexed draw to one single-sample color
+- one procedural, direct/indexed, or vertex-/indexed-indirect draw to one single-sample color
   target, with no depth, resolves, bind group, or push constants; and
 - imported single- or multi-buffer compute and graph-owned transient
   multi-buffer compute dispatches, optionally with one reflected push-constant
@@ -105,7 +113,7 @@ The current command kinds are deliberately limited to:
 The common executable shader subset currently proves one two-storage form
 (`destination.value += sourceData.value`) in addition to the general
 single-block scalar emitter. Sampled textures/images in compute, queries, debug
-groups, presentation, indirect draws, and push/depth/MRT/subpass render forms
+groups, presentation, and push/depth/MRT/subpass render forms
 are not recordable in this slice. Applications continue to use their existing
 direct calls for those operations.
 
@@ -219,10 +227,17 @@ native vertex-buffer identity rejects before graph execution. After restoring
 it, 1,001 replays retain exact output and native identities with zero live
 growth; OpenGL reports zero Vulkan submissions and Vulkan exactly 1,001.
 
+The adjacent indirect proof owns separate portable draw-command buffers for
+one vertex-indirect and one indexed-indirect record. It produces the same two
+exact pixels, rejects sealed indirect-buffer identity mutation, retains zero
+live growth through 1,001 replays, and preserves the zero/1,001 OpenGL/Vulkan
+submission counts.
+
 `examples/recorded-graph-copy`, `examples/recorded-graph-render`,
 `examples/recorded-graph-compute`, and
 `examples/recorded-graph-transient-compute`, and
-`examples/recorded-graph-buffered-render` are
+`examples/recorded-graph-buffered-render`, and
+`examples/recorded-graph-indirect-render` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -233,6 +248,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Compute sampled/image bindings, indirect and push/depth/MRT/subpass render
+Compute sampled/image bindings and push/depth/MRT/subpass render
 records, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

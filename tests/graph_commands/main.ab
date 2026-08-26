@@ -604,6 +604,215 @@ trusted fun graphBufferedRenderCommandProbe(
     println(
         "graph-buffered-render ${graphicsBackendName(app.backend)}: recorded=$recorded forms=${commands.renderResources[0].form}/${commands.renderResources[1].form} exact=$vertexExact/$indexedExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
+    recorded && tamperRejected && stable &&
+        graphIndirectRenderCommandProbe(app)
+}
+
+trusted fun graphIndirectRenderCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val targetDescriptor = TextureDescriptor(
+        label = "recorded-indirect-render-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val vertexDescriptor = BufferDescriptor(
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val indexDescriptor = BufferDescriptor(
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    )
+    val drawDescriptor = BufferDescriptor(
+        size = 16,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    )
+    val indexedDrawDescriptor = BufferDescriptor(
+        size = 20,
+        usage = bufferUsageIndirect | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(80, "indirect-target", false, 0, 80),
+        GraphicsGraphResource(81, "indirect-vertices", false, 24, 81),
+        GraphicsGraphResource(82, "indirect-command", false, 16, 82),
+        GraphicsGraphResource(90, "indexed-indirect-target", false, 0, 90),
+        GraphicsGraphResource(91, "indexed-indirect-vertices", false, 24, 91),
+        GraphicsGraphResource(92, "indexed-indirect-indices", false, 12, 92),
+        GraphicsGraphResource(93, "indexed-indirect-command", false, 20, 93)
+    ], [
+        GraphicsGraphPass(910, "recorded-indirect", [
+            GraphicsGraphUse(80, graphAccessWrite),
+            GraphicsGraphUse(81, graphAccessRead),
+            GraphicsGraphUse(82, graphAccessRead)
+        ]),
+        GraphicsGraphPass(911, "recorded-indexed-indirect", [
+            GraphicsGraphUse(90, graphAccessWrite),
+            GraphicsGraphUse(91, graphAccessRead),
+            GraphicsGraphUse(92, graphAccessRead),
+            GraphicsGraphUse(93, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(80, targetDescriptor),
+        GraphicsGraphTextureDeclaration(90, targetDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(81, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(82, drawDescriptor),
+        GraphicsGraphBufferDeclaration(91, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(92, indexDescriptor),
+        GraphicsGraphBufferDeclaration(93, indexedDrawDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val layout = VertexBufferLayout(8, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
+    ])
+    val indirectTexture = app.texture(targetDescriptor)
+    val indirectTarget = app.renderTarget(move(indirectTexture))
+    val indirectPipeline = app.renderTargetPipeline(
+        indirectTarget,
+        shader,
+        layout
+    )
+    val indexedTexture = app.texture(targetDescriptor)
+    val indexedTarget = app.renderTarget(move(indexedTexture))
+    val indexedPipeline = app.renderTargetPipeline(
+        indexedTarget,
+        shader,
+        layout
+    )
+    val indirectVertices = app.buffer(vertexDescriptor)
+    val indexedVertices = app.buffer(vertexDescriptor)
+    val indices = app.buffer(indexDescriptor)
+    val draw = app.buffer(drawDescriptor)
+    val indexedDraw = app.buffer(indexedDrawDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val indexBytes = bufferBytes(12)
+    val drawBytes = bufferBytes(16)
+    val indexedDrawBytes = bufferBytes(20)
+    val uploaded = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20) &&
+        indexBytes.storeU32(0, 0) && indexBytes.storeU32(1, 4) &&
+        indexBytes.storeU32(2, 8) &&
+        drawBytes.storeI64(4294967299, 0) && drawBytes.storeI64(0, 8) &&
+        indexedDrawBytes.storeI64(4294967299, 0) &&
+        indexedDrawBytes.storeI64(0, 8) &&
+        indexedDrawBytes.storeU32(0, 16) &&
+        indirectVertices.writeAllBytes(vertexBytes) &&
+        indexedVertices.writeAllBytes(vertexBytes) &&
+        indices.writeAllBytes(indexBytes) && draw.writeAllBytes(drawBytes) &&
+        indexedDraw.writeAllBytes(indexedDrawBytes)
+    val inputValidity = indirectTarget.valid() && indirectPipeline.valid() &&
+        indexedTarget.valid() && indexedPipeline.valid() &&
+        indirectVertices.valid() && indexedVertices.valid() &&
+        indices.valid() && draw.valid() && indexedDraw.valid()
+    val commands = app.graphCommandList(graph, 4)
+    val ready = app.valid() && graph.valid() && shader.valid && uploaded &&
+        inputValidity && commands.valid()
+    val firstPass = ready && commands.recordPass(graph, 910)
+    val firstRender = firstPass && commands.recordRenderVerticesIndirect(
+            graph,
+            80,
+            81,
+            82,
+            move(indirectTarget),
+            move(indirectPipeline),
+            move(indirectVertices),
+            move(draw),
+            Color(0.01, 0.02, 0.03)
+        )
+    val secondPass = firstRender && commands.recordPass(graph, 911)
+    val secondRender = secondPass && commands.recordRenderIndexedIndirect(
+            graph,
+            90,
+            91,
+            92,
+            93,
+            move(indexedTarget),
+            move(indexedPipeline),
+            move(indexedVertices),
+            move(indices),
+            move(indexedDraw),
+            Color(0.03, 0.02, 0.01)
+        )
+    val sealed = secondRender && commands.seal(graph)
+    val recorded = sealed && commands.prepared &&
+        commands.renderResources[0].form ==
+            graphicsGraphRenderVerticesIndirect &&
+        commands.renderResources[1].form ==
+            graphicsGraphRenderIndexedIndirect &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+    val indirectBufferIndex = 1
+    val originalIdentity = if (recorded &&
+        app.backend == graphicsBackendOpenGl)
+        commands.renderResources[0].buffers[indirectBufferIndex].openGl.handle
+    else if (recorded) commands.renderResources[0].buffers[
+        indirectBufferIndex
+    ].vulkan.handle else 0
+    if (recorded && app.backend == graphicsBackendOpenGl)
+        commands.renderResources[0].buffers[
+            indirectBufferIndex
+        ].openGl.handle = originalIdentity + 1
+    else if (recorded)
+        commands.renderResources[0].buffers[
+            indirectBufferIndex
+        ].vulkan.handle = originalIdentity + 1
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    if (recorded && app.backend == graphicsBackendOpenGl)
+        commands.renderResources[0].buffers[
+            indirectBufferIndex
+        ].openGl.handle = originalIdentity
+    else if (recorded)
+        commands.renderResources[0].buffers[
+            indirectBufferIndex
+        ].vulkan.handle = originalIdentity
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val indirectExact = recorded &&
+        commands.renderTargets[0].texture.rgba8(8, 8) == 4294281759
+    val indexedExact = recorded &&
+        commands.renderTargets[1].texture.rgba8(8, 8) == 4294281759
+    val firstForm = if (commands.renderResources.size > 0)
+        commands.renderResources[0].form else -1
+    val secondForm = if (commands.renderResources.size > 1)
+        commands.renderResources[1].form else -1
+    val stable = succeeded && iteration == 1001 && indirectExact &&
+        indexedExact && liveAfter == liveBefore && originalIdentity != 0 &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-indirect-render ${graphicsBackendName(app.backend)}: recorded=$recorded forms=$firstForm/$secondForm exact=$indirectExact/$indexedExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 

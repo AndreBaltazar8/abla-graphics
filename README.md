@@ -64,7 +64,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   conservative backend memory dependencies at ordered pass entry, plus a
   fixed-capacity affine command list that owns recorded render resources,
   seals and repeatedly replays exact pass markers, all-transient texture
-  copies, typed procedural, vertex-buffer, and indexed offscreen renders, and imported or graph-owned
+  copies, typed procedural, direct/indexed, and vertex-/indexed-indirect
+  offscreen renders, and imported or graph-owned
   multi-buffer compute dispatches with sealed reflected push bytes, without
   warmed descriptor construction or live-memory growth; eligible Vulkan
   streams record their barriers and work into one command buffer and submit
@@ -302,6 +303,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   separate planner-declared vertex and indexed draws, produces exact pixels
   through 1,001 allocation-free replays, and uses one Vulkan submission per
   replay or scalar OpenGL replay;
+- `examples/recorded-graph-indirect-render`: separate planner-declared draw and
+  indexed-draw command buffers drive two exact offscreen triangles through
+  1,001 allocation-free replays and one consolidated Vulkan submission;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;
