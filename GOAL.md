@@ -623,6 +623,26 @@ workflow; its no-cache executable has no unresolved `ldd` entry with
 `LD_LIBRARY_PATH` removed and passes both backends. The sample matrix remains
 51 roots. No graphics implementation uses C, GLFW, SDL, or a native shim.
 
+## Current checkpoint: planner-visible recorded subpass buffers
+
+`recordRenderBindingSubpasses(...)` owns the compatible target, render pass,
+ordered pipeline sequence, and a `graphSubpassBufferResources(...)` table.
+Every per-stage bind-group entry maps to one unique imported graph buffer; the
+same affine buffer may be shared across stages. Record, seal, and replay check
+the graph declaration, pass access, usage, byte range, backend handle, stage
+map, and sealed fingerprint. OpenGL replays in order and Vulkan retains one
+command buffer and one submission per complete graph replay.
+
+The strict `$glsl` path now lowers the procedural std140 `mat4` transform
+vertex form to embedded validated SPIR-V in Abla. The focused test consumes two
+different GPU uniform buffers, rejects sealed stage-map mutation, and produces
+exact RGBA8 `4294281759` across 1,001 OpenGL, Vulkan, and automatic-selection
+replays with `live=0` and zero/1,001 submissions.
+`examples/recorded-graph-binding-subpasses` is the independent public proof,
+bringing the sample matrix to 52 roots. Sampled textures and combined push plus
+bind-group subpasses remain follow-up work. No graphics implementation uses C,
+GLFW, SDL, or a native shim.
+
 ## Published checkpoint: planner buffers and sealed compute push data
 
 Implementation commit `f9609a5485d0ec9f178e85a9517532270d27ce96`

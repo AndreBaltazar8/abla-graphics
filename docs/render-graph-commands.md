@@ -279,7 +279,8 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-depth-render`, and
 `examples/recorded-graph-resolve-render`, and
 `examples/recorded-graph-mrt-render`, and
-`examples/recorded-graph-subpasses` are
+`examples/recorded-graph-subpasses`, and
+`examples/recorded-graph-binding-subpasses` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -298,18 +299,23 @@ submission. Buffered callers compose one of four affine draw-resource factories
 with `recordRenderAttachments(...)` or its `Push` form; the proof uses
 indexed-indirect push and the sample uses direct vertices.
 
-Procedural subpass records use `recordRenderSubpasses(...)` or
-`recordRenderPushSubpasses(...)`. The command owns the target, compatible
+Procedural subpass records use `recordRenderSubpasses(...)`,
+`recordRenderPushSubpasses(...)`, or
+`recordRenderBindingSubpasses(...)`. The command owns the target, compatible
 render pass, and ordered affine pipeline sequence; the graph names every
 ordered color/resolve attachment and optional depth write. The push form copies
 the complete reflected two-to-eight-stage value aggregate into bounded
-command-owned storage before sealing.
+command-owned storage before sealing. The binding form also owns a flattened
+table of imported graph buffers and maps every stage binding entry to one table
+index. Uniform entries require declared read access; storage entries require
+declared access. Exact descriptor, byte-range, usage, and native identity checks
+run at record, seal, and replay, while one owned buffer may be shared by stages.
 OpenGL replays the stages in order. Vulkan records the entire native subpass
 sequence inside the graph's retained command buffer and preserves one submit
 per complete replay. The focused proof rejects sealed depth-ID and cached
 Vulkan sequence-handle mutation, then replays exact RGBA8 `4294281759` 1,001
 times with zero live growth.
 
-Compute sampled/image bindings, bind-group subpass records, broader
-copy/dispatch forms, frames in flight, and
+Sampled-texture subpass bindings, combined push-and-binding subpasses, compute
+sampled/image bindings, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

@@ -584,6 +584,10 @@ Updated: 2026-08-26.
   have zero live growth and zero/1,001 OpenGL/Vulkan submissions, and the
   focused gates reject sealed depth-ID, cached Vulkan sequence-handle, and push
   metadata mutation while preserving source-mutation-independent output.
+  `examples/recorded-graph-binding-subpasses` adds two planner-declared std140
+  transform buffers and maps each retained subpass bind group to its exact
+  affine buffer. The focused gate rejects a sealed stage-map mutation and both
+  backends preserve exact output, zero live growth, and zero/1,001 submissions.
   The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -604,8 +608,9 @@ Updated: 2026-08-26.
   and two retained physical pools, with one allocation each, stable alias
   identities, one barrier per replay, one consolidated Vulkan submission, and
   zero growth. Sealed logical/bind-group identity and transient backing-usage
-  tampering reject before execution. Compute sampled/image bindings,
-  bind-group subpass forms, broader command forms, asynchronous
+  tampering reject before execution. Planner-visible uniform/storage buffer
+  subpass bind groups are delivered; compute sampled/image bindings,
+  sampled-texture and combined push-plus-binding subpass forms, broader command forms, asynchronous
   submission, and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
@@ -1177,8 +1182,10 @@ validity gate unchanged.
   records ordered pass markers, transient texture copies, owned
   procedural/vertex/indexed offscreen renders, and affine procedural subpass
   sequences, and consolidates an eligible
-  Vulkan stream into one submission. It does not yet record arbitrary
-  per-subpass input/preserve attachment routing, bind-group subpasses, or
+  Vulkan stream into one submission. Imported uniform/storage buffers can now
+  be mapped to retained bind groups for every recorded stage. It does not yet
+  record arbitrary per-subpass input/preserve attachment routing,
+  sampled-texture or combined push-plus-binding subpasses, or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete

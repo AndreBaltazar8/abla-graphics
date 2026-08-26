@@ -322,6 +322,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   target, ordered two-stage procedural sequence, and snapshotted reflected
   values, producing exact output through 1,001 allocation-free replays and one
   Vulkan submission per replay;
+- `examples/recorded-graph-binding-subpasses`: two planner-declared uniform
+  buffers feed distinct stages of one owned subpass sequence, producing exact
+  output through 1,001 allocation-free OpenGL/Vulkan replays;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

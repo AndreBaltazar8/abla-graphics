@@ -1,0 +1,147 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded binding subpasses",
+            width = 480,
+            height = 270
+        )
+    )
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val depthDescriptor = TextureDescriptor(
+        size = Extent3D(64, 64), format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    )
+    val uniformDescriptor = BufferDescriptor(
+        size = 64,
+        usage = bufferUsageUniform | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "subpass-color", false, 0, 10),
+        GraphicsGraphResource(1, "subpass-depth", false, 0, 11),
+        GraphicsGraphResource(2, "first-transform", false, 64, 12),
+        GraphicsGraphResource(3, "second-transform", false, 64, 13)
+    ], [
+        GraphicsGraphPass(10, "recorded-binding-subpasses", [
+            GraphicsGraphUse(0, graphAccessWrite),
+            GraphicsGraphUse(1, graphAccessWrite),
+            GraphicsGraphUse(2, graphAccessRead),
+            GraphicsGraphUse(3, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, colorDescriptor),
+        GraphicsGraphTextureDeclaration(1, depthDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(2, uniformDescriptor),
+        GraphicsGraphBufferDeclaration(3, uniformDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(std140, binding = 0) uniform Transform {
+                mat4 mvp;
+            } transform;
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = transform.mvp * vec4(
+                    positions[gl_VertexID], 0.0, 1.0
+                );
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(0.12, 0.54, 0.96, 1.0); }
+        }
+    }
+    val target = app.renderTargetWithDepth(
+        app.texture(colorDescriptor), app.texture(depthDescriptor)
+    )
+    val pass = app.renderPass(
+        target,
+        renderPassClearValues(Color(0.0, 0.0, 0.0), [], 1.0),
+        RenderPassOperations(), 2
+    )
+    val firstBuffer = app.buffer(uniformDescriptor)
+    val secondBuffer = app.buffer(uniformDescriptor)
+    val firstBytes = bufferBytes(64)
+    val secondBytes = bufferBytes(64)
+    val initialized = firstBytes.fill(0) && secondBytes.fill(0) &&
+        firstBytes.storeF32(1.0, 0) && firstBytes.storeF32(1.0, 20) &&
+        firstBytes.storeF32(1.0, 40) && firstBytes.storeF32(2.0, 48) &&
+        firstBytes.storeF32(1.0, 60) &&
+        secondBytes.storeF32(1.0, 0) && secondBytes.storeF32(1.0, 20) &&
+        secondBytes.storeF32(1.0, 40) && secondBytes.storeF32(1.0, 60) &&
+        firstBuffer.writeAllBytes(firstBytes) &&
+        secondBuffer.writeAllBytes(secondBytes)
+    val firstBinding = app.bindGroup([
+        app.uniformBufferEntry(0, shaderVisibilityVertex, firstBuffer)
+    ])
+    val secondBinding = app.bindGroup([
+        app.uniformBufferEntry(0, shaderVisibilityVertex, secondBuffer)
+    ])
+    val first = app.renderPassPipeline(
+        target, pass, 0, shader,
+        VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(
+            enabled = true, write = true, compare = compareFunctionNever
+        ), move(firstBinding)
+    )
+    val second = app.renderPassPipeline(
+        target, pass, 1, shader,
+        VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(
+            enabled = true, write = false, compare = compareFunctionAlways
+        ), move(secondBinding)
+    )
+    val sequence = app.subpassPipelines(
+        target, pass, [move(first), move(second)]
+    )
+    val resources = graphSubpassBufferResources(
+        [2, 3], [move(firstBuffer), move(secondBuffer)], [[0], [1]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        target.valid() && pass.valid() && sequence.valid() && initialized &&
+        resources.validFor(graph, 10, sequence, app.backend) &&
+        commands.valid() && commands.recordPass(graph, 10) &&
+        commands.recordRenderBindingSubpasses(
+            graph, [0], [], 1,
+            move(target), move(pass), move(sequence), move(resources)
+        ) && commands.seal(graph)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val exact = commands.subpassTargets[0].texture.rgba8(32, 32) ==
+        4294281759
+    val stable = succeeded && iteration == 1001 && exact &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-binding-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} buffers=${commands.subpassBufferResources[0].buffers.size} exact=$exact executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

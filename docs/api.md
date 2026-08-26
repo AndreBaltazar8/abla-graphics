@@ -1878,6 +1878,21 @@ commands.recordRenderSubpasses(
 )
 // recordRenderPushSubpasses(...) accepts the same affine resources plus one
 // reflected GraphicsSubpassPushConstants aggregate and snapshots its bytes.
+val subpassBuffers = graphSubpassBufferResources(
+    [firstUniformId, secondUniformId],
+    [move(firstUniform), move(secondUniform)],
+    [[0], [1]]
+)
+commands.recordRenderBindingSubpasses(
+    graph,
+    [firstColorId, secondColorId],
+    [firstResolveId, secondResolveId],
+    depthId,
+    move(bindingTarget),
+    move(bindingPass),
+    move(bindingSequence),
+    move(subpassBuffers)
+)
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1938,9 +1953,10 @@ affine ownership of one target, compatible pass, and two-to-eight-stage
 procedural sequence. It binds ordered imported color IDs, zero or one resolve
 ID per color, and optional depth to exact pass writes and descriptors. OpenGL
 executes the stages in order; eligible Vulkan graph streams record the native
-sequence into the same retained command buffer and submit once. Compute
-sampled/image bindings and bind-group subpass forms, broader
-copy/dispatch forms, frames in flight,
+sequence into the same retained command buffer and submit once. Buffer-backed
+bind-group subpasses use `recordRenderBindingSubpasses` as described below.
+Compute sampled/image bindings, sampled-texture and combined push-plus-binding
+subpass forms, broader copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 
@@ -1949,6 +1965,16 @@ complete reflected per-stage aggregate into command-owned storage, bounded at
 1,024 bytes. Later source mutation cannot affect replay. OpenGL binds each
 stage's stored range through its persistent push UBO; Vulkan records matching
 `vkCmdPushConstants` ranges inside the same consolidated graph submission.
+
+`recordRenderBindingSubpasses` accepts pipelines with retained buffer bind
+groups. `graphSubpassBufferResources` takes affine ownership of a unique,
+flattened imported-buffer table and a per-stage array mapping each bind-group
+entry to that table. Uniform and storage entries are validated against exact
+graph declarations, pass access, ranges, usage flags, backend identities, and
+the sealed fingerprint. OpenGL performs ordered stage draws; Vulkan records all
+descriptor-set binds and subpasses into the graph's one retained command
+buffer. This first binding form intentionally excludes sampled textures and a
+simultaneous push aggregate.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:
@@ -2522,6 +2548,10 @@ one location-zero `vec2` position or an interleaved location-zero `vec2`
 position plus a location-one `vec4` tint or `vec2` texture coordinate passed
 through a location-zero varying. The texture form also accepts one binding-zero
 fragment `sampler2D` and emits the corresponding sampled-image operation.
+The procedural form may apply one vertex-visible binding-zero std140 `mat4`
+uniform to the selected position. This emits a real uniform-block descriptor
+access and matrix-vector multiply and is exercised by recorded binding
+subpasses on both backends.
 The indexed-cube form widens position to `vec3` and constructs clip-space
 coordinates with a reflected std140 `mat4` transform, exercising the combined
 texture/uniform binding with real depth testing across 24 face vertices and 36
