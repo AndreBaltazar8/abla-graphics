@@ -163,6 +163,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized layered retained-copy implementation:
   `28fc5b4250a2c3a0c503706ca40833e3ca4749ce`
   (`Consolidate layered graph copies`).
+- Published and synchronized storage-image SSA implementation:
+  `a770a257819893f0a478871541451fdc100826c1`
+  (`Compose storage image SSA locals`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -537,20 +540,18 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Broaden the generated image-expression grammar beyond one local and one
-   binary operation: support nested coordinate/value expressions, multiple
-   locals/statements, and additional typed builtins while preserving all-
-   dimension access/format matching and allocation-free replay.
-2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
-   while preserving per-mip/layer layout rollback and accepted-submission
-   semantics.
-3. Introduce GPU-completion-aware resource retention and bounded frames in
+1. Broaden the generated image-expression grammar beyond the now-supported
+   load local plus optional arithmetic-result local: support nested
+   coordinate/value expressions, longer statement sequences, and additional
+   typed builtins while preserving all-dimension access/format matching and
+   allocation-free replay.
+2. Introduce GPU-completion-aware resource retention and bounded frames in
    flight, replacing synchronous per-replay waiting without weakening affine
    ownership.
-4. Add independent generalized-render and deferred-rendering samples with exact
+3. Add independent generalized-render and deferred-rendering samples with exact
    outputs, stable resources, native submission counts, validation silence,
    and frame-rate/memory evidence.
-5. Continue the larger milestone/coverage/platform work in `plan.md`; do not
+4. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
 
 ## Published checkpoint: procedural graph depth
@@ -1059,6 +1060,36 @@ Continue with broader generated GLSL expression composition, query/debug
 records, asynchronous GPU-completion retention, and frames in flight. Keep
 using independently compiled shader roots and focused live samples so coverage
 can expand without repeatedly rebuilding the entire sample matrix.
+
+### Published checkpoint: storage-image SSA result locals
+
+Implementation commit `a770a257819893f0a478871541451fdc100826c1`
+is published and synchronized on `origin/main`.
+
+Generated read/write storage-image programs may now assign the typed
+`imageLoad` arithmetic result to a second arbitrarily named `vec4` local and
+pass that name to `imageStore`. The pure-Abla emitter keeps both locals in SSA,
+so the broader source form adds no runtime storage or allocation. Exact token
+validation ties the result to the declared load local and rejects an undeclared
+source name as well as the existing unsupported-operator case.
+
+The independent `tests/glsl_storage_image_push.ab` root proves the new staged
+form emits `OpImageRead`, typed `OpFAdd`, and the resulting image write, while
+both invalid forms reject. `examples/recorded-graph-storage-image-read-add/`
+now uses two named locals and retains exact cyan `4294967040`, sealed snapshot
+and resource-map rejection, 1,001 zero-growth replays, and zero/1,001
+OpenGL/Vulkan submissions across explicit OpenGL, explicit validation-enabled
+Vulkan, and automatic selection.
+
+The focused optimized no-cache compiler test returned 42, the independently
+rebuilt live sample had no unresolved clean-environment `ldd` entry, Vulkan
+validation emitted no message, and `make check-abla-only` passed. No `../ablac`
+files were modified or staged by this work.
+
+Continue by replacing the bounded two-local recognition with a typed statement
+and expression representation that can compose longer local chains, nested
+value/coordinate expressions, and builtins without multiplying fixed source
+templates.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
