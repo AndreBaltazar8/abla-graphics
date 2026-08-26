@@ -1698,11 +1698,58 @@ nix-shell --run 'make check-abla-only test-core'
 `tools/test-samples.sh` now independently builds the game and runs it on both
 explicit backends. The full 69-root no-cache matrix was deliberately not
 repeated for this focused API/sample checkpoint. At this handoff `../ablac`
-contains unstaged `src/ir.ab` and `tests/cases/modules/nested-if-expression.ab`
-changes outside this checkpoint; they were not reviewed or committed here and
-must be preserved. No compiler change was needed for this work. The next
-high-value shared fixed-function milestone remains custom viewport/scissor
-state across direct render, target, subpass, and recorded command forms.
+briefly contained unstaged `src/ir.ab` and
+`tests/cases/modules/nested-if-expression.ab` changes outside this checkpoint;
+they were not touched here and were subsequently resolved outside this work.
+The sibling is clean and synchronized at the current handoff. No compiler
+change was needed for this work.
+
+### Verified checkpoint: typed viewport and scissor state
+
+Implementation commit `f337c2be002ae370008b8994a8e946fb14473bd8`
+is published on `origin/main`.
+
+`GraphicsViewport` and `GraphicsScissor` are immutable, typed, top-left raster
+descriptors with strict dimensions and target-fit validation. Viewports include
+portable `[0, 1]` minimum/maximum depth. Their disabled defaults resolve to the
+complete pipeline target. `RasterPipelineState` retains both recipes, so the
+same state follows direct surface, offscreen target, subpass, and recorded
+pipeline use without adding commands or frame allocation.
+
+OpenGL converts top-left Y to its framebuffer convention, applies viewport,
+depth range, and scissor immediately before drawing, disables scissoring around
+clears, and restores it after drawing. Vulkan writes exact static `VkViewport`
+and `VkRect2D` structures during pipeline creation. The pipeline ABI corrected
+the packed `flags`/`viewportCount` pair; the forced validation run is empty.
+Existing native-order `GraphicsTexture.rgba8` remains compatible, while the new
+allocation-free `rgba8TopLeft` inspection form normalizes OpenGL/Vulkan row
+conventions for common rendered-texture tests.
+
+The 70th independent sample, `examples/viewport-scissor`, draws the canonical
+triangle through an asymmetric viewport/scissor intersection and verifies one
+exact red interior plus four exact blue exterior probes. OpenGL, Vulkan, and
+automatic selection each complete 1,001 frames with `live=0`; invalid depth,
+zero extent, and out-of-target rectangles are rejected before driver creation.
+The normal and direct `--fast` compiler paths both build the sample, its binary
+has no unresolved dependency with `LD_LIBRARY_PATH` removed, and Vulkan is
+silent with `VK_LAYER_KHRONOS_validation` forced.
+
+Focused and shared evidence passed:
+
+```bash
+nix-shell --run 'make check-abla-only test-core test-application'
+# independent viewport-scissor builds: --no-cache and --no-cache --fast
+# OpenGL, Vulkan, auto: exact pixels, 1,001 frames, live=0
+# Vulkan validation log: 0 bytes
+# stripped-environment ldd missing list: 0 bytes
+```
+
+The broad application gate additionally retained default full-target raster
+behavior across surfaced/offscreen rendering, resize recovery, depth,
+multisampling, MRT, and subpasses. `tools/test-samples.sh` includes the new root
+for the next periodic full 70-sample matrix; that expensive matrix was not
+repeated here. Continue with another distinct plan capability rather than
+retesting this published state.
 
 ## Milestone 5 direction after bounded asynchronous replay
 
@@ -1818,6 +1865,8 @@ Tests, samples, and public claims:
   clear/load/store and front/back operation proof;
 - `examples/mini-breakout/` — complete allocation-free software 2D game and
   dual-backend pixel-presentation proof;
+- `examples/viewport-scissor/` — exact typed viewport/depth-range/scissor and
+  portable top-left texture-inspection proof;
 - `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
 - `Makefile` — authoritative gate aggregation;
 - `registry/audit/*.tsv` — reviewed coverage inputs;
