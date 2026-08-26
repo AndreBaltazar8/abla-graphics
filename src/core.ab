@@ -43,18 +43,133 @@ val cullModeBack = 2
 val frontFaceClockwise = 0
 val frontFaceCounterClockwise = 1
 
+val blendFactorZero = 0
+val blendFactorOne = 1
+val blendFactorSourceColor = 2
+val blendFactorOneMinusSourceColor = 3
+val blendFactorDestinationColor = 4
+val blendFactorOneMinusDestinationColor = 5
+val blendFactorSourceAlpha = 6
+val blendFactorOneMinusSourceAlpha = 7
+val blendFactorDestinationAlpha = 8
+val blendFactorOneMinusDestinationAlpha = 9
+
+val blendOperationAdd = 0
+val blendOperationSubtract = 1
+val blendOperationReverseSubtract = 2
+val blendOperationMinimum = 3
+val blendOperationMaximum = 4
+
+val colorWriteRed = 1
+val colorWriteGreen = 2
+val colorWriteBlue = 4
+val colorWriteAlpha = 8
+val colorWriteAll = 15
+
+class BlendComponent(
+    val source: int = blendFactorOne,
+    val destination: int = blendFactorZero,
+    val operation: int = blendOperationAdd
+) {
+    fun valid(): bool = this.source >= blendFactorZero &&
+        this.source <= blendFactorOneMinusDestinationAlpha &&
+        this.destination >= blendFactorZero &&
+        this.destination <= blendFactorOneMinusDestinationAlpha &&
+        this.operation >= blendOperationAdd &&
+        this.operation <= blendOperationMaximum
+}
+
+class ColorBlendState(
+    val enabled: bool = false,
+    val color: BlendComponent = BlendComponent(),
+    val alpha: BlendComponent = BlendComponent(),
+    val writeMask: int = colorWriteAll
+) {
+    fun valid(): bool = this.color.valid() && this.alpha.valid() &&
+        this.writeMask >= 0 && this.writeMask <= colorWriteAll
+}
+
+fun graphicsAlphaBlendState(): ColorBlendState = ColorBlendState(
+    enabled = true,
+    color = BlendComponent(
+        blendFactorSourceAlpha,
+        blendFactorOneMinusSourceAlpha
+    ),
+    alpha = BlendComponent(
+        blendFactorOne,
+        blendFactorOneMinusSourceAlpha
+    )
+)
+
+fun graphicsPackedBlendState(blend: ColorBlendState): int =
+    (if (blend.enabled) 1 else 0) |
+    (blend.color.source << 1) |
+    (blend.color.destination << 5) |
+    (blend.color.operation << 9) |
+    (blend.alpha.source << 12) |
+    (blend.alpha.destination << 16) |
+    (blend.alpha.operation << 20) |
+    (blend.writeMask << 23)
+
 class RasterPipelineState(
     val topology: int = primitiveTopologyTriangleList,
     val cullMode: int = cullModeNone,
     val frontFace: int = frontFaceCounterClockwise,
-    val alphaBlend: bool = false
+    val packedBlendState: int = 125833218
 ) {
+    fun blendEnabled(): bool = (this.packedBlendState & 1) != 0
+    fun colorBlendSource(): int = (this.packedBlendState >>> 1) & 15
+    fun colorBlendDestination(): int = (this.packedBlendState >>> 5) & 15
+    fun colorBlendOperation(): int = (this.packedBlendState >>> 9) & 7
+    fun alphaBlendSource(): int = (this.packedBlendState >>> 12) & 15
+    fun alphaBlendDestination(): int = (this.packedBlendState >>> 16) & 15
+    fun alphaBlendOperation(): int = (this.packedBlendState >>> 20) & 7
+    fun colorWriteMask(): int = (this.packedBlendState >>> 23) & 15
+
     fun valid(): bool =
         this.topology >= primitiveTopologyPointList &&
         this.topology <= primitiveTopologyTriangleStrip &&
         this.cullMode >= cullModeNone && this.cullMode <= cullModeBack &&
         (this.frontFace == frontFaceClockwise ||
-         this.frontFace == frontFaceCounterClockwise)
+         this.frontFace == frontFaceCounterClockwise) &&
+        this.packedBlendState >= 0 &&
+        (this.packedBlendState >>> 27) == 0 &&
+        this.colorBlendSource() <= blendFactorOneMinusDestinationAlpha &&
+        this.colorBlendDestination() <=
+            blendFactorOneMinusDestinationAlpha &&
+        this.colorBlendOperation() <= blendOperationMaximum &&
+        this.alphaBlendSource() <= blendFactorOneMinusDestinationAlpha &&
+        this.alphaBlendDestination() <=
+            blendFactorOneMinusDestinationAlpha &&
+        this.alphaBlendOperation() <= blendOperationMaximum
+
+    fun resolvedBlend(): ColorBlendState = ColorBlendState(
+        this.blendEnabled(),
+        BlendComponent(
+            this.colorBlendSource(),
+            this.colorBlendDestination(),
+            this.colorBlendOperation()
+        ),
+        BlendComponent(
+            this.alphaBlendSource(),
+            this.alphaBlendDestination(),
+            this.alphaBlendOperation()
+        ),
+        this.colorWriteMask()
+    )
+}
+
+fun rasterPipelineState(
+    topology: int = primitiveTopologyTriangleList,
+    cullMode: int = cullModeNone,
+    frontFace: int = frontFaceCounterClockwise,
+    alphaBlend: bool = false,
+    blend: ColorBlendState = ColorBlendState()
+): RasterPipelineState {
+    val selected = if (alphaBlend) graphicsAlphaBlendState() else blend
+    val packed = if (alphaBlend && blend.enabled) 134217728
+        else graphicsPackedBlendState(selected)
+    RasterPipelineState(topology, cullMode, frontFace, packed)
 }
 
 val graphicsMaximumInt = 9223372036854775807

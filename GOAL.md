@@ -1616,6 +1616,23 @@ growth, and reported zero/1,001 Vulkan submissions. The explicit validation-
 layer run was silent and the executable has no unresolved dependency with
 `LD_LIBRARY_PATH` removed.
 
+### Verified checkpoint: generalized color blending
+
+The common raster API now has typed source/destination factors, independent
+color and alpha add/subtract/reverse/minimum/maximum operations, and RGBA write
+masks. `rasterPipelineState(blend = ...)` packs the setup descriptor into the
+four-scalar retained raster value; `alphaBlend = true` remains the concise
+standard preset. OpenGL maps and restores the full state around each draw,
+while Vulkan writes the exact `VkPipelineColorBlendAttachmentState` fields.
+
+The 67th independent sample, `examples/color-blending`, blends half-alpha red
+over blue while preserving destination alpha through an RGB-only write mask.
+OpenGL produces exact permitted RGBA8 `0xFF7F0080`; Vulkan and automatic
+selection produce `0xFF80007F`, a documented one-LSB UNORM rounding difference.
+All execute 1,001 renders with zero warmed live-byte growth, invalid state is
+rejected, the explicit Khronos validation-layer run is silent, and the binary
+launches with `LD_LIBRARY_PATH` removed and no unresolved dependency.
+
 ## Milestone 5 direction after bounded asynchronous replay
 
 Pass markers, dimension-aware copies, the retained render/subpass forms, and
@@ -1724,6 +1741,8 @@ Tests, samples, and public claims:
   prior-attachment sampling proof;
 - `examples/recorded-compute-render/` — independently buildable compute-write
   to sampled-render handoff proof;
+- `examples/color-blending/` — independently buildable typed blend-state and
+  channel-write-mask proof;
 - `tools/test-samples.sh` — independent `--no-cache` sample build/live matrix;
 - `Makefile` — authoritative gate aggregation;
 - `registry/audit/*.tsv` — reviewed coverage inputs;

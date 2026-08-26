@@ -261,12 +261,14 @@ Updated: 2026-08-26.
   preserve handles and live bytes, with Vulkan validation enabled.
 - Common immutable raster state: pipeline creation validates point/line/
   triangle list-or-strip topology, no/front/back culling, front-face winding,
-  and standard source-alpha blending. OpenGL reapplies the complete state before
-  every draw; Vulkan bakes matching input-assembly, rasterization, and color-
-  blend structures. The sample presents both blended triangle-list and
-  line-strip/front-cull/clockwise pipelines under software OpenGL and
-  validation-enabled Lavapipe, rejects an invalid topology before driver work,
-  and retains the repeated-draw no-growth gate.
+  independent color/alpha blend factors and operations, and channel write
+  masks. The standard alpha preset remains available. OpenGL reapplies the
+  complete state before every draw; Vulkan bakes matching input-assembly,
+  rasterization, and color-blend structures. The retained state packs the blend
+  recipe into one integer to stay beneath Abla's allocation-free aggregate ABI.
+  `examples/color-blending` verifies exact permitted one-LSB backend results,
+  validation silence, invalid-state rejection, and zero growth through 1,001
+  renders.
 - Render-pipeline resize recovery: an affine pipeline retains its immutable
   shader/layout/raster recipe. Vulkan resize events defer recreation until a
   render presentation can wait, destroy framebuffer/image-view/pipeline state,

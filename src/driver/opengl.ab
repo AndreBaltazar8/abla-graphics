@@ -200,6 +200,12 @@ noescape extern:"c" fun glBlendEquationSeparate(
     rgb: i32,
     alpha: i32
 ): void
+noescape extern:"c" fun glColorMask(
+    red: i32,
+    green: i32,
+    blue: i32,
+    alpha: i32
+): void
 noescape extern:"c" fun glDepthFunc(operation: i32): void
 noescape extern:"c" fun glDepthMask(enabled: i32): void
 noescape extern:"c" fun glClearDepth(depth: f64): void
@@ -579,9 +585,38 @@ fun openGlPrimitiveMode(topology: int): int {
     mode
 }
 
+fun openGlBlendFactor(factor: int): int {
+    var result = factor
+    if (factor == blendFactorSourceColor) result = 768
+    else if (factor == blendFactorOneMinusSourceColor) result = 769
+    else if (factor == blendFactorDestinationColor) result = 774
+    else if (factor == blendFactorOneMinusDestinationColor) result = 775
+    else if (factor == blendFactorSourceAlpha) result = 770
+    else if (factor == blendFactorOneMinusSourceAlpha) result = 771
+    else if (factor == blendFactorDestinationAlpha) result = 772
+    else if (factor == blendFactorOneMinusDestinationAlpha) result = 773
+    result
+}
+
+fun openGlBlendOperation(operation: int): int {
+    var result = 32774
+    if (operation == blendOperationSubtract) result = 32778
+    else if (operation == blendOperationReverseSubtract) result = 32779
+    else if (operation == blendOperationMinimum) result = 32775
+    else if (operation == blendOperationMaximum) result = 32776
+    result
+}
+
 trusted fun openGlApplyRasterState(state: RasterPipelineState): bool {
     var succeeded = state.valid()
     if (succeeded) {
+        val blendEnabled = state.blendEnabled()
+        val colorSource = state.colorBlendSource()
+        val colorDestination = state.colorBlendDestination()
+        val colorOperation = state.colorBlendOperation()
+        val alphaSource = state.alphaBlendSource()
+        val alphaDestination = state.alphaBlendDestination()
+        val alphaOperation = state.alphaBlendOperation()
         if (state.cullMode == cullModeNone) glDisable(2884)
         else {
             glEnable(2884)
@@ -590,10 +625,24 @@ trusted fun openGlApplyRasterState(state: RasterPipelineState): bool {
         glFrontFace(
             if (state.frontFace == frontFaceCounterClockwise) 2305 else 2304
         )
-        if (state.alphaBlend) {
+        glColorMask(
+            if ((state.colorWriteMask() & colorWriteRed) != 0) 1 else 0,
+            if ((state.colorWriteMask() & colorWriteGreen) != 0) 1 else 0,
+            if ((state.colorWriteMask() & colorWriteBlue) != 0) 1 else 0,
+            if ((state.colorWriteMask() & colorWriteAlpha) != 0) 1 else 0
+        )
+        if (blendEnabled) {
             glEnable(3042)
-            glBlendEquationSeparate(32774, 32774)
-            glBlendFuncSeparate(770, 771, 1, 771)
+            glBlendEquationSeparate(
+                openGlBlendOperation(colorOperation),
+                openGlBlendOperation(alphaOperation)
+            )
+            glBlendFuncSeparate(
+                openGlBlendFactor(colorSource),
+                openGlBlendFactor(colorDestination),
+                openGlBlendFactor(alphaSource),
+                openGlBlendFactor(alphaDestination)
+            )
         } else glDisable(3042)
         succeeded = glGetError() == 0
     }
@@ -2509,6 +2558,7 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
         )
         glBindFramebuffer(36160, target.handle)
         glViewport(0, 0, target.width, target.height)
+        glColorMask(1, 1, 1, 1)
         var colorIndex = 0
         while (colorIndex < 1 + target.additionalTextures.size) {
             if (!pointerIsNull(clearStorage)) glClearBufferfv(
@@ -2616,6 +2666,7 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             clearAlpha
         )
         glViewport(0, 0, target.width, target.height)
+        glColorMask(1, 1, 1, 1)
         var colorIndex = 0
         while (colorIndex < 1 + target.additionalTextures.size) {
             if ((clearMask < 0 ||
@@ -2720,6 +2771,7 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
                 instanceCount
             )
         if (rendered) {
+            glColorMask(1, 1, 1, 1)
             openGlApplyBindGroupWriteBarrier(bindingKinds)
             openGlInvalidateRenderTarget(
                 target,
@@ -3609,6 +3661,7 @@ resource class OpenGlWindowContext(
                 graphicsScalarF32Bits(color.alpha)
             )
             glViewport(0, 0, this.width, this.height)
+            glColorMask(1, 1, 1, 1)
             glClearBufferfv(6144, 0, this.clearScratch.address)
             presented = glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
@@ -3689,6 +3742,7 @@ resource class OpenGlWindowContext(
                 graphicsScalarF32Bits(clear.alpha)
             )
             glViewport(0, 0, this.width, this.height)
+            glColorMask(1, 1, 1, 1)
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
@@ -3721,7 +3775,10 @@ resource class OpenGlWindowContext(
                 0,
                 3
             )
-            if (presented) openGlApplyBindGroupWriteBarrier(bindingKinds)
+            if (presented) {
+                glColorMask(1, 1, 1, 1)
+                openGlApplyBindGroupWriteBarrier(bindingKinds)
+            }
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -3784,6 +3841,7 @@ resource class OpenGlWindowContext(
                 graphicsScalarF32Bits(clear.alpha)
             )
             glViewport(0, 0, this.width, this.height)
+            glColorMask(1, 1, 1, 1)
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
             glBindVertexArray(program.vertexArray)
@@ -3828,7 +3886,10 @@ resource class OpenGlWindowContext(
                     vertexCount,
                     instanceCount
                 )
-            if (presented) openGlApplyBindGroupWriteBarrier(bindingKinds)
+            if (presented) {
+                glColorMask(1, 1, 1, 1)
+                openGlApplyBindGroupWriteBarrier(bindingKinds)
+            }
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }
@@ -3946,7 +4007,10 @@ resource class OpenGlWindowContext(
                 nativePointerFromAddress(indexOffset),
                 instanceCount
             )
-            if (presented) openGlApplyBindGroupWriteBarrier(bindingKinds)
+            if (presented) {
+                glColorMask(1, 1, 1, 1)
+                openGlApplyBindGroupWriteBarrier(bindingKinds)
+            }
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue
         }

@@ -8223,7 +8223,8 @@ trusted fun VulkanDevice.renderPipeline(
     subpassIndex: int = 0,
     preferDynamicRendering: bool = true,
     pushConstantSize: int = 0,
-    pushConstantStageMask: int = 0
+    pushConstantStageMask: int = 0,
+    blend: ColorBlendState = ColorBlendState()
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -8241,6 +8242,7 @@ trusted fun VulkanDevice.renderPipeline(
     val format = if (offscreen) targetFormat else swapchain.format
     val width = if (offscreen) targetWidth else swapchain.width
     val height = if (offscreen) targetHeight else swapchain.height
+    val resolvedBlend = if (alphaBlend) graphicsAlphaBlendState() else blend
     var succeeded = this.valid() && swapchain.valid() &&
         swapchain.device == this.handle && vertex.valid() && fragment.valid() &&
         vertex.device == this.handle && fragment.device == this.handle &&
@@ -8259,6 +8261,7 @@ trusted fun VulkanDevice.renderPipeline(
          samples == 16) && (offscreen || samples == 1) &&
         (!depthWrite || depthEnabled) &&
         (!offscreen || depthEnabled == (targetDepthView != 0)) &&
+        blend.valid() && (!alphaBlend || !blend.enabled) &&
         ((pushConstantSize == 0 && pushConstantStageMask == 0) ||
          (pushConstantSize > 0 && pushConstantSize <= 128 &&
           pushConstantStageMask != 0))
@@ -8558,19 +8561,23 @@ trusted fun VulkanDevice.renderPipeline(
             val colorOffset = colorAttachmentIndex * 32
             colorAttachment.storeI64(
                 colorOffset,
-                if (alphaBlend) 6 * 4294967296 + 1 else 0
+                resolvedBlend.color.source * 4294967296 +
+                    (if (resolvedBlend.enabled) 1 else 0)
             )
             colorAttachment.storeI64(
                 colorOffset + 8,
-                if (alphaBlend) 7 else 0
+                resolvedBlend.color.operation * 4294967296 +
+                    resolvedBlend.color.destination
             )
             colorAttachment.storeI64(
                 colorOffset + 16,
-                if (alphaBlend) 7 * 4294967296 + 1 else 0
+                resolvedBlend.alpha.destination * 4294967296 +
+                    resolvedBlend.alpha.source
             )
             colorAttachment.storeI64(
                 colorOffset + 24,
-                15 * 4294967296
+                resolvedBlend.writeMask * 4294967296 +
+                    resolvedBlend.alpha.operation
             )
             colorAttachmentIndex = colorAttachmentIndex + 1
         }

@@ -340,11 +340,19 @@ Portable fixed raster state is immutable and supplied when creating the
 pipeline:
 
 ```abla
-val raster = RasterPipelineState(
+val raster = rasterPipelineState(
     topology = primitiveTopologyTriangleList,
     cullMode = cullModeBack,
     frontFace = frontFaceCounterClockwise,
-    alphaBlend = true
+    blend = ColorBlendState(
+        enabled = true,
+        color = BlendComponent(
+            blendFactorSourceAlpha,
+            blendFactorOneMinusSourceAlpha
+        ),
+        alpha = BlendComponent(blendFactorOne, blendFactorZero),
+        writeMask = colorWriteRed | colorWriteGreen | colorWriteBlue
+    )
 )
 val pipeline = app.renderPipeline(
     shader,
@@ -353,14 +361,16 @@ val pipeline = app.renderPipeline(
 )
 ```
 
-The initial state surface covers point/line/triangle lists and strips, no/front/
-back culling, clockwise/counter-clockwise winding, and disabled or standard
-source-alpha blending. OpenGL applies the complete state before each draw so
-external raw calls cannot silently poison the common path. Vulkan bakes the
-same topology, cull mode, front face, and blend factors into the graphics
-pipeline. Invalid enum values are rejected before backend driver creation.
-The sample creates and presents both a blended triangle-list pipeline and an
-alternate line-strip/front-cull/clockwise pipeline on both backends.
+The state surface covers point/line/triangle lists and strips, no/front/back
+culling, clockwise/counter-clockwise winding, independent color and alpha
+source/destination factors, add/subtract/reverse/minimum/maximum operations,
+and RGBA channel write masks. `rasterPipelineState(alphaBlend = true)` remains
+the concise standard source-alpha preset. The factory packs setup-only typed
+blend descriptors into a four-scalar retained value so the draw path does not
+allocate. OpenGL reapplies the complete state before each draw and restores the
+write mask afterward; Vulkan bakes the same values into every color attachment.
+Invalid factors, operations, masks, or conflicting preset/custom states reject
+before backend creation. `examples/color-blending` proves the general path.
 
 Depth is an independent immutable pipeline component:
 

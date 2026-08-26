@@ -36,7 +36,8 @@ copies/fills/pixel
 presentation, compute pipelines, strict initial
 `$glsl`-to-SPIR-V subsets, and the first procedural, common-vertex-buffer, and
 multi-attribute vertex, `uint32` indexed, and instanced render paths with
-immutable topology, culling, winding, and alpha-blend state plus
+immutable topology, culling, winding, independently configured color/alpha
+blend factors and operations, channel write masks, and an alpha preset plus
 dependency-ordered Vulkan resize recovery and per-swapchain-image depth
 testing/writes plus general sampled-texture/uniform/storage bind groups and an
 allocation-free transform-uniform indexed textured/depth cube sample plus

@@ -92,8 +92,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   vertex buffers with optional `uint32` common indices plus direct, instanced,
   and GPU-buffer-driven indirect submission,
   then records
-  point/line/triangle topology, culling/front-face state, and standard alpha
-  blending plus checked depth testing/writes before presenting a real Vulkan
+  point/line/triangle topology, culling/front-face state, independent typed
+  color/alpha blending and channel masks plus checked depth testing/writes
+  before presenting a real Vulkan
   render pass or OpenGL draw without steady-state runtime allocation; affine
   multi-entry bind groups feed sampled textures or explicit subresource views
   plus uniform/storage buffers to
@@ -250,6 +251,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   Vulkan, with repeated no-growth and stable-handle assertions; its reflected location-zero
   `vec4` fragment input is loaded by the typed raster IR rather than a fixed
   SPIR-V fragment table;
+- `examples/color-blending`: typed independent color/alpha blend factors and
+  operations plus an RGB-only write mask produce the exact permitted RGBA8
+  result through 1,001 allocation-free OpenGL/Vulkan/auto renders;
 - `examples/common-buffer`: affine buffers with reusable byte ranges,
   mapped-at-creation upload, post-creation write/read remapping, coherent
   persistent transfers, bounded aligned upload/readback rings, GPU copies, and

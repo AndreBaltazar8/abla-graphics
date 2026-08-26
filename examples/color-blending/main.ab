@@ -1,0 +1,96 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics color blending",
+            width = 480,
+            height = 270
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65), vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(1.0, 0.0, 0.0, 0.5); }
+        }
+    }
+    val texture = app.texture(TextureDescriptor(
+        label = "blended-color",
+        size = Extent3D(64, 64),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(texture))
+    val blend = ColorBlendState(
+        enabled = true,
+        color = BlendComponent(
+            blendFactorSourceAlpha,
+            blendFactorOneMinusSourceAlpha,
+            blendOperationAdd
+        ),
+        alpha = BlendComponent(
+            blendFactorOne,
+            blendFactorZero,
+            blendOperationAdd
+        ),
+        writeMask = colorWriteRed | colorWriteGreen | colorWriteBlue
+    )
+    val raster = rasterPipelineState(blend = blend)
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(),
+        raster
+    )
+    val legacy = rasterPipelineState(alphaBlend = true).resolvedBlend()
+    val validationPassed = blend.valid() && raster.valid() &&
+        legacy.enabled &&
+        legacy.color.source == blendFactorSourceAlpha &&
+        legacy.color.destination == blendFactorOneMinusSourceAlpha &&
+        !ColorBlendState(writeMask = colorWriteAll + 1).valid() &&
+        !rasterPipelineState(alphaBlend = true, blend = blend).valid()
+    val clear = Color(0.0, 0.0, 1.0, 1.0)
+    var rendered = app.valid() && shader.valid && target.valid() &&
+        pipeline.valid() && validationPassed && app.renderToTarget(
+            target, pipeline, clear
+        )
+    val liveBefore = runtimeMemoryLiveBytes()
+    var frame = 0
+    while (rendered && frame < 1000) {
+        rendered = app.renderToTarget(target, pipeline, clear)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val center = target.texture.rgba8(32, 32)
+    val corner = target.texture.rgba8(0, 0)
+    val expectedCenter = if (app.backend == graphicsBackendOpenGl)
+        4286513280 else 4286578815
+    val stable = rendered && frame == 1000 && validationPassed &&
+        center == expectedCenter && corner == 4294901760 &&
+        liveAfter == liveBefore
+    println(
+        "color-blending ${graphicsBackendName(app.backend)}: center=$center corner=$corner mask=${blend.writeMask} validation=$validationPassed frames=${frame + 1} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}
