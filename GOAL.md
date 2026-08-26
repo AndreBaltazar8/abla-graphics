@@ -80,6 +80,12 @@ nix-shell --run 'make check-abla-only'
 - GitHub: `AndreBaltazar8/abla-graphics`
 - Remote: `git@github.com:AndreBaltazar8/abla-graphics.git`
 - Branch: `main`
+- Published tip before the indirect-render checkpoint:
+  `dbfe351beac81c3ced54198791f643db565e61a2`
+  (`Update graphics continuation handoff`).
+- Indirect-render implementation commit:
+  `27b91f31ca853e0ca4a4af869b5db68bf2191423`
+  (`Record indirect graph rendering`).
 - Published tip before the buffered-render checkpoint:
   `39b54a776703666ac21d528c3cb09909c8a519ec`
   (`Update graphics continuation handoff`).
@@ -294,8 +300,41 @@ Important paths are `src/graph_commands.ab`,
 render-graph API/status/architecture documentation. The complete sample list
 now contains 45 roots, but the full matrix has not been rerun for this focused
 slice. Continue using the efficient validation policy below: review and publish
-future focused checkpoints with targeted evidence, beginning with indirect and
-reflected push render records. No `../ablac` change has been required.
+future focused checkpoints with targeted evidence, beginning with reflected
+push render records. No `../ablac` change has been required.
+
+## Published checkpoint: recorded indirect rendering
+
+Implementation commit `27b91f31ca853e0ca4a4af869b5db68bf2191423`
+adds `recordRenderVerticesIndirect(...)` and
+`recordRenderIndexedIndirect(...)`. Their affine resource groups own the exact
+planner-declared 16-byte draw or 20-byte indexed-draw command buffer in
+addition to vertex/index storage. Pass read access, usage, aligned ranges,
+native identities, offsets, and indirect form are validated and sealed.
+
+OpenGL replays `glDrawArraysIndirect` or `glDrawElementsIndirect` through the
+existing scalar encoder. Vulkan records `vkCmdDrawIndirect` or
+`vkCmdDrawIndexedIndirect` into the same consolidated command buffer. Explicit
+form validators replace a generic resource loop that incorrectly rejected the
+third indexed-indirect buffer; this keeps each supported ownership shape exact
+and auditable.
+
+Focused evidence on the published implementation source:
+
+- `make test-graph-commands` passes OpenGL, Vulkan, and automatic selection;
+- both indirect forms produce exact center pixel `4294281759`, reject sealed
+  indirect-buffer handle mutation, replay 1,001 times with `live=0`, and report
+  zero/1,001 OpenGL/Vulkan submissions; and
+- `examples/recorded-graph-indirect-render` has its own native-library manifest,
+  passes `ldd` with `LD_LIBRARY_PATH` removed, and runs both explicit backends
+  with forms `3/4`, exact output, stable counters, and no live growth.
+
+Important paths are `src/graph_commands.ab`,
+`tests/graph_commands/main.ab`, `examples/recorded-graph-indirect-render/`,
+`tools/test-samples.sh`, and the public graph documentation. The sample list
+now contains 46 roots; the full matrix is intentionally reserved for the next
+broad/sample-infrastructure coverage checkpoint. Continue with recorded
+reflected push values. No `../ablac` change was required.
 
 ## Published checkpoint: multi-binding compute and transient graph buffers
 
