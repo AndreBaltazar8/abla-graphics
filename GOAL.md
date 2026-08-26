@@ -1542,6 +1542,10 @@ Correctness follow-up commit
 
 ### Mutable storage-image value statements
 
+Implementation commit `05a78dc9c95cf8c3cb6edf0df2994e4c01ca1197`
+(`Add mutable storage image locals`) is published and synchronized on
+`origin/main`.
+
 The next shader slice extends the generated read/write RGBA8 image program with
 typed mutable `vec4` locals. Direct assignment and `+=`, `-=`, `*=`, `/=` reuse
 the bounded raster-expression postfix IR and are folded into SSA expressions;
