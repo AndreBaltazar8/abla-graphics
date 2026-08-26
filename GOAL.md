@@ -133,6 +133,9 @@ nix-shell --run 'make check-abla-only'
   (`Add transient graph compute bindings`).
 - Published and synchronized recorded-compute/direct-linkage implementation:
   `57492c65287bfba25da8c3b7d938dbb0bd26d2b0`.
+- Published and synchronized ordinary recorded-render binding implementation:
+  `748160757a5d972b260b921857f586858e1098b0`
+  (`Retain bindings for recorded renders`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -166,6 +169,10 @@ nix-shell --run 'make check-abla-only'
   revert the unrelated compiler work. That historical compiler needs the Nix
   shell for `libssl.so.3`, while the produced graphics sample itself passed
   `ldd` with `LD_LIBRARY_PATH` removed.
+- During the ordinary-render checkpoint, concurrent compiler work removed the
+  historical `build/ablac-pure-self` artifact. The final gate successfully
+  used the current pure-Abla `build/ablac` launcher. The unrelated dirty
+  compiler files remain untouched and uncommitted by this graphics work.
 
 Changes to `../ablac` are authorized when a real language/compiler capability
 is required. Keep them minimal, test them in `ablac`, commit and push that repo
@@ -502,8 +509,9 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize remaining recorded render and compute sampled/image bindings
-   without unbounded command variants or warmed allocation.
+1. Generalize recorded compute sampled/storage-image bindings through the same
+   typed retained resource table. Ordinary render bindings now cover every
+   procedural/direct/indexed/indirect draw form without warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
