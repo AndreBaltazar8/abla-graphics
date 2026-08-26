@@ -98,6 +98,9 @@ nix-shell --run 'make check-abla-only'
 - Recorded-MRT implementation commit:
   `12ed3138edb421c4fa23d3672f9d3755df0d5f68`
   (`Record generalized MRT attachments`).
+- Buffered-MRT implementation commit:
+  `c3125a41fbe95a00414e9c904af8e142e33b0fce`
+  (`Compose buffered draws with MRT attachments`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -559,7 +562,7 @@ sample has no missing `ldd` dependency without `LD_LIBRARY_PATH` and passes
 OpenGL plus silent validation-layer Vulkan. The matrix now contains 50 roots.
 No `../ablac` change was required.
 
-## Verified checkpoint awaiting publication: buffered recorded MRT
+## Published checkpoint: buffered recorded MRT
 
 Four affine factories now build typed direct, indexed, vertex-indirect, or
 indexed-indirect `GraphicsGraphRenderResources`. The generalized
