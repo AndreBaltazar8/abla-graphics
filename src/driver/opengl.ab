@@ -90,6 +90,13 @@ noescape extern:"c" fun glViewport(
     width: i32,
     height: i32
 ): void
+noescape extern:"c" fun glScissor(
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32
+): void
+noescape extern:"c" fun glDepthRange(minimum: f64, maximum: f64): void
 noescape extern:"c" fun glClear(mask: i32): void
 noescape extern:"c" fun glClearBufferfv(
     buffer: i32,
@@ -626,8 +633,12 @@ fun openGlBlendOperation(operation: int): int {
     result
 }
 
-trusted fun openGlApplyRasterState(state: RasterPipelineState): bool {
-    var succeeded = state.valid()
+trusted fun openGlApplyRasterState(
+    state: RasterPipelineState,
+    targetWidth: int,
+    targetHeight: int
+): bool {
+    var succeeded = state.fits(targetWidth, targetHeight)
     if (succeeded) {
         val blendEnabled = state.blendEnabled()
         val colorSource = state.colorBlendSource()
@@ -636,6 +647,30 @@ trusted fun openGlApplyRasterState(state: RasterPipelineState): bool {
         val alphaSource = state.alphaBlendSource()
         val alphaDestination = state.alphaBlendDestination()
         val alphaOperation = state.alphaBlendOperation()
+        if (state.viewport.enabled) {
+            glViewport(
+                state.viewport.x,
+                targetHeight - state.viewport.y - state.viewport.height,
+                state.viewport.width,
+                state.viewport.height
+            )
+            glDepthRange(
+                state.viewport.minimumDepth,
+                state.viewport.maximumDepth
+            )
+        } else {
+            glViewport(0, 0, targetWidth, targetHeight)
+            glDepthRange(0.0, 1.0)
+        }
+        if (state.scissor.enabled) {
+            glEnable(3089)
+            glScissor(
+                state.scissor.x,
+                targetHeight - state.scissor.y - state.scissor.height,
+                state.scissor.width,
+                state.scissor.height
+            )
+        } else glDisable(3089)
         if (state.cullMode == cullModeNone) glDisable(2884)
         else {
             glEnable(2884)
@@ -2624,6 +2659,7 @@ trusted fun OpenGlWindowContext.clearRenderTarget(
             clearAlpha
         )
         glBindFramebuffer(36160, target.handle)
+        glDisable(3089)
         glViewport(0, 0, target.width, target.height)
         glColorMask(1, 1, 1, 1)
         var colorIndex = 0
@@ -2720,7 +2756,7 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             clearGreen,
             clearBlue,
             clearAlpha
-        ) && raster.valid() && depth.valid() &&
+        ) && raster.fits(target.width, target.height) && depth.valid() &&
         vertexLayout.valid() && vertexCount > 0 && indexCount >= 0 &&
         instanceCount > 0 &&
         ((vertexLayout.buffered() && vertexBuffer != 0) ||
@@ -2752,6 +2788,7 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             clearBlue,
             clearAlpha
         )
+        glDisable(3089)
         glViewport(0, 0, target.width, target.height)
         glColorMask(1, 1, 1, 1)
         var colorIndex = 0
@@ -2843,7 +2880,7 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         )
         if (indexed) glBindBuffer(34963, indexBuffer)
         rendered = rendered && openGlApplyDepthState(depth) &&
-            openGlApplyRasterState(raster)
+            openGlApplyRasterState(raster, target.width, target.height)
         if (rendered && indexed && indirectBuffer != 0) {
             glBindBuffer(36671, indirectBuffer)
             glDrawElementsIndirect(
@@ -2878,6 +2915,7 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
                 instanceCount
             )
         if (rendered) {
+            glDisable(3089)
             glColorMask(1, 1, 1, 1)
             openGlApplyBindGroupWriteBarrier(bindingKinds)
             openGlInvalidateRenderTarget(
@@ -3736,6 +3774,7 @@ resource class OpenGlWindowContext(
     trusted fun presentBlack(): bool {
         var presented = false
         if (this.makeCurrent()) {
+            glDisable(3089)
             glViewport(0, 0, this.width, this.height)
             glClear(16384)
             presented = glGetError() == 0 &&
@@ -3819,7 +3858,8 @@ resource class OpenGlWindowContext(
         pushConstantData: i64* = nativeNullPointer(),
         pushConstantSize: int = 0
     ): bool {
-        var presented = program.valid() && clear.valid() && raster.valid() &&
+        var presented = program.valid() && clear.valid() &&
+            raster.fits(this.width, this.height) &&
             depth.valid() &&
             ((program.pushConstantSize == 0 && pushConstantSize == 0 &&
               pointerIsNull(pushConstantData)) ||
@@ -3848,6 +3888,7 @@ resource class OpenGlWindowContext(
                 3,
                 graphicsScalarF32Bits(clear.alpha)
             )
+            glDisable(3089)
             glViewport(0, 0, this.width, this.height)
             glColorMask(1, 1, 1, 1)
             glClearBufferfv(6144, 0, this.clearScratch.address)
@@ -3876,13 +3917,14 @@ resource class OpenGlWindowContext(
                 bindingSamplers
             ) &&
                 openGlApplyDepthState(depth) &&
-                openGlApplyRasterState(raster)
+                openGlApplyRasterState(raster, this.width, this.height)
             if (presented) glDrawArrays(
                 openGlPrimitiveMode(raster.topology),
                 0,
                 3
             )
             if (presented) {
+                glDisable(3089)
                 glColorMask(1, 1, 1, 1)
                 openGlApplyBindGroupWriteBarrier(bindingKinds)
             }
@@ -3918,7 +3960,7 @@ resource class OpenGlWindowContext(
             vertexOffset >= 0 && indirectOffset >= 0 &&
             (vertexOffset & 3) == 0 && (indirectOffset & 3) == 0 &&
             vertexLayout.valid() && vertexLayout.buffered() &&
-            clear.valid() && raster.valid() &&
+            clear.valid() && raster.fits(this.width, this.height) &&
             depth.valid() &&
             ((program.pushConstantSize == 0 && pushConstantSize == 0 &&
               pointerIsNull(pushConstantData)) ||
@@ -3947,6 +3989,7 @@ resource class OpenGlWindowContext(
                 3,
                 graphicsScalarF32Bits(clear.alpha)
             )
+            glDisable(3089)
             glViewport(0, 0, this.width, this.height)
             glColorMask(1, 1, 1, 1)
             glClearBufferfv(6144, 0, this.clearScratch.address)
@@ -3980,7 +4023,7 @@ resource class OpenGlWindowContext(
                     bindingSamplers
                 ) &&
                 openGlApplyDepthState(depth) &&
-                openGlApplyRasterState(raster)
+                openGlApplyRasterState(raster, this.width, this.height)
             if (presented && indirectBuffer != 0) {
                 glBindBuffer(36671, indirectBuffer)
                 glDrawArraysIndirect(
@@ -3994,6 +4037,7 @@ resource class OpenGlWindowContext(
                     instanceCount
                 )
             if (presented) {
+                glDisable(3089)
                 glColorMask(1, 1, 1, 1)
                 openGlApplyBindGroupWriteBarrier(bindingKinds)
             }
@@ -4032,7 +4076,7 @@ resource class OpenGlWindowContext(
             (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
             (indirectOffset & 3) == 0 &&
             vertexLayout.valid() && vertexLayout.buffered() &&
-            clear.valid() && raster.valid() &&
+            clear.valid() && raster.fits(this.width, this.height) &&
             depth.valid() &&
             ((program.pushConstantSize == 0 && pushConstantSize == 0 &&
               pointerIsNull(pushConstantData)) ||
@@ -4061,6 +4105,7 @@ resource class OpenGlWindowContext(
                 3,
                 graphicsScalarF32Bits(clear.alpha)
             )
+            glDisable(3089)
             glViewport(0, 0, this.width, this.height)
             glClearBufferfv(6144, 0, this.clearScratch.address)
             glUseProgram(program.handle)
@@ -4094,7 +4139,7 @@ resource class OpenGlWindowContext(
                 )
             glBindBuffer(34963, indices.handle)
             presented = presented && openGlApplyDepthState(depth) &&
-                openGlApplyRasterState(raster)
+                openGlApplyRasterState(raster, this.width, this.height)
             if (presented && indirectBuffer != 0) {
                 glBindBuffer(36671, indirectBuffer)
                 glDrawElementsIndirect(
@@ -4115,6 +4160,7 @@ resource class OpenGlWindowContext(
                 instanceCount
             )
             if (presented) {
+                glDisable(3089)
                 glColorMask(1, 1, 1, 1)
                 openGlApplyBindGroupWriteBarrier(bindingKinds)
             }

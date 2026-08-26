@@ -8233,7 +8233,9 @@ trusted fun VulkanDevice.renderPipeline(
     pushConstantStageMask: int = 0,
     blend: ColorBlendState = ColorBlendState(),
     stencil: StencilState = StencilState(),
-    targetDepthFormat: int = 0
+    targetDepthFormat: int = 0,
+    viewportState: GraphicsViewport = GraphicsViewport(),
+    scissorState: GraphicsScissor = GraphicsScissor()
 ): VulkanRenderPipeline {
     var layout = 0
     var renderPass = 0
@@ -8274,6 +8276,8 @@ trusted fun VulkanDevice.renderPipeline(
         stencil.valid() && (!stencil.enabled || (
             offscreen && textureFormatHasStencil(targetDepthFormat)
         )) &&
+        viewportState.fits(width, height) &&
+        scissorState.fits(width, height) &&
         ((pushConstantSize == 0 && pushConstantStageMask == 0) ||
          (pushConstantSize > 0 && pushConstantSize <= 128 &&
           pushConstantStageMask != 0))
@@ -8523,13 +8527,54 @@ trusted fun VulkanDevice.renderPipeline(
         inputAssembly.storePointer(8, nativeNullPointer())
         inputAssembly.storeI64(16, topology * 4294967296)
         inputAssembly.storeI64(24, 0)
+        val viewportX = if (viewportState.enabled) viewportState.x else 0
+        val viewportY = if (viewportState.enabled) viewportState.y else 0
+        val viewportWidth = if (viewportState.enabled)
+            viewportState.width else width
+        val viewportHeight = if (viewportState.enabled)
+            viewportState.height else height
+        val viewportMinimumDepth = if (viewportState.enabled)
+            viewportState.minimumDepth else 0.0
+        val viewportMaximumDepth = if (viewportState.enabled)
+            viewportState.maximumDepth else 1.0
+        val viewportData = nativeByteBuffer(24)
+        viewportData.storeI64(
+            0,
+            (graphicsUnsignedIntegerF32Bits(viewportY) & 4294967295) *
+                4294967296 +
+                (graphicsUnsignedIntegerF32Bits(viewportX) & 4294967295)
+        )
+        viewportData.storeI64(
+            8,
+            (graphicsUnsignedIntegerF32Bits(viewportHeight) & 4294967295) *
+                4294967296 +
+                (graphicsUnsignedIntegerF32Bits(viewportWidth) & 4294967295)
+        )
+        viewportData.storeI64(
+            16,
+            (graphicsScalarF32Bits(viewportMaximumDepth) & 4294967295) *
+                4294967296 +
+                (graphicsScalarF32Bits(viewportMinimumDepth) & 4294967295)
+        )
+        val scissorX = if (scissorState.enabled) scissorState.x else 0
+        val scissorY = if (scissorState.enabled) scissorState.y else 0
+        val scissorWidth = if (scissorState.enabled)
+            scissorState.width else width
+        val scissorHeight = if (scissorState.enabled)
+            scissorState.height else height
+        val scissorData = nativeByteBuffer(16)
+        scissorData.storeI64(0, scissorY * 4294967296 + scissorX)
+        scissorData.storeI64(
+            8,
+            scissorHeight * 4294967296 + scissorWidth
+        )
         val viewport = nativeByteBuffer(48)
         viewport.storeI64(0, 22)
         viewport.storePointer(8, nativeNullPointer())
         viewport.storeI64(16, 4294967296)
-        viewport.storePointer(24, nativeNullPointer())
+        viewport.storePointer(24, viewportData.address)
         viewport.storeI64(32, 1)
-        viewport.storePointer(40, nativeNullPointer())
+        viewport.storePointer(40, scissorData.address)
         val rasterization = nativeByteBuffer(64)
         rasterization.storeI64(0, 23)
         rasterization.storePointer(8, nativeNullPointer())
@@ -8627,14 +8672,6 @@ trusted fun VulkanDevice.renderPipeline(
         colorBlend.storePointer(32, colorAttachment.address)
         colorBlend.storeI64(40, 0)
         colorBlend.storeI64(48, 0)
-        val states = nativeByteBuffer(8)
-        states.storeI64(0, 4294967296)
-        val dynamic = nativeByteBuffer(32)
-        dynamic.storeI64(0, 27)
-        dynamic.storePointer(8, nativeNullPointer())
-        dynamic.storeI64(16, 2 * 4294967296)
-        dynamic.storePointer(24, states.address)
-
         val pipelineInfo = nativeByteBuffer(144)
         pipelineInfo.storeI64(0, 28)
         val renderingInfo = nativeByteBuffer(40)
@@ -8665,7 +8702,7 @@ trusted fun VulkanDevice.renderPipeline(
             if (depthEnabled) depthStencil.address else nativeNullPointer()
         )
         pipelineInfo.storePointer(88, colorBlend.address)
-        pipelineInfo.storePointer(96, dynamic.address)
+        pipelineInfo.storePointer(96, nativeNullPointer())
         pipelineInfo.storeI64(104, layout)
         pipelineInfo.storeI64(112, renderPass)
         pipelineInfo.storeI64(120, subpassIndex)

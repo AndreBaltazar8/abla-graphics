@@ -167,6 +167,10 @@ are values.
 ## Performance model
 
 - Immutable creation descriptors are optimized away from steady-state work.
+- Immutable top-left viewport/scissor descriptors are validated against the
+  target once. OpenGL converts and applies them at draw entry; Vulkan bakes
+  exact static structures into the pipeline, which automatically carries the
+  state through direct, subpass, and recorded pipeline use.
 - Frame-local commands and small payloads use resettable arenas.
 - Uploads use persistently mapped/staging rings where supported.
 - Portable texture pools reuse complete warmed native objects; Vulkan heap

@@ -39,6 +39,7 @@ game, compute pipelines, strict initial
 multi-attribute vertex, `uint32` indexed, and instanced render paths with
 immutable topology, culling, winding, independently configured color/alpha
 blend factors and operations, channel write masks, and an alpha preset plus
+immutable top-left viewport/depth-range and scissor state plus
 dependency-ordered Vulkan resize recovery and per-swapchain-image depth
 testing/writes plus general sampled-texture/uniform/storage bind groups and an
 allocation-free transform-uniform indexed textured/depth cube sample plus

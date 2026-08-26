@@ -27,7 +27,7 @@ samples=(x11-window wayland-info wayland-window wayland-pixels \
     wayland-clipboard \
     vulkan-info vulkan-surface headless-opengl \
     common-headless \
-    opengl-window common-clear mini-breakout color-blending common-triangle common-buffer async-buffer async-texture async-wider-texture buffer-pool texture-pool common-texture wider-texture wider-sampling \
+    opengl-window common-clear mini-breakout viewport-scissor color-blending common-triangle common-buffer async-buffer async-texture async-wider-texture buffer-pool texture-pool common-texture wider-texture wider-sampling \
     common-textured indexed-textured-cube render-to-texture \
     multiple-render-targets stencil-masking subpasses common-compute gpu-timestamp \
     push-color push-transform push-draw push-expression narrow-input \
@@ -112,6 +112,8 @@ for backend in opengl vulkan; do
         "$output_directory/common-clear" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/mini-breakout" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/viewport-scissor" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/color-blending" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

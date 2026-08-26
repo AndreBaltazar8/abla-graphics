@@ -352,7 +352,9 @@ val raster = rasterPipelineState(
         ),
         alpha = BlendComponent(blendFactorOne, blendFactorZero),
         writeMask = colorWriteRed | colorWriteGreen | colorWriteBlue
-    )
+    ),
+    viewport = GraphicsViewport(true, 8, 6, 48, 44, 0.0, 1.0),
+    scissor = GraphicsScissor(true, 24, 14, 16, 16)
 )
 val pipeline = app.renderPipeline(
     shader,
@@ -364,13 +366,25 @@ val pipeline = app.renderPipeline(
 The state surface covers point/line/triangle lists and strips, no/front/back
 culling, clockwise/counter-clockwise winding, independent color and alpha
 source/destination factors, add/subtract/reverse/minimum/maximum operations,
-and RGBA channel write masks. `rasterPipelineState(alphaBlend = true)` remains
+RGBA channel write masks, a top-left integer viewport with `[0, 1]` depth
+range, and a top-left integer scissor rectangle.
+`rasterPipelineState(alphaBlend = true)` remains
 the concise standard source-alpha preset. The factory packs setup-only typed
 blend descriptors into a four-scalar retained value so the draw path does not
 allocate. OpenGL reapplies the complete state before each draw and restores the
 write mask afterward; Vulkan bakes the same values into every color attachment.
 Invalid factors, operations, masks, or conflicting preset/custom states reject
-before backend creation. `examples/color-blending` proves the general path.
+before backend creation. Viewports and scissors additionally must fit the
+pipeline target; the disabled defaults resolve to its full extent. OpenGL
+converts top-left Y to its framebuffer convention and restores scissoring
+around clears. Vulkan bakes exact `VkViewport` and `VkRect2D` values, so direct,
+offscreen, subpass, and recorded draws share one pipeline contract.
+`examples/color-blending` proves the general blend path and
+`examples/viewport-scissor` proves exact asymmetric clipping.
+
+Raw `GraphicsTexture.rgba8` inspection retains each backend's native row order
+for compatibility. `rgba8TopLeft` is the allocation-free portable inspection
+form for rendered 2D textures.
 
 Depth is an independent immutable pipeline component:
 

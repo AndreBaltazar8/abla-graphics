@@ -12,11 +12,13 @@ Updated: 2026-08-26.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 69 roots. Samples 65 through 68 cover deferred rendering,
+  The matrix now has 70 roots. Samples 65 through 68 cover deferred rendering,
   compute-to-render handoff, typed blending, and typed stencil masking. Sample
   69 is the complete `mini-breakout` 2D game: its independently built stripped-
   environment binary passed OpenGL, validation-enabled Vulkan, and automatic
-  selection for 1,001 frames with zero live-byte growth. These newer roots are
+  selection for 1,001 frames with zero live-byte growth. Sample 70 proves exact
+  asymmetric top-left viewport/scissor output through the same three modes.
+  These newer roots are
   queued for the next periodic complete matrix.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
@@ -263,13 +265,16 @@ Updated: 2026-08-26.
 - Common immutable raster state: pipeline creation validates point/line/
   triangle list-or-strip topology, no/front/back culling, front-face winding,
   independent color/alpha blend factors and operations, and channel write
-  masks. The standard alpha preset remains available. OpenGL reapplies the
+  masks, top-left viewport/depth-range state, and top-left scissoring. The
+  standard alpha preset remains available. OpenGL reapplies the
   complete state before every draw; Vulkan bakes matching input-assembly,
-  rasterization, and color-blend structures. The retained state packs the blend
+  rasterization, viewport, scissor, and color-blend structures. The retained state packs the blend
   recipe into one integer to stay beneath Abla's allocation-free aggregate ABI.
   `examples/color-blending` verifies exact permitted one-LSB backend results,
   validation silence, invalid-state rejection, and zero growth through 1,001
-  renders.
+  renders. `examples/viewport-scissor` adds five exact asymmetric pixel probes,
+  invalid extent rejection, validation silence, and zero growth through 1,001
+  renders on OpenGL, Vulkan, and automatic selection.
 - Render-pipeline resize recovery: an affine pipeline retains its immutable
   shader/layout/raster recipe. Vulkan resize events defer recreation until a
   render presentation can wait, destroy framebuffer/image-view/pipeline state,

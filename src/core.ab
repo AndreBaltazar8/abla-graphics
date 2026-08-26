@@ -111,11 +111,67 @@ fun graphicsPackedBlendState(blend: ColorBlendState): int =
     (blend.alpha.operation << 20) |
     (blend.writeMask << 23)
 
+// Portable raster rectangles use a top-left origin on both backends.
+class GraphicsViewport(
+    val enabled: bool = false,
+    val x: int = 0,
+    val y: int = 0,
+    val width: int = 0,
+    val height: int = 0,
+    val minimumDepth: f64 = 0.0,
+    val maximumDepth: f64 = 1.0
+) {
+    fun valid(): bool = if (this.enabled)
+        this.x >= 0 && this.x <= 65536 &&
+        this.y >= 0 && this.y <= 65536 &&
+        this.width > 0 && this.width <= 65536 &&
+        this.height > 0 && this.height <= 65536 &&
+        this.minimumDepth >= 0.0 && this.minimumDepth <= 1.0 &&
+        this.maximumDepth >= this.minimumDepth &&
+        this.maximumDepth <= 1.0
+    else this.x == 0 && this.y == 0 && this.width == 0 &&
+        this.height == 0 && this.minimumDepth == 0.0 &&
+        this.maximumDepth == 1.0
+
+    fun fits(targetWidth: int, targetHeight: int): bool = this.valid() &&
+        targetWidth > 0 && targetHeight > 0 &&
+        (!this.enabled || (
+            this.x <= targetWidth && this.y <= targetHeight &&
+            this.width <= targetWidth - this.x &&
+            this.height <= targetHeight - this.y
+        ))
+}
+
+class GraphicsScissor(
+    val enabled: bool = false,
+    val x: int = 0,
+    val y: int = 0,
+    val width: int = 0,
+    val height: int = 0
+) {
+    fun valid(): bool = if (this.enabled)
+        this.x >= 0 && this.x <= 65536 &&
+        this.y >= 0 && this.y <= 65536 &&
+        this.width > 0 && this.width <= 65536 &&
+        this.height > 0 && this.height <= 65536
+    else this.x == 0 && this.y == 0 && this.width == 0 && this.height == 0
+
+    fun fits(targetWidth: int, targetHeight: int): bool = this.valid() &&
+        targetWidth > 0 && targetHeight > 0 &&
+        (!this.enabled || (
+            this.x <= targetWidth && this.y <= targetHeight &&
+            this.width <= targetWidth - this.x &&
+            this.height <= targetHeight - this.y
+        ))
+}
+
 class RasterPipelineState(
     val topology: int = primitiveTopologyTriangleList,
     val cullMode: int = cullModeNone,
     val frontFace: int = frontFaceCounterClockwise,
-    val packedBlendState: int = 125833218
+    val packedBlendState: int = 125833218,
+    val viewport: GraphicsViewport = GraphicsViewport(),
+    val scissor: GraphicsScissor = GraphicsScissor()
 ) {
     fun blendEnabled(): bool = (this.packedBlendState & 1) != 0
     fun colorBlendSource(): int = (this.packedBlendState >>> 1) & 15
@@ -141,7 +197,12 @@ class RasterPipelineState(
         this.alphaBlendSource() <= blendFactorOneMinusDestinationAlpha &&
         this.alphaBlendDestination() <=
             blendFactorOneMinusDestinationAlpha &&
-        this.alphaBlendOperation() <= blendOperationMaximum
+        this.alphaBlendOperation() <= blendOperationMaximum &&
+        this.viewport.valid() && this.scissor.valid()
+
+    fun fits(targetWidth: int, targetHeight: int): bool = this.valid() &&
+        this.viewport.fits(targetWidth, targetHeight) &&
+        this.scissor.fits(targetWidth, targetHeight)
 
     fun resolvedBlend(): ColorBlendState = ColorBlendState(
         this.blendEnabled(),
@@ -164,12 +225,14 @@ fun rasterPipelineState(
     cullMode: int = cullModeNone,
     frontFace: int = frontFaceCounterClockwise,
     alphaBlend: bool = false,
-    blend: ColorBlendState = ColorBlendState()
+    blend: ColorBlendState = ColorBlendState(),
+    viewport: GraphicsViewport = GraphicsViewport(),
+    scissor: GraphicsScissor = GraphicsScissor()
 ): RasterPipelineState {
     val selected = if (alphaBlend) graphicsAlphaBlendState() else blend
     val packed = if (!blend.valid() || (alphaBlend && blend.enabled)) 134217728
         else graphicsPackedBlendState(selected)
-    RasterPipelineState(topology, cullMode, frontFace, packed)
+    RasterPipelineState(topology, cullMode, frontFace, packed, viewport, scissor)
 }
 
 val graphicsMaximumInt = 9223372036854775807

@@ -1,0 +1,89 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl else
+        if (requested == "vulkan") graphicsBackendVulkan else
+        graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics viewport and scissor",
+            width = 320,
+            height = 240
+        )
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() { color = vec4(1.0, 0.0, 0.0, 1.0); }
+        }
+    }
+    val texture = app.texture(TextureDescriptor(
+        label = "viewport-scissor-color",
+        size = Extent3D(64, 64),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    ))
+    val target = app.renderTarget(move(texture))
+    val viewport = GraphicsViewport(true, 8, 6, 48, 44, 0.0, 1.0)
+    val scissor = GraphicsScissor(true, 24, 14, 16, 16)
+    val raster = rasterPipelineState(
+        viewport = viewport,
+        scissor = scissor
+    )
+    val pipeline = app.renderTargetPipeline(
+        target,
+        shader,
+        VertexBufferLayout(),
+        raster
+    )
+    val invalidRejected = !GraphicsViewport(
+        true, 60, 0, 8, 8
+    ).fits(64, 64) && !GraphicsScissor(
+        true, 0, 60, 8, 8
+    ).fits(64, 64) && !rasterPipelineState(
+        viewport = GraphicsViewport(true, 0, 0, 0, 8)
+    ).valid()
+    val clear = Color(0.0, 0.0, 1.0, 1.0)
+    var rendered = app.valid() && shader.valid && target.valid() &&
+        raster.fits(64, 64) && pipeline.valid() && invalidRejected &&
+        app.renderToTarget(target, pipeline, clear)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var frame = 0
+    while (rendered && frame < 1000) {
+        rendered = app.renderToTarget(target, pipeline, clear)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val inside = target.texture.rgba8TopLeft(32, 22)
+    val above = target.texture.rgba8TopLeft(32, 8)
+    val below = target.texture.rgba8TopLeft(32, 40)
+    val left = target.texture.rgba8TopLeft(16, 22)
+    val right = target.texture.rgba8TopLeft(48, 22)
+    val red = 4278190335
+    val blue = 4294901760
+    val stable = rendered && frame == 1000 && invalidRejected &&
+        inside == red && above == blue && below == blue &&
+        left == blue && right == blue && liveAfter == liveBefore
+    println(
+        "viewport-scissor ${graphicsBackendName(app.backend)}: inside=$inside outside=$above/$below/$left/$right viewport=${viewport.x},${viewport.y}/${viewport.width}x${viewport.height} scissor=${scissor.x},${scissor.y}/${scissor.width}x${scissor.height} frames=${frame + 1} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

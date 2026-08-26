@@ -252,6 +252,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   lives, win/loss/reset states, and the same allocation-free `PixelBuffer`
   frame presented on OpenGL or Vulkan; its automated mode proves 1,001
   allocation-stable frames and exact simulation transitions;
+- `examples/viewport-scissor`: immutable top-left viewport/depth-range and
+  scissor rectangles produce one exact asymmetric region through 1,001
+  allocation-free OpenGL/Vulkan/auto draws;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
   pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
   buffer and common index buffer rendered unchanged on explicit OpenGL and
