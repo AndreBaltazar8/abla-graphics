@@ -1677,7 +1677,122 @@ trusted fun graphSubpassCommandProbe(var app: GraphicsApplication): bool {
         "graph-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} exact=$exact tamper=$tamperRejected/$nativeTamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
     recorded && tamperRejected && nativeTamperRejected && stable &&
-        graphComputeCommandProbe(app)
+        graphPushSubpassCommandProbe(app)
+}
+
+trusted fun graphPushSubpassCommandProbe(var app: GraphicsApplication): bool {
+    val colorDescriptor = TextureDescriptor(
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val depthDescriptor = TextureDescriptor(
+        size = Extent3D(16, 16),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(152, "push-subpass-color", false, 0, 152),
+        GraphicsGraphResource(153, "push-subpass-depth", false, 0, 153)
+    ], [
+        GraphicsGraphPass(961, "recorded-push-subpasses", [
+            GraphicsGraphUse(152, graphAccessWrite),
+            GraphicsGraphUse(153, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(152, colorDescriptor),
+        GraphicsGraphTextureDeclaration(153, depthDescriptor)
+    ], [])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw { vec4 tint; } draw;
+            void main() { color = draw.tint; }
+        }
+    }
+    val target = app.renderTargetWithDepth(
+        app.texture(colorDescriptor), app.texture(depthDescriptor)
+    )
+    val pass = app.renderPass(
+        target,
+        renderPassClearValues(Color(0.0, 0.0, 0.0), [], 1.0),
+        RenderPassOperations(),
+        2
+    )
+    val first = app.renderPassPipeline(
+        target, pass, 0, shader,
+        VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(
+            enabled = true, write = true, compare = compareFunctionNever
+        )
+    )
+    val second = app.renderPassPipeline(
+        target, pass, 1, shader,
+        VertexBufferLayout(), RasterPipelineState(),
+        DepthStencilState(
+            enabled = true, write = false, compare = compareFunctionAlways
+        )
+    )
+    val sequence = app.subpassPipelines(
+        target, pass, [move(first), move(second)]
+    )
+    val constants = sequence.pushConstants()
+    val initialized = constants.storeF32(0, 1.0, 0) &&
+        constants.storeF32(0, 0.0, 4) &&
+        constants.storeF32(0, 0.0, 8) &&
+        constants.storeF32(0, 1.0, 12) &&
+        constants.storeF32(1, 0.12, 0) &&
+        constants.storeF32(1, 0.54, 4) &&
+        constants.storeF32(1, 0.96, 8) &&
+        constants.storeF32(1, 1.0, 12)
+    val commands = app.graphCommandList(graph, 2)
+    val recorded = graph.valid() && shader.valid && target.valid() &&
+        pass.valid() && sequence.valid() && constants.valid() && initialized &&
+        commands.valid() && commands.recordPass(graph, 961) &&
+        commands.recordRenderPushSubpasses(
+            graph, [152], [], 153,
+            move(target), move(pass), move(sequence), constants
+        ) && commands.seal(graph) && commands.prepared &&
+        commands.subpassPushIndices[1] == 0 &&
+        constants.storeF32(1, 0.0, 0) &&
+        constants.storeF32(1, 1.0, 4) &&
+        constants.storeF32(1, 0.0, 8)
+    val firstSize = commands.subpassPushConstants[0].sizes[0]
+    commands.subpassPushConstants[0].sizes[0] = firstSize + 4
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.subpassPushConstants[0].sizes[0] = firstSize
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val exact = commands.subpassTargets[0].texture.rgba8(8, 8) == 4294281759
+    val stable = succeeded && iteration == 1001 && exact &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        commands.failedExecutions == 1 && graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-push-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} bytes=${commands.subpassPushConstants[0].bytes.size} exact=$exact snapshot=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 
 trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {

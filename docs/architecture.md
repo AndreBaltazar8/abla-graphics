@@ -207,7 +207,7 @@ lifetimes. Replay performs no descriptor construction or live-memory growth.
 OpenGL uses the existing direct operations. An eligible Vulkan stream records
 graph memory dependencies, the 2D texture copy, render, and compute dispatch
 into one retained command buffer, then submits once; direct APIs remain
-unchanged. Later slices must add bind-group/reflected-push subpass forms,
+unchanged. Later slices must add bind-group subpass forms,
 broader copy/compute forms, frames in
 flight, and GPU-completion-aware retention.
 

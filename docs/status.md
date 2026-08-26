@@ -579,9 +579,11 @@ Updated: 2026-08-26.
   `examples/recorded-graph-subpasses` owns a compatible render pass, target,
   and ordered two-stage procedural sequence in one graph record. OpenGL replays
   both stages directly; Vulkan records both native subpasses inside the graph's
-  retained command buffer. Its 1,001 exact replays have zero live growth and
-  zero/1,001 OpenGL/Vulkan submissions, and the focused gate rejects sealed
-  depth-ID plus cached Vulkan sequence-handle mutation.
+  retained command buffer. Its reflected form snapshots one bounded aggregate
+  and selects each stage's stored range during replay. Its 1,001 exact replays
+  have zero live growth and zero/1,001 OpenGL/Vulkan submissions, and the
+  focused gates reject sealed depth-ID, cached Vulkan sequence-handle, and push
+  metadata mutation while preserving source-mutation-independent output.
   The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -603,7 +605,7 @@ Updated: 2026-08-26.
   identities, one barrier per replay, one consolidated Vulkan submission, and
   zero growth. Sealed logical/bind-group identity and transient backing-usage
   tampering reject before execution. Compute sampled/image bindings,
-  bind-group/reflected-push subpass forms, broader command forms, asynchronous
+  bind-group subpass forms, broader command forms, asynchronous
   submission, and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,

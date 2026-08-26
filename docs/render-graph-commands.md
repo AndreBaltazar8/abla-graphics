@@ -298,15 +298,18 @@ submission. Buffered callers compose one of four affine draw-resource factories
 with `recordRenderAttachments(...)` or its `Push` form; the proof uses
 indexed-indirect push and the sample uses direct vertices.
 
-Procedural subpass records use `recordRenderSubpasses(...)`. The command owns
-the target, compatible render pass, and ordered affine pipeline sequence; the
-graph names every ordered color/resolve attachment and optional depth write.
+Procedural subpass records use `recordRenderSubpasses(...)` or
+`recordRenderPushSubpasses(...)`. The command owns the target, compatible
+render pass, and ordered affine pipeline sequence; the graph names every
+ordered color/resolve attachment and optional depth write. The push form copies
+the complete reflected two-to-eight-stage value aggregate into bounded
+command-owned storage before sealing.
 OpenGL replays the stages in order. Vulkan records the entire native subpass
 sequence inside the graph's retained command buffer and preserves one submit
 per complete replay. The focused proof rejects sealed depth-ID and cached
 Vulkan sequence-handle mutation, then replays exact RGBA8 `4294281759` 1,001
 times with zero live growth.
 
-Compute sampled/image bindings, bind-group and reflected-push subpass records,
-broader copy/dispatch forms, frames in flight, and
+Compute sampled/image bindings, bind-group subpass records, broader
+copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

@@ -319,8 +319,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   4x colors, two resolves, and depth, producing exact red/green output through
   1,001 allocation-free replays;
 - `examples/recorded-graph-subpasses`: one graph record owns a compatible pass,
-  target, and ordered two-stage procedural sequence, producing exact output
-  through 1,001 allocation-free replays and one Vulkan submission per replay;
+  target, ordered two-stage procedural sequence, and snapshotted reflected
+  values, producing exact output through 1,001 allocation-free replays and one
+  Vulkan submission per replay;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

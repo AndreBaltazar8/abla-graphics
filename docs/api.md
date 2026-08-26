@@ -1876,6 +1876,8 @@ commands.recordRenderSubpasses(
     move(compatiblePass),
     move(subpassSequence)
 )
+// recordRenderPushSubpasses(...) accepts the same affine resources plus one
+// reflected GraphicsSubpassPushConstants aggregate and snapshots its bytes.
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1937,10 +1939,16 @@ procedural sequence. It binds ordered imported color IDs, zero or one resolve
 ID per color, and optional depth to exact pass writes and descriptors. OpenGL
 executes the stages in order; eligible Vulkan graph streams record the native
 sequence into the same retained command buffer and submit once. Compute
-sampled/image bindings, bind-group or reflected-push subpass forms, broader
+sampled/image bindings and bind-group subpass forms, broader
 copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
+
+`recordRenderPushSubpasses` applies the same attachment contract and copies the
+complete reflected per-stage aggregate into command-owned storage, bounded at
+1,024 bytes. Later source mutation cannot affect replay. OpenGL binds each
+stage's stored range through its persistent push UBO; Vulkan records matching
+`vkCmdPushConstants` ranges inside the same consolidated graph submission.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

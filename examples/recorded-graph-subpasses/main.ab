@@ -55,9 +55,8 @@ trusted fun main: int {
         fragment {
             #version 450
             layout(location = 0) out vec4 color;
-            void main() {
-                color = vec4(0.12, 0.54, 0.96, 1.0);
-            }
+            layout(push_constant) uniform Draw { vec4 tint; } draw;
+            void main() { color = draw.tint; }
         }
     }
     val target = app.renderTargetWithDepth(
@@ -86,14 +85,27 @@ trusted fun main: int {
     val sequence = app.subpassPipelines(
         target, pass, [move(first), move(second)]
     )
+    val constants = sequence.pushConstants()
+    val initialized = constants.storeF32(0, 1.0, 0) &&
+        constants.storeF32(0, 0.0, 4) &&
+        constants.storeF32(0, 0.0, 8) &&
+        constants.storeF32(0, 1.0, 12) &&
+        constants.storeF32(1, 0.12, 0) &&
+        constants.storeF32(1, 0.54, 4) &&
+        constants.storeF32(1, 0.96, 8) &&
+        constants.storeF32(1, 1.0, 12)
     val commands = app.graphCommandList(graph, 2)
     var succeeded = app.valid() && graph.valid() && shader.valid &&
         target.valid() && pass.valid() && sequence.valid() &&
-        commands.valid() && commands.recordPass(graph, 10) &&
-        commands.recordRenderSubpasses(
+        constants.valid() && initialized && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordRenderPushSubpasses(
             graph, [0], [], 1,
-            move(target), move(pass), move(sequence)
-        ) && commands.seal(graph)
+            move(target), move(pass), move(sequence), constants
+        ) && commands.seal(graph) &&
+        constants.storeF32(1, 0.0, 0) &&
+        constants.storeF32(1, 1.0, 4) &&
+        constants.storeF32(1, 0.0, 8)
     val liveBefore = runtimeMemoryLiveBytes()
     var iteration = 0
     while (succeeded && iteration < 1001) {
@@ -109,7 +121,7 @@ trusted fun main: int {
         commands.vulkanSubmissions ==
             (if (app.backend == graphicsBackendVulkan) 1001 else 0)
     println(
-        "recorded-graph-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} exact=$exact executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+        "recorded-graph-subpasses ${graphicsBackendName(app.backend)}: stages=${commands.subpassSequences[0].pipelines.size} bytes=${commands.subpassPushConstants[0].bytes.size} exact=$exact snapshot=$exact executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
     if (stable) 0 else 1
 }

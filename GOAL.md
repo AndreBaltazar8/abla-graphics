@@ -107,6 +107,9 @@ nix-shell --run 'make check-abla-only'
 - Recorded-subpass implementation commit:
   `f69c0ba12b6f756bbdb7a7c2bb6941df9d25bddc`
   (`Record graph subpass sequences`).
+- Published tip before the reflected-subpass checkpoint:
+  `b6b7d82644fa155fc161d8d2da20ef4620441d9f`
+  (`Update graphics continuation handoff`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -496,8 +499,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups and reflected subpass values
-   without unbounded command variants or warmed allocation.
+1. Generalize render records to bind groups without unbounded command variants
+   or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -608,9 +611,13 @@ per complete replay.
 The focused gate rejects sealed depth-ID and cached Vulkan sequence-handle
 mutation, then produces exact RGBA8 `4294281759` through 1,001 OpenGL/Vulkan
 replays with `live=0` and zero/1,001 submissions.
-`examples/recorded-graph-subpasses` independently repeats the
-public workflow; its no-cache executable has no unresolved `ldd` entry with
-`LD_LIBRARY_PATH` removed and passes both backends. The sample matrix now has
+`recordRenderPushSubpasses(...)` adds a bounded 1,024-byte command-owned copy of
+the reflected per-stage aggregate. The focused proof mutates its source after
+sealing, rejects sealed size metadata mutation, and keeps the exact result with
+the same replay/submission evidence.
+`examples/recorded-graph-subpasses` independently repeats the reflected public
+workflow; its no-cache executable has no unresolved `ldd` entry with
+`LD_LIBRARY_PATH` removed and passes both backends. The sample matrix remains
 51 roots. No graphics implementation uses C, GLFW, SDL, or a native shim.
 
 ## Published checkpoint: planner buffers and sealed compute push data
