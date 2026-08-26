@@ -251,9 +251,9 @@ No `../ablac` change was needed. It remained clean and synchronized at
 
 ### Immediate continuation sequence
 
-1. Generalize recorded compute to planner-visible buffer resources, multiple
-   bindings, push constants, and derived buffer hazards without warmed
-   allocation.
+1. Generalize planner-visible buffers from the delivered imported single-
+   binding form to multiple compute bindings and bounded transient-buffer
+   pooling/aliasing without warmed allocation.
 2. Generalize render records to buffered/indexed/indirect forms, bind groups,
    push constants, depth, resolves, MRT, and subpasses without unbounded command
    variants or warmed allocation.
@@ -268,6 +268,69 @@ No `../ablac` change was needed. It remained clean and synchronized at
    frame-rate/memory evidence.
 6. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
+
+## Current checkpoint: planner buffers and sealed compute push data
+
+This working checkpoint generalizes typed graph materialization with
+`GraphicsGraphBufferDeclaration` and
+`GraphicsApplication.materializeRenderGraphResources(...)`. Exactly one
+exclusive texture or buffer declaration is required per logical resource.
+Buffers are imported-only in this slice: their descriptor size must match the
+planner resource size, while transient buffer declarations reject before pool
+creation.
+
+Recorded compute now names that logical buffer and requires the current pass to
+declare exact `graphAccessReadWrite`. The moved buffer descriptor and the
+pipeline's retained native binding must agree, so ordinary planner hazards can
+drive backend barriers without claiming transient buffer pooling. The new
+`recordComputeStoragePush(...)` copies reflected push bytes into preallocated
+128-byte-per-command native storage. Push size and bytes join the sealed
+fingerprint, so changing the source constants after recording cannot alter
+replay. `GraphicsComputePipeline.dispatchRaw(...)` is the checked internal
+bridge used by direct OpenGL replay; consolidated Vulkan records the same bytes
+without an extra submission.
+
+The focused compute proof uses two passes over one imported logical buffer. Its
+read/write-to-read dependency derives exactly one barrier per replay. It rejects
+transient and size-mismatched buffer declarations, a pipeline bound to a
+different native buffer, and post-seal handle mutation. It also rejects an
+oversized post-seal push-size mutation before fingerprinting. After sealing
+add-one, it changes the source constant to seven yet reaches exact value `1001`
+over 1,001 replays with exact barrier counts `1/1001/1001`, stable buffer/
+pipeline/command-pool identities, zero warmed live-byte growth, zero OpenGL
+Vulkan submissions, and exactly 1,001 Vulkan submissions. The independent
+sample seals add-three, changes its source value to nine, and reaches exact
+value `3003` with the same barrier, identity, allocation, and submission
+guarantees.
+
+Verified on the working source on 2026-08-26:
+
+- `make test-core test-graph-texture test-graph-commands` passed;
+- the independent sample passed both explicit backends after a direct
+  unresolved-library audit with `LD_LIBRARY_PATH` removed;
+- forced `VK_LAYER_KHRONOS_validation` replay returned the expected status and
+  produced a zero-line validation log;
+- the complete `make all` aggregate passed, including the Abla-only audit and
+  direct runtime-linkage gate with `unresolved=0`; and
+- the final 43-root no-cache `make test-samples` matrix rebuilt every sample,
+  audited every canonical executable with `LD_LIBRARY_PATH` removed and found
+  zero unresolved libraries, then passed the complete live OpenGL/Vulkan
+  matrix. The modified sample retained exact `3003`, `snapshot=true`,
+  `1/1001/1001` barriers, zero/1,001 submissions, stable handles, and `live=0`.
+
+After final review added the bounded push-metadata rejection, the focused gate,
+zero-line Vulkan validation replay, complete `make all`, and complete 43-root
+no-cache build/link/live matrix were all rerun successfully on that exact final
+source. The focused result reports `tamper=true/true` on every backend
+selection.
+
+Current intended checkpoint paths are `src/compute.ab`,
+`src/graph_texture.ab`, `src/graph_commands.ab`,
+`tests/graph_commands/main.ab`, `examples/recorded-graph-compute/main.ab`,
+`README.md`, `docs/api.md`, `docs/architecture.md`,
+`docs/render-graph-textures.md`, `docs/render-graph-commands.md`,
+`docs/status.md`, `plan.md`, and this handoff. No `../ablac` change is needed
+so far; verify its clean state again before publication.
 
 ## Published checkpoint: recorded storage compute and direct launches
 

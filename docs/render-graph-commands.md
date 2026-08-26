@@ -1,9 +1,10 @@
 # Bounded render-graph command lists
 
 The reusable render-graph command slice records ordered pass entry,
-graph-owned transient texture copies, and a typed procedural offscreen render
-into fixed-capacity affine storage. It is an optional layer over the existing
-direct APIs and materialized graph executor; it does not replace either one.
+graph-owned transient texture copies, a typed procedural offscreen render, and
+a planner-visible storage-buffer compute dispatch into fixed-capacity affine
+storage. It is an optional layer over the existing direct APIs and materialized
+graph executor; it does not replace either one.
 
 ```abla
 val commands = app.graphCommandList(graph, 6)
@@ -51,13 +52,21 @@ one application-owned `GraphicsRenderTarget` and its compatible
 must exactly match the target texture's storage descriptor; labels are not part
 of storage compatibility.
 
-`recordComputeStorage` moves one storage buffer and the
-`GraphicsComputePipeline` created against that exact native buffer into the
-list, then records positive checked workgroup counts. The current form accepts
-one binding-zero storage block and no push constants. The buffer is owned by the
-list because the native pipeline descriptor retains its handle. It is not yet a
-logical render-graph buffer resource, so this slice does not derive inter-buffer
-hazards or permit the same affine buffer to be reused by multiple records.
+`recordComputeStorage` names an imported logical buffer resource, then moves one
+storage buffer and the `GraphicsComputePipeline` created against that exact
+native buffer into the list. The current pass must declare that resource as
+`graphAccessReadWrite`, and its `GraphicsGraphBufferDeclaration` must exactly
+match the moved buffer's size, usage, mapping, and memory-placement fields.
+Positive workgroup counts remain checked against the device limits.
+
+`recordComputeStoragePush` adds reflected `GraphicsPushConstants`. Recording
+copies the exact bytes into the command list's preallocated 128-byte-per-command
+native storage. The source value may therefore be changed or dropped after a
+successful record without changing replay. The size, bytes, logical resource
+ID, descriptor, native buffer/pipeline identities, and workgroups all
+participate in seal validation and fingerprinting. This slice still accepts one
+binding-zero storage block per compute pipeline; general bind groups and
+multiple buffer bindings remain open.
 
 The current command kinds are deliberately limited to:
 
@@ -67,8 +76,8 @@ The current command kinds are deliberately limited to:
   existing common texture-copy path; and
 - one procedural draw to one single-sample color target, with no depth,
   resolves, vertex buffer, bind group, or push constants; and
-- one owned binding-zero storage-buffer compute dispatch with no push
-  constants.
+- one owned binding-zero storage-buffer compute dispatch, optionally with one
+  reflected push-constant block of at most 128 bytes.
 
 General render/compute bindings, queries, debug groups, and presentation are
 not recordable in this slice. Applications continue to use their existing
@@ -79,8 +88,10 @@ direct calls for those operations.
 `seal(graph)` validates the entire stream once. Every planned pass must appear
 exactly once and in order; every copy, render, and compute dispatch must remain legal in its
 containing pass; and at least the pass markers must fit. A successful seal
-stores a primitive fingerprint of all used command fields and resource
-descriptors.
+stores a primitive fingerprint of all used command fields, resource
+descriptors, and copied push bytes.
+Per-command push sizes are bounded before fingerprinting, so mutation of the
+exposed diagnostic arrays cannot turn rejection into an unbounded byte scan.
 
 Execution rejects the list before opening a graph execution when:
 
@@ -150,11 +161,15 @@ successful list replays, and zero live-memory growth over the 1,000-replay
 warmed loop. OpenGL reports zero Vulkan submissions; Vulkan reports exactly
 1,001, one for each complete replay.
 
-Its two-command compute proof rejects a pipeline bound to a different storage
-buffer, then increments an owned buffer to exact value `1001` through 1,001
-replays. Buffer, pipeline, and Vulkan command-pool handles remain stable with
-zero live growth; OpenGL reports zero Vulkan submissions and Vulkan exactly
-1,001. Native resource identities participate in the seal fingerprint.
+Its three-command, two-pass compute proof rejects transient and size-mismatched
+buffer declarations plus a pipeline bound to a different storage buffer. It
+records an add-one push constant, mutates the source value after sealing, then
+increments the owned buffer to exact value `1001` through 1,001 replays. The
+planner derives one read/write-to-read buffer hazard, producing exact barrier
+counts `1/1001/1001`. Buffer, pipeline, and Vulkan command-pool handles remain
+stable with zero live growth; OpenGL reports zero Vulkan submissions and Vulkan
+exactly 1,001. Native resource identities and copied push bytes participate in
+the seal fingerprint.
 
 `examples/recorded-graph-copy`, `examples/recorded-graph-render`, and
 `examples/recorded-graph-compute` are
@@ -168,6 +183,7 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-General render/compute bindings and push constants, depth/resolves, broader
-copy/dispatch forms, frames in flight, and
+General render/compute bind groups and multiple compute bindings,
+transient-buffer pooling, depth/resolves, broader copy/dispatch forms, frames
+in flight, and
 GPU-completion-aware retention remain milestone 5 work.

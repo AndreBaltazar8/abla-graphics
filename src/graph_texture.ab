@@ -20,6 +20,13 @@ class GraphicsGraphTextureDeclaration(
     fun valid(): bool = this.resourceId >= 0 && this.texture.valid()
 }
 
+class GraphicsGraphBufferDeclaration(
+    val resourceId: int,
+    val buffer: BufferDescriptor
+) {
+    fun valid(): bool = this.resourceId >= 0 && this.buffer.valid()
+}
+
 fun textureDescriptorStorageBytes(texture: TextureDescriptor): int {
     var total = 0
     var mipLevel = 0
@@ -73,10 +80,24 @@ fun graphicsGraphTextureDeclarationIndex(
     result
 }
 
+fun graphicsGraphBufferDeclarationIndex(
+    declarations: array<GraphicsGraphBufferDeclaration>,
+    resourceId: int
+): int {
+    var result = -1
+    var index = 0
+    while (result < 0 && index < declarations.size) {
+        if (declarations[index].resourceId == resourceId) result = index
+        index = index + 1
+    }
+    result
+}
+
 resource class GraphicsMaterializedRenderGraph(
     val resources: array<GraphicsGraphResource>,
     val passes: array<GraphicsGraphPass>,
     val declarations: array<GraphicsGraphTextureDeclaration>,
+    val bufferDeclarations: array<GraphicsGraphBufferDeclaration>,
     val plan: GraphicsRenderGraphPlan,
     val compiledBarrierCounts: array<int>,
     val compiledSourceAccesses: array<int>,
@@ -100,7 +121,8 @@ resource class GraphicsMaterializedRenderGraph(
         var accepted = !this.error.occurred() && this.plan.valid() &&
             this.resources.size > 0 &&
             this.resources.size <= graphicsMaximumGraphTextureResources &&
-            this.declarations.size == this.resources.size &&
+            this.declarations.size + this.bufferDeclarations.size ==
+                this.resources.size &&
             this.resourceSlots.size == this.resources.size &&
             this.compiledBarrierCounts.size == this.plan.order.size &&
             this.compiledSourceAccesses.size == this.plan.order.size &&
@@ -147,16 +169,33 @@ resource class GraphicsMaterializedRenderGraph(
                 this.declarations,
                 this.resources[resourceIndex].id
             )
-            accepted = declarationIndex >= 0 &&
-                this.declarations[declarationIndex].valid()
-            if (accepted && this.resources[resourceIndex].transient) {
+            val bufferDeclarationIndex =
+                graphicsGraphBufferDeclarationIndex(
+                    this.bufferDeclarations,
+                    this.resources[resourceIndex].id
+                )
+            accepted = (declarationIndex >= 0) !=
+                (bufferDeclarationIndex >= 0)
+            if (accepted && declarationIndex >= 0) {
+                accepted = this.declarations[declarationIndex].valid()
+            } else if (accepted) {
+                accepted = this.bufferDeclarations[
+                    bufferDeclarationIndex
+                ].valid() && !this.resources[resourceIndex].transient &&
+                    this.bufferDeclarations[
+                        bufferDeclarationIndex
+                    ].buffer.size == this.resources[resourceIndex].size &&
+                    this.resourceSlots[resourceIndex] == -1
+            }
+            if (accepted && declarationIndex >= 0 &&
+                this.resources[resourceIndex].transient) {
                 slot = this.resourceSlots[resourceIndex]
                 accepted = slot >= 0 && slot < this.pools.size &&
                     textureDescriptorsStorageCompatible(
                         this.declarations[declarationIndex].texture,
                         this.pools[slot].descriptor.texture
                     )
-            } else if (accepted) {
+            } else if (accepted && declarationIndex >= 0) {
                 accepted = this.resourceSlots[resourceIndex] == -1
             }
             resourceIndex = resourceIndex + 1
@@ -182,6 +221,18 @@ resource class GraphicsMaterializedRenderGraph(
         index >= 0 && !this.resources[index].transient
     }
 
+    fun textureResource(resourceId: int): bool =
+        graphicsGraphTextureDeclarationIndex(
+            this.declarations,
+            resourceId
+        ) >= 0
+
+    fun bufferResource(resourceId: int): bool =
+        graphicsGraphBufferDeclarationIndex(
+            this.bufferDeclarations,
+            resourceId
+        ) >= 0
+
     fun textureDescriptor(resourceId: int): TextureDescriptor {
         val declarationIndex = graphicsGraphTextureDeclarationIndex(
             this.declarations,
@@ -190,6 +241,16 @@ resource class GraphicsMaterializedRenderGraph(
         if (declarationIndex >= 0)
             this.declarations[declarationIndex].texture
         else TextureDescriptor()
+    }
+
+    fun bufferDescriptor(resourceId: int): BufferDescriptor {
+        val declarationIndex = graphicsGraphBufferDeclarationIndex(
+            this.bufferDeclarations,
+            resourceId
+        )
+        if (declarationIndex >= 0)
+            this.bufferDeclarations[declarationIndex].buffer
+        else BufferDescriptor()
     }
 
     fun currentAccess(resourceId: int): int {
@@ -274,10 +335,11 @@ resource class GraphicsMaterializedRenderGraph(
     }
 }
 
-trusted fun GraphicsApplication.materializeRenderGraphTextures(
+trusted fun GraphicsApplication.materializeRenderGraphResources(
     resources: array<GraphicsGraphResource>,
     passes: array<GraphicsGraphPass>,
-    declarations: array<GraphicsGraphTextureDeclaration>
+    declarations: array<GraphicsGraphTextureDeclaration>,
+    bufferDeclarations: array<GraphicsGraphBufferDeclaration>
 ): GraphicsMaterializedRenderGraph {
     val plan = graphicsRenderGraph(resources, passes)
     val pools: array<GraphicsTexturePool> = []
@@ -291,19 +353,20 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
     var error = GraphicsError()
     if (!this.valid()) error = GraphicsError(
         graphicsErrorInvalidConfiguration,
-        "GraphicsApplication.materializeRenderGraphTextures",
-        "graph texture materialization requires a valid application"
+        "GraphicsApplication.materializeRenderGraphResources",
+        "graph resource materialization requires a valid application"
     )
     else if (!plan.valid()) error = GraphicsError(
         plan.error.code,
-        "GraphicsApplication.materializeRenderGraphTextures",
+        "GraphicsApplication.materializeRenderGraphResources",
         plan.error.message
     )
     else if (resources.size > graphicsMaximumGraphTextureResources ||
-        declarations.size != resources.size) error = GraphicsError(
+        declarations.size + bufferDeclarations.size !=
+            resources.size) error = GraphicsError(
         graphicsErrorLimitExceeded,
-        "GraphicsApplication.materializeRenderGraphTextures",
-        "every graph resource needs one typed texture declaration and at most 256 resources are supported"
+        "GraphicsApplication.materializeRenderGraphResources",
+        "every graph resource needs one typed texture or imported-buffer declaration and at most 256 resources are supported"
     )
 
     var passPosition = 0
@@ -341,20 +404,56 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
             declarations,
             graphResource.id
         )
-        var duplicate = false
+        val bufferDeclarationIndex = graphicsGraphBufferDeclarationIndex(
+            bufferDeclarations,
+            graphResource.id
+        )
+        var textureDuplicate = false
         var declarationScan = 0
         while (declarationScan < declarations.size) {
             if (declarations[declarationScan].resourceId == graphResource.id &&
-                declarationScan != declarationIndex) duplicate = true
+                declarationScan != declarationIndex) textureDuplicate = true
             declarationScan = declarationScan + 1
         }
-        if (declarationIndex < 0 || duplicate ||
-            !declarations[declarationIndex].valid()) {
+        var bufferDuplicate = false
+        declarationScan = 0
+        while (declarationScan < bufferDeclarations.size) {
+            if (bufferDeclarations[declarationScan].resourceId ==
+                graphResource.id &&
+                declarationScan != bufferDeclarationIndex)
+                bufferDuplicate = true
+            declarationScan = declarationScan + 1
+        }
+        if ((declarationIndex >= 0) == (bufferDeclarationIndex >= 0) ||
+            textureDuplicate || bufferDuplicate ||
+            (declarationIndex >= 0 &&
+             !declarations[declarationIndex].valid()) ||
+            (bufferDeclarationIndex >= 0 &&
+             !bufferDeclarations[bufferDeclarationIndex].valid())) {
             error = GraphicsError(
                 graphicsErrorInvalidConfiguration,
-                "GraphicsApplication.materializeRenderGraphTextures",
-                "graph texture declarations must be valid, unique, and complete"
+                "GraphicsApplication.materializeRenderGraphResources",
+                "graph resource declarations must be valid, unique, exclusive, and complete"
             )
+        } else if (bufferDeclarationIndex >= 0) {
+            val descriptor = bufferDeclarations[
+                bufferDeclarationIndex
+            ].buffer
+            val lifetimeIndex = graphicsGraphLifetimeIndex(
+                plan,
+                graphResource.id
+            )
+            slot = if (lifetimeIndex >= 0)
+                plan.lifetimes[lifetimeIndex].allocationSlot else -1
+            if (graphResource.transient || slot != -1 ||
+                descriptor.size != graphResource.size) {
+                error = GraphicsError(
+                    graphicsErrorInvalidConfiguration,
+                    "GraphicsApplication.materializeRenderGraphResources",
+                    "graph buffers are imported in this slice and must match the logical resource size"
+                )
+            }
+            resourceSlots.append(-1)
         } else {
             val descriptor = declarations[declarationIndex].texture
             val storageBytes = textureDescriptorStorageBytes(descriptor)
@@ -370,13 +469,13 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
                  plan.allocations[slot].capacity < storageBytes)) {
                 error = GraphicsError(
                     graphicsErrorInvalidConfiguration,
-                    "GraphicsApplication.materializeRenderGraphTextures",
+                    "GraphicsApplication.materializeRenderGraphResources",
                     "transient graph texture size and planned allocation must match its complete descriptor"
                 )
             } else if (!graphResource.transient && slot != -1) {
                 error = GraphicsError(
                     graphicsErrorInvalidConfiguration,
-                    "GraphicsApplication.materializeRenderGraphTextures",
+                    "GraphicsApplication.materializeRenderGraphResources",
                     "imported graph textures cannot receive transient allocations"
                 )
             } else if (graphResource.transient && slotDefined[slot] &&
@@ -386,7 +485,7 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
                 )) {
                 error = GraphicsError(
                     graphicsErrorInvalidConfiguration,
-                    "GraphicsApplication.materializeRenderGraphTextures",
+                    "GraphicsApplication.materializeRenderGraphResources",
                     "opaque graph compatibility cannot alias different texture descriptors"
                 )
             } else if (graphResource.transient && !slotDefined[slot]) {
@@ -403,7 +502,7 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
         if (!slotDefined[slot]) {
             error = GraphicsError(
                 graphicsErrorInvalidConfiguration,
-                "GraphicsApplication.materializeRenderGraphTextures",
+                "GraphicsApplication.materializeRenderGraphResources",
                 "every planned transient allocation needs a typed descriptor"
             )
         } else {
@@ -414,13 +513,13 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
             ))
             if (!pool.valid()) error = GraphicsError(
                 pool.error.code,
-                "GraphicsApplication.materializeRenderGraphTextures",
+                "GraphicsApplication.materializeRenderGraphResources",
                 pool.error.message
             )
             val lease = if (!error.occurred()) pool.acquire() else 0
             if (!texturePoolTokenValid(lease)) error = GraphicsError(
                 graphicsErrorDriverFailure,
-                "GraphicsApplication.materializeRenderGraphTextures",
+                "GraphicsApplication.materializeRenderGraphResources",
                 "failed to retain a physical transient texture"
             )
             pools.append(move(pool))
@@ -433,6 +532,7 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
         resources,
         passes,
         declarations,
+        bufferDeclarations,
         plan,
         compiledBarrierCounts,
         compiledSourceAccesses,
@@ -453,6 +553,17 @@ trusted fun GraphicsApplication.materializeRenderGraphTextures(
         error
     )
 }
+
+trusted fun GraphicsApplication.materializeRenderGraphTextures(
+    resources: array<GraphicsGraphResource>,
+    passes: array<GraphicsGraphPass>,
+    declarations: array<GraphicsGraphTextureDeclaration>
+): GraphicsMaterializedRenderGraph = this.materializeRenderGraphResources(
+    resources,
+    passes,
+    declarations,
+    []
+)
 
 trusted fun GraphicsApplication.writeGraphTextureBytes(
     var graph: GraphicsMaterializedRenderGraph,

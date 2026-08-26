@@ -191,15 +191,18 @@ and access unions are compiled once into bounded primitive arrays indexed by
 scheduled pass position, avoiding a planner-barrier scan during repeated entry.
 The optional affine command list preallocates primitive records for exact pass
 markers, all-transient texture copies, a narrow typed procedural offscreen
-render, and a storage-buffer compute dispatch. It affinely owns each recorded
-target/pipeline and compute buffer/pipeline, binds imported texture
-descriptors and graph-owned physical identities at seal, and replays without
+render, and a planner-visible imported storage-buffer compute dispatch. It
+affinely owns each recorded target/pipeline and compute buffer/pipeline, binds
+typed texture/buffer descriptors and graph-owned physical identities at seal,
+and copies reflected compute push bytes into bounded native command storage.
+The logical buffer participates in ordinary planner hazards even though
+transient buffer allocation is not yet materialized. Replay performs no
 descriptor construction or live-memory growth. OpenGL uses the existing direct
 operations. An eligible Vulkan stream records graph memory dependencies, the
 2D texture copy, render, and compute dispatch into one retained command buffer,
 then submits once; direct APIs remain unchanged. Later slices must add general
-bindings/push constants, broader command forms, frames in flight, and
-GPU-completion-aware retention.
+bind groups and multiple compute bindings, transient-buffer pooling, broader
+command forms, frames in flight, and GPU-completion-aware retention.
 
 ## Specification coverage
 

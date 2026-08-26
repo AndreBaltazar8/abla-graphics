@@ -1728,6 +1728,15 @@ sharing. One retained capacity-one `GraphicsTexturePool` backs each physical
 slot, so compatible non-overlapping resources resolve to one stable OpenGL
 texture or Vulkan image while overlapping/incompatible resources do not.
 
+`app.materializeRenderGraphResources(resources, passes, textureDeclarations,
+bufferDeclarations)` additionally accepts exactly one typed declaration per
+logical resource. Buffers are imported-only at this checkpoint: their
+`BufferDescriptor.size` must match the planner resource size, and transient
+buffer declarations reject before pool creation. Recorded compute names that
+logical buffer and requires exact descriptor plus `graphAccessReadWrite`
+compatibility; the planner therefore derives buffer hazards without pretending
+that transient buffer pooling is already implemented.
+
 Execution uses generation tokens and scheduled pass entry. Upload, readback,
 transient/imported copy, and sampled-entry helpers require the logical resource
 ID and verify its declared access in the current pass. Imported resources
@@ -1768,10 +1777,12 @@ commands.recordRenderTarget(
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
-commands.recordComputeStorage(
+commands.recordComputeStoragePush(
     graph,
+    storageResourceId,
     move(storage),
     move(computePipeline),
+    computePushValues,
     1
 )
 
@@ -1784,10 +1795,13 @@ Creation preallocates capacity for at most 4,096 primitive records and captures
 the exact pass order, logical resources, physical slots, native identities, and
 storage descriptors. Recording accepts ordered pass markers, graph-owned
 transient texture range copies, a narrow procedural offscreen render to an
-imported target, and a storage-buffer compute dispatch. The command list takes
-affine ownership of render targets/pipelines and compute buffers/pipelines.
-The compute buffer is not yet a planner resource; this narrow form owns one
-exact pipeline-bound buffer rather than deriving general buffer hazards.
+imported target, and a planner-visible storage-buffer compute dispatch. The
+command list takes affine ownership of render targets/pipelines and compute
+buffers/pipelines. Compute recording names an imported logical buffer whose
+typed descriptor must exactly match the pipeline-bound buffer and whose pass
+access must be `graphAccessReadWrite`, so ordinary planner hazards drive backend
+barriers. The push form copies at most 128 reflected bytes into preallocated
+command storage; later source mutation cannot affect the sealed record.
 Sealing performs complete descriptor/access/range validation and
 fingerprints all used scalar fields. Replay rejects a different graph,
 incompatible imported storage, or post-seal mutation before opening an
@@ -1797,9 +1811,9 @@ Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL an
 unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
-and current-limit contract. General compute bindings and push constants,
-broader render/copy forms, frames in flight, and asynchronous submission remain
-future work.
+and current-limit contract. General bind groups and multiple compute bindings,
+transient-buffer pooling, broader render/copy forms, frames in flight, and
+asynchronous submission remain future work.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

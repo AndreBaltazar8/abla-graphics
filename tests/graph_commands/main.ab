@@ -437,20 +437,40 @@ trusted fun graphRenderCommandProbe(var app: GraphicsApplication): bool {
 }
 
 trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
-    val graphTextureDescriptor = TextureDescriptor(
-        label = "recorded-compute-graph-anchor",
-        size = Extent3D(1, 1),
-        format = textureFormatRgba8Unorm,
-        usage = textureUsageCopyDestination
+    val storageDescriptor = BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
     )
-    val graph = app.materializeRenderGraphTextures([
-        GraphicsGraphResource(20, "compute-anchor", true, 4, 40)
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(20, "compute-buffer", false, 8, 40)
     ], [
         GraphicsGraphPass(500, "recorded-compute", [
+            GraphicsGraphUse(20, graphAccessReadWrite)
+        ]),
+        GraphicsGraphPass(501, "consume-compute", [
+            GraphicsGraphUse(20, graphAccessRead)
+        ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(20, storageDescriptor)
+    ])
+    val transientGraph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(20, "transient-buffer", true, 8, 40)
+    ], [
+        GraphicsGraphPass(500, "invalid-transient", [
             GraphicsGraphUse(20, graphAccessWrite)
         ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(20, storageDescriptor)
+    ])
+    val mismatchedGraph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(20, "wrong-size-buffer", false, 4, 40)
     ], [
-        GraphicsGraphTextureDeclaration(20, graphTextureDescriptor)
+        GraphicsGraphPass(500, "invalid-size", [
+            GraphicsGraphUse(20, graphAccessWrite)
+        ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(20, storageDescriptor)
     ])
     val shader = $glsl {
         compute {
@@ -459,51 +479,56 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
             layout(std430, binding = 0) buffer Values {
                 uint value;
             } values;
+            layout(push_constant) uniform Push {
+                uint addend;
+            } push;
             void main() {
-                values.value = values.value + 1u;
+                values.value = values.value + push.addend;
             }
         }
     }
-    val rejectedBinding = app.buffer(BufferDescriptor(
-        size = 8,
-        usage = bufferUsageStorage | bufferUsageCopySource |
-            bufferUsageCopyDestination
-    ))
-    val rejectedStorage = app.buffer(BufferDescriptor(
-        size = 8,
-        usage = bufferUsageStorage | bufferUsageCopySource |
-            bufferUsageCopyDestination
-    ))
+    val rejectedBinding = app.buffer(storageDescriptor)
+    val rejectedStorage = app.buffer(storageDescriptor)
     val rejectedPipeline = app.computeStoragePipeline(
         shader,
         rejectedBinding
     )
-    val storage = app.buffer(BufferDescriptor(
-        size = 8,
-        usage = bufferUsageStorage | bufferUsageCopySource |
-            bufferUsageCopyDestination
-    ))
+    val storage = app.buffer(storageDescriptor)
     val pipeline = app.computeStoragePipeline(shader, storage)
-    val commands = app.graphCommandList(graph, 2)
+    val pushValues = shader.pushConstants()
+    val commands = app.graphCommandList(graph, 3)
     val rejected = app.valid() && graph.valid() && shader.valid &&
+        !transientGraph.valid() && !mismatchedGraph.valid() &&
+        graph.plan.barriers.size == 1 && graph.pools.size == 0 &&
         rejectedBinding.valid() && rejectedStorage.valid() &&
         rejectedPipeline.valid() &&
         storage.writeI64(0) && storage.valid() && pipeline.valid() &&
-        commands.valid() && commands.recordPass(graph, 500) &&
-        !commands.recordComputeStorage(
+        pushValues.storeU32(1) && commands.valid() &&
+        commands.recordPass(graph, 500) &&
+        !commands.recordComputeStoragePush(
             graph,
+            20,
             move(rejectedStorage),
             move(rejectedPipeline),
+            pushValues,
             1
         ) && commands.commandCount == 1
-    val recorded = rejected && commands.recordComputeStorage(
+    val recorded = rejected && commands.recordComputeStoragePush(
         graph,
+        20,
         move(storage),
         move(pipeline),
+        pushValues,
         1
-    ) && commands.seal(graph) && commands.prepared &&
-        commands.commandCount == 2 && commands.computeBuffers.size == 1 &&
+    ) && commands.recordPass(graph, 501) && commands.seal(graph) &&
+        commands.prepared && commands.commandCount == 3 &&
+        commands.computeBuffers.size == 1 &&
         commands.computePipelines.size == 1 &&
+        commands.computeResourceIds[1] == 20 &&
+        commands.computePushSizes[1] == 4 &&
+        commands.computePushStorage.load(
+            graphicsMaximumGraphPushConstantBytes
+        ) == 1 && pushValues.storeU32(7) &&
         commands.consolidatedVulkan ==
             (app.backend == graphicsBackendVulkan)
     val storageIdentity = if (app.backend == graphicsBackendOpenGl)
@@ -513,12 +538,18 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
         commands.computePipelines[0].openGl.handle
     else commands.computePipelines[0].vulkan.handle
     val commandPoolIdentity = commands.computePipelines[0].vulkan.commandPool
+    commands.computePushSizes[1] =
+        graphicsMaximumGraphPushConstantBytes + 1
+    val pushMetadataTamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.computePushSizes[1] = 4
     if (app.backend == graphicsBackendOpenGl)
         commands.computePipelines[0].openGl.handle = pipelineIdentity + 1
     else commands.computePipelines[0].vulkan.handle = pipelineIdentity + 1
-    val tamperRejected = recorded &&
+    val tamperRejected = pushMetadataTamperRejected &&
         !app.executeGraphCommands(graph, commands) && !graph.executing &&
-        commands.failedExecutions == 1
+        commands.failedExecutions == 2
     if (app.backend == graphicsBackendOpenGl)
         commands.computePipelines[0].openGl.handle = pipelineIdentity
     else commands.computePipelines[0].vulkan.handle = pipelineIdentity
@@ -541,17 +572,16 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
             commands.computePipelines[0].vulkan.handle == pipelineIdentity &&
             commands.computePipelines[0].vulkan.commandPool ==
                 commandPoolIdentity) && commands.executions == 1001 &&
-        commands.failedExecutions == 1 &&
+        commands.failedExecutions == 2 &&
         commands.vulkanSubmissions ==
             (if (app.backend == graphicsBackendVulkan) 1001 else 0) &&
         graph.completedExecutions == 1001 &&
-        graph.lastExecutionBarriers == 0 &&
-        graph.totalExecutedBarriers == 0 &&
-        graph.backendBarrierCalls == 0 &&
-        graph.pools[0].acquisitionCount == 1
+        graph.lastExecutionBarriers == 1 &&
+        graph.totalExecutedBarriers == 1001 &&
+        graph.backendBarrierCalls == 1001 && graph.pools.size == 0
     val passed = recorded && tamperRejected && stable
     println(
-        "graph-compute-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} result=$result tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
+        "graph-compute-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} result=$result snapshot=${result == 1001} rejected=${!transientGraph.valid()}/${!mismatchedGraph.valid()} tamper=$pushMetadataTamperRejected/$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
     )
     passed
 }

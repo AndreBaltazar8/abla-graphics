@@ -60,6 +60,42 @@ resource class GraphicsComputePipeline(
         } else false
     }
 
+    trusted fun dispatchRaw(
+        x: int,
+        y: int,
+        z: int,
+        pushConstantData: i64*,
+        pushConstantSize: int
+    ): bool {
+        val pushValid =
+            (this.pushConstantLayout.size == 0 &&
+             pushConstantSize == 0 && pointerIsNull(pushConstantData)) ||
+            (this.pushConstantLayout.size > 0 &&
+             pushConstantSize == this.pushConstantLayout.size &&
+             !pointerIsNull(pushConstantData))
+        if (!this.valid() || !pushValid || x < 1 || y < 1 || z < 1 ||
+            x > this.limits.maximumComputeWorkgroupsX ||
+            y > this.limits.maximumComputeWorkgroupsY ||
+            z > this.limits.maximumComputeWorkgroupsZ) false
+        else if (this.backend == graphicsBackendOpenGl) {
+            this.openGl.dispatch(
+                x,
+                y,
+                z,
+                pushConstantData,
+                pushConstantSize
+            )
+        } else if (this.backend == graphicsBackendVulkan) {
+            this.vulkan.dispatch(
+                x,
+                y,
+                z,
+                pushConstantData,
+                pushConstantSize
+            )
+        } else false
+    }
+
     trusted fun drop(): void {
         this.openGl.drop()
         this.vulkan.drop()

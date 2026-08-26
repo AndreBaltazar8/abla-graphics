@@ -1,4 +1,4 @@
-# Materialized render-graph textures
+# Materialized render-graph resources
 
 `graphicsRenderGraph` remains a pure deterministic planner. Physical texture
 creation is a separate opt-in step:
@@ -22,6 +22,24 @@ class. Materialization always compares complete storage descriptors before
 sharing an object, so equal integers can never make different extents,
 dimensions, mip counts, sample counts, formats, or usage flags alias.
 Diagnostic labels do not affect compatibility.
+
+The generalized entry point also accepts imported buffer declarations:
+
+```abla
+val graph = app.materializeRenderGraphResources(
+    resources,
+    passes,
+    textureDeclarations,
+    [GraphicsGraphBufferDeclaration(bufferId, bufferDescriptor)]
+)
+```
+
+A logical resource must have exactly one exclusive texture or buffer
+declaration. Buffer descriptors must match the planner byte size. Buffers are
+imported-only in this slice: declaring a transient buffer is rejected before
+any physical pool is created. The pure planner still derives its access hazard
+from the logical resource, and recorded compute binds the corresponding
+caller-created buffer after exact descriptor and native-pipeline checks.
 
 ## Physical ownership
 
@@ -74,7 +92,7 @@ destroying the graph. `GraphicsApplication.waitIdle()` is available for
 diagnostic and final lifecycle boundaries, not required by
 `completeExecution()` on every frame. See `docs/render-graph-execution.md`.
 
-## Imported textures
+## Imported textures and buffers
 
 Imported logical resources have no pool or lease and remain caller-owned.
 Their typed declaration still defines the exact descriptor expected at a pass.
@@ -84,6 +102,11 @@ The caller supplies the real `GraphicsTexture` to
 checks application ownership, complete descriptor compatibility, the current
 execution token, the current pass, and read/write access before borrowing it.
 The graph never moves or destroys that texture.
+
+Imported logical buffers likewise have no pool or lease. The graph retains only
+their typed descriptor. A recorded compute command names the logical ID and
+moves the real buffer plus its exact bound pipeline into command-list ownership;
+the direct materialized graph does not borrow or destroy a buffer by itself.
 
 ## Evidence
 

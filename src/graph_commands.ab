@@ -11,12 +11,14 @@ import "graph_execute.ab"
 import "render.ab"
 import "buffer.ab"
 import "compute.ab"
+import "push_constants.ab"
 
 val graphicsGraphCommandPass = 1
 val graphicsGraphCommandTextureCopy = 2
 val graphicsGraphCommandRender = 3
 val graphicsGraphCommandCompute = 4
 val graphicsMaximumGraphCommands = 4096
+val graphicsMaximumGraphPushConstantBytes = 128
 
 fun graphicsGraphCommandFingerprintMix(state: int, value: int): int =
     ((state << 7) | (state >>> 57)) ^ value ^ (value >>> 32)
@@ -85,6 +87,54 @@ fun graphicsGraphTextureDescriptorFingerprint(
     if (fingerprint == 0) 1 else fingerprint
 }
 
+fun graphicsGraphBufferDescriptorFingerprint(
+    descriptor: BufferDescriptor
+): int {
+    var fingerprint = graphicsGraphCommandFingerprintMix(
+        1575540038426004383,
+        descriptor.size
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.usage
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        if (descriptor.mappedAtCreation) 1 else 0
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        if (descriptor.persistentMapping) 1 else 0
+    )
+    fingerprint = graphicsGraphCommandFingerprintMix(
+        fingerprint,
+        descriptor.memory
+    )
+    if (fingerprint == 0) 1 else fingerprint
+}
+
+fun graphicsGraphBufferDescriptorsCompatible(
+    left: BufferDescriptor,
+    right: BufferDescriptor
+): bool = left.valid() && right.valid() && left.size == right.size &&
+    left.usage == right.usage &&
+    left.mappedAtCreation == right.mappedAtCreation &&
+    left.persistentMapping == right.persistentMapping &&
+    left.memory == right.memory
+
+fun graphicsGraphResourceDescriptorFingerprint(
+    graph: GraphicsMaterializedRenderGraph,
+    resourceId: int
+): int = if (graph.textureResource(resourceId))
+    graphicsGraphTextureDescriptorFingerprint(
+        graph.textureDescriptor(resourceId)
+    )
+else if (graph.bufferResource(resourceId))
+    graphicsGraphBufferDescriptorFingerprint(
+        graph.bufferDescriptor(resourceId)
+    )
+else 0
+
 fun graphicsGraphDeclaredAccess(
     graph: GraphicsMaterializedRenderGraph,
     passId: int,
@@ -139,7 +189,6 @@ fun graphicsGraphRecordedComputeResourcesValid(
 ): bool = storage.valid() && pipeline.valid() &&
     storage.backend == backend && pipeline.backend == backend &&
     (storage.descriptor.usage & bufferUsageStorage) != 0 &&
-    pipeline.pushConstantLayout.size == 0 &&
     ((backend == graphicsBackendOpenGl &&
       pipeline.openGl.storageBuffer != 0 &&
       pipeline.openGl.storageBuffer == storage.openGl.handle) ||
@@ -148,17 +197,29 @@ fun graphicsGraphRecordedComputeResourcesValid(
       pipeline.vulkan.storageBuffer == storage.vulkan.handle))
 
 fun graphicsGraphRecordedComputeValid(
+    graph: GraphicsMaterializedRenderGraph,
+    passId: int,
+    resourceId: int,
     storage: GraphicsBuffer,
     pipeline: GraphicsComputePipeline,
     backend: int,
     x: int,
     y: int,
-    z: int
+    z: int,
+    pushConstantSize: int = 0
 ): bool = graphicsGraphRecordedComputeResourcesValid(
     storage,
     pipeline,
     backend
-) && x > 0 && y > 0 && z > 0 &&
+) && graph.importedResource(resourceId) &&
+    graph.bufferResource(resourceId) &&
+    graphicsGraphDeclaredAccess(graph, passId, resourceId) ==
+        graphAccessReadWrite &&
+    graphicsGraphBufferDescriptorsCompatible(
+        graph.bufferDescriptor(resourceId),
+        storage.descriptor
+    ) && pushConstantSize == pipeline.pushConstantLayout.size &&
+    x > 0 && y > 0 && z > 0 &&
     x <= pipeline.limits.maximumComputeWorkgroupsX &&
     y <= pipeline.limits.maximumComputeWorkgroupsY &&
     z <= pipeline.limits.maximumComputeWorkgroupsZ
@@ -197,9 +258,12 @@ resource class GraphicsGraphCommandList(
     val clearBlues: array<f64>,
     val clearAlphas: array<f64>,
     val computeIndices: array<int>,
+    val computeResourceIds: array<int>,
     val computeXs: array<int>,
     val computeYs: array<int>,
     val computeZs: array<int>,
+    val computePushSizes: array<int>,
+    val computePushStorage: NativeByteBuffer,
     val oldSourceLayouts: array<int>,
     val oldDestinationLayouts: array<int>,
     var commandCount: int,
@@ -244,6 +308,23 @@ resource class GraphicsGraphCommandList(
         accepted
     }
 
+    fun computePushStorageValid(): bool {
+        var accepted = !this.computePushStorage.closed &&
+            this.computePushStorage.capacity ==
+                this.capacity * graphicsMaximumGraphPushConstantBytes &&
+            this.commandCount >= 0 && this.commandCount <= this.capacity
+        var index = 0
+        while (accepted && index < this.commandCount) {
+            val pushSize = this.computePushSizes[index]
+            accepted = pushSize >= 0 &&
+                pushSize <= graphicsMaximumGraphPushConstantBytes &&
+                (this.kinds[index] == graphicsGraphCommandCompute ||
+                 pushSize == 0)
+            index = index + 1
+        }
+        accepted
+    }
+
     fun valid(): bool = !this.error.occurred() &&
         this.capacity >= 1 &&
         this.capacity <= graphicsMaximumGraphCommands &&
@@ -280,9 +361,12 @@ resource class GraphicsGraphCommandList(
         this.clearBlues.size == this.capacity &&
         this.clearAlphas.size == this.capacity &&
         this.computeIndices.size == this.capacity &&
+        this.computeResourceIds.size == this.capacity &&
         this.computeXs.size == this.capacity &&
         this.computeYs.size == this.capacity &&
         this.computeZs.size == this.capacity &&
+        this.computePushSizes.size == this.capacity &&
+        this.computePushStorageValid() &&
         this.oldSourceLayouts.size == this.capacity &&
         this.oldDestinationLayouts.size == this.capacity &&
         this.commandCount >= 0 && this.commandCount <= this.capacity &&
@@ -398,6 +482,10 @@ resource class GraphicsGraphCommandList(
             )
             fingerprint = graphicsGraphCommandFingerprintMix(
                 fingerprint,
+                this.computeResourceIds[commandIndex]
+            )
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
                 this.computeXs[commandIndex]
             )
             fingerprint = graphicsGraphCommandFingerprintMix(
@@ -408,6 +496,23 @@ resource class GraphicsGraphCommandList(
                 fingerprint,
                 this.computeZs[commandIndex]
             )
+            val pushSize = this.computePushSizes[commandIndex]
+            fingerprint = graphicsGraphCommandFingerprintMix(
+                fingerprint,
+                pushSize
+            )
+            var pushOffset = 0
+            while (pushOffset < pushSize) {
+                fingerprint = graphicsGraphCommandFingerprintMix(
+                    fingerprint,
+                    this.computePushStorage.load(
+                        commandIndex *
+                            graphicsMaximumGraphPushConstantBytes +
+                            pushOffset
+                    )
+                )
+                pushOffset = pushOffset + 1
+            }
             val renderIndex = this.renderIndices[commandIndex]
             if (renderIndex >= 0 && renderIndex < this.renderTargets.size &&
                 renderIndex < this.renderPipelines.size) {
@@ -468,8 +573,9 @@ resource class GraphicsGraphCommandList(
                 this.resourceSlots[resourceIndex] ==
                     graph.resourceSlot(resourceId) &&
                 this.resourceDescriptorFingerprints[resourceIndex] ==
-                    graphicsGraphTextureDescriptorFingerprint(
-                        graph.textureDescriptor(resourceId)
+                    graphicsGraphResourceDescriptorFingerprint(
+                        graph,
+                        resourceId
                     ) && (
                     (graph.transientResource(resourceId) &&
                      this.resourcePhysicalIdentities[resourceIndex] != 0 &&
@@ -574,12 +680,16 @@ resource class GraphicsGraphCommandList(
                     computeIndex < this.computeBuffers.size &&
                     computeIndex < this.computePipelines.size &&
                     graphicsGraphRecordedComputeValid(
+                        graph,
+                        passId,
+                        this.computeResourceIds[commandIndex],
                         this.computeBuffers[computeIndex],
                         this.computePipelines[computeIndex],
                         this.backend,
                         this.computeXs[commandIndex],
                         this.computeYs[commandIndex],
-                        this.computeZs[commandIndex]
+                        this.computeZs[commandIndex],
+                        this.computePushSizes[commandIndex]
                     )
             } else accepted = false
             commandIndex = commandIndex + 1
@@ -805,6 +915,7 @@ resource class GraphicsGraphCommandList(
 
     trusted fun recordComputeStorage(
         graph: GraphicsMaterializedRenderGraph,
+        resourceId: int,
         own storage: GraphicsBuffer,
         own pipeline: GraphicsComputePipeline,
         x: int,
@@ -819,6 +930,9 @@ resource class GraphicsGraphCommandList(
             computeIndex < this.capacity &&
             computeIndex == this.computePipelines.size &&
             graphicsGraphRecordedComputeValid(
+                graph,
+                passId,
+                resourceId,
                 storage,
                 pipeline,
                 this.backend,
@@ -833,9 +947,68 @@ resource class GraphicsGraphCommandList(
             this.kinds[index] = graphicsGraphCommandCompute
             this.passIds[index] = passId
             this.computeIndices[index] = computeIndex
+            this.computeResourceIds[index] = resourceId
             this.computeXs[index] = x
             this.computeYs[index] = y
             this.computeZs[index] = z
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
+    trusted fun recordComputeStoragePush(
+        graph: GraphicsMaterializedRenderGraph,
+        resourceId: int,
+        own storage: GraphicsBuffer,
+        own pipeline: GraphicsComputePipeline,
+        constants: GraphicsPushConstants,
+        x: int,
+        y: int = 1,
+        z: int = 1
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val computeIndex = this.computeBuffers.size
+        val pushSize = if (constants.valid()) constants.layout.size else 0
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            computeIndex < this.capacity &&
+            computeIndex == this.computePipelines.size &&
+            constants.valid() &&
+            constants.layout.matches(pipeline.pushConstantLayout) &&
+            pushSize > 0 &&
+            pushSize <= graphicsMaximumGraphPushConstantBytes &&
+            graphicsGraphRecordedComputeValid(
+                graph,
+                passId,
+                resourceId,
+                storage,
+                pipeline,
+                this.backend,
+                x,
+                y,
+                z,
+                pushSize
+            )
+        if (accepted) {
+            val index = this.commandCount
+            ablaUnsafeCopyMemory(
+                this.computePushStorage.pointerAt(
+                    index * graphicsMaximumGraphPushConstantBytes
+                ),
+                constants.bytes.storage.address,
+                pushSize
+            )
+            this.computeBuffers.append(move(storage))
+            this.computePipelines.append(move(pipeline))
+            this.kinds[index] = graphicsGraphCommandCompute
+            this.passIds[index] = passId
+            this.computeIndices[index] = computeIndex
+            this.computeResourceIds[index] = resourceId
+            this.computeXs[index] = x
+            this.computeYs[index] = y
+            this.computeZs[index] = z
+            this.computePushSizes[index] = pushSize
             this.commandCount = this.commandCount + 1
         }
         accepted
@@ -897,9 +1070,16 @@ trusted fun GraphicsApplication.graphCommandList(
     val clearBlues: array<f64> = []
     val clearAlphas: array<f64> = []
     val computeIndices: array<int> = []
+    val computeResourceIds: array<int> = []
     val computeXs: array<int> = []
     val computeYs: array<int> = []
     val computeZs: array<int> = []
+    val computePushSizes: array<int> = []
+    val computePushStorage = nativeByteBuffer(
+        if (capacity > 0 && capacity <= graphicsMaximumGraphCommands)
+            capacity * graphicsMaximumGraphPushConstantBytes
+        else 0
+    )
     val oldSourceLayouts: array<int> = []
     val oldDestinationLayouts: array<int> = []
     var index = 0
@@ -919,8 +1099,9 @@ trusted fun GraphicsApplication.graphCommandList(
             resourceSlots.append(graph.resourceSlot(resourceId))
             resourcePhysicalIdentities.append(physicalIdentity)
             resourceDescriptorFingerprints.append(
-                graphicsGraphTextureDescriptorFingerprint(
-                    graph.textureDescriptor(resourceId)
+                graphicsGraphResourceDescriptorFingerprint(
+                    graph,
+                    resourceId
                 )
             )
         } else accepted = false
@@ -950,9 +1131,11 @@ trusted fun GraphicsApplication.graphCommandList(
         clearBlues.append(0.0)
         clearAlphas.append(0.0)
         computeIndices.append(-1)
+        computeResourceIds.append(-1)
         computeXs.append(0)
         computeYs.append(0)
         computeZs.append(0)
+        computePushSizes.append(0)
         oldSourceLayouts.append(-1)
         oldDestinationLayouts.append(-1)
         index = index + 1
@@ -991,9 +1174,12 @@ trusted fun GraphicsApplication.graphCommandList(
         clearBlues,
         clearAlphas,
         computeIndices,
+        computeResourceIds,
         computeXs,
         computeYs,
         computeZs,
+        computePushSizes,
+        move(computePushStorage),
         oldSourceLayouts,
         oldDestinationLayouts,
         0,
@@ -1143,43 +1329,77 @@ trusted fun GraphicsApplication.recordVulkanGraphRender(
 trusted fun GraphicsApplication.executeRecordedGraphCompute(
     var graph: GraphicsMaterializedRenderGraph,
     token: int,
+    resourceId: int,
     storage: GraphicsBuffer,
     var pipeline: GraphicsComputePipeline,
     x: int,
     y: int,
-    z: int
-): bool = this.valid() && graph.active(token) &&
+    z: int,
+    pushConstantData: i64*,
+    pushConstantSize: int
+): bool {
+    val passId = if (graph.currentPassPosition >= 0 &&
+        graph.currentPassPosition < graph.plan.order.size)
+        graph.plan.order[graph.currentPassPosition] else -1
+    return this.valid() && graph.resourceActive(token, resourceId) &&
+    passId >= 0 &&
     graphicsGraphRecordedComputeValid(
+        graph,
+        passId,
+        resourceId,
         storage,
         pipeline,
         this.backend,
         x,
         y,
-        z
-    ) && pipeline.dispatch(x, y, z)
+        z,
+        pushConstantSize
+    ) && pipeline.dispatchRaw(
+        x,
+        y,
+        z,
+        pushConstantData,
+        pushConstantSize
+    )
+}
 
 trusted fun GraphicsApplication.recordVulkanGraphCompute(
     var graph: GraphicsMaterializedRenderGraph,
     token: int,
+    resourceId: int,
     storage: GraphicsBuffer,
     var pipeline: GraphicsComputePipeline,
     x: int,
     y: int,
-    z: int
-): bool = this.valid() && this.backend == graphicsBackendVulkan &&
-    graph.active(token) && graphicsGraphRecordedComputeValid(
+    z: int,
+    pushConstantData: i64*,
+    pushConstantSize: int
+): bool {
+    val passId = if (graph.currentPassPosition >= 0 &&
+        graph.currentPassPosition < graph.plan.order.size)
+        graph.plan.order[graph.currentPassPosition] else -1
+    return this.valid() && this.backend == graphicsBackendVulkan &&
+    graph.resourceActive(token, resourceId) && passId >= 0 &&
+    graphicsGraphRecordedComputeValid(
+        graph,
+        passId,
+        resourceId,
         storage,
         pipeline,
         this.backend,
         x,
         y,
-        z
+        z,
+        pushConstantSize
     ) && pipeline.vulkan.recordDispatch(
         this.vulkanDevice.transferCommand.load(),
         x,
         y,
-        z
+        z,
+        pushConstantData,
+        pushConstantSize
     )
+}
 
 trusted fun GraphicsApplication.executeDirectGraphCommands(
     var graph: GraphicsMaterializedRenderGraph,
@@ -1252,17 +1472,25 @@ trusted fun GraphicsApplication.executeDirectGraphCommands(
             }
         } else if (kind == graphicsGraphCommandCompute) {
             val computeIndex = commands.computeIndices[commandIndex]
+            val pushSize = commands.computePushSizes[commandIndex]
+            val pushData = if (pushSize > 0)
+                commands.computePushStorage.pointerAt(
+                    commandIndex * graphicsMaximumGraphPushConstantBytes
+                ) else nativeNullPointer()
             succeeded = computeIndex >= 0 &&
                 computeIndex < commands.computeBuffers.size &&
                 computeIndex < commands.computePipelines.size &&
                 this.executeRecordedGraphCompute(
                     graph,
                     token,
+                    commands.computeResourceIds[commandIndex],
                     commands.computeBuffers[computeIndex],
                     commands.computePipelines[computeIndex],
                     commands.computeXs[commandIndex],
                     commands.computeYs[commandIndex],
-                    commands.computeZs[commandIndex]
+                    commands.computeZs[commandIndex],
+                    pushData,
+                    pushSize
                 )
             if (this.backend == graphicsBackendVulkan && computeIndex >= 0 &&
                 computeIndex < commands.computePipelines.size &&
@@ -1406,17 +1634,25 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
                 )
         } else if (kind == graphicsGraphCommandCompute) {
             val computeIndex = commands.computeIndices[commandIndex]
+            val pushSize = commands.computePushSizes[commandIndex]
+            val pushData = if (pushSize > 0)
+                commands.computePushStorage.pointerAt(
+                    commandIndex * graphicsMaximumGraphPushConstantBytes
+                ) else nativeNullPointer()
             succeeded = computeIndex >= 0 &&
                 computeIndex < commands.computeBuffers.size &&
                 computeIndex < commands.computePipelines.size &&
                 this.recordVulkanGraphCompute(
                     graph,
                     token,
+                    commands.computeResourceIds[commandIndex],
                     commands.computeBuffers[computeIndex],
                     commands.computePipelines[computeIndex],
                     commands.computeXs[commandIndex],
                     commands.computeYs[commandIndex],
-                    commands.computeZs[commandIndex]
+                    commands.computeZs[commandIndex],
+                    pushData,
+                    pushSize
                 )
         } else succeeded = false
         commandIndex = commandIndex + 1

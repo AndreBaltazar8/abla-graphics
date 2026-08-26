@@ -546,8 +546,9 @@ Updated: 2026-08-26.
   repeats the public workflow on both explicit backends.
 - Bounded render-graph command recording: an affine fixed-capacity list records
   exact ordered pass markers, same-format transient texture-copy ranges, a
-  typed procedural offscreen render, and a storage-buffer compute dispatch into
-  preallocated storage. It affinely owns render and compute resources, seals
+  typed procedural offscreen render, and a planner-visible storage-buffer
+  compute dispatch into preallocated storage. It affinely owns render and
+  compute resources, seals
   with full access/descriptor/range
   validation, binds imported descriptor fingerprints plus graph-owned physical
   identities, and rejects incompatible graphs/resources or post-seal mutation
@@ -559,13 +560,20 @@ Updated: 2026-08-26.
   executions, 4,012 logical barriers, 3,009 batched backend barrier calls,
   exactly 1,001 Vulkan submissions or zero on OpenGL, stable graph/render native
   handles, one pool acquisition per transient physical texture, and zero
-  live-byte growth. Vulkan validation is silent. `examples/recorded-graph-copy`
+  live-byte growth. Vulkan validation is silent. `examples/recorded-graph-copy`,
   `examples/recorded-graph-render`, and `examples/recorded-graph-compute` repeat
-  the public paths on both backends. The compute proof reaches exact storage
-  value `1001` through 1,001 replays with stable owned buffer/pipeline handles,
-  zero growth, and zero/1,001 OpenGL/Vulkan submissions. General bindings,
-  push constants, broader command forms, asynchronous submission, and frames in
-  flight remain open.
+  the public paths on both backends. The compute proof declares an imported
+  logical buffer, copies a reflected add-one push value into bounded command
+  storage, mutates the source after sealing, and reaches exact storage value
+  `1001` through 1,001 replays. Its read/write-to-read planner hazard produces
+  exact barrier counts `1/1001/1001`; transient and size-mismatched buffer
+  declarations, wrong native binding, and post-seal handle mutation reject.
+  Oversized post-seal push-size mutation is bounded and rejects before
+  fingerprinting.
+  Owned buffer/pipeline handles stay stable with zero growth and zero/1,001
+  OpenGL/Vulkan submissions. General bind groups, multiple compute bindings,
+  transient-buffer pooling, broader command forms, asynchronous submission,
+  and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

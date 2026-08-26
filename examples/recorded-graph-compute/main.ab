@@ -18,20 +18,22 @@ trusted fun main: int {
             height = 270
         )
     )
-    val anchorDescriptor = TextureDescriptor(
-        label = "recorded-compute-anchor",
-        size = Extent3D(1, 1),
-        format = textureFormatRgba8Unorm,
-        usage = textureUsageCopyDestination
+    val storageDescriptor = BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
     )
-    val graph = app.materializeRenderGraphTextures([
-        GraphicsGraphResource(0, "anchor", true, 4, 10)
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "storage", false, 8, 10)
     ], [
         GraphicsGraphPass(10, "compute", [
-            GraphicsGraphUse(0, graphAccessWrite)
+            GraphicsGraphUse(0, graphAccessReadWrite)
+        ]),
+        GraphicsGraphPass(11, "consume", [
+            GraphicsGraphUse(0, graphAccessRead)
         ])
-    ], [
-        GraphicsGraphTextureDeclaration(0, anchorDescriptor)
+    ], [], [
+        GraphicsGraphBufferDeclaration(0, storageDescriptor)
     ])
     val shader = $glsl {
         compute {
@@ -40,26 +42,34 @@ trusted fun main: int {
             layout(std430, binding = 0) buffer Values {
                 uint value;
             } values;
+            layout(push_constant) uniform Push {
+                uint addend;
+            } push;
             void main() {
-                values.value = values.value + 1u;
+                values.value = values.value + push.addend;
             }
         }
     }
-    val storage = app.buffer(BufferDescriptor(
-        size = 8,
-        usage = bufferUsageStorage | bufferUsageCopySource |
-            bufferUsageCopyDestination
-    ))
+    val storage = app.buffer(storageDescriptor)
     val pipeline = app.computeStoragePipeline(shader, storage)
-    val commands = app.graphCommandList(graph, 2)
+    val pushValues = shader.pushConstants()
+    val commands = app.graphCommandList(graph, 3)
     var succeeded = app.valid() && graph.valid() && shader.valid &&
-        storage.writeI64(0) && pipeline.valid() && commands.valid() &&
-        commands.recordPass(graph, 10) && commands.recordComputeStorage(
+        graph.plan.barriers.size == 1 && graph.pools.size == 0 &&
+        storage.writeI64(0) && pipeline.valid() &&
+        pushValues.storeU32(3) && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordComputeStoragePush(
             graph,
+            0,
             move(storage),
             move(pipeline),
+            pushValues,
             1
-        ) && commands.seal(graph) && commands.prepared &&
+        ) && commands.recordPass(graph, 11) && commands.seal(graph) &&
+        commands.prepared && commands.commandCount == 3 &&
+        commands.computeResourceIds[1] == 0 &&
+        commands.computePushSizes[1] == 4 && pushValues.storeU32(9) &&
         commands.consolidatedVulkan ==
             (app.backend == graphicsBackendVulkan)
     val storageIdentity = if (app.backend == graphicsBackendOpenGl)
@@ -77,7 +87,7 @@ trusted fun main: int {
     }
     val liveAfter = runtimeMemoryLiveBytes()
     val result = if (succeeded) commands.computeBuffers[0].readI64() else -1
-    val stable = succeeded && iteration == 1001 && result == 1001 &&
+    val stable = succeeded && iteration == 1001 && result == 3003 &&
         liveAfter == liveBefore && storageIdentity != 0 &&
         pipelineIdentity != 0 &&
         (if (app.backend == graphicsBackendOpenGl)
@@ -88,10 +98,13 @@ trusted fun main: int {
             commands.computePipelines[0].vulkan.commandPool ==
                 commandPoolIdentity) && commands.executions == 1001 &&
         graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 1 &&
+        graph.totalExecutedBarriers == 1001 &&
+        graph.backendBarrierCalls == 1001 &&
         commands.vulkanSubmissions ==
             (if (app.backend == graphicsBackendVulkan) 1001 else 0)
     println(
-        "recorded-graph-compute ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} result=$result executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
+        "recorded-graph-compute ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} result=$result snapshot=${result == 3003} executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
     )
     if (stable) 0 else 1
 }
