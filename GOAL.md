@@ -1575,6 +1575,10 @@ still open.
 
 ### Verified checkpoint: recorded deferred rendering
 
+Implementation commit `4b350d15cbbf76a07caf21e10b5dea2bac8fa245`
+(`Record deferred attachment sampling`) is published and synchronized on
+`origin/main`.
+
 Recorded draw resources now compose with
 `graphRenderPriorAttachmentResources(...)`. The wrapper keeps sampler ownership
 affine while borrowing one to eight color textures from earlier render records
