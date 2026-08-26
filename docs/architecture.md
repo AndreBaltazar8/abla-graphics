@@ -200,8 +200,9 @@ ordered procedural subpass records that own their target, compatible pass, and
 two-to-eight-stage pipeline sequence, including planner-visible imported
 uniform/storage buffers and imported or graph-owned sampled
 textures/views/samplers through a flattened affine resource table,
-and planner-visible imported or graph-owned buffer compute
-dispatches. It affinely owns each recorded target/pipeline, caller-owned
+and planner-visible compute dispatches over the same imported-buffer and
+imported/view/transient sampled-texture resource table. It affinely owns each
+recorded target/pipeline, caller-owned
 render/compute buffer, sampled texture/sampler, compute pipeline, and retained
 bind group; graph-owned resources remain in the graph. Seal binds every logical
 ID, complete descriptor,

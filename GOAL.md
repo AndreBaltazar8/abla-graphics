@@ -758,6 +758,24 @@ exact RGBA8 `4294281759`, rejected a post-seal stage-map mutation, completed
 zero/1,001 Vulkan submissions. A first OpenGL measurement exposed 72 bytes of
 growth per replay from temporary validation arrays; the final implementation
 removes those allocations rather than weakening the performance proof.
+
+### Recorded sampled compute bindings
+
+The same typed retained table now drives recorded compute through
+`recordComputeBindingResources(...)` and its push form. Imported buffers, full
+sampled textures, explicit views, graph-owned transient sampled textures, and
+samplers use one stage map and one seal/replay ownership contract. The Abla
+`$glsl` translator gained a deterministic compute-visible `sampler2D` plus
+storage-buffer subset; its Vulkan SPIR-V is valid and byte-stable while OpenGL
+executes the same source directly.
+
+`examples/recorded-graph-texture-compute/` brings the sample matrix to 56 roots.
+Its focused direct-link gate passed OpenGL, Vulkan, and automatic selection,
+rejected post-seal map mutation, accumulated exact value `1001` across 1,001
+successful replays, reported zero/1,001 Vulkan submissions, and retained
+`live=0`. Storage-image bindings are not claimed by this checkpoint: their
+OpenGL image-unit ABI, Vulkan storage-image descriptor/layout path, reflection,
+and `imageLoad`/`imageStore` lowering remain the immediate continuation.
 Buffer, imported texture, imported view, and transient-texture recorded subpass
 forms are now covered; no C, GLFW, SDL, or native shim is used.
 

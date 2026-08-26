@@ -299,6 +299,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   two-storage bind group reaches exact value `5007` through 1,001
   allocation-free replays with one barrier and one Vulkan submission per
   replay or ordered OpenGL dispatch;
+- `examples/recorded-graph-texture-compute`: one retained sampled texture and
+  one planner-visible storage buffer execute deterministic `$glsl` compute,
+  reject sealed-map mutation, and accumulate exact value `1001` through 1,001
+  allocation-free OpenGL/Vulkan/auto replays;
 - `examples/recorded-graph-buffered-render`: one sealed four-record stream owns
   separate planner-declared vertex and indexed draws, produces exact pixels
   through 1,001 allocation-free replays, and uses one Vulkan submission per

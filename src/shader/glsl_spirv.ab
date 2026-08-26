@@ -6543,6 +6543,53 @@ fun glslDualStorageAddComputeSource(source: string): bool =
         "sourceData", ".", "value", ";", "}"
     ])
 
+fun glslSampledStorageComputeSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "binding", "=", "0", ")",
+        "uniform", "sampler2D", "atlas", ";",
+        "layout", "(", "std430", ",", "binding", "=", "1", ")",
+        "buffer", "Destination", "{", "uint", "value", ";", "}",
+        "destination", ";",
+        "void", "main", "(", ")", "{",
+        "destination", ".", "value", "+=", "uint", "(",
+        "texture", "(", "atlas", ",", "vec2", "(", "0.5", ",",
+        "0.5", ")", ")", ".", "r", ")", ";", "}"
+    ])
+
+fun glslSampledStorageComputeSpirv(): array<int> = [
+    119734787, 65536, 524299, 35, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    327695, 5, 4, 1852399981, 0, 393232, 4, 17,
+    1, 1, 1, 196611, 2, 450, 262149, 4,
+    1852399981, 0, 327685, 7, 1953719620, 1952542313, 7237481, 327686,
+    7, 0, 1970037110, 101, 327685, 9, 1953719652, 1952542313,
+    7237481, 262149, 16, 1634497633, 115, 196679, 7, 3,
+    327752, 7, 0, 35, 0, 262215, 9, 33,
+    1, 262215, 9, 34, 0, 262215, 16, 33,
+    0, 262215, 16, 34, 0, 262215, 34, 11,
+    25, 131091, 2, 196641, 3, 2, 262165, 6,
+    32, 0, 196638, 7, 6, 262176, 8, 2,
+    7, 262203, 8, 9, 2, 262165, 10, 32,
+    1, 262187, 10, 11, 0, 196630, 12, 32,
+    589849, 13, 12, 1, 0, 0, 0, 1,
+    0, 196635, 14, 13, 262176, 15, 0, 14,
+    262203, 15, 16, 0, 262167, 18, 12, 2,
+    262187, 12, 19, 1056964608, 327724, 18, 20, 19,
+    19, 262167, 21, 12, 4, 262187, 12, 22,
+    0, 262187, 6, 24, 0, 262176, 27, 2,
+    6, 262167, 32, 6, 3, 262187, 6, 33,
+    1, 393260, 32, 34, 33, 33, 33, 327734,
+    2, 4, 0, 3, 131320, 5, 262205, 14,
+    17, 16, 458840, 21, 23, 17, 20, 2,
+    22, 327761, 12, 25, 23, 0, 262253, 6,
+    26, 25, 327745, 27, 28, 9, 11, 262205,
+    6, 29, 28, 327808, 6, 30, 29, 26,
+    327745, 27, 31, 9, 11, 196670, 31, 30,
+    65789, 65592
+]
+
 fun glslDualStorageAddComputeSpirv(): array<int> = [
     119734787, 65536, 524299, 25, 0, 131089, 1, 393227,
     1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
@@ -6645,6 +6692,16 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.pushConstants.size == 0 &&
         this.specializationConstants.size == 0 &&
         glslDualStorageAddComputeSource(this.stages[0].source)
+    val sampledStorage = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 2 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "uniform" &&
+        this.bindings[0].dataType == "sampler2D" &&
+        this.bindings[1].set == 0 && this.bindings[1].binding == 1 &&
+        this.bindings[1].storage == "buffer" &&
+        this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslSampledStorageComputeSource(this.stages[0].source)
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val rasterFragmentProgram = if (graphicsCommon &&
@@ -6692,6 +6749,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || pushStorage || dualStorage ||
+        sampledStorage ||
         vertex || proceduralTexturedVertex ||
         pushTransformVertex || uniformTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
@@ -6699,7 +6757,9 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
-    if (dualStorage) {
+    if (sampledStorage) {
+        words = glslSampledStorageComputeSpirv()
+    } else if (dualStorage) {
         words = glslDualStorageAddComputeSpirv()
     } else if (pushStorage) {
         words = glslPushStorageComputeSpirv()

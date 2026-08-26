@@ -1098,10 +1098,10 @@ resource class GraphicsGraphSubpassBufferResources(
         graph, passId, sequence, backend, [], [], -1
     )
 
-    fun validForPipelineAttachments(
+    fun validForBindingAttachments(
         graph: GraphicsMaterializedRenderGraph,
         passId: int,
-        pipeline: GraphicsRenderPipeline,
+        binding: GraphicsBindGroup,
         backend: int,
         colorResourceIds: array<int>,
         resolveResourceIds: array<int>,
@@ -1111,9 +1111,8 @@ resource class GraphicsGraphSubpassBufferResources(
             this.textureResourceIds.size + this.viewResourceIds.size +
             this.transientTextureResourceIds.size
         var accepted = totalResources >= 1 && totalResources <= 128 &&
-            pipeline.valid() && pipeline.backend == backend &&
-            pipeline.binding.valid() &&
-            totalResources <= pipeline.binding.entries.size &&
+            binding.valid() && binding.backend == backend &&
+            totalResources <= binding.entries.size &&
             this.resourceIds.size == this.buffers.size &&
             this.textureResourceIds.size == this.textures.size &&
             this.textureResourceIds.size == this.samplers.size &&
@@ -1126,7 +1125,7 @@ resource class GraphicsGraphSubpassBufferResources(
                 this.transientTextureSamplers.size &&
             this.stageResourceIndices.size == 1 &&
             this.stageResourceIndices[0].size ==
-                pipeline.binding.entries.size
+                binding.entries.size
         var resourceIndex = 0
         while (accepted && resourceIndex < this.resourceIds.size) {
             val resourceId = this.resourceIds[resourceIndex]
@@ -1291,7 +1290,7 @@ resource class GraphicsGraphSubpassBufferResources(
         val indices = this.stageResourceIndices[0]
         var entryIndex = 0
         while (accepted && entryIndex < indices.size) {
-            val entry = pipeline.binding.entries[entryIndex]
+            val entry = binding.entries[entryIndex]
             resourceIndex = indices[entryIndex]
             if (entry.kind == graphicsBindingSampledTexture) {
                 if (resourceIndex >= 0) {
@@ -1412,7 +1411,7 @@ resource class GraphicsGraphSubpassBufferResources(
             var used = false
             entryIndex = 0
             while (!used && entryIndex < indices.size) {
-                used = pipeline.binding.entries[entryIndex].kind !=
+                used = binding.entries[entryIndex].kind !=
                         graphicsBindingSampledTexture &&
                     indices[entryIndex] == resourceIndex
                 entryIndex = entryIndex + 1
@@ -1425,7 +1424,7 @@ resource class GraphicsGraphSubpassBufferResources(
             var used = false
             entryIndex = 0
             while (!used && entryIndex < indices.size) {
-                used = pipeline.binding.entries[entryIndex].kind ==
+                used = binding.entries[entryIndex].kind ==
                         graphicsBindingSampledTexture &&
                     indices[entryIndex] == textureIndex
                 entryIndex = entryIndex + 1
@@ -1438,7 +1437,7 @@ resource class GraphicsGraphSubpassBufferResources(
             var used = false
             entryIndex = 0
             while (!used && entryIndex < indices.size) {
-                used = pipeline.binding.entries[entryIndex].kind ==
+                used = binding.entries[entryIndex].kind ==
                         graphicsBindingSampledTexture &&
                     indices[entryIndex] == -viewIndex - 1
                 entryIndex = entryIndex + 1
@@ -1452,7 +1451,7 @@ resource class GraphicsGraphSubpassBufferResources(
             var used = false
             entryIndex = 0
             while (!used && entryIndex < indices.size) {
-                used = pipeline.binding.entries[entryIndex].kind ==
+                used = binding.entries[entryIndex].kind ==
                         graphicsBindingSampledTexture &&
                     indices[entryIndex] ==
                         -graphicsGraphSubpassTransientTextureIndexBase -
@@ -1464,6 +1463,31 @@ resource class GraphicsGraphSubpassBufferResources(
         }
         accepted
     }
+
+    fun validForPipelineAttachments(
+        graph: GraphicsMaterializedRenderGraph,
+        passId: int,
+        pipeline: GraphicsRenderPipeline,
+        backend: int,
+        colorResourceIds: array<int>,
+        resolveResourceIds: array<int>,
+        depthResourceId: int
+    ): bool = pipeline.valid() && pipeline.backend == backend &&
+        this.validForBindingAttachments(
+            graph, passId, pipeline.binding, backend,
+            colorResourceIds, resolveResourceIds, depthResourceId
+        )
+
+    fun validForComputePipeline(
+        graph: GraphicsMaterializedRenderGraph,
+        passId: int,
+        pipeline: GraphicsComputePipeline,
+        backend: int
+    ): bool = pipeline.valid() && pipeline.backend == backend &&
+        this.validForBindingAttachments(
+            graph, passId, pipeline.binding, backend,
+            this.resourceIds, this.resourceIds, -1
+        )
 }
 
 trusted fun graphSubpassBufferResources(
@@ -2239,17 +2263,86 @@ fun graphicsGraphRecordedComputeDeclarationsValid(
 
 resource class GraphicsGraphComputeResources(
     val resourceIds: array<int>,
-    var buffers: array<GraphicsBuffer>
+    var buffers: array<GraphicsBuffer>,
+    var bindingResources: array<GraphicsGraphSubpassBufferResources>
 ) {
     fun validFor(
         pipeline: GraphicsComputePipeline,
         backend: int
-    ): bool = this.resourceIds.size == this.buffers.size &&
-        graphicsGraphRecordedComputeResourcesValid(
-            this.buffers,
-            pipeline,
-            backend
+    ): bool = this.bindingResources.size <= 1 &&
+        ((this.bindingResources.size == 0 &&
+          this.resourceIds.size == this.buffers.size &&
+          graphicsGraphRecordedComputeResourcesValid(
+            this.buffers, pipeline, backend
+          )) ||
+         (this.bindingResources.size == 1 &&
+          this.resourceIds.size == 0 && this.buffers.size == 0 &&
+          pipeline.valid() && pipeline.backend == backend &&
+          pipeline.binding.valid()))
+}
+
+trusted fun graphicsGraphComputeResources(
+    resourceIds: array<int>,
+    own buffers: array<GraphicsBuffer>
+): GraphicsGraphComputeResources {
+    val bindingResources: array<GraphicsGraphSubpassBufferResources> = []
+    GraphicsGraphComputeResources(
+        resourceIds, move(buffers), move(bindingResources)
+    )
+}
+
+fun graphicsGraphRecordedComputeBindingResourcesValid(
+    graph: GraphicsMaterializedRenderGraph,
+    passId: int,
+    resources: GraphicsGraphSubpassBufferResources,
+    pipeline: GraphicsComputePipeline,
+    backend: int,
+    x: int,
+    y: int,
+    z: int,
+    pushConstantSize: int = 0
+): bool = graph.valid() && pipeline.valid() &&
+    pipeline.backend == backend && pipeline.binding.valid() &&
+    pipeline.openGl.storageBuffer == 0 &&
+    pipeline.vulkan.storageBuffer == 0 &&
+    pushConstantSize == pipeline.pushConstantLayout.size &&
+    x > 0 && y > 0 && z > 0 &&
+    x <= pipeline.limits.maximumComputeWorkgroupsX &&
+    y <= pipeline.limits.maximumComputeWorkgroupsY &&
+    z <= pipeline.limits.maximumComputeWorkgroupsZ &&
+    resources.validForComputePipeline(graph, passId, pipeline, backend)
+
+fun graphicsGraphBindingResourcesActive(
+    graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    resources: GraphicsGraphSubpassBufferResources
+): bool {
+    var active = true
+    var index = 0
+    while (active && index < resources.resourceIds.size) {
+        active = graph.resourceActive(token, resources.resourceIds[index])
+        index = index + 1
+    }
+    index = 0
+    while (active && index < resources.textureResourceIds.size) {
+        active = graph.resourceActive(
+            token, resources.textureResourceIds[index]
         )
+        index = index + 1
+    }
+    index = 0
+    while (active && index < resources.viewResourceIds.size) {
+        active = graph.resourceActive(token, resources.viewResourceIds[index])
+        index = index + 1
+    }
+    index = 0
+    while (active && index < resources.transientTextureResourceIds.size) {
+        active = graph.resourceActive(
+            token, resources.transientTextureResourceIds[index]
+        )
+        index = index + 1
+    }
+    active
 }
 
 fun graphicsGraphRecordedTransientComputeValid(
@@ -2446,6 +2539,13 @@ resource class GraphicsGraphCommandList(
                 this.computePipelines[index].binding.valid() &&
                 this.computePipelines[index].binding.entries.size ==
                     this.computeTransientResourceIds[resourceIndex].size
+            else if (kind == 3) accepted = resourceIndex >= 0 &&
+                resourceIndex < this.computeResources.size &&
+                this.computeResources[resourceIndex].validFor(
+                    this.computePipelines[index], this.backend
+                ) && this.computeResources[
+                    resourceIndex
+                ].bindingResources.size == 1
             else accepted = false
             index = index + 1
         }
@@ -2914,6 +3014,19 @@ resource class GraphicsGraphCommandList(
                         )
                         bufferIndex = bufferIndex + 1
                     }
+                } else if (resourceKind == 3 && resourceIndex >= 0 &&
+                    resourceIndex < this.computeResources.size &&
+                    this.computeResources[
+                        resourceIndex
+                    ].bindingResources.size == 1) {
+                    fingerprint =
+                        graphicsGraphRecordedBindingResourcesFingerprint(
+                            fingerprint,
+                            this.computeResources[
+                                resourceIndex
+                            ].bindingResources[0],
+                            this.backend
+                        )
                 }
                 fingerprint = graphicsGraphCommandFingerprintMix(
                     fingerprint,
@@ -3373,7 +3486,23 @@ resource class GraphicsGraphCommandList(
                         this.computeYs[commandIndex],
                         this.computeZs[commandIndex],
                         this.computePushSizes[commandIndex]
-                    ) else false
+                    ) else if (resourceKind == 3 && resourceIndex >= 0 &&
+                        resourceIndex < this.computeResources.size &&
+                        this.computeResources[
+                            resourceIndex
+                        ].bindingResources.size == 1)
+                        graphicsGraphRecordedComputeBindingResourcesValid(
+                            graph, passId,
+                            this.computeResources[
+                                resourceIndex
+                            ].bindingResources[0],
+                            this.computePipelines[computeIndex], this.backend,
+                            this.computeXs[commandIndex],
+                            this.computeYs[commandIndex],
+                            this.computeZs[commandIndex],
+                            this.computePushSizes[commandIndex]
+                        )
+                    else false
                 }
             } else if (kind == graphicsGraphCommandSubpasses) {
                 val subpassIndex = this.subpassIndices[commandIndex]
@@ -4965,13 +5094,53 @@ resource class GraphicsGraphCommandList(
             )
         if (accepted) {
             val index = this.commandCount
-            val resources = GraphicsGraphComputeResources(
+            val resources = graphicsGraphComputeResources(
                 resourceIds,
                 move(buffers)
             )
             this.computeResources.append(move(resources))
             this.computePipelines.append(move(pipeline))
             this.computeResourceKinds[computeIndex] = 1
+            this.computeResourceIndices[computeIndex] = resourceIndex
+            this.kinds[index] = graphicsGraphCommandCompute
+            this.passIds[index] = passId
+            this.computeIndices[index] = computeIndex
+            this.computeXs[index] = x
+            this.computeYs[index] = y
+            this.computeZs[index] = z
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
+    trusted fun recordComputeBindingResources(
+        graph: GraphicsMaterializedRenderGraph,
+        own resources: GraphicsGraphSubpassBufferResources,
+        own pipeline: GraphicsComputePipeline,
+        x: int,
+        y: int = 1,
+        z: int = 1
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val computeIndex = this.computePipelines.size
+        val resourceIndex = this.computeResources.size
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            computeIndex < this.capacity &&
+            graphicsGraphRecordedComputeBindingResourcesValid(
+                graph, passId, resources, pipeline, this.backend, x, y, z
+            )
+        if (accepted) {
+            val index = this.commandCount
+            val retained = [move(resources)]
+            val buffers: array<GraphicsBuffer> = []
+            val computeResources = GraphicsGraphComputeResources(
+                [], move(buffers), move(retained)
+            )
+            this.computeResources.append(move(computeResources))
+            this.computePipelines.append(move(pipeline))
+            this.computeResourceKinds[computeIndex] = 3
             this.computeResourceIndices[computeIndex] = resourceIndex
             this.kinds[index] = graphicsGraphCommandCompute
             this.passIds[index] = passId
@@ -5090,13 +5259,67 @@ resource class GraphicsGraphCommandList(
                 constants.bytes.storage.address,
                 pushSize
             )
-            val resources = GraphicsGraphComputeResources(
+            val resources = graphicsGraphComputeResources(
                 resourceIds,
                 move(buffers)
             )
             this.computeResources.append(move(resources))
             this.computePipelines.append(move(pipeline))
             this.computeResourceKinds[computeIndex] = 1
+            this.computeResourceIndices[computeIndex] = resourceIndex
+            this.kinds[index] = graphicsGraphCommandCompute
+            this.passIds[index] = passId
+            this.computeIndices[index] = computeIndex
+            this.computeXs[index] = x
+            this.computeYs[index] = y
+            this.computeZs[index] = z
+            this.computePushSizes[index] = pushSize
+            this.commandCount = this.commandCount + 1
+        }
+        accepted
+    }
+
+    trusted fun recordComputeBindingResourcesPush(
+        graph: GraphicsMaterializedRenderGraph,
+        own resources: GraphicsGraphSubpassBufferResources,
+        own pipeline: GraphicsComputePipeline,
+        constants: GraphicsPushConstants,
+        x: int,
+        y: int = 1,
+        z: int = 1
+    ): bool {
+        val passId = if (this.recordedPasses > 0)
+            this.passOrder[this.recordedPasses - 1] else -1
+        val computeIndex = this.computePipelines.size
+        val resourceIndex = this.computeResources.size
+        val pushSize = if (constants.valid()) constants.layout.size else 0
+        val accepted = this.graphCompatible(graph) && !this.sealed &&
+            this.commandCount < this.capacity && passId >= 0 &&
+            computeIndex < this.capacity && constants.valid() &&
+            constants.layout.matches(pipeline.pushConstantLayout) &&
+            pushSize > 0 &&
+            pushSize <= graphicsMaximumGraphPushConstantBytes &&
+            graphicsGraphRecordedComputeBindingResourcesValid(
+                graph, passId, resources, pipeline, this.backend,
+                x, y, z, pushSize
+            )
+        if (accepted) {
+            val index = this.commandCount
+            ablaUnsafeCopyMemory(
+                this.computePushStorage.pointerAt(
+                    index * graphicsMaximumGraphPushConstantBytes
+                ),
+                constants.bytes.storage.address,
+                pushSize
+            )
+            val retained = [move(resources)]
+            val buffers: array<GraphicsBuffer> = []
+            val computeResources = GraphicsGraphComputeResources(
+                [], move(buffers), move(retained)
+            )
+            this.computeResources.append(move(computeResources))
+            this.computePipelines.append(move(pipeline))
+            this.computeResourceKinds[computeIndex] = 3
             this.computeResourceIndices[computeIndex] = resourceIndex
             this.kinds[index] = graphicsGraphCommandCompute
             this.passIds[index] = passId
@@ -5838,6 +6061,31 @@ trusted fun GraphicsApplication.executeRecordedGraphCompute(
     )
 }
 
+trusted fun GraphicsApplication.executeRecordedGraphBindingCompute(
+    var graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    resources: GraphicsGraphSubpassBufferResources,
+    var pipeline: GraphicsComputePipeline,
+    x: int,
+    y: int,
+    z: int,
+    pushConstantData: i64*,
+    pushConstantSize: int
+): bool {
+    val passId = if (graph.currentPassPosition >= 0 &&
+        graph.currentPassPosition < graph.plan.order.size)
+        graph.plan.order[graph.currentPassPosition] else -1
+    val resourcesValid = passId >= 0 &&
+        graphicsGraphBindingResourcesActive(graph, token, resources) &&
+        graphicsGraphRecordedComputeBindingResourcesValid(
+            graph, passId, resources, pipeline, this.backend,
+            x, y, z, pushConstantSize
+        )
+    return this.valid() && resourcesValid && pipeline.dispatchRaw(
+        x, y, z, pushConstantData, pushConstantSize
+    )
+}
+
 trusted fun GraphicsApplication.recordVulkanGraphCompute(
     var graph: GraphicsMaterializedRenderGraph,
     token: int,
@@ -5885,6 +6133,34 @@ trusted fun GraphicsApplication.recordVulkanGraphCompute(
         pushConstantSize,
         pipeline.binding.vulkan.descriptorSet
     )
+}
+
+trusted fun GraphicsApplication.recordVulkanGraphBindingCompute(
+    var graph: GraphicsMaterializedRenderGraph,
+    token: int,
+    resources: GraphicsGraphSubpassBufferResources,
+    var pipeline: GraphicsComputePipeline,
+    x: int,
+    y: int,
+    z: int,
+    pushConstantData: i64*,
+    pushConstantSize: int
+): bool {
+    val passId = if (graph.currentPassPosition >= 0 &&
+        graph.currentPassPosition < graph.plan.order.size)
+        graph.plan.order[graph.currentPassPosition] else -1
+    val resourcesValid = passId >= 0 &&
+        graphicsGraphBindingResourcesActive(graph, token, resources) &&
+        graphicsGraphRecordedComputeBindingResourcesValid(
+            graph, passId, resources, pipeline, this.backend,
+            x, y, z, pushConstantSize
+        )
+    return this.valid() && this.backend == graphicsBackendVulkan &&
+        resourcesValid && pipeline.vulkan.recordDispatch(
+            this.vulkanDevice.transferCommand.load(),
+            x, y, z, pushConstantData, pushConstantSize,
+            pipeline.binding.vulkan.descriptorSet
+        )
 }
 
 trusted fun GraphicsApplication.executeRecordedTransientGraphCompute(
@@ -6513,6 +6789,24 @@ trusted fun GraphicsApplication.executeDirectGraphCommands(
                         pushData,
                         pushSize
                     )
+                else if (resourceKind == 3 && resourceIndex >= 0 &&
+                    resourceIndex < commands.computeResources.size &&
+                    commands.computeResources[
+                        resourceIndex
+                    ].bindingResources.size == 1)
+                    this.executeRecordedGraphBindingCompute(
+                        graph,
+                        token,
+                        commands.computeResources[
+                            resourceIndex
+                        ].bindingResources[0],
+                        commands.computePipelines[computeIndex],
+                        commands.computeXs[commandIndex],
+                        commands.computeYs[commandIndex],
+                        commands.computeZs[commandIndex],
+                        pushData,
+                        pushSize
+                    )
                 else false
             }
             if (this.backend == graphicsBackendVulkan && computeIndex >= 0 &&
@@ -6769,6 +7063,24 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
                         graph,
                         token,
                         commands.computeTransientResourceIds[resourceIndex],
+                        commands.computePipelines[computeIndex],
+                        commands.computeXs[commandIndex],
+                        commands.computeYs[commandIndex],
+                        commands.computeZs[commandIndex],
+                        pushData,
+                        pushSize
+                    )
+                else if (resourceKind == 3 && resourceIndex >= 0 &&
+                    resourceIndex < commands.computeResources.size &&
+                    commands.computeResources[
+                        resourceIndex
+                    ].bindingResources.size == 1)
+                    this.recordVulkanGraphBindingCompute(
+                        graph,
+                        token,
+                        commands.computeResources[
+                            resourceIndex
+                        ].bindingResources[0],
                         commands.computePipelines[computeIndex],
                         commands.computeXs[commandIndex],
                         commands.computeYs[commandIndex],

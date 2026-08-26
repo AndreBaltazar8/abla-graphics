@@ -560,6 +560,27 @@ fun main: int {
     }
     val dualStorageSpirv = dualStorage.spirv(shaderStageCompute)
     val dualStorageSpirvAgain = dualStorage.spirv(shaderStageCompute)
+    val sampledStorage = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(binding = 0) uniform sampler2D atlas;
+            layout(std430, binding = 1) buffer Destination {
+                uint value;
+            } destination;
+            void main() {
+                destination.value += uint(
+                    texture(atlas, vec2(0.5, 0.5)).r
+                );
+            }
+        }
+    }
+    val sampledStorageSpirv = sampledStorage.spirv(shaderStageCompute)
+    val sampledStorageSpirvAgain = sampledStorage.spirv(shaderStageCompute)
+    val unsupportedSampledStorage = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=1) in; layout(binding=0) uniform sampler2D atlas; layout(std430,binding=1) buffer Destination { uint value; } destination; void main(){ destination.value += uint(texture(atlas,vec2(0.25,0.5)).r); }"]
+    ).spirv(shaderStageCompute)
     val storage460Spirv = glslPackage(
         [shaderStageCompute],
         ["#version 460 core\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
@@ -3063,6 +3084,18 @@ fun main: int {
             dualStorageSpirv.module,
             dualStorageSpirvAgain.module
         ) &&
+        sampledStorage.valid && sampledStorage.bindings.size == 2 &&
+        sampledStorage.bindings[0].dataType == "sampler2D" &&
+        sampledStorage.bindings[0].stage == shaderStageCompute &&
+        sampledStorage.bindings[1].storage == "buffer" &&
+        sampledStorageSpirv.succeeded &&
+        sampledStorageSpirv.module.valid() &&
+        sampledStorageSpirv.module.bound() == 35 &&
+        spirvContainsWord(sampledStorageSpirv.module, 458840) &&
+        spirvWordsEqual(
+            sampledStorageSpirv.module,
+            sampledStorageSpirvAgain.module
+        ) && !unsupportedSampledStorage.succeeded &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
         !misplacedStorageProfile.succeeded &&

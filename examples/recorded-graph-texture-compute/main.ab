@@ -1,0 +1,113 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded texture compute",
+            width = 480,
+            height = 270
+        )
+    )
+    val storageDescriptor = BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    )
+    val sampledDescriptor = TextureDescriptor(
+        size = Extent3D(1, 1), format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "destination", false, 8, 10),
+        GraphicsGraphResource(1, "atlas", false, 0, 11)
+    ], [
+        GraphicsGraphPass(10, "sample-atlas", [
+            GraphicsGraphUse(0, graphAccessReadWrite),
+            GraphicsGraphUse(1, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(1, sampledDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(0, storageDescriptor)
+    ])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(binding = 0) uniform sampler2D atlas;
+            layout(std430, binding = 1) buffer Destination {
+                uint value;
+            } destination;
+            void main() {
+                destination.value += uint(
+                    texture(atlas, vec2(0.5, 0.5)).r
+                );
+            }
+        }
+    }
+    val destination = app.buffer(storageDescriptor)
+    val texture = app.texture(sampledDescriptor)
+    val pixels = pixelBuffer(1, 1)
+    val initialized = destination.writeI64(0) &&
+        pixels.setRgba8(0, 0, 255, 255, 255) &&
+        texture.writePixels(pixels, TextureWriteDescriptor())
+    val sampler = app.sampler(SamplerDescriptor())
+    val binding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityCompute, texture, sampler
+        ),
+        app.storageBufferEntry(
+            1, shaderVisibilityCompute, destination
+        )
+    ])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val resources = graphSubpassBindingResources(
+        [0], [move(destination)], [1], [move(texture)], [move(sampler)],
+        [[0, 0]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        initialized && pipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordComputeBindingResources(
+            graph, move(resources), move(pipeline), 1
+        ) && commands.seal(graph)
+    commands.computeResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = -1
+    val tamperRejected = succeeded &&
+        !app.executeGraphCommands(graph, commands)
+    commands.computeResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = 0
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && tamperRejected && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val value = if (succeeded)
+        commands.computeResources[0].bindingResources[0].buffers[0].readI64()
+        else -1
+    val stable = succeeded && tamperRejected && iteration == 1001 &&
+        value == 1001 && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-texture-compute ${graphicsBackendName(app.backend)}: resources=${commands.computeResources[0].bindingResources[0].resourceIds.size}/${commands.computeResources[0].bindingResources[0].textureResourceIds.size} value=$value tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

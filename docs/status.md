@@ -1453,5 +1453,22 @@ successful executions, zero/1,001 Vulkan submissions, and zero warmed
 live-byte growth. The complete 55-root matrix remains scheduled for the next
 broad sample-infrastructure gate.
 
+### Recorded sampled compute bindings
+
+Recorded compute now shares the typed retained binding-resource table used by
+ordinary renders and subpasses. Imported uniform/storage buffers, full sampled
+textures, explicit views, graph-owned transient sampled textures, and samplers
+flow through one `recordComputeBindingResources(...)` API plus its push form.
+Logical access, descriptors, native owners, stage mapping, activity, and seal
+fingerprints are checked without warmed allocation.
+
+The deterministic Abla `$glsl` translator now supports one compute-visible
+`sampler2D` plus storage-buffer program and emits valid byte-stable Vulkan
+SPIR-V; OpenGL executes the same source. The 56th independent sample,
+`recorded-graph-texture-compute`, passed stripped-`LD_LIBRARY_PATH` launches on
+OpenGL, Vulkan, and automatic selection with exact value `1001`, post-seal map
+tamper rejection, zero/1,001 Vulkan submissions, and `live=0`. Storage images
+remain unimplemented and are the next explicit binding/backend/lowering slice.
+
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

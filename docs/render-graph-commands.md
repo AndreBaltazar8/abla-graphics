@@ -273,6 +273,7 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-copy`, `examples/recorded-graph-render`,
 `examples/recorded-graph-compute`, and
 `examples/recorded-graph-transient-compute`, and
+`examples/recorded-graph-texture-compute`, and
 `examples/recorded-graph-buffered-render`, and
 `examples/recorded-graph-indirect-render`, and
 `examples/recorded-graph-push-render`, and
@@ -342,6 +343,13 @@ per complete replay. The focused proof rejects sealed depth-ID and cached
 Vulkan sequence-handle mutation, then replays exact RGBA8 `4294281759` 1,001
 times with zero live growth.
 
-Compute sampled/image bindings, broader copy/dispatch forms, frames in flight,
-and
+Recorded compute bind groups use `recordComputeBindingResources(...)` or its
+push form. They reuse the render/subpass typed resource table, one-stage entry
+mapping, affine owners, graph access checks, and seal fingerprint. The first
+deterministic `$glsl` compute sampling subset reads a `sampler2D` at a fixed
+coordinate and accumulates the channel into a storage buffer. Its independent
+proof rejects a sealed map mutation, reaches exact `1001` through 1,001
+OpenGL/Vulkan/automatic-selection replays, and retains zero warmed live growth.
+
+Storage-image bindings, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

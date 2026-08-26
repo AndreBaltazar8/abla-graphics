@@ -2658,12 +2658,30 @@ would fail after switching the same application to Vulkan.
 OpenGL binding arrays or one Vulkan descriptor set without constructing
 descriptors in the hot path; pipeline destruction releases the bind group.
 Creation rejects missing, extra, reordered, wrong-kind, wrong-range, or
-wrong-backend entries before driver pipeline creation. The current portable
-emitter proves a strict two-storage-buffer form with writable binding zero,
-readonly binding one, and `destination.value += sourceData.value`; broader
-compute sampled/image programs await their corresponding pure-Abla SPIR-V
-lowering. OpenGL and Vulkan both reach exact repeated results with stable
-handles and zero warmed live-byte growth.
+wrong-backend entries before driver pipeline creation. The portable emitter
+proves both a strict two-storage-buffer form and a compute-visible `sampler2D`
+plus storage-buffer form. The latter samples a fixed coordinate and accumulates
+its red channel through deterministic pure-Abla SPIR-V. Storage-image programs
+remain the next binding/lowering family. OpenGL and Vulkan both reach exact
+repeated results with stable handles and zero warmed live-byte growth.
+
+Recorded compute composes the same typed planner resource table as rendering:
+
+```abla
+val resources = graphSubpassBindingResources(
+    [destinationId], [move(destination)],
+    [atlasId], [move(atlas)], [move(sampler)], [[0, 0]]
+)
+commands.recordComputeBindingResources(
+    graph, move(resources), move(pipeline), 1
+)
+```
+
+The one-stage map follows reflected bind-group entry order while each entry
+selects its buffer or sampled-texture table by kind. Full textures, explicit
+views, graph-owned transient sampled textures, imported uniform/storage
+buffers, and their affine owners share record/seal/replay validation.
+`recordComputeBindingResourcesPush(...)` adds the same copied push snapshot.
 
 The first executable push-constant slice combines the reflected value API with
 storage compute. `shader.pushConstants()` creates a reusable value block,
