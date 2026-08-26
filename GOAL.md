@@ -139,6 +139,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized recorded sampled-compute implementation:
   `9395497a9c998e7466a05beb134b781730eb6bc5`
   (`Record sampled compute bindings`).
+- Published and synchronized recorded storage-image implementation:
+  `fb6cead83378687fc912cafb10ec0911cc2e7e5c`
+  (`Add recorded storage image compute`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -784,6 +787,9 @@ Buffer, imported texture, imported view, and transient-texture recorded subpass
 forms are now covered; no C, GLFW, SDL, or native shim is used.
 
 ### Recorded storage-image compute
+
+Implementation commit `fb6cead83378687fc912cafb10ec0911cc2e7e5c`
+is published on `origin/main`.
 
 The next binding family is now implemented end to end. The common capability
 and affine bind-group API expose an explicit storage-texture kind and
