@@ -21,6 +21,10 @@ val graphicsGraphCommandSubpasses = 5
 val graphicsMaximumGraphCommands = 4096
 val graphicsMaximumGraphPushConstantBytes = 128
 val graphicsMaximumGraphSubpassPushConstantBytes = 1024
+val graphicsMaximumGraphDeferredSlots = 8
+val graphicsGraphDeferredSourceMetadata = 21
+val graphicsGraphDeferredDestinationMetadata = 16
+val graphicsGraphDeferredScratchBytes = 64
 val graphicsGraphRenderProcedural = 0
 val graphicsGraphRenderVertices = 1
 val graphicsGraphRenderIndexed = 2
@@ -2858,6 +2862,119 @@ resource class GraphicsGraphCommandList(
     var vulkanSubmissions: int,
     val error: GraphicsError
 ) {
+    fun vulkanDeferredSlotCount(): int =
+        this.oldSourceLayouts[this.capacity]
+
+    fun vulkanDeferredSlotIndex(): int =
+        this.oldSourceLayouts[this.capacity + 1]
+
+    fun vulkanPendingSubmissionCount(): int =
+        this.oldSourceLayouts[this.capacity + 2]
+
+    fun vulkanDeferredDeviceAddress(): int =
+        this.oldSourceLayouts[this.capacity + 3]
+
+    fun vulkanDeferredTimeline(): int =
+        this.oldSourceLayouts[this.capacity + 4]
+
+    fun vulkanDeferredPool(index: int): int =
+        this.oldSourceLayouts[this.capacity + 5 + index]
+
+    fun vulkanDeferredCompletion(index: int): int =
+        this.oldSourceLayouts[this.capacity + 13 + index]
+
+    fun vulkanDeferredCommandAddress(index: int): int =
+        this.oldDestinationLayouts[this.capacity + index]
+
+    fun vulkanDeferredInFlight(index: int): bool =
+        this.oldDestinationLayouts[
+            this.capacity + graphicsMaximumGraphDeferredSlots + index
+        ] == 1
+
+    trusted fun pollVulkanCompletions(): int {
+        var index = 0
+        while (index < this.vulkanDeferredSlotCount()) {
+            if (this.vulkanDeferredInFlight(index)) {
+                val status = vulkanDeferredCompletionPoll(
+                    nativePointerFromAddress(
+                        this.vulkanDeferredDeviceAddress()
+                    ),
+                    this.vulkanDeferredTimeline(),
+                    this.vulkanDeferredCompletion(index),
+                    this.renderPushStorage,
+                    this.capacity * graphicsMaximumGraphPushConstantBytes
+                )
+                if (status == 1) {
+                    this.oldDestinationLayouts[
+                        this.capacity +
+                            graphicsMaximumGraphDeferredSlots + index
+                    ] = 0
+                    this.oldSourceLayouts[this.capacity + 2] =
+                        this.vulkanPendingSubmissionCount() - 1
+                }
+            }
+            index = index + 1
+        }
+        this.vulkanPendingSubmissionCount()
+    }
+
+    trusted fun waitVulkanCompletions(): bool {
+        var succeeded = this.vulkanPendingSubmissionCount() >= 0
+        var index = 0
+        while (succeeded && index < this.vulkanDeferredSlotCount()) {
+            if (this.vulkanDeferredInFlight(index)) {
+                succeeded = vulkanDeferredCompletionWait(
+                    nativePointerFromAddress(
+                        this.vulkanDeferredDeviceAddress()
+                    ),
+                    this.vulkanDeferredTimeline(),
+                    this.vulkanDeferredCompletion(index),
+                    this.renderPushStorage,
+                    this.capacity * graphicsMaximumGraphPushConstantBytes
+                )
+                if (succeeded) {
+                    this.oldDestinationLayouts[
+                        this.capacity +
+                            graphicsMaximumGraphDeferredSlots + index
+                    ] = 0
+                    this.oldSourceLayouts[this.capacity + 2] =
+                        this.vulkanPendingSubmissionCount() - 1
+                }
+            }
+            index = index + 1
+        }
+        succeeded && this.vulkanPendingSubmissionCount() == 0
+    }
+
+    fun vulkanDeferredSlotsValid(): bool {
+        val slots = this.vulkanDeferredSlotCount()
+        val current = this.vulkanDeferredSlotIndex()
+        val pending = this.vulkanPendingSubmissionCount()
+        var accepted = slots >= 0 &&
+            slots <= graphicsMaximumGraphDeferredSlots && current >= 0 &&
+            ((slots == 0 && current == 0 && pending == 0) ||
+             (this.backend == graphicsBackendVulkan &&
+              slots >= 1 && current < slots && pending >= 0 &&
+              pending <= slots && this.vulkanDeferredDeviceAddress() != 0 &&
+              this.vulkanDeferredTimeline() != 0))
+        var index = 0
+        var countedPending = 0
+        while (accepted && index < graphicsMaximumGraphDeferredSlots) {
+            if (index < slots) {
+                accepted = this.vulkanDeferredPool(index) != 0 &&
+                    this.vulkanDeferredCommandAddress(index) != 0 &&
+                    this.vulkanDeferredCompletion(index) >= 0
+                if (accepted && this.vulkanDeferredInFlight(index))
+                    countedPending = countedPending + 1
+            } else accepted = this.vulkanDeferredPool(index) == 0 &&
+                this.vulkanDeferredCommandAddress(index) == 0 &&
+                this.vulkanDeferredCompletion(index) == 0 &&
+                !this.vulkanDeferredInFlight(index)
+            index = index + 1
+        }
+        accepted && countedPending == pending
+    }
+
     fun renderResourcesValid(): bool {
         var accepted = this.renderTargets.size == this.renderPipelines.size &&
             this.renderTargets.size == this.renderResources.size &&
@@ -2996,7 +3113,8 @@ resource class GraphicsGraphCommandList(
     fun renderPushStorageValid(): bool {
         var accepted = !this.renderPushStorage.closed &&
             this.renderPushStorage.capacity ==
-                this.capacity * graphicsMaximumGraphPushConstantBytes &&
+                this.capacity * graphicsMaximumGraphPushConstantBytes +
+                    graphicsGraphDeferredScratchBytes &&
             this.commandCount >= 0 && this.commandCount <= this.capacity
         var index = 0
         while (accepted && index < this.commandCount) {
@@ -3061,8 +3179,11 @@ resource class GraphicsGraphCommandList(
         this.subpassBufferResourceIndices.size == this.capacity &&
         this.computePushSizes.size == this.capacity &&
         this.computePushStorageValid() &&
-        this.oldSourceLayouts.size == this.capacity &&
-        this.oldDestinationLayouts.size == this.capacity &&
+        this.oldSourceLayouts.size ==
+            this.capacity + graphicsGraphDeferredSourceMetadata &&
+        this.oldDestinationLayouts.size ==
+            this.capacity + graphicsGraphDeferredDestinationMetadata &&
+        this.vulkanDeferredSlotsValid() &&
         this.commandCount >= 0 && this.commandCount <= this.capacity &&
         this.recordedPasses >= 0 &&
         this.recordedPasses <= this.passOrder.size &&
@@ -5849,7 +5970,8 @@ trusted fun GraphicsApplication.graphCommandList(
     val renderPushSizes: array<int> = []
     val renderPushStorage = nativeByteBuffer(
         if (capacity > 0 && capacity <= graphicsMaximumGraphCommands)
-            capacity * graphicsMaximumGraphPushConstantBytes
+            capacity * graphicsMaximumGraphPushConstantBytes +
+                graphicsGraphDeferredScratchBytes
         else 0
     )
     val computeIndices: array<int> = []
@@ -5931,6 +6053,37 @@ trusted fun GraphicsApplication.graphCommandList(
         oldSourceLayouts.append(-1)
         oldDestinationLayouts.append(-1)
         index = index + 1
+    }
+    if (accepted) {
+        index = 0
+        while (index < graphicsGraphDeferredSourceMetadata) {
+            oldSourceLayouts.append(0)
+            index = index + 1
+        }
+        index = 0
+        while (index < graphicsGraphDeferredDestinationMetadata) {
+            oldDestinationLayouts.append(0)
+            index = index + 1
+        }
+        oldSourceLayouts[capacity + 3] = if (
+            this.backend == graphicsBackendVulkan
+        ) nativePointerAddress(this.vulkanDevice.handle) else 0
+        oldSourceLayouts[capacity + 4] = if (
+            this.backend == graphicsBackendVulkan
+        ) this.vulkanDevice.transferTimeline else 0
+        index = 0
+        while (this.backend == graphicsBackendVulkan &&
+            this.vulkanDevice.synchronization2 &&
+            this.vulkanDevice.transferTimeline != 0 &&
+            index < this.framesInFlight &&
+            this.vulkanDevice.deferredCommandSlotValid(index)) {
+            oldSourceLayouts[capacity + 5 + index] =
+                this.vulkanDevice.transferPool
+            oldDestinationLayouts[capacity + index] =
+                this.vulkanDevice.transferScratch.loadI64(216 + index * 8)
+            oldSourceLayouts[capacity] = index + 1
+            index = index + 1
+        }
     }
     GraphicsGraphCommandList(
         if (accepted) capacity else 0,
@@ -7299,8 +7452,27 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
         graph.totalExecutedBarriers <= graphicsMaximumInt - totalBarriers &&
         graph.backendBarrierCalls <= graphicsMaximumInt - barrierCalls &&
         commands.vulkanSubmissions < graphicsMaximumInt
+    val deferred = commands.vulkanDeferredSlotCount() > 0
+    val primaryTransferPool = this.vulkanDevice.transferPool
+    val primaryTransferCommand = this.vulkanDevice.transferCommand.load()
     val token = if (succeeded) graph.beginExecution() else 0
-    succeeded = token > 0 && this.vulkanDevice.beginTransfer()
+    succeeded = token > 0
+    if (succeeded && deferred) {
+        val slotIndex = commands.vulkanDeferredSlotIndex()
+        val wasInFlight = commands.vulkanDeferredInFlight(slotIndex)
+        succeeded = this.vulkanDevice.prepareDeferredCommandSlot(slotIndex)
+        if (succeeded && wasInFlight) {
+            commands.oldDestinationLayouts[
+                commands.capacity + graphicsMaximumGraphDeferredSlots +
+                    slotIndex
+            ] = 0
+            commands.oldSourceLayouts[commands.capacity + 2] =
+                commands.vulkanPendingSubmissionCount() - 1
+        }
+    }
+    if (succeeded) succeeded = if (deferred)
+        this.vulkanDevice.beginTransferDeferred()
+    else this.vulkanDevice.beginTransfer()
     var commandIndex = 0
     while (commandIndex < commands.commandCount) {
         commands.oldSourceLayouts[commandIndex] = -1
@@ -7569,8 +7741,43 @@ trusted fun GraphicsApplication.executeConsolidatedVulkanGraphCommands(
     }
     var submitted = false
     if (succeeded) {
-        succeeded = this.vulkanDevice.submitTransfer()
-        submitted = this.vulkanDevice.transferSubmissionAccepted
+        if (deferred) {
+            val completion = this.vulkanDevice.submitTransferDeferred()
+            val slotIndex = commands.vulkanDeferredSlotIndex()
+            submitted = completion > 0 &&
+                !commands.vulkanDeferredInFlight(slotIndex) &&
+                this.vulkanDevice.markDeferredCommandSlot(
+                    slotIndex,
+                    completion
+                )
+            succeeded = submitted
+            if (submitted) {
+                commands.oldSourceLayouts[
+                    commands.capacity + 13 + slotIndex
+                ] = completion
+                commands.oldDestinationLayouts[
+                    commands.capacity + graphicsMaximumGraphDeferredSlots +
+                        slotIndex
+                ] = 1
+                commands.oldSourceLayouts[commands.capacity + 2] =
+                    commands.vulkanPendingSubmissionCount() + 1
+                commands.oldSourceLayouts[commands.capacity + 1] = if (
+                    slotIndex + 1 == commands.vulkanDeferredSlotCount()
+                ) 0 else slotIndex + 1
+            } else this.vulkanDevice.transferHealthy = false
+        } else {
+            succeeded = this.vulkanDevice.submitTransfer()
+            submitted = this.vulkanDevice.transferSubmissionAccepted
+        }
+    }
+    if (deferred) {
+        this.vulkanDevice.transferPool = primaryTransferPool
+        if (!this.vulkanDevice.transferCommand.store(
+            primaryTransferCommand
+        )) {
+            succeeded = false
+            this.vulkanDevice.transferHealthy = false
+        }
     }
     if (submitted) {
         graph.totalExecutedBarriers =

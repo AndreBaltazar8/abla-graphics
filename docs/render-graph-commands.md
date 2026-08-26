@@ -160,6 +160,12 @@ premature destruction. The exposed arrays are diagnostic storage; applications
 must treat them as inspection-only after sealing. Accidental mutation is
 rejected by the seal fingerprint rather than replayed.
 
+Timeline-capable Vulkan devices allocate a bounded command-buffer ring from the
+retained transfer pool. A list activates exactly `framesInFlight` slots and
+retains their completion values in its existing bounded scalar storage until
+polling, an explicit wait, or reuse. The graph must outlive the list and every
+pending value; callers drain the list before either owner leaves scope.
+
 ## Replay and failure
 
 `executeGraphCommands` validates the sealed fingerprint and exact graph binding,
@@ -171,8 +177,10 @@ list-owned native resources.
 
 OpenGL replays the same operations directly. When every Vulkan command is
 eligible, graph barriers, 2D copies with `z = 0` and `depth = 1`, render, and
-compute dispatch are recorded into the device's retained command buffer and submitted
-once for the complete list. Other valid copy shapes retain the direct path.
+compute dispatch are recorded into the next retained command slot and submitted
+once for the complete list. Queue acceptance returns without a device or queue
+idle wait. Reusing a busy ring slot waits only for that slot's timeline value.
+Other valid copy shapes retain the direct path.
 The public direct copy/render entry points remain begin/record/submit wrappers
 around the same validated non-submitting driver helpers.
 
@@ -195,8 +203,11 @@ to its private direct fallback and becomes unhealthy after a native failure.
 
 The warmed replay path performs no descriptor construction or general heap
 allocation. It still performs bounded identity/fingerprint checks and the
-native operations themselves. Submission remains synchronous: the consolidated
-Vulkan path waits for completion and is not yet a frames-in-flight encoder.
+native operations themselves. `pollVulkanCompletions()` and
+`waitVulkanCompletions()` expose command-slot retirement. A conflicting direct
+transfer drains the device ring before resetting its shared command pool. The
+device waits idle before final pool destruction, but callers must still obey the
+graph-outlives-list-and-pending-work contract for graph-owned resources.
 
 ## Evidence
 
@@ -210,7 +221,9 @@ acquisition per transient physical texture, 4,012 logical barriers and 3,009
 batched backend barrier calls across 1,003 completed graph executions, 1,001
 successful list replays, and zero live-memory growth over the 1,000-replay
 warmed loop. OpenGL reports zero Vulkan submissions; Vulkan reports exactly
-1,001, one for each complete replay.
+1,001, one for each complete replay. The recorded-copy sample configures three
+frames in flight, observes exactly three retained Vulkan submissions after the
+warmed loop, drains them to zero, and passes with silent validation output.
 
 Its three-command, two-pass compute proof rejects transient and size-mismatched
 buffer declarations plus a pipeline bound to a different storage buffer. It
@@ -416,6 +429,5 @@ change the sealed command. The generated matrix covers all five dimensions
 and `+`, `-`, `*`, and `/`, while `%` rejection proves unsupported syntax is
 not ignored.
 
-Broader nested image-expression lowering,
-broader copy/dispatch forms, frames in flight, and
-GPU-completion-aware retention remain milestone 5 work.
+Broader nested image-expression lowering and broader copy/dispatch forms remain
+milestone 5 work.

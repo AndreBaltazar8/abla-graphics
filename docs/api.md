@@ -2018,8 +2018,13 @@ fingerprints all used scalar fields. Replay rejects a different graph,
 incompatible imported storage, or post-seal mutation before opening an
 execution, then reuses scalar operations without descriptor construction. The
 list borrows the graph, which must outlive it and submitted work. Eligible
-Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL and
-unsupported copy shapes use the direct paths. A failed partial replay aborts
+Vulkan 2D-copy/render/compute streams submit once per complete replay through a
+bounded `framesInFlight` command ring and return after queue acceptance. Exact
+timeline values gate slot reuse. Callers poll or drain the list explicitly, and
+must keep the materialized graph and list alive through pending work. A direct
+transfer drains the shared ring before pool reset, and device teardown waits
+idle as the final native-pool backstop. OpenGL and unsupported copy shapes use
+the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
 and current-limit contract. A single-color multisample target uses
@@ -2042,9 +2047,7 @@ ID per color, and optional depth to exact pass writes and descriptors. OpenGL
 executes the stages in order; eligible Vulkan graph streams record the native
 sequence into the same retained command buffer and submit once. Buffer-backed
 bind-group subpasses use `recordRenderBindingSubpasses` as described below.
-Compute sampled/image bindings, broader copy/dispatch forms, frames in flight,
-and asynchronous submission
-remain future work.
+Broader copy/dispatch forms remain future work.
 
 `recordRenderPushSubpasses` applies the same attachment contract and copies the
 complete reflected per-stage aggregate into command-owned storage, bounded at

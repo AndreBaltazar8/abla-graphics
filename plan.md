@@ -136,9 +136,11 @@ bytes in preallocated storage. It affinely owns render and compute resources,
 validates and fingerprints the whole stream at seal, and binds imported typed
 texture/buffer descriptors plus physical identities. The logical buffer's
 read/write-to-read use derives a real backend barrier. Eligible Vulkan streams
-encode their barriers, copy, render, and compute work in one retained command
-buffer and submit once per complete replay; OpenGL preserves ordered direct
-replay. Exact
+encode their barriers, copy, render, and compute work in a bounded
+`framesInFlight` ring and submit once per complete replay without waiting after
+queue acceptance; exact timeline values guard slot reuse and command-list
+retirement under the graph-outlives-list-and-pending-work ownership contract.
+OpenGL preserves ordered direct replay. Exact
 OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
 mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
 stable native objects, exact render/copy/storage output, submission counts, and
@@ -160,9 +162,8 @@ emitter handles scalar/`vec4` literals and constructors, components, vec4
 swizzles, dot products, and typed extended builtins with vector/scalar splats.
 Load/store coordinates use a separate signed integer postfix IR with scalar or
 dimension-matched vector locals, constructors, components, unary signs, and
-precedence-aware arithmetic. Broader expression grammar,
-bind-group subpass records, broader compute forms, asynchronous
-GPU-completion retention, and frames in flight remain milestone 5 work.
+precedence-aware arithmetic. Broader expression grammar, bind-group subpass
+records, and broader compute forms remain milestone 5 work.
 
 ## Non-negotiable design rules
 

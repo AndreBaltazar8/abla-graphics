@@ -33,7 +33,11 @@ fun main: int {
         graphicsBackendOpenGl
     else graphicsBackendVulkan
     val app = graphicsApplication(
-        GraphicsConfig(backend = backend, validation = true),
+        GraphicsConfig(
+            backend = backend,
+            validation = true,
+            framesInFlight = 3
+        ),
         WindowConfig(
             title = "Abla Graphics recorded graph copy",
             width = 480,
@@ -159,7 +163,10 @@ fun main: int {
         succeeded = app.executeGraphCommands(graph, commands)
         iteration = iteration + 1
     }
+    val retainedBeforeWait = commands.vulkanPendingSubmissionCount()
+    val completionsDrained = commands.waitVulkanCompletions()
     val liveAfter = runtimeMemoryLiveBytes()
+    val expectedRetained = if (app.backend == graphicsBackendVulkan) 3 else 0
     val stable = iteration == 1000 && sourceIdentity != 0 &&
         destinationIdentity != 0 && sourceIdentity != destinationIdentity &&
         volumeSourceIdentity != 0 && volumeDestinationIdentity != 0 &&
@@ -178,12 +185,15 @@ fun main: int {
         graph.pools[1].acquisitionCount == 1 &&
         graph.pools[2].acquisitionCount == 1 &&
         graph.pools[3].acquisitionCount == 1 &&
+        commands.vulkanDeferredSlotCount() == expectedRetained &&
+        retainedBeforeWait == expectedRetained && completionsDrained &&
+        commands.vulkanPendingSubmissionCount() == 0 &&
         liveAfter == liveBefore
     val passed = succeeded &&
         recordedCopyBytesEqual(arrayOutput, arrayValue) &&
         recordedCopyBytesEqual(volumeOutput, volumeValue) && stable
     println(
-        "recorded-graph-copy ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} array=${recordedCopyBytesEqual(arrayOutput, arrayValue)} volume=${recordedCopyBytesEqual(volumeOutput, volumeValue)} tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$volumeSourceIdentity/$volumeDestinationIdentity"
+        "recorded-graph-copy ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} array=${recordedCopyBytesEqual(arrayOutput, arrayValue)} volume=${recordedCopyBytesEqual(volumeOutput, volumeValue)} tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} retained=$retainedBeforeWait/${commands.vulkanDeferredSlotCount()}->${commands.vulkanPendingSubmissionCount()} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$volumeSourceIdentity/$volumeDestinationIdentity"
     )
     if (passed) 0 else 1
 }

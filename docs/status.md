@@ -562,8 +562,11 @@ Updated: 2026-08-26.
   validation, binds imported descriptor fingerprints plus graph-owned physical
   identities, and rejects incompatible graphs/resources or post-seal mutation
   before opening an execution. Eligible Vulkan streams record their barriers,
-  dimension-aware copy, render, and compute work into one retained command
-  buffer and submit once per replay; OpenGL uses ordered direct operations. The
+  dimension-aware copy, render, and compute work into a bounded
+  `framesInFlight` command ring and submit once per replay without waiting after
+  queue acceptance. Per-slot timeline values gate reuse; callers explicitly
+  retire pending values under the graph-outlives-list-and-work contract. OpenGL
+  uses ordered direct operations. The
   combined six-command
   OpenGL/Vulkan/auto gate proves center pixel `4294281759`, copied RGBA
   `4280427042`, 1,001 successful list executions, 1,003 completed graph
@@ -628,9 +631,8 @@ Updated: 2026-08-26.
   zero growth. Sealed logical/bind-group identity and transient backing-usage
   tampering reject before execution. Planner-visible uniform/storage buffers
   and full sampled textures/samplers are delivered for subpass bind groups;
-  compute sampled/image bindings,
-  broader command forms, asynchronous submission, and frames in flight remain
-  open.
+  compute sampled/image bindings are also delivered. Broader command forms
+  remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1536,6 +1538,22 @@ replays with zero/1,001 submissions and `live=0`. The 60th sample,
 to its color attachment through 1,001 allocation-free renders on both
 backends. Both executables pass stripped-`LD_LIBRARY_PATH` linkage. Broader
 image dimensions and general image-expression lowering remain open.
+
+### Bounded asynchronous Vulkan graph replay
+
+Eligible retained graph streams now use the configured `framesInFlight` count
+as a fixed Vulkan command-pool/buffer ring. `vkQueueSubmit2` signals the shared
+transfer timeline and returns after queue acceptance; reuse waits only on the
+selected slot. Command-list polling/wait APIs retire slots without allocation.
+A conflicting direct transfer drains the shared device ring
+before command-pool reset, and device teardown waits idle before final pool
+destruction. Callers retain the graph and list until explicit retirement.
+
+`recorded-graph-copy` configures three slots and, after 1,001 exact replays,
+observes `retained=3/3->0`, zero warmed live-byte growth, and exact array/volume
+readback. Its executable has no unresolved dependency with `LD_LIBRARY_PATH`
+removed, passes explicit OpenGL, and passes Vulkan with the Khronos validation
+layer enabled and no validation output.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

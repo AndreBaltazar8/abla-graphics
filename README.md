@@ -284,7 +284,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-copy`: a sealed five-record stream copies two array
   layers and two physical 3D slices, rejects sealed-range mutation, and proves
   exact readback through 1,001 reusable executions with stable graph-owned
-  textures, one Vulkan submission per replay, and zero warmed live-memory
+  textures, one Vulkan submission per replay, a three-slot asynchronous Vulkan
+  completion ring that drains explicitly to zero, and zero warmed live-memory
   growth on both explicit backends;
 - `examples/recorded-graph-render`: a sealed six-record stream combining four
   graph passes, a transient texture copy, and an owned procedural offscreen

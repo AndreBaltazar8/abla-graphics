@@ -115,6 +115,10 @@ noescape extern:"c" fun vkGetDeviceQueue(
     queue: i64*
 ): void
 noescape extern:"c" fun vkDeviceWaitIdle(device: i64*): i32
+noescape extern:"c" fun vkResetCommandBuffer(
+    commandBuffer: i64*,
+    flags: i32
+): i32
 noescape extern:"c" fun vkCreateBuffer(
     device: i64*,
     createInfo: i64*,
@@ -1598,6 +1602,58 @@ resource class VulkanTimelineSemaphore(
     }
 }
 
+trusted fun vulkanDeferredCompletionWait(
+    device: i64*,
+    timeline: int,
+    value: int,
+    scratch: NativeByteBuffer,
+    offset: int
+): bool {
+    var succeeded = !pointerIsNull(device) && timeline != 0 && value > 0 &&
+        !scratch.closed && offset >= 0 && offset + 64 <= scratch.capacity
+    if (succeeded) {
+        ablaUnsafeStoreI64(scratch.pointerAt(offset + 40), timeline)
+        ablaUnsafeStoreI64(scratch.pointerAt(offset + 48), value)
+        ablaUnsafeStoreI64(scratch.pointerAt(offset), 1000207004)
+        ablaUnsafeStorePointer(
+            scratch.pointerAt(offset + 8), nativeNullPointer()
+        )
+        ablaUnsafeStoreI64(scratch.pointerAt(offset + 16), 4294967296)
+        ablaUnsafeStorePointer(
+            scratch.pointerAt(offset + 24), scratch.pointerAt(offset + 40)
+        )
+        ablaUnsafeStorePointer(
+            scratch.pointerAt(offset + 32), scratch.pointerAt(offset + 48)
+        )
+        succeeded = vkWaitSemaphores(
+            device,
+            scratch.pointerAt(offset),
+            9223372036854775807
+        ) == vulkanSuccess
+    }
+    succeeded
+}
+
+trusted fun vulkanDeferredCompletionPoll(
+    device: i64*,
+    timeline: int,
+    value: int,
+    scratch: NativeByteBuffer,
+    offset: int
+): int {
+    var status = -1
+    if (!pointerIsNull(device) && timeline != 0 && value > 0 &&
+        !scratch.closed && offset >= 0 && offset + 64 <= scratch.capacity &&
+        vkGetSemaphoreCounterValue(
+            device,
+            timeline,
+            scratch.pointerAt(offset + 56)
+        ) == vulkanSuccess) status = if (
+            scratch.loadI64(offset + 56) >= value
+        ) 1 else 0
+    status
+}
+
 resource class VulkanDevice(
     var handle: i64*,
     var queue: i64*,
@@ -1778,6 +1834,74 @@ resource class VulkanDevice(
         value
     }
 
+    fun deferredCommandSlotValid(index: int): bool =
+        this.transferValid() && this.synchronization2 &&
+        this.transferTimeline != 0 && index >= 0 && index < 8 &&
+        this.transferScratch.capacity >= 408 &&
+        this.transferScratch.loadI64(216 + index * 8) != 0
+
+    trusted fun prepareDeferredCommandSlot(index: int): bool {
+        var succeeded = this.deferredCommandSlotValid(index)
+        if (succeeded && this.transferScratch.loadI64(
+            344 + index * 8
+        ) == 1) {
+            succeeded = vulkanDeferredCompletionWait(
+                this.handle,
+                this.transferTimeline,
+                this.transferScratch.loadI64(280 + index * 8),
+                this.transferScratch,
+                0
+            )
+            if (succeeded) this.transferScratch.storeI64(
+                344 + index * 8,
+                0
+            )
+        }
+        if (succeeded) succeeded = this.transferCommand.store(
+            nativePointerFromAddress(
+                this.transferScratch.loadI64(216 + index * 8)
+            )
+        ) && vkResetCommandBuffer(
+            this.transferCommand.load(),
+            0
+        ) == vulkanSuccess
+        if (!succeeded) this.transferHealthy = false
+        succeeded
+    }
+
+    trusted fun markDeferredCommandSlot(index: int, value: int): bool {
+        val accepted = this.deferredCommandSlotValid(index) && value > 0 &&
+            this.transferScratch.loadI64(344 + index * 8) == 0
+        if (accepted) {
+            this.transferScratch.storeI64(280 + index * 8, value)
+            this.transferScratch.storeI64(344 + index * 8, 1)
+        }
+        accepted
+    }
+
+    trusted fun waitDeferredCommandSlots(): bool {
+        var succeeded = true
+        var index = 0
+        while (succeeded && index < 8) {
+            if (this.deferredCommandSlotValid(index) &&
+                this.transferScratch.loadI64(344 + index * 8) == 1) {
+                succeeded = vulkanDeferredCompletionWait(
+                    this.handle,
+                    this.transferTimeline,
+                    this.transferScratch.loadI64(280 + index * 8),
+                    this.transferScratch,
+                    0
+                )
+                if (succeeded) this.transferScratch.storeI64(
+                    344 + index * 8,
+                    0
+                )
+            }
+            index = index + 1
+        }
+        succeeded
+    }
+
     trusted fun initializeTransfer(): bool {
         var succeeded = this.valid() && this.transferPool == 0 &&
             !this.transferCommand.closed && !this.transferScratch.closed
@@ -1833,6 +1957,28 @@ resource class VulkanDevice(
                 this.transferTimelineValue = 0
             }
         }
+        if (succeeded && this.transferTimeline != 0 &&
+            this.synchronization2 && this.transferScratch.capacity >= 408) {
+            this.transferScratch.storeI64(160, 40)
+            this.transferScratch.storePointer(168, nativeNullPointer())
+            this.transferScratch.storeI64(176, this.transferPool)
+            this.transferScratch.storeI64(184, 34359738368)
+            val deferredAllocated = vkAllocateCommandBuffers(
+                this.handle,
+                this.transferScratch.pointerAt(160),
+                this.transferScratch.pointerAt(216)
+            ) == vulkanSuccess
+            var slot = 0
+            while (slot < 8) {
+                if (!deferredAllocated) this.transferScratch.storeI64(
+                    216 + slot * 8,
+                    0
+                )
+                this.transferScratch.storeI64(280 + slot * 8, 0)
+                this.transferScratch.storeI64(344 + slot * 8, 0)
+                slot = slot + 1
+            }
+        }
         if (!succeeded && this.transferPool != 0) {
             vkDestroyCommandPool(
                 this.handle,
@@ -1848,11 +1994,28 @@ resource class VulkanDevice(
 
     trusted fun beginTransfer(): bool {
         this.transferSubmissionAccepted = false
-        var succeeded = this.transferValid() && vkResetCommandPool(
-            this.handle,
-            this.transferPool,
-            0
+        var succeeded = this.transferValid() &&
+            this.waitDeferredCommandSlots()
+        if (succeeded) succeeded = vkResetCommandPool(
+            this.handle, this.transferPool, 0
         ) == vulkanSuccess
+        if (succeeded) {
+            this.transferScratch.storeI64(0, 42)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 1)
+            this.transferScratch.storePointer(24, nativeNullPointer())
+            succeeded = vkBeginCommandBuffer(
+                this.transferCommand.load(),
+                this.transferScratch.address
+            ) == vulkanSuccess
+        }
+        if (!succeeded) this.transferHealthy = false
+        succeeded
+    }
+
+    trusted fun beginTransferDeferred(): bool {
+        this.transferSubmissionAccepted = false
+        var succeeded = this.transferValid()
         if (succeeded) {
             this.transferScratch.storeI64(0, 42)
             this.transferScratch.storePointer(8, nativeNullPointer())
@@ -2109,6 +2272,55 @@ resource class VulkanDevice(
         }
         if (!succeeded) this.transferHealthy = false
         succeeded
+    }
+
+    trusted fun submitTransferDeferred(): int {
+        this.transferSubmissionAccepted = false
+        var succeeded = this.transferValid() && this.synchronization2 &&
+            this.transferTimeline != 0 &&
+            this.transferTimelineValue < 9223372036854775807 &&
+            vkEndCommandBuffer(this.transferCommand.load()) == vulkanSuccess
+        val completionValue = if (succeeded)
+            this.transferTimelineValue + 1 else 0
+        if (succeeded) {
+            this.transferScratch.storeI64(80, 1000314006)
+            this.transferScratch.storePointer(88, nativeNullPointer())
+            this.transferScratch.storePointer(
+                96,
+                this.transferCommand.load()
+            )
+            this.transferScratch.storeI64(104, 0)
+            this.transferScratch.storeI64(112, 1000314005)
+            this.transferScratch.storePointer(120, nativeNullPointer())
+            this.transferScratch.storeI64(128, this.transferTimeline)
+            this.transferScratch.storeI64(136, completionValue)
+            this.transferScratch.storeI64(144, 65536)
+            this.transferScratch.storeI64(152, 0)
+            this.transferScratch.storeI64(0, 1000314004)
+            this.transferScratch.storePointer(8, nativeNullPointer())
+            this.transferScratch.storeI64(16, 0)
+            this.transferScratch.storePointer(24, nativeNullPointer())
+            this.transferScratch.storeI64(32, 1)
+            this.transferScratch.storePointer(
+                40,
+                this.transferScratch.pointerAt(80)
+            )
+            this.transferScratch.storeI64(48, 1)
+            this.transferScratch.storePointer(
+                56,
+                this.transferScratch.pointerAt(112)
+            )
+            succeeded = vkQueueSubmit2(
+                this.queue,
+                1,
+                this.transferScratch.address,
+                0
+            ) == vulkanSuccess
+            this.transferSubmissionAccepted = succeeded
+        }
+        if (succeeded) this.transferTimelineValue = completionValue
+        else this.transferHealthy = false
+        if (succeeded) completionValue else -1
     }
 
     trusted fun graphMemoryBarrier(
@@ -2955,7 +3167,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         0,
         0,
         nativePointerCell(nativeNullPointer()),
-        nativeByteBuffer(216)
+        nativeByteBuffer(408)
     )
     if (result.valid()) result.initializeTransfer()
     result
@@ -7782,7 +7994,7 @@ trusted fun VulkanAdapter.deviceForSurface(
         0,
         0,
         nativePointerCell(nativeNullPointer()),
-        nativeByteBuffer(216)
+        nativeByteBuffer(408)
     )
     if (result.valid()) result.initializeTransfer()
     result
