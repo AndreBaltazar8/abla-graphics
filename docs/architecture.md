@@ -190,18 +190,19 @@ transitions remain owned by the direct texture/render operation. Barrier counts
 and access unions are compiled once into bounded primitive arrays indexed by
 scheduled pass position, avoiding a planner-barrier scan during repeated entry.
 The optional affine command list preallocates primitive records for exact pass
-markers, all-transient texture copies, a narrow typed procedural offscreen
-render, and planner-visible imported or graph-owned buffer compute dispatches.
-It affinely owns each recorded target/pipeline, caller-owned compute buffer,
-pipeline, and retained bind group; graph-owned buffers remain in the graph.
-Seal binds every logical ID, complete descriptor, native identity, workgroup,
-and copied push byte. Transient buffer slots use bounded one-allocation buffer
+markers, all-transient texture copies, typed procedural/vertex/indexed
+offscreen renders, and planner-visible imported or graph-owned buffer compute
+dispatches. It affinely owns each recorded target/pipeline, caller-owned
+render/compute buffer, compute pipeline, and retained bind group; graph-owned
+buffers remain in the graph. Seal binds every logical ID, complete descriptor,
+native identity, draw range, workgroup, and copied push byte. Transient buffer slots use bounded one-allocation buffer
 pools and reuse complete native buffers only across compatible disjoint
 lifetimes. Replay performs no descriptor construction or live-memory growth.
 OpenGL uses the existing direct operations. An eligible Vulkan stream records
 graph memory dependencies, the 2D texture copy, render, and compute dispatch
 into one retained command buffer, then submits once; direct APIs remain
-unchanged. Later slices must add broader render/copy/compute forms, frames in
+unchanged. Later slices must add indirect/push/depth/MRT/subpass render forms,
+broader copy/compute forms, frames in
 flight, and GPU-completion-aware retention.
 
 ## Specification coverage

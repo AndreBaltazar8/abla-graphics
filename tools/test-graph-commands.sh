@@ -8,7 +8,9 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
-ABLA_MAX_MEMORY_MB=${ABLA_GRAPH_COMMANDS_TEST_MEMORY_MB:-6144} \
+# The complete graph-command integration source exceeds the generic compiler
+# address-space guard. Keep the larger limit isolated to this focused gate.
+ABLA_MAX_MEMORY_MB=${ABLA_GRAPH_COMMANDS_TEST_MEMORY_MB:-8192} \
     ABLA_SYSROOT="$compiler_root" "$compiler" \
     build "$project_root/tests/graph_commands/main.ab" \
     -o "$output_directory/graph-commands" --no-cache

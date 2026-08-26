@@ -433,7 +433,178 @@ trusted fun graphRenderCommandProbe(var app: GraphicsApplication): bool {
     println(
         "graph-render-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} render=${finalPixel == 4294281759} copy=$copied rejected=$invalidDirectRejected/$incompatibleRecordRejected/$incompatibleReplayRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$targetIdentity/$pipelineIdentity"
     )
-    passed && graphComputeCommandProbe(app)
+    passed && graphBufferedRenderCommandProbe(app)
+}
+
+trusted fun graphBufferedRenderCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val targetDescriptor = TextureDescriptor(
+        label = "recorded-buffered-render-target",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )
+    val vertexDescriptor = BufferDescriptor(
+        size = 24,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    )
+    val indexDescriptor = BufferDescriptor(
+        size = 12,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(60, "vertex-target", false, 0, 60),
+        GraphicsGraphResource(61, "vertex-data", false, 24, 61),
+        GraphicsGraphResource(70, "indexed-target", false, 0, 70),
+        GraphicsGraphResource(71, "indexed-vertices", false, 24, 71),
+        GraphicsGraphResource(72, "indexed-indices", false, 12, 72)
+    ], [
+        GraphicsGraphPass(900, "recorded-vertices", [
+            GraphicsGraphUse(60, graphAccessWrite),
+            GraphicsGraphUse(61, graphAccessRead)
+        ]),
+        GraphicsGraphPass(901, "recorded-indexed", [
+            GraphicsGraphUse(70, graphAccessWrite),
+            GraphicsGraphUse(71, graphAccessRead),
+            GraphicsGraphUse(72, graphAccessRead)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(60, targetDescriptor),
+        GraphicsGraphTextureDeclaration(70, targetDescriptor)
+    ], [
+        GraphicsGraphBufferDeclaration(61, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(71, vertexDescriptor),
+        GraphicsGraphBufferDeclaration(72, indexDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.12, 0.54, 0.96, 1.0);
+            }
+        }
+    }
+    val layout = VertexBufferLayout(8, [
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
+    ])
+    val vertexTargetTexture = app.texture(targetDescriptor)
+    val vertexTarget = app.renderTarget(move(vertexTargetTexture))
+    val vertexPipeline = app.renderTargetPipeline(
+        vertexTarget,
+        shader,
+        layout
+    )
+    val indexedTargetTexture = app.texture(targetDescriptor)
+    val indexedTarget = app.renderTarget(move(indexedTargetTexture))
+    val indexedPipeline = app.renderTargetPipeline(
+        indexedTarget,
+        shader,
+        layout
+    )
+    val vertexBuffer = app.buffer(vertexDescriptor)
+    val indexedVertexBuffer = app.buffer(vertexDescriptor)
+    val indexBuffer = app.buffer(indexDescriptor)
+    val vertexBytes = bufferBytes(24)
+    val indexBytes = bufferBytes(12)
+    val uploaded = vertexBytes.storeF32(-0.75, 0) &&
+        vertexBytes.storeF32(-0.65, 4) &&
+        vertexBytes.storeF32(0.75, 8) &&
+        vertexBytes.storeF32(-0.65, 12) &&
+        vertexBytes.storeF32(0.0, 16) &&
+        vertexBytes.storeF32(0.75, 20) &&
+        indexBytes.storeU32(0, 0) && indexBytes.storeU32(1, 4) &&
+        indexBytes.storeU32(2, 8) &&
+        vertexBuffer.writeAllBytes(vertexBytes) &&
+        indexedVertexBuffer.writeAllBytes(vertexBytes) &&
+        indexBuffer.writeAllBytes(indexBytes)
+    val commands = app.graphCommandList(graph, 4)
+    val recorded = app.valid() && graph.valid() && shader.valid && uploaded &&
+        vertexTarget.valid() && vertexPipeline.valid() &&
+        indexedTarget.valid() && indexedPipeline.valid() &&
+        commands.valid() && commands.recordPass(graph, 900) &&
+        commands.recordRenderVertices(
+            graph,
+            60,
+            61,
+            move(vertexTarget),
+            move(vertexPipeline),
+            move(vertexBuffer),
+            3,
+            Color(0.01, 0.02, 0.03)
+        ) && commands.recordPass(graph, 901) &&
+        commands.recordRenderIndexed(
+            graph,
+            70,
+            71,
+            72,
+            move(indexedTarget),
+            move(indexedPipeline),
+            move(indexedVertexBuffer),
+            move(indexBuffer),
+            3,
+            Color(0.03, 0.02, 0.01)
+        ) && commands.seal(graph) && commands.prepared &&
+        commands.commandCount == 4 && commands.renderTargets.size == 2 &&
+        commands.renderResources.size == 2 &&
+        commands.renderResources[0].form == graphicsGraphRenderVertices &&
+        commands.renderResources[1].form == graphicsGraphRenderIndexed &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+    val originalBufferIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.renderResources[0].buffers[0].openGl.handle
+    else commands.renderResources[0].buffers[0].vulkan.handle
+    if (recorded && app.backend == graphicsBackendOpenGl)
+        commands.renderResources[0].buffers[0].openGl.handle =
+            originalBufferIdentity + 1
+    else if (recorded)
+        commands.renderResources[0].buffers[0].vulkan.handle =
+            originalBufferIdentity + 1
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    if (recorded && app.backend == graphicsBackendOpenGl)
+        commands.renderResources[0].buffers[0].openGl.handle =
+            originalBufferIdentity
+    else if (recorded)
+        commands.renderResources[0].buffers[0].vulkan.handle =
+            originalBufferIdentity
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val vertexExact = commands.renderTargets[0].texture.rgba8(8, 8) ==
+        4294281759
+    val indexedExact = commands.renderTargets[1].texture.rgba8(8, 8) ==
+        4294281759
+    val stable = succeeded && iteration == 1001 && vertexExact &&
+        indexedExact && liveAfter == liveBefore &&
+        originalBufferIdentity != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            commands.renderResources[0].buffers[0].openGl.handle ==
+                originalBufferIdentity
+         else commands.renderResources[0].buffers[0].vulkan.handle ==
+                originalBufferIdentity) &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-buffered-render ${graphicsBackendName(app.backend)}: recorded=$recorded forms=${commands.renderResources[0].form}/${commands.renderResources[1].form} exact=$vertexExact/$indexedExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 
 trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {

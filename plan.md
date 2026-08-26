@@ -123,10 +123,10 @@ receives RGB and a zero alpha component.
 
 The optional materialized render graph now also has a bounded reusable command
 slice. An affine fixed-capacity list records exact scheduled pass markers,
-graph-owned transient texture copies, one typed procedural offscreen render,
-and one planner-visible storage-buffer compute dispatch with copied reflected
-push bytes in preallocated storage; it affinely
-owns render and compute resources,
+graph-owned transient texture copies, typed procedural, vertex-buffer, and
+indexed offscreen renders, and planner-visible imported or graph-owned
+multi-buffer compute dispatches with copied reflected push bytes in preallocated
+storage; it affinely owns render and compute resources,
 validates and fingerprints the whole stream at seal, and binds imported typed
 texture/buffer descriptors plus physical identities. The logical buffer's
 read/write-to-read use derives a real backend barrier. Eligible Vulkan streams
@@ -136,8 +136,8 @@ replay. Exact
 OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
 mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
 stable native objects, exact render/copy/storage output, submission counts, and
-silent Vulkan validation. Compute sampled/image bindings, broader
-transient-buffer usage classes, render/copy/compute forms, asynchronous
+silent Vulkan validation. Compute sampled/image bindings, indirect and
+push/depth/MRT/subpass render records, broader copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 
 ## Non-negotiable design rules

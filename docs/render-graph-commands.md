@@ -1,8 +1,9 @@
 # Bounded render-graph command lists
 
 The reusable render-graph command slice records ordered pass entry,
-graph-owned transient texture copies, a typed procedural offscreen render, and
-planner-visible imported or graph-owned buffer compute dispatches into
+graph-owned transient texture copies, typed procedural, vertex-buffer, and
+indexed offscreen renders, and planner-visible imported or graph-owned buffer
+compute dispatches into
 fixed-capacity affine storage. It is an optional layer over the existing direct
 APIs and materialized graph executor; it does not replace either one.
 
@@ -52,6 +53,15 @@ one application-owned `GraphicsRenderTarget` and its compatible
 must exactly match the target texture's storage descriptor; labels are not part
 of storage compatibility.
 
+`recordRenderVertices` additionally moves one exact planner-declared vertex
+buffer into the list. `recordRenderIndexed` moves distinct vertex and `uint32`
+index buffers. Their logical resources must be imported buffers with current
+pass read access, exact storage descriptors, the appropriate usage bit, and
+checked aligned byte ranges. Vertex/index counts and instance count are sealed
+alongside every native buffer identity. Both forms retain the current narrow
+single-color, single-sample, no-depth/no-resolve/no-bind-group/no-push target
+contract.
+
 `recordComputeStorage` names an imported logical buffer resource, then moves one
 storage buffer and the `GraphicsComputePipeline` created against that exact
 native buffer into the list. The current pass must declare that resource as
@@ -86,8 +96,8 @@ The current command kinds are deliberately limited to:
   dependency;
 - a same-format, single-sample transient texture range copy through the
   existing common texture-copy path; and
-- one procedural draw to one single-sample color target, with no depth,
-  resolves, vertex buffer, bind group, or push constants; and
+- one procedural, vertex-buffer, or indexed draw to one single-sample color
+  target, with no depth, resolves, bind group, or push constants; and
 - imported single- or multi-buffer compute and graph-owned transient
   multi-buffer compute dispatches, optionally with one reflected push-constant
   block of at most 128 bytes.
@@ -95,9 +105,9 @@ The current command kinds are deliberately limited to:
 The common executable shader subset currently proves one two-storage form
 (`destination.value += sourceData.value`) in addition to the general
 single-block scalar emitter. Sampled textures/images in compute, queries, debug
-groups, presentation, and broader render forms are not recordable in this
-slice. Applications continue to use their existing direct calls for those
-operations.
+groups, presentation, indirect draws, and push/depth/MRT/subpass render forms
+are not recordable in this slice. Applications continue to use their existing
+direct calls for those operations.
 
 ## Sealing, identity, and ownership
 
@@ -119,8 +129,8 @@ Execution rejects the list before opening a graph execution when:
 
 The command list is an affine `resource class`. It borrows the materialized
 graph and its physical resources, while its affine arrays own every recorded
-render target/pipeline, imported compute buffer, compute pipeline, and retained
-bind group. Transient compute records own logical-ID arrays but borrow their
+render target/pipeline, imported vertex/index/compute buffer, compute pipeline,
+and retained bind group. Transient compute records own logical-ID arrays but borrow their
 buffers from the graph. The graph must outlive the list and every GPU use
 initiated by replay; moving caller resources into the list prevents their
 premature destruction. The exposed arrays are diagnostic storage; applications
@@ -202,9 +212,17 @@ recording state before its consolidated submission. Mutating a transient
 descriptor to request usage absent from its backing pool also invalidates the
 graph and rejects before execution.
 
+The buffered-render proof owns one vertex draw and one indexed draw against
+five planner-visible imported resources. Both exact center pixels are
+`4294281759` on OpenGL, Vulkan, and automatic selection. Mutating a sealed
+native vertex-buffer identity rejects before graph execution. After restoring
+it, 1,001 replays retain exact output and native identities with zero live
+growth; OpenGL reports zero Vulkan submissions and Vulkan exactly 1,001.
+
 `examples/recorded-graph-copy`, `examples/recorded-graph-render`,
 `examples/recorded-graph-compute`, and
-`examples/recorded-graph-transient-compute` are
+`examples/recorded-graph-transient-compute`, and
+`examples/recorded-graph-buffered-render` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -215,6 +233,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Compute sampled/image bindings, depth/resolves, broader render/copy/dispatch
-forms, frames in flight, and GPU-completion-aware retention remain milestone 5
-work.
+Compute sampled/image bindings, indirect and push/depth/MRT/subpass render
+records, broader copy/dispatch forms, frames in flight, and
+GPU-completion-aware retention remain milestone 5 work.

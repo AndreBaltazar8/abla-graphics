@@ -546,10 +546,11 @@ Updated: 2026-08-26.
   repeats the public workflow on both explicit backends.
 - Bounded render-graph command recording: an affine fixed-capacity list records
   exact ordered pass markers, same-format transient texture-copy ranges, a
-  typed procedural offscreen render, and planner-visible imported or
-  graph-owned multi-buffer compute dispatches into preallocated storage. It
-  affinely owns render resources, imported compute buffers, pipelines, and
-  bind groups while borrowing transient buffers from the graph, and seals
+  typed procedural, vertex-buffer, and indexed offscreen renders, and
+  planner-visible imported or graph-owned multi-buffer compute dispatches into
+  preallocated storage. It affinely owns render resources and imported
+  render/compute buffers, pipelines, and bind groups while borrowing transient
+  buffers from the graph, and seals
   with full access/descriptor/range
   validation, binds imported descriptor fingerprints plus graph-owned physical
   identities, and rejects incompatible graphs/resources or post-seal mutation
@@ -563,7 +564,8 @@ Updated: 2026-08-26.
   handles, one pool acquisition per transient physical texture, and zero
   live-byte growth. Vulkan validation is silent. `examples/recorded-graph-copy`,
   `examples/recorded-graph-render`, `examples/recorded-graph-compute`, and
-  `examples/recorded-graph-transient-compute` repeat the public paths on both
+  `examples/recorded-graph-transient-compute`, and
+  `examples/recorded-graph-buffered-render` repeat the public paths on both
   backends. The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -1148,9 +1150,10 @@ validity gate unchanged.
   now materializes those allocation slots as retained cross-backend texture
   pools with checked logical-resource operations. Ordered direct pass entry
   submits conservative derived memory barriers. The bounded reusable slice
-  records ordered pass markers, transient texture copies, and one owned
-  procedural offscreen render, and consolidates an eligible Vulkan stream into
-  one submission. It does not yet record arbitrary render/compute resources or
+  records ordered pass markers, transient texture copies, and owned
+  procedural/vertex/indexed offscreen renders, and consolidates an eligible
+  Vulkan stream into one submission. It does not yet record arbitrary
+  indirect/push/depth/MRT/subpass render resources or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete
