@@ -160,6 +160,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized generated image-arithmetic implementation:
   `1608cc9f94db8a8a588de0fa9f012bdc76150cef`
   (`Generate storage image read arithmetic`).
+- Published and synchronized layered retained-copy implementation:
+  `28fc5b4250a2c3a0c503706ca40833e3ca4749ce`
+  (`Consolidate layered graph copies`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -294,10 +297,12 @@ Implementation commit `d38676f` delivers the next bounded milestone-5 slice:
   partial work, and invalid direct rendering is rejected before beginning a
   command buffer.
 
-The current render record is intentionally narrow: exactly one single-sample
+At that historical checkpoint the render record was intentionally narrow:
+exactly one single-sample
 color attachment, no depth or resolves, procedural vertices, no bind group, and
-no push constants. Consolidated copies are currently 2D with `z = 0` and
-`depth = 1`. Compute, broader render/copy records, asynchronous submission,
+no push constants. Consolidated copies were 2D with `z = 0` and `depth = 1`;
+the later `28fc5b4` checkpoint removes that copy restriction. Compute, broader
+render records, asynchronous submission,
 GPU-completion-aware retention, and frames in flight remain open.
 
 ### Verified evidence
@@ -1007,6 +1012,53 @@ that repository independently became clean and synchronized at
 The next expression slice is broader nesting, multiple locals/statements,
 coordinate arithmetic, and typed builtins. Do not claim general GLSL image
 expression completion from this bounded but generated read/arithmetic form.
+
+### Published checkpoint: layered and volume retained graph copies
+
+Implementation commit `28fc5b4250a2c3a0c503706ca40833e3ca4749ce`
+is published and synchronized on `origin/main`.
+
+`GraphicsGraphCommandList` now keeps every valid recorded texture dimension in
+the eligible single-submission Vulkan stream instead of falling back whenever
+`z` or `depth` describes more than one 2D slice. Array and cube ranges encode
+base layer plus layer count; 3D ranges encode physical source/destination slice
+offsets plus depth. Replay forwards the already sealed values rather than
+hard-coded zero/one values.
+
+Provisional Vulkan layout tracking verifies a common pre-copy layout across
+every affected array layer before recording. If work is not submitted, reverse
+rollback restores every affected source and destination layer, not only layer
+zero. The existing descriptor/range validation and command fingerprint cover
+all mip, origin, and extent fields.
+
+`examples/recorded-graph-copy/` is now a five-record dual proof. In one stream
+it copies two 2D-array layers and two physical 3D slices, rejects a valid-looking
+sealed depth mutation, reads both destination ranges exactly, and completes
+1,001 warmed replays. Explicit OpenGL reports zero submissions; Vulkan reports
+exactly 1,001 consolidated submissions. Both report `4/4012/2006` logical
+barrier totals/calls, stable native identities, and `live=0`.
+
+Verification completed with:
+
+```bash
+nix-shell --run 'make check-abla-only'
+nix-shell --run 'make test-graph-commands'
+```
+
+The sample was also independently rebuilt with `--no-cache --fast`; `ldd` with
+`LD_LIBRARY_PATH` removed reported no unresolved dependency. It ran on both
+explicit backends under Xvfb, and the Vulkan run with
+`VK_LAYER_KHRONOS_validation` emitted no validation message. No `../ablac`
+change was needed for this slice. At handoff, `../ablac` remains at published
+commit `8b6c6e5305049e2e1e2669556909286384eaa009` but contains independent uncommitted
+changes in `src/backend/llvm/functions.ab`,
+`stdlib/abla/unsafe/memory/entry.ab`, `tools/test-unsafe-stack-memory.sh`, and
+`GOAL.md`; do not stage them as graphics work.
+
+Continue with broader generated GLSL expression composition, query/debug
+records, asynchronous GPU-completion retention, and frames in flight. Keep
+using independently compiled shader roots and focused live samples so coverage
+can expand without repeatedly rebuilding the entire sample matrix.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
