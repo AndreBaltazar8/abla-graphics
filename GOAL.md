@@ -154,6 +154,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized full storage-dimension implementation:
   `79a27e52d19a9399823622a695ce6ab0dc42619f`
   (`Complete storage image dimensions`).
+- Published and synchronized generated pushed-image implementation:
+  `8d00c94744b0223f63f52f3ee75a9df11cae1fd7`
+  (`Generate pushed storage image writes`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -531,10 +534,10 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize `imageLoad`/`imageStore` coordinate and value expression
-   lowering beyond the published exact programs. Dimension-aware binding and
-   deterministic retained execution now cover 1D/2D/2D-array/3D/cube;
-   preserve access/format matching and allocation-free replay.
+1. Add arithmetic, `imageLoad`, and local-variable composition around the
+   published generated push coordinate/value form. Dimension-aware binding and
+   generated member-driven stores cover 1D/2D/2D-array/3D/cube; preserve
+   access/format matching and allocation-free replay.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -946,9 +949,38 @@ isolated GLSL subparser build/run, Abla-only audit, and independent Khronos
 passed. No compiler source or dirty `../ablac` path was changed.
 
 All five portable storage-image dimensions now have live driver evidence. The
-next shader slice should replace exact coordinate/color recognition with typed
-general image coordinate and value expressions, ideally reusing the existing
-GLSL expression IR rather than multiplying fixed-program recognizers.
+next shader slice began replacing exact coordinate/color recognition with
+typed runtime values and is published below.
+
+### Published checkpoint: generated runtime storage-image values
+
+Implementation commit `8d00c94744b0223f63f52f3ee75a9df11cae1fd7`
+is published and synchronized on `origin/main`.
+
+The translator now has a generated storage-image path rather than another
+precompiled word array. It reflects arbitrary image, push-block, instance, and
+member names; derives `int`/`ivec2`/`ivec3` coordinate width and SPIR-V image
+dimension from `image1D`, `image2D`, `image2DArray`, `image3D`, or `imageCube`;
+uses the real binding and push member offsets; adds the cube capability only
+when needed; and emits the load/access-chain/`OpImageWrite` program in Abla.
+The accepted initial typed expression is one signed coordinate push member and
+one `vec4` value member. Arithmetic, `imageLoad`, and local composition remain
+explicitly unfinished.
+
+`examples/recorded-graph-storage-image-push/` brings the sample matrix to 63
+roots. Its retained push record snapshots array layer two and yellow before
+the host mutates the original coordinate and color. OpenGL, Vulkan, and
+automatic selection reject a sealed resource-map mutation, replay 1,001 times,
+and read exact yellow `4278255615` with zero warmed live-byte growth and
+zero/1,001 Vulkan submissions. The optimized no-cache executable has no
+unresolved `ldd` entry and runs with `LD_LIBRARY_PATH` removed.
+
+The main `$glsl` subparser test and a new independently compiled five-dimension
+generated-module test both pass. The dimension matrix lives in its own root
+because appending it to the historical mega-test reproduced the compiler's
+deep composition-root crash; `tools/test-glsl.sh` still runs both, preserving
+one public gate while making future shader coverage faster and safer. The
+Abla-only audit passes, and no `../ablac` source or dirty path was changed.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
