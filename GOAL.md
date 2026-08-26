@@ -269,9 +269,10 @@ No `../ablac` change was needed. It remained clean and synchronized at
 6. Continue the larger milestone/coverage/platform work in `plan.md`; do not
    mark the persistent goal complete after this checkpoint.
 
-## Current checkpoint: planner buffers and sealed compute push data
+## Published checkpoint: planner buffers and sealed compute push data
 
-This working checkpoint generalizes typed graph materialization with
+Implementation commit `f9609a5485d0ec9f178e85a9517532270d27ce96`
+generalizes typed graph materialization with
 `GraphicsGraphBufferDeclaration` and
 `GraphicsApplication.materializeRenderGraphResources(...)`. Exactly one
 exclusive texture or buffer declaration is required per logical resource.
@@ -324,13 +325,14 @@ no-cache build/link/live matrix were all rerun successfully on that exact final
 source. The focused result reports `tamper=true/true` on every backend
 selection.
 
-Current intended checkpoint paths are `src/compute.ab`,
+Published checkpoint paths are `src/compute.ab`,
 `src/graph_texture.ab`, `src/graph_commands.ab`,
 `tests/graph_commands/main.ab`, `examples/recorded-graph-compute/main.ab`,
 `README.md`, `docs/api.md`, `docs/architecture.md`,
 `docs/render-graph-textures.md`, `docs/render-graph-commands.md`,
-`docs/status.md`, `plan.md`, and this handoff. No `../ablac` change is needed
-so far; verify its clean state again before publication.
+`docs/status.md`, `plan.md`, and this handoff. No `../ablac` change was needed;
+it remained clean and synchronized at
+`82a66da3a978d63adbe49922f74eebc76eea892a`.
 
 ## Published checkpoint: recorded storage compute and direct launches
 
