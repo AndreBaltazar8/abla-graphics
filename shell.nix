@@ -31,6 +31,10 @@ pkgs.mkShell {
     export ABLA_GRAPHICS_LVP_ICD="${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.x86_64.json"
     export ABLA_GRAPHICS_EGL_VENDOR="${pkgs.mesa}/share/glvnd/egl_vendor.d/50_mesa.json"
     export ABLA_GRAPHICS_DRI="${pkgs.mesa}/lib/dri"
+    # mkShell's synthetic $out/lib RUNPATH disappears after the shell exits.
+    # Preserve the actual graphics loader locations so an Abla executable built
+    # here can be launched directly without inheriting LD_LIBRARY_PATH.
+    export NIX_LDFLAGS="$NIX_LDFLAGS -rpath ${pkgs.vulkan-loader}/lib -rpath ${pkgs.libglvnd}/lib -rpath ${pkgs.mesa}/lib -rpath ${pkgs.xorg.libX11}/lib"
     export LD_LIBRARY_PATH="${pkgs.openssl.out}/lib:${pkgs.vulkan-loader}/lib:${pkgs.libglvnd}/lib:${pkgs.mesa}/lib:${pkgs.xorg.libX11}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   '';
 }

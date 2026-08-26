@@ -64,9 +64,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   conservative backend memory dependencies at ordered pass entry, plus a
   fixed-capacity affine command list that owns recorded render resources,
   seals and repeatedly replays exact pass markers, all-transient texture
-  copies, and a typed procedural offscreen render without warmed descriptor
-  construction or live-memory growth; eligible Vulkan streams record their
-  barriers, copy, and render into one command buffer and submit once;
+  copies, a typed procedural offscreen render, and an owned storage-buffer
+  compute dispatch without warmed descriptor construction or live-memory
+  growth; eligible Vulkan streams record their barriers and work into one
+  command buffer and submit once;
 - deterministic pure-Abla SPIR-V emission for strict no-op and observable
   single-member storage arithmetic compute subsets plus fixed, interleaved
   position/color, and sampled-texture vertex/fragment triangle subsets for
@@ -190,6 +191,13 @@ nix-shell --run 'make test-toolchain'
 nix-shell --run 'make test-registry'
 ```
 
+Executables built in that Nix environment retain the concrete Vulkan, X11,
+EGL, and OpenGL loader locations. They can therefore be launched directly
+after the build; inheriting the development shell's `LD_LIBRARY_PATH` is not a
+runtime requirement. `make test-runtime-linkage` rebuilds a combined headless
+application, verifies that `ldd` reports no unresolved dependency, clears the
+shell-only graphics environment, and runs both backends.
+
 Applications that open a portable surface declare the installed loader boundary
 in their root manifest:
 
@@ -279,6 +287,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   graph passes, a transient texture copy, and an owned procedural offscreen
   render; it proves exact copy/render output, 1,001 allocation-free replays,
   stable native resources, and one Vulkan submission per complete replay;
+- `examples/recorded-graph-compute`: an affine two-record pass/compute stream
+  that owns its bound storage buffer and pipeline, reaches exact value `1001`
+  through 1,001 allocation-free replays, and uses one Vulkan submission per
+  replay or direct ordered OpenGL dispatch;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

@@ -433,6 +433,126 @@ trusted fun graphRenderCommandProbe(var app: GraphicsApplication): bool {
     println(
         "graph-render-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} render=${finalPixel == 4294281759} copy=$copied rejected=$invalidDirectRejected/$incompatibleRecordRejected/$incompatibleReplayRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$sourceIdentity/$destinationIdentity/$targetIdentity/$pipelineIdentity"
     )
+    passed && graphComputeCommandProbe(app)
+}
+
+trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
+    val graphTextureDescriptor = TextureDescriptor(
+        label = "recorded-compute-graph-anchor",
+        size = Extent3D(1, 1),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(20, "compute-anchor", true, 4, 40)
+    ], [
+        GraphicsGraphPass(500, "recorded-compute", [
+            GraphicsGraphUse(20, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(20, graphTextureDescriptor)
+    ])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            void main() {
+                values.value = values.value + 1u;
+            }
+        }
+    }
+    val rejectedBinding = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val rejectedStorage = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val rejectedPipeline = app.computeStoragePipeline(
+        shader,
+        rejectedBinding
+    )
+    val storage = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val pipeline = app.computeStoragePipeline(shader, storage)
+    val commands = app.graphCommandList(graph, 2)
+    val rejected = app.valid() && graph.valid() && shader.valid &&
+        rejectedBinding.valid() && rejectedStorage.valid() &&
+        rejectedPipeline.valid() &&
+        storage.writeI64(0) && storage.valid() && pipeline.valid() &&
+        commands.valid() && commands.recordPass(graph, 500) &&
+        !commands.recordComputeStorage(
+            graph,
+            move(rejectedStorage),
+            move(rejectedPipeline),
+            1
+        ) && commands.commandCount == 1
+    val recorded = rejected && commands.recordComputeStorage(
+        graph,
+        move(storage),
+        move(pipeline),
+        1
+    ) && commands.seal(graph) && commands.prepared &&
+        commands.commandCount == 2 && commands.computeBuffers.size == 1 &&
+        commands.computePipelines.size == 1 &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+    val storageIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.computeBuffers[0].openGl.handle
+    else commands.computeBuffers[0].vulkan.handle
+    val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].openGl.handle
+    else commands.computePipelines[0].vulkan.handle
+    val commandPoolIdentity = commands.computePipelines[0].vulkan.commandPool
+    if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].openGl.handle = pipelineIdentity + 1
+    else commands.computePipelines[0].vulkan.handle = pipelineIdentity + 1
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].openGl.handle = pipelineIdentity
+    else commands.computePipelines[0].vulkan.handle = pipelineIdentity
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val result = if (succeeded) commands.computeBuffers[0].readI64() else -1
+    val stable = succeeded && iteration == 1001 && result == 1001 &&
+        liveAfter == liveBefore && storageIdentity != 0 &&
+        pipelineIdentity != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            commands.computeBuffers[0].openGl.handle == storageIdentity &&
+            commands.computePipelines[0].openGl.handle == pipelineIdentity
+         else commands.computeBuffers[0].vulkan.handle == storageIdentity &&
+            commands.computePipelines[0].vulkan.handle == pipelineIdentity &&
+            commands.computePipelines[0].vulkan.commandPool ==
+                commandPoolIdentity) && commands.executions == 1001 &&
+        commands.failedExecutions == 1 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0) &&
+        graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 0 &&
+        graph.totalExecutedBarriers == 0 &&
+        graph.backendBarrierCalls == 0 &&
+        graph.pools[0].acquisitionCount == 1
+    val passed = recorded && tamperRejected && stable
+    println(
+        "graph-compute-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} result=$result tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
+    )
     passed
 }
 

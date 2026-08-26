@@ -20,7 +20,7 @@ trap cleanup EXIT
 mkdir -p "$output_directory"
 chmod 700 "$wayland_runtime"
 
-for sample in x11-window wayland-info wayland-window wayland-pixels \
+samples=(x11-window wayland-info wayland-window wayland-pixels \
     wayland-animation \
     wayland-input \
     wayland-output \
@@ -32,13 +32,26 @@ for sample in x11-window wayland-info wayland-window wayland-pixels \
     multiple-render-targets subpasses common-compute gpu-timestamp \
     push-color push-transform push-draw push-expression narrow-input \
     frame-pacing render-graph materialized-render-graph graph-post-process \
-    recorded-graph-copy recorded-graph-render; do
+    recorded-graph-copy recorded-graph-render recorded-graph-compute)
+
+for sample in "${samples[@]}"; do
     cd "$compiler_root"
     ABLA_MAX_MEMORY_MB=${ABLA_SAMPLE_TEST_MEMORY_MB:-6144} \
         ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/$sample/main.ab" \
         -o "$output_directory/$sample" --no-cache
 done
+
+for sample in "${samples[@]}"; do
+    missing=$(env -u LD_LIBRARY_PATH ldd "$output_directory/$sample" | \
+        sed -n '/not found/p')
+    if [[ -n $missing ]]; then
+        printf '%s has unresolved shared libraries:\n%s\n' \
+            "$sample" "$missing" >&2
+        exit 1
+    fi
+done
+unset LD_LIBRARY_PATH
 
 XDG_RUNTIME_DIR="$wayland_runtime" weston \
     --backend=headless-backend.so \
@@ -104,6 +117,8 @@ for backend in opengl vulkan; do
         "$output_directory/recorded-graph-copy" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-render" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/recorded-graph-compute" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-texture" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

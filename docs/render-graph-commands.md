@@ -51,6 +51,14 @@ one application-owned `GraphicsRenderTarget` and its compatible
 must exactly match the target texture's storage descriptor; labels are not part
 of storage compatibility.
 
+`recordComputeStorage` moves one storage buffer and the
+`GraphicsComputePipeline` created against that exact native buffer into the
+list, then records positive checked workgroup counts. The current form accepts
+one binding-zero storage block and no push constants. The buffer is owned by the
+list because the native pipeline descriptor retains its handle. It is not yet a
+logical render-graph buffer resource, so this slice does not derive inter-buffer
+hazards or permit the same affine buffer to be reused by multiple records.
+
 The current command kinds are deliberately limited to:
 
 - an ordered materialized-pass marker, including its compiled backend memory
@@ -58,16 +66,18 @@ The current command kinds are deliberately limited to:
 - a same-format, single-sample transient texture range copy through the
   existing common texture-copy path; and
 - one procedural draw to one single-sample color target, with no depth,
-  resolves, vertex buffer, bind group, or push constants.
+  resolves, vertex buffer, bind group, or push constants; and
+- one owned binding-zero storage-buffer compute dispatch with no push
+  constants.
 
-General render commands, compute dispatches, buffers, queries, debug groups,
-and presentation are not recordable in this slice. Applications continue to
-use their existing direct calls for those operations.
+General render/compute bindings, queries, debug groups, and presentation are
+not recordable in this slice. Applications continue to use their existing
+direct calls for those operations.
 
 ## Sealing, identity, and ownership
 
 `seal(graph)` validates the entire stream once. Every planned pass must appear
-exactly once and in order; every copy and render must remain legal in its
+exactly once and in order; every copy, render, and compute dispatch must remain legal in its
 containing pass; and at least the pass markers must fit. A successful seal
 stores a primitive fingerprint of all used command fields and resource
 descriptors.
@@ -82,8 +92,8 @@ Execution rejects the list before opening a graph execution when:
 
 The command list is an affine `resource class`. It borrows the materialized
 graph and its physical resources, while its affine arrays own every recorded
-render target and pipeline. The graph must outlive the list and every GPU use
-initiated by replay; moving the render resources into the list prevents their
+render target/pipeline and compute buffer/pipeline. The graph must outlive the
+list and every GPU use initiated by replay; moving resources into the list prevents their
 premature destruction. The exposed arrays are diagnostic storage; applications
 must treat them as inspection-only after sealing. Accidental mutation is
 rejected by the seal fingerprint rather than replayed.
@@ -94,12 +104,12 @@ rejected by the seal fingerprint rather than replayed.
 opens one graph generation, and walks the fixed records. Pass markers preserve
 the compiled incoming barrier count/access unions and strict pass order. Copy
 records use the scalar pool-lease range path and do not construct a
-`TextureCopyDescriptor` during replay. Render records use the list-owned native
-target and pipeline.
+`TextureCopyDescriptor` during replay. Render and compute records use their
+list-owned native resources.
 
 OpenGL replays the same operations directly. When every Vulkan command is
-eligible, graph barriers, 2D copies with `z = 0` and `depth = 1`, and the render
-are recorded into the device's retained transfer command buffer and submitted
+eligible, graph barriers, 2D copies with `z = 0` and `depth = 1`, render, and
+compute dispatch are recorded into the device's retained command buffer and submitted
 once for the complete list. Other valid copy shapes retain the direct path.
 The public direct copy/render entry points remain begin/record/submit wrappers
 around the same validated non-submitting driver helpers.
@@ -117,7 +127,9 @@ Once the queue accepts work, layout and submission counters reflect that work
 even if the completion wait fails; the graph does not claim a completed
 execution and the transfer device becomes unhealthy, preventing unsafe reuse.
 Direct-fallback submission counts and all counter additions are preflighted so
-exhaustion cannot be discovered after earlier commands have submitted.
+exhaustion cannot be discovered after earlier commands have submitted. The
+Vulkan compute pipeline applies the same accepted-versus-completed distinction
+to its private direct fallback and becomes unhealthy after a native failure.
 
 The warmed replay path performs no descriptor construction or general heap
 allocation. It still performs bounded identity/fingerprint checks and the
@@ -138,7 +150,14 @@ successful list replays, and zero live-memory growth over the 1,000-replay
 warmed loop. OpenGL reports zero Vulkan submissions; Vulkan reports exactly
 1,001, one for each complete replay.
 
-`examples/recorded-graph-copy` and `examples/recorded-graph-render` are
+Its two-command compute proof rejects a pipeline bound to a different storage
+buffer, then increments an owned buffer to exact value `1001` through 1,001
+replays. Buffer, pipeline, and Vulkan command-pool handles remain stable with
+zero live growth; OpenGL reports zero Vulkan submissions and Vulkan exactly
+1,001. Native resource identities participate in the seal fingerprint.
+
+`examples/recorded-graph-copy`, `examples/recorded-graph-render`, and
+`examples/recorded-graph-compute` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -149,6 +168,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-General render/compute recording, bind groups, push constants, depth/resolves,
-broader consolidated texture copies, frames in flight, and
+General render/compute bindings and push constants, depth/resolves, broader
+copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

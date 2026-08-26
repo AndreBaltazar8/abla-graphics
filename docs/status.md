@@ -1,9 +1,17 @@
 # Implementation status
 
-Updated: 2026-08-25.
+Updated: 2026-08-26.
 
 ## Verified now
 
+- Nix-built application linkage: the development shell adds concrete Vulkan,
+  X11, EGL, OpenGL, and Mesa library directories to each executable's RUNPATH
+  instead of relying on mkShell's transient synthetic directory. The
+  `test-runtime-linkage` gate clears `LD_LIBRARY_PATH` and all project graphics
+  discovery overrides, proves zero unresolved shared libraries, and directly
+  runs one freshly built Abla executable through both headless backends. The
+  43-root no-cache sample matrix separately audits every canonical executable
+  and runs its full live suite after unsetting `LD_LIBRARY_PATH`.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
   structured errors, window configuration,
@@ -537,13 +545,14 @@ Updated: 2026-08-25.
   schedule without rescanning planner barriers. `examples/graph-post-process`
   repeats the public workflow on both explicit backends.
 - Bounded render-graph command recording: an affine fixed-capacity list records
-  exact ordered pass markers, same-format transient texture-copy ranges, and a
-  typed procedural offscreen render into preallocated storage. It affinely owns
-  the recorded target/pipeline, seals with full access/descriptor/range
+  exact ordered pass markers, same-format transient texture-copy ranges, a
+  typed procedural offscreen render, and a storage-buffer compute dispatch into
+  preallocated storage. It affinely owns render and compute resources, seals
+  with full access/descriptor/range
   validation, binds imported descriptor fingerprints plus graph-owned physical
   identities, and rejects incompatible graphs/resources or post-seal mutation
   before opening an execution. Eligible Vulkan streams record their barriers,
-  2D copy, and render into one retained command buffer and submit once per
+  2D copy, render, and compute work into one retained command buffer and submit once per
   replay; OpenGL uses ordered direct operations. The combined six-command
   OpenGL/Vulkan/auto gate proves center pixel `4294281759`, copied RGBA
   `4280427042`, 1,001 successful list executions, 1,003 completed graph
@@ -551,9 +560,12 @@ Updated: 2026-08-25.
   exactly 1,001 Vulkan submissions or zero on OpenGL, stable graph/render native
   handles, one pool acquisition per transient physical texture, and zero
   live-byte growth. Vulkan validation is silent. `examples/recorded-graph-copy`
-  and `examples/recorded-graph-render` repeat the public paths on both backends.
-  Compute and broader render/copy recording, asynchronous submission, and
-  frames in flight remain open.
+  `examples/recorded-graph-render`, and `examples/recorded-graph-compute` repeat
+  the public paths on both backends. The compute proof reaches exact storage
+  value `1001` through 1,001 replays with stable owned buffer/pipeline handles,
+  zero growth, and zero/1,001 OpenGL/Vulkan submissions. General bindings,
+  push constants, broader command forms, asynchronous submission, and frames in
+  flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

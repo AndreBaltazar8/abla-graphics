@@ -1,0 +1,97 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded graph compute",
+            width = 480,
+            height = 270
+        )
+    )
+    val anchorDescriptor = TextureDescriptor(
+        label = "recorded-compute-anchor",
+        size = Extent3D(1, 1),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(0, "anchor", true, 4, 10)
+    ], [
+        GraphicsGraphPass(10, "compute", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, anchorDescriptor)
+    ])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Values {
+                uint value;
+            } values;
+            void main() {
+                values.value = values.value + 1u;
+            }
+        }
+    }
+    val storage = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    ))
+    val pipeline = app.computeStoragePipeline(shader, storage)
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        storage.writeI64(0) && pipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) && commands.recordComputeStorage(
+            graph,
+            move(storage),
+            move(pipeline),
+            1
+        ) && commands.seal(graph) && commands.prepared &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+    val storageIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.computeBuffers[0].openGl.handle
+    else commands.computeBuffers[0].vulkan.handle
+    val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].openGl.handle
+    else commands.computePipelines[0].vulkan.handle
+    val commandPoolIdentity = commands.computePipelines[0].vulkan.commandPool
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val result = if (succeeded) commands.computeBuffers[0].readI64() else -1
+    val stable = succeeded && iteration == 1001 && result == 1001 &&
+        liveAfter == liveBefore && storageIdentity != 0 &&
+        pipelineIdentity != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            commands.computeBuffers[0].openGl.handle == storageIdentity &&
+            commands.computePipelines[0].openGl.handle == pipelineIdentity
+         else commands.computeBuffers[0].vulkan.handle == storageIdentity &&
+            commands.computePipelines[0].vulkan.handle == pipelineIdentity &&
+            commands.computePipelines[0].vulkan.commandPool ==
+                commandPoolIdentity) && commands.executions == 1001 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-compute ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} result=$result executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
+    )
+    if (stable) 0 else 1
+}

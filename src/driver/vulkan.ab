@@ -3525,17 +3525,66 @@ resource class VulkanComputePipeline(
     var descriptorSetLayout: int,
     var descriptorPool: int,
     var descriptorSet: int,
+    val storageBuffer: int,
+    var healthy: bool,
+    var submissionAccepted: bool,
     val pushConstantSize: int,
     val pushConstantStageMask: int
 ) {
-    fun valid(): bool = !pointerIsNull(this.device) &&
+    fun valid(): bool = this.healthy && !pointerIsNull(this.device) &&
         !pointerIsNull(this.queue) && this.queueFamily >= 0 &&
         this.layout != 0 && this.handle != 0 && this.commandPool != 0 &&
         !this.command.closed && !pointerIsNull(this.command.load()) &&
         !this.scratch.closed && this.scratch.capacity >= 72 &&
+        ((this.descriptorSet == 0 && this.storageBuffer == 0) ||
+         (this.descriptorSet != 0 && this.storageBuffer != 0)) &&
         this.pushConstantSize >= 0 && this.pushConstantSize <= 128 &&
         ((this.pushConstantSize == 0 && this.pushConstantStageMask == 0) ||
          (this.pushConstantSize > 0 && this.pushConstantStageMask != 0))
+
+    trusted fun recordDispatch(
+        commandBuffer: i64*,
+        x: int,
+        y: int = 1,
+        z: int = 1,
+        pushConstantData: i64* = nativeNullPointer(),
+        pushConstantSize: int = 0
+    ): bool {
+        var succeeded = this.valid() && !pointerIsNull(commandBuffer) &&
+            x > 0 && y > 0 && z > 0 &&
+            x <= 65535 && y <= 65535 && z <= 65535 &&
+            ((this.pushConstantSize == 0 && pushConstantSize == 0 &&
+              pointerIsNull(pushConstantData)) ||
+             (this.pushConstantSize > 0 &&
+              pushConstantSize == this.pushConstantSize &&
+              !pointerIsNull(pushConstantData)))
+        if (succeeded) {
+            vkCmdBindPipeline(commandBuffer, 1, this.handle)
+            if (this.pushConstantSize > 0) vkCmdPushConstants(
+                commandBuffer,
+                this.layout,
+                this.pushConstantStageMask,
+                0,
+                this.pushConstantSize,
+                pushConstantData
+            )
+            if (this.descriptorSet != 0) {
+                this.scratch.storeI64(0, this.descriptorSet)
+                vkCmdBindDescriptorSets(
+                    commandBuffer,
+                    1,
+                    this.layout,
+                    0,
+                    1,
+                    this.scratch.address,
+                    0,
+                    nativeNullPointer()
+                )
+            }
+            vkCmdDispatch(commandBuffer, x, y, z)
+        }
+        succeeded
+    }
 
     trusted fun dispatch(
         x: int,
@@ -3544,14 +3593,15 @@ resource class VulkanComputePipeline(
         pushConstantData: i64* = nativeNullPointer(),
         pushConstantSize: int = 0
     ): bool {
-        var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
+        this.submissionAccepted = false
+        val accepted = this.valid() && x > 0 && y > 0 && z > 0 &&
             x <= 65535 && y <= 65535 && z <= 65535 &&
             ((this.pushConstantSize == 0 && pushConstantSize == 0 &&
               pointerIsNull(pushConstantData)) ||
              (this.pushConstantSize > 0 &&
               pushConstantSize == this.pushConstantSize &&
               !pointerIsNull(pushConstantData)))
-        if (succeeded) succeeded = vkResetCommandPool(
+        var succeeded = accepted && vkResetCommandPool(
             this.device,
             this.commandPool,
             0
@@ -3567,29 +3617,16 @@ resource class VulkanComputePipeline(
             ) == vulkanSuccess
         }
         if (succeeded) {
-            vkCmdBindPipeline(this.command.load(), 1, this.handle)
-            if (this.pushConstantSize > 0) vkCmdPushConstants(
+            succeeded = this.recordDispatch(
                 this.command.load(),
-                this.layout,
-                this.pushConstantStageMask,
-                0,
-                this.pushConstantSize,
-                pushConstantData
+                x,
+                y,
+                z,
+                pushConstantData,
+                pushConstantSize
             )
-            if (this.descriptorSet != 0) {
-                this.scratch.storeI64(0, this.descriptorSet)
-                vkCmdBindDescriptorSets(
-                    this.command.load(),
-                    1,
-                    this.layout,
-                    0,
-                    1,
-                    this.scratch.address,
-                    0,
-                    nativeNullPointer()
-                )
-            }
-            vkCmdDispatch(this.command.load(), x, y, z)
+        }
+        if (succeeded) {
             succeeded = vkEndCommandBuffer(
                 this.command.load()
             ) == vulkanSuccess
@@ -3610,9 +3647,11 @@ resource class VulkanComputePipeline(
                 this.scratch.address,
                 0
             ) == vulkanSuccess
+            this.submissionAccepted = succeeded
         }
         if (succeeded) succeeded =
             vkQueueWaitIdle(this.queue) == vulkanSuccess
+        if (accepted && !succeeded) this.healthy = false
         succeeded
     }
 
@@ -3903,6 +3942,9 @@ trusted fun VulkanDevice.computePipelineNative(
         descriptorSetLayout,
         descriptorPool,
         descriptorSet,
+        storageHandle,
+        true,
+        false,
         pushConstantSize,
         pushConstantStageMask
     )
@@ -3934,7 +3976,7 @@ trusted fun VulkanDevice.computeStoragePipeline(
 else VulkanComputePipeline(
     nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
     nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0,
-    0, 0
+    0, true, false, 0, 0
 )
 
 fun vulkanTextureFormat(format: int): int {

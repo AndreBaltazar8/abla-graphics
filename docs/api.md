@@ -1753,7 +1753,7 @@ the planner's barrier list. The complete contracts are in
 The bounded reusable recording slice is available for materialized graphs:
 
 ```abla
-val commands = app.graphCommandList(graph, 6)
+val commands = app.graphCommandList(graph, 7)
 commands.recordPass(graph, 10)
 commands.recordPass(graph, 20)
 commands.recordTextureCopy(graph, sourceId, destinationId)
@@ -1767,6 +1767,14 @@ commands.recordRenderTarget(
 )
 commands.recordPass(graph, 40)
 
+// A storage pipeline must have been created against this exact buffer.
+commands.recordComputeStorage(
+    graph,
+    move(storage),
+    move(computePipeline),
+    1
+)
+
 if (commands.seal(graph)) {
     app.executeGraphCommands(graph, commands)
 }
@@ -1775,20 +1783,23 @@ if (commands.seal(graph)) {
 Creation preallocates capacity for at most 4,096 primitive records and captures
 the exact pass order, logical resources, physical slots, native identities, and
 storage descriptors. Recording accepts ordered pass markers, graph-owned
-transient texture range copies, and a narrow procedural offscreen render to an
-imported target. The command list takes affine ownership of the render target
-and pipeline. Sealing performs complete descriptor/access/range validation and
+transient texture range copies, a narrow procedural offscreen render to an
+imported target, and a storage-buffer compute dispatch. The command list takes
+affine ownership of render targets/pipelines and compute buffers/pipelines.
+The compute buffer is not yet a planner resource; this narrow form owns one
+exact pipeline-bound buffer rather than deriving general buffer hazards.
+Sealing performs complete descriptor/access/range validation and
 fingerprints all used scalar fields. Replay rejects a different graph,
 incompatible imported storage, or post-seal mutation before opening an
 execution, then reuses scalar operations without descriptor construction. The
 list borrows the graph, which must outlive it and submitted work. Eligible
-Vulkan 2D-copy/render streams submit once per complete replay; OpenGL and
+Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL and
 unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
-and current-limit contract. Compute recording, general render resources,
-broader consolidated copies, frames in flight, and asynchronous submission
-remain future work.
+and current-limit contract. General compute bindings and push constants,
+broader render/copy forms, frames in flight, and asynchronous submission remain
+future work.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:

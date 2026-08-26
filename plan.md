@@ -1,6 +1,6 @@
 # Abla Graphics implementation plan
 
-Status: active implementation contract, 2026-08-25.
+Status: active implementation contract, 2026-08-26.
 
 Abla Graphics is the graphics and windowing framework for the Abla ecosystem.
 It targets OpenGL 4.6 core and Vulkan 1.4, with an idiomatic common API for
@@ -123,17 +123,19 @@ receives RGB and a zero alpha component.
 
 The optional materialized render graph now also has a bounded reusable command
 slice. An affine fixed-capacity list records exact scheduled pass markers,
-graph-owned transient texture copies, and one typed procedural offscreen render
-into preallocated storage; it affinely owns the render target and pipeline,
+graph-owned transient texture copies, one typed procedural offscreen render,
+and one storage-buffer compute dispatch into preallocated storage; it affinely
+owns render and compute resources,
 validates and fingerprints the whole stream at seal, and binds imported texture
 descriptors plus physical identities. Eligible Vulkan streams encode their
-barriers, copy, and render in one retained command buffer and submit once per
+barriers, copy, render, and compute work in one retained command buffer and submit once per
 complete replay; OpenGL preserves ordered direct replay. Exact
 OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
 mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
-stable native objects, exact output, submission counts, and silent Vulkan
-validation. General compute recording, broader render/copy forms, asynchronous
-GPU-completion retention, and frames in flight remain milestone 5 work.
+stable native objects, exact render/copy/storage output, submission counts, and
+silent Vulkan validation. General bindings/push constants, broader
+render/copy/compute forms, asynchronous GPU-completion retention, and frames in
+flight remain milestone 5 work.
 
 ## Non-negotiable design rules
 
@@ -168,6 +170,10 @@ GPU-completion retention, and frames in flight remain milestone 5 work.
 - Add a Khronos registry importer design with pinned OpenGL/Vulkan registry
   revisions and deterministic output checks.
 - Add test/build entry points that work from this checkout with `../ablac`.
+- Ensure executables built in the pinned Nix environment retain their concrete
+  loader-library locations and launch directly without the development shell's
+  `LD_LIBRARY_PATH`; gate this with an unresolved-dependency audit and a live
+  combined-backend executable.
 
 Exit gate: a clean checkout can run the pure Abla contract and platform ABI
 suites; repository metadata contains no non-Abla implementation source or
@@ -309,6 +315,9 @@ samples have local test scripts, and golden outputs are versioned intentionally.
   thresholds. Use batched ABI calls only where measurements justify them.
 - Add Linux, Windows, and macOS CI/builds; document OpenGL/Vulkan availability
   and portability extensions rather than pretending every backend exists equally.
+- Verify release artifacts on clean runner environments, including direct
+  executable launch and complete shared-library/driver-loader discovery rather
+  than accepting binaries that only run inside a development shell.
 - Fuzz shader parsing, descriptors, events, registry generation, and driver ABI
   boundaries. Run sanitizers and Vulkan validation in dedicated jobs.
 - Publish packages and signed source releases only after API compatibility,
