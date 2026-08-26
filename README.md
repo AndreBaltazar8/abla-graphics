@@ -312,6 +312,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/recorded-graph-depth-render`: a planner-visible color/depth pair
   drives an owned depth-tested buffered target through 1,001 exact,
   allocation-free replays and one Vulkan submission per replay;
+- `examples/recorded-graph-resolve-render`: a planner-visible 4x multisample
+  color/resolve pair produces exact resolved output through 1,001 zero-growth
+  replays and one Vulkan submission per replay;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;

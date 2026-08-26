@@ -1292,6 +1292,103 @@ trusted fun graphBufferedDepthRenderCommandProbe(
     println(
         "graph-buffered-depth ${graphicsBackendName(app.backend)}: forms=${commands.renderResources[0].form}/${commands.renderResources[1].form} depth=${commands.renderDepthResourceIds[0]}/${commands.renderDepthResourceIds[1]} exact=$directExact/$indirectExact snapshot=$indirectExact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
     )
+    recorded && tamperRejected && stable && graphResolveRenderCommandProbe(app)
+}
+
+trusted fun graphResolveRenderCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val colorDescriptor = TextureDescriptor(
+        label = "recorded-resolve-msaa",
+        size = Extent3D(16, 16),
+        samples = 4,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment
+    )
+    val resolveDescriptor = TextureDescriptor(
+        label = "recorded-resolve-output",
+        size = Extent3D(16, 16),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment |
+            textureUsageCopyDestination | textureUsageCopySource
+    )
+    val graph = app.materializeRenderGraphTextures([
+        GraphicsGraphResource(130, "resolve-msaa", false, 0, 130),
+        GraphicsGraphResource(131, "resolve-output", false, 0, 131)
+    ], [
+        GraphicsGraphPass(940, "resolve-render", [
+            GraphicsGraphUse(130, graphAccessWrite),
+            GraphicsGraphUse(131, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(130, colorDescriptor),
+        GraphicsGraphTextureDeclaration(131, resolveDescriptor)
+    ])
+    val shader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec3 tint;
+                float alpha;
+            } draw;
+            void main() {
+                color = vec4(draw.tint.x, draw.tint.y, draw.tint.z, draw.alpha);
+            }
+        }
+    }
+    val color = app.texture(colorDescriptor)
+    val resolve = app.texture(resolveDescriptor)
+    val target = app.renderTarget(move(color), [move(resolve)])
+    val pipeline = app.renderTargetPipeline(target, shader)
+    val values = shader.pushConstants()
+    val initialized = values.storeF32(1.0, 0) &&
+        values.storeF32(0.0, 4) && values.storeF32(0.0, 8) &&
+        values.storeF32(1.0, 12)
+    val commands = app.graphCommandList(graph, 2)
+    val recorded = graph.valid() && shader.valid && target.valid() &&
+        pipeline.valid() && initialized && commands.valid() &&
+        commands.recordPass(graph, 940) &&
+        commands.recordRenderTargetResolvePush(
+            graph, 130, 131, move(target), move(pipeline), values
+        ) && commands.seal(graph) && commands.prepared &&
+        commands.renderResolveResourceIds[0] == 131 &&
+        commands.renderPushSizes[1] == 16 &&
+        values.storeF32(0.0, 0) && values.storeF32(1.0, 4)
+    commands.renderResolveResourceIds[0] = 999
+    val tamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.renderResolveResourceIds[0] = 131
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = tamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val exact = commands.renderTargets[0].resolveTextures[0].rgba8(8, 8) ==
+        4278190335
+    val stable = succeeded && iteration == 1001 && exact &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        commands.failedExecutions == 1 && graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-resolve-render ${graphicsBackendName(app.backend)}: samples=${commands.renderTargets[0].texture.descriptor.samples} resolve=${commands.renderResolveResourceIds[0]} exact=$exact snapshot=$exact tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
     recorded && tamperRejected && stable && graphComputeCommandProbe(app)
 }
 

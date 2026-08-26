@@ -570,7 +570,9 @@ Updated: 2026-08-26.
   `examples/recorded-graph-indirect-render`, and
   `examples/recorded-graph-push-render`, and
   `examples/recorded-graph-depth-render` repeat the public paths on both
-  backends. The first compute proof declares an imported
+  backends. `examples/recorded-graph-resolve-render` adds planner-visible 4x
+  multisample source and single-sample resolve identities, exact output,
+  sealed-ID tamper rejection, and zero-growth replay on both backends. The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
   `1001` through 1,001 replays. Its read/write-to-read planner hazard produces

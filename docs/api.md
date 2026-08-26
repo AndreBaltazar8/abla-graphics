@@ -1839,6 +1839,14 @@ commands.recordRenderTargetDepth(
     move(depthPipeline)
 )
 // recordRenderTargetDepthPush(...) also snapshots reflected push bytes.
+commands.recordRenderTargetResolve(
+    graph,
+    importedMultisampleColorId,
+    importedSingleSampleResolveId,
+    move(resolveTarget),
+    move(resolvePipeline)
+)
+// recordRenderTargetResolvePush(...) snapshots reflected push bytes.
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1887,8 +1895,11 @@ Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL an
 unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
-and current-limit contract. Compute sampled/image bindings,
-resolve/MRT/subpass render records, broader copy/dispatch forms, frames in flight,
+and current-limit contract. A single-color multisample target uses
+`recordRenderTargetResolve` or its `Push` form; both multisample source and
+single-sample resolve output are exact imported pass writes and sealed
+identities. Compute sampled/image bindings, MRT/subpass render records, broader
+copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.
 

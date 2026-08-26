@@ -260,13 +260,22 @@ preserves its recorded red value after source mutation, renders exact RGBA8
 `4278190335`, and completes 1,001 replays with zero live growth and zero/1,001
 OpenGL/Vulkan submissions.
 
+Single-color multisample records use `recordRenderTargetResolve(...)` or its
+`Push` form. The graph declares both the multisample source and single-sample
+resolve output as imported pass writes. Exact descriptors, active resources,
+and the sealed resolve identity are checked before replay. The focused proof
+resolves exact red RGBA8 `4278190335`, rejects ID mutation, preserves copied
+push bytes, and completes 1,001 zero-growth replays with zero/1,001
+OpenGL/Vulkan submissions.
+
 `examples/recorded-graph-copy`, `examples/recorded-graph-render`,
 `examples/recorded-graph-compute`, and
 `examples/recorded-graph-transient-compute`, and
 `examples/recorded-graph-buffered-render`, and
 `examples/recorded-graph-indirect-render`, and
 `examples/recorded-graph-push-render`, and
-`examples/recorded-graph-depth-render` are
+`examples/recorded-graph-depth-render`, and
+`examples/recorded-graph-resolve-render` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -277,6 +286,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-Compute sampled/image bindings and resolve/MRT/subpass render
+Compute sampled/image bindings and MRT/subpass render
 records, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

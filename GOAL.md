@@ -470,7 +470,7 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups, resolves, MRT, and subpasses
+1. Generalize render records to bind groups, MRT, and subpasses
    without unbounded command
    variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
@@ -519,6 +519,22 @@ reject depth-ID mutation, preserve snapshotted red output, render exact RGBA8
 submission per replay. The existing depth sample now demonstrates the buffered
 public call, rebuilds without unresolved shared libraries when
 `LD_LIBRARY_PATH` is removed, and passes both explicit backends. No `../ablac`
+change was required.
+
+## Verified checkpoint awaiting publication: recorded MSAA resolve
+
+`recordRenderTargetResolve(...)` and `recordRenderTargetResolvePush(...)` now
+own and replay a single-color multisample target while naming both its imported
+multisample source and single-sample resolve output in the graph. Exact
+descriptors, pass writes, activity, and sealed identities are validated before
+execution. The push proof rejects resolve-ID mutation, preserves copied red
+values, and resolves exact RGBA8 `4278190335` through 1,001 OpenGL/Vulkan/auto
+replays with `live=0` and zero/1,001 submissions.
+
+`examples/recorded-graph-resolve-render` independently exercises the non-push
+API. Its no-cache executable has no unresolved `ldd` entries with
+`LD_LIBRARY_PATH` removed and passes both explicit backends; forced Vulkan
+validation is silent. The sample matrix now contains 49 roots. No `../ablac`
 change was required.
 
 ## Published checkpoint: planner buffers and sealed compute push data
