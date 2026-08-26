@@ -40,16 +40,62 @@ fun storageImagePushDimensionValid(
         ))
 }
 
+fun storageImagePushReadArithmeticDimensionValid(
+    dataType: string,
+    coordinateType: string,
+    dimension: int,
+    arrayed: int,
+    cube: bool,
+    operation: string = "+",
+    opcode: int = 327809
+): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform $dataType target; layout(push_constant) uniform Dynamic { $coordinateType point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); imageStore(target,parameters.point,loaded$operation parameters.shade); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        emitted.module.bound() == 26 && spirvContainsSequence(
+            emitted.module,
+            [589849, 4, 3, dimension, 0, arrayed, 0, 2, 4]
+        ) && spirvContainsSequence(emitted.module, [327778, 9, 24, 19, 21]) &&
+        spirvContainsSequence(emitted.module, [opcode, 9, 25, 24, 23]) &&
+        (cube == spirvContainsSequence(emitted.module, [131089, 44]))
+}
+
+fun storageImagePushInvalidArithmeticRejected(): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform image2D target; layout(push_constant) uniform Dynamic { ivec2 point; vec4 shade; } parameters; void main(){ vec4 loaded=imageLoad(target,parameters.point); imageStore(target,parameters.point,loaded%parameters.shade); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    package.valid && !package.spirv(shaderStageCompute).succeeded
+}
+
 fun main: int {
-    if (storageImagePushDimensionValid(
+    val checks = [storageImagePushDimensionValid(
         "image1D", "int", 0, 0, false
-    ) && storageImagePushDimensionValid(
+    ), storageImagePushDimensionValid(
         "image2D", "ivec2", 1, 0, false
-    ) && storageImagePushDimensionValid(
+    ), storageImagePushDimensionValid(
         "image2DArray", "ivec3", 1, 1, false
-    ) && storageImagePushDimensionValid(
+    ), storageImagePushDimensionValid(
         "image3D", "ivec3", 2, 0, false
-    ) && storageImagePushDimensionValid(
+    ), storageImagePushDimensionValid(
         "imageCube", "ivec3", 3, 0, true
-    )) 42 else 1
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image1D", "int", 0, 0, false
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image2D", "ivec2", 1, 0, false
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image2DArray", "ivec3", 1, 1, false
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image3D", "ivec3", 2, 0, false
+    ), storageImagePushReadArithmeticDimensionValid(
+        "imageCube", "ivec3", 3, 0, true
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image2D", "ivec2", 1, 0, false, "-", 327811
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image2D", "ivec2", 1, 0, false, "*", 327813
+    ), storageImagePushReadArithmeticDimensionValid(
+        "image2D", "ivec2", 1, 0, false, "/", 327816
+    ), storageImagePushInvalidArithmeticRejected()]
+    var index = 0
+    while (index < checks.size && checks[index]) index = index + 1
+    if (index == checks.size) 42 else index + 1
 }

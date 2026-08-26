@@ -399,6 +399,14 @@ values after recording proves the command owns the snapshot. OpenGL, Vulkan,
 and automatic selection reject a sealed map mutation, replay 1,001 times, and
 retain `live=0` with zero/1,001 Vulkan submissions.
 
-General arithmetic and `imageLoad` expression lowering,
+`recorded-graph-storage-image-read-add` initializes one selected array layer
+to blue, then executes generated `imageLoad`, local `vec4` addition, and
+`imageStore`. A snapshotted green delta saturates to exact cyan `4294967040`
+and remains exact across 1,001 replays; mutating the source delta to red cannot
+change the sealed command. The generated matrix covers all five dimensions
+and `+`, `-`, `*`, and `/`, while `%` rejection proves unsupported syntax is
+not ignored.
+
+Broader nested image-expression lowering,
 broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

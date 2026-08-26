@@ -152,8 +152,10 @@ stores plus exact 1D and cube stores have dual-backend retained replay and
 subresource-readback evidence. Cube-storage capability is separately queried
 and enabled on Vulkan. A generated typed push-expression form derives signed
 coordinate width from every supported image dimension, consumes reflected
-layout offsets/names, and writes a runtime `vec4` value; general arithmetic,
-image loads, and local image expressions,
+layout offsets/names, and writes a runtime `vec4` value. Generated read/write
+composition additionally lowers `imageLoad` through one local and vector
+add/subtract/multiply/divide into `imageStore`. Broader nesting and
+expression grammar,
 bind-group subpass records, broader copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 

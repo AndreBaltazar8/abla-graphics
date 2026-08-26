@@ -2718,8 +2718,11 @@ is `vec4`. Block, instance, image, and member names are arbitrary. Emission
 uses the reflected push offsets and image binding, so Vulkan receives a newly
 constructed SPIR-V module while OpenGL executes the same source through its
 push-block rewrite. Retained recording snapshots the complete values. General
-arithmetic around those members, `imageLoad`, and image-valued locals remain
-the next expression work.
+read/write composition may bind the image without an access qualifier, assign
+`imageLoad(image, coordinate)` to one arbitrarily named `vec4` local, and
+store `local +|-|*|/ value`. Each operator maps to its typed SPIR-V vector
+operation; unsupported operators fail emission. Broader nesting, multiple
+locals/statements, and arbitrary coordinate/value expressions remain next.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

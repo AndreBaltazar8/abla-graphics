@@ -1,0 +1,139 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            validation = true,
+            requiredFeatures = graphicsFeatureStorageTextures |
+                graphicsFeatureStorageTextureExtendedFormats
+        ),
+        WindowConfig(
+            title = "Abla Graphics storage image read add",
+            width = 480,
+            height = 270
+        )
+    )
+    val descriptor = TextureDescriptor(
+        size = Extent3D(1, 1, 3),
+        dimension = textureDimension2DArray,
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageCopySource |
+            textureUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "accumulation-image", false, 0, 10)
+    ], [
+        GraphicsGraphPass(10, "read-add-store", [
+            GraphicsGraphUse(0, graphAccessReadWrite)
+        ])
+    ], [GraphicsGraphTextureDeclaration(0, descriptor)], [])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform image2DArray accumulationImage;
+            layout(push_constant) uniform ImageDelta {
+                ivec3 coordinate;
+                vec4 value;
+            } delta;
+            void main() {
+                vec4 current = imageLoad(
+                    accumulationImage,
+                    delta.coordinate
+                );
+                imageStore(
+                    accumulationImage,
+                    delta.coordinate,
+                    current + delta.value
+                );
+            }
+        }
+    }
+    val texture = app.texture(descriptor)
+    var initial = bufferBytes(4)
+    val initialized = initial.store(0, 0) && initial.store(1, 0) &&
+        initial.store(2, 255) && initial.store(3, 255) &&
+        texture.writeBytes(
+            initial,
+            TextureRegion(z = 1, width = 1, height = 1, depth = 1)
+        )
+    val entry = app.storageTextureEntry(
+        0, shaderVisibilityCompute, texture,
+        graphicsStorageTextureReadWrite
+    )
+    val binding = app.bindGroup([entry])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val pipelineValid = pipeline.valid()
+    val pipelineError = pipeline.error.message
+    val resources = graphSubpassStorageTextureResources(
+        [0], [move(texture)], [graphicsStorageTextureReadWrite], [[0]]
+    )
+    val push = shader.pushConstants()
+    val pushReady = push.storeMemberI32("coordinate", 0, 0) &&
+        push.storeMemberI32("coordinate", 0, 1) &&
+        push.storeMemberI32("coordinate", 1, 2) &&
+        push.storeMemberF32("value", 0.0, 0) &&
+        push.storeMemberF32("value", 1.0, 1) &&
+        push.storeMemberF32("value", 0.0, 2) &&
+        push.storeMemberF32("value", 0.0, 3)
+    val commands = app.graphCommandList(graph, 2)
+    var readback = bufferBytes(4)
+    val prerequisites = app.valid() && graph.valid() && shader.valid &&
+        initialized && entry.valid() && pipelineValid && push.valid() &&
+        pushReady && commands.valid() && readback.fill(0)
+    val passRecorded = prerequisites && commands.recordPass(graph, 10)
+    val resourcesRecorded = passRecorded &&
+        commands.recordComputeBindingResourcesPush(
+            graph, move(resources), move(pipeline), push, 1
+        )
+    var succeeded = resourcesRecorded && commands.seal(graph) &&
+        push.storeMemberF32("value", 1.0, 0) &&
+        push.storeMemberF32("value", 0.0, 1)
+    var tamperRejected = false
+    if (succeeded) {
+        commands.computeResources[0].bindingResources[
+            0
+        ].stageResourceIndices[0][0] = -1
+        tamperRejected = !app.executeGraphCommands(graph, commands)
+        commands.computeResources[0].bindingResources[
+            0
+        ].stageResourceIndices[0][0] = 0
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && tamperRejected && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val downloaded = succeeded && commands.computeResources[
+        0
+    ].bindingResources[0].storageTextures[0].readBytes(
+        readback,
+        TextureRegion(z = 1, width = 1, height = 1, depth = 1)
+    )
+    val pixel = if (downloaded)
+        readback.load(0) | (readback.load(1) << 8) |
+        (readback.load(2) << 16) | (readback.load(3) << 24)
+        else 0
+    val stable = downloaded && tamperRejected && iteration == 1001 &&
+        pixel == 4294967040 && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-storage-image-read-add ${graphicsBackendName(app.backend)}: pixel=$pixel snapshot=${pixel == 4294967040} ready=$prerequisites/$passRecorded/$resourcesRecorded initialized=$initialized entry=${entry.valid()} pipeline=$pipelineValid/'$pipelineError' tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}
