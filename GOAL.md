@@ -694,6 +694,8 @@ extension. No C, GLFW, SDL, or native shim is used.
 
 ### Imported sampled texture views
 
+Implementation commit `b2dfdc198fe2f8d77909361846d29d0d7bbf7cb5`
+adds affine view ownership.
 `graphSubpassTextureViewResources(...)` takes affine ownership of each imported
 parent texture, native view, and sampler. Its stage mapping is encoded into the
 same sealed kind-specific table, while exact parent descriptors, graph reads,
