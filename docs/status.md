@@ -29,9 +29,13 @@ Updated: 2026-08-26.
   raw application builds. `RawOpenGlApi` resolves through `eglGetProcAddress`
   with process-symbol fallback, `RawVulkanApi` resolves instance/device
   commands through the Vulkan loaders, and exact-shape checking enables the
-  first allocation-stable OpenGL `void()` indirect call family. Remaining
-  signatures and Vulkan invocation are still open and are not claimed by
-  address or metadata presence.
+  first allocation-stable OpenGL indirect call families. Generated ABI tags
+  classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
+  callable—352 total—and mark the other 2,540 OpenGL plus all 842 Vulkan
+  entries unsupported. The live raw sample observes and restores scissor and
+  pack-alignment state through 1,000 calls per scalar family with zero growth
+  in normal and optimized builds. Remaining signatures and Vulkan invocation
+  are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
   structured errors, window configuration,

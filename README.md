@@ -180,7 +180,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   7,413 members; compact separately generated callable-command modules avoid
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
-  unclassified;
+  unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
+  `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
+  other entry unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
@@ -261,8 +263,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   allocation-free OpenGL/Vulkan/auto draws;
 - `examples/raw-command-addresses`: resolves generated OpenGL and Vulkan
   command addresses through explicit application-scoped raw views, rejects
-  unknown or mismatched call shapes, and executes 1,000 allocation-stable
-  indirect `glFinish` calls in both normal and optimized builds;
+  unknown or mismatched call ABIs, and executes 1,000 allocation-stable
+  indirect `glFinish`, scissor enable/disable, and pack-alignment state changes
+  with exact state observation/restoration in normal and optimized builds;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
   pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
   buffer and common index buffer rendered unchanged on explicit OpenGL and
@@ -506,8 +509,9 @@ resource descriptors, encoders, and render/compute passes described in
 `graphics/raw/opengl` and `graphics/raw/vulkan`. Their first executable slice
 resolves every known name through the appropriate EGL or Vulkan loader,
 retains its normalized call shape in `RawNativeCommand`, and safely invokes
-OpenGL `void()` commands; other signatures remain explicitly unavailable
-until their checked native-call families are implemented.
+OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands; other signatures
+remain explicitly unavailable until their checked native-call families are
+implemented.
 
 GPU/window resources are affine Abla `resource class` values. Frame command
 data will use reusable arenas and backend selection is kept out of inner draw

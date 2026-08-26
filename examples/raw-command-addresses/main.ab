@@ -25,24 +25,58 @@ trusted fun main: int {
         val raw = app.rawOpenGlApi()
         val finish = raw.command("glFinish")
         val clear = raw.command("glClear")
+        val enable = raw.command("glEnable")
+        val disable = raw.command("glDisable")
+        val pixelStore = raw.command("glPixelStorei")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
+            !raw.callVoidI32(finish, 0) &&
+            !raw.callVoidI32I32(enable, 0, 0) &&
             !raw.callVoid0(missing)
+        val scissorWasEnabled = glIsEnabled(3089) != 0
+        val packAlignment = nativeI64Cell(0)
+        glGetIntegerv(3333, packAlignment.address)
+        val originalPackAlignment = packAlignment.load()
         val liveBefore = runtimeMemoryLiveBytes()
         var call = 0
         var called = true
         while (called && call < 1000) {
-            called = raw.callVoid0(finish)
+            called = raw.callVoid0(finish) &&
+                raw.callVoidI32(enable, 3089) &&
+                glIsEnabled(3089) != 0 &&
+                raw.callVoidI32(disable, 3089) &&
+                glIsEnabled(3089) == 0 &&
+                raw.callVoidI32I32(pixelStore, 3333, 1)
+            if (called) glGetIntegerv(3333, packAlignment.address)
+            called = called && packAlignment.load() == 1 &&
+                raw.callVoidI32I32(pixelStore, 3333, 4)
+            if (called) glGetIntegerv(3333, packAlignment.address)
+            called = called && packAlignment.load() == 4
             call = call + 1
         }
         val liveAfter = runtimeMemoryLiveBytes()
+        if (scissorWasEnabled) raw.callVoidI32(enable, 3089)
+        else raw.callVoidI32(disable, 3089)
+        val restored = raw.callVoidI32I32(
+            pixelStore,
+            3333,
+            originalPackAlignment
+        )
+        glGetIntegerv(3333, packAlignment.address)
         stable = raw.available && finish.valid() &&
-            finish.callShape == "void()" &&
+            finish.callShape == "void()" && finish.callAbi == "void()" &&
             clear.callShape == "void(GLbitfield)" &&
+            clear.callAbi == "void(i32)" &&
+            enable.callAbi == "void(i32)" &&
+            disable.callAbi == "void(i32)" &&
+            pixelStore.callShape == "void(GLenum,GLint)" &&
+            pixelStore.callAbi == "void(i32,i32)" &&
             !missing.valid() && missing.callShape == "" &&
+            missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
+            restored && packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")
@@ -52,7 +86,10 @@ trusted fun main: int {
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
-            !missing.valid() && missing.callShape == ""
+            enumerate.callAbi == "unsupported" &&
+            idle.callAbi == "unsupported" &&
+            !missing.valid() && missing.callShape == "" &&
+            missing.callAbi == "unsupported"
         detail = "enumerate=${enumerate.address} idle=${idle.address}"
     }
     println(

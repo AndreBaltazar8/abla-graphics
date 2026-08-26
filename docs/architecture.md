@@ -252,9 +252,12 @@ families.
 
 Every command already has a deterministic normalized call shape. The first
 runtime family resolves application-scoped OpenGL/Vulkan addresses and invokes
-checked OpenGL `void()` commands through a compiler-supported indirect call.
-Further signatures remain unsupported until each has matching ABI, positive,
-negative, and live-driver evidence.
+checked OpenGL zero-, one-, and two-`i32` void commands through exact
+compiler-supported indirect calls. Generated ABI-family tags make the
+currently callable 352 OpenGL commands explicit and retain `unsupported` for
+the other 2,540 OpenGL and all 842 Vulkan commands. Further signatures remain
+unsupported until each has matching ABI, positive, negative, and live-driver
+evidence.
 
 The initial baselines are OpenGL 4.6 core/GLSL 4.60 and Vulkan 1.4. Registry
 patch revisions are pinned by the generator manifest and updated deliberately.

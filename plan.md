@@ -103,7 +103,10 @@ handles and zero runtime live-byte growth. Generated normalized call shapes
 now cover every pinned OpenGL and Vulkan command, compact callable-command
 modules keep audit metadata out of application builds, both backends expose
 explicit per-application address resolution, and the first checked indirect
-family executes OpenGL `void()` commands without steady-state allocation. The
+families execute OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands
+without steady-state allocation. Generated ABI classification marks exactly
+352 currently callable OpenGL entries and leaves all other OpenGL and Vulkan
+entries unsupported. The
 remaining signature families, generated types/builders, capability gates, and
 complete raw coverage are intentionally still open, as is the remaining
 milestone work below.

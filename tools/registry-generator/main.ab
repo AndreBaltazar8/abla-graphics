@@ -2268,6 +2268,44 @@ fun registryCommandCallShapes(
     shapes
 }
 
+fun registryOpenGlI32Type(name: string): bool =
+    name == "GLenum" || name == "GLbitfield" || name == "GLuint" ||
+    name == "GLint" || name == "GLsizei" || name == "GLfixed" ||
+    name == "GLclampx" || name == "GLhandleARB"
+
+fun registryCommandCallAbis(
+    api: string,
+    inventory: RegistryInventory,
+    signatures: RegistryCommandSignatures
+): array<string> {
+    val abis: array<string> = []
+    var commandIndex = 0
+    while (commandIndex < inventory.commands.size) {
+        val command = inventory.commands[commandIndex]
+        var compatible = signatures.returnTypes[commandIndex] == "void"
+        var parameterIndex = 0
+        var count = 0
+        while (parameterIndex < signatures.parameterOwners.size) {
+            if (signatures.parameterOwners[parameterIndex] == command) {
+                if (api != "opengl" ||
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryOpenGlI32Type(
+                        signatures.parameterTypes[parameterIndex]
+                    )) compatible = false
+                count = count + 1
+            }
+            parameterIndex = parameterIndex + 1
+        }
+        var abi = "unsupported"
+        if (compatible && count == 0) abi = "void()"
+        else if (compatible && count == 1) abi = "void(i32)"
+        else if (compatible && count == 2) abi = "void(i32,i32)"
+        abis.append(abi)
+        commandIndex = commandIndex + 1
+    }
+    abis
+}
+
 fun registryCallSourcePrefix(api: string): string =
     if (api == "vulkan") "rawVulkanCall" else "rawOpenGlCall"
 
@@ -2281,6 +2319,7 @@ fun registryWriteCallSource(
 ): bool {
     val prefix = registryCallSourcePrefix(api)
     val shapes = registryCommandCallShapes(inventory, signatures)
+    val abis = registryCommandCallAbis(api, inventory, signatures)
     var success = output.writeText("")
     var batch = ""
     if (success) batch = registryAppend(
@@ -2303,7 +2342,10 @@ fun registryWriteCallSource(
         output, batch, "${prefix}Names", inventory.commands
     )
     if (success) batch = registryWriteSourceArray(
-        output, batch, "${prefix}Shapes", shapes, false
+        output, batch, "${prefix}Shapes", shapes
+    )
+    if (success) batch = registryWriteSourceArray(
+        output, batch, "${prefix}Abis", abis, false
     )
     if (batch == "#write-failed") success = false
     if (success && batch != "") success = output.appendText(batch)
@@ -2339,6 +2381,11 @@ fun registryWriteSource(
         inventory.extensions
     )
     val commandCallShapes = registryCommandCallShapes(
+        inventory,
+        signatures
+    )
+    val commandCallAbis = registryCommandCallAbis(
+        api,
         inventory,
         signatures
     )
@@ -2518,6 +2565,12 @@ fun registryWriteSource(
         batch,
         "${prefix}CommandCallShapes",
         commandCallShapes
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}CommandCallAbis",
+        commandCallAbis
     )
     if (success) batch = registryWriteSourceArray(
         output,

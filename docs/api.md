@@ -3287,12 +3287,14 @@ builds.
 `app.rawOpenGlApi()` and `app.rawVulkanApi()` return non-owning views that must
 not outlive `app`. `command`, `instanceCommand`, and `deviceCommand` resolve a
 known registry name once and return a `RawNativeCommand` with its name, call
-shape, address, and owning context/dispatch handle. Unknown names return an
-invalid command. The first callable family,
-`rawOpenGl.callVoid0(command)`, accepts only a valid exact `void()` shape,
-makes the owning EGL context current, rejects a command resolved by another
-context, and performs the indirect call without steady-state allocation. Other
-signatures and Vulkan invocation remain
+shape, classified ABI family, address, and owning context/dispatch handle.
+Unknown names return an invalid command. `rawOpenGl.callVoid0(command)`,
+`callVoidI32(command, first)`, and
+`callVoidI32I32(command, first, second)` accept only their exact generated ABI
+family, make the owning EGL context current, reject a command resolved by
+another context, and perform the indirect call without steady-state
+allocation. The generated classification currently enables 49, 146, and 157
+OpenGL commands respectively. Other signatures and Vulkan invocation remain
 explicitly unavailable until matching compiler ABI primitives and tests land;
 metadata or address presence is not represented as executable specification
 coverage.
