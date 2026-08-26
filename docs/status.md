@@ -576,6 +576,12 @@ Updated: 2026-08-26.
   `examples/recorded-graph-mrt-render` extends this to a buffered vertex draw
   over two 4x colors, two resolves, and depth with exact red/green output and
   ordered planner IDs. The matching focused push proof uses indexed-indirect.
+  `examples/recorded-graph-subpasses` owns a compatible render pass, target,
+  and ordered two-stage procedural sequence in one graph record. OpenGL replays
+  both stages directly; Vulkan records both native subpasses inside the graph's
+  retained command buffer. Its 1,001 exact replays have zero live growth and
+  zero/1,001 OpenGL/Vulkan submissions, and the focused gate rejects sealed
+  depth-ID plus cached Vulkan sequence-handle mutation.
   The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
@@ -596,8 +602,9 @@ Updated: 2026-08-26.
   and two retained physical pools, with one allocation each, stable alias
   identities, one barrier per replay, one consolidated Vulkan submission, and
   zero growth. Sealed logical/bind-group identity and transient backing-usage
-  tampering reject before execution. Compute sampled/image bindings, broader
-  command forms, asynchronous submission, and frames in flight remain open.
+  tampering reject before execution. Compute sampled/image bindings,
+  bind-group/reflected-push subpass forms, broader command forms, asynchronous
+  submission, and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x
@@ -1165,10 +1172,11 @@ validity gate unchanged.
   now materializes those allocation slots as retained cross-backend texture
   pools with checked logical-resource operations. Ordered direct pass entry
   submits conservative derived memory barriers. The bounded reusable slice
-  records ordered pass markers, transient texture copies, and owned
-  procedural/vertex/indexed offscreen renders, and consolidates an eligible
+  records ordered pass markers, transient texture copies, owned
+  procedural/vertex/indexed offscreen renders, and affine procedural subpass
+  sequences, and consolidates an eligible
   Vulkan stream into one submission. It does not yet record arbitrary
-  depth/MRT/subpass render resources or
+  per-subpass input/preserve attachment routing, bind-group subpasses, or
   a complete asynchronous frame stream.
   Surfaced pipelines already use feature-gated dynamic rendering while the
   portable sequence currently gives every stage the target's complete

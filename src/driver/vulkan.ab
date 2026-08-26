@@ -6558,7 +6558,8 @@ trusted fun VulkanDevice.renderTargetSubpasses(
     pushConstantSizes: array<int>,
     pushConstantStageMasks: array<int>,
     pushConstantData: i64*,
-    pushConstantCapacity: int
+    pushConstantCapacity: int,
+    recordOnly: bool = false
 ): bool {
     val colorCount = 1 + target.additionalViews.size
     var succeeded = this.transferValid() && target.valid() &&
@@ -6595,7 +6596,7 @@ trusted fun VulkanDevice.renderTargetSubpasses(
                 pushConstantCapacity - pushConstantSizes[pipelineIndex]))
         pipelineIndex = pipelineIndex + 1
     }
-    if (succeeded) succeeded = this.beginTransfer()
+    if (succeeded && !recordOnly) succeeded = this.beginTransfer()
     if (succeeded) {
         this.transferScratch.storeI64(0, 43)
         this.transferScratch.storePointer(8, nativeNullPointer())
@@ -6682,7 +6683,7 @@ trusted fun VulkanDevice.renderTargetSubpasses(
             pipelineIndex = pipelineIndex + 1
         }
         vkCmdEndRenderPass(this.transferCommand.load())
-        succeeded = this.submitTransfer()
+        if (!recordOnly) succeeded = this.submitTransfer()
     }
     succeeded
 }

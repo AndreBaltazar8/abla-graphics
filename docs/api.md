@@ -1867,6 +1867,15 @@ commands.recordRenderAttachments(
     move(draw)
 )
 // recordRenderAttachmentsPush(...) accepts the same affine draw plus values.
+commands.recordRenderSubpasses(
+    graph,
+    [firstColorId, secondColorId],
+    [firstResolveId, secondResolveId],
+    depthId,
+    move(subpassTarget),
+    move(compatiblePass),
+    move(subpassSequence)
+)
 commands.recordPass(graph, 40)
 
 // A storage pipeline must have been created against this exact buffer.
@@ -1922,8 +1931,13 @@ identities. `recordRenderTargetAttachments` and its `Push` form accept two to
 eight ordered colors, no resolves or one resolve per color, and optional depth;
 every attachment is descriptor/access checked and sealed. Buffered callers
 compose one of the four `graphRender*Resources` affine factories with
-`recordRenderAttachments` or its `Push` form. Compute sampled/image bindings
-and subpass render records, broader
+`recordRenderAttachments` or its `Push` form. `recordRenderSubpasses` takes
+affine ownership of one target, compatible pass, and two-to-eight-stage
+procedural sequence. It binds ordered imported color IDs, zero or one resolve
+ID per color, and optional depth to exact pass writes and descriptors. OpenGL
+executes the stages in order; eligible Vulkan graph streams record the native
+sequence into the same retained command buffer and submit once. Compute
+sampled/image bindings, bind-group or reflected-push subpass forms, broader
 copy/dispatch forms, frames in flight,
 and asynchronous submission
 remain future work.

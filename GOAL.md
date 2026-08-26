@@ -101,6 +101,9 @@ nix-shell --run 'make check-abla-only'
 - Buffered-MRT implementation commit:
   `c3125a41fbe95a00414e9c904af8e142e33b0fce`
   (`Compose buffered draws with MRT attachments`).
+- Published tip before the recorded-subpass checkpoint:
+  `1a231b41c11bf92ca3c676f0334d6bef6d2dc3ff`
+  (`Update graphics continuation handoff`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -141,8 +144,19 @@ nix-shell --run 'make check-abla-only'
 - Local/upstream tip at this handoff:
   `82a66da3a978d63adbe49922f74eebc76eea892a`
   (`Export lifted functions from independent modules`)
-- It is currently clean and synchronized. The recorded-compute/direct-linkage
-  checkpoint did not require a compiler change.
+- HEAD remains synchronized, but the worktree currently contains substantial
+  unrelated in-progress compiler/parser/LLVM/MMIO changes. Preserve them and
+  stage nothing in `../ablac` for this graphics checkpoint. The recorded
+  subpass implementation itself required no compiler source change.
+- At the 2026-08-26 subpass verification, the concurrently replaced
+  `build/ablac.bin` recognized `type` as a reserved token while checked-in
+  compiler/GLSL parser sources still used `type` as an identifier. For the
+  focused build only, a clean `git archive HEAD` sysroot plus the older
+  pure-Abla `build/ablac-pure-self` artifact was used inside `nix-shell`.
+  Recheck the active compiler before the next build; do not overwrite or
+  revert the unrelated compiler work. That historical compiler needs the Nix
+  shell for `libssl.so.3`, while the produced graphics sample itself passed
+  `ldd` with `LD_LIBRARY_PATH` removed.
 
 Changes to `../ablac` are authorized when a real language/compiler capability
 is required. Keep them minimal, test them in `ablac`, commit and push that repo
@@ -479,9 +493,8 @@ affected executable.
 
 ### Immediate continuation sequence
 
-1. Generalize render records to bind groups and subpasses
-   without unbounded command
-   variants or warmed allocation.
+1. Generalize render records to bind groups and reflected subpass values
+   without unbounded command variants or warmed allocation.
 2. Generalize consolidated Vulkan texture copies beyond the current 2D slice
    while preserving per-mip/layer layout rollback and accepted-submission
    semantics.
@@ -577,6 +590,25 @@ zero/1,001 submission evidence on OpenGL/Vulkan/auto. The existing independent
 MRT sample now uses the direct-vertex factory and passes its no-cache stripped-
 `LD_LIBRARY_PATH` build plus OpenGL and validation-layer Vulkan launches. No
 new sample root or `../ablac` change was required.
+
+## Verified checkpoint: recorded graph subpasses
+
+`recordRenderSubpasses(...)` records one ordered two-to-eight-stage procedural
+sequence while taking affine ownership of its target, compatible render pass,
+and pipelines. Ordered color/resolve IDs plus optional depth remain visible to
+the graph planner, exact descriptor and pass-write checks run at record, seal,
+and replay, and all native identities participate in the sealed fingerprint.
+OpenGL executes stages in order. Vulkan records the native render pass and all
+subpasses into the graph's retained command buffer, preserving one submission
+per complete replay.
+
+The focused gate rejects sealed depth-ID and cached Vulkan sequence-handle
+mutation, then produces exact RGBA8 `4294281759` through 1,001 OpenGL/Vulkan
+replays with `live=0` and zero/1,001 submissions.
+`examples/recorded-graph-subpasses` independently repeats the
+public workflow; its no-cache executable has no unresolved `ldd` entry with
+`LD_LIBRARY_PATH` removed and passes both backends. The sample matrix now has
+51 roots. No graphics implementation uses C, GLFW, SDL, or a native shim.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 

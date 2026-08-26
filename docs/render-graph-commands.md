@@ -112,9 +112,11 @@ The current command kinds are deliberately limited to:
   dependency;
 - a same-format, single-sample transient texture range copy through the
   existing common texture-copy path; and
-- one procedural, direct/indexed, or vertex-/indexed-indirect draw to one single-sample color
-  target, optionally with one reflected push block, but with no depth,
-  resolves, or bind group; and
+- one procedural, direct/indexed, or vertex-/indexed-indirect draw to ordered
+  color attachments with optional resolves/depth and one optional reflected
+  push block, but no bind group; and
+- one ordered two-to-eight-stage procedural subpass sequence over
+  planner-visible color, resolve, and optional depth attachments; and
 - imported single- or multi-buffer compute and graph-owned transient
   multi-buffer compute dispatches, optionally with one reflected push-constant
   block of at most 128 bytes.
@@ -122,7 +124,7 @@ The current command kinds are deliberately limited to:
 The common executable shader subset currently proves one two-storage form
 (`destination.value += sourceData.value`) in addition to the general
 single-block scalar emitter. Sampled textures/images in compute, queries, debug
-groups, presentation, and depth/MRT/subpass render forms
+groups, presentation, and arbitrary subpass attachment routing
 are not recordable in this slice. Applications continue to use their existing
 direct calls for those operations.
 
@@ -276,7 +278,8 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-push-render`, and
 `examples/recorded-graph-depth-render`, and
 `examples/recorded-graph-resolve-render`, and
-`examples/recorded-graph-mrt-render` are
+`examples/recorded-graph-mrt-render`, and
+`examples/recorded-graph-subpasses` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -295,6 +298,15 @@ submission. Buffered callers compose one of four affine draw-resource factories
 with `recordRenderAttachments(...)` or its `Push` form; the proof uses
 indexed-indirect push and the sample uses direct vertices.
 
-Compute sampled/image bindings and subpass render
-records, broader copy/dispatch forms, frames in flight, and
+Procedural subpass records use `recordRenderSubpasses(...)`. The command owns
+the target, compatible render pass, and ordered affine pipeline sequence; the
+graph names every ordered color/resolve attachment and optional depth write.
+OpenGL replays the stages in order. Vulkan records the entire native subpass
+sequence inside the graph's retained command buffer and preserves one submit
+per complete replay. The focused proof rejects sealed depth-ID and cached
+Vulkan sequence-handle mutation, then replays exact RGBA8 `4294281759` 1,001
+times with zero live growth.
+
+Compute sampled/image bindings, bind-group and reflected-push subpass records,
+broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

@@ -128,6 +128,8 @@ vertex-/indexed-indirect offscreen renders, depth targets across every form,
 single-color multisample resolve targets with planner-visible source/output,
 procedural and buffered two-to-eight-color targets with ordered resolves and
 optional depth,
+procedural subpass targets with owned compatible passes and ordered affine
+pipeline sequences,
 planner-visible color/depth identities, and planner-visible imported or
 graph-owned multi-buffer compute dispatches, all with copied reflected push
 bytes in preallocated storage. It affinely owns render and compute resources,
@@ -141,7 +143,7 @@ OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
 mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
 stable native objects, exact render/copy/storage output, submission counts, and
 silent Vulkan validation. Compute sampled/image bindings,
-subpass render records, broader copy/compute forms, asynchronous
+bind-group/reflected-push subpass records, broader copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 
 ## Non-negotiable design rules
