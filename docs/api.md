@@ -232,7 +232,8 @@ val pipeline = app.renderPipeline(
 )
 ```
 
-`sampledTextureEntry`, `uniformBufferEntry`, and `storageBufferEntry` may be
+`sampledTextureEntry`, `storageTextureEntry`, `uniformBufferEntry`, and
+`storageBufferEntry` may be
 combined in one group with unique bindings from 0 through 31. Their
 `uniformBufferRangeEntry` and `storageBufferRangeEntry` counterparts bind a
 checked byte range rather than the whole resource. Groups currently
@@ -248,6 +249,15 @@ cube, and 3D texture descriptors respectively; a mismatched texture is rejected
 before either backend creates a pipeline. Other GLSL sampler families remain
 recognized as sampled resources but are rejected until their corresponding
 portable texture dimensions are available.
+
+`storageTextureEntry(binding, visibility, texture, access)` currently accepts
+an owned single-mip, single-sample two-dimensional `textureFormatRgba8Unorm`
+texture with `textureUsageStorage`. The first portable shader subset is
+write-only `image2D`, so reflected pipeline matching requires
+`graphicsStorageTextureWriteOnly`. OpenGL precomputes the image unit, internal
+format, and access for `glBindImageTexture`; Vulkan creates a storage-image
+descriptor, transitions every selected subresource to `GENERAL` once before
+use, and keeps that resting layout across dispatch and readback.
 
 `sampledTextureViewEntry` binds an existing `GraphicsTextureView` instead of a
 texture's default view. Its resolved format, dimension, mip range, layer range,
@@ -2659,10 +2669,10 @@ OpenGL binding arrays or one Vulkan descriptor set without constructing
 descriptors in the hot path; pipeline destruction releases the bind group.
 Creation rejects missing, extra, reordered, wrong-kind, wrong-range, or
 wrong-backend entries before driver pipeline creation. The portable emitter
-proves both a strict two-storage-buffer form and a compute-visible `sampler2D`
-plus storage-buffer form. The latter samples a fixed coordinate and accumulates
-its red channel through deterministic pure-Abla SPIR-V. Storage-image programs
-remain the next binding/lowering family. OpenGL and Vulkan both reach exact
+proves a strict two-storage-buffer form, a compute-visible `sampler2D` plus
+storage-buffer form, and a write-only RGBA8 `image2D` form. The sampled form
+reads a fixed coordinate; the image form lowers exact `imageStore` to
+deterministic pure-Abla SPIR-V. OpenGL and Vulkan both reach exact
 repeated results with stable handles and zero warmed live-byte growth.
 
 Recorded compute composes the same typed planner resource table as rendering:
@@ -2682,6 +2692,22 @@ selects its buffer or sampled-texture table by kind. Full textures, explicit
 views, graph-owned transient sampled textures, imported uniform/storage
 buffers, and their affine owners share record/seal/replay validation.
 `recordComputeBindingResourcesPush(...)` adds the same copied push snapshot.
+
+Storage images use a sampler-free retained table:
+
+```abla
+val resources = graphSubpassStorageTextureResources(
+    [outputId], [move(output)],
+    [graphicsStorageTextureWriteOnly], [[0]]
+)
+commands.recordComputeBindingResources(
+    graph, move(resources), move(pipeline), 1
+)
+```
+
+The graph pass must declare compatible read/write access for the entry access;
+logical ID, descriptor, native image identity, access, and stage mapping join
+the seal fingerprint.
 
 The first executable push-constant slice combines the reflected value API with
 storage compute. `shader.pushConstants()` creates a reusable value block,

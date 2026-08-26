@@ -303,6 +303,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   one planner-visible storage buffer execute deterministic `$glsl` compute,
   reject sealed-map mutation, and accumulate exact value `1001` through 1,001
   allocation-free OpenGL/Vulkan/auto replays;
+- `examples/recorded-graph-storage-image-compute`: one planner-visible affine
+  RGBA8 storage texture executes deterministic `$glsl` `imageStore`, rejects
+  sealed-map mutation, and preserves exact red through 1,001 allocation-free
+  OpenGL/Vulkan/auto replays;
 - `examples/recorded-graph-buffered-render`: one sealed four-record stream owns
   separate planner-declared vertex and indexed draws, produces exact pixels
   through 1,001 allocation-free replays, and uses one Vulkan submission per

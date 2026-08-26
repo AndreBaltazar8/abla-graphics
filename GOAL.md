@@ -783,6 +783,32 @@ and `imageLoad`/`imageStore` lowering remain the immediate continuation.
 Buffer, imported texture, imported view, and transient-texture recorded subpass
 forms are now covered; no C, GLFW, SDL, or native shim is used.
 
+### Recorded storage-image compute
+
+The next binding family is now implemented end to end. The common capability
+and affine bind-group API expose an explicit storage-texture kind and
+read-only/write-only/read-write access values; the currently reflected `$glsl`
+subset deliberately accepts write-only RGBA8 `image2D`. OpenGL binds the image
+unit directly and emits the shader-image barrier bit. Vulkan creates descriptor
+type 3, uses `GENERAL`, and performs a one-time all-subresource transition
+before the retained pipeline is created.
+
+`graphSubpassStorageTextureResources(...)` owns imported textures without fake
+samplers. Record, seal, and replay validate graph access, usage, exact
+descriptor/native identity, entry access, stage mapping, activity, and the
+storage texture fingerprint. The deterministic pure-Abla translator lowers
+the exact red `imageStore` program to valid byte-stable SPIR-V.
+
+`examples/recorded-graph-storage-image-compute/` brings the sample matrix to 57
+roots. Its focused binary had no unresolved `ldd` entries with
+`LD_LIBRARY_PATH` removed. OpenGL, Vulkan, and automatic selection all produced
+RGBA8 `4278190335`, rejected post-seal map mutation, completed 1,001 successful
+replays with zero warmed live-byte growth, and reported zero/1,001 Vulkan
+submissions. `make check-abla-only test-core test-glsl test-graph-commands`
+passed. No `../ablac` source change was required. Broader storage-image
+formats, read/read-write lowering, views, and fragment-stage images remain
+follow-up work; do not mark the persistent goal complete.
+
 ## Published checkpoint: planner buffers and sealed compute push data
 
 Implementation commit `f9609a5485d0ec9f178e85a9517532270d27ce96`

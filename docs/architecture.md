@@ -201,9 +201,11 @@ two-to-eight-stage pipeline sequence, including planner-visible imported
 uniform/storage buffers and imported or graph-owned sampled
 textures/views/samplers through a flattened affine resource table,
 and planner-visible compute dispatches over the same imported-buffer and
-imported/view/transient sampled-texture resource table. It affinely owns each
+imported/view/transient sampled-texture resource table plus an imported RGBA8
+storage-texture table with explicit access. It affinely owns each
 recorded target/pipeline, caller-owned
-render/compute buffer, sampled texture/sampler, compute pipeline, and retained
+render/compute buffer, sampled or storage texture/sampler, compute pipeline,
+and retained
 bind group; graph-owned resources remain in the graph. Seal binds every logical
 ID, complete descriptor,
 native identity, draw range, workgroup, and copied render/compute push byte.
@@ -213,8 +215,9 @@ lifetimes. Replay performs no descriptor construction or live-memory growth.
 OpenGL uses the existing direct operations. An eligible Vulkan stream records
 graph memory dependencies, the 2D texture copy, render, and compute dispatch
 into one retained command buffer, then submits once; direct APIs remain
-unchanged. Later slices must add broader copy/compute forms, frames in
-flight, and GPU-completion-aware retention.
+unchanged. Later slices must add broader copy/compute forms, frames in flight,
+broader storage-image formats/access and views, and GPU-completion-aware
+retention.
 
 ## Specification coverage
 

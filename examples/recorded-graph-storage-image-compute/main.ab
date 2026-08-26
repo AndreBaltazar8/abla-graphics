@@ -1,0 +1,102 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "auto") graphicsBackendAuto
+        else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics recorded storage image compute",
+            width = 480,
+            height = 270
+        )
+    )
+    val descriptor = TextureDescriptor(
+        size = Extent3D(1, 1),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageCopySource
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "output-image", false, 0, 10)
+    ], [
+        GraphicsGraphPass(10, "store-image", [
+            GraphicsGraphUse(0, graphAccessWrite)
+        ])
+    ], [
+        GraphicsGraphTextureDeclaration(0, descriptor)
+    ], [])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(rgba8, binding = 0) uniform writeonly image2D outputImage;
+            void main() {
+                imageStore(
+                    outputImage,
+                    ivec2(0, 0),
+                    vec4(1.0, 0.0, 0.0, 1.0)
+                );
+            }
+        }
+    }
+    val texture = app.texture(descriptor)
+    val binding = app.bindGroup([
+        app.storageTextureEntry(
+            0,
+            shaderVisibilityCompute,
+            texture,
+            graphicsStorageTextureWriteOnly
+        )
+    ])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val resources = graphSubpassStorageTextureResources(
+        [0],
+        [move(texture)],
+        [graphicsStorageTextureWriteOnly],
+        [[0]]
+    )
+    val commands = app.graphCommandList(graph, 2)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        pipeline.valid() && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordComputeBindingResources(
+            graph, move(resources), move(pipeline), 1
+        ) && commands.seal(graph)
+    commands.computeResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = -1
+    val tamperRejected = succeeded &&
+        !app.executeGraphCommands(graph, commands)
+    commands.computeResources[0].bindingResources[0].stageResourceIndices[
+        0
+    ][0] = 0
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && tamperRejected && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val pixel = if (succeeded)
+        commands.computeResources[0].bindingResources[0].storageTextures[
+            0
+        ].rgba8(0, 0)
+        else -1
+    val stable = succeeded && tamperRejected && iteration == 1001 &&
+        pixel == 4278190335 && liveAfter == liveBefore &&
+        commands.executions == 1001 && commands.failedExecutions == 1 &&
+        graph.completedExecutions == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-storage-image-compute ${graphicsBackendName(app.backend)}: resources=${commands.computeResources[0].bindingResources[0].storageTextureResourceIds.size} pixel=$pixel tamper=$tamperRejected executions=${commands.executions}/${graph.completedExecutions} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    if (stable) 0 else 1
+}

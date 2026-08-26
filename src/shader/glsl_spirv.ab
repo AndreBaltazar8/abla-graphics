@@ -6558,6 +6558,40 @@ fun glslSampledStorageComputeSource(source: string): bool =
         "0.5", ")", ")", ".", "r", ")", ";", "}"
     ])
 
+fun glslStorageImageComputeSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "rgba8", ",", "binding", "=", "0", ")",
+        "uniform", "writeonly", "image2D", "outputImage", ";",
+        "void", "main", "(", ")", "{",
+        "imageStore", "(", "outputImage", ",", "ivec2", "(", "0", ",",
+        "0", ")", ",", "vec4", "(", "1.0", ",", "0.0", ",",
+        "0.0", ",", "1.0", ")", ")", ";", "}"
+    ])
+
+fun glslStorageImageComputeSpirv(): array<int> = [
+    119734787, 65536, 524299, 23, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    327695, 5, 4, 1852399981, 0, 393232, 4, 17,
+    1, 1, 1, 196611, 2, 450, 262149, 4,
+    1852399981, 0, 327685, 9, 1886680431, 1833530485, 6645601,
+    196679, 9, 25, 262215, 9, 33, 0, 262215,
+    9, 34, 0, 262215, 22, 11, 25, 131091,
+    2, 196641, 3, 2, 196630, 6, 32, 589849,
+    7, 6, 1, 0, 0, 0, 2, 4,
+    262176, 8, 0, 7, 262203, 8, 9, 0,
+    262165, 11, 32, 1, 262167, 12, 11, 2,
+    262187, 11, 13, 0, 327724, 12, 14, 13,
+    13, 262167, 15, 6, 4, 262187, 6, 16,
+    1065353216, 262187, 6, 17, 0, 458796, 15, 18,
+    16, 17, 17, 16, 262165, 19, 32, 0,
+    262167, 20, 19, 3, 262187, 19, 21, 1,
+    393260, 20, 22, 21, 21, 21, 327734, 2,
+    4, 0, 3, 131320, 5, 262205, 7, 10,
+    9, 262243, 10, 14, 18, 65789, 65592
+]
+
 fun glslSampledStorageComputeSpirv(): array<int> = [
     119734787, 65536, 524299, 35, 0, 131089, 1, 393227,
     1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
@@ -6702,6 +6736,14 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.pushConstants.size == 0 &&
         this.specializationConstants.size == 0 &&
         glslSampledStorageComputeSource(this.stages[0].source)
+    val storageImage = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 1 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "uniform" &&
+        this.bindings[0].dataType == "image2D" &&
+        this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslStorageImageComputeSource(this.stages[0].source)
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val rasterFragmentProgram = if (graphicsCommon &&
@@ -6749,7 +6791,7 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
         combinedSpecializedNoOp || storage || pushStorage || dualStorage ||
-        sampledStorage ||
+        sampledStorage || storageImage ||
         vertex || proceduralTexturedVertex ||
         pushTransformVertex || uniformTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
@@ -6757,7 +6799,9 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
-    if (sampledStorage) {
+    if (storageImage) {
+        words = glslStorageImageComputeSpirv()
+    } else if (sampledStorage) {
         words = glslSampledStorageComputeSpirv()
     } else if (dualStorage) {
         words = glslDualStorageAddComputeSpirv()

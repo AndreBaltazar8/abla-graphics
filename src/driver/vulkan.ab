@@ -1239,7 +1239,7 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     }
     if ((queueFlags & 2) != 0) {
         features = features | graphicsFeatureCompute |
-            graphicsFeatureStorageBuffers
+            graphicsFeatureStorageBuffers | graphicsFeatureStorageTextures
     }
     val maximumAnisotropy = graphicsPositiveF32Floor(
         properties.loadI64(568) & 4294967295
@@ -3339,6 +3339,12 @@ class VulkanBindingEntry(
           (this.handle != 0 || this.view != 0) && this.sampler != 0 &&
           this.offset == 0 && this.size == 0 && this.texture.valid() &&
           (this.texture.usage & textureUsageSampled) != 0 &&
+          !textureFormatHasDepth(this.texture.format)) ||
+         (this.descriptorType == 3 &&
+          (this.handle != 0 || this.view != 0) && this.sampler == 0 &&
+          this.offset == 0 && this.size == 0 && this.texture.valid() &&
+          (this.texture.usage & textureUsageStorage) != 0 &&
+          this.texture.samples == 1 &&
           !textureFormatHasDepth(this.texture.format)) ||
          ((this.descriptorType == 6 || this.descriptorType == 7) &&
           this.handle != 0 && this.view == 0 && this.sampler == 0 &&
@@ -6932,6 +6938,69 @@ trusted fun VulkanTexture.view(
     VulkanTextureView(this.device, handle)
 }
 
+trusted fun VulkanDevice.prepareStorageTexture(
+    var texture: VulkanTexture,
+    descriptor: TextureDescriptor
+): bool {
+    var succeeded = this.valid() && texture.valid() && descriptor.valid() &&
+        texture.device == this.handle &&
+        (descriptor.usage & textureUsageStorage) != 0 &&
+        descriptor.samples == 1 && !textureFormatHasDepth(descriptor.format) &&
+        texture.layouts.capacity >= descriptor.mipLevels *
+            textureArrayLayerCount(descriptor) * 8
+    var needsTransition = false
+    var layer = 0
+    while (succeeded && layer < textureArrayLayerCount(descriptor)) {
+        var level = 0
+        while (succeeded && level < descriptor.mipLevels) {
+            val oldLayout = texture.loadLayout(descriptor, level, layer)
+            succeeded = oldLayout >= 0
+            needsTransition = needsTransition || oldLayout != 1
+            level = level + 1
+        }
+        layer = layer + 1
+    }
+    if (succeeded && needsTransition) succeeded = this.beginTransfer()
+    layer = 0
+    while (succeeded && needsTransition &&
+        layer < textureArrayLayerCount(descriptor)) {
+        var level = 0
+        while (succeeded && level < descriptor.mipLevels) {
+            val oldLayout = texture.loadLayout(descriptor, level, layer)
+            if (oldLayout != 1) this.recordTransferImageBarrier(
+                texture.image,
+                oldLayout,
+                1,
+                if (oldLayout == 0) 1 else 65536,
+                65536,
+                if (oldLayout == 0) 0
+                    else vulkanTextureRestingAccess(descriptor, oldLayout),
+                96,
+                1,
+                level,
+                1,
+                layer,
+                1
+            )
+            level = level + 1
+        }
+        layer = layer + 1
+    }
+    if (succeeded && needsTransition) succeeded = this.submitTransfer()
+    if (succeeded && needsTransition) {
+        layer = 0
+        while (layer < textureArrayLayerCount(descriptor)) {
+            var level = 0
+            while (level < descriptor.mipLevels) {
+                texture.storeSubresourceLayout(descriptor, level, layer, 1)
+                level = level + 1
+            }
+            layer = layer + 1
+        }
+    }
+    succeeded
+}
+
 trusted fun VulkanDevice.bindGroup(
     entries: array<VulkanBindingEntry>
 ): VulkanBindGroup {
@@ -6940,6 +7009,7 @@ trusted fun VulkanDevice.bindGroup(
     var descriptorSet = 0
     val views: array<int> = []
     var sampledCount = 0
+    var storageImageCount = 0
     var uniformCount = 0
     var storageCount = 0
     var succeeded = this.valid() && entries.size > 0 && entries.size <= 16
@@ -6953,11 +7023,16 @@ trusted fun VulkanDevice.bindGroup(
             earlier = earlier + 1
         }
         if (entry.descriptorType == 1) sampledCount = sampledCount + 1
+        else if (entry.descriptorType == 3) {
+            storageImageCount = storageImageCount + 1
+        }
         else if (entry.descriptorType == 6) uniformCount = uniformCount + 1
         else if (entry.descriptorType == 7) storageCount = storageCount + 1
         entryIndex = entryIndex + 1
     }
-    val imageInfos = nativeByteBuffer(sampledCount * 24)
+    val imageInfos = nativeByteBuffer(
+        (sampledCount + storageImageCount) * 24
+    )
     val bufferInfos = nativeByteBuffer(
         (uniformCount + storageCount) * 24
     )
@@ -6966,7 +7041,7 @@ trusted fun VulkanDevice.bindGroup(
     entryIndex = 0
     while (succeeded && entryIndex < entries.size) {
         val entry = entries[entryIndex]
-        if (entry.descriptorType == 1) {
+        if (entry.descriptorType == 1 || entry.descriptorType == 3) {
             val ownsView = entry.view == 0
             val view = if (!ownsView) entry.view
             else vulkanTextureViewHandle(
@@ -6980,7 +7055,10 @@ trusted fun VulkanDevice.bindGroup(
                 if (ownsView) views.append(view)
                 imageInfos.storeI64(imageIndex * 24, entry.sampler)
                 imageInfos.storeI64(imageIndex * 24 + 8, view)
-                imageInfos.storeI64(imageIndex * 24 + 16, 5)
+                imageInfos.storeI64(
+                    imageIndex * 24 + 16,
+                    if (entry.descriptorType == 3) 1 else 5
+                )
                 imageIndex = imageIndex + 1
             }
         } else {
@@ -7025,6 +7103,7 @@ trusted fun VulkanDevice.bindGroup(
     if (succeeded) {
         var poolSizeCount = 0
         if (sampledCount > 0) poolSizeCount = poolSizeCount + 1
+        if (storageImageCount > 0) poolSizeCount = poolSizeCount + 1
         if (uniformCount > 0) poolSizeCount = poolSizeCount + 1
         if (storageCount > 0) poolSizeCount = poolSizeCount + 1
         val poolSizes = nativeByteBuffer(poolSizeCount * 8)
@@ -7033,6 +7112,13 @@ trusted fun VulkanDevice.bindGroup(
             poolSizes.storeI64(
                 poolIndex * 8,
                 sampledCount * 4294967296 + 1
+            )
+            poolIndex = poolIndex + 1
+        }
+        if (storageImageCount > 0) {
+            poolSizes.storeI64(
+                poolIndex * 8,
+                storageImageCount * 4294967296 + 3
             )
             poolIndex = poolIndex + 1
         }
@@ -7096,7 +7182,7 @@ trusted fun VulkanDevice.bindGroup(
                 offset + 32,
                 entry.descriptorType * 4294967296 + 1
             )
-            if (entry.descriptorType == 1) {
+            if (entry.descriptorType == 1 || entry.descriptorType == 3) {
                 writes.storePointer(
                     offset + 40,
                     imageInfos.pointerAt(imageIndex * 24)

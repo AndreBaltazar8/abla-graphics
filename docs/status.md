@@ -282,7 +282,8 @@ Updated: 2026-08-26.
   under `VK_LAYER_KHRONOS_validation` after an explicit 36-byte
   `VkAttachmentDescription` array-stride regression check.
 - General bind groups: `GraphicsBindGroup` accepts up to 16 unique set-zero
-  entries spanning sampled textures, uniform buffers, and storage buffers with
+  entries spanning sampled textures, storage textures, uniform buffers, and
+  storage buffers with
   explicit vertex/fragment/compute visibility. Pipeline reflection matches the
   complete entry shape, including exact 2D, array, cube, or 3D sampled-texture
   dimension. Entries can select checked uniform/storage subranges. OpenGL uses
@@ -1467,8 +1468,26 @@ The deterministic Abla `$glsl` translator now supports one compute-visible
 SPIR-V; OpenGL executes the same source. The 56th independent sample,
 `recorded-graph-texture-compute`, passed stripped-`LD_LIBRARY_PATH` launches on
 OpenGL, Vulkan, and automatic selection with exact value `1001`, post-seal map
-tamper rejection, zero/1,001 Vulkan submissions, and `live=0`. Storage images
-remain unimplemented and are the next explicit binding/backend/lowering slice.
+tamper rejection, zero/1,001 Vulkan submissions, and `live=0`.
+
+### Recorded storage-image compute
+
+The common feature mask and bind-group API now expose storage textures.
+`storageTextureEntry(...)` validates an owned single-mip RGBA8 2D texture and
+explicit access. OpenGL applies `glBindImageTexture` and the shader-image
+barrier bit. Vulkan creates descriptor type 3 with `GENERAL` layout and
+performs the initial layout transition once, outside warmed replay.
+
+The deterministic `$glsl` subset recognizes one exact write-only `image2D`
+`imageStore` program and emits valid byte-stable SPIR-V entirely from Abla.
+`graphSubpassStorageTextureResources(...)` retains the affine texture plus
+logical ID/access and validates graph use, descriptor, native identity, stage
+map, activity, and seal fingerprint. The 57th sample,
+`recorded-graph-storage-image-compute`, passed stripped-`LD_LIBRARY_PATH`
+OpenGL, Vulkan, and auto launches with exact red `4278190335`, sealed-map
+tamper rejection, 1,001 successful replays, zero/1,001 Vulkan submissions,
+and `live=0`. Broader formats, read/read-write image programs, views, and
+fragment-stage images remain open.
 
 These remain milestones in [the implementation plan](../plan.md); they are not
 represented as delivered.

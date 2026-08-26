@@ -274,6 +274,7 @@ OpenGL/Vulkan submissions.
 `examples/recorded-graph-compute`, and
 `examples/recorded-graph-transient-compute`, and
 `examples/recorded-graph-texture-compute`, and
+`examples/recorded-graph-storage-image-compute`, and
 `examples/recorded-graph-buffered-render`, and
 `examples/recorded-graph-indirect-render`, and
 `examples/recorded-graph-push-render`, and
@@ -351,5 +352,14 @@ coordinate and accumulates the channel into a storage buffer. Its independent
 proof rejects a sealed map mutation, reaches exact `1001` through 1,001
 OpenGL/Vulkan/automatic-selection replays, and retains zero warmed live growth.
 
-Storage-image bindings, broader copy/dispatch forms, frames in flight, and
+`graphSubpassStorageTextureResources(...)` retains imported single-mip RGBA8
+storage textures without artificial samplers. Its explicit read/write access
+must agree with the graph use and binding entry. The first `$glsl` form lowers
+write-only `image2D` `imageStore`; OpenGL binds an image unit and emits the
+image-access barrier bit, while Vulkan uses a storage-image descriptor and a
+one-time `GENERAL` transition. The independent proof preserves exact red,
+rejects a sealed stage-map mutation, and completes 1,001 OpenGL/Vulkan/auto
+replays with zero warmed growth and zero/1,001 Vulkan submissions.
+
+Broader storage-image formats/access/views, broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

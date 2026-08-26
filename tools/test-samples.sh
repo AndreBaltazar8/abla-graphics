@@ -38,7 +38,7 @@ samples=(x11-window wayland-info wayland-window wayland-pixels \
     recorded-graph-depth-render recorded-graph-resolve-render \
     recorded-graph-mrt-render recorded-graph-subpasses \
     recorded-graph-binding-subpasses recorded-graph-texture-render \
-    recorded-graph-texture-compute \
+    recorded-graph-texture-compute recorded-graph-storage-image-compute \
     recorded-graph-texture-subpasses \
     recorded-graph-transient-texture-subpasses)
 
@@ -149,6 +149,8 @@ for backend in opengl vulkan; do
         "$output_directory/recorded-graph-texture-render" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-texture-compute" "$backend"
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+        "$output_directory/recorded-graph-storage-image-compute" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/recorded-graph-texture-subpasses" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

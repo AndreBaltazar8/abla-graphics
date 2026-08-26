@@ -293,6 +293,15 @@ noescape extern:"c" fun glBindTexture(target: i32, texture: i32): void
 noescape extern:"c" fun glActiveTexture(texture: i32): void
 noescape extern:"c" fun glBindSampler(unit: i32, sampler: i32): void
 noescape extern:"c" fun glBindTextureUnit(unit: i32, texture: i32): void
+noescape extern:"c" fun glBindImageTexture(
+    unit: i32,
+    texture: i32,
+    level: i32,
+    layered: i32,
+    layer: i32,
+    access: i32,
+    format: i32
+): void
 noescape extern:"c" fun glTexParameteri(
     target: i32,
     name: i32,
@@ -721,6 +730,9 @@ trusted fun openGlApplyBindGroup(
             glBindBufferBase(37074, binding, handle)
         } else if (succeeded && kind == 3 && sampler == 0 && size > 0) {
             glBindBufferRange(37074, binding, handle, offset, size)
+        } else if (succeeded && kind == 4 && sampler != 0 && offset >= 0 &&
+            (size == 35000 || size == 35001 || size == 35002)) {
+            glBindImageTexture(binding, handle, offset, 0, 0, size, sampler)
         } else succeeded = false
         index = index + 1
     }
@@ -794,7 +806,7 @@ trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
         graphicsFeatureTimestampQueries
     if (compute) {
         features = features | graphicsFeatureCompute |
-            graphicsFeatureStorageBuffers
+            graphicsFeatureStorageBuffers | graphicsFeatureStorageTextures
     }
     if (maximumAnisotropy > 1) {
         features = features | graphicsFeatureSamplerAnisotropy
@@ -3284,13 +3296,17 @@ resource class OpenGlComputePipeline(
             }
             glUseProgram(this.handle)
             glDispatchCompute(x, y, z)
-            var hasStorageBinding = this.storageBuffer != 0
+            var barrierBits = if (this.storageBuffer != 0) 8192 else 0
             var bindingIndex = 0
-            while (!hasStorageBinding && bindingIndex < bindingKinds.size) {
-                hasStorageBinding = bindingKinds[bindingIndex] == 3
+            while (bindingIndex < bindingKinds.size) {
+                if (bindingKinds[bindingIndex] == 3) {
+                    barrierBits = barrierBits | 8192
+                } else if (bindingKinds[bindingIndex] == 4) {
+                    barrierBits = barrierBits | 32
+                }
                 bindingIndex = bindingIndex + 1
             }
-            if (hasStorageBinding) glMemoryBarrier(8192)
+            if (barrierBits != 0) glMemoryBarrier(barrierBits)
             succeeded = glGetError() == 0
         }
         succeeded
