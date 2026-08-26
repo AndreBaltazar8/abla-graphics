@@ -654,6 +654,8 @@ staged, changed, or committed by this checkpoint.
 
 ### Combined retained buffers and push snapshots
 
+Implementation commit `07fdb8eeaa33b5e34efb71ae4499ecc6dd1df9d3`
+adds this composition.
 `recordRenderBindingPushSubpasses(...)` composes the planner-visible affine
 buffer table with the bounded command-owned per-stage push snapshot. A shared
 uniform buffer may feed multiple stages while every stage retains its own
