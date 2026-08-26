@@ -1,6 +1,6 @@
 # Abla Graphics goal and continuation handoff
 
-Updated: 2026-08-26 (Europe/Lisbon).
+Updated: 2026-08-27 (Europe/Lisbon).
 
 This file is the operational handoff for the next person continuing the goal.
 Read it before changing code, then read `plan.md`, `docs/status.md`,
@@ -193,11 +193,14 @@ nix-shell --run 'make check-abla-only'
 - Remote: `git@github.com:AndreBaltazar8/ablac.git`
 - Branch: `master`
 - Local/upstream tip at this handoff:
-  `8b6c6e5305049e2e1e2669556909286384eaa009`
-  (`Support binary string data in native backends`).
-- HEAD is synchronized and the worktree is clean. The previously listed
-  unrelated compiler edits were published concurrently by their owner; this
-  graphics checkpoint did not modify or commit any compiler path.
+  `37a5e4458cbc7f5be1a474e1f51ee00c011cc306`
+  (`Add zero-argument native void calls`).
+- HEAD is synchronized with `origin/master`. The worktree is not clean: it
+  contains concurrent scalar-global/export program-build work in
+  `src/backend/llvm/{analysis,backend,core,exports,functions}.ab`,
+  `tools/test-programmable-build.sh`, and two new program-build fixtures. The
+  raw-call commit staged only its six owned paths/hunks and left all of that
+  unrelated work untouched.
 - At the 2026-08-26 subpass verification, the concurrently replaced
   `build/ablac.bin` recognized `type` as a reserved token while checked-in
   compiler/GLSL parser sources still used `type` as an identifier. For the
@@ -1877,6 +1880,82 @@ Tests, samples, and public claims:
   and this file — public contract and claim surface;
 - `tools/check-abla-only.sh` — mandatory no-C implementation audit.
 
+## Current verified checkpoint: generated raw command calls
+
+Published compiler dependency
+`37a5e4458cbc7f5be1a474e1f51ee00c011cc306` and graphics implementation
+`2dc0e7f956dd598671cedf85e950b9c145c13ebe` are synchronized with their
+upstreams. This checkpoint turns the raw registry from report-only metadata
+into an executable foundation without claiming that every signature is
+callable:
+
+- the generator normalizes an exact call shape for all 2,892 pinned OpenGL and
+  842 pinned Vulkan commands and retains those shapes in the full audit modules;
+- separate generated `src/raw/opengl_calls.ab` and
+  `src/raw/vulkan_calls.ab` modules contain only names and call shapes, reducing
+  callable metadata to about 295 KiB total and keeping the full 3.9 MiB
+  audit/type reports out of application imports;
+- `GraphicsApplication.rawOpenGlApi()` resolves known commands through
+  `eglGetProcAddress` with process-symbol fallback;
+  `GraphicsApplication.rawVulkanApi()` resolves instance and device commands
+  through `vkGetInstanceProcAddr` and `vkGetDeviceProcAddr`;
+- `RawNativeCommand` retains the resolved name, normalized shape, address, and
+  owning context/dispatch handle, rejects unknown or cross-context commands,
+  and separates one-time lookup from steady-state calls;
+- the first executable family accepts only exact `void()` OpenGL commands. It
+  uses the new general `abla/unsafe/native.callNativeVoid0` compiler primitive,
+  makes the borrowed EGL context current, and rejects mismatched signatures
+  before calling the driver; and
+- the 71st independent sample, `examples/raw-command-addresses`, proves both
+  loader paths. Normal and `--fast` binaries resolve with `LD_LIBRARY_PATH`
+  removed, Vulkan resolves live instance/device functions, and OpenGL executes
+  1,000 indirect `glFinish` calls with zero live-byte growth while rejecting
+  `glClear` and an unknown name.
+
+The initially combined full-registry import produced 109 MiB of LLVM IR. The
+compact split reduced the same combined sample to 20 MiB, which is the intended
+build-time architecture for adding more signature families quickly.
+
+Verified gates: cache-independent compiler unsafe-boundary positive/negative
+tests; deterministic registry generation and offline full-metadata builds;
+normal and optimized raw loader/call samples on live OpenGL and Vulkan;
+stripped-environment `ldd`; the repository-wide Abla-only audit; pure core; and
+the full common application gate on explicit OpenGL, explicit Vulkan,
+automatic selection/fallback, unavailable Vulkan, and unsupported-feature
+rejection. Vulkan selected API 1.4.312 on the local RTX 4090; software OpenGL
+reported 4.5.0. The full 71-root matrix was deliberately not repeated.
+
+The sibling compiler paths owned by this checkpoint are
+`src/backend/llvm/analysis.ab`, `src/backend/llvm/functions.ab`,
+`stdlib/abla/unsafe/native/entry.ab`,
+`tests/cases/bootstrap/invalid-unsafe-call.ab`,
+`tests/cases/modules/unsafe-boundary.ab`, and
+`tools/test-unsafe-boundary.sh`. The negative unsafe test now bypasses caches
+and directly tests `nativeStackAllocate`; its old allocation-wrapper fixture
+had stopped being a raw extern on 2026-08-17, and cached objects concealed the
+stale assertion. At this handoff `../ablac` also contains concurrent unrelated
+export/program-build work, including a C caller fixture. Preserve it and never
+stage it with this graphics dependency. There is no C/C++/Rust implementation
+source in `abla-graphics`.
+
+Remaining raw work is substantial: add compiler-backed checked call families
+for the other normalized signatures; generate typed OpenGL/Vulkan values,
+flags, handles, structures, and Vulkan feature chains; attach capability and
+extension ownership to commands; exercise representative positive and
+unsupported paths for every supported family; finish both raw feature-lab
+samples; and classify the remaining coverage ledger. The full 71-root sample
+matrix is queued for a periodic coverage checkpoint rather than this focused
+raw ABI slice. Do not mark the persistent goal complete.
+
+Focused commands for this checkpoint:
+
+```bash
+../ablac/tools/test-unsafe-boundary.sh ../ablac/build/ablac
+nix-shell --run 'make update-registry test-registry'
+nix-shell --run 'make test-raw-commands'
+nix-shell --run 'make check-abla-only test-core test-application'
+```
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
@@ -1896,6 +1975,7 @@ nix-shell --run 'make test-graph-texture test-graph-execute test-graph-commands'
 nix-shell --run 'make test-glsl test-application'
 nix-shell --run 'make test-runtime-linkage'
 nix-shell --run 'make update-registry test-registry'
+nix-shell --run 'make test-raw-commands'
 nix-shell --run 'make all'
 nix-shell --run 'make test-samples'
 ```
