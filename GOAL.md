@@ -92,6 +92,9 @@ nix-shell --run 'make check-abla-only'
 - Buffered-depth implementation commit:
   `caf5712cdfad28841acdc6f35ff645b255bb6911`
   (`Support depth across recorded draw forms`).
+- Recorded-resolve implementation commit:
+  `b7c8a35bf2e6f004ddf352ed9fa58a4b3a15a079`
+  (`Record multisample graph resolves`).
 - Published tip before the indirect-render checkpoint:
   `dbfe351beac81c3ced54198791f643db565e61a2`
   (`Update graphics continuation handoff`).
@@ -521,7 +524,7 @@ public call, rebuilds without unresolved shared libraries when
 `LD_LIBRARY_PATH` is removed, and passes both explicit backends. No `../ablac`
 change was required.
 
-## Verified checkpoint awaiting publication: recorded MSAA resolve
+## Published checkpoint: recorded MSAA resolve
 
 `recordRenderTargetResolve(...)` and `recordRenderTargetResolvePush(...)` now
 own and replay a single-color multisample target while naming both its imported
