@@ -142,6 +142,9 @@ nix-shell --run 'make check-abla-only'
 - Published and synchronized recorded storage-image implementation:
   `fb6cead83378687fc912cafb10ec0911cc2e7e5c`
   (`Add recorded storage image compute`).
+- Published and synchronized storage-image-view/read-write implementation:
+  `27358b310ddaf4f3977bd7065c892d3f3c954e80`
+  (`Add read-write storage image views`).
 - Earlier bounded-command implementation checkpoint:
   `08d481ad5105c03b4858d341ffed31d606ce09cc`.
 - Relevant published implementation commits are `deecaa3` (`Execute render
@@ -813,7 +816,10 @@ passed. No `../ablac` source change was required. Broader storage-image
 formats/dimensions and fragment-stage images remain follow-up work; do not mark
 the persistent goal complete.
 
-### Storage-image views and read-write lowering
+### Published checkpoint: storage-image views and read-write lowering
+
+Implementation commit `27358b310ddaf4f3977bd7065c892d3f3c954e80`
+is published on `origin/main`.
 
 Image reflection now retains `rgba8` plus `readonly`/`writeonly`/unqualified
 access, and bind-group matching rejects format or access mismatch before driver
@@ -834,6 +840,9 @@ successful replays, zero warmed live-byte growth, and zero/1,001 Vulkan
 submissions. An initial correct-output run exposed 416 bytes of live growth per
 replay from redundant descriptor validation; the retained validator now uses
 scalar creation-time-validated state and passes `live=0`.
+`make check-abla-only`, `make test-application test-headless test-glsl
+test-graph-commands`, and the prior write-only storage-image sample all passed.
+No `../ablac` source change was required.
 
 ## Published checkpoint: planner buffers and sealed compute push data
 
