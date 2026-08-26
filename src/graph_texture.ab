@@ -8,6 +8,7 @@ import "texture.ab"
 import "texture_pool.ab"
 import "sampler.ab"
 import "binding.ab"
+import "pool.ab"
 import "graph.ab"
 
 val graphicsMaximumGraphTextureResources = 256
@@ -25,6 +26,34 @@ class GraphicsGraphBufferDeclaration(
     val buffer: BufferDescriptor
 ) {
     fun valid(): bool = this.resourceId >= 0 && this.buffer.valid()
+}
+
+fun graphicsGraphBufferDescriptorsCompatible(
+    left: BufferDescriptor,
+    right: BufferDescriptor
+): bool = left.valid() && right.valid() && left.size == right.size &&
+    left.usage == right.usage &&
+    left.mappedAtCreation == right.mappedAtCreation &&
+    left.persistentMapping == right.persistentMapping &&
+    left.memory == right.memory
+
+fun graphicsGraphBufferPoolBlockSize(size: int): int {
+    var blockSize = 4
+    while (size > 0 && blockSize < graphicsMaximumBufferPoolBytes &&
+        ((size - 1) / blockSize) + 1 >
+            graphicsMaximumBufferPoolBlocks) {
+        blockSize = blockSize * 2
+    }
+    if (size > 0 && size <= graphicsMaximumBufferPoolBytes)
+        blockSize else 0
+}
+
+fun graphicsGraphBufferPoolCapacity(size: int): int {
+    val blockSize = graphicsGraphBufferPoolBlockSize(size)
+    val blocks = if (blockSize > 0)
+        ((size - 1) / blockSize) + 1 else 0
+    if (blocks > 0 && blocks <= graphicsMaximumBufferPoolBlocks)
+        blocks * blockSize else 0
 }
 
 fun textureDescriptorStorageBytes(texture: TextureDescriptor): int {
@@ -104,6 +133,10 @@ resource class GraphicsMaterializedRenderGraph(
     val compiledDestinationAccesses: array<int>,
     val pools: array<GraphicsTexturePool>,
     val slotLeases: array<int>,
+    val bufferPools: array<GraphicsBufferPool>,
+    val bufferAllocations: array<int>,
+    val texturePoolSlots: array<int>,
+    val bufferPoolSlots: array<int>,
     val resourceSlots: array<int>,
     val backend: int,
     var executing: bool,
@@ -127,16 +160,20 @@ resource class GraphicsMaterializedRenderGraph(
             this.compiledBarrierCounts.size == this.plan.order.size &&
             this.compiledSourceAccesses.size == this.plan.order.size &&
             this.compiledDestinationAccesses.size == this.plan.order.size &&
-            this.pools.size == this.plan.allocations.size &&
             this.slotLeases.size == this.pools.size &&
+            this.bufferAllocations.size == this.bufferPools.size &&
+            this.texturePoolSlots.size == this.plan.allocations.size &&
+            this.bufferPoolSlots.size == this.plan.allocations.size &&
             (this.backend == graphicsBackendOpenGl ||
              this.backend == graphicsBackendVulkan) &&
             this.executionGeneration >= 0 &&
             this.completedExecutions >= 0 &&
             this.abortedExecutions >= 0 &&
             this.currentExecutionBarriers >= 0 &&
+            this.currentExecutionBarriers <= this.plan.barriers.size &&
             this.lastExecutionBarriers >= 0 &&
-            this.totalExecutedBarriers >= this.currentExecutionBarriers &&
+            (this.executing ||
+             this.totalExecutedBarriers >= this.currentExecutionBarriers) &&
             this.backendBarrierCalls >= 0 &&
             this.currentPassPosition >= -1 &&
             this.currentPassPosition < this.plan.order.size
@@ -163,6 +200,25 @@ resource class GraphicsMaterializedRenderGraph(
                 this.pools[slot].leaseValid(this.slotLeases[slot])
             slot = slot + 1
         }
+        slot = 0
+        while (accepted && slot < this.bufferPools.size) {
+            accepted = this.bufferPools[slot].valid() &&
+                this.bufferPools[slot].backing.backend == this.backend &&
+                this.bufferPools[slot].descriptor.maximumAllocations == 1 &&
+                this.bufferPools[slot].allocationValid(
+                    this.bufferAllocations[slot]
+                )
+            slot = slot + 1
+        }
+        slot = 0
+        while (accepted && slot < this.plan.allocations.size) {
+            val texturePool = this.texturePoolSlots[slot]
+            val bufferPool = this.bufferPoolSlots[slot]
+            accepted = (texturePool >= 0) != (bufferPool >= 0) &&
+                texturePool < this.pools.size &&
+                bufferPool < this.bufferPools.size
+            slot = slot + 1
+        }
         var resourceIndex = 0
         while (accepted && resourceIndex < this.resources.size) {
             val declarationIndex = graphicsGraphTextureDeclarationIndex(
@@ -179,21 +235,37 @@ resource class GraphicsMaterializedRenderGraph(
             if (accepted && declarationIndex >= 0) {
                 accepted = this.declarations[declarationIndex].valid()
             } else if (accepted) {
-                accepted = this.bufferDeclarations[
+                val descriptor = this.bufferDeclarations[
                     bufferDeclarationIndex
-                ].valid() && !this.resources[resourceIndex].transient &&
-                    this.bufferDeclarations[
-                        bufferDeclarationIndex
-                    ].buffer.size == this.resources[resourceIndex].size &&
-                    this.resourceSlots[resourceIndex] == -1
+                ].buffer
+                val bufferPool = this.bufferPoolIndex(
+                    this.resources[resourceIndex].id
+                )
+                accepted = descriptor.valid() &&
+                    descriptor.size == this.resources[resourceIndex].size &&
+                    ((!this.resources[resourceIndex].transient &&
+                      this.resourceSlots[resourceIndex] == -1) ||
+                     (this.resources[resourceIndex].transient &&
+                      bufferPool >= 0 &&
+                      bufferPool < this.bufferPools.size &&
+                      this.bufferPools[bufferPool].allocationSize(
+                          this.bufferAllocations[bufferPool]
+                      ) == descriptor.size &&
+                      (this.bufferPools[
+                          bufferPool
+                      ].backing.descriptor.usage & descriptor.usage) ==
+                          descriptor.usage))
             }
             if (accepted && declarationIndex >= 0 &&
                 this.resources[resourceIndex].transient) {
                 slot = this.resourceSlots[resourceIndex]
-                accepted = slot >= 0 && slot < this.pools.size &&
+                val poolIndex = if (slot >= 0 &&
+                    slot < this.texturePoolSlots.size)
+                    this.texturePoolSlots[slot] else -1
+                accepted = poolIndex >= 0 && poolIndex < this.pools.size &&
                     textureDescriptorsStorageCompatible(
                         this.declarations[declarationIndex].texture,
-                        this.pools[slot].descriptor.texture
+                        this.pools[poolIndex].descriptor.texture
                     )
             } else if (accepted && declarationIndex >= 0) {
                 accepted = this.resourceSlots[resourceIndex] == -1
@@ -209,6 +281,18 @@ resource class GraphicsMaterializedRenderGraph(
     fun resourceSlot(resourceId: int): int {
         val index = this.resourceIndex(resourceId)
         if (index >= 0) this.resourceSlots[index] else -1
+    }
+
+    fun texturePoolIndex(resourceId: int): int {
+        val slot = this.resourceSlot(resourceId)
+        if (slot >= 0 && slot < this.texturePoolSlots.size)
+            this.texturePoolSlots[slot] else -1
+    }
+
+    fun bufferPoolIndex(resourceId: int): int {
+        val slot = this.resourceSlot(resourceId)
+        if (slot >= 0 && slot < this.bufferPoolSlots.size)
+            this.bufferPoolSlots[slot] else -1
     }
 
     fun transientResource(resourceId: int): bool {
@@ -272,12 +356,23 @@ resource class GraphicsMaterializedRenderGraph(
         this.active(token) && this.currentAccess(resourceId) != 0
 
     fun physicalIdentity(resourceId: int): int {
-        val slot = this.resourceSlot(resourceId)
-        if (!this.valid() || slot < 0 || slot >= this.pools.size) return 0
-        val textureSlot = texturePoolTokenSlot(this.slotLeases[slot])
-        if (this.backend == graphicsBackendOpenGl)
-            this.pools[slot].textures[textureSlot].openGl.handle
-        else this.pools[slot].textures[textureSlot].vulkan.image
+        if (!this.valid()) return 0
+        val texturePool = this.texturePoolIndex(resourceId)
+        val bufferPool = this.bufferPoolIndex(resourceId)
+        if (texturePool >= 0 && texturePool < this.pools.size) {
+            val textureSlot = texturePoolTokenSlot(
+                this.slotLeases[texturePool]
+            )
+            return if (this.backend == graphicsBackendOpenGl)
+                this.pools[texturePool].textures[textureSlot].openGl.handle
+            else this.pools[texturePool].textures[textureSlot].vulkan.image
+        }
+        if (bufferPool >= 0 && bufferPool < this.bufferPools.size) {
+            return if (this.backend == graphicsBackendOpenGl)
+                this.bufferPools[bufferPool].backing.openGl.handle
+            else this.bufferPools[bufferPool].backing.vulkan.handle
+        }
+        0
     }
 
     fun samePhysicalTexture(left: int, right: int): bool {
@@ -285,6 +380,15 @@ resource class GraphicsMaterializedRenderGraph(
         val rightSlot = this.resourceSlot(right)
         this.valid() && leftSlot >= 0 && leftSlot == rightSlot &&
             this.physicalIdentity(left) != 0 &&
+            this.physicalIdentity(left) == this.physicalIdentity(right)
+    }
+
+    fun samePhysicalBuffer(left: int, right: int): bool {
+        val leftSlot = this.resourceSlot(left)
+        val rightSlot = this.resourceSlot(right)
+        this.valid() && this.bufferResource(left) &&
+            this.bufferResource(right) && leftSlot >= 0 &&
+            leftSlot == rightSlot && this.physicalIdentity(left) != 0 &&
             this.physicalIdentity(left) == this.physicalIdentity(right)
     }
 
@@ -344,12 +448,18 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
     val plan = graphicsRenderGraph(resources, passes)
     val pools: array<GraphicsTexturePool> = []
     val slotLeases: array<int> = []
+    val bufferPools: array<GraphicsBufferPool> = []
+    val bufferAllocations: array<int> = []
+    val texturePoolSlots: array<int> = []
+    val bufferPoolSlots: array<int> = []
     val resourceSlots: array<int> = []
     val compiledBarrierCounts: array<int> = []
     val compiledSourceAccesses: array<int> = []
     val compiledDestinationAccesses: array<int> = []
     val slotDescriptors: array<TextureDescriptor> = []
-    val slotDefined: array<bool> = []
+    val slotBufferDescriptors: array<BufferDescriptor> = []
+    val slotTextureDefined: array<bool> = []
+    val slotBufferDefined: array<bool> = []
     var error = GraphicsError()
     if (!this.valid()) error = GraphicsError(
         graphicsErrorInvalidConfiguration,
@@ -394,7 +504,11 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
     var slot = 0
     while (!error.occurred() && slot < plan.allocations.size) {
         slotDescriptors.append(TextureDescriptor())
-        slotDefined.append(false)
+        slotBufferDescriptors.append(BufferDescriptor())
+        slotTextureDefined.append(false)
+        slotBufferDefined.append(false)
+        texturePoolSlots.append(-1)
+        bufferPoolSlots.append(-1)
         slot = slot + 1
     }
     var resourceIndex = 0
@@ -445,15 +559,42 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
             )
             slot = if (lifetimeIndex >= 0)
                 plan.lifetimes[lifetimeIndex].allocationSlot else -1
-            if (graphResource.transient || slot != -1 ||
+            val transientValid = descriptor.size == graphResource.size &&
+                descriptor.size <= graphicsMaximumBufferPoolBytes &&
+                !descriptor.mappedAtCreation &&
+                !descriptor.persistentMapping &&
+                descriptor.memory == bufferMemoryDeviceLocal &&
+                (descriptor.usage &
+                    (bufferUsageMapRead | bufferUsageMapWrite)) == 0
+            if ((graphResource.transient &&
+                 (!transientValid || slot < 0 ||
+                  slot >= plan.allocations.size ||
+                  plan.allocations[slot].capacity < descriptor.size)) ||
+                (!graphResource.transient && slot != -1) ||
                 descriptor.size != graphResource.size) {
                 error = GraphicsError(
                     graphicsErrorInvalidConfiguration,
                     "GraphicsApplication.materializeRenderGraphResources",
-                    "graph buffers are imported in this slice and must match the logical resource size"
+                    "graph buffers must match the logical size; transient buffers require device-local unmapped storage and a planned allocation"
                 )
+            } else if (graphResource.transient &&
+                (slotTextureDefined[slot] ||
+                 (slotBufferDefined[slot] &&
+                  !graphicsGraphBufferDescriptorsCompatible(
+                      slotBufferDescriptors[slot],
+                      descriptor
+                  )))) {
+                error = GraphicsError(
+                    graphicsErrorInvalidConfiguration,
+                    "GraphicsApplication.materializeRenderGraphResources",
+                    "opaque graph compatibility cannot alias buffer and texture slots or different buffer descriptors"
+                )
+            } else if (graphResource.transient &&
+                !slotBufferDefined[slot]) {
+                slotBufferDescriptors[slot] = descriptor
+                slotBufferDefined[slot] = true
             }
-            resourceSlots.append(-1)
+            resourceSlots.append(slot)
         } else {
             val descriptor = declarations[declarationIndex].texture
             val storageBytes = textureDescriptorStorageBytes(descriptor)
@@ -478,7 +619,15 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
                     "GraphicsApplication.materializeRenderGraphResources",
                     "imported graph textures cannot receive transient allocations"
                 )
-            } else if (graphResource.transient && slotDefined[slot] &&
+            } else if (graphResource.transient &&
+                slotBufferDefined[slot]) {
+                error = GraphicsError(
+                    graphicsErrorInvalidConfiguration,
+                    "GraphicsApplication.materializeRenderGraphResources",
+                    "opaque graph compatibility cannot alias texture and buffer resources"
+                )
+            } else if (graphResource.transient &&
+                slotTextureDefined[slot] &&
                 !textureDescriptorsStorageCompatible(
                     slotDescriptors[slot],
                     descriptor
@@ -488,9 +637,10 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
                     "GraphicsApplication.materializeRenderGraphResources",
                     "opaque graph compatibility cannot alias different texture descriptors"
                 )
-            } else if (graphResource.transient && !slotDefined[slot]) {
+            } else if (graphResource.transient &&
+                !slotTextureDefined[slot]) {
                 slotDescriptors[slot] = descriptor
-                slotDefined[slot] = true
+                slotTextureDefined[slot] = true
             }
             resourceSlots.append(slot)
         }
@@ -499,13 +649,13 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
 
     slot = 0
     while (!error.occurred() && slot < plan.allocations.size) {
-        if (!slotDefined[slot]) {
+        if (!slotTextureDefined[slot] && !slotBufferDefined[slot]) {
             error = GraphicsError(
                 graphicsErrorInvalidConfiguration,
                 "GraphicsApplication.materializeRenderGraphResources",
                 "every planned transient allocation needs a typed descriptor"
             )
-        } else {
+        } else if (slotTextureDefined[slot]) {
             val pool = this.texturePool(TexturePoolDescriptor(
                 label = "render-graph-transient",
                 texture = slotDescriptors[slot],
@@ -524,6 +674,34 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
             )
             pools.append(move(pool))
             slotLeases.append(lease)
+            texturePoolSlots[slot] = pools.size - 1
+        } else {
+            val descriptor = slotBufferDescriptors[slot]
+            val blockSize = graphicsGraphBufferPoolBlockSize(descriptor.size)
+            val capacity = graphicsGraphBufferPoolCapacity(descriptor.size)
+            val pool = this.bufferPool(BufferPoolDescriptor(
+                label = "render-graph-transient-buffer",
+                capacity = capacity,
+                blockSize = blockSize,
+                maximumAllocations = 1,
+                usage = descriptor.usage | bufferUsageCopySource |
+                    bufferUsageCopyDestination
+            ))
+            if (!pool.valid()) error = GraphicsError(
+                pool.error.code,
+                "GraphicsApplication.materializeRenderGraphResources",
+                pool.error.message
+            )
+            val allocation = if (!error.occurred())
+                pool.allocate(descriptor.size, 1) else 0
+            if (!bufferPoolTokenValid(allocation)) error = GraphicsError(
+                graphicsErrorDriverFailure,
+                "GraphicsApplication.materializeRenderGraphResources",
+                "failed to retain a physical transient buffer allocation"
+            )
+            bufferPools.append(move(pool))
+            bufferAllocations.append(allocation)
+            bufferPoolSlots[slot] = bufferPools.size - 1
         }
         slot = slot + 1
     }
@@ -539,6 +717,10 @@ trusted fun GraphicsApplication.materializeRenderGraphResources(
         compiledDestinationAccesses,
         move(pools),
         slotLeases,
+        move(bufferPools),
+        bufferAllocations,
+        texturePoolSlots,
+        bufferPoolSlots,
         resourceSlots,
         this.backend,
         false,
@@ -573,13 +755,13 @@ trusted fun GraphicsApplication.writeGraphTextureBytes(
     selection: TextureRegion = TextureRegion(),
     layout: TextureDataLayout = TextureDataLayout()
 ): bool {
-    val slot = graph.resourceSlot(resourceId)
+    val pool = graph.texturePoolIndex(resourceId)
     return graph.resourceActive(token, resourceId) &&
         (graph.currentAccess(resourceId) & graphAccessWrite) != 0 &&
-        slot >= 0 && slot < graph.pools.size &&
+        pool >= 0 && pool < graph.pools.size &&
         this.writeTexturePoolBytes(
-            graph.pools[slot],
-            graph.slotLeases[slot],
+            graph.pools[pool],
+            graph.slotLeases[pool],
             source,
             selection,
             layout
@@ -594,13 +776,13 @@ trusted fun GraphicsApplication.readGraphTextureBytes(
     selection: TextureRegion = TextureRegion(),
     layout: TextureDataLayout = TextureDataLayout()
 ): bool {
-    val slot = graph.resourceSlot(resourceId)
+    val pool = graph.texturePoolIndex(resourceId)
     return graph.resourceActive(token, resourceId) &&
         (graph.currentAccess(resourceId) & graphAccessRead) != 0 &&
-        slot >= 0 && slot < graph.pools.size &&
+        pool >= 0 && pool < graph.pools.size &&
         this.readTexturePoolBytes(
-            graph.pools[slot],
-            graph.slotLeases[slot],
+            graph.pools[pool],
+            graph.slotLeases[pool],
             destination,
             selection,
             layout
@@ -616,17 +798,19 @@ trusted fun GraphicsApplication.copyGraphTexture(
 ): bool {
     val sourceSlot = graph.resourceSlot(sourceResourceId)
     val destinationSlot = graph.resourceSlot(destinationResourceId)
+    val sourcePool = graph.texturePoolIndex(sourceResourceId)
+    val destinationPool = graph.texturePoolIndex(destinationResourceId)
     return graph.resourceActive(token, sourceResourceId) &&
         graph.resourceActive(token, destinationResourceId) &&
         (graph.currentAccess(sourceResourceId) & graphAccessRead) != 0 &&
         (graph.currentAccess(destinationResourceId) & graphAccessWrite) != 0 &&
-        sourceSlot >= 0 && sourceSlot < graph.pools.size &&
-        destinationSlot >= 0 && destinationSlot < graph.pools.size &&
+        sourcePool >= 0 && sourcePool < graph.pools.size &&
+        destinationPool >= 0 && destinationPool < graph.pools.size &&
         sourceSlot != destinationSlot && this.copyTexturePoolLease(
-            graph.pools[sourceSlot],
-            graph.slotLeases[sourceSlot],
-            graph.pools[destinationSlot],
-            graph.slotLeases[destinationSlot],
+            graph.pools[sourcePool],
+            graph.slotLeases[sourcePool],
+            graph.pools[destinationPool],
+            graph.slotLeases[destinationPool],
             copy
         )
 }
@@ -650,17 +834,19 @@ trusted fun GraphicsApplication.copyGraphTextureRange(
 ): bool {
     val sourceSlot = graph.resourceSlot(sourceResourceId)
     val destinationSlot = graph.resourceSlot(destinationResourceId)
+    val sourcePool = graph.texturePoolIndex(sourceResourceId)
+    val destinationPool = graph.texturePoolIndex(destinationResourceId)
     return graph.resourceActive(token, sourceResourceId) &&
         graph.resourceActive(token, destinationResourceId) &&
         (graph.currentAccess(sourceResourceId) & graphAccessRead) != 0 &&
         (graph.currentAccess(destinationResourceId) & graphAccessWrite) != 0 &&
-        sourceSlot >= 0 && sourceSlot < graph.pools.size &&
-        destinationSlot >= 0 && destinationSlot < graph.pools.size &&
+        sourcePool >= 0 && sourcePool < graph.pools.size &&
+        destinationPool >= 0 && destinationPool < graph.pools.size &&
         sourceSlot != destinationSlot && this.copyTexturePoolLeaseRange(
-            graph.pools[sourceSlot],
-            graph.slotLeases[sourceSlot],
-            graph.pools[destinationSlot],
-            graph.slotLeases[destinationSlot],
+            graph.pools[sourcePool],
+            graph.slotLeases[sourcePool],
+            graph.pools[destinationPool],
+            graph.slotLeases[destinationPool],
             sourceMipLevel,
             sourceX,
             sourceY,
@@ -683,15 +869,15 @@ trusted fun GraphicsApplication.sampledGraphTextureEntry(
     resourceId: int,
     sampler: GraphicsSampler
 ): GraphicsBindingEntry {
-    val slot = graph.resourceSlot(resourceId)
+    val pool = graph.texturePoolIndex(resourceId)
     if (graph.resourceActive(token, resourceId) &&
         (graph.currentAccess(resourceId) & graphAccessRead) != 0 &&
-        slot >= 0 && slot < graph.pools.size) {
+        pool >= 0 && pool < graph.pools.size) {
         return this.sampledTexturePoolEntry(
             binding,
             visibility,
-            graph.pools[slot],
-            graph.slotLeases[slot],
+            graph.pools[pool],
+            graph.slotLeases[pool],
             sampler
         )
     }
@@ -718,6 +904,74 @@ trusted fun GraphicsApplication.sampledGraphTextureEntry(
     )
 }
 
+trusted fun GraphicsApplication.graphBufferEntry(
+    binding: int,
+    visibility: int,
+    graph: GraphicsMaterializedRenderGraph,
+    resourceId: int,
+    kind: int
+): GraphicsBindingEntry {
+    val poolIndex = graph.bufferPoolIndex(resourceId)
+    if (graph.valid() && graph.transientResource(resourceId) &&
+        graph.bufferResource(resourceId) && poolIndex >= 0 &&
+        poolIndex < graph.bufferPools.size) {
+        return this.bufferPoolBindingEntry(
+            binding,
+            visibility,
+            graph.bufferPools[poolIndex],
+            graph.bufferAllocations[poolIndex],
+            kind
+        )
+    }
+    GraphicsBindingEntry(
+        binding,
+        kind,
+        visibility,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        TextureDescriptor(),
+        textureDimensionUndefined,
+        this.backend,
+        GraphicsError(
+            graphicsErrorInvalidConfiguration,
+            "GraphicsApplication.graphBufferEntry",
+            "graph buffer entries require a materialized transient buffer"
+        )
+    )
+}
+
+trusted fun GraphicsApplication.storageGraphBufferEntry(
+    binding: int,
+    visibility: int,
+    graph: GraphicsMaterializedRenderGraph,
+    resourceId: int
+): GraphicsBindingEntry = this.graphBufferEntry(
+    binding,
+    visibility,
+    graph,
+    resourceId,
+    graphicsBindingStorageBuffer
+)
+
+trusted fun GraphicsApplication.uniformGraphBufferEntry(
+    binding: int,
+    visibility: int,
+    graph: GraphicsMaterializedRenderGraph,
+    resourceId: int
+): GraphicsBindingEntry = this.graphBufferEntry(
+    binding,
+    visibility,
+    graph,
+    resourceId,
+    graphicsBindingUniformBuffer
+)
+
 fun GraphicsApplication.matchesImportedGraphTexture(
     graph: GraphicsMaterializedRenderGraph,
     token: int,
@@ -738,7 +992,7 @@ trusted fun GraphicsApplication.copyImportedToGraphTexture(
     destinationResourceId: int,
     copy: TextureCopyDescriptor = TextureCopyDescriptor()
 ): bool {
-    val destinationSlot = graph.resourceSlot(destinationResourceId)
+    val destinationPool = graph.texturePoolIndex(destinationResourceId)
     return this.matchesImportedGraphTexture(
         graph,
         token,
@@ -747,11 +1001,11 @@ trusted fun GraphicsApplication.copyImportedToGraphTexture(
     ) && (graph.currentAccess(sourceResourceId) & graphAccessRead) != 0 &&
         graph.resourceActive(token, destinationResourceId) &&
         (graph.currentAccess(destinationResourceId) & graphAccessWrite) != 0 &&
-        destinationSlot >= 0 && destinationSlot < graph.pools.size &&
+        destinationPool >= 0 && destinationPool < graph.pools.size &&
         this.copyTexture(
             source,
-            graph.pools[destinationSlot].textures[texturePoolTokenSlot(
-                graph.slotLeases[destinationSlot]
+            graph.pools[destinationPool].textures[texturePoolTokenSlot(
+                graph.slotLeases[destinationPool]
             )],
             copy
         )
@@ -765,7 +1019,7 @@ trusted fun GraphicsApplication.copyGraphTextureToImported(
     destination: GraphicsTexture,
     copy: TextureCopyDescriptor = TextureCopyDescriptor()
 ): bool {
-    val sourceSlot = graph.resourceSlot(sourceResourceId)
+    val sourcePool = graph.texturePoolIndex(sourceResourceId)
     return graph.resourceActive(token, sourceResourceId) &&
         (graph.currentAccess(sourceResourceId) & graphAccessRead) != 0 &&
         this.matchesImportedGraphTexture(
@@ -775,10 +1029,10 @@ trusted fun GraphicsApplication.copyGraphTextureToImported(
             destination
         ) &&
         (graph.currentAccess(destinationResourceId) & graphAccessWrite) != 0 &&
-        sourceSlot >= 0 && sourceSlot < graph.pools.size &&
+        sourcePool >= 0 && sourcePool < graph.pools.size &&
         this.copyTexture(
-            graph.pools[sourceSlot].textures[texturePoolTokenSlot(
-                graph.slotLeases[sourceSlot]
+            graph.pools[sourcePool].textures[texturePoolTokenSlot(
+                graph.slotLeases[sourcePool]
             )],
             destination,
             copy

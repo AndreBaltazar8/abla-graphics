@@ -1,0 +1,155 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "vulkan"
+    val backend = if (requested == "opengl")
+        graphicsBackendOpenGl
+    else graphicsBackendVulkan
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics transient graph compute",
+            width = 480,
+            height = 270
+        )
+    )
+    val descriptor = BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination,
+        memory = bufferMemoryDeviceLocal
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(0, "destination", true, 8, 10),
+        GraphicsGraphResource(1, "source", true, 8, 10),
+        GraphicsGraphResource(2, "recycled", true, 8, 10)
+    ], [
+        GraphicsGraphPass(10, "compute", [
+            GraphicsGraphUse(0, graphAccessReadWrite),
+            GraphicsGraphUse(1, graphAccessRead)
+        ]),
+        GraphicsGraphPass(20, "consume", [
+            GraphicsGraphUse(0, graphAccessRead),
+            GraphicsGraphUse(1, graphAccessRead)
+        ]),
+        GraphicsGraphPass(30, "recycle", [
+            GraphicsGraphUse(2, graphAccessWrite)
+        ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(0, descriptor),
+        GraphicsGraphBufferDeclaration(1, descriptor),
+        GraphicsGraphBufferDeclaration(2, descriptor)
+    ])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Destination {
+                uint value;
+            } destination;
+            layout(std430, binding = 1) readonly buffer Source {
+                uint value;
+            } sourceData;
+            void main() { destination.value += sourceData.value; }
+        }
+    }
+    val binding = app.bindGroup([
+        app.storageGraphBufferEntry(
+            0,
+            shaderVisibilityCompute,
+            graph,
+            0
+        ),
+        app.storageGraphBufferEntry(
+            1,
+            shaderVisibilityCompute,
+            graph,
+            1
+        )
+    ])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val destinationSeed = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val sourceSeed = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val destinationPool = graph.bufferPoolIndex(0)
+    val sourcePool = graph.bufferPoolIndex(1)
+    val commands = app.graphCommandList(graph, 4)
+    var succeeded = app.valid() && graph.valid() && shader.valid &&
+        pipeline.valid() && destinationPool >= 0 && sourcePool >= 0 &&
+        destinationSeed.writeI64(2) && sourceSeed.writeI64(5) &&
+        app.copyBufferRange(
+            destinationSeed,
+            graph.bufferPools[destinationPool].backing,
+            0,
+            0,
+            8
+        ) && app.copyBufferRange(
+            sourceSeed,
+            graph.bufferPools[sourcePool].backing,
+            0,
+            0,
+            8
+        ) && graph.plan.allocations.size == 2 &&
+        graph.resourceSlot(0) == graph.resourceSlot(2) &&
+        graph.resourceSlot(0) != graph.resourceSlot(1) &&
+        graph.samePhysicalBuffer(0, 2) &&
+        !graph.samePhysicalBuffer(0, 1) &&
+        graph.plan.barriers.size == 1 && commands.valid() &&
+        commands.recordPass(graph, 10) &&
+        commands.recordTransientComputeBindings(
+            graph,
+            [0, 1],
+            move(pipeline),
+            1
+        ) && commands.recordPass(graph, 20) &&
+        commands.recordPass(graph, 30) && commands.seal(graph)
+    val destinationIdentity = graph.physicalIdentity(0)
+    val sourceIdentity = graph.physicalIdentity(1)
+    val recycledIdentity = graph.physicalIdentity(2)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val readback = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    succeeded = succeeded && app.copyBufferRange(
+        graph.bufferPools[destinationPool].backing,
+        readback,
+        0,
+        0,
+        8
+    )
+    val result = if (succeeded) readback.readI64() else -1
+    val stable = succeeded && iteration == 1001 && result == 5007 &&
+        liveAfter == liveBefore && destinationIdentity != 0 &&
+        sourceIdentity != 0 && destinationIdentity == recycledIdentity &&
+        destinationIdentity != sourceIdentity &&
+        graph.physicalIdentity(0) == destinationIdentity &&
+        graph.physicalIdentity(1) == sourceIdentity &&
+        graph.physicalIdentity(2) == recycledIdentity &&
+        commands.executions == 1001 && graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 1 &&
+        graph.totalExecutedBarriers == 1001 &&
+        graph.backendBarrierCalls == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "recorded-graph-transient-compute ${graphicsBackendName(app.backend)}: commands=${commands.commandCount}/${commands.capacity} slots=${graph.resourceSlot(0)}/${graph.resourceSlot(1)}/${graph.resourceSlot(2)} result=$result executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$destinationIdentity/$sourceIdentity/$recycledIdentity"
+    )
+    if (stable) 0 else 1
+}

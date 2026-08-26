@@ -2,9 +2,9 @@
 
 The reusable render-graph command slice records ordered pass entry,
 graph-owned transient texture copies, a typed procedural offscreen render, and
-a planner-visible storage-buffer compute dispatch into fixed-capacity affine
-storage. It is an optional layer over the existing direct APIs and materialized
-graph executor; it does not replace either one.
+planner-visible imported or graph-owned buffer compute dispatches into
+fixed-capacity affine storage. It is an optional layer over the existing direct
+APIs and materialized graph executor; it does not replace either one.
 
 ```abla
 val commands = app.graphCommandList(graph, 6)
@@ -64,9 +64,21 @@ copies the exact bytes into the command list's preallocated 128-byte-per-command
 native storage. The source value may therefore be changed or dropped after a
 successful record without changing replay. The size, bytes, logical resource
 ID, descriptor, native buffer/pipeline identities, and workgroups all
-participate in seal validation and fingerprinting. This slice still accepts one
-binding-zero storage block per compute pipeline; general bind groups and
-multiple buffer bindings remain open.
+participate in seal validation and fingerprinting.
+
+`recordComputeBindings` and `recordComputeBindingsPush` generalize imported
+compute to the exact reflected bind-group entries retained by
+`computeBindingPipeline`. Recording moves one caller-owned buffer for every
+logical ID and requires each binding kind, descriptor, range, native identity,
+and declared read/write access to agree. The arrays are moved into one affine
+resource group rather than flattened into copyable handles.
+
+`recordTransientComputeBindings` and its push form target graph-owned transient
+buffers. The pipeline's retained entries must refer to the graph pool backing
+objects and exact allocation ranges produced by `storageGraphBufferEntry` or
+`uniformGraphBufferEntry`. Every logical ID and physical slot in one dispatch
+must be unique. This prevents two disjoint logical aliases of one native buffer
+from being bound simultaneously.
 
 The current command kinds are deliberately limited to:
 
@@ -76,12 +88,16 @@ The current command kinds are deliberately limited to:
   existing common texture-copy path; and
 - one procedural draw to one single-sample color target, with no depth,
   resolves, vertex buffer, bind group, or push constants; and
-- one owned binding-zero storage-buffer compute dispatch, optionally with one
-  reflected push-constant block of at most 128 bytes.
+- imported single- or multi-buffer compute and graph-owned transient
+  multi-buffer compute dispatches, optionally with one reflected push-constant
+  block of at most 128 bytes.
 
-General render/compute bindings, queries, debug groups, and presentation are
-not recordable in this slice. Applications continue to use their existing
-direct calls for those operations.
+The common executable shader subset currently proves one two-storage form
+(`destination.value += sourceData.value`) in addition to the general
+single-block scalar emitter. Sampled textures/images in compute, queries, debug
+groups, presentation, and broader render forms are not recordable in this
+slice. Applications continue to use their existing direct calls for those
+operations.
 
 ## Sealing, identity, and ownership
 
@@ -103,8 +119,10 @@ Execution rejects the list before opening a graph execution when:
 
 The command list is an affine `resource class`. It borrows the materialized
 graph and its physical resources, while its affine arrays own every recorded
-render target/pipeline and compute buffer/pipeline. The graph must outlive the
-list and every GPU use initiated by replay; moving resources into the list prevents their
+render target/pipeline, imported compute buffer, compute pipeline, and retained
+bind group. Transient compute records own logical-ID arrays but borrow their
+buffers from the graph. The graph must outlive the list and every GPU use
+initiated by replay; moving caller resources into the list prevents their
 premature destruction. The exposed arrays are diagnostic storage; applications
 must treat them as inspection-only after sealing. Accidental mutation is
 rejected by the seal fingerprint rather than replayed.
@@ -171,8 +189,22 @@ stable with zero live growth; OpenGL reports zero Vulkan submissions and Vulkan
 exactly 1,001. Native resource identities and copied push bytes participate in
 the seal fingerprint.
 
-`examples/recorded-graph-copy`, `examples/recorded-graph-render`, and
-`examples/recorded-graph-compute` are
+The multi-binding imported proof retains two buffers and reaches exact
+destination/source values `5007/5` through 1,001 replays. Mutating one sealed
+logical identity or retained native bind-group identity rejects before
+execution. The transient proof maps three
+logical buffers to slots `0/1/0`, retains only two physical buffer pools, and
+runs the same exact arithmetic against two graph-owned bindings. It verifies
+one retained allocation per pool, stable aliased/native identities, one
+barrier per replay, zero/1,001 OpenGL/Vulkan submissions, and zero warmed live
+growth. A barrier before a later pass specifically guards Vulkan's valid
+recording state before its consolidated submission. Mutating a transient
+descriptor to request usage absent from its backing pool also invalidates the
+graph and rejects before execution.
+
+`examples/recorded-graph-copy`, `examples/recorded-graph-render`,
+`examples/recorded-graph-compute`, and
+`examples/recorded-graph-transient-compute` are
 independently buildable and repeat the public initialization, seal, replay,
 exact output, stable-identity, barrier/submission, and no-growth workflows on
 both explicit backends. The Vulkan-focused gate also runs with
@@ -183,7 +215,6 @@ nix-shell --run 'make test-graph-commands'
 nix-shell --run 'make test-samples'
 ```
 
-General render/compute bind groups and multiple compute bindings,
-transient-buffer pooling, depth/resolves, broader copy/dispatch forms, frames
-in flight, and
-GPU-completion-aware retention remain milestone 5 work.
+Compute sampled/image bindings, depth/resolves, broader render/copy/dispatch
+forms, frames in flight, and GPU-completion-aware retention remain milestone 5
+work.

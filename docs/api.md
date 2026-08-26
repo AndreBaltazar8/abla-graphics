@@ -1730,12 +1730,14 @@ texture or Vulkan image while overlapping/incompatible resources do not.
 
 `app.materializeRenderGraphResources(resources, passes, textureDeclarations,
 bufferDeclarations)` additionally accepts exactly one typed declaration per
-logical resource. Buffers are imported-only at this checkpoint: their
-`BufferDescriptor.size` must match the planner resource size, and transient
-buffer declarations reject before pool creation. Recorded compute names that
-logical buffer and requires exact descriptor plus `graphAccessReadWrite`
-compatibility; the planner therefore derives buffer hazards without pretending
-that transient buffer pooling is already implemented.
+logical resource. Imported buffers retain only their checked descriptor.
+Transient buffers must be device-local and unmapped; compatible non-overlapping
+lifetimes reuse one retained `GraphicsBufferPool` backing allocation, while
+overlaps, descriptor mismatches, and texture/buffer cross-kind aliasing do not.
+Pool geometry remains bounded to 65,536 blocks and one GiB, and oversize
+requests reject before native allocation. `storageGraphBufferEntry` and
+`uniformGraphBufferEntry` bind the exact retained range into an affine compute
+pipeline.
 
 Execution uses generation tokens and scheduled pass entry. Upload, readback,
 transient/imported copy, and sampled-entry helpers require the logical resource
@@ -1795,12 +1797,13 @@ Creation preallocates capacity for at most 4,096 primitive records and captures
 the exact pass order, logical resources, physical slots, native identities, and
 storage descriptors. Recording accepts ordered pass markers, graph-owned
 transient texture range copies, a narrow procedural offscreen render to an
-imported target, and a planner-visible storage-buffer compute dispatch. The
-command list takes affine ownership of render targets/pipelines and compute
-buffers/pipelines. Compute recording names an imported logical buffer whose
-typed descriptor must exactly match the pipeline-bound buffer and whose pass
-access must be `graphAccessReadWrite`, so ordinary planner hazards drive backend
-barriers. The push form copies at most 128 reflected bytes into preallocated
+imported target, and planner-visible imported or graph-owned buffer compute
+dispatches. The command list takes affine ownership of render targets,
+pipelines, caller buffers, and retained compute bind groups; transient buffers
+stay owned by the graph. Single-buffer compatibility APIs remain, while
+`recordComputeBindings` and `recordTransientComputeBindings` validate every
+logical ID, binding kind/range, descriptor, access, physical slot, and native
+identity. The push forms copy at most 128 reflected bytes into preallocated
 command storage; later source mutation cannot affect the sealed record.
 Sealing performs complete descriptor/access/range validation and
 fingerprints all used scalar fields. Replay rejects a different graph,
@@ -1811,9 +1814,9 @@ Vulkan 2D-copy/render/compute streams submit once per complete replay; OpenGL an
 unsupported copy shapes use the direct paths. A failed partial replay aborts
 the graph generation so it can be used again. See
 `docs/render-graph-commands.md` for the complete ownership, failure, performance,
-and current-limit contract. General bind groups and multiple compute bindings,
-transient-buffer pooling, broader render/copy forms, frames in flight, and
-asynchronous submission remain future work.
+and current-limit contract. Compute sampled/image bindings, broader
+render/copy/dispatch forms, frames in flight, and asynchronous submission
+remain future work.
 
 The delivered timestamp-query resource owns all result and command scratch at
 creation. Sampling returns the backend counter without allocating:
@@ -2428,6 +2431,18 @@ becomes the high-throughput production path.
 The common facade runs the shared Abla SPIR-V translator validation before
 either backend is created, so OpenGL cannot accidentally accept a shader that
 would fail after switching the same application to Vulkan.
+
+`app.computeBindingPipeline(shader, move(binding))` retains an exact reflected
+`GraphicsBindGroup` with the affine pipeline. Dispatch applies its precomputed
+OpenGL binding arrays or one Vulkan descriptor set without constructing
+descriptors in the hot path; pipeline destruction releases the bind group.
+Creation rejects missing, extra, reordered, wrong-kind, wrong-range, or
+wrong-backend entries before driver pipeline creation. The current portable
+emitter proves a strict two-storage-buffer form with writable binding zero,
+readonly binding one, and `destination.value += sourceData.value`; broader
+compute sampled/image programs await their corresponding pure-Abla SPIR-V
+lowering. OpenGL and Vulkan both reach exact repeated results with stable
+handles and zero warmed live-byte growth.
 
 The first executable push-constant slice combines the reflected value API with
 storage compute. `shader.pushConstants()` creates a reusable value block,

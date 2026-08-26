@@ -545,6 +545,21 @@ fun main: int {
     }
     val storageSpirv = storage.spirv(shaderStageCompute)
     val storageSpirvAgain = storage.spirv(shaderStageCompute)
+    val dualStorage = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Destination {
+                uint value;
+            } destination;
+            layout(std430, binding = 1) readonly buffer Source {
+                uint value;
+            } sourceData;
+            void main() { destination.value += sourceData.value; }
+        }
+    }
+    val dualStorageSpirv = dualStorage.spirv(shaderStageCompute)
+    val dualStorageSpirvAgain = dualStorage.spirv(shaderStageCompute)
     val storage460Spirv = glslPackage(
         [shaderStageCompute],
         ["#version 460 core\nlayout(local_size_x=1) in; layout(std430,binding=0) buffer Values { uint value; } values; void main(){ values.value=42u; }"]
@@ -3039,6 +3054,15 @@ fun main: int {
         storageSpirv.succeeded && storageSpirv.module.valid() &&
         storageSpirv.module.words.size == 86 &&
         spirvWordsEqual(storageSpirv.module, storageSpirvAgain.module) &&
+        dualStorage.valid && dualStorage.bindings.size == 2 &&
+        dualStorage.bindings[0].binding == 0 &&
+        dualStorage.bindings[1].binding == 1 &&
+        dualStorageSpirv.succeeded && dualStorageSpirv.module.valid() &&
+        dualStorageSpirv.module.bound() == 25 &&
+        spirvWordsEqual(
+            dualStorageSpirv.module,
+            dualStorageSpirvAgain.module
+        ) &&
         storage460Spirv.succeeded &&
         spirvWordsEqual(storageSpirv.module, storage460Spirv.module) &&
         !misplacedStorageProfile.succeeded &&

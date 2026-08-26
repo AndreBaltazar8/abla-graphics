@@ -522,9 +522,10 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
         1
     ) && commands.recordPass(graph, 501) && commands.seal(graph) &&
         commands.prepared && commands.commandCount == 3 &&
-        commands.computeBuffers.size == 1 &&
+        commands.computeResources.size == 1 &&
         commands.computePipelines.size == 1 &&
-        commands.computeResourceIds[1] == 20 &&
+        commands.computeResources[0].resourceIds.size == 1 &&
+        commands.computeResources[0].resourceIds[0] == 20 &&
         commands.computePushSizes[1] == 4 &&
         commands.computePushStorage.load(
             graphicsMaximumGraphPushConstantBytes
@@ -532,8 +533,8 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
         commands.consolidatedVulkan ==
             (app.backend == graphicsBackendVulkan)
     val storageIdentity = if (app.backend == graphicsBackendOpenGl)
-        commands.computeBuffers[0].openGl.handle
-    else commands.computeBuffers[0].vulkan.handle
+        commands.computeResources[0].buffers[0].openGl.handle
+    else commands.computeResources[0].buffers[0].vulkan.handle
     val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
         commands.computePipelines[0].openGl.handle
     else commands.computePipelines[0].vulkan.handle
@@ -561,14 +562,18 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
         iteration = iteration + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
-    val result = if (succeeded) commands.computeBuffers[0].readI64() else -1
+    val result = if (succeeded)
+        commands.computeResources[0].buffers[0].readI64()
+        else -1
     val stable = succeeded && iteration == 1001 && result == 1001 &&
         liveAfter == liveBefore && storageIdentity != 0 &&
         pipelineIdentity != 0 &&
         (if (app.backend == graphicsBackendOpenGl)
-            commands.computeBuffers[0].openGl.handle == storageIdentity &&
+            commands.computeResources[0].buffers[0].openGl.handle ==
+                storageIdentity &&
             commands.computePipelines[0].openGl.handle == pipelineIdentity
-         else commands.computeBuffers[0].vulkan.handle == storageIdentity &&
+         else commands.computeResources[0].buffers[0].vulkan.handle ==
+            storageIdentity &&
             commands.computePipelines[0].vulkan.handle == pipelineIdentity &&
             commands.computePipelines[0].vulkan.commandPool ==
                 commandPoolIdentity) && commands.executions == 1001 &&
@@ -583,7 +588,309 @@ trusted fun graphComputeCommandProbe(var app: GraphicsApplication): bool {
     println(
         "graph-compute-commands ${graphicsBackendName(app.backend)}: recorded=$recorded commands=${commands.commandCount}/${commands.capacity} result=$result snapshot=${result == 1001} rejected=${!transientGraph.valid()}/${!mismatchedGraph.valid()} tamper=$pushMetadataTamperRejected/$tamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable handles=$storageIdentity/$pipelineIdentity/$commandPoolIdentity"
     )
-    passed
+    passed && graphMultiComputeCommandProbe(app)
+}
+
+trusted fun graphMultiComputeCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val descriptor = BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(30, "destination", false, 8, 50),
+        GraphicsGraphResource(31, "source", false, 8, 50)
+    ], [
+        GraphicsGraphPass(600, "bound-compute", [
+            GraphicsGraphUse(30, graphAccessReadWrite),
+            GraphicsGraphUse(31, graphAccessRead)
+        ]),
+        GraphicsGraphPass(601, "consume", [
+            GraphicsGraphUse(30, graphAccessRead),
+            GraphicsGraphUse(31, graphAccessRead)
+        ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(30, descriptor),
+        GraphicsGraphBufferDeclaration(31, descriptor)
+    ])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Destination {
+                uint value;
+            } destination;
+            layout(std430, binding = 1) readonly buffer Source {
+                uint value;
+            } sourceData;
+            void main() { destination.value += sourceData.value; }
+        }
+    }
+    val destination = app.buffer(descriptor)
+    val source = app.buffer(descriptor)
+    val initialized = destination.writeI64(2) && source.writeI64(5)
+    val binding = app.bindGroup([
+        app.storageBufferEntry(
+            0,
+            shaderVisibilityCompute,
+            destination
+        ),
+        app.storageBufferEntry(1, shaderVisibilityCompute, source)
+    ])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val commands = app.graphCommandList(graph, 3)
+    val recorded = app.valid() && graph.valid() && shader.valid &&
+        initialized && destination.valid() && source.valid() &&
+        pipeline.valid() && commands.valid() &&
+        graph.plan.barriers.size == 1 && graph.pools.size == 0 &&
+        commands.recordPass(graph, 600) &&
+        commands.recordComputeBindings(
+            graph,
+            [30, 31],
+            [move(destination), move(source)],
+            move(pipeline),
+            1
+        ) && commands.recordPass(graph, 601) && commands.seal(graph) &&
+        commands.prepared && commands.commandCount == 3 &&
+        commands.computeResources.size == 1 &&
+        commands.computeResources[0].resourceIds.size == 2 &&
+        commands.computeResources[0].buffers.size == 2 &&
+        commands.computeResources[0].resourceIds[0] == 30 &&
+        commands.computeResources[0].resourceIds[1] == 31 &&
+        commands.consolidatedVulkan ==
+            (app.backend == graphicsBackendVulkan)
+    commands.computeResources[0].resourceIds[1] = 30
+    val identityTamperRejected = recorded &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    commands.computeResources[0].resourceIds[1] = 31
+    val bindingIdentity = if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].binding.openGlResources[1]
+    else commands.computePipelines[0].binding.vulkan.descriptorSet
+    if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].binding.openGlResources[1] =
+            bindingIdentity + 1
+    else commands.computePipelines[0].binding.vulkan.descriptorSet =
+        bindingIdentity + 1
+    val bindingTamperRejected = identityTamperRejected &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 2
+    if (app.backend == graphicsBackendOpenGl)
+        commands.computePipelines[0].binding.openGlResources[1] =
+            bindingIdentity
+    else commands.computePipelines[0].binding.vulkan.descriptorSet =
+        bindingIdentity
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = bindingTamperRejected
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val destinationValue = if (succeeded)
+        commands.computeResources[0].buffers[0].readI64() else -1
+    val sourceValue = if (succeeded)
+        commands.computeResources[0].buffers[1].readI64() else -1
+    val stable = succeeded && iteration == 1001 &&
+        destinationValue == 5007 && sourceValue == 5 &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        commands.failedExecutions == 2 &&
+        graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 1 &&
+        graph.totalExecutedBarriers == 1001 &&
+        graph.backendBarrierCalls == 1001 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-multi-compute ${graphicsBackendName(app.backend)}: recorded=$recorded resources=${commands.computeResources[0].resourceIds.size} values=$destinationValue/$sourceValue tamper=$identityTamperRejected/$bindingTamperRejected executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    recorded && bindingTamperRejected && stable &&
+        graphTransientBufferCommandProbe(app)
+}
+
+trusted fun graphTransientBufferCommandProbe(
+    var app: GraphicsApplication
+): bool {
+    val descriptor = BufferDescriptor(
+        size = 8,
+        usage = bufferUsageStorage | bufferUsageCopySource |
+            bufferUsageCopyDestination,
+        memory = bufferMemoryDeviceLocal
+    )
+    val graph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(40, "transient-destination", true, 8, 60),
+        GraphicsGraphResource(41, "transient-source", true, 8, 60),
+        GraphicsGraphResource(42, "transient-recycled", true, 8, 60)
+    ], [
+        GraphicsGraphPass(700, "transient-compute", [
+            GraphicsGraphUse(40, graphAccessReadWrite),
+            GraphicsGraphUse(41, graphAccessRead)
+        ]),
+        GraphicsGraphPass(701, "transient-consume", [
+            GraphicsGraphUse(40, graphAccessRead),
+            GraphicsGraphUse(41, graphAccessRead)
+        ]),
+        GraphicsGraphPass(702, "recycled-write", [
+            GraphicsGraphUse(42, graphAccessWrite)
+        ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(40, descriptor),
+        GraphicsGraphBufferDeclaration(41, descriptor),
+        GraphicsGraphBufferDeclaration(42, descriptor)
+    ])
+    val oversizedGraph = app.materializeRenderGraphResources([
+        GraphicsGraphResource(
+            43,
+            "oversized-transient",
+            true,
+            graphicsMaximumBufferPoolBytes + 1,
+            61
+        )
+    ], [
+        GraphicsGraphPass(703, "oversized-write", [
+            GraphicsGraphUse(43, graphAccessWrite)
+        ])
+    ], [], [
+        GraphicsGraphBufferDeclaration(43, BufferDescriptor(
+            size = graphicsMaximumBufferPoolBytes + 1,
+            usage = bufferUsageStorage,
+            memory = bufferMemoryDeviceLocal
+        ))
+    ])
+    val shader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(std430, binding = 0) buffer Destination {
+                uint value;
+            } destination;
+            layout(std430, binding = 1) readonly buffer Source {
+                uint value;
+            } sourceData;
+            void main() { destination.value += sourceData.value; }
+        }
+    }
+    val binding = app.bindGroup([
+        app.storageGraphBufferEntry(
+            0,
+            shaderVisibilityCompute,
+            graph,
+            40
+        ),
+        app.storageGraphBufferEntry(
+            1,
+            shaderVisibilityCompute,
+            graph,
+            41
+        )
+    ])
+    val pipeline = app.computeBindingPipeline(shader, move(binding))
+    val destinationSeed = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val sourceSeed = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val destinationPool = graph.bufferPoolIndex(40)
+    val sourcePool = graph.bufferPoolIndex(41)
+    val initialized = destinationPool >= 0 && sourcePool >= 0 &&
+        destinationSeed.writeI64(2) && sourceSeed.writeI64(5) &&
+        app.copyBufferRange(
+            destinationSeed,
+            graph.bufferPools[destinationPool].backing,
+            0,
+            0,
+            8
+        ) && app.copyBufferRange(
+            sourceSeed,
+            graph.bufferPools[sourcePool].backing,
+            0,
+            0,
+            8
+        )
+    val commands = app.graphCommandList(graph, 4)
+    val recorded = graph.valid() && shader.valid && pipeline.valid() &&
+        initialized && !oversizedGraph.valid() &&
+        graphicsGraphBufferPoolBlockSize(262145) == 8 &&
+        graphicsGraphBufferPoolCapacity(262145) == 262152 &&
+        graphicsGraphBufferPoolCapacity(graphicsMaximumBufferPoolBytes) ==
+            graphicsMaximumBufferPoolBytes &&
+        graphicsGraphBufferPoolCapacity(
+            graphicsMaximumBufferPoolBytes + 1
+        ) == 0 && graph.plan.allocations.size == 2 &&
+        graph.pools.size == 0 && graph.bufferPools.size == 2 &&
+        graph.resourceSlot(40) == graph.resourceSlot(42) &&
+        graph.resourceSlot(40) != graph.resourceSlot(41) &&
+        graph.samePhysicalBuffer(40, 42) &&
+        !graph.samePhysicalBuffer(40, 41) &&
+        graph.plan.barriers.size == 1 && commands.valid() &&
+        commands.recordPass(graph, 700) &&
+        commands.recordTransientComputeBindings(
+            graph,
+            [40, 41],
+            move(pipeline),
+            1
+        ) && commands.recordPass(graph, 701) &&
+        commands.recordPass(graph, 702) && commands.seal(graph) &&
+        commands.prepared && commands.computeResources.size == 0 &&
+        commands.computeTransientResourceIds.size == 1 &&
+        commands.computeTransientResourceIds[0].size == 2 &&
+        commands.computeResourceKinds[0] == 2
+    val destinationDeclaration = graph.bufferDeclarations[0]
+    graph.bufferDeclarations[0] = GraphicsGraphBufferDeclaration(
+        40,
+        BufferDescriptor(
+            size = 8,
+            usage = descriptor.usage | bufferUsageUniform,
+            memory = bufferMemoryDeviceLocal
+        )
+    )
+    val poolDescriptorTamperRejected = recorded && !graph.valid() &&
+        !app.executeGraphCommands(graph, commands) && !graph.executing &&
+        commands.failedExecutions == 1
+    graph.bufferDeclarations[0] = destinationDeclaration
+    val liveBefore = runtimeMemoryLiveBytes()
+    var succeeded = poolDescriptorTamperRejected && graph.valid()
+    var iteration = 0
+    while (succeeded && iteration < 1001) {
+        succeeded = app.executeGraphCommands(graph, commands)
+        iteration = iteration + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val readback = app.buffer(BufferDescriptor(
+        size = 8,
+        usage = bufferUsageCopySource | bufferUsageCopyDestination
+    ))
+    val copied = succeeded && app.copyBufferRange(
+        graph.bufferPools[destinationPool].backing,
+        readback,
+        0,
+        0,
+        8
+    )
+    val result = if (copied) readback.readI64() else -1
+    val stable = copied && iteration == 1001 && result == 5007 &&
+        liveAfter == liveBefore && commands.executions == 1001 &&
+        graph.completedExecutions == 1001 &&
+        graph.lastExecutionBarriers == 1 &&
+        graph.totalExecutedBarriers == 1001 &&
+        graph.backendBarrierCalls == 1001 &&
+        graph.bufferPools[0].activeAllocations == 1 &&
+        graph.bufferPools[1].activeAllocations == 1 &&
+        graph.bufferPools[0].allocationCount == 1 &&
+        graph.bufferPools[1].allocationCount == 1 &&
+        commands.failedExecutions == 1 &&
+        commands.vulkanSubmissions ==
+            (if (app.backend == graphicsBackendVulkan) 1001 else 0)
+    println(
+        "graph-transient-buffer ${graphicsBackendName(app.backend)}: recorded=$recorded tamper=$poolDescriptorTamperRejected graph=${graph.valid()}/${graph.error.code} command=${commands.valid()}/${commands.graphCompatible(graph)}/${commands.sealedFingerprint == commands.fingerprint()} slots=${graph.resourceSlot(40)}/${graph.resourceSlot(41)}/${graph.resourceSlot(42)} alias=${graph.samePhysicalBuffer(40, 42)} identities=${graph.physicalIdentity(40)}/${graph.physicalIdentity(41)}/${graph.physicalIdentity(42)} pools=${graph.bufferPools.size}/${graph.bufferPools[0].valid()}/${graph.bufferPools[1].valid()} allocations=${graph.bufferPools[0].allocationValid(graph.bufferAllocations[0])}/${graph.bufferPools[1].allocationValid(graph.bufferAllocations[1])} result=$result executions=${commands.executions}/${graph.completedExecutions} barriers=${graph.lastExecutionBarriers}/${graph.totalExecutedBarriers}/${graph.backendBarrierCalls} submissions=${commands.vulkanSubmissions} live=${liveAfter - liveBefore} stable=$stable"
+    )
+    recorded && poolDescriptorTamperRejected && stable
 }
 
 fun main: int {

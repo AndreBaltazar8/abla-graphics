@@ -6412,6 +6412,50 @@ fun glslPushStorageComputeSource(source: string): bool =
         "push", ".", "addend", ";", "}"
     ])
 
+fun glslDualStorageAddComputeSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "local_size_x", "=", "1", ")", "in", ";",
+        "layout", "(", "std430", ",", "binding", "=", "0", ")",
+        "buffer", "Destination", "{", "uint", "value", ";", "}",
+        "destination", ";",
+        "layout", "(", "std430", ",", "binding", "=", "1", ")",
+        "readonly", "buffer", "Source", "{", "uint", "value", ";", "}",
+        "sourceData", ";",
+        "void", "main", "(", ")", "{",
+        "destination", ".", "value", "+=",
+        "sourceData", ".", "value", ";", "}"
+    ])
+
+fun glslDualStorageAddComputeSpirv(): array<int> = [
+    119734787, 65536, 524299, 25, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    327695, 5, 4, 1852399981, 0, 393232, 4, 17,
+    1, 1, 1, 196611, 2, 450, 262149, 4,
+    1852399981, 0, 327685, 7, 1953719620, 1952542313, 7237481,
+    327686, 7, 0, 1970037110, 101, 327685, 9,
+    1953719652, 1952542313, 7237481, 262149, 12, 1920298835, 25955,
+    327686, 12, 0, 1970037110, 101, 327685, 14,
+    1920298867, 1631872355, 24948, 196679, 7, 3, 327752,
+    7, 0, 35, 0, 262215, 9, 33, 0,
+    262215, 9, 34, 0, 196679, 12, 3, 262216,
+    12, 0, 24, 327752, 12, 0, 35, 0,
+    196679, 14, 24, 262215, 14, 33, 1, 262215,
+    14, 34, 0, 262215, 24, 11, 25, 131091,
+    2, 196641, 3, 2, 262165, 6, 32, 0,
+    196638, 7, 6, 262176, 8, 2, 7, 262203,
+    8, 9, 2, 262165, 10, 32, 1, 262187,
+    10, 11, 0, 196638, 12, 6, 262176, 13,
+    2, 12, 262203, 13, 14, 2, 262176, 15,
+    2, 6, 262167, 22, 6, 3, 262187, 6,
+    23, 1, 393260, 22, 24, 23, 23, 23,
+    327734, 2, 4, 0, 3, 131320, 5, 327745,
+    15, 16, 14, 11, 262205, 6, 17, 16,
+    327745, 15, 18, 9, 11, 262205, 6, 19,
+    18, 327808, 6, 20, 19, 17, 327745, 15,
+    21, 9, 11, 196670, 21, 20, 65789, 65592
+]
+
 fun glslPushStorageComputeSpirv(): array<int> = [
     119734787, 65536, 524299, 26, 0, 131089, 1, 393227,
     1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
@@ -6476,6 +6520,15 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.pushConstants.size == 1 &&
         this.specializationConstants.size == 0 &&
         glslPushStorageComputeSource(this.stages[0].source)
+    val dualStorage = computeCommon && !specializedWorkgroup &&
+        this.bindings.size == 2 &&
+        this.bindings[0].set == 0 && this.bindings[0].binding == 0 &&
+        this.bindings[0].storage == "buffer" &&
+        this.bindings[1].set == 0 && this.bindings[1].binding == 1 &&
+        this.bindings[1].storage == "buffer" &&
+        this.pushConstants.size == 0 &&
+        this.specializationConstants.size == 0 &&
+        glslDualStorageAddComputeSource(this.stages[0].source)
     val graphicsCommon = this.valid && this.stages.size == 2 &&
         this.workgroups.size == 0
     val rasterFragmentProgram = if (graphicsCommon &&
@@ -6514,14 +6567,17 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
     val storageEmission = if (storage) glslStorageSpirv(storageWrite)
         else GlslStorageSpirvEmission([])
     var succeeded = noOp || specializedNoOp || scalarSpecializedNoOp ||
-        combinedSpecializedNoOp || storage || pushStorage || vertex ||
+        combinedSpecializedNoOp || storage || pushStorage || dualStorage ||
+        vertex ||
         pushTransformVertex || pushDrawVertex ||
         vertexBuffer || rasterFragmentExpression ||
         coloredVertex || coloredUintVertex || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment
     var error = ""
     var words: array<int> = []
-    if (pushStorage) {
+    if (dualStorage) {
+        words = glslDualStorageAddComputeSpirv()
+    } else if (pushStorage) {
         words = glslPushStorageComputeSpirv()
     } else if (specializedNoOp) {
         words = glslSpecializedWorkgroupSpirv(this.workgroups[0])

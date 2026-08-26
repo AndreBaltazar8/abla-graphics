@@ -136,8 +136,8 @@ replay. Exact
 OpenGL/Vulkan/auto tests cover incompatible resource/graph and post-seal
 mutation rejection, abort/recovery, 1,001 successful allocation-free replays,
 stable native objects, exact render/copy/storage output, submission counts, and
-silent Vulkan validation. Multiple compute bindings/general bind groups,
-transient-buffer pooling, broader render/copy/compute forms, asynchronous
+silent Vulkan validation. Compute sampled/image bindings, broader
+transient-buffer usage classes, render/copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 
 ## Non-negotiable design rules

@@ -3228,6 +3228,74 @@ resource class OpenGlComputePipeline(
         succeeded
     }
 
+    trusted fun dispatchBound(
+        x: int,
+        y: int,
+        z: int,
+        pushConstantData: i64*,
+        pushConstantSize: int,
+        bindingKinds: array<int>,
+        bindingNumbers: array<int>,
+        bindingResources: array<int>,
+        bindingOffsets: array<int>,
+        bindingSizes: array<int>,
+        bindingSamplers: array<int>
+    ): bool {
+        var succeeded = this.valid() && x > 0 && y > 0 && z > 0 &&
+            x <= 65535 && y <= 65535 && z <= 65535 &&
+            ((this.pushConstantSize == 0 && pushConstantSize == 0 &&
+              pointerIsNull(pushConstantData)) ||
+             (this.pushConstantSize > 0 &&
+              pushConstantSize == this.pushConstantSize &&
+              !pointerIsNull(pushConstantData))) &&
+            eglMakeCurrent(
+                this.display,
+                this.surface,
+                this.surface,
+                this.context
+            ) == eglTrue
+        if (succeeded) {
+            succeeded = openGlApplyBindGroup(
+                bindingKinds,
+                bindingNumbers,
+                bindingResources,
+                bindingOffsets,
+                bindingSizes,
+                bindingSamplers
+            )
+        }
+        if (succeeded) {
+            if (this.pushConstantSize > 0) {
+                glBindBuffer(35345, this.pushConstantBuffer)
+                glBufferSubData(
+                    35345,
+                    0,
+                    this.pushConstantSize,
+                    pushConstantData
+                )
+                glBindBufferBase(
+                    35345,
+                    openGlPushConstantBinding,
+                    this.pushConstantBuffer
+                )
+            }
+            if (this.storageBuffer != 0) {
+                glBindBufferBase(37074, 0, this.storageBuffer)
+            }
+            glUseProgram(this.handle)
+            glDispatchCompute(x, y, z)
+            var hasStorageBinding = this.storageBuffer != 0
+            var bindingIndex = 0
+            while (!hasStorageBinding && bindingIndex < bindingKinds.size) {
+                hasStorageBinding = bindingKinds[bindingIndex] == 3
+                bindingIndex = bindingIndex + 1
+            }
+            if (hasStorageBinding) glMemoryBarrier(8192)
+            succeeded = glGetError() == 0
+        }
+        succeeded
+    }
+
     trusted fun drop(): void {
         if (this.pushConstantBuffer != 0) {
             if (!pointerIsNull(this.display) && !pointerIsNull(this.context)) {

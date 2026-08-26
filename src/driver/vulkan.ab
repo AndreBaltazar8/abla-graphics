@@ -3525,6 +3525,7 @@ resource class VulkanComputePipeline(
     var descriptorSetLayout: int,
     var descriptorPool: int,
     var descriptorSet: int,
+    val requiresBinding: bool,
     val storageBuffer: int,
     var healthy: bool,
     var submissionAccepted: bool,
@@ -3536,8 +3537,11 @@ resource class VulkanComputePipeline(
         this.layout != 0 && this.handle != 0 && this.commandPool != 0 &&
         !this.command.closed && !pointerIsNull(this.command.load()) &&
         !this.scratch.closed && this.scratch.capacity >= 72 &&
-        ((this.descriptorSet == 0 && this.storageBuffer == 0) ||
-         (this.descriptorSet != 0 && this.storageBuffer != 0)) &&
+        ((!this.requiresBinding && this.descriptorSet == 0 &&
+          this.storageBuffer == 0) ||
+         (this.requiresBinding &&
+          ((this.descriptorSet == 0 && this.storageBuffer == 0) ||
+           (this.descriptorSet != 0 && this.storageBuffer != 0)))) &&
         this.pushConstantSize >= 0 && this.pushConstantSize <= 128 &&
         ((this.pushConstantSize == 0 && this.pushConstantStageMask == 0) ||
          (this.pushConstantSize > 0 && this.pushConstantStageMask != 0))
@@ -3548,8 +3552,11 @@ resource class VulkanComputePipeline(
         y: int = 1,
         z: int = 1,
         pushConstantData: i64* = nativeNullPointer(),
-        pushConstantSize: int = 0
+        pushConstantSize: int = 0,
+        descriptorSet: int = 0
     ): bool {
+        val resolvedDescriptorSet = if (descriptorSet != 0)
+            descriptorSet else this.descriptorSet
         var succeeded = this.valid() && !pointerIsNull(commandBuffer) &&
             x > 0 && y > 0 && z > 0 &&
             x <= 65535 && y <= 65535 && z <= 65535 &&
@@ -3557,7 +3564,8 @@ resource class VulkanComputePipeline(
               pointerIsNull(pushConstantData)) ||
              (this.pushConstantSize > 0 &&
               pushConstantSize == this.pushConstantSize &&
-              !pointerIsNull(pushConstantData)))
+              !pointerIsNull(pushConstantData))) &&
+            this.requiresBinding == (resolvedDescriptorSet != 0)
         if (succeeded) {
             vkCmdBindPipeline(commandBuffer, 1, this.handle)
             if (this.pushConstantSize > 0) vkCmdPushConstants(
@@ -3568,8 +3576,8 @@ resource class VulkanComputePipeline(
                 this.pushConstantSize,
                 pushConstantData
             )
-            if (this.descriptorSet != 0) {
-                this.scratch.storeI64(0, this.descriptorSet)
+            if (resolvedDescriptorSet != 0) {
+                this.scratch.storeI64(0, resolvedDescriptorSet)
                 vkCmdBindDescriptorSets(
                     commandBuffer,
                     1,
@@ -3591,7 +3599,8 @@ resource class VulkanComputePipeline(
         y: int = 1,
         z: int = 1,
         pushConstantData: i64* = nativeNullPointer(),
-        pushConstantSize: int = 0
+        pushConstantSize: int = 0,
+        descriptorSet: int = 0
     ): bool {
         this.submissionAccepted = false
         val accepted = this.valid() && x > 0 && y > 0 && z > 0 &&
@@ -3600,7 +3609,9 @@ resource class VulkanComputePipeline(
               pointerIsNull(pushConstantData)) ||
              (this.pushConstantSize > 0 &&
               pushConstantSize == this.pushConstantSize &&
-              !pointerIsNull(pushConstantData)))
+              !pointerIsNull(pushConstantData))) &&
+            this.requiresBinding ==
+                ((descriptorSet != 0) || (this.descriptorSet != 0))
         var succeeded = accepted && vkResetCommandPool(
             this.device,
             this.commandPool,
@@ -3623,7 +3634,8 @@ resource class VulkanComputePipeline(
                 y,
                 z,
                 pushConstantData,
-                pushConstantSize
+                pushConstantSize,
+                descriptorSet
             )
         }
         if (succeeded) {
@@ -3707,7 +3719,8 @@ trusted fun VulkanDevice.computePipelineNative(
     storageSize: int = 0,
     specialization: ShaderSpecialization = ShaderSpecialization(),
     pushConstantSize: int = 0,
-    pushConstantStageMask: int = 0
+    pushConstantStageMask: int = 0,
+    externalDescriptorSetLayout: int = 0
 ): VulkanComputePipeline {
     var layout = 0
     var pipeline = 0
@@ -3718,7 +3731,11 @@ trusted fun VulkanDevice.computePipelineNative(
     var descriptorPool = 0
     var descriptorSet = 0
     val specializationStorage = vulkanSpecializationStorage(specialization)
-    if (this.valid() && storageHandle != 0 && storageSize > 0) {
+    val storageRequested = storageHandle != 0 && storageSize > 0
+    val bindingRequestValid =
+        ((storageHandle == 0 && storageSize == 0) || storageRequested) &&
+        !(storageRequested && externalDescriptorSetLayout != 0)
+    if (this.valid() && bindingRequestValid && storageRequested) {
         val binding = nativeByteBuffer(24)
         binding.storeI64(0, 7 * 4294967296)
         binding.storeI64(8, 32 * 4294967296 + 1)
@@ -3740,19 +3757,21 @@ trusted fun VulkanDevice.computePipelineNative(
         (pushConstantSize == 0 && pushConstantStageMask == 0) ||
         (pushConstantSize > 0 && pushConstantSize <= 128 &&
          pushConstantStageMask != 0)
+    val pipelineDescriptorSetLayout = if (descriptorSetLayout != 0)
+        descriptorSetLayout else externalDescriptorSetLayout
     if (this.valid() && shader.valid() && shader.device == this.handle &&
-        pushConstantsValid) {
+        pushConstantsValid && bindingRequestValid) {
         val layoutInfo = nativeByteBuffer(48)
         layoutInfo.storeI64(0, 30)
         layoutInfo.storePointer(8, nativeNullPointer())
         layoutInfo.storeI64(
             16,
-            if (descriptorSetLayout != 0) 4294967296 else 0
+            if (pipelineDescriptorSetLayout != 0) 4294967296 else 0
         )
-        val setLayout = nativeI64Cell(descriptorSetLayout)
+        val setLayout = nativeI64Cell(pipelineDescriptorSetLayout)
         layoutInfo.storePointer(
             24,
-            if (descriptorSetLayout != 0) setLayout.address
+            if (pipelineDescriptorSetLayout != 0) setLayout.address
             else nativeNullPointer()
         )
         val pushRange = nativeByteBuffer(16)
@@ -3942,6 +3961,7 @@ trusted fun VulkanDevice.computePipelineNative(
         descriptorSetLayout,
         descriptorPool,
         descriptorSet,
+        pipelineDescriptorSetLayout != 0,
         storageHandle,
         true,
         false,
@@ -3976,7 +3996,7 @@ trusted fun VulkanDevice.computeStoragePipeline(
 else VulkanComputePipeline(
     nativeNullPointer(), nativeNullPointer(), -1, 0, 0, 0,
     nativePointerCell(nativeNullPointer()), nativeByteBuffer(0), 0, 0, 0,
-    0, true, false, 0, 0
+    false, 0, true, false, 0, 0
 )
 
 fun vulkanTextureFormat(format: int): int {

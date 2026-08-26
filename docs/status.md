@@ -546,9 +546,10 @@ Updated: 2026-08-26.
   repeats the public workflow on both explicit backends.
 - Bounded render-graph command recording: an affine fixed-capacity list records
   exact ordered pass markers, same-format transient texture-copy ranges, a
-  typed procedural offscreen render, and a planner-visible storage-buffer
-  compute dispatch into preallocated storage. It affinely owns render and
-  compute resources, seals
+  typed procedural offscreen render, and planner-visible imported or
+  graph-owned multi-buffer compute dispatches into preallocated storage. It
+  affinely owns render resources, imported compute buffers, pipelines, and
+  bind groups while borrowing transient buffers from the graph, and seals
   with full access/descriptor/range
   validation, binds imported descriptor fingerprints plus graph-owned physical
   identities, and rejects incompatible graphs/resources or post-seal mutation
@@ -561,8 +562,9 @@ Updated: 2026-08-26.
   exactly 1,001 Vulkan submissions or zero on OpenGL, stable graph/render native
   handles, one pool acquisition per transient physical texture, and zero
   live-byte growth. Vulkan validation is silent. `examples/recorded-graph-copy`,
-  `examples/recorded-graph-render`, and `examples/recorded-graph-compute` repeat
-  the public paths on both backends. The compute proof declares an imported
+  `examples/recorded-graph-render`, `examples/recorded-graph-compute`, and
+  `examples/recorded-graph-transient-compute` repeat the public paths on both
+  backends. The first compute proof declares an imported
   logical buffer, copies a reflected add-one push value into bounded command
   storage, mutates the source after sealing, and reaches exact storage value
   `1001` through 1,001 replays. Its read/write-to-read planner hazard produces
@@ -571,9 +573,14 @@ Updated: 2026-08-26.
   Oversized post-seal push-size mutation is bounded and rejects before
   fingerprinting.
   Owned buffer/pipeline handles stay stable with zero growth and zero/1,001
-  OpenGL/Vulkan submissions. General bind groups, multiple compute bindings,
-  transient-buffer pooling, broader command forms, asynchronous submission,
-  and frames in flight remain open.
+  OpenGL/Vulkan submissions. The multi-binding proofs reach exact `5007/5`
+  destination/source values for imported buffers and exact `5007` for
+  graph-owned transient buffers. Three logical transients map to slots `0/1/0`
+  and two retained physical pools, with one allocation each, stable alias
+  identities, one barrier per replay, one consolidated Vulkan submission, and
+  zero growth. Sealed logical/bind-group identity and transient backing-usage
+  tampering reject before execution. Compute sampled/image bindings, broader
+  command forms, asynchronous submission, and frames in flight remain open.
 - Common affine sampler test: one immutable descriptor creates and destroys an
   OpenGL sampler object or Vulkan `VkSampler` with repeat/mirror addressing,
   linear min/mag/mipmap filtering, LOD range, comparison state, and 16x

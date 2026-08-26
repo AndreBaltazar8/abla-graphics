@@ -191,18 +191,18 @@ and access unions are compiled once into bounded primitive arrays indexed by
 scheduled pass position, avoiding a planner-barrier scan during repeated entry.
 The optional affine command list preallocates primitive records for exact pass
 markers, all-transient texture copies, a narrow typed procedural offscreen
-render, and a planner-visible imported storage-buffer compute dispatch. It
-affinely owns each recorded target/pipeline and compute buffer/pipeline, binds
-typed texture/buffer descriptors and graph-owned physical identities at seal,
-and copies reflected compute push bytes into bounded native command storage.
-The logical buffer participates in ordinary planner hazards even though
-transient buffer allocation is not yet materialized. Replay performs no
-descriptor construction or live-memory growth. OpenGL uses the existing direct
-operations. An eligible Vulkan stream records graph memory dependencies, the
-2D texture copy, render, and compute dispatch into one retained command buffer,
-then submits once; direct APIs remain unchanged. Later slices must add general
-bind groups and multiple compute bindings, transient-buffer pooling, broader
-command forms, frames in flight, and GPU-completion-aware retention.
+render, and planner-visible imported or graph-owned buffer compute dispatches.
+It affinely owns each recorded target/pipeline, caller-owned compute buffer,
+pipeline, and retained bind group; graph-owned buffers remain in the graph.
+Seal binds every logical ID, complete descriptor, native identity, workgroup,
+and copied push byte. Transient buffer slots use bounded one-allocation buffer
+pools and reuse complete native buffers only across compatible disjoint
+lifetimes. Replay performs no descriptor construction or live-memory growth.
+OpenGL uses the existing direct operations. An eligible Vulkan stream records
+graph memory dependencies, the 2D texture copy, render, and compute dispatch
+into one retained command buffer, then submits once; direct APIs remain
+unchanged. Later slices must add broader render/copy/compute forms, frames in
+flight, and GPU-completion-aware retention.
 
 ## Specification coverage
 

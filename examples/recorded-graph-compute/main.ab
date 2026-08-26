@@ -68,13 +68,14 @@ trusted fun main: int {
             1
         ) && commands.recordPass(graph, 11) && commands.seal(graph) &&
         commands.prepared && commands.commandCount == 3 &&
-        commands.computeResourceIds[1] == 0 &&
+        commands.computeResources[0].resourceIds.size == 1 &&
+        commands.computeResources[0].resourceIds[0] == 0 &&
         commands.computePushSizes[1] == 4 && pushValues.storeU32(9) &&
         commands.consolidatedVulkan ==
             (app.backend == graphicsBackendVulkan)
     val storageIdentity = if (app.backend == graphicsBackendOpenGl)
-        commands.computeBuffers[0].openGl.handle
-    else commands.computeBuffers[0].vulkan.handle
+        commands.computeResources[0].buffers[0].openGl.handle
+    else commands.computeResources[0].buffers[0].vulkan.handle
     val pipelineIdentity = if (app.backend == graphicsBackendOpenGl)
         commands.computePipelines[0].openGl.handle
     else commands.computePipelines[0].vulkan.handle
@@ -86,14 +87,18 @@ trusted fun main: int {
         iteration = iteration + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
-    val result = if (succeeded) commands.computeBuffers[0].readI64() else -1
+    val result = if (succeeded)
+        commands.computeResources[0].buffers[0].readI64()
+        else -1
     val stable = succeeded && iteration == 1001 && result == 3003 &&
         liveAfter == liveBefore && storageIdentity != 0 &&
         pipelineIdentity != 0 &&
         (if (app.backend == graphicsBackendOpenGl)
-            commands.computeBuffers[0].openGl.handle == storageIdentity &&
+            commands.computeResources[0].buffers[0].openGl.handle ==
+                storageIdentity &&
             commands.computePipelines[0].openGl.handle == pipelineIdentity
-         else commands.computeBuffers[0].vulkan.handle == storageIdentity &&
+         else commands.computeResources[0].buffers[0].vulkan.handle ==
+            storageIdentity &&
             commands.computePipelines[0].vulkan.handle == pipelineIdentity &&
             commands.computePipelines[0].vulkan.commandPool ==
                 commandPoolIdentity) && commands.executions == 1001 &&

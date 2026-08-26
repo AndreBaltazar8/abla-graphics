@@ -58,14 +58,14 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a deterministic pure-Abla render-graph planner with explicit dependencies,
   read/write hazard ordering, transient lifetimes, cycle rejection, and
   compatible allocation-slot aliasing plus pruned synchronization records,
-  together with affine typed texture materialization that maps scheduled
+  together with affine typed texture/buffer materialization that maps scheduled
   logical IDs to stable pooled OpenGL/Vulkan objects, retains caller-owned
-  imports, rejects stale/access/descriptor mismatches, and submits combined
+  imports, rejects stale/access/descriptor/cross-kind mismatches, and submits combined
   conservative backend memory dependencies at ordered pass entry, plus a
   fixed-capacity affine command list that owns recorded render resources,
   seals and repeatedly replays exact pass markers, all-transient texture
-  copies, a typed procedural offscreen render, and an owned planner-visible
-  storage-buffer compute dispatch with sealed reflected push bytes, without
+  copies, a typed procedural offscreen render, and imported or graph-owned
+  multi-buffer compute dispatches with sealed reflected push bytes, without
   warmed descriptor construction or live-memory growth; eligible Vulkan
   streams record their barriers and work into one command buffer and submit
   once;
@@ -293,6 +293,11 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   a reflected push constant, reaches exact value `3003` through 1,001
   allocation-free replays, derives one buffer barrier per replay, and uses one
   Vulkan submission per replay or direct ordered OpenGL dispatch;
+- `examples/recorded-graph-transient-compute`: three logical device-local
+  buffers reuse two physical graph pools at slots `0/1/0`; a retained
+  two-storage bind group reaches exact value `5007` through 1,001
+  allocation-free replays with one barrier and one Vulkan submission per
+  replay or ordered OpenGL dispatch;
 - `examples/common-texture`: color mip chains and depth views exercised
   unchanged on explicit OpenGL and Vulkan, including partial mip upload and
   exact readback plus cross-mip GPU copies;
