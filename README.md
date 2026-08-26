@@ -323,6 +323,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   image close the portable dimensional matrix, proving exact red line output
   and magenta cube-face-four output with truthful Vulkan feature enablement,
   sealed-map rejection, and 1,001 allocation-free replays;
+- `examples/recorded-graph-storage-image-push`: reflected signed coordinate and
+  `vec4` push members drive one generated storage-image write; the sealed graph
+  snapshots layer two and exact yellow before host mutation, then proves the
+  result through 1,001 allocation-free OpenGL/Vulkan/auto replays;
 - `examples/fragment-storage-image`: a fragment-stage `imageStore` writes exact
   green to a separate RGBA8 image while the same draw writes exact red to its
   color attachment through 1,001 allocation-free OpenGL/Vulkan/auto renders;

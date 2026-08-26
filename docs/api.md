@@ -2709,8 +2709,17 @@ repeated results with stable handles and zero warmed live-byte growth.
 The deterministic layered form writes fixed coordinates in one RGBA8
 `image2DArray` and one RGBA8 `image3D`; exact selected-layer/slice readback is
 covered on both drivers. A second exact form writes one RGBA8 `image1D` and one
-RGBA8 `imageCube`, completing live dimensional execution; general coordinates
-and values remain forthcoming.
+RGBA8 `imageCube`, completing live dimensional execution for fixed programs.
+
+The generated push-expression form accepts one write-only RGBA8 image of any
+supported dimension plus one reflected push block whose first member is the
+matching signed coordinate (`int`, `ivec2`, or `ivec3`) and whose second member
+is `vec4`. Block, instance, image, and member names are arbitrary. Emission
+uses the reflected push offsets and image binding, so Vulkan receives a newly
+constructed SPIR-V module while OpenGL executes the same source through its
+push-block rewrite. Retained recording snapshots the complete values. General
+arithmetic around those members, `imageLoad`, and image-valued locals remain
+the next expression work.
 
 Recorded compute composes the same typed planner resource table as rendering:
 

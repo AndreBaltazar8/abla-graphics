@@ -150,7 +150,10 @@ OpenGL image units and Vulkan storage-image descriptors in `GENERAL`;
 fragment-stage RGBA8 stores are independently live. Exact 2D-array and 3D
 stores plus exact 1D and cube stores have dual-backend retained replay and
 subresource-readback evidence. Cube-storage capability is separately queried
-and enabled on Vulkan. General image-expression lowering,
+and enabled on Vulkan. A generated typed push-expression form derives signed
+coordinate width from every supported image dimension, consumes reflected
+layout offsets/names, and writes a runtime `vec4` value; general arithmetic,
+image loads, and local image expressions,
 bind-group subpass records, broader copy/compute forms, asynchronous
 GPU-completion retention, and frames in flight remain milestone 5 work.
 

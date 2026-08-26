@@ -391,6 +391,14 @@ the same tamper-rejected 1,001-replay contract. Vulkan reports and enables the
 SPIR-V `ImageCubeArray` device prerequisite rather than accepting cube entries
 optimistically.
 
-General image-expression lowering,
+`recorded-graph-storage-image-push` uses
+`recordComputeBindingResourcesPush(...)` with a generated image program rather
+than a fixed SPIR-V template. The reflected `ivec3` chooses array layer two and
+the reflected `vec4` writes exact yellow `4278255615`; changing both host
+values after recording proves the command owns the snapshot. OpenGL, Vulkan,
+and automatic selection reject a sealed map mutation, replay 1,001 times, and
+retain `live=0` with zero/1,001 Vulkan submissions.
+
+General arithmetic and `imageLoad` expression lowering,
 broader copy/dispatch forms, frames in flight, and
 GPU-completion-aware retention remain milestone 5 work.

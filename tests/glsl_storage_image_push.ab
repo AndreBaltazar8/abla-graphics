@@ -1,0 +1,55 @@
+import "../src/shader/glsl.ab"
+import "../src/shader/glsl_spirv.ab"
+
+fun spirvContainsSequence(
+    module: SpirvModule,
+    sequence: array<int>
+): bool {
+    var found = sequence.size > 0
+    var begin = 0
+    while (found && begin <= module.words.size - sequence.size) {
+        var matches = true
+        var index = 0
+        while (matches && index < sequence.size) {
+            matches = module.words[begin + index] == sequence[index]
+            index = index + 1
+        }
+        if (matches) return true
+        begin = begin + 1
+    }
+    false
+}
+
+fun storageImagePushDimensionValid(
+    dataType: string,
+    coordinateType: string,
+    dimension: int,
+    arrayed: int,
+    cube: bool
+): bool {
+    val source = "#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform writeonly $dataType target; layout(push_constant) uniform Dynamic { $coordinateType point; vec4 shade; } parameters; void main(){ imageStore(target,parameters.point,parameters.shade); }"
+    val package = glslPackage([shaderStageCompute], [source])
+    val emitted = package.spirv(shaderStageCompute)
+    package.valid && emitted.succeeded && emitted.module.valid() &&
+        emitted.module.bound() == 24 && spirvContainsSequence(
+            emitted.module,
+            [589849, 4, 3, dimension, 0, arrayed, 0, 2, 4]
+        ) && (cube == spirvContainsSequence(
+            emitted.module,
+            [131089, 44]
+        ))
+}
+
+fun main: int {
+    if (storageImagePushDimensionValid(
+        "image1D", "int", 0, 0, false
+    ) && storageImagePushDimensionValid(
+        "image2D", "ivec2", 1, 0, false
+    ) && storageImagePushDimensionValid(
+        "image2DArray", "ivec3", 1, 1, false
+    ) && storageImagePushDimensionValid(
+        "image3D", "ivec3", 2, 0, false
+    ) && storageImagePushDimensionValid(
+        "imageCube", "ivec3", 3, 0, true
+    )) 42 else 1
+}

@@ -30,6 +30,18 @@ if [[ $status -ne 42 ]]; then
     exit 1
 fi
 
+"$compiler" build "$project_root/tests/glsl_storage_image_push.ab" \
+    -o "$output_directory/glsl-storage-image-push" --no-cache
+set +e
+"$output_directory/glsl-storage-image-push"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'GLSL storage-image push test returned %s, expected 42\n' \
+        "$status" >&2
+    exit 1
+fi
+
 "$compiler" build "$project_root/tests/push_constants.ab" \
     -o "$output_directory/push-constants" --no-cache
 set +e
