@@ -3,12 +3,142 @@
 // and the native bytes stay valid until the builder is dropped.
 
 import "abla/unsafe/memory"
+import "vulkan_builder_schema.ab"
+
+class RawVulkanBuilderTypeLayout(
+    val size: int,
+    val alignment: int,
+    val structureType: int,
+    val valid: bool
+)
+
+class RawVulkanBuilderMemberLayout(
+    val kind: string,
+    val offset: int,
+    val valid: bool
+)
+
+fun rawVulkanBuilderDelimiter(
+    schema: string,
+    begin: int,
+    delimiter: int
+): int {
+    var found = -1
+    var index = begin
+    while (found < 0 && index < schema.size) {
+        if (schema[index] == delimiter) found = index
+        index = index + 1
+    }
+    found
+}
+
+fun rawVulkanBuilderInteger(
+    schema: string,
+    begin: int,
+    end: int
+): int {
+    val negative = begin < end && schema[begin] == 45
+    var index = if (negative) begin + 1 else begin
+    var value = 0
+    while (index < end && schema[index] >= 48 && schema[index] <= 57) {
+        value = value * 10 + schema[index] - 48
+        index = index + 1
+    }
+    if (negative) -value else value
+}
+
+fun rawVulkanBuilderTypeLayout(
+    typeName: string
+): RawVulkanBuilderTypeLayout {
+    val schema = rawVulkanBuilderTypeSchema()
+    var cursor = 0
+    var size = 0
+    var alignment = 0
+    var structureType = -1
+    var found = false
+    while (!found && cursor < schema.size) {
+        val nameEnd = rawVulkanBuilderDelimiter(schema, cursor, 124)
+        val sizeEnd = rawVulkanBuilderDelimiter(schema, nameEnd + 1, 124)
+        val alignmentEnd = rawVulkanBuilderDelimiter(
+            schema, sizeEnd + 1, 124
+        )
+        val recordEnd = rawVulkanBuilderDelimiter(
+            schema, alignmentEnd + 1, 59
+        )
+        if (nameEnd < 0 || sizeEnd < 0 || alignmentEnd < 0 ||
+            recordEnd < 0) {
+            cursor = schema.size
+        } else if (schema.slice(cursor, nameEnd) == typeName) {
+            size = rawVulkanBuilderInteger(schema, nameEnd + 1, sizeEnd)
+            alignment = rawVulkanBuilderInteger(
+                schema, sizeEnd + 1, alignmentEnd
+            )
+            structureType = rawVulkanBuilderInteger(
+                schema, alignmentEnd + 1, recordEnd
+            )
+            found = true
+        } else cursor = recordEnd + 1
+    }
+    RawVulkanBuilderTypeLayout(size, alignment, structureType, found)
+}
+
+fun rawVulkanBuilderMemberLayout(
+    typeName: string,
+    memberName: string
+): RawVulkanBuilderMemberLayout {
+    val schema = rawVulkanBuilderMemberSchema()
+    var cursor = 0
+    var kind = ""
+    var offset = -1
+    var found = false
+    while (!found && cursor < schema.size) {
+        val ownerEnd = rawVulkanBuilderDelimiter(schema, cursor, 124)
+        val nameEnd = rawVulkanBuilderDelimiter(schema, ownerEnd + 1, 124)
+        val kindEnd = rawVulkanBuilderDelimiter(schema, nameEnd + 1, 124)
+        val recordEnd = rawVulkanBuilderDelimiter(schema, kindEnd + 1, 59)
+        if (ownerEnd < 0 || nameEnd < 0 || kindEnd < 0 || recordEnd < 0) {
+            cursor = schema.size
+        } else if (schema.slice(cursor, ownerEnd) == typeName &&
+            schema.slice(ownerEnd + 1, nameEnd) == memberName) {
+            kind = schema.slice(nameEnd + 1, kindEnd)
+            offset = rawVulkanBuilderInteger(schema, kindEnd + 1, recordEnd)
+            found = true
+        } else cursor = recordEnd + 1
+    }
+    RawVulkanBuilderMemberLayout(kind, offset, found)
+}
+
+fun rawVulkanBuilderSize(typeName: string): int =
+    rawVulkanBuilderTypeLayout(typeName).size
+
+fun rawVulkanBuilderAlignment(typeName: string): int =
+    rawVulkanBuilderTypeLayout(typeName).alignment
+
+fun rawVulkanBuilderMemberOffset(
+    typeName: string,
+    memberName: string
+): int = rawVulkanBuilderMemberLayout(typeName, memberName).offset
+
+fun rawVulkanBuilderMemberKind(
+    typeName: string,
+    memberName: string
+): string = rawVulkanBuilderMemberLayout(typeName, memberName).kind
 
 trusted fun rawVulkanStoreU32(
     var bytes: NativeByteBuffer,
     offset: int,
     value: int
 ): bool = value >= 0 && value <= 4294967295 &&
+    bytes.store(offset, value & 255) &&
+    bytes.store(offset + 1, (value >>> 8) & 255) &&
+    bytes.store(offset + 2, (value >>> 16) & 255) &&
+    bytes.store(offset + 3, (value >>> 24) & 255)
+
+trusted fun rawVulkanStoreI32(
+    var bytes: NativeByteBuffer,
+    offset: int,
+    value: int
+): bool = value >= -2147483648 && value <= 4294967295 &&
     bytes.store(offset, value & 255) &&
     bytes.store(offset + 1, (value >>> 8) & 255) &&
     bytes.store(offset + 2, (value >>> 16) & 255) &&
@@ -24,8 +154,89 @@ trusted fun rawVulkanZeroedBytes(size: int): NativeByteBuffer {
     move(bytes)
 }
 
+trusted fun rawVulkanZeroedStructure(
+    typeName: string
+): NativeByteBuffer {
+    val layout = rawVulkanBuilderTypeLayout(typeName)
+    val bytes = rawVulkanZeroedBytes(layout.size)
+    if (layout.valid && layout.structureType >= 0) {
+        rawVulkanStoreI32(
+            bytes,
+            rawVulkanBuilderMemberOffset(typeName, "sType"),
+            layout.structureType
+        )
+    }
+    move(bytes)
+}
+
+trusted fun rawVulkanBuilderStoreI32(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string,
+    value: int
+): bool {
+    val offset = rawVulkanBuilderMemberOffset(typeName, memberName)
+    rawVulkanBuilderMemberKind(typeName, memberName) == "i32" &&
+        offset >= 0 && rawVulkanStoreI32(bytes, offset, value)
+}
+
+trusted fun rawVulkanBuilderStoreI64(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string,
+    value: int
+): bool {
+    val offset = rawVulkanBuilderMemberOffset(typeName, memberName)
+    rawVulkanBuilderMemberKind(typeName, memberName) == "i64" &&
+        offset >= 0 && bytes.storeI64(offset, value)
+}
+
+trusted fun rawVulkanBuilderStorePointer(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string,
+    value: i64*
+): bool {
+    val offset = rawVulkanBuilderMemberOffset(typeName, memberName)
+    rawVulkanBuilderMemberKind(typeName, memberName) == "pointer" &&
+        offset >= 0 && bytes.storePointer(offset, value)
+}
+
+resource class RawVulkanStructureBuilder(
+    val typeName: string,
+    val expectedSize: int,
+    val bytes: NativeByteBuffer
+) {
+    fun valid(): bool = !this.bytes.closed && this.expectedSize > 0 &&
+        this.bytes.capacity == this.expectedSize
+    fun pointer(): i64* = if (this.valid()) this.bytes.address
+        else nativeNullPointer()
+    trusted fun storeI32(memberName: string, value: int): bool =
+        this.valid() && rawVulkanBuilderStoreI32(
+            this.bytes, this.typeName, memberName, value
+        )
+    trusted fun storeI64(memberName: string, value: int): bool =
+        this.valid() && rawVulkanBuilderStoreI64(
+            this.bytes, this.typeName, memberName, value
+        )
+    trusted fun storePointer(memberName: string, value: i64*): bool =
+        this.valid() && rawVulkanBuilderStorePointer(
+            this.bytes, this.typeName, memberName, value
+        )
+    fun drop(): void { this.bytes.close(); return }
+}
+
+trusted fun rawVulkanStructureBuilder(
+    typeName: string
+): RawVulkanStructureBuilder {
+    val size = rawVulkanBuilderSize(typeName)
+    val bytes = rawVulkanZeroedStructure(typeName)
+    RawVulkanStructureBuilder(typeName, size, move(bytes))
+}
+
 resource class RawVkEventCreateInfo(val bytes: NativeByteBuffer) {
-    fun valid(): bool = !this.bytes.closed && this.bytes.capacity == 24
+    fun valid(): bool = !this.bytes.closed &&
+        this.bytes.capacity == rawVulkanBuilderSize("VkEventCreateInfo")
     fun pointer(): i64* = if (this.valid()) this.bytes.address
         else nativeNullPointer()
     fun drop(): void { this.bytes.close(); return }
@@ -35,15 +246,15 @@ trusted fun rawVkEventCreateInfo(
     flags: int = 0,
     next: i64* = nativeNullPointer()
 ): RawVkEventCreateInfo {
-    val bytes = rawVulkanZeroedBytes(24)
-    rawVulkanStoreU32(bytes, 0, 10)
-    bytes.storePointer(8, next)
-    rawVulkanStoreU32(bytes, 16, flags)
+    val bytes = rawVulkanZeroedStructure("VkEventCreateInfo")
+    rawVulkanBuilderStorePointer(bytes, "VkEventCreateInfo", "pNext", next)
+    rawVulkanBuilderStoreI32(bytes, "VkEventCreateInfo", "flags", flags)
     RawVkEventCreateInfo(move(bytes))
 }
 
 resource class RawVkFenceCreateInfo(val bytes: NativeByteBuffer) {
-    fun valid(): bool = !this.bytes.closed && this.bytes.capacity == 24
+    fun valid(): bool = !this.bytes.closed &&
+        this.bytes.capacity == rawVulkanBuilderSize("VkFenceCreateInfo")
     fun pointer(): i64* = if (this.valid()) this.bytes.address
         else nativeNullPointer()
     fun drop(): void { this.bytes.close(); return }
@@ -53,15 +264,15 @@ trusted fun rawVkFenceCreateInfo(
     flags: int = 0,
     next: i64* = nativeNullPointer()
 ): RawVkFenceCreateInfo {
-    val bytes = rawVulkanZeroedBytes(24)
-    rawVulkanStoreU32(bytes, 0, 8)
-    bytes.storePointer(8, next)
-    rawVulkanStoreU32(bytes, 16, flags)
+    val bytes = rawVulkanZeroedStructure("VkFenceCreateInfo")
+    rawVulkanBuilderStorePointer(bytes, "VkFenceCreateInfo", "pNext", next)
+    rawVulkanBuilderStoreI32(bytes, "VkFenceCreateInfo", "flags", flags)
     RawVkFenceCreateInfo(move(bytes))
 }
 
 resource class RawVkDeviceQueueInfo2(val bytes: NativeByteBuffer) {
-    fun valid(): bool = !this.bytes.closed && this.bytes.capacity == 32
+    fun valid(): bool = !this.bytes.closed &&
+        this.bytes.capacity == rawVulkanBuilderSize("VkDeviceQueueInfo2")
     fun pointer(): i64* = if (this.valid()) this.bytes.address
         else nativeNullPointer()
     fun drop(): void { this.bytes.close(); return }
@@ -73,17 +284,23 @@ trusted fun rawVkDeviceQueueInfo2(
     flags: int = 0,
     next: i64* = nativeNullPointer()
 ): RawVkDeviceQueueInfo2 {
-    val bytes = rawVulkanZeroedBytes(32)
-    rawVulkanStoreU32(bytes, 0, 1000145003)
-    bytes.storePointer(8, next)
-    rawVulkanStoreU32(bytes, 16, flags)
-    rawVulkanStoreU32(bytes, 20, queueFamilyIndex)
-    rawVulkanStoreU32(bytes, 24, queueIndex)
+    val bytes = rawVulkanZeroedStructure("VkDeviceQueueInfo2")
+    rawVulkanBuilderStorePointer(bytes, "VkDeviceQueueInfo2", "pNext", next)
+    rawVulkanBuilderStoreI32(bytes, "VkDeviceQueueInfo2", "flags", flags)
+    rawVulkanBuilderStoreI32(
+        bytes, "VkDeviceQueueInfo2", "queueFamilyIndex", queueFamilyIndex
+    )
+    rawVulkanBuilderStoreI32(
+        bytes, "VkDeviceQueueInfo2", "queueIndex", queueIndex
+    )
     RawVkDeviceQueueInfo2(move(bytes))
 }
 
 resource class RawVkCommandBufferBeginInfo(val bytes: NativeByteBuffer) {
-    fun valid(): bool = !this.bytes.closed && this.bytes.capacity == 32
+    fun valid(): bool = !this.bytes.closed &&
+        this.bytes.capacity == rawVulkanBuilderSize(
+            "VkCommandBufferBeginInfo"
+        )
     fun pointer(): i64* = if (this.valid()) this.bytes.address
         else nativeNullPointer()
     fun drop(): void { this.bytes.close(); return }
@@ -94,10 +311,16 @@ trusted fun rawVkCommandBufferBeginInfo(
     inheritanceInfo: i64* = nativeNullPointer(),
     next: i64* = nativeNullPointer()
 ): RawVkCommandBufferBeginInfo {
-    val bytes = rawVulkanZeroedBytes(32)
-    rawVulkanStoreU32(bytes, 0, 42)
-    bytes.storePointer(8, next)
-    rawVulkanStoreU32(bytes, 16, flags)
-    bytes.storePointer(24, inheritanceInfo)
+    val bytes = rawVulkanZeroedStructure("VkCommandBufferBeginInfo")
+    rawVulkanBuilderStorePointer(
+        bytes, "VkCommandBufferBeginInfo", "pNext", next
+    )
+    rawVulkanBuilderStoreI32(
+        bytes, "VkCommandBufferBeginInfo", "flags", flags
+    )
+    rawVulkanBuilderStorePointer(
+        bytes, "VkCommandBufferBeginInfo", "pInheritanceInfo",
+        inheritanceInfo
+    )
     RawVkCommandBufferBeginInfo(move(bytes))
 }

@@ -207,6 +207,11 @@ nix-shell --run 'make test-registry'
 nix-shell --run 'make test-raw-commands'
 ```
 
+Use these Nix-shell entry points for native builds; bare `make` on NixOS does
+not provide the link-time Vulkan, X11, EGL, and OpenGL search paths. This is a
+build-environment requirement, not a requirement to keep the shell open while
+running a successfully built program.
+
 Executables built in that Nix environment retain the concrete Vulkan, X11,
 EGL, and OpenGL loader locations. They can therefore be launched directly
 after the build; inheriting the development shell's `LD_LIBRARY_PATH` is not a

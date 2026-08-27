@@ -1,4 +1,5 @@
 import "../src/raw/vulkan_registry.ab"
+import "../src/raw/vulkan_builder.ab"
 
 fun registryContains(values: array<string>, wanted: string): bool {
     var found = false
@@ -60,6 +61,27 @@ fun registryParameterIndex(
 }
 
 fun main: int {
+    val eventBuilderLayout = rawVulkanBuilderTypeLayout(
+        "VkEventCreateInfo"
+    )
+    val fenceBuilderLayout = rawVulkanBuilderTypeLayout(
+        "VkFenceCreateInfo"
+    )
+    val queueBuilderLayout = rawVulkanBuilderTypeLayout(
+        "VkDeviceQueueInfo2"
+    )
+    val beginBuilderLayout = rawVulkanBuilderTypeLayout(
+        "VkCommandBufferBeginInfo"
+    )
+    val genericBuilder = rawVulkanStructureBuilder("VkEventCreateInfo")
+    val genericBuilderReady = genericBuilder.valid() &&
+        genericBuilder.bytes.loadI64(0) == 10 &&
+        genericBuilder.storeI32("flags", 7) &&
+        !genericBuilder.storeI64("flags", 7) &&
+        genericBuilder.bytes.loadI64(16) == 7
+    genericBuilder.drop()
+    val genericBuilderDropped = !genericBuilder.valid() &&
+        pointerIsNull(genericBuilder.pointer())
     val vulkanCommands = rawVulkanRegistryCommands()
     val vulkanStatuses = rawVulkanRegistryCommandStatuses()
     val vulkanConstants = rawVulkanRegistryConstantNames()
@@ -339,7 +361,25 @@ fun main: int {
         "VkAccelerationStructureInstanceKHR",
         "instanceCustomIndex"
     )
-    val valid = rawVulkanRegistryCommandCount == 842 &&
+    val valid = rawVulkanBuilderTypeCount > 1000 &&
+        rawVulkanBuilderMemberCount > 5000 &&
+        eventBuilderLayout.valid && eventBuilderLayout.size == 24 &&
+        eventBuilderLayout.alignment == 8 &&
+        eventBuilderLayout.structureType == 10 &&
+        fenceBuilderLayout.valid && fenceBuilderLayout.size == 24 &&
+        fenceBuilderLayout.structureType == 8 &&
+        queueBuilderLayout.valid && queueBuilderLayout.size == 32 &&
+        queueBuilderLayout.structureType == 1000145003 &&
+        beginBuilderLayout.valid && beginBuilderLayout.size == 32 &&
+        beginBuilderLayout.structureType == 42 &&
+        rawVulkanBuilderMemberOffset(
+            "VkDeviceQueueInfo2", "queueIndex"
+        ) == 24 &&
+        rawVulkanBuilderMemberKind(
+            "VkEventCreateInfo", "pNext"
+        ) == "pointer" &&
+        genericBuilderReady && genericBuilderDropped &&
+        rawVulkanRegistryCommandCount == 842 &&
         rawVulkanRegistryCoreFeatureCount == 5 &&
         rawVulkanRegistryExtensionCount == 473 &&
         rawVulkanRegistryConstantCount == 5633 &&

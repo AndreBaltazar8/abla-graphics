@@ -1685,3 +1685,23 @@ dependency with `LD_LIBRARY_PATH` removed.
 
 Later milestones remain tracked in [the implementation plan](../plan.md); only
 the checkpoints described above are represented as delivered.
+
+### Registry-generated Vulkan structure layouts
+
+The pinned Vulkan registry now generates hosted native layout schemas for all
+1,209 structures whose members are fully described by known scalar or pointer
+ABI rules. The compact output covers 5,832 members with deterministic type
+size/alignment, `sType`, member kind, and member offset data. Arrays, nested
+aggregates, unions, and bitfields are deliberately excluded until their ABI
+rules are modeled rather than guessed.
+
+The pure-Abla affine runtime exposes a generic checked structure builder and
+routes the existing event, fence, queue-info, and command-buffer-begin typed
+builders through the generated schema. The live raw Vulkan proof passes in
+normal and optimized modes with exact resolver/device/image/event/fence results,
+stable handles, and `loopLive=0`. The schema is encoded as two cold-path strings
+instead of thousands of array literals after the array representation exceeded
+the compiler's focused-gate time budget.
+The builder module is opt-in rather than re-exported by `raw/vulkan.ab`, so
+ordinary applications and the runtime-linkage probe do not pay its compile-time
+cost. The live builder proof imports it explicitly.

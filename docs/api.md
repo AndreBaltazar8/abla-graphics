@@ -3364,8 +3364,23 @@ current platform and enabled extension. Platform types retain explicit `i16`,
 builders. Each owns zero-initialized native storage, writes exact-width fields,
 borrows any supplied chain pointers, exposes a checked native pointer, and
 invalidates it deterministically on drop. The live raw sample uses all four.
-Registry-driven generation is still required before the broader structure and
-feature-chain builder milestone is complete.
+Their native sizes, alignments, structure-type tags, member kinds, and offsets
+now come from the pinned `vk.xml` registry instead of hand-maintained layout
+constants.
+
+`rawVulkanStructureBuilder(typeName)` exposes the same generated schema for
+the wider raw surface. It accepts any of the 1,209 scalar/pointer-only hosted
+Vulkan structures, initializes a declared `sType`, and provides checked
+`storeI32`, `storeI64`, and `storePointer` operations. An unknown structure or
+wrong-width member fails without writing. The builder schema is emitted as two
+compact deterministic strings (5,832 members), keeping ordinary compilation
+bounded instead of materializing thousands of generated array elements.
+Import `raw/vulkan_builder.ab` explicitly when using this opt-in surface;
+`raw/vulkan.ab` does not make applications that only issue commands parse the
+complete structure schema.
+Nested aggregate, fixed-array, union, and bitfield ABI rules plus typed
+feature-chain composition remain required before the full structure-builder
+milestone is complete.
 The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.

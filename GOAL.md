@@ -2702,6 +2702,45 @@ schemas from `vk.xml`, route these typed constructors through that generated
 schema, then add typed `pNext` feature-chain composition and replace further
 manual driver packing in coherent batches.
 
+### Current checkpoint: registry-generated Vulkan builder schemas
+
+The registry generator now computes hosted native layouts for every Vulkan
+struct made entirely from known scalar and pointer members. Generated compact
+metadata covers 1,209 structures and 5,832 members: exact size, alignment,
+`sType`, member kind, and member offset. Nested aggregates, fixed arrays,
+unions, and bitfields remain explicitly excluded until their ABI rules are
+implemented.
+
+`src/raw/vulkan_builder.ab` provides a generic affine
+`rawVulkanStructureBuilder(typeName)` with checked `i32`, `i64`, and pointer
+setters. The four typed builders used by the live raw sample now consume the
+generated schema, so they no longer contain Vulkan sizes, offsets, or
+structure-type constants. The schema uses two compact strings; an initial
+array-literal representation generated 31,575 lines and exceeded the focused
+compiler time limit, while the compact representation preserves the same full
+coverage without thousands of array elements.
+The schema is also opt-in: `raw/vulkan.ab` no longer imports the builder module,
+and builder users import `raw/vulkan_builder.ab` explicitly. This prevents
+unrelated applications and linkage probes from paying the schema compile cost.
+
+Focused normal and fast live raw-command runs pass through the Nix shell with
+exact device, queue, image, event, fence, transfer, and timestamp evidence,
+stable handles, and `loopLive=0`. A bare native build outside the Nix shell was
+also reconfirmed to fail at link time on NixOS with missing Vulkan/X11/EGL/GL;
+keep using the documented `nix-shell --run ...` build entry points. Built sample
+executables retain rpaths and are separately checked with `LD_LIBRARY_PATH`
+removed.
+
+The complete runtime-linkage compilation uses an 8 GiB address-space guard.
+The previous 6 GiB guard could trigger LLVM's illegal-instruction allocation
+failure even though the same build completed normally without that tighter
+virtual-memory ceiling. Treat that signal as a compiler-resource failure, not
+as a graphics runtime or source failure.
+
+Next implement recursive nested-aggregate and fixed-array layout rules, then
+typed affine `pNext` chain composition and broader replacement of manual driver
+packing. Keep these as broad coherent generator/runtime/live-proof batches.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,

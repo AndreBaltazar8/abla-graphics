@@ -70,8 +70,27 @@ class RegistryAggregates(
     val memberConstness: array<string>,
     val memberArrayShapes: array<string>,
     val memberBitWidths: array<string>,
+    val memberValues: array<string>,
     val valid: bool,
     val error: string
+)
+
+class RegistryNativeLayout(
+    val size: int,
+    val alignment: int,
+    val kind: string,
+    val valid: bool
+)
+
+class RegistryBuilderSchemas(
+    val typeNames: array<string>,
+    val sizes: array<int>,
+    val alignments: array<int>,
+    val structureTypes: array<string>,
+    val memberOwners: array<string>,
+    val memberNames: array<string>,
+    val memberKinds: array<string>,
+    val memberOffsets: array<int>
 )
 
 fun registryOpeningTagEnd(source: string, begin: int): int =
@@ -1305,6 +1324,7 @@ fun registryParseAggregates(
     val memberConstness: array<string> = []
     val memberArrayShapes: array<string> = []
     val memberBitWidths: array<string> = []
+    val memberValues: array<string> = []
     val wantedApi = if (api == "opengl") "gl" else "vulkan"
     var valid = true
     var error = ""
@@ -1424,6 +1444,11 @@ fun registryParseAggregates(
                                             memberEnd
                                         )
                                     )
+                                    memberValues.append(
+                                        registryAttribute(
+                                            memberOpening, "values"
+                                        )
+                                    )
                                 }
                             }
                             memberCursor = memberEnd + 9
@@ -1437,7 +1462,7 @@ fun registryParseAggregates(
     RegistryAggregates(
         names, kinds, memberOwners, memberNames, memberTypes,
         memberPointerLevels, memberConstness, memberArrayShapes,
-        memberBitWidths, valid, error
+        memberBitWidths, memberValues, valid, error
     )
 }
 
@@ -2249,6 +2274,28 @@ fun registryWriteSourceArray(
     result
 }
 
+fun registryWriteCompactSource(
+    output: Path,
+    batch: string,
+    name: string,
+    records: array<string>,
+    blankAfter: bool = true
+): string {
+    var schema = ""
+    var index = 0
+    while (index < records.size) {
+        schema = "$schema${records[index]};"
+        index = index + 1
+    }
+    var result = registryAppend(
+        output, batch, "fun $name(): string = \"$schema\""
+    )
+    if (result != "#write-failed" && blankAfter) {
+        result = registryAppend(output, result, "")
+    }
+    result
+}
+
 fun registryStatuses(
     audit: RegistryAudit,
     kind: string,
@@ -2338,6 +2385,187 @@ fun registryVulkanUnderlyingType(
         attempts = attempts + 1
     }
     underlying
+}
+
+fun registryVulkanResolvedTypeIndex(
+    types: RegistryTypes,
+    name: string
+): int {
+    var current = name
+    var result = -1
+    var attempts = 0
+    while (result < 0 && attempts < types.names.size) {
+        val index = registryArrayIndex(types.names, current)
+        if (index < 0) attempts = types.names.size
+        else if (index < types.aliases.size && types.aliases[index] != "") {
+            current = types.aliases[index]
+        } else result = index
+        attempts = attempts + 1
+    }
+    result
+}
+
+fun registryVulkanNativeMemberLayout(
+    types: RegistryTypes,
+    name: string,
+    pointerLevel: string
+): RegistryNativeLayout {
+    if (pointerLevel != "0") return RegistryNativeLayout(
+        8, 8, "pointer", true
+    )
+    val index = registryVulkanResolvedTypeIndex(types, name)
+    val category = if (index >= 0 && index < types.categories.size)
+        types.categories[index] else ""
+    val underlying = registryVulkanUnderlyingType(types, name)
+    if (name == "char" || name == "int8_t" || name == "uint8_t" ||
+        underlying == "char" || underlying == "int8_t" ||
+        underlying == "uint8_t") {
+        return RegistryNativeLayout(1, 1, "i8", true)
+    }
+    if (name == "int16_t" || name == "uint16_t" ||
+        underlying == "int16_t" || underlying == "uint16_t") {
+        return RegistryNativeLayout(2, 2, "i16", true)
+    }
+    if (name == "float" || underlying == "float") {
+        return RegistryNativeLayout(4, 4, "f32", true)
+    }
+    if (name == "double" || underlying == "double") {
+        return RegistryNativeLayout(8, 8, "f64", true)
+    }
+    if (name == "int" || name == "unsigned int" ||
+        name == "int32_t" || name == "uint32_t" ||
+        name == "VkBool32" || name == "VkFlags" ||
+        underlying == "int" || underlying == "unsigned int" ||
+        underlying == "int32_t" || underlying == "uint32_t" ||
+        underlying == "VkFlags" || category == "enum") {
+        return RegistryNativeLayout(4, 4, "i32", true)
+    }
+    if (name == "int64_t" || name == "uint64_t" ||
+        name == "size_t" || name == "intptr_t" ||
+        name == "uintptr_t" || name == "VkDeviceSize" ||
+        name == "VkDeviceAddress" || name == "VkFlags64" ||
+        underlying == "int64_t" || underlying == "uint64_t" ||
+        underlying == "size_t" || underlying == "intptr_t" ||
+        underlying == "uintptr_t" || underlying == "VkFlags64") {
+        return RegistryNativeLayout(8, 8, "i64", true)
+    }
+    if (category == "handle" || category == "funcpointer") {
+        return RegistryNativeLayout(8, 8, "i64", true)
+    }
+    RegistryNativeLayout(0, 0, "", false)
+}
+
+fun registryAlignUp(value: int, alignment: int): int =
+    if (alignment <= 1) value else
+        ((value + alignment - 1) / alignment) * alignment
+
+fun registryVulkanBuilderSchemas(
+    aggregates: RegistryAggregates,
+    types: RegistryTypes,
+    constants: RegistryConstants
+): RegistryBuilderSchemas {
+    val typeNames: array<string> = []
+    val sizes: array<int> = []
+    val alignments: array<int> = []
+    val structureTypes: array<string> = []
+    val memberOwners: array<string> = []
+    val memberNames: array<string> = []
+    val memberKinds: array<string> = []
+    val memberOffsets: array<int> = []
+    var aggregateIndex = 0
+    while (aggregateIndex < aggregates.names.size) {
+        val owner = aggregates.names[aggregateIndex]
+        var valid = aggregates.kinds[aggregateIndex] == "struct"
+        var offset = 0
+        var alignment = 1
+        var memberCount = 0
+        var structureType = "-1"
+        val localNames: array<string> = []
+        val localKinds: array<string> = []
+        val localOffsets: array<int> = []
+        var memberIndex = 0
+        while (memberIndex < aggregates.memberOwners.size) {
+            if (aggregates.memberOwners[memberIndex] == owner) {
+                val layout = registryVulkanNativeMemberLayout(
+                    types,
+                    aggregates.memberTypes[memberIndex],
+                    aggregates.memberPointerLevels[memberIndex]
+                )
+                if (!layout.valid ||
+                    aggregates.memberArrayShapes[memberIndex] != "" ||
+                    aggregates.memberBitWidths[memberIndex] != "") {
+                    valid = false
+                } else if (valid) {
+                    offset = registryAlignUp(offset, layout.alignment)
+                    localNames.append(aggregates.memberNames[memberIndex])
+                    localKinds.append(layout.kind)
+                    localOffsets.append(offset)
+                    offset = offset + layout.size
+                    if (layout.alignment > alignment) {
+                        alignment = layout.alignment
+                    }
+                    if (aggregates.memberNames[memberIndex] == "sType") {
+                        val valueName = aggregates.memberValues[memberIndex]
+                        val valueIndex = registryArrayIndex(
+                            constants.names, valueName
+                        )
+                        if (valueIndex >= 0) {
+                            structureType = constants.values[valueIndex]
+                        }
+                    }
+                    memberCount = memberCount + 1
+                }
+            }
+            memberIndex = memberIndex + 1
+        }
+        if (valid && memberCount > 0) {
+            typeNames.append(owner)
+            sizes.append(registryAlignUp(offset, alignment))
+            alignments.append(alignment)
+            structureTypes.append(structureType)
+            var localIndex = 0
+            while (localIndex < localNames.size) {
+                memberOwners.append(owner)
+                memberNames.append(localNames[localIndex])
+                memberKinds.append(localKinds[localIndex])
+                memberOffsets.append(localOffsets[localIndex])
+                localIndex = localIndex + 1
+            }
+        }
+        aggregateIndex = aggregateIndex + 1
+    }
+    RegistryBuilderSchemas(
+        typeNames, sizes, alignments, structureTypes,
+        memberOwners, memberNames, memberKinds, memberOffsets
+    )
+}
+
+fun registryVulkanBuilderTypeRecords(
+    builders: RegistryBuilderSchemas
+): array<string> {
+    val records: array<string> = []
+    var index = 0
+    while (index < builders.typeNames.size) {
+        records.append(
+            "${builders.typeNames[index]}|${builders.sizes[index]}|${builders.alignments[index]}|${builders.structureTypes[index]}"
+        )
+        index = index + 1
+    }
+    records
+}
+
+fun registryVulkanBuilderMemberRecords(
+    builders: RegistryBuilderSchemas
+): array<string> {
+    val records: array<string> = []
+    var index = 0
+    while (index < builders.memberNames.size) {
+        records.append(
+            "${builders.memberOwners[index]}|${builders.memberNames[index]}|${builders.memberKinds[index]}|${builders.memberOffsets[index]}"
+        )
+        index = index + 1
+    }
+    records
 }
 
 fun registryVulkanI32Type(types: RegistryTypes, name: string): bool {
@@ -3260,6 +3488,52 @@ fun registryWriteCallSource(
     success
 }
 
+fun registryWriteBuilderSource(
+    output: Path,
+    revision: string,
+    sha256: string,
+    constants: RegistryConstants,
+    types: RegistryTypes,
+    aggregates: RegistryAggregates
+): bool {
+    val builders = registryVulkanBuilderSchemas(
+        aggregates, types, constants
+    )
+    val typeRecords = registryVulkanBuilderTypeRecords(builders)
+    val memberRecords = registryVulkanBuilderMemberRecords(builders)
+    var success = output.writeText("")
+    var batch = ""
+    if (success) batch = registryAppend(
+        output, batch,
+        "// Generated Vulkan structure-builder metadata. Do not edit."
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(
+        output, batch, "val rawVulkanBuilderRevision = \"$revision\""
+    )
+    if (success) batch = registryAppend(
+        output, batch, "val rawVulkanBuilderSha256 = \"$sha256\""
+    )
+    if (success) batch = registryAppend(
+        output, batch,
+        "val rawVulkanBuilderTypeCount = ${builders.typeNames.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch,
+        "val rawVulkanBuilderMemberCount = ${builders.memberNames.size}"
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "rawVulkanBuilderTypeSchema", typeRecords
+    )
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "rawVulkanBuilderMemberSchema", memberRecords, false
+    )
+    if (batch == "#write-failed") success = false
+    if (success && batch != "") success = output.appendText(batch)
+    success
+}
+
 fun registryWriteSource(
     output: Path,
     api: string,
@@ -3536,8 +3810,9 @@ fun registryWriteSource(
 }
 
 fun main: int {
-    if (processArgumentCount() != 7 && processArgumentCount() != 8) {
-        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256> [calls.ab]")
+    if (processArgumentCount() != 7 && processArgumentCount() != 8 &&
+        processArgumentCount() != 9) {
+        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256> [calls.ab] [builders.ab]")
         2
     } else {
         val api = processArgument(0)
@@ -3603,7 +3878,7 @@ fun main: int {
             )) {
                 eprintln("failed to write raw registry source: ${sourceOutput.text}")
                 5
-            } else if (processArgumentCount() == 8 &&
+            } else if (processArgumentCount() >= 8 &&
                 !registryWriteCallSource(
                     Path(processArgument(7)),
                     api,
@@ -3614,6 +3889,17 @@ fun main: int {
                     types
                 )) {
                 eprintln("failed to write callable registry source: ${processArgument(7)}")
+                5
+            } else if (processArgumentCount() == 9 &&
+                !registryWriteBuilderSource(
+                    Path(processArgument(8)),
+                    processArgument(5),
+                    processArgument(6),
+                    constants,
+                    types,
+                    aggregates
+                )) {
+                eprintln("failed to write builder registry source: ${processArgument(8)}")
                 5
             } else {
                 println("$api: ${inventory.commands.size} commands, ${inventory.features.size} core features, ${inventory.extensions.size} extensions")
