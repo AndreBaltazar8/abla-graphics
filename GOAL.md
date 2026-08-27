@@ -2680,6 +2680,28 @@ shader/tooling milestones, samples, CI, and release requirements in `plan.md`
 remain active. Preserve the broad cadence and move to the next plan-level
 deliverable rather than rerunning raw signature discovery.
 
+### Published checkpoint: affine typed Vulkan builder foundation
+
+Implementation `c8c1357443ae56417b48693d5ad0008d8566bef7` adds
+pure-Abla affine builders for `VkEventCreateInfo`, `VkFenceCreateInfo`,
+`VkDeviceQueueInfo2`, and `VkCommandBufferBeginInfo`. Each builder owns one
+zeroed exact-size `NativeByteBuffer`, writes scalar fields byte-exactly, borrows
+chain pointers, exposes no pointer after drop, and deterministically releases
+its allocation. The live raw proof now uses all four builders for real event,
+fence, queue, and command-buffer operations instead of hand-packed offsets.
+
+Normal and fast live runs preserve exact resolver, version, surface, transfer,
+image, event, fence, and timestamp evidence with `loopLive=0`, `live=96`, and
+empty validation logs. `make check-abla-only test-core` also passes. Public API
+and status documentation now state the current 842/842 generated call-ABI
+coverage and distinguish ABI metadata from runtime extension availability.
+
+This is the runtime foundation, not completion of the structure-builder plan.
+Next extend the registry generator to emit size/alignment/member-offset/type
+schemas from `vk.xml`, route these typed constructors through that generated
+schema, then add typed `pNext` feature-chain composition and replace further
+manual driver packing in coherent batches.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
