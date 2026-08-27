@@ -2,15 +2,15 @@
 
 - Revision: `fixture-revision`
 - SHA-256: `fixture-sha256`
-- Commands: 27
+- Commands: 34
 - Core features: 1
 - Extensions: 2
 - Constants: 8
 - Types: 7
-- Command parameters: 68
+- Command parameters: 101
 - Aggregates: 1
 - Aggregate members: 4
-- Classified commands: 1/27
+- Classified commands: 1/34
 - Classified core features: 1/1
 - Classified extensions: 2/2
 
@@ -18,13 +18,19 @@
 
 | Name | Form | Status | Loader | ABI | Positive test | Unsupported path |
 | --- | --- | --- | --- | --- | --- | --- |
+| `vkAddressResult` | definition | unclassified | - | - | - | - |
 | `vkAlias` | alias | unclassified | - | - | - | - |
 | `vkAlpha` | definition | common | fixture loader | fixture ABI | fixture positive | fixture unsupported |
+| `vkBindWideResult` | definition | unclassified | - | - | - | - |
+| `vkCopyWide` | definition | unclassified | - | - | - | - |
 | `vkCountedResult` | definition | unclassified | - | - | - | - |
 | `vkCreateFixture` | definition | unclassified | - | - | - | - |
 | `vkDestroyFixture` | definition | unclassified | - | - | - | - |
+| `vkDrawCountWide` | definition | unclassified | - | - | - | - |
+| `vkDrawWide` | definition | unclassified | - | - | - | - |
 | `vkEnumOutput` | definition | unclassified | - | - | - | - |
 | `vkEnumerateFixture` | definition | unclassified | - | - | - | - |
+| `vkFillWide` | definition | unclassified | - | - | - | - |
 | `vkHandleEnumerateResult` | definition | unclassified | - | - | - | - |
 | `vkHandleFlags` | definition | unclassified | - | - | - | - |
 | `vkHandleOutputResult` | definition | unclassified | - | - | - | - |
@@ -44,6 +50,7 @@
 | `vkStatusPointer` | definition | unclassified | - | - | - | - |
 | `vkTwoWideScalar` | definition | unclassified | - | - | - | - |
 | `vkTwoWideValues` | definition | unclassified | - | - | - | - |
+| `vkUpdateWide` | definition | unclassified | - | - | - | - |
 | `vkZulu` | definition | unclassified | - | - | - | - |
 
 ## Core features

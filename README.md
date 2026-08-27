@@ -196,7 +196,13 @@ proves the architecture rather than stopping at placeholder interfaces:
   `void(pointer,i64,i32,i32)`, 5 `void(pointer,i64,i64)`, 5
   `void(pointer,i64,i64,i32)`, 3
   `i32(pointer,pointer,i64)`, and 4 `i32(pointer,i32,pointer,i64)` commands,
-  bringing the total to 603 and leaving 239 unsupported;
+  plus 10 `i64(pointer,pointer)`, 3 `i32(pointer,i64,i64,i64)`, 3
+  `void(pointer,i64,i64,i32,pointer)`, 4
+  `void(pointer,i64,i64,i64,i32)`, 1
+  `void(pointer,i64,i64,i64,pointer)`, 4
+  `void(pointer,i64,i64,i32,i32)`, and 8
+  `void(pointer,i64,i64,i64,i64,i32,i32)` commands, bringing the total to
+  636 and leaving 206 unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

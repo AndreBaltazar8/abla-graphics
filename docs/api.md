@@ -3330,10 +3330,19 @@ Handle/scalar command-buffer calls use
 `callVoidPointerI64I64I32(command, owner, first, second, value)`,
 `callI32PointerPointerI64(command, owner, info, timeout, result)`, and
 `callI32PointerI32PointerI64(command, owner, count, info, handle, result)`.
+Typed 64-bit return and buffer operations use
+`callI64PointerPointer(command, owner, info, result)`,
+`callI32PointerI64I64I64(command, owner, resource, memory, offset, result)`,
+`callVoidPointerI64I64I32Pointer`,
+`callVoidPointerI64I64I64I32`, and
+`callVoidPointerI64I64I64Pointer`. Indirect buffer command layouts use
+`callVoidPointerI64I64I32I32` and
+`callVoidPointerI64I64I64I64I32I32`.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
 counts are 8, 55, 4, 2, 81, 62, 14, 104, 61, 47, 18, 19, 36, 20, 24, 17, 9,
-5, 5, 5, 3, and 4 respectively—603 Vulkan commands. The caller remains
+5, 5, 5, 3, 4, 10, 3, 3, 4, 1, 4, and 8 respectively—636 Vulkan commands.
+The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI

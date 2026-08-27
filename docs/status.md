@@ -42,8 +42,10 @@ Updated: 2026-08-27.
   36 pointer-result entries, 20 scalar/output entries, 24 handle/output result
   entries, 17 handle/enumeration result entries, 9 handle/flag entries, and 5
   handle/two-scalar entries. Five two-wide-value, 5 two-wide/scalar, 3
-  pointer/wide-result, and 4 queue-like result entries bring the total to 603
-  and leave the other 239 unsupported.
+  pointer/wide-result, and 4 queue-like result entries are joined by 10 typed
+  64-bit returns, 3 handle/handle/offset results, 3 buffer-copy, 4 buffer-fill,
+  1 buffer-update, 4 indirect-draw, and 8 indirect-count entries. This brings
+  the total to 636 and leaves the other 206 unsupported.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -61,9 +63,11 @@ Updated: 2026-08-27.
   swapchain images, advances a timeline semaphore from 7 to 9, retains zero
   growth, and records validated event and query-pool resets before passing
   through raw timeline wait, synchronization2 reset/timestamp, and queue-submit
-  calls. The timestamp query returns nonzero ticks before resources are
-  released.
-  validation in both build modes. Remaining signatures
+  calls. It additionally records raw `vkCmdUpdateBuffer`, a transfer barrier,
+  raw `vkCmdCopyBuffer`, and raw `vkCmdFillBuffer`; host readback observes the
+  exact updated and filled 64-bit words. The timestamp query returns nonzero
+  ticks before resources are released. Both build modes pass validation.
+  Remaining signatures
   are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
