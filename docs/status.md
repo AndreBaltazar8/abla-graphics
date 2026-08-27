@@ -34,12 +34,12 @@ Updated: 2026-08-27.
   first allocation-stable OpenGL indirect call families. Generated ABI tags
   classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
   callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
-  Vulkan now classifies 783 exact callable layouts and leaves 59 entries
-  explicitly unsupported. The latest 45-command batch adds synchronization2
-  events, descriptor/query and private-data operations, swapchain creation,
-  acceleration queries, and larger pointer/status groups. Generated candidate
-  metadata normalizes 50 remaining one-off layouts and isolates nine
-  platform-scalar boundaries.
+  Vulkan now assigns exact call ABIs to all 842 pinned commands, including
+  explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
+  runtime callability still requires a nonzero platform/extension resolver.
+  Affine typed builders now own exact zeroed native storage for event, fence,
+  device-queue, and command-buffer-begin structures and are exercised by the
+  live raw path. Registry-driven schema emission remains the next builder step.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth

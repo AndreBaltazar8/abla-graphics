@@ -154,18 +154,21 @@ trusted fun main: int {
         val surfaceSupportStatus = nativeI64Cell(-1)
         val eventHandle = nativeI64Cell(0)
         val eventStatus = nativeI64Cell(-1)
-        val eventInfo = nativeByteBuffer(24)
+        val eventInfo = rawVkEventCreateInfo()
         val features2 = nativeByteBuffer(240)
         val physicalDeviceCount = nativeI64Cell(0)
         val physicalDevices = nativeByteBuffer(256)
         val enumerateStatus = nativeI64Cell(-1)
-        val queueInfo = nativeByteBuffer(32)
+        val queueInfo = rawVkDeviceQueueInfo2(
+            app.vulkanDevice.queueFamily
+        )
         val queriedQueue = nativePointerCell(nativeNullPointer())
         val queriedLegacyQueue = nativePointerCell(nativeNullPointer())
         val fenceHandle = nativeI64Cell(0)
         val fenceStatus = nativeI64Cell(-1)
         val resetStatus = nativeI64Cell(-1)
-        val fenceInfo = nativeByteBuffer(24)
+        val fenceInfo = rawVkFenceCreateInfo(1)
+        val beginInfo = rawVkCommandBufferBeginInfo(1)
         val beginStatus = nativeI64Cell(-1)
         val formatProperties = nativeByteBuffer(12)
         val timelineValue = nativeI64Cell(-1)
@@ -201,11 +204,6 @@ trusted fun main: int {
             usage = textureUsageCopySource | textureUsageCopyDestination
         ))
         var initialize = 0
-        while (initialize < eventInfo.capacity) {
-            eventInfo.store(initialize, 0)
-            initialize = initialize + 1
-        }
-        initialize = 0
         while (initialize < features2.capacity) {
             features2.store(initialize, 0)
             initialize = initialize + 1
@@ -213,16 +211,6 @@ trusted fun main: int {
         initialize = 0
         while (initialize < physicalDevices.capacity) {
             physicalDevices.store(initialize, 0)
-            initialize = initialize + 1
-        }
-        initialize = 0
-        while (initialize < queueInfo.capacity) {
-            queueInfo.store(initialize, 0)
-            initialize = initialize + 1
-        }
-        initialize = 0
-        while (initialize < fenceInfo.capacity) {
-            fenceInfo.store(initialize, 0)
             initialize = initialize + 1
         }
         initialize = 0
@@ -235,21 +223,8 @@ trusted fun main: int {
             swapchainImages.store(initialize, 0)
             initialize = initialize + 1
         }
-        eventInfo.storeI64(0, 10)
-        eventInfo.storePointer(8, nativeNullPointer())
-        eventInfo.storeI64(16, 0)
         features2.storeI64(0, 1000059000)
         features2.storePointer(8, nativeNullPointer())
-        queueInfo.storeI64(0, 1000145003)
-        queueInfo.storePointer(8, nativeNullPointer())
-        queueInfo.storeI64(
-            16,
-            app.vulkanDevice.queueFamily * 4294967296
-        )
-        queueInfo.storeI64(24, 0)
-        fenceInfo.storeI64(0, 8)
-        fenceInfo.storePointer(8, nativeNullPointer())
-        fenceInfo.storeI64(16, 1)
         val metadataQueries = raw.callAddressPointerPointer(
             getInstanceProcAddress,
             app.vulkanInstance.handle,
@@ -284,18 +259,10 @@ trusted fun main: int {
                 resetPoolStatus.address
             ) && resetPoolStatus.load() == vulkanSuccess
         if (recorded) {
-            app.vulkanPixels.frames[0].scratch.storeI64(0, 42)
-            app.vulkanPixels.frames[0].scratch.storePointer(
-                8, nativeNullPointer()
-            )
-            app.vulkanPixels.frames[0].scratch.storeI64(16, 1)
-            app.vulkanPixels.frames[0].scratch.storePointer(
-                24, nativeNullPointer()
-            )
             recorded = raw.callI32PointerPointer(
                 beginCommandBuffer,
                 command,
-                app.vulkanPixels.frames[0].scratch.address,
+                beginInfo.pointer(),
                 beginStatus.address
             ) && beginStatus.load() == vulkanSuccess
         }
@@ -833,7 +800,7 @@ trusted fun main: int {
                 raw.callVoidPointer3(
                     getDeviceQueue2,
                     app.vulkanDevice.handle,
-                    queueInfo.address,
+                    queueInfo.pointer(),
                     queriedQueue.address
                 ) && nativePointerAddress(queriedQueue.load()) ==
                 nativePointerAddress(app.vulkanDevice.queue) &&
@@ -890,7 +857,7 @@ trusted fun main: int {
             raw.callI32Pointer4(
                 createEvent,
                 app.vulkanDevice.handle,
-                eventInfo.address,
+                eventInfo.pointer(),
                 nativeNullPointer(),
                 eventHandle.address,
                 eventStatus.address
@@ -910,7 +877,7 @@ trusted fun main: int {
         var fenceRoundTrip = pointerQueries && raw.callI32Pointer4(
             createFence,
             app.vulkanDevice.handle,
-            fenceInfo.address,
+            fenceInfo.pointer(),
             nativeNullPointer(),
             fenceHandle.address,
             fenceStatus.address
@@ -1472,6 +1439,10 @@ trusted fun main: int {
         rawTransferSource.drop()
         rawTransferDestination.drop()
         rawImage.drop()
+        eventInfo.drop()
+        fenceInfo.drop()
+        queueInfo.drop()
+        beginInfo.drop()
         updateData.close()
         stable = stable && timeline.handle == 0 &&
             timestampQuery.queryPool == 0 &&
@@ -1479,7 +1450,9 @@ trusted fun main: int {
             rawCompute.vulkan.handle == 0 &&
             rawTransferSource.vulkan.handle == 0 &&
             rawTransferDestination.vulkan.handle == 0 && updateData.closed
-        stable = stable && rawImage.vulkan.image == 0
+        stable = stable && rawImage.vulkan.image == 0 &&
+            !eventInfo.valid() && !fenceInfo.valid() &&
+            !queueInfo.valid() && !beginInfo.valid()
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"

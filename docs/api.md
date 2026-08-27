@@ -3354,18 +3354,24 @@ creation, and acceleration-query layouts. Generic trusted wrappers validate
 the resolved ABI, owner, availability, first native pointer, and status-output
 cell; the caller retains responsibility for command-specific optional and
 required arguments. The complete generated family counts are asserted by
-`tests/raw_registry.ab`: 783 Vulkan commands are callable and 59 remain
-explicitly unsupported. `rawVulkanCallCandidateAbis()` and
-`rawVulkanRegistryCommandCallCandidateAbis()` preserve normalized layouts for
-all but nine platform-specific scalar signatures, so future work can be
-selected without reparsing the registry.
+`tests/raw_registry.ab`: all 842 pinned Vulkan commands have exact generated
+call ABIs. Runtime callability still requires a nonzero resolver for the
+current platform and enabled extension. Platform types retain explicit `i16`,
+`i32`, pointer, or hosted-word mappings rather than being conflated.
+
+`rawVkEventCreateInfo`, `rawVkFenceCreateInfo`,
+`rawVkDeviceQueueInfo2`, and `rawVkCommandBufferBeginInfo` are affine typed
+builders. Each owns zero-initialized native storage, writes exact-width fields,
+borrows any supplied chain pointers, exposes a checked native pointer, and
+invalidates it deterministically on drop. The live raw sample uses all four.
+Registry-driven generation is still required before the broader structure and
+feature-chain builder milestone is complete.
 The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.
-Other signatures remain explicitly unavailable until matching compiler ABI
-primitives and tests land;
-metadata or address presence is not represented as executable specification
-coverage.
+Generated ABI coverage is not a claim that every optional command is available
+on every driver; metadata or address presence alone is not represented as live
+feature support.
 
 The latest live proof resolves `vkGetDeviceQueue` through the
 scalar/scalar/output family and verifies that it returns the same queue as
