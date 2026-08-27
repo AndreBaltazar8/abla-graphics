@@ -2368,6 +2368,45 @@ queue submission boundary itself. Continue with typed 64-bit return values,
 buffer address/transfer families, and larger pointer/handle/scalar creation
 and copy signatures. The full goal remains active.
 
+### Published checkpoint: device-address and raw buffer transfer batch
+
+Compiler dependency `091610a41e3696389c38ca742d7a52bc23b90ab6`
+adds seven exact indirect-call families: `i64(pointer,pointer)`,
+`i32(pointer,i64,i64,i64)`, `void(pointer,i64,i64,i32,pointer)`,
+`void(pointer,i64,i64,i64,i32)`, `void(pointer,i64,i64,i64,pointer)`,
+`void(pointer,i64,i64,i32,i32)`, and
+`void(pointer,i64,i64,i64,i64,i32,i32)`. Their three shared LLVM lowerings
+preserve high-bit 64-bit arguments and returns, truncate only explicit 32-bit
+fields, and sign-extend status results. The compiler fixed point and trusted
+unsafe boundary pass. This dependency includes the upstream bounded intrinsic
+classifier change that prevents recursive compile-time stack exhaustion as
+native families grow.
+
+Graphics implementation `248576a170c2278145be5a47aaef80112e1b49be`
+adds checked public raw wrappers, deterministic fixture coverage, full-registry
+family counts, and live buffer-transfer execution. The generator classifies
+10 `i64(pointer,pointer)`, 3 `i32(pointer,i64,i64,i64)`, 3 buffer-copy, 4
+buffer-fill, 1 buffer-update, 4 indirect-draw, and 8 indirect-count commands.
+This moves 33 commands at once: Vulkan executable raw coverage rises from 603
+to 636 of 842, leaving 206 explicit `unsupported` entries.
+
+The live Vulkan sample records raw `vkCmdUpdateBuffer`, a transfer dependency,
+raw `vkCmdCopyBuffer`, and raw `vkCmdFillBuffer` into the same submitted command
+buffer as the synchronization/query proof. Host readback observes exact words
+`72623859790382856` and `72623859723010820`. Normal and optimized runs also
+report nonzero timestamp ticks, `wait=0`, `submit=0`, `status=0`, `live=0`, and
+`stable=true`; both validation logs are empty. OpenGL remains allocation-stable.
+
+Deterministic/full registry generation, normal and optimized raw execution,
+the Abla-only audit, core tests, the compiler fixed point, and the unsafe
+boundary pass. The 71-sample matrix was not rerun because this is an opt-in raw
+ABI checkpoint with no common API or linkage change.
+
+Continue batching the remaining 206 exact signatures by frequency and feature
+coherence. High-yield next groups include larger pointer/scalar creation and
+query layouts, three/four-scalar command-buffer calls, float arguments, and
+image copy/blit/resolve families. The full framework goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
