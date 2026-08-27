@@ -3253,6 +3253,13 @@ optional constant component selection. `textureGatherOffset` supports 2D and
 2D-array samplers with runtime `ivec2` offsets. Vulkan lowers exact base and
 `Offset` `OpImageGather` forms and adds `ImageGatherExtended` only when needed.
 
+`textureGatherOffsets` extends that checkpoint to exact four-element constant
+`ivec2` constructors for 2D and 2D-array samplers. The emitter evaluates the
+bounded constant-expression IR, emits real signed vector and array constant
+composites, and selects `ConstOffsets` independently from runtime `Offset`.
+Focused coverage distinguishes both operand masks and rejects runtime elements
+or non-four array constructors; the wider sample executes the new form live.
+
 Authoritative focused proof is `tests/glsl_sampled_expression.ab`; live proof
 is `examples/wider-sampling/main.ab`. Run the focused shader gate once, then
 the combined native gate:

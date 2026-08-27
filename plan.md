@@ -243,10 +243,11 @@ now share vector `OpConvertSToF`. Non-constant signed locals support direct and
 compound assignment plus prefix/postfix increment and decrement as bounded SSA
 snapshots and are live on both backends. `textureGather` now covers 2D,
 2D-array, and cube samplers with optional components; `textureGatherOffset`
-covers 2D and 2D-array samplers with runtime signed offsets. Deterministic
-SPIR-V capability/opcode forms and live array/cube execution are verified.
-Richer integer control flow and remaining broader sampler operations remain
-open.
+covers 2D and 2D-array samplers with runtime signed offsets, and
+`textureGatherOffsets` accepts four constant signed offsets for those same
+dimensions. Deterministic SPIR-V base, `Offset`, and constant-array
+`ConstOffsets` forms plus live array/cube execution are verified. Richer
+integer control flow and remaining broader sampler operations remain open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

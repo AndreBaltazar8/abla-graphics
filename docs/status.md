@@ -2028,13 +2028,17 @@ Signed scalar and vector locals now accept prefix/postfix `++` and `--` as
 bounded SSA snapshots; mutation of `const` still rejects. General fragment
 expressions accept `textureGather` for 2D, 2D-array, and cube samplers and
 `textureGatherOffset` for 2D and 2D-array samplers, including runtime `ivec2`
-offsets and optional compile-time components 0-3.
+offsets and optional compile-time components 0-3. `textureGatherOffsets`
+accepts both offset-capable dimensions with four constant `ivec2` expressions.
 
 Vulkan emits base and offset `OpImageGather` forms and declares
-`ImageGatherExtended` only for offset modules. The focused gate checks three
-base gathers, two offset gathers, deterministic words, capability absence for
-plain gathering, and volume/cube-offset/wrong-width/runtime-component/const-
-update rejection. `examples/wider-sampling` executes array-offset and cube
+`ImageGatherExtended` only for offset modules. Four-offset forms build exact
+constant vector/array composites and use `ConstOffsets`, independently from
+runtime `Offset`. The focused gate checks three base gathers, two single-offset
+and two four-offset gathers, exact operand masks, deterministic words,
+capability absence for plain gathering, and volume/cube-offset/wrong-width/
+runtime-component/runtime-offset-array/wrong-array-length/const-update
+rejection. `examples/wider-sampling` executes array single/four-offset and cube
 gathers plus scalar postfix/prefix updates while preserving its exact output.
 
 ### Vector conversion and mutable signed locals

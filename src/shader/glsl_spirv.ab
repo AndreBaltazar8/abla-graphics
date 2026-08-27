@@ -267,6 +267,11 @@ class GlslImageCoordinateExpression(
     val compileTimeConstant: bool = false
 )
 
+class GlslImageCoordinateConstant(
+    val valid: bool,
+    val values: array<int> = []
+)
+
 class GlslImageCoordinateLocal(
     val name: string,
     val width: int,
@@ -908,14 +913,18 @@ fun glslRasterPrimaryWithIntegers(
             index = index + 1
         }
     } else if (valid && (sourceTokens[index].text == "textureGather" ||
-        sourceTokens[index].text == "textureGatherOffset")) {
-        val hasOffset = sourceTokens[index].text == "textureGatherOffset"
+        sourceTokens[index].text == "textureGatherOffset" ||
+        sourceTokens[index].text == "textureGatherOffsets")) {
+        val gatherFunction = sourceTokens[index].text
+        val hasOffset = gatherFunction == "textureGatherOffset"
+        val hasOffsets = gatherFunction == "textureGatherOffsets"
         index = index + 1
         valid = glslRasterTokenText(sourceTokens, index, "(")
         if (valid) index = index + 1
         val samplerName = if (valid && index < sourceTokens.size)
             sourceTokens[index].text else ""
         var samplerIndex = -1
+        var samplerDataType = ""
         var coordinateType = glslRasterTypeInvalid
         var samplerCount = 0
         var samplerCandidate = 0
@@ -926,6 +935,9 @@ fun glslRasterPrimaryWithIntegers(
                 ) != glslRasterTypeInvalid) {
                 if (sourceTokens[samplerCandidate + 2].text == samplerName) {
                     samplerIndex = samplerCount
+                    samplerDataType = sourceTokens[
+                        samplerCandidate + 1
+                    ].text
                     coordinateType = glslRasterTextureGatherCoordinateType(
                         sourceTokens[samplerCandidate + 1].text
                     )
@@ -935,7 +947,9 @@ fun glslRasterPrimaryWithIntegers(
             samplerCandidate = samplerCandidate + 1
         }
         valid = valid && samplerIndex >= 0 &&
-            coordinateType != glslRasterTypeInvalid
+            coordinateType != glslRasterTypeInvalid &&
+            (!(hasOffset || hasOffsets) ||
+             glslRasterTextureOffsetWidth(samplerDataType) == 2)
         if (valid) index = index + 1
         valid = valid && glslRasterTokenText(sourceTokens, index, ",")
         if (valid) index = index + 1
@@ -956,6 +970,7 @@ fun glslRasterPrimaryWithIntegers(
                 coordinateType
         val integerPush = ShaderPushConstant("", "", "", [])
         var offset = GlslImageCoordinateExpression(false, [], index)
+        val offsets: array<GlslImageCoordinateExpression> = []
         if (valid && hasOffset) {
             valid = glslRasterTokenText(sourceTokens, index, ",")
             if (valid) index = index + 1
@@ -971,6 +986,43 @@ fun glslRasterPrimaryWithIntegers(
             index = offset.next
             valid = valid && offset.valid &&
                 glslImageCoordinateExpressionType(offset, 2) == 2
+        }
+        if (valid && hasOffsets) {
+            valid = glslRasterTokenText(sourceTokens, index, ",") &&
+                glslRasterTokenText(sourceTokens, index + 1, "ivec2") &&
+                glslRasterTokenText(sourceTokens, index + 2, "[") &&
+                glslRasterTokenText(sourceTokens, index + 3, "4") &&
+                glslRasterTokenText(sourceTokens, index + 4, "]") &&
+                glslRasterTokenText(sourceTokens, index + 5, "(")
+            if (valid) index = index + 6
+            var offsetIndex = 0
+            while (valid && offsetIndex < 4) {
+                val parsed = glslImageCoordinateExpression(
+                    sourceTokens,
+                    index,
+                    1,
+                    integerPush,
+                    integerLocals,
+                    2,
+                    0
+                )
+                index = parsed.next
+                valid = parsed.valid && parsed.compileTimeConstant &&
+                    glslImageCoordinateExpressionType(parsed, 2) == 2 &&
+                    glslImageCoordinateConstant(parsed, 2).valid
+                if (valid) offsets.append(GlslImageCoordinateExpression(
+                    true,
+                    glslImageCoordinateTokensCopy(parsed.tokens),
+                    parsed.next,
+                    true
+                ))
+                val separator = if (offsetIndex < 3) "," else ")"
+                valid = valid && glslRasterTokenText(
+                    sourceTokens, index, separator
+                )
+                if (valid) index = index + 1
+                offsetIndex = offsetIndex + 1
+            }
         }
         var component = GlslImageCoordinateExpression(
             true,
@@ -1015,6 +1067,13 @@ fun glslRasterPrimaryWithIntegers(
                     offset.next,
                     offset.compileTimeConstant
                 ))
+            } else if (hasOffsets) {
+                offsetIndex = integerExpressions.size
+                var gatheredOffset = 0
+                while (gatheredOffset < offsets.size) {
+                    integerExpressions.append(offsets[gatheredOffset])
+                    gatheredOffset = gatheredOffset + 1
+                }
             }
             val copied = glslRasterTokensCopy(coordinate.tokens)
             var copiedIndex = 0
@@ -1027,7 +1086,8 @@ fun glslRasterPrimaryWithIntegers(
                 memberIndex = samplerIndex,
                 first = coordinateType,
                 second = componentIndex,
-                third = offsetIndex
+                third = offsetIndex,
+                fourth = if (hasOffsets) 4 else 0
             ))
             index = index + 1
         }
@@ -1715,6 +1775,8 @@ fun glslRasterExpressionType(
         } else if (token.kind == glslRasterTokenTextureGather) {
             valid = token.memberIndex >= 0 && token.second >= 0 &&
                 token.third >= -1 &&
+                (token.fourth == 0 || token.fourth == 4) &&
+                (token.fourth == 0 || token.third >= 0) &&
                 (token.first == glslRasterTypeVector2 ||
                  token.first == glslRasterTypeVector3) &&
                 stackSize >= 1 && stack[stackSize - 1] == token.first
@@ -2864,6 +2926,7 @@ fun glslRasterFragmentSpirv(
     var usesIntegerVector3 = false
     var usesImageQuery = false
     var usesImageGatherExtended = false
+    var usesGatherOffsets = false
     samplerIndex = 0
     while (samplerIndex < program.samplers.size) {
         usesVector2 = usesVector2 || program.samplers[
@@ -2929,6 +2992,8 @@ fun glslRasterFragmentSpirv(
                     scanned.third >= 0
                 usesImageGatherExtended = usesImageGatherExtended ||
                     scanned.third >= 0
+                usesGatherOffsets = usesGatherOffsets ||
+                    scanned.fourth == 4
             }
             usesImageQuery = usesImageQuery ||
                 scanned.kind == glslRasterTokenTextureQueryLod
@@ -3083,6 +3148,13 @@ fun glslRasterFragmentSpirv(
     if (valid && usesIntegerVector3) {
         integerVector3Type = nextId
         nextId = nextId + 1
+    }
+    var gatherOffsetLengthConstant = 0
+    var gatherOffsetArrayType = 0
+    if (valid && usesGatherOffsets) {
+        gatherOffsetLengthConstant = nextId
+        gatherOffsetArrayType = nextId + 1
+        nextId = nextId + 2
     }
     var pushVector2PointerType = 0
     if (valid && hasVector2Member) {
@@ -3357,6 +3429,16 @@ fun glslRasterFragmentSpirv(
             words.append(integerType)
             words.append(3)
         }
+        if (gatherOffsetArrayType != 0) {
+            words.append(262187)
+            words.append(integerType)
+            words.append(gatherOffsetLengthConstant)
+            words.append(4)
+            words.append(262172)
+            words.append(gatherOffsetArrayType)
+            words.append(integerVector2Type)
+            words.append(gatherOffsetLengthConstant)
+        }
         if (program.memberCount > 0) {
             words.append((2 + program.memberCount) * 65536 + 30)
             words.append(pushStructure)
@@ -3421,6 +3503,10 @@ fun glslRasterFragmentSpirv(
     }
     val integerConstantBits: array<int> = []
     val integerConstantIds: array<int> = []
+    if (valid && gatherOffsetLengthConstant != 0) {
+        integerConstantBits.append(4)
+        integerConstantIds.append(gatherOffsetLengthConstant)
+    }
     var integerExpressionIndex = 0
     while (valid && integerExpressionIndex <
         program.integerExpressions.size) {
@@ -3474,6 +3560,80 @@ fun glslRasterFragmentSpirv(
         }
         expressionEnds.append(allTokens.size)
         expressionIndex = expressionIndex + 1
+    }
+    val gatherOffsetArrayIds: array<int> = []
+    var gatherTokenIndex = 0
+    while (valid && gatherTokenIndex < allTokens.size) {
+        val gatherToken = allTokens[gatherTokenIndex]
+        var arrayId = 0
+        if (gatherToken.kind == glslRasterTokenTextureGather &&
+            gatherToken.fourth == 4) {
+            valid = gatherOffsetArrayType != 0 &&
+                gatherToken.third >= 0 &&
+                gatherToken.third + 3 < program.integerExpressions.size
+            val vectorIds: array<int> = []
+            var offsetIndex = 0
+            while (valid && offsetIndex < 4) {
+                val constant = glslImageCoordinateConstant(
+                    program.integerExpressions[
+                        gatherToken.third + offsetIndex
+                    ],
+                    2
+                )
+                valid = constant.valid && constant.values.size == 2
+                val componentIds: array<int> = []
+                var component = 0
+                while (valid && component < 2) {
+                    val bits = constant.values[component]
+                    var constantIndex = 0
+                    var constantId = 0
+                    while (constantId == 0 &&
+                        constantIndex < integerConstantBits.size) {
+                        if (integerConstantBits[constantIndex] == bits) {
+                            constantId = integerConstantIds[constantIndex]
+                        }
+                        constantIndex = constantIndex + 1
+                    }
+                    if (constantId == 0) {
+                        constantId = nextId
+                        nextId = nextId + 1
+                        words.append(262187)
+                        words.append(integerType)
+                        words.append(constantId)
+                        words.append(bits)
+                        integerConstantBits.append(bits)
+                        integerConstantIds.append(constantId)
+                    }
+                    componentIds.append(constantId)
+                    component = component + 1
+                }
+                if (valid) {
+                    val vectorId = nextId
+                    nextId = nextId + 1
+                    words.append(327724)
+                    words.append(integerVector2Type)
+                    words.append(vectorId)
+                    words.append(componentIds[0])
+                    words.append(componentIds[1])
+                    vectorIds.append(vectorId)
+                }
+                offsetIndex = offsetIndex + 1
+            }
+            if (valid) {
+                arrayId = nextId
+                nextId = nextId + 1
+                words.append(458796)
+                words.append(gatherOffsetArrayType)
+                words.append(arrayId)
+                offsetIndex = 0
+                while (offsetIndex < vectorIds.size) {
+                    words.append(vectorIds[offsetIndex])
+                    offsetIndex = offsetIndex + 1
+                }
+            }
+        }
+        gatherOffsetArrayIds.append(arrayId)
+        gatherTokenIndex = gatherTokenIndex + 1
     }
     valid = valid && allTokens.size > 0 && allTokens.size < 512
     val tokenValues: array<int> = []
@@ -3700,13 +3860,21 @@ fun glslRasterFragmentSpirv(
             }
         } else if (token.kind == glslRasterTokenTextureGather) {
             val hasOffset = token.third >= 0
+            val multipleOffsets = token.fourth == 4
+            val singleOffset = hasOffset && !multipleOffsets
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < samplerVariables.size &&
                 token.memberIndex < samplerSampledImageTypes.size &&
                 token.second >= 0 &&
                 token.second < program.integerExpressions.size &&
-                (!hasOffset || token.third <
-                    program.integerExpressions.size) &&
+                (!hasOffset || (token.third <
+                    program.integerExpressions.size &&
+                    (!multipleOffsets || token.third + 3 <
+                        program.integerExpressions.size))) &&
+                (token.fourth == 0 || multipleOffsets) &&
+                (!multipleOffsets || (tokenIndex <
+                    gatherOffsetArrayIds.size &&
+                    gatherOffsetArrayIds[tokenIndex] != 0)) &&
                 stackSize >= 1 &&
                 stackTypes[stackSize - 1] == token.first &&
                 token.first == glslRasterTextureGatherCoordinateType(
@@ -3738,7 +3906,7 @@ fun glslRasterFragmentSpirv(
                 componentWord = componentWord + 1
             }
             if (valid) nextId = componentEmission.nextId
-            val offsetEmission = if (valid && hasOffset)
+            val offsetEmission = if (valid && singleOffset)
                 glslImageCoordinateSpirv(
                     program.integerExpressions[token.third],
                     0,
@@ -3776,8 +3944,10 @@ fun glslRasterFragmentSpirv(
                 words.append(coordinate)
                 words.append(componentEmission.valueId)
                 if (hasOffset) {
-                    words.append(16)
-                    words.append(offsetEmission.valueId)
+                    words.append(if (multipleOffsets) 32 else 16)
+                    words.append(if (multipleOffsets)
+                        gatherOffsetArrayIds[tokenIndex]
+                        else offsetEmission.valueId)
                 }
                 tokenTypes[tokenIndex] = glslRasterTypeVector
             }
@@ -8882,43 +9052,137 @@ fun glslImageCoordinateExpressionType(
     if (valid && stackSize == 1) stack[0] else 0
 }
 
-fun glslImageCoordinateConstantInRange(
+fun glslImageCoordinateConstant(
     expression: GlslImageCoordinateExpression,
-    minimum: int,
-    maximum: int
-): bool {
-    val stack: array<int> = []
+    expectedWidth: int
+): GlslImageCoordinateConstant {
+    val widths: array<int> = []
+    val firstValues: array<int> = []
+    val secondValues: array<int> = []
+    val thirdValues: array<int> = []
     var stackSize = 0
-    var valid = expression.valid && expression.compileTimeConstant
+    var valid = expression.valid && expression.compileTimeConstant &&
+        expectedWidth >= 1 && expectedWidth <= 3
     var index = 0
     while (valid && index < expression.tokens.size) {
         val token = expression.tokens[index]
+        var width = 0
+        var first = 0
+        var second = 0
+        var third = 0
         if (token.kind == glslImageCoordinateTokenLiteral) {
-            stack.append(token.value)
-            stackSize = stackSize + 1
+            width = 1
+            first = token.value
+        } else if (token.kind == glslImageCoordinateTokenConstruct) {
+            valid = (token.width == 2 || token.width == 3) &&
+                token.value == token.width && stackSize >= token.width
+            var component = 0
+            while (valid && component < token.width) {
+                valid = widths[stackSize - token.width + component] == 1
+                component = component + 1
+            }
+            if (valid) {
+                width = token.width
+                first = firstValues[stackSize - token.width]
+                second = firstValues[stackSize - token.width + 1]
+                if (width == 3) {
+                    third = firstValues[stackSize - token.width + 2]
+                }
+                stackSize = stackSize - token.width
+            }
+        } else if (token.kind == glslImageCoordinateTokenComponent) {
+            valid = stackSize >= 1 && token.value >= 0 &&
+                token.value < widths[stackSize - 1]
+            if (valid) {
+                width = 1
+                first = if (token.value == 0)
+                    firstValues[stackSize - 1]
+                    else if (token.value == 1)
+                        secondValues[stackSize - 1]
+                    else thirdValues[stackSize - 1]
+                stackSize = stackSize - 1
+            }
         } else if (token.kind == glslImageCoordinateTokenOperation &&
             token.opcode == 262270) {
             valid = stackSize >= 1
-            if (valid) stack[stackSize - 1] = -stack[stackSize - 1]
+            if (valid) {
+                width = widths[stackSize - 1]
+                first = -firstValues[stackSize - 1]
+                if (width > 1) second = -secondValues[stackSize - 1]
+                if (width > 2) third = -thirdValues[stackSize - 1]
+                stackSize = stackSize - 1
+            }
         } else if (token.kind == glslImageCoordinateTokenOperation) {
             valid = stackSize >= 2 &&
                 (token.opcode == 327808 || token.opcode == 327810 ||
                  token.opcode == 327812 || token.opcode == 327815)
             if (valid) {
-                val left = stack[stackSize - 2]
-                val right = stack[stackSize - 1]
-                valid = token.opcode != 327815 || right != 0
-                if (valid) stack[stackSize - 2] =
-                    if (token.opcode == 327808) left + right
-                    else if (token.opcode == 327810) left - right
-                    else if (token.opcode == 327812) left * right
-                    else left / right
-                stackSize = stackSize - 1
+                val leftIndex = stackSize - 2
+                val rightIndex = stackSize - 1
+                val leftWidth = widths[leftIndex]
+                val rightWidth = widths[rightIndex]
+                valid = leftWidth == rightWidth ||
+                    ((token.opcode == 327812 || token.opcode == 327815) &&
+                     leftWidth > 1 && rightWidth == 1)
+                width = leftWidth
+                var component = 0
+                while (valid && component < width) {
+                    val left = if (component == 0) firstValues[leftIndex]
+                        else if (component == 1) secondValues[leftIndex]
+                        else thirdValues[leftIndex]
+                    val right = if (rightWidth == 1)
+                        firstValues[rightIndex]
+                        else if (component == 0) firstValues[rightIndex]
+                        else if (component == 1) secondValues[rightIndex]
+                        else thirdValues[rightIndex]
+                    valid = token.opcode != 327815 || right != 0
+                    val value = if (!valid) 0
+                        else if (token.opcode == 327808) left + right
+                        else if (token.opcode == 327810) left - right
+                        else if (token.opcode == 327812) left * right
+                        else left / right
+                    if (component == 0) first = value
+                    else if (component == 1) second = value
+                    else third = value
+                    component = component + 1
+                }
+                stackSize = stackSize - 2
             }
         } else valid = false
+        if (valid) {
+            if (stackSize < widths.size) {
+                widths[stackSize] = width
+                firstValues[stackSize] = first
+                secondValues[stackSize] = second
+                thirdValues[stackSize] = third
+            } else {
+                widths.append(width)
+                firstValues.append(first)
+                secondValues.append(second)
+                thirdValues.append(third)
+            }
+            stackSize = stackSize + 1
+        }
         index = index + 1
     }
-    valid && stackSize == 1 && stack[0] >= minimum && stack[0] <= maximum
+    val values: array<int> = []
+    valid = valid && stackSize == 1 && widths[0] == expectedWidth
+    if (valid) {
+        values.append(firstValues[0])
+        if (expectedWidth > 1) values.append(secondValues[0])
+        if (expectedWidth > 2) values.append(thirdValues[0])
+    }
+    GlslImageCoordinateConstant(valid, values)
+}
+
+fun glslImageCoordinateConstantInRange(
+    expression: GlslImageCoordinateExpression,
+    minimum: int,
+    maximum: int
+): bool {
+    val constant = glslImageCoordinateConstant(expression, 1)
+    constant.valid && constant.values[0] >= minimum &&
+        constant.values[0] <= maximum
 }
 
 fun glslImageCoordinatePrimary(

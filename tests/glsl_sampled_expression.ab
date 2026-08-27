@@ -36,6 +36,26 @@ fun sampledInstructionFormCount(
     count
 }
 
+fun sampledImageOperandCount(
+    module: SpirvModule,
+    instruction: int,
+    operandMask: int
+): int {
+    var count = 0
+    var index = 5
+    while (index < module.words.size) {
+        val current = module.words[index]
+        val wordCount = (current >> 16) & 65535
+        if (current == instruction && wordCount >= 8 &&
+            index + 6 < module.words.size &&
+            module.words[index + 6] == operandMask) {
+            count = count + 1
+        }
+        index = index + if (wordCount > 0) wordCount else 1
+    }
+    count
+}
+
 fun sampledCapability(module: SpirvModule, capability: int): bool {
     var found = false
     var index = 5
@@ -229,7 +249,7 @@ trusted fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; void main(){ const int component=1+1; ivec2 offset=ivec2(0,0); vec4 a=textureGather(surface,vec2(0.25)); vec4 b=textureGather(layers,vec3(0.25),1); vec4 c=textureGather(sky,vec3(0.0,0.0,1.0),component); vec4 d=textureGatherOffset(surface,vec2(0.25),offset); vec4 e=textureGatherOffset(layers,vec3(0.25),offset,3); color=a+b+c+d+e; }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; void main(){ const int component=1+1; const ivec2 zero=ivec2(0,0); ivec2 offset=zero; vec4 a=textureGather(surface,vec2(0.25)); vec4 b=textureGather(layers,vec3(0.25),1); vec4 c=textureGather(sky,vec3(0.0,0.0,1.0),component); vec4 d=textureGatherOffset(surface,vec2(0.25),offset); vec4 e=textureGatherOffset(layers,vec3(0.25),offset,3); vec4 f=textureGatherOffsets(surface,vec2(0.25),ivec2[4](zero,zero+ivec2(1,0)-ivec2(1,0),ivec2(0,1)-ivec2(0,1),-ivec2(0,0)),1); vec4 g=textureGatherOffsets(layers,vec3(0.25),ivec2[4](zero,zero,zero,zero),component); color=a+b+c+d+e+f+g; }"
         ]
     )
     val gatheredProgram = gathered.rasterFragmentProgram()
@@ -268,6 +288,20 @@ trusted fun main: int {
         [
             "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ int component=1; color=textureGather(surface,vec2(0.25),component); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidGatherOffsetsRuntime = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ ivec2 offset=ivec2(0,0); color=textureGatherOffsets(surface,vec2(0.25),ivec2[4](offset,offset,offset,offset)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidGatherOffsetsCount = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=textureGatherOffsets(surface,vec2(0.25),ivec2[3](ivec2(0),ivec2(0),ivec2(0))); }"
         ]
     ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
@@ -364,7 +398,13 @@ trusted fun main: int {
         ) != 3) 64
         else if (sampledInstructionFormCount(
             gatheredFirst.module, 524384
-        ) != 2) 65
+        ) != 4) 65
+        else if (sampledImageOperandCount(
+            gatheredFirst.module, 524384, 16
+        ) != 2) 73
+        else if (sampledImageOperandCount(
+            gatheredFirst.module, 524384, 32
+        ) != 2) 74
         else if (!sampledCapability(gatheredFirst.module, 25)) 66
         else if (!sampledWordsEqual(
             gatheredFirst.module,
@@ -381,6 +421,10 @@ trusted fun main: int {
             invalidGatherWidth.error == "") 71
         else if (invalidGatherComponent.succeeded ||
             invalidGatherComponent.error == "") 72
+        else if (invalidGatherOffsetsRuntime.succeeded ||
+            invalidGatherOffsetsRuntime.error == "") 75
+        else if (invalidGatherOffsetsCount.succeeded ||
+            invalidGatherOffsetsCount.error == "") 76
         else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult

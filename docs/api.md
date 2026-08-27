@@ -3005,9 +3005,13 @@ and fetches; no runtime variable allocation is introduced. Assignment to
 dimension-matched floating coordinates, optional compile-time component 0-3,
 and a `vec4` result. `textureGatherOffset` supports 2D and 2D-array samplers,
 adds any signed `ivec2` offset expression, and retains the optional component.
-Vulkan emits `OpImageGather`; offset forms use the `Offset` image operand and
-conditionally declare `ImageGatherExtended`. 3D gathering, cube offsets,
-wrong coordinate/offset widths, and runtime component selection reject.
+`textureGatherOffsets` supports the same two sampler dimensions and requires
+an exact `ivec2[4](...)` constructor whose four elements are constant integral
+expressions. Vulkan emits `OpImageGather`; single offsets use `Offset`, while
+four-offset gathering emits a real constant array and `ConstOffsets`. Both
+forms conditionally declare `ImageGatherExtended`. 3D gathering, cube offsets,
+wrong coordinate/offset widths, runtime four-offset elements, wrong array
+lengths, and runtime component selection reject.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same
