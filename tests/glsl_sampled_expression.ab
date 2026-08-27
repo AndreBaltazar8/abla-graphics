@@ -74,6 +74,22 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) in vec3 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArray layers; void main(){ color=textureGrad(layers,texCoord,vec3(0.0),vec3(0.0)); }"
         ]
     ).spirv(shaderStageFragment)
+    val projected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) out vec3 texCoord; void main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); texCoord=vec3(0.25,0.25,0.75); }",
+            "#version 450\nlayout(location=0) in vec3 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler3D volume; void main(){ vec3 p2=vec3(texCoord.x,texCoord.y,1.0); vec4 implicit=textureProj(surface,p2); vec4 lod=textureProjLod(surface,vec4(texCoord.x,texCoord.y,0.0,1.0),0.0); vec4 grad=textureProjGrad(volume,vec4(texCoord.x,texCoord.y,texCoord.z,1.0),dFdx(texCoord),dFdy(texCoord)); color=mix(implicit+lod,grad,0.5); }"
+        ]
+    )
+    val projectedFirst = projected.spirv(shaderStageFragment)
+    val projectedSecond = projected.spirv(shaderStageFragment)
+    val invalidProjected = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCube sky; void main(){ color=textureProj(sky,vec4(0.0,0.0,1.0,1.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&
@@ -92,5 +108,13 @@ trusted fun main: int {
         sampledImageType(widerFirst.module, 3, 0) &&
         sampledImageType(widerFirst.module, 2, 0) &&
         sampledWordsEqual(widerFirst.module, widerSecond.module) &&
-        !invalidWider.succeeded && invalidWider.error != "") 42 else 1
+        !invalidWider.succeeded && invalidWider.error != "" &&
+        projected.valid && projectedFirst.succeeded &&
+        projectedFirst.module.valid() &&
+        sampledWordCount(projectedFirst.module, 327771) == 1 &&
+        sampledWordCount(projectedFirst.module, 458844) == 1 &&
+        sampledWordCount(projectedFirst.module, 524380) == 1 &&
+        sampledWordsEqual(projectedFirst.module, projectedSecond.module) &&
+        !invalidProjected.succeeded && invalidProjected.error != "")
+        42 else 1
 }

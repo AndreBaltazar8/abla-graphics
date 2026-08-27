@@ -1925,3 +1925,23 @@ LOD, preserving every exact pixel, explicit view, mismatch rejection, stable
 handle, and `live=0` result on OpenGL and Vulkan. The complete shader suite,
 Abla-only audit, and stripped runtime-linkage gate pass with
 `direct=true unresolved=0`.
+
+### Projected sampled expressions
+
+The floating sampled-expression IR now covers `textureProj`,
+`textureProjLod`, and `textureProjGrad`. Reflected 2D samplers accept projected
+`vec3` or `vec4` coordinates; 3D samplers accept `vec4`; arrays and cubes
+reject. Scalar LOD and gradient-width rules remain shared with ordinary
+sampling. Vulkan emits deterministic projected implicit/explicit opcodes and
+exact `Lod`/`Grad` operands. The focused gate proves all three operations,
+both legal 2D coordinate widths, a projected 3D gradient, deterministic words,
+and invalid cube projection.
+
+`examples/deferred-renderer` now uses projected 2D LOD and gradients while
+retaining exact yellow, 1,001 successful frames, zero/1,001 submissions, and
+`live=0` on OpenGL/Vulkan. The wider sample uses projected 3D LOD while
+retaining exact volume/view pixels, mismatch rejection, stable handles, four
+frames, and `live=0` on both backends. A 3D projected-gradient live experiment
+did not preserve the exact selected texel on either driver, so the exact-texel
+proof deliberately uses projected LOD while gradient lowering remains
+covered by deterministic mixed-module and live 2D execution.

@@ -218,8 +218,12 @@ stripped-environment linkage, and zero warmed live-byte growth are verified.
 sampler dimension. LOD operands are typed scalars; gradients match coordinate
 width except that 2D-array gradients correctly exclude the layer and remain
 `vec2`. Deterministic explicit-image operands and live dual-backend execution
-are verified. Offset, projected, fetch, size, and query sampling operations
-remain open.
+are verified. `textureProj`, `textureProjLod`, and `textureProjGrad` add the
+complete floating projected family for valid 2D `vec3`/`vec4` and 3D `vec4`
+coordinates, while arrays and cubes reject. Deterministic projected opcodes,
+live 2D projected LOD/grad, and live 3D projected LOD are verified on both
+backends. Offset, integer fetch, size, and query sampling operations remain
+open and require signed-integer raster values.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

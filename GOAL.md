@@ -2990,7 +2990,27 @@ cube gradients plus 3D LOD with all exact pixels, explicit views, mismatch
 rejection, stable handles, and `live=0` on OpenGL and Vulkan. Abla-only and
 direct runtime linkage pass with `unresolved=0`.
 
-Continue with offset/projected sampling, integer texel fetch, texture size/query
+### Verified checkpoint: projected sampled expressions
+
+The general floating sampler IR now supports `textureProj`, `textureProjLod`,
+and `textureProjGrad`. Two-dimensional samplers accept projected `vec3` or
+`vec4` coordinates, 3D samplers accept `vec4`, and array/cube samplers reject.
+The existing scalar-LOD and dimension-matched gradient rules are reused.
+Vulkan emits exact projected implicit/explicit instructions and image operands;
+OpenGL consumes the same source.
+
+The independent gate proves all three projected forms, both legal 2D
+coordinate widths, 3D projected gradients, stable modules, and invalid cube
+projection. The deferred sample executes projected 2D LOD/grad for 1,001 exact
+yellow frames with `live=0`. The wider sample executes projected 3D LOD with
+exact full/view pixels, mismatch rejection, stable handles, four frames, and
+`live=0` on both backends. The exact live 3D proof uses LOD because projected
+gradients did not preserve the selected exact texel on either backend; the
+gradient opcode/type path remains covered deterministically and through live
+projected 2D execution.
+
+Continue by adding signed integer scalar/vector values to the raster IR, then
+use them for texture offsets, integer texel fetch, texture size/query
 operations, and broader control flow. Keep compiler-heavy shader cases in
 independent focused test roots.
 

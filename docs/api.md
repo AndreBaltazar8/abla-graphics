@@ -2943,6 +2943,15 @@ part of its derivatives. All operands may be general typed expressions. Vulkan
 emits `OpImageSampleExplicitLod` with exact `Lod` or `Grad` image operands,
 while OpenGL consumes the unchanged GLSL source. Wrong arity or width rejects
 before pipeline creation, and ordinary `texture` retains implicit derivatives.
+`textureProj` applies implicit projected sampling; `textureProjLod` and
+`textureProjGrad` accept the same scalar LOD or dimension-matched gradients as
+their non-projected counterparts. A `sampler2D` projection coordinate is
+`vec3` or `vec4`; a `sampler3D` projection coordinate is `vec4`. Array and cube
+samplers reject projected operations. Vulkan emits the corresponding
+`OpImageSampleProjImplicitLod` or `OpImageSampleProjExplicitLod` instruction,
+including exact `Lod`/`Grad` operands. Both legal 2D coordinate widths,
+projected 3D gradients, wrong-family rejection, and deterministic modules are
+covered independently.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same
