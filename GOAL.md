@@ -2081,6 +2081,48 @@ additional typed return shapes, followed by generated types, flags, structure
 builders, feature chains, and ownership/capability metadata. The full goal
 remains active.
 
+### Published checkpoint: source-accurate resource and query batch
+
+Compiler dependency `183fe426cef916cbacfa376fdc8f59e5069271e2`
+adds exact `i32(pointer,i64)` and `void(pointer,pointer)` lowering. Existing
+four-pointer status-return and pointer/64-bit-handle/pointer void lowerings are
+now surfaced through the raw Vulkan API as part of the same batch.
+
+Graphics implementation `8fb67d3c6012fe495fcadfe14c6908e83ab7d348`
+contains the API-aware registry fix, regenerated metadata, four raw API
+families, live event lifecycle, focused tests, and public contract updates.
+
+The pure-Abla registry parser now selects command definitions by target API.
+This prevents Vulkan-SC definitions from appending duplicate parameters to
+Vulkan commands: the pinned Vulkan parameter total is corrected from 2,845 to
+2,809, and `vkCreateDevice` now has its exact four parameters rather than eight.
+The deterministic fixture includes a same-name Vulkan-SC definition and proves
+that it does not affect Vulkan shapes.
+
+Generated callable coverage rises from 49 to 309 of 842 Vulkan commands. The
+new exact families contribute 81
+`i32(pointer,pointer,pointer,pointer)` creation calls, 62
+`void(pointer,i64,pointer)` destruction calls, 13 `i32(pointer,i64)` handle
+status calls, and 104 `void(pointer,pointer)` query/command calls. Together
+with the prior 49 entries, this leaves 533 explicitly `unsupported`.
+
+The live raw sample uses those four new families to query
+`vkGetPhysicalDeviceFeatures2`, create a real `VkEvent`, observe exact
+`VK_EVENT_RESET`, and destroy the event. It rejects null required pointers,
+zero handles, wrong families, and null result storage before dispatch. Normal
+and optimized Vulkan runs both report the non-zero event handle,
+`eventStatus=4`, `calls=1000`, `status=0`, `live=0`, and `stable=true`; both
+validation scans are clean. The deterministic/full registry tests, stripped
+runtime-linkage checks, OpenGL raw runs, Abla-only audit, pure core test,
+compiler fixed point, and unsafe native boundary also pass.
+
+This batch moved 260 commands into executable raw coverage with one registry
+regeneration and one live lifecycle. Continue batching around exact layouts.
+The next high-yield families are scalar/64-bit-handle mixtures used by buffer
+copies and synchronization, three/four-scalar command-buffer calls tied to a
+real pipeline, additional typed returns, and generated flags/structures with
+feature/extension ownership metadata. The full goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
