@@ -227,8 +227,12 @@ backends. The raster subset now also accepts immutable initialized `int`,
 expressions. General `texelFetch` lowers dimension-exact 2D, 2D-array, and 3D
 coordinates plus scalar LOD through deterministic `OpImage`/`OpImageFetch` and
 is live on both backends. Cube fetches and wrong widths reject. Constant
-texture offsets, integer-return `textureSize`/query operations, conversion,
-and mutable integer locals remain open.
+offsets now cover ordinary, LOD, gradient, and projected forms for 2D,
+2D-array, and 3D samplers with compile-time-constant provenance and exact
+`ConstOffset` combinations; cubes, runtime locals, and wrong widths reject.
+Array-gradient and 3D-LOD offset forms are live on both backends.
+Integer-return `textureSize`/query operations, conversion, and mutable integer
+locals remain open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

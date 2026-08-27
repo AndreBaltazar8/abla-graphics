@@ -2963,6 +2963,17 @@ inside fetch coordinates and LOD. Vulkan extracts the reflected image and
 emits `OpImageFetch` with an explicit `Lod` operand; OpenGL consumes the same
 GLSL. Cube fetches, wrong coordinate widths, integer reassignment, and
 unsupported integer uses reject before pipeline creation.
+Constant-offset sampling supports `textureOffset`, `textureLodOffset`, and
+`textureGradOffset`, plus `textureProjOffset`, `textureProjLodOffset`, and
+`textureProjGradOffset`. The coordinate, LOD, gradient, and projection rules
+match their non-offset forms. A 2D or 2D-array sampler requires a compile-time
+constant `ivec2` offset; a 3D sampler requires constant `ivec3`; cube samplers
+reject offsets. Offset expressions may use literals, unary signs,
+parentheses, constructors, components, arithmetic, and earlier integer locals
+spelled `const` whose own initializers are constant. Vulkan combines exact
+`ConstOffset`, `Lod | ConstOffset`, or `Grad | ConstOffset` image operands in
+specification order. Non-`const` locals and wrong widths reject before either
+backend creates a pipeline.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same

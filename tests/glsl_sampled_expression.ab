@@ -21,6 +21,21 @@ fun sampledWordCount(module: SpirvModule, word: int): int {
     count
 }
 
+fun sampledInstructionFormCount(
+    module: SpirvModule,
+    instruction: int
+): int {
+    var count = 0
+    var index = 5
+    while (index < module.words.size) {
+        val current = module.words[index]
+        val wordCount = (current >> 16) & 65535
+        if (current == instruction) count = count + 1
+        index = index + if (wordCount > 0) wordCount else 1
+    }
+    count
+}
+
 fun sampledImageType(
     module: SpirvModule,
     dimension: int,
@@ -114,6 +129,37 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=texelFetch(surface,ivec3(0,0,0),0); }"
         ]
     ).spirv(shaderStageFragment)
+    val offset = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform sampler3D volume; void main(){ const ivec2 o2=ivec2(0,0); const ivec3 o3=ivec3(o2.x,o2.y,0); vec4 a=textureOffset(surface,vec2(0.25),o2); vec4 b=textureLodOffset(surface,vec2(0.25),0.0,o2); vec4 c=textureGradOffset(surface,vec2(0.25),vec2(0.0),vec2(0.0),o2); vec4 d=textureProjOffset(surface,vec3(0.25,0.25,1.0),o2); vec4 e=textureProjLodOffset(surface,vec3(0.25,0.25,1.0),0.0,o2); vec4 f=textureProjGradOffset(surface,vec3(0.25,0.25,1.0),vec2(0.0),vec2(0.0),o2); vec4 g=textureOffset(layers,vec3(0.25,0.25,1.0),o2); vec4 h=textureLodOffset(volume,vec3(0.25),0.0,o3); color=a+b+c+d+e+f+g+h; }"
+        ]
+    )
+    val offsetProgram = offset.rasterFragmentProgram()
+    val offsetFirst = offset.spirv(shaderStageFragment)
+    val offsetSecond = offset.spirv(shaderStageFragment)
+    val invalidOffsetCube = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCube sky; void main(){ color=textureOffset(sky,vec3(0.0,0.0,1.0),ivec3(0,0,0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidOffsetWidth = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArray layers; void main(){ color=textureOffset(layers,vec3(0.25),ivec3(0,0,0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidOffsetRuntime = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ ivec2 offset=ivec2(0,0); color=textureOffset(surface,vec2(0.25),offset); }"
+        ]
+    ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
         else if (!fetchedProgram.valid) 3
         else if (fetchedProgram.integerExpressions.size != 6) 4
@@ -130,7 +176,42 @@ trusted fun main: int {
         else if (invalidFetchedWidth.succeeded ||
             invalidFetchedWidth.error == "") 11
         else 42
+    val offsetResult = if (!offset.valid) 20
+        else if (!offsetProgram.valid) 21
+        else if (offsetProgram.integerExpressions.size != 8) 22
+        else if (!offsetFirst.succeeded) 23
+        else if (!offsetFirst.module.valid()) 24
+        else if (sampledInstructionFormCount(
+            offsetFirst.module, 458839
+        ) != 2) 25
+        else if (sampledInstructionFormCount(
+            offsetFirst.module, 524376
+        ) != 2) 26
+        else if (sampledInstructionFormCount(
+            offsetFirst.module, 589912
+        ) != 1) 27
+        else if (sampledInstructionFormCount(
+            offsetFirst.module, 458843
+        ) != 1) 28
+        else if (sampledInstructionFormCount(
+            offsetFirst.module, 524380
+        ) != 1) 29
+        else if (sampledInstructionFormCount(
+            offsetFirst.module, 589916
+        ) != 1) 30
+        else if (!sampledWordsEqual(
+            offsetFirst.module,
+            offsetSecond.module
+        )) 31
+        else if (invalidOffsetCube.succeeded ||
+            invalidOffsetCube.error == "") 32
+        else if (invalidOffsetWidth.succeeded ||
+            invalidOffsetWidth.error == "") 33
+        else if (invalidOffsetRuntime.succeeded ||
+            invalidOffsetRuntime.error == "") 34
+        else 42
     if (fetchResult != 42) fetchResult
+    else if (offsetResult != 42) offsetResult
     else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&

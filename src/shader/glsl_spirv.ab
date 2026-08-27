@@ -181,6 +181,10 @@ fun glslRasterTexelFetchCoordinateWidth(dataType: string): int =
     else if (dataType == "sampler2DArray" || dataType == "sampler3D") 3
     else 0
 
+fun glslRasterTextureOffsetWidth(dataType: string): int =
+    if (dataType == "sampler2D" || dataType == "sampler2DArray") 2
+    else if (dataType == "sampler3D") 3 else 0
+
 class GlslRasterToken(
     val kind: int,
     val memberIndex: int = -1,
@@ -188,6 +192,7 @@ class GlslRasterToken(
     val second: int = 0,
     val third: int = 0,
     val fourth: int = 0,
+    val fifth: int = -1,
     val opcode: int = 0
 )
 
@@ -242,13 +247,15 @@ class GlslImageCoordinateToken(
 class GlslImageCoordinateExpression(
     val valid: bool,
     val tokens: array<GlslImageCoordinateToken>,
-    val next: int
+    val next: int,
+    val compileTimeConstant: bool = false
 )
 
 class GlslImageCoordinateLocal(
     val name: string,
     val width: int,
-    val tokens: array<GlslImageCoordinateToken>
+    val tokens: array<GlslImageCoordinateToken>,
+    val compileTimeConstant: bool = false
 )
 
 class GlslImageCoordinateSpirvEmission(
@@ -826,13 +833,15 @@ fun glslRasterPrimaryWithIntegers(
             integerExpressions.append(GlslImageCoordinateExpression(
                 true,
                 glslImageCoordinateTokensCopy(coordinate.tokens),
-                coordinate.next
+                coordinate.next,
+                coordinate.compileTimeConstant
             ))
             val lodExpressionIndex = integerExpressions.size
             integerExpressions.append(GlslImageCoordinateExpression(
                 true,
                 glslImageCoordinateTokensCopy(lod.tokens),
-                lod.next
+                lod.next,
+                lod.compileTimeConstant
             ))
             tokens.append(GlslRasterToken(
                 glslRasterTokenTexelFetch,
@@ -846,17 +855,36 @@ fun glslRasterPrimaryWithIntegers(
     } else if (valid && (sourceTokens[index].text == "texture" ||
         sourceTokens[index].text == "textureLod" ||
         sourceTokens[index].text == "textureGrad" ||
+        sourceTokens[index].text == "textureOffset" ||
+        sourceTokens[index].text == "textureLodOffset" ||
+        sourceTokens[index].text == "textureGradOffset" ||
         sourceTokens[index].text == "textureProj" ||
         sourceTokens[index].text == "textureProjLod" ||
-        sourceTokens[index].text == "textureProjGrad")) {
+        sourceTokens[index].text == "textureProjGrad" ||
+        sourceTokens[index].text == "textureProjOffset" ||
+        sourceTokens[index].text == "textureProjLodOffset" ||
+        sourceTokens[index].text == "textureProjGradOffset")) {
         val sampleFunction = sourceTokens[index].text
         val projected = sampleFunction == "textureProj" ||
             sampleFunction == "textureProjLod" ||
-            sampleFunction == "textureProjGrad"
+            sampleFunction == "textureProjGrad" ||
+            sampleFunction == "textureProjOffset" ||
+            sampleFunction == "textureProjLodOffset" ||
+            sampleFunction == "textureProjGradOffset"
+        val hasOffset = sampleFunction == "textureOffset" ||
+            sampleFunction == "textureLodOffset" ||
+            sampleFunction == "textureGradOffset" ||
+            sampleFunction == "textureProjOffset" ||
+            sampleFunction == "textureProjLodOffset" ||
+            sampleFunction == "textureProjGradOffset"
         val imageOperands = if (sampleFunction == "texture" ||
-            sampleFunction == "textureProj") 0
+            sampleFunction == "textureProj" ||
+            sampleFunction == "textureOffset" ||
+            sampleFunction == "textureProjOffset") 0
             else if (sampleFunction == "textureLod" ||
-                sampleFunction == "textureProjLod") 2 else 4
+                sampleFunction == "textureProjLod" ||
+                sampleFunction == "textureLodOffset" ||
+                sampleFunction == "textureProjLodOffset") 2 else 4
         index = index + 1
         valid = glslRasterTokenText(sourceTokens, index, "(")
         if (valid) index = index + 1
@@ -866,6 +894,7 @@ fun glslRasterPrimaryWithIntegers(
         var samplerDataType = ""
         var samplerCoordinateType = glslRasterTypeInvalid
         var samplerGradientType = glslRasterTypeInvalid
+        var samplerOffsetWidth = 0
         var samplerCount = 0
         var samplerCandidate = 0
         while (samplerIndex < 0 && samplerCandidate + 2 < sourceTokens.size) {
@@ -884,12 +913,16 @@ fun glslRasterPrimaryWithIntegers(
                     samplerGradientType = glslRasterSamplerGradientType(
                         sourceTokens[samplerCandidate + 1].text
                     )
+                    samplerOffsetWidth = glslRasterTextureOffsetWidth(
+                        sourceTokens[samplerCandidate + 1].text
+                    )
                 }
                 samplerCount = samplerCount + 1
             }
             samplerCandidate = samplerCandidate + 1
         }
-        valid = valid && samplerIndex >= 0
+        valid = valid && samplerIndex >= 0 &&
+            (!hasOffset || samplerOffsetWidth > 0)
         if (valid) index = index + 1
         valid = valid && glslRasterTokenText(sourceTokens, index, ",")
         if (valid) index = index + 1
@@ -958,6 +991,36 @@ fun glslRasterPrimaryWithIntegers(
                 glslRasterExpressionType(secondExtra, push, inputs) ==
                     samplerGradientType
         }
+        var offsetExpressionIndex = -1
+        if (valid && hasOffset) {
+            valid = glslRasterTokenText(sourceTokens, index, ",")
+            if (valid) index = index + 1
+            val integerPush = ShaderPushConstant("", "", "", [])
+            val offset = if (valid) glslImageCoordinateExpression(
+                sourceTokens,
+                index,
+                1,
+                integerPush,
+                integerLocals,
+                samplerOffsetWidth,
+                0
+            ) else GlslImageCoordinateExpression(false, [], index)
+            index = offset.next
+            valid = valid && offset.valid && offset.compileTimeConstant &&
+                glslImageCoordinateExpressionType(
+                    offset,
+                    samplerOffsetWidth
+                ) == samplerOffsetWidth
+            if (valid) {
+                offsetExpressionIndex = integerExpressions.size
+                integerExpressions.append(GlslImageCoordinateExpression(
+                    true,
+                    glslImageCoordinateTokensCopy(offset.tokens),
+                    offset.next,
+                    true
+                ))
+            }
+        }
         valid = valid && glslRasterTokenText(sourceTokens, index, ")")
         if (valid) {
             val copied = glslRasterTokensCopy(coordinate.tokens)
@@ -988,7 +1051,8 @@ fun glslRasterPrimaryWithIntegers(
                 first = coordinateType,
                 second = imageOperands,
                 third = samplerGradientType,
-                fourth = if (projected) 1 else 0
+                fourth = if (projected) 1 else 0,
+                fifth = offsetExpressionIndex
             ))
             index = index + 1
         }
@@ -1911,14 +1975,17 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
                     glslImageCoordinateExpressionType(
                         integerExpression,
                         localWidth
-                    ) == localWidth
+                    ) == localWidth &&
+                    (!constantDeclaration ||
+                     integerExpression.compileTimeConstant)
                 if (valid) {
                     integerLocals.append(GlslImageCoordinateLocal(
                         name,
                         localWidth,
                         glslImageCoordinateTokensCopy(
                             integerExpression.tokens
-                        )
+                        ),
+                        constantDeclaration
                     ))
                     if (glslRasterTokenText(
                         lexical.tokens,
@@ -3103,11 +3170,14 @@ fun glslRasterFragmentSpirv(
                 else if (token.second == 2) 2
                 else if (token.second == 4) 3 else 0
             val projected = token.fourth == 1
+            val hasOffset = token.fifth >= 0
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < samplerVariables.size &&
                 token.memberIndex < samplerSampledImageTypes.size &&
                 operandCount > 0 &&
                 (token.fourth == 0 || projected) &&
+                (!hasOffset || token.fifth <
+                    program.integerExpressions.size) &&
                 stackSize >= operandCount &&
                 stackTypes[stackSize - operandCount] == token.first
             if (valid) {
@@ -3116,6 +3186,8 @@ fun glslRasterFragmentSpirv(
                     sampler.dataType,
                     token.first
                 ) else token.first == sampler.coordinateType
+                valid = valid && (!hasOffset ||
+                    glslRasterTextureOffsetWidth(sampler.dataType) > 0)
             }
             if (valid && token.second == 2) {
                 valid = stackTypes[stackSize - 1] == glslRasterTypeScalar
@@ -3134,6 +3206,30 @@ fun glslRasterFragmentSpirv(
                 val secondExtra = if (operandCount > 2)
                     stack[stackSize - 1] else 0
                 stackSize = stackSize - operandCount
+                val offsetWidth = if (hasOffset)
+                    glslRasterTextureOffsetWidth(
+                        program.samplers[token.memberIndex].dataType
+                    ) else 0
+                val offsetEmission = if (hasOffset)
+                    glslImageCoordinateSpirv(
+                        program.integerExpressions[token.fifth],
+                        0,
+                        offsetWidth,
+                        integerVector2Type,
+                        integerVector3Type,
+                        integerConstantBits,
+                        integerConstantIds,
+                        nextId
+                    ) else GlslImageCoordinateSpirvEmission(
+                        [], 0, nextId
+                    )
+                valid = valid && offsetEmission.error == ""
+                var offsetWord = 0
+                while (valid && offsetWord < offsetEmission.words.size) {
+                    words.append(offsetEmission.words[offsetWord])
+                    offsetWord = offsetWord + 1
+                }
+                if (valid) nextId = offsetEmission.nextId
                 val sampled = nextId
                 valueId = nextId + 1
                 nextId = nextId + 2
@@ -3141,19 +3237,31 @@ fun glslRasterFragmentSpirv(
                 words.append(samplerSampledImageTypes[token.memberIndex])
                 words.append(sampled)
                 words.append(samplerVariables[token.memberIndex])
-                words.append(if (projected)
-                    (if (token.second == 0) 327771
-                     else if (token.second == 2) 458844 else 524380)
-                    else (if (token.second == 0) 327767
-                     else if (token.second == 2) 458840 else 524376))
+                val fullImageOperands = token.second |
+                    (if (hasOffset) 8 else 0)
+                val imageOperandCount = if (token.second == 0)
+                    (if (hasOffset) 1 else 0)
+                    else if (token.second == 2)
+                        (if (hasOffset) 2 else 1)
+                    else if (hasOffset) 3 else 2
+                val instructionWords = 5 +
+                    (if (fullImageOperands == 0) 0
+                     else 1 + imageOperandCount)
+                words.append(instructionWords * 65536 +
+                    (if (projected)
+                        (if (token.second == 0) 91 else 92)
+                     else (if (token.second == 0) 87 else 88)))
                 words.append(vectorType)
                 words.append(valueId)
                 words.append(sampled)
                 words.append(coordinate)
-                if (token.second != 0) {
-                    words.append(token.second)
+                if (fullImageOperands != 0) {
+                    words.append(fullImageOperands)
+                    if (token.second != 0) {
                     words.append(firstExtra)
                     if (token.second == 4) words.append(secondExtra)
+                    }
+                    if (hasOffset) words.append(offsetEmission.valueId)
                 }
                 tokenTypes[tokenIndex] = glslRasterTypeVector
             }
@@ -8071,6 +8179,7 @@ fun glslImageCoordinatePrimary(
     val result: array<GlslImageCoordinateToken> = []
     var index = begin
     var valid = depth < 32 && index < tokens.size
+    var compileTimeConstant = true
     if (valid && (tokens[index].text == "+" ||
         tokens[index].text == "-")) {
         val negate = tokens[index].text == "-"
@@ -8078,6 +8187,7 @@ fun glslImageCoordinatePrimary(
             tokens, index + 1, push, locals, pushWidth, depth + 1
         )
         valid = nested.valid
+        compileTimeConstant = nested.compileTimeConstant
         index = nested.next
         if (valid) {
             val copied = glslImageCoordinateTokensCopy(nested.tokens)
@@ -8096,6 +8206,7 @@ fun glslImageCoordinatePrimary(
             tokens, index + 1, 1, push, locals, pushWidth, depth + 1
         )
         index = nested.next
+        compileTimeConstant = nested.compileTimeConstant
         valid = nested.valid && glslRasterTokenText(tokens, index, ")")
         if (valid) {
             val copied = glslImageCoordinateTokensCopy(nested.tokens)
@@ -8118,6 +8229,8 @@ fun glslImageCoordinatePrimary(
             val parsed = glslImageCoordinateExpression(
                 tokens, index, 1, push, locals, pushWidth, depth + 1
             )
+            compileTimeConstant = compileTimeConstant &&
+                parsed.compileTimeConstant
             valid = parsed.valid &&
                 glslImageCoordinateExpressionType(parsed, pushWidth) == 1
             if (valid) {
@@ -8140,6 +8253,7 @@ fun glslImageCoordinatePrimary(
             width = width
         ))
     } else if (valid && tokens[index].text == push.name) {
+        compileTimeConstant = false
         valid = glslRasterTokenText(tokens, index + 1, ".") &&
             glslRasterTokenText(tokens, index + 2, push.members[0].name)
         if (valid) {
@@ -8165,6 +8279,9 @@ fun glslImageCoordinatePrimary(
         )
         valid = localIndex >= 0
         if (valid) {
+            compileTimeConstant = locals[
+                localIndex
+            ].compileTimeConstant
             val copied = glslImageCoordinateTokensCopy(
                 locals[localIndex].tokens
             )
@@ -8188,7 +8305,12 @@ fun glslImageCoordinatePrimary(
             index = index + 2
         }
     }
-    GlslImageCoordinateExpression(valid && result.size > 0, result, index)
+    GlslImageCoordinateExpression(
+        valid && result.size > 0,
+        result,
+        index,
+        compileTimeConstant
+    )
 }
 
 fun glslImageCoordinateExpression(
@@ -8206,6 +8328,7 @@ fun glslImageCoordinateExpression(
     )
     val result = glslImageCoordinateTokensCopy(first.tokens)
     var valid = first.valid
+    var compileTimeConstant = first.compileTimeConstant
     var index = first.next
     var done = false
     while (valid && !done && result.size < 64 && index < tokens.size) {
@@ -8227,6 +8350,8 @@ fun glslImageCoordinateExpression(
                 depth + 1
             )
             valid = opcode != 0 && right.valid
+            compileTimeConstant = compileTimeConstant &&
+                right.compileTimeConstant
             if (valid) {
                 val copied = glslImageCoordinateTokensCopy(right.tokens)
                 var copiedIndex = 0
@@ -8245,7 +8370,8 @@ fun glslImageCoordinateExpression(
     GlslImageCoordinateExpression(
         valid && result.size > 0 && result.size < 64,
         result,
-        index
+        index,
+        compileTimeConstant
     )
 }
 

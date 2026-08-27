@@ -3031,9 +3031,32 @@ frames, and `live=0`. `make test-glsl` passed. The consolidated Nix-backed
 `direct=true unresolved=0`. A bare-host build correctly demonstrated why the
 Nix command is required: its linker could not resolve Vulkan/X11/EGL/GL.
 
-Continue with constant integer texture offsets, then integer-return
-`textureSize`/query operations and explicit integer-to-floating conversion.
-Keep compiler-heavy shader cases in independent focused test roots.
+### Verified checkpoint: constant sampled offsets
+
+The sampled-expression parser now covers `textureOffset`, `textureLodOffset`,
+`textureGradOffset`, `textureProjOffset`, `textureProjLodOffset`, and
+`textureProjGradOffset`. Offset width is `ivec2` for 2D/2D-array and `ivec3`
+for 3D; cubes reject. Signed expression provenance distinguishes GLSL
+compile-time constants from ordinary immutable raster locals. Literals,
+constructors, components, parentheses, unary signs, arithmetic, and earlier
+valid `const` locals compose; runtime-spelled locals and nonconstant `const`
+initializers reject before pipeline creation.
+
+The Vulkan emitter independently selects implicit/explicit and ordinary/
+projected opcodes and combines exact `ConstOffset`, `Lod | ConstOffset`, or
+`Grad | ConstOffset` operands in specification order. The focused gate counts
+the actual instruction boundaries for every 2D family plus array/3D forms,
+proves deterministic words, and checks cube, width, and constant-provenance
+rejection. `make test-glsl` passes. The wider sample retains live 3D
+`texelFetch`, adds array-gradient and 3D-LOD offsets, and passes OpenGL,
+Vulkan, and automatic selection with exact pixels/views, stable handles, four
+frames, and `live=0`. The same consolidated invocation passes the Abla-only
+audit. The preceding published checkpoint already proved stripped direct
+runtime linkage with `unresolved=0`; no linkage inputs changed here.
+
+Continue with integer-return `textureSize` and query operations, then explicit
+integer-to-floating conversion and mutable integer locals. Keep compiler-heavy
+shader cases in independent focused test roots.
 
 ## Working commands
 

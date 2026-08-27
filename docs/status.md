@@ -1966,3 +1966,24 @@ Vulkan, and automatic selection preserve every exact array/cube/volume pixel
 and explicit view, mismatch rejection, stable handles, four frames, and
 `live=0`. The Abla-only audit passes and stripped direct linkage remains
 `unresolved=0`.
+
+### Constant texture offsets
+
+All six portable constant-offset families now share the general sampled
+expression path: ordinary, LOD, gradient, and their projected counterparts.
+Two-dimensional and 2D-array samplers require `ivec2`; 3D requires `ivec3`;
+cube samplers reject. The integer expression IR now preserves compile-time-
+constant provenance through literals, constructors, components, parentheses,
+unary signs, arithmetic, and earlier `const` integer locals. A runtime-spelled
+local rejects before pipeline creation, keeping OpenGL and Vulkan behavior
+aligned.
+
+The deterministic emitter selects implicit versus explicit and projected
+versus ordinary opcodes independently, then emits exact `ConstOffset`,
+`Lod | ConstOffset`, or `Grad | ConstOffset` masks and ordered operands. The
+focused module proves every 2D form plus array and 3D forms at instruction
+boundaries, stable words, and cube/wrong-width/runtime-local rejection.
+`examples/wider-sampling` executes array-gradient and 3D-LOD zero offsets while
+retaining its 3D integer fetch. OpenGL, Vulkan, and automatic selection preserve
+all exact pixels/views, mismatch rejection, stable handles, four frames, and
+`live=0`; the Abla-only audit passes.
