@@ -84,6 +84,9 @@ trusted fun main: int {
         val enumerateVersion = raw.globalCommand(
             "vkEnumerateInstanceVersion"
         )
+        val getInstanceProcAddress = raw.globalCommand(
+            "vkGetInstanceProcAddr"
+        )
         val surfaceSupport = raw.instanceCommand(
             "vkGetPhysicalDeviceSurfaceSupportKHR"
         )
@@ -146,6 +149,7 @@ trusted fun main: int {
         val idleStatus = nativeI64Cell(-1)
         val instanceVersion = nativeI64Cell(0)
         val instanceVersionStatus = nativeI64Cell(-1)
+        val resolvedEnumerateAddress = nativeI64Cell(0)
         val surfaceSupported = nativeI64Cell(0)
         val surfaceSupportStatus = nativeI64Cell(-1)
         val eventHandle = nativeI64Cell(0)
@@ -246,7 +250,15 @@ trusted fun main: int {
         fenceInfo.storeI64(0, 8)
         fenceInfo.storePointer(8, nativeNullPointer())
         fenceInfo.storeI64(16, 1)
-        val metadataQueries = raw.callI32Pointer(
+        val metadataQueries = raw.callAddressPointerPointer(
+            getInstanceProcAddress,
+            app.vulkanInstance.handle,
+            nativePointerFromAddress(nativeCStringAddress(
+                "vkEnumeratePhysicalDevices"
+            )),
+            resolvedEnumerateAddress.address
+        ) && resolvedEnumerateAddress.load() == enumerate.address &&
+            raw.callI32Pointer(
             enumerateVersion,
             instanceVersion.address,
             instanceVersionStatus.address
@@ -1291,7 +1303,8 @@ trusted fun main: int {
             resetPoolStatus.address
         ) && resetPoolStatus.load() == vulkanSuccess
         stable = raw.available && enumerate.valid() &&
-            enumerateVersion.valid() && surfaceSupport.valid() &&
+            enumerateVersion.valid() && getInstanceProcAddress.valid() &&
+            surfaceSupport.valid() &&
             metadataQueries && idle.valid() &&
             setDeviceMask.valid() &&
             endRendering.valid() && setStencilReference.valid() &&
@@ -1339,6 +1352,7 @@ trusted fun main: int {
             getFeatures2.callAbi == "void(pointer,pointer)" &&
             enumerate.callAbi == "i32(pointer,pointer,pointer)" &&
             enumerateVersion.callAbi == "i32(pointer)" &&
+            getInstanceProcAddress.callAbi == "pointer(pointer,pointer)" &&
             surfaceSupport.callAbi == "i32(pointer,i32,i64,pointer)" &&
             getDeviceQueue2.callShape ==
                 "void(VkDevice,const VkDeviceQueueInfo2*,VkQueue*)" &&
@@ -1450,7 +1464,7 @@ trusted fun main: int {
             rawImagePixel == 4278190335 &&
             beginStatus.load() == vulkanSuccess && recorded && restored &&
             loopLiveAfter == loopLiveBefore
-        detail = "enumerate=${enumerate.address} version=${instanceVersion.load()} surface=${surfaceSupported.load()} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond image=$rawImagePixel unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} fenceWait=${waitFenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} resolved=${resolvedEnumerateAddress.load()} version=${instanceVersion.load()} surface=${surfaceSupported.load()} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond image=$rawImagePixel unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} fenceWait=${waitFenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
         rawCompute.drop()
         timeline.drop()
         timestampQuery.drop()
