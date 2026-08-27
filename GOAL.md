@@ -2041,6 +2041,46 @@ paired operation, pointer-plus-multiple-scalars, pointer/structure families,
 typed `VkResult` returns, command feature/extension ownership, and generated
 types/flags/builders/feature chains. Keep the full goal active.
 
+### Published checkpoint: batched Vulkan pointer and status families
+
+Compiler dependency `9b0c1b8568684ad2c5f0b869a1a455e387f645b9`
+adds three exact native indirect-call families in one compiler round:
+`void(pointer)`, `void(pointer,i32,i32)`, and `i32(pointer)`. Together with the
+previous `void(pointer,i32)` family, the generated raw Vulkan surface now marks
+49 of 842 pinned commands callable: 8, 35, 4, and 2 entries respectively. The
+remaining 793 commands stay explicitly `unsupported`; no signature is inferred
+from address presence alone.
+
+Graphics implementation `8d55f814691f91f40ad6822f0b49418dd12f062d`
+contains the generated registry, raw API, live proof, tests, and public contract
+updates for this batch.
+
+`RawVulkanApi` checks device ownership, exact generated ABI tags, and non-null
+dispatch/output pointers before calling. The status-return family writes the
+complete signed 32-bit value to caller-owned native storage and returns whether
+dispatch occurred, preserving every native result without allocating or
+reserving a sentinel. The registry fixture proves all four Vulkan ABI tags and
+the full registry test checks `vkCmdEndRendering`, `vkCmdSetDeviceMask`,
+`vkCmdSetStencilReference`, and `vkDeviceWaitIdle` exact shapes.
+
+The one live Vulkan sample now pairs direct `vkCmdBeginRendering` with raw
+`vkCmdEndRendering`, records 1,000 raw device-mask and 1,000 raw
+stencil-reference commands, submits once, and obtains exact success from raw
+`vkDeviceWaitIdle`. Wrong-family, null dispatchable, and null output calls are
+rejected before driver dispatch. Normal and optimized builds both report
+`calls=1000 status=0 live=0 stable=true`; validation scanning is clean in both
+modes. The same bundled gate passed deterministic registry generation,
+stripped-environment linkage, OpenGL raw execution, the Abla-only audit, and
+the pure core suite.
+
+This checkpoint deliberately batched three ABI families into one compiler
+rebuild, one registry refresh, one live sample, and one consolidated graphics
+gate. Continue that cadence. The next high-yield groups are dispatchable plus
+three/four scalars, 64-bit handles and offsets, pointer/structure inputs, and
+additional typed return shapes, followed by generated types, flags, structure
+builders, feature chains, and ownership/capability metadata. The full goal
+remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
