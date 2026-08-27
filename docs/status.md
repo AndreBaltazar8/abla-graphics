@@ -2005,3 +2005,19 @@ proves both invalid forms. The wider sample derives its exact 3D fetch point
 from live extent and level-count queries. OpenGL, Vulkan, and automatic
 selection preserve all exact pixels/views, mismatch rejection, stable handles,
 four frames, and `live=0`; the Abla-only audit passes.
+
+### Floating LOD queries and signed scalar conversion
+
+Fragment expressions now accept `textureQueryLod` with `vec2` coordinates for
+2D/2D-array samplers and `vec3` for cube/3D, returning a general floating
+`vec2`. Signed scalar expressions may cross into floating arithmetic through
+explicit `float(intExpression)`. Vulkan emits specification opcodes 105
+(`OpImageQueryLod`) and 111 (`OpConvertSToF`) with conditional `ImageQuery`;
+wrong coordinate width and vector-to-scalar conversion reject.
+
+The focused mixed module repeats both operations through named locals, verifies
+two instruction-boundary occurrences of each, stable words, and both invalid
+forms. `examples/wider-sampling` executes an array LOD query and converts the
+live 3D level count into a floating blend expression. OpenGL, Vulkan, and
+automatic selection preserve all exact pixels/views, mismatch rejection,
+stable handles, four frames, and `live=0`; the Abla-only audit passes.

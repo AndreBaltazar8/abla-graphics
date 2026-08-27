@@ -177,7 +177,7 @@ trusted fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nvoid main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; layout(binding=3) uniform sampler3D volume; void main(){ int lod=0; ivec2 surfaceSize=textureSize(surface,lod); ivec3 layerSize=textureSize(layers,lod); ivec2 cubeSize=textureSize(sky,lod); ivec3 volumeSize=textureSize(volume,lod); int levels=textureQueryLevels(volume); ivec2 p2=surfaceSize-surfaceSize+cubeSize-cubeSize; ivec3 p3=layerSize-layerSize+volumeSize-volumeSize+ivec3(0,0,levels-levels); vec4 a=texelFetch(surface,p2,lod+levels-levels); vec4 b=texelFetch(layers,p3,lod+levels-levels); vec4 c=texelFetch(volume,p3,lod+levels-levels); color=a+b+c; }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; layout(binding=3) uniform sampler3D volume; void main(){ int lod=0; ivec2 surfaceSize=textureSize(surface,lod); ivec3 layerSize=textureSize(layers,lod); ivec2 cubeSize=textureSize(sky,lod); ivec3 volumeSize=textureSize(volume,lod); int levels=textureQueryLevels(volume); ivec2 p2=surfaceSize-surfaceSize+cubeSize-cubeSize; ivec3 p3=layerSize-layerSize+volumeSize-volumeSize+ivec3(0,0,levels-levels); float levelValue=float(levels); vec2 queriedLod=textureQueryLod(surface,vec2(0.25)); vec4 a=texelFetch(surface,p2,lod+levels-levels); vec4 b=texelFetch(layers,p3,lod+levels-levels); vec4 c=texelFetch(volume,p3,lod+levels-levels); color=(a+b+c)*(queriedLod.x-queriedLod.x+levelValue-levelValue+1.0); }"
         ]
     )
     val queriedProgram = queried.rasterFragmentProgram()
@@ -195,6 +195,20 @@ trusted fun main: int {
         [
             "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ ivec2 size=textureSize(surface); color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidFloatingQuery = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArray layers; void main(){ vec2 lod=textureQueryLod(layers,vec3(0.25)); color=vec4(lod,0.0,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidSignedConversion = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ ivec2 value=ivec2(1,1); float scalar=float(value); color=vec4(scalar); }"
         ]
     ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
@@ -249,7 +263,7 @@ trusted fun main: int {
         else 42
     val queryResult = if (!queried.valid) 40
         else if (!queriedProgram.valid) 41
-        else if (queriedProgram.integerExpressions.size != 6) 43
+        else if (queriedProgram.integerExpressions.size != 7) 43
         else if (!queriedFirst.succeeded) 44
         else if (!queriedFirst.module.valid()) 45
         else if (!sampledCapability(queriedFirst.module, 50)) 46
@@ -258,7 +272,13 @@ trusted fun main: int {
         ) != 12) 47
         else if (sampledInstructionFormCount(
             queriedFirst.module, 262250
-        ) != 10) 48
+        ) != 12) 48
+        else if (sampledInstructionFormCount(
+            queriedFirst.module, 327785
+        ) != 2) 52
+        else if (sampledInstructionFormCount(
+            queriedFirst.module, 262255
+        ) != 2) 53
         else if (!sampledWordsEqual(
             queriedFirst.module,
             queriedSecond.module
@@ -267,6 +287,10 @@ trusted fun main: int {
             invalidQueryWidth.error == "") 50
         else if (invalidQueryLod.succeeded ||
             invalidQueryLod.error == "") 51
+        else if (invalidFloatingQuery.succeeded ||
+            invalidFloatingQuery.error == "") 54
+        else if (invalidSignedConversion.succeeded ||
+            invalidSignedConversion.error == "") 55
         else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult

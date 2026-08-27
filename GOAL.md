@@ -3075,9 +3075,27 @@ exact pixels/views, mismatch rejection, stable handles, four frames, and
 `live=0`; the consolidated Abla-only audit passes. No compiler or linkage input
 changed.
 
-Continue with floating `textureQueryLod`, explicit signed-integer-to-floating
-conversion, and then mutable integer locals. Keep compiler-heavy shader cases
-in independent focused test roots.
+### Verified checkpoint: floating LOD queries and scalar conversion
+
+The general fragment expression IR now accepts `textureQueryLod`, requiring
+`vec2` coordinates for 2D/2D-array and `vec3` for cube/3D while returning
+floating `vec2`. Explicit `float(signedScalarExpression)` converts query- or
+fetch-derived `int` values into ordinary scalar raster math. Vulkan uses
+Khronos opcodes 105 (`OpImageQueryLod`) and 111 (`OpConvertSToF`) and shares
+the conditional `ImageQuery` capability. Wrong query coordinate width and
+vector-to-scalar conversion reject deterministically.
+
+The focused mixed module repeats both operations through expanded named locals,
+checks two exact instruction-boundary occurrences apiece and stable module
+words, and covers both invalid forms. `make test-glsl` passes. The wider sample
+executes an array LOD query and converts its live 3D level count into a floating
+blend expression. OpenGL, Vulkan, and automatic selection retain all exact
+pixels/views, mismatch rejection, stable handles, four frames, and `live=0`;
+the Abla-only audit passes. No compiler or linkage input changed.
+
+Continue with vector signed-integer-to-floating conversions and mutable integer
+locals, then classify the next remaining sampler/control-flow specification
+gap. Keep compiler-heavy shader cases in independent focused test roots.
 
 ## Working commands
 

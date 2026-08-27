@@ -2984,6 +2984,14 @@ subsequently use components, constructors, arithmetic, offsets, or
 reflected image, and emits `OpImageQuerySizeLod` or `OpImageQueryLevels`;
 OpenGL consumes the unchanged GLSL. Wrong result widths, missing LOD, sampler
 arrays, and unsupported bindings reject before pipeline creation.
+`textureQueryLod(sampler, coordinate)` is a general floating `vec2`
+expression in fragment shaders. Its coordinate is `vec2` for 2D and 2D-array
+samplers and `vec3` for cube and 3D samplers, excluding an array layer just as
+gradient operands do. Vulkan emits `OpImageQueryLod` under the conditional
+`ImageQuery` capability. `float(signedScalarExpression)` explicitly converts
+an `int` expression or local into a floating scalar through `OpConvertSToF`,
+allowing size/level/fetch-derived integer state to compose with ordinary
+raster arithmetic. Wrong query widths and vector-to-scalar conversions reject.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same
