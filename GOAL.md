@@ -2579,6 +2579,61 @@ the shared exact-kind lowering, then address the nine platform scalar types
 with explicit width mappings. Generated typed builders and the wider framework
 milestones remain open; the full framework goal remains active.
 
+### Published checkpoint: core Vulkan raw call families
+
+Compiler dependency `d2352008f31d1499027e768ab91ed4bb279a9a2b`
+adds 20 reusable exact pure-Abla indirect-call layouts: 13 void families, six
+signed `i32` result families, and the first exact `i64` result family in the
+shared kind-based lowering. Bounded intrinsic classifiers keep self-hosted
+compile-time evaluation safe. The native boundary executes representative
+longest-void, signed-status, and full-width `i64` return paths with high-bit
+handles, negative 32-bit lanes, and pointer arguments. The commit is rebased
+on the concurrently published complete Xtensa dispatcher ABI; the final
+integrated compiler reaches a byte-identical pure self-hosted fixed point and
+passes the unsafe native boundary.
+
+Graphics implementation `2812b2721e56a6be80195f0b3e3af632fa59ede0`
+admits those 20 layouts plus four commands whose exact ABI families were
+already lowered. The public raw predicates and checked Vulkan methods cover
+acquisition, render-pass and descriptor binding, image/query transfer,
+barriers, push constants, event waits, physical-device image/sparse/surface
+queries, memory mapping, indexed queries, transform feedback, multi-draw,
+acceleration-structure queries, and ray-tracing stack-size queries. Executable
+Vulkan raw coverage rises from 783 to 807 of 842 commands, leaving 35 explicit
+`unsupported` entries: 26 normally normalized command layouts and the nine
+known platform-specific scalar boundaries.
+
+Raw dispatch now models Vulkan's three resolution scopes explicitly through
+`globalCommand`, `instanceCommand`, and `deviceCommand`. The live proof resolves
+the global `vkEnumerateInstanceVersion` correctly with a null instance and
+executes the new `vkGetPhysicalDeviceSurfaceSupportKHR` layout against the
+selected physical device, queue family, and window surface. Normal and fast
+runs report API version `4211009`, surface support `1`, exact transfer words,
+red image readback `4278190335`, event status `3`, successful fence wait,
+nonzero timestamps, `loopLive=0`, and `live=96`. Both Vulkan validation logs
+are zero bytes. Metadata probes no longer gate command recording, so a failed
+probe cannot skip owned-resource cleanup.
+
+Verified commands for this checkpoint:
+
+```sh
+cd ../ablac
+nix-shell --run 'make self-rebuild && tools/test-unsafe-boundary.sh build/ablac'
+
+cd ../abla-graphics
+nix-shell --run 'make test-registry test-raw-commands check-abla-only test-core'
+```
+
+Registry determinism, candidate/callable consistency, normal/fast OpenGL and
+Vulkan execution, live global and surface queries, validation scans,
+stripped-environment `ldd`, the Abla-only source audit, and core tests all
+pass. Continue directly from the generated candidate ledger: batch the 26
+remaining ordinary layouts, then map the nine platform scalar boundaries
+explicitly. Do not repeat registry-discovery commands between individual
+families; rebuild the compiler once, regenerate once, and run one consolidated
+gate per broad batch. Generated typed builders and the wider framework
+milestones remain open; the full framework goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
