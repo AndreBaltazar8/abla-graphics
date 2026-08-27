@@ -2763,6 +2763,31 @@ setters, then use the generated builders to replace coherent groups of manual
 Vulkan driver packing. Preserve the opt-in schema import so ordinary programs
 do not pay its compile-time cost.
 
+### Current checkpoint: near-complete generated Vulkan aggregate ABI
+
+Exact hosted bitfield storage-unit packing plus checked `i8`, `i16`, binary32
+bits, binary64 bits, and bitfield setters raise generated coverage to 1,448 of
+1,450 Vulkan aggregates and 7,406 members. The canonical 64-byte acceleration
+instance packs its 24/8 fields at byte 48 and its second 24/8 pair at byte 52;
+tests prove both generated bit offsets and overflow rejection.
+
+The array parser now accepts brackets only in the declarator immediately after
+the member name, so documentation text such as `[_DYNAMIC]` cannot corrupt a
+layout. This restores the exact 64-byte `VkWriteDescriptorSet`. Explicit hosted
+width mappings also cover Xlib/XCB, 64-bit Win32 handles, Fuchsia handles,
+Metal object pointers, and external StdVideo enums; Xlib, XCB, and Win32 surface
+create structs each prove an exact 40-byte layout.
+
+The only exclusions are `VkPresentFrameTokenGGP` and
+`VkStreamDescriptorSurfaceCreateInfoGGP`: their external `GgpFrameToken` and
+`GgpStreamDescriptor` definitions have no native width in `vk.xml`. Keep them
+explicitly unsupported until a pinned authoritative GGP ABI input exists.
+
+Next replace coherent manual Vulkan driver structure packing with generated
+builders and chains, beginning with feature/device creation and descriptor
+updates. Preserve the opt-in schema import and continue using broad
+generator/runtime/live-proof batches.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,

@@ -94,7 +94,9 @@ class RegistryBuilderSchemas(
     val memberKinds: array<string>,
     val memberOffsets: array<int>,
     val memberElementSizes: array<int>,
-    val memberElementCounts: array<int>
+    val memberElementCounts: array<int>,
+    val memberBitOffsets: array<int>,
+    val memberBitWidths: array<int>
 )
 
 fun registryOpeningTagEnd(source: string, begin: int): int =
@@ -1279,8 +1281,11 @@ fun registryMemberArrayShape(
     val nameClose = textFindSequence(source, "</name>", begin, end)
     var cursor = if (nameClose >= 0) nameClose + 7 else end
     while (cursor < end) {
-        val opening = textFindByte(source, 91, cursor, end)
-        if (opening < 0) break
+        while (cursor < end && (source[cursor] == 32 ||
+            source[cursor] == 9 || source[cursor] == 10 ||
+            source[cursor] == 13)) cursor = cursor + 1
+        if (cursor >= end || source[cursor] != 91) break
+        val opening = cursor
         val closing = textFindByte(source, 93, opening + 1, end)
         if (closing < 0) break
         var dimension = registryTaggedText(
@@ -1303,13 +1308,14 @@ fun registryMemberBitWidth(
 ): string {
     var result = ""
     val nameClose = textFindSequence(source, "</name>", begin, end)
-    val colon = if (nameClose >= 0)
-        textFindByte(source, 58, nameClose + 7, end) else -1
-    if (colon >= 0) {
-        var widthEnd = colon + 1
+    var cursor = if (nameClose >= 0) nameClose + 7 else end
+    while (cursor < end && (source[cursor] == 32 || source[cursor] == 9 ||
+        source[cursor] == 10 || source[cursor] == 13)) cursor = cursor + 1
+    if (cursor < end && source[cursor] == 58) {
+        var widthEnd = cursor + 1
         while (widthEnd < end && source[widthEnd] >= 48 &&
             source[widthEnd] <= 57) widthEnd = widthEnd + 1
-        result = source.slice(colon + 1, widthEnd)
+        result = source.slice(cursor + 1, widthEnd)
     }
     result
 }
@@ -2413,6 +2419,12 @@ fun registryVulkanResolvedTypeIndex(
     result
 }
 
+fun registryVulkanStdVideoI32Type(name: string): bool =
+    name == "StdVideoAV1Profile" || name == "StdVideoAV1Level" ||
+    name == "StdVideoH264ProfileIdc" || name == "StdVideoH264LevelIdc" ||
+    name == "StdVideoH265ProfileIdc" || name == "StdVideoH265LevelIdc" ||
+    name == "StdVideoVP9Profile" || name == "StdVideoVP9Level"
+
 fun registryVulkanNativeMemberLayout(
     types: RegistryTypes,
     name: string,
@@ -2443,6 +2455,8 @@ fun registryVulkanNativeMemberLayout(
     if (name == "int" || name == "unsigned int" ||
         name == "int32_t" || name == "uint32_t" ||
         name == "VkBool32" || name == "VkFlags" ||
+        name == "zx_handle_t" || name == "xcb_window_t" ||
+        name == "DWORD" || registryVulkanStdVideoI32Type(name) ||
         underlying == "int" || underlying == "unsigned int" ||
         underlying == "int32_t" || underlying == "uint32_t" ||
         underlying == "VkFlags" || category == "enum") {
@@ -2452,10 +2466,18 @@ fun registryVulkanNativeMemberLayout(
         name == "size_t" || name == "intptr_t" ||
         name == "uintptr_t" || name == "VkDeviceSize" ||
         name == "VkDeviceAddress" || name == "VkFlags64" ||
+        name == "Window" || name == "VisualID" || name == "RROutput" ||
         underlying == "int64_t" || underlying == "uint64_t" ||
         underlying == "size_t" || underlying == "intptr_t" ||
         underlying == "uintptr_t" || underlying == "VkFlags64") {
         return RegistryNativeLayout(8, 8, "i64", true)
+    }
+    if (name == "HANDLE" || name == "HINSTANCE" || name == "HWND" ||
+        name == "HMONITOR" || name == "LPCWSTR" ||
+        name == "MTLDevice_id" || name == "MTLCommandQueue_id" ||
+        name == "MTLBuffer_id" || name == "MTLTexture_id" ||
+        name == "MTLSharedEvent_id" || name == "IOSurfaceRef") {
+        return RegistryNativeLayout(8, 8, "pointer", true)
     }
     if (category == "handle" || category == "funcpointer") {
         return RegistryNativeLayout(8, 8, "i64", true)
@@ -2580,6 +2602,8 @@ fun registryVulkanAggregateLayout(
     var size = 0
     var alignment = 1
     var memberCount = 0
+    var activeBitSize = 0
+    var activeBitCount = 0
     var memberIndex = 0
     while (memberIndex < aggregates.memberOwners.size) {
         if (aggregates.memberOwners[memberIndex] == owner) {
@@ -2591,15 +2615,38 @@ fun registryVulkanAggregateLayout(
             val count = registryVulkanArrayExtent(
                 aggregates.memberArrayShapes[memberIndex], constants
             )
-            if (!layout.valid || count <= 0 ||
-                aggregates.memberBitWidths[memberIndex] != "" ||
+            val bitWidth = if (aggregates.memberBitWidths[memberIndex] == "")
+                0 else registryIntegerLiteral(
+                    aggregates.memberBitWidths[memberIndex]
+                )
+            if (!layout.valid || count <= 0 || bitWidth < 0 ||
                 layout.size > 2147483647 / count) {
                 valid = false
             } else if (valid) {
                 val memberSize = layout.size * count
-                if (union) {
+                if (bitWidth > 0 && (count != 1 ||
+                    bitWidth > layout.size * 8 || layout.kind != "i32")) {
+                    valid = false
+                } else if (bitWidth > 0 && union) {
+                    if (layout.size > size) size = layout.size
+                } else if (bitWidth > 0) {
+                    if (activeBitSize != layout.size ||
+                        activeBitCount + bitWidth > layout.size * 8) {
+                        size = registryAlignUp(size, layout.alignment)
+                        size = size + layout.size
+                        activeBitSize = layout.size
+                        activeBitCount = 0
+                    }
+                    activeBitCount = activeBitCount + bitWidth
+                    if (activeBitCount == layout.size * 8) {
+                        activeBitSize = 0
+                        activeBitCount = 0
+                    }
+                } else if (union) {
                     if (memberSize > size) size = memberSize
                 } else {
+                    activeBitSize = 0
+                    activeBitCount = 0
                     size = registryAlignUp(size, layout.alignment) + memberSize
                 }
                 if (layout.alignment > alignment) alignment = layout.alignment
@@ -2629,6 +2676,8 @@ fun registryVulkanBuilderSchemas(
     val memberOffsets: array<int> = []
     val memberElementSizes: array<int> = []
     val memberElementCounts: array<int> = []
+    val memberBitOffsets: array<int> = []
+    val memberBitWidths: array<int> = []
     val resolvedSizes: array<int> = []
     val resolvedAlignments: array<int> = []
     val resolved: array<bool> = []
@@ -2665,6 +2714,9 @@ fun registryVulkanBuilderSchemas(
             val owner = aggregates.names[aggregateIndex]
             val union = aggregates.kinds[aggregateIndex] == "union"
             var offset = 0
+            var activeBitOffset = 0
+            var activeBitSize = 0
+            var activeBitCount = 0
             var structureType = "-1"
             typeNames.append(owner)
             sizes.append(resolvedSizes[aggregateIndex])
@@ -2681,16 +2733,50 @@ fun registryVulkanBuilderSchemas(
                     val count = registryVulkanArrayExtent(
                         aggregates.memberArrayShapes[memberIndex], constants
                     )
-                    if (!union) offset = registryAlignUp(
-                        offset, layout.alignment
+                    val bitWidth = if (
+                        aggregates.memberBitWidths[memberIndex] == ""
+                    ) 0 else registryIntegerLiteral(
+                        aggregates.memberBitWidths[memberIndex]
                     )
+                    var memberOffset = 0
+                    var bitOffset = 0
+                    if (bitWidth > 0 && union) {
+                        memberOffset = 0
+                    } else if (bitWidth > 0) {
+                        if (activeBitSize != layout.size ||
+                            activeBitCount + bitWidth > layout.size * 8) {
+                            offset = registryAlignUp(offset, layout.alignment)
+                            activeBitOffset = offset
+                            offset = offset + layout.size
+                            activeBitSize = layout.size
+                            activeBitCount = 0
+                        }
+                        memberOffset = activeBitOffset
+                        bitOffset = activeBitCount
+                        activeBitCount = activeBitCount + bitWidth
+                        if (activeBitCount == layout.size * 8) {
+                            activeBitSize = 0
+                            activeBitCount = 0
+                        }
+                    } else {
+                        activeBitSize = 0
+                        activeBitCount = 0
+                        if (!union) offset = registryAlignUp(
+                            offset, layout.alignment
+                        )
+                        memberOffset = if (union) 0 else offset
+                    }
                     memberOwners.append(owner)
                     memberNames.append(aggregates.memberNames[memberIndex])
                     memberKinds.append(layout.kind)
-                    memberOffsets.append(if (union) 0 else offset)
+                    memberOffsets.append(memberOffset)
                     memberElementSizes.append(layout.size)
                     memberElementCounts.append(count)
-                    if (!union) offset = offset + layout.size * count
+                    memberBitOffsets.append(bitOffset)
+                    memberBitWidths.append(bitWidth)
+                    if (bitWidth == 0 && !union) {
+                        offset = offset + layout.size * count
+                    }
                     if (aggregates.memberNames[memberIndex] == "sType") {
                         val valueName = aggregates.memberValues[memberIndex]
                         val valueIndex = registryArrayIndex(
@@ -2710,7 +2796,8 @@ fun registryVulkanBuilderSchemas(
     RegistryBuilderSchemas(
         typeNames, sizes, alignments, structureTypes, extendsTypes,
         memberOwners, memberNames, memberKinds, memberOffsets,
-        memberElementSizes, memberElementCounts
+        memberElementSizes, memberElementCounts,
+        memberBitOffsets, memberBitWidths
     )
 }
 
@@ -2735,7 +2822,7 @@ fun registryVulkanBuilderMemberRecords(
     var index = 0
     while (index < builders.memberNames.size) {
         records.append(
-            "${builders.memberOwners[index]}|${builders.memberNames[index]}|${builders.memberKinds[index]}|${builders.memberOffsets[index]}|${builders.memberElementSizes[index]}|${builders.memberElementCounts[index]}"
+            "${builders.memberOwners[index]}|${builders.memberNames[index]}|${builders.memberKinds[index]}|${builders.memberOffsets[index]}|${builders.memberElementSizes[index]}|${builders.memberElementCounts[index]}|${builders.memberBitOffsets[index]}|${builders.memberBitWidths[index]}"
         )
         index = index + 1
     }

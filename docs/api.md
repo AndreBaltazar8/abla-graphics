@@ -3369,23 +3369,27 @@ now come from the pinned `vk.xml` registry instead of hand-maintained layout
 constants.
 
 `rawVulkanStructureBuilder(typeName)` exposes the same generated schema for
-the wider raw surface. It accepts any of 1,395 hosted Vulkan structures,
+the wider raw surface. It accepts any of 1,448 hosted Vulkan structures,
 initializes a declared `sType`, and provides checked `storeI32`, `storeI64`,
-`storePointer`, indexed `i32` array, and exact nested/array byte-copy
-operations. An unknown structure, wrong-width member, or out-of-range element
-fails without writing. Registry constants resolve fixed array extents;
+`storePointer`, `storeI8`, `storeI16`, exact `storeF32Bits`/`storeF64Bits`,
+indexed scalar array, exact nested/array byte-copy, and read-modify-write
+bitfield operations. An unknown structure, wrong-width member, overflowing
+bitfield, or out-of-range element fails without writing. Registry constants
+resolve fixed array extents;
 structures and unions are laid out iteratively until every by-value aggregate
 dependency is known. Representative generated ABI checks include
 `VkPhysicalDeviceFeatures2=240`, `VkClearValue=16`,
 `VkTransformMatrixKHR=48`, and `VkImageBlit=80` bytes. The builder schema is
-emitted as two compact deterministic strings (7,103 members), keeping ordinary
+emitted as two compact deterministic strings (7,406 members), keeping ordinary
 compilation bounded instead of materializing thousands of generated array
 elements.
 Import `raw/vulkan_builder.ab` explicitly when using this opt-in surface;
 `raw/vulkan.ab` does not make applications that only issue commands parse the
 complete structure schema.
-Bitfield packing and any remaining unresolved platform aggregate rules remain
-required before the full structure-builder milestone is complete.
+Hosted Xlib, XCB, 64-bit Win32, Fuchsia-handle, Metal-object, and external
+StdVideo enum widths are explicit. Exactly two GGP aggregates remain excluded
+because `GgpStreamDescriptor` and `GgpFrameToken` are external definitions with
+no width in `vk.xml`; the generator does not guess their ABI.
 
 `rawVulkanStructureChain(rootTypeName, nodeTypes)` validates every generated
 `structextends` relationship, rejects duplicate node types, owns all nodes in

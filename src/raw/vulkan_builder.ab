@@ -18,6 +18,8 @@ class RawVulkanBuilderMemberLayout(
     val offset: int,
     val elementSize: int,
     val elementCount: int,
+    val bitOffset: int,
+    val bitWidth: int,
     val valid: bool
 )
 
@@ -101,6 +103,8 @@ fun rawVulkanBuilderMemberLayout(
     var offset = -1
     var elementSize = 0
     var elementCount = 0
+    var bitOffset = 0
+    var bitWidth = 0
     var found = false
     while (!found && cursor < schema.size) {
         val ownerEnd = rawVulkanBuilderDelimiter(schema, cursor, 124)
@@ -108,9 +112,16 @@ fun rawVulkanBuilderMemberLayout(
         val kindEnd = rawVulkanBuilderDelimiter(schema, nameEnd + 1, 124)
         val offsetEnd = rawVulkanBuilderDelimiter(schema, kindEnd + 1, 124)
         val sizeEnd = rawVulkanBuilderDelimiter(schema, offsetEnd + 1, 124)
-        val recordEnd = rawVulkanBuilderDelimiter(schema, sizeEnd + 1, 59)
+        val countEnd = rawVulkanBuilderDelimiter(schema, sizeEnd + 1, 124)
+        val bitOffsetEnd = rawVulkanBuilderDelimiter(
+            schema, countEnd + 1, 124
+        )
+        val recordEnd = rawVulkanBuilderDelimiter(
+            schema, bitOffsetEnd + 1, 59
+        )
         if (ownerEnd < 0 || nameEnd < 0 || kindEnd < 0 ||
-            offsetEnd < 0 || sizeEnd < 0 || recordEnd < 0) {
+            offsetEnd < 0 || sizeEnd < 0 || countEnd < 0 ||
+            bitOffsetEnd < 0 || recordEnd < 0) {
             cursor = schema.size
         } else if (schema.slice(cursor, ownerEnd) == typeName &&
             schema.slice(ownerEnd + 1, nameEnd) == memberName) {
@@ -120,13 +131,19 @@ fun rawVulkanBuilderMemberLayout(
                 schema, offsetEnd + 1, sizeEnd
             )
             elementCount = rawVulkanBuilderInteger(
-                schema, sizeEnd + 1, recordEnd
+                schema, sizeEnd + 1, countEnd
+            )
+            bitOffset = rawVulkanBuilderInteger(
+                schema, countEnd + 1, bitOffsetEnd
+            )
+            bitWidth = rawVulkanBuilderInteger(
+                schema, bitOffsetEnd + 1, recordEnd
             )
             found = true
         } else cursor = recordEnd + 1
     }
     RawVulkanBuilderMemberLayout(
-        kind, offset, elementSize, elementCount, found
+        kind, offset, elementSize, elementCount, bitOffset, bitWidth, found
     )
 }
 
@@ -165,6 +182,20 @@ trusted fun rawVulkanStoreI32(
     bytes.store(offset + 1, (value >>> 8) & 255) &&
     bytes.store(offset + 2, (value >>> 16) & 255) &&
     bytes.store(offset + 3, (value >>> 24) & 255)
+
+trusted fun rawVulkanStoreI8(
+    var bytes: NativeByteBuffer,
+    offset: int,
+    value: int
+): bool = value >= -128 && value <= 255 && bytes.store(offset, value & 255)
+
+trusted fun rawVulkanStoreI16(
+    var bytes: NativeByteBuffer,
+    offset: int,
+    value: int
+): bool = value >= -32768 && value <= 65535 &&
+    bytes.store(offset, value & 255) &&
+    bytes.store(offset + 1, (value >>> 8) & 255)
 
 trusted fun rawVulkanZeroedBytes(size: int): NativeByteBuffer {
     val bytes = nativeByteBuffer(size)
@@ -210,7 +241,8 @@ trusted fun rawVulkanBuilderStoreI32At(
 ): bool {
     val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
     layout.valid && layout.kind == "i32" && elementIndex >= 0 &&
-        elementIndex < layout.elementCount && rawVulkanStoreI32(
+        elementIndex < layout.elementCount && layout.bitWidth == 0 &&
+        rawVulkanStoreI32(
             bytes,
             baseOffset + layout.offset + elementIndex * layout.elementSize,
             value
@@ -236,7 +268,8 @@ trusted fun rawVulkanBuilderStoreI64At(
 ): bool {
     val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
     layout.valid && layout.kind == "i64" && elementIndex >= 0 &&
-        elementIndex < layout.elementCount && bytes.storeI64(
+        elementIndex < layout.elementCount && layout.bitWidth == 0 &&
+        bytes.storeI64(
             baseOffset + layout.offset + elementIndex * layout.elementSize,
             value
         )
@@ -261,10 +294,116 @@ trusted fun rawVulkanBuilderStorePointerAt(
 ): bool {
     val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
     layout.valid && layout.kind == "pointer" && elementIndex >= 0 &&
-        elementIndex < layout.elementCount && bytes.storePointer(
+        elementIndex < layout.elementCount && layout.bitWidth == 0 &&
+        bytes.storePointer(
             baseOffset + layout.offset + elementIndex * layout.elementSize,
             value
         )
+}
+
+trusted fun rawVulkanBuilderStoreI8At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    elementIndex: int,
+    value: int
+): bool {
+    val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
+    layout.valid && layout.kind == "i8" && layout.bitWidth == 0 &&
+        elementIndex >= 0 && elementIndex < layout.elementCount &&
+        rawVulkanStoreI8(
+            bytes,
+            baseOffset + layout.offset + elementIndex * layout.elementSize,
+            value
+        )
+}
+
+trusted fun rawVulkanBuilderStoreI16At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    elementIndex: int,
+    value: int
+): bool {
+    val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
+    layout.valid && layout.kind == "i16" && layout.bitWidth == 0 &&
+        elementIndex >= 0 && elementIndex < layout.elementCount &&
+        rawVulkanStoreI16(
+            bytes,
+            baseOffset + layout.offset + elementIndex * layout.elementSize,
+            value
+        )
+}
+
+trusted fun rawVulkanBuilderStoreF32BitsAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    elementIndex: int,
+    value: int
+): bool {
+    val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
+    layout.valid && layout.kind == "f32" && layout.bitWidth == 0 &&
+        elementIndex >= 0 && elementIndex < layout.elementCount &&
+        rawVulkanStoreU32(
+            bytes,
+            baseOffset + layout.offset + elementIndex * layout.elementSize,
+            value
+        )
+}
+
+trusted fun rawVulkanBuilderStoreF64BitsAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    elementIndex: int,
+    value: int
+): bool {
+    val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
+    layout.valid && layout.kind == "f64" && layout.bitWidth == 0 &&
+        elementIndex >= 0 && elementIndex < layout.elementCount &&
+        bytes.storeI64(
+            baseOffset + layout.offset + elementIndex * layout.elementSize,
+            value
+        )
+}
+
+trusted fun rawVulkanBuilderStoreBitsAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    value: int
+): bool {
+    val layout = rawVulkanBuilderMemberLayout(typeName, memberName)
+    val mask = if (layout.bitWidth > 0 && layout.bitWidth < 63)
+        (1 << layout.bitWidth) - 1 else 0
+    val offset = baseOffset + layout.offset
+    val accepted = layout.valid && layout.kind == "i32" &&
+        layout.elementCount == 1 && layout.bitWidth > 0 &&
+        layout.bitOffset >= 0 &&
+        layout.bitOffset + layout.bitWidth <= layout.elementSize * 8 &&
+        value >= 0 && value <= mask && offset >= 0 &&
+        offset <= bytes.capacity - layout.elementSize
+    var current = 0
+    var index = 0
+    while (accepted && index < layout.elementSize) {
+        current = current | (bytes.load(offset + index) << (index * 8))
+        index = index + 1
+    }
+    val shiftedMask = mask << layout.bitOffset
+    val stored = (current & ~shiftedMask) |
+        ((value & mask) << layout.bitOffset)
+    index = 0
+    while (accepted && index < layout.elementSize) {
+        bytes.store(offset + index, (stored >>> (index * 8)) & 255)
+        index = index + 1
+    }
+    accepted
 }
 
 trusted fun rawVulkanBuilderStoreBytesAt(
@@ -310,6 +449,38 @@ resource class RawVulkanStructureBuilder(
     ): bool = this.valid() && rawVulkanBuilderStoreI32At(
         this.bytes, 0, this.typeName, memberName, elementIndex, value
     )
+    trusted fun storeI8(
+        memberName: string,
+        value: int,
+        elementIndex: int = 0
+    ): bool = this.valid() && rawVulkanBuilderStoreI8At(
+        this.bytes, 0, this.typeName, memberName, elementIndex, value
+    )
+    trusted fun storeI16(
+        memberName: string,
+        value: int,
+        elementIndex: int = 0
+    ): bool = this.valid() && rawVulkanBuilderStoreI16At(
+        this.bytes, 0, this.typeName, memberName, elementIndex, value
+    )
+    trusted fun storeF32Bits(
+        memberName: string,
+        value: int,
+        elementIndex: int = 0
+    ): bool = this.valid() && rawVulkanBuilderStoreF32BitsAt(
+        this.bytes, 0, this.typeName, memberName, elementIndex, value
+    )
+    trusted fun storeF64Bits(
+        memberName: string,
+        value: int,
+        elementIndex: int = 0
+    ): bool = this.valid() && rawVulkanBuilderStoreF64BitsAt(
+        this.bytes, 0, this.typeName, memberName, elementIndex, value
+    )
+    trusted fun storeBits(memberName: string, value: int): bool =
+        this.valid() && rawVulkanBuilderStoreBitsAt(
+            this.bytes, 0, this.typeName, memberName, value
+        )
     trusted fun storeI64(memberName: string, value: int): bool =
         this.valid() && rawVulkanBuilderStoreI64(
             this.bytes, this.typeName, memberName, value

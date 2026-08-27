@@ -84,6 +84,21 @@ fun main: int {
     val matrixMemberLayout = rawVulkanBuilderMemberLayout(
         "VkTransformMatrixKHR", "matrix"
     )
+    val writeDescriptorLayout = rawVulkanBuilderTypeLayout(
+        "VkWriteDescriptorSet"
+    )
+    val xlibSurfaceLayout = rawVulkanBuilderTypeLayout(
+        "VkXlibSurfaceCreateInfoKHR"
+    )
+    val xcbSurfaceLayout = rawVulkanBuilderTypeLayout(
+        "VkXcbSurfaceCreateInfoKHR"
+    )
+    val win32SurfaceLayout = rawVulkanBuilderTypeLayout(
+        "VkWin32SurfaceCreateInfoKHR"
+    )
+    val unknownGgpLayout = rawVulkanBuilderTypeLayout(
+        "VkStreamDescriptorSurfaceCreateInfoGGP"
+    )
     val genericBuilder = rawVulkanStructureBuilder("VkEventCreateInfo")
     val genericBuilderReady = genericBuilder.valid() &&
         genericBuilder.bytes.loadI64(0) == 10 &&
@@ -141,6 +156,51 @@ fun main: int {
     incompatibleChain.drop()
     val featureChainDropped = !featureChain.valid() &&
         pointerIsNull(featureChain.pointer())
+    val instanceLayout = rawVulkanBuilderTypeLayout(
+        "VkAccelerationStructureInstanceKHR"
+    )
+    val customIndexLayout = rawVulkanBuilderMemberLayout(
+        "VkAccelerationStructureInstanceKHR", "instanceCustomIndex"
+    )
+    val maskLayout = rawVulkanBuilderMemberLayout(
+        "VkAccelerationStructureInstanceKHR", "mask"
+    )
+    val instanceBuilder = rawVulkanStructureBuilder(
+        "VkAccelerationStructureInstanceKHR"
+    )
+    val bitfieldBuilderReady = instanceLayout.valid &&
+        instanceLayout.size == 64 && customIndexLayout.valid &&
+        customIndexLayout.offset == 48 && customIndexLayout.bitOffset == 0 &&
+        customIndexLayout.bitWidth == 24 && maskLayout.valid &&
+        maskLayout.offset == 48 && maskLayout.bitOffset == 24 &&
+        maskLayout.bitWidth == 8 &&
+        instanceBuilder.storeBits("instanceCustomIndex", 11259375) &&
+        instanceBuilder.storeBits("mask", 18) &&
+        !instanceBuilder.storeBits("mask", 256) &&
+        instanceBuilder.bytes.loadI64(48) == 313249263
+    instanceBuilder.drop()
+    val conformanceBuilder = rawVulkanStructureBuilder("VkConformanceVersion")
+    val lineBuilder = rawVulkanStructureBuilder(
+        "VkPipelineRasterizationLineStateCreateInfo"
+    )
+    val matrixBuilder = rawVulkanStructureBuilder("VkTransformMatrixKHR")
+    val resultBuilder = rawVulkanStructureBuilder(
+        "VkPerformanceCounterResultKHR"
+    )
+    val scalarBuildersReady = conformanceBuilder.storeI8("major", 255) &&
+        !conformanceBuilder.storeI8("major", 256) &&
+        conformanceBuilder.bytes.load(0) == 255 &&
+        lineBuilder.storeI16("lineStipplePattern", 43981) &&
+        !lineBuilder.storeI16("lineStipplePattern", 65536) &&
+        lineBuilder.bytes.load(28) == 205 && lineBuilder.bytes.load(29) == 171 &&
+        matrixBuilder.storeF32Bits("matrix", 1065353216, 11) &&
+        matrixBuilder.bytes.loadI64(40) == 1065353216 * 4294967296 &&
+        resultBuilder.storeF64Bits("float64", 4607182418800017408) &&
+        resultBuilder.bytes.loadI64(0) == 4607182418800017408
+    conformanceBuilder.drop()
+    lineBuilder.drop()
+    matrixBuilder.drop()
+    resultBuilder.drop()
     val vulkanCommands = rawVulkanRegistryCommands()
     val vulkanStatuses = rawVulkanRegistryCommandStatuses()
     val vulkanConstants = rawVulkanRegistryConstantNames()
@@ -420,8 +480,8 @@ fun main: int {
         "VkAccelerationStructureInstanceKHR",
         "instanceCustomIndex"
     )
-    val valid = rawVulkanBuilderTypeCount == 1395 &&
-        rawVulkanBuilderMemberCount == 7103 &&
+    val valid = rawVulkanBuilderTypeCount == 1448 &&
+        rawVulkanBuilderMemberCount == 7406 &&
         eventBuilderLayout.valid && eventBuilderLayout.size == 24 &&
         eventBuilderLayout.alignment == 8 &&
         eventBuilderLayout.structureType == 10 &&
@@ -438,6 +498,12 @@ fun main: int {
         matrixMemberLayout.valid && matrixMemberLayout.kind == "f32" &&
         matrixMemberLayout.elementSize == 4 &&
         matrixMemberLayout.elementCount == 12 &&
+        writeDescriptorLayout.valid && writeDescriptorLayout.size == 64 &&
+        writeDescriptorLayout.structureType == 35 &&
+        xlibSurfaceLayout.valid && xlibSurfaceLayout.size == 40 &&
+        xcbSurfaceLayout.valid && xcbSurfaceLayout.size == 40 &&
+        win32SurfaceLayout.valid && win32SurfaceLayout.size == 40 &&
+        !unknownGgpLayout.valid && unknownGgpLayout.size == 0 &&
         rawVulkanBuilderMemberOffset(
             "VkDeviceQueueInfo2", "queueIndex"
         ) == 24 &&
@@ -446,6 +512,7 @@ fun main: int {
         ) == "pointer" &&
         genericBuilderReady && genericBuilderDropped && arrayBuilderReady &&
         featureChainReady && invalidChainsRejected && featureChainDropped &&
+        bitfieldBuilderReady && scalarBuildersReady &&
         rawVulkanRegistryCommandCount == 842 &&
         rawVulkanRegistryCoreFeatureCount == 5 &&
         rawVulkanRegistryExtensionCount == 473 &&

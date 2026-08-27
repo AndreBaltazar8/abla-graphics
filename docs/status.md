@@ -1724,3 +1724,19 @@ invalidation, duplicate rejection, and incompatible-root rejection. The normal
 and optimized live raw runs query timeline semaphore and synchronization2
 features through a generated `VkPhysicalDeviceFeatures2` root and two-node
 chain, observe `features=1/1`, retain `loopLive=0`, and remain stable.
+
+### Near-complete generated Vulkan aggregate ABI
+
+Exact hosted bitfield storage-unit packing plus checked byte, 16-bit,
+binary32-bit, binary64-bit, and bitfield setters raise generated coverage to
+1,448 of 1,450 Vulkan aggregates and 7,406 members. Consecutive 32-bit
+bitfields share little-endian storage units with generated offsets and widths.
+The canonical 64-byte acceleration instance proves 24/8 packing at byte 48
+and its second pair at byte 52, including overflow rejection.
+
+Declarator parsing now ignores bracketed or colon text inside XML comments,
+restoring the common 64-byte `VkWriteDescriptorSet`. Explicit hosted width
+mappings cover Xlib/XCB, 64-bit Win32, Fuchsia, Metal, and StdVideo external
+enums; Xlib/XCB/Win32 surface-create layouts are 40 bytes. Only the two GGP
+aggregates remain unsupported because `vk.xml` does not define their external
+native token widths.
