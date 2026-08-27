@@ -106,6 +106,8 @@ trusted fun main: int {
             "vkGetSemaphoreCounterValue"
         )
         val getSwapchainImages = raw.deviceCommand("vkGetSwapchainImagesKHR")
+        val resetEvent = raw.deviceCommand("vkCmdResetEvent")
+        val resetQueryPool = raw.deviceCommand("vkCmdResetQueryPool")
         val missing = raw.deviceCommand("vkAblaMissing")
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
@@ -331,9 +333,24 @@ trusted fun main: int {
                 nativeNullPointer(),
                 nativeNullPointer(),
                 swapchainStatus.address
+            ) &&
+            !raw.callVoidPointerI64I32(
+                resetEvent,
+                command,
+                0,
+                65536
+            ) &&
+            !raw.callVoidPointerI64I32I32(
+                resetQueryPool,
+                command,
+                0,
+                0,
+                1
             )
         val timeline = app.vulkanDevice.timelineSemaphore(7)
         val createdTimeline = timeline.handle
+        val timestampQuery = app.vulkanDevice.timestampQuery()
+        val createdQueryPool = timestampQuery.queryPool
         val liveBefore = runtimeMemoryLiveBytes()
         var timelineRoundTrip = timeline.valid() &&
             raw.callI32PointerI64Pointer(
@@ -456,14 +473,7 @@ trusted fun main: int {
                 app.vulkanDevice.handle,
                 createdEvent,
                 eventStatus.address
-            ) && eventStatus.load() == 4 &&
-                raw.callVoidPointerI64Pointer(
-                    destroyEvent,
-                    app.vulkanDevice.handle,
-                    createdEvent,
-                    nativeNullPointer()
-                )
-            if (resourceRoundTrip) eventHandle.store(0)
+            ) && eventStatus.load() == 4
         }
         var createdFence = 0
         var fenceRoundTrip = pointerQueries && raw.callI32Pointer4(
@@ -507,6 +517,19 @@ trusted fun main: int {
                 )
             if (fenceRoundTrip) fenceHandle.store(0)
         }
+        recorded = recorded && resourceRoundTrip && timestampQuery.valid() &&
+            raw.callVoidPointerI64I32(
+                resetEvent,
+                command,
+                createdEvent,
+                65536
+            ) && raw.callVoidPointerI64I32I32(
+                resetQueryPool,
+                command,
+                timestampQuery.queryPool,
+                0,
+                1
+            )
         var call = 0
         while (recorded && resourceRoundTrip && fenceRoundTrip && call < 1000) {
             recorded = raw.callVoidPointerI32(
@@ -557,6 +580,22 @@ trusted fun main: int {
                     idleStatus.address
                 ) && idleStatus.load() == vulkanSuccess
         }
+        if (recorded && resourceRoundTrip) {
+            eventStatus.store(-1)
+            resourceRoundTrip = raw.callI32PointerI64(
+                getEventStatus,
+                app.vulkanDevice.handle,
+                createdEvent,
+                eventStatus.address
+            ) && eventStatus.load() == 4 &&
+                raw.callVoidPointerI64Pointer(
+                    destroyEvent,
+                    app.vulkanDevice.handle,
+                    createdEvent,
+                    nativeNullPointer()
+                )
+            if (resourceRoundTrip) eventHandle.store(0)
+        }
         val liveAfter = runtimeMemoryLiveBytes()
         val restored = vkResetCommandPool(
             app.vulkanDevice.handle,
@@ -573,6 +612,7 @@ trusted fun main: int {
             getFenceStatus.valid() && resetFences.valid() &&
             beginCommandBuffer.valid() && getFormatProperties.valid() &&
             getSemaphoreCounterValue.valid() && getSwapchainImages.valid() &&
+            resetEvent.valid() && resetQueryPool.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
@@ -631,19 +671,28 @@ trusted fun main: int {
                 "VkResult(VkDevice,VkSwapchainKHR,uint32_t*,VkImage*)" &&
             getSwapchainImages.callAbi ==
                 "i32(pointer,i64,pointer,pointer)" &&
+            resetEvent.callShape ==
+                "void(VkCommandBuffer,VkEvent,VkPipelineStageFlags)" &&
+            resetEvent.callAbi == "void(pointer,i64,i32)" &&
+            resetQueryPool.callShape ==
+                "void(VkCommandBuffer,VkQueryPool,uint32_t,uint32_t)" &&
+            resetQueryPool.callAbi == "void(pointer,i64,i32,i32)" &&
             idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
             pointerQueries && timelineRoundTrip && createdTimeline != 0 &&
-            timeline.valid() && resourceRoundTrip && fenceRoundTrip &&
+            timeline.valid() && createdQueryPool != 0 &&
+            timestampQuery.valid() && resourceRoundTrip && fenceRoundTrip &&
             createdEvent != 0 && eventHandle.load() == 0 &&
             createdFence != 0 && fenceHandle.load() == 0 &&
             fenceStatus.load() == 1 && resetStatus.load() == vulkanSuccess &&
             beginStatus.load() == vulkanSuccess && recorded && restored &&
             liveAfter == liveBefore
-        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} queryPool=$createdQueryPool mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
         timeline.drop()
-        stable = stable && timeline.handle == 0
+        timestampQuery.drop()
+        stable = stable && timeline.handle == 0 &&
+            timestampQuery.queryPool == 0
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"

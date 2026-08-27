@@ -258,10 +258,12 @@ compiler-supported indirect calls. Vulkan additionally supports exact
 `i32(pointer)` families, plus exact four-pointer creation,
 pointer/64-bit-handle destruction and status, and two-/three-pointer query
 families, plus counted-pointer result, scalar/scalar/output, pointer-result,
-and scalar/output query families. Generated ABI-family tags make the currently
-callable 352 OpenGL and 568
+scalar/output query, and handle/scalar command families. Registry type metadata
+distinguishes 32-bit `VkFlags` from 64-bit `VkFlags64` before classification.
+Generated ABI-family tags make the currently
+callable 352 OpenGL and 586
 Vulkan commands explicit and retain `unsupported` for the other 2,540
-OpenGL and 274
+OpenGL and 256
 Vulkan commands. Further signatures remain
 unsupported until each has matching ABI, positive, negative, and live-driver
 evidence.

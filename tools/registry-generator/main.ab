@@ -43,6 +43,7 @@ class RegistryTypes(
     val categories: array<string>,
     val aliases: array<string>,
     val dependencies: array<string>,
+    val underlyingTypes: array<string>,
     val valid: bool,
     val error: string
 )
@@ -558,7 +559,8 @@ fun registrySortTypeMetadata(
     var names: array<string>,
     var categories: array<string>,
     var aliases: array<string>,
-    var dependencies: array<string>
+    var dependencies: array<string>,
+    var underlyingTypes: array<string>
 ): void {
     var index = 1
     while (index < names.size) {
@@ -566,18 +568,21 @@ fun registrySortTypeMetadata(
         val category = categories[index]
         val alias = aliases[index]
         val dependency = dependencies[index]
+        val underlyingType = underlyingTypes[index]
         var target = index
         while (target > 0 && registryStringLess(name, names[target - 1])) {
             names[target] = names[target - 1]
             categories[target] = categories[target - 1]
             aliases[target] = aliases[target - 1]
             dependencies[target] = dependencies[target - 1]
+            underlyingTypes[target] = underlyingTypes[target - 1]
             target = target - 1
         }
         names[target] = name
         categories[target] = category
         aliases[target] = alias
         dependencies[target] = dependency
+        underlyingTypes[target] = underlyingType
         index = index + 1
     }
 }
@@ -711,6 +716,7 @@ fun registryParseTypes(
     val categories: array<string> = []
     val aliases: array<string> = []
     val dependencies: array<string> = []
+    val underlyingTypes: array<string> = []
     val priorities: array<int> = []
     val wantedApi = if (api == "opengl") "gl" else "vulkan"
     var valid = api == "vulkan" || api == "opengl"
@@ -856,6 +862,10 @@ fun registryParseTypes(
                         if (category == "") category = "declaration"
                         val alias = registryAttribute(opening, "alias")
                         val dependency = registryAttribute(opening, "requires")
+                        val underlyingType = if (selfClosing) "" else
+                            registryTaggedText(
+                                source, openEnd + 1, close, "type"
+                            )
                         val priority = if (typeApi == "") 1 else 2
                         val existing = registryArrayIndex(names, name)
                         if (existing < 0) {
@@ -863,16 +873,19 @@ fun registryParseTypes(
                             categories.append(category)
                             aliases.append(alias)
                             dependencies.append(dependency)
+                            underlyingTypes.append(underlyingType)
                             priorities.append(priority)
                         } else if (priority > priorities[existing]) {
                             categories[existing] = category
                             aliases[existing] = alias
                             dependencies[existing] = dependency
+                            underlyingTypes[existing] = underlyingType
                             priorities[existing] = priority
                         } else if (priority == priorities[existing] &&
                             (categories[existing] != category ||
                             aliases[existing] != alias ||
-                            dependencies[existing] != dependency)) {
+                            dependencies[existing] != dependency ||
+                            underlyingTypes[existing] != underlyingType)) {
                             valid = false
                             error = "conflicting registry type definition: $name"
                         }
@@ -899,9 +912,12 @@ fun registryParseTypes(
         requestedIndex = requestedIndex + 1
     }
     if (valid) registrySortTypeMetadata(
-        names, categories, aliases, dependencies
+        names, categories, aliases, dependencies, underlyingTypes
     )
-    RegistryTypes(names, categories, aliases, dependencies, valid, error)
+    RegistryTypes(
+        names, categories, aliases, dependencies, underlyingTypes,
+        valid, error
+    )
 }
 
 fun registryTaggedText(
@@ -2303,11 +2319,36 @@ fun registryVulkanResourceOwnerType(name: string): bool =
     name == "VkInstance" || name == "VkPhysicalDevice" ||
     name == "VkDevice"
 
+fun registryVulkanUnderlyingType(
+    types: RegistryTypes,
+    name: string
+): string {
+    var current = name
+    var underlying = ""
+    var attempts = 0
+    while (underlying == "" && attempts < types.names.size) {
+        val index = registryArrayIndex(types.names, current)
+        if (index < 0 || index >= types.underlyingTypes.size) {
+            attempts = types.names.size
+        } else if (types.underlyingTypes[index] != "") {
+            underlying = types.underlyingTypes[index]
+        } else if (index < types.aliases.size && types.aliases[index] != "") {
+            current = types.aliases[index]
+        } else attempts = types.names.size
+        attempts = attempts + 1
+    }
+    underlying
+}
+
 fun registryVulkanI32Type(types: RegistryTypes, name: string): bool {
     val index = registryArrayIndex(types.names, name)
     name == "VkBool32" || name == "uint32_t" || name == "int32_t" ||
         name == "VkStencilFaceFlags" || (index >= 0 &&
-        index < types.categories.size && types.categories[index] == "enum")
+        index < types.categories.size && (
+            types.categories[index] == "enum" ||
+            (types.categories[index] == "bitmask" &&
+            registryVulkanUnderlyingType(types, name) == "VkFlags")
+        ))
 }
 
 fun registryVulkanI32ReturnType(name: string): bool =
@@ -2365,6 +2406,9 @@ fun registryCommandCallAbis(
             signatures.returnTypes[commandIndex] == "void"
         var vulkanI32PointerI64Pointer = vulkanI32Pointer
         var vulkanI32PointerI64PointerPointer = vulkanI32Pointer
+        var vulkanVoidPointerI64I32 = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI64I32I32 = vulkanVoidPointerI64I32
         var parameterIndex = 0
         var count = 0
         while (parameterIndex < signatures.parameterOwners.size) {
@@ -2553,6 +2597,38 @@ fun registryCommandCallAbis(
                 else if (count > 3) {
                     vulkanI32PointerI64PointerPointer = false
                 }
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanAnyDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64I32 = false
+                else if (count == 1 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanNonDispatchableHandleType(
+                        types, signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64I32 = false
+                else if (count == 2 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanI32Type(
+                        types, signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64I32 = false
+                else if (count > 2) vulkanVoidPointerI64I32 = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanAnyDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64I32I32 = false
+                else if (count == 1 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanNonDispatchableHandleType(
+                        types, signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64I32I32 = false
+                else if ((count == 2 || count == 3) && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanI32Type(
+                        types, signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64I32I32 = false
+                else if (count > 3) vulkanVoidPointerI64I32I32 = false
                 count = count + 1
             }
             parameterIndex = parameterIndex + 1
@@ -2608,6 +2684,12 @@ fun registryCommandCallAbis(
         }
         else if (vulkanI32PointerI64PointerPointer && count == 4) {
             abi = "i32(pointer,i64,pointer,pointer)"
+        }
+        else if (vulkanVoidPointerI64I32 && count == 3) {
+            abi = "void(pointer,i64,i32)"
+        }
+        else if (vulkanVoidPointerI64I32I32 && count == 4) {
+            abi = "void(pointer,i64,i32,i32)"
         }
         abis.append(abi)
         commandIndex = commandIndex + 1
@@ -2782,6 +2864,12 @@ fun registryWriteSource(
         batch,
         "${prefix}TypeDependencies",
         types.dependencies
+    )
+    if (success) batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}TypeUnderlyingTypes",
+        types.underlyingTypes
     )
     if (success) batch = registryWriteSourceArray(
         output, batch, "${prefix}Aggregates", aggregates.names

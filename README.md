@@ -173,7 +173,8 @@ proves the architecture rather than stopping at placeholder interfaces:
 - a pure-Abla, deterministic Khronos XML inventory generator with pinned and
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,
-  43 desktop OpenGL type records, 2,497 selected Vulkan type records, and
+  43 desktop OpenGL type records, 2,497 selected Vulkan type records with
+  underlying native declarations, and
   structured ABI signatures for 9,526 OpenGL and 2,809 Vulkan command
   parameters, normalized call shapes for all 2,892 OpenGL and 842 Vulkan
   commands, plus declaration-ordered metadata for 1,450 Vulkan aggregates and
@@ -182,17 +183,18 @@ proves the architecture rather than stopping at placeholder interfaces:
   compiled raw metadata modules leave every unaudited row visibly
   unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
   `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
-  other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 52
+  other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 55
   `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81
   `i32(pointer,pointer,pointer,pointer)`, 62 `void(pointer,i64,pointer)`, 14
   `i32(pointer,i64)`, 104 `void(pointer,pointer)`, 61
   `i32(pointer,pointer,pointer)`, and 47 `void(pointer,pointer,pointer)`
-  commands, plus 18 `i32(pointer,i32,pointer)`, 18
+  commands, plus 18 `i32(pointer,i32,pointer)`, 19
   `void(pointer,i32,i32,pointer)`, 36 `i32(pointer,pointer)`, and 20
   `void(pointer,i32,pointer)` commands, plus 24
   `i32(pointer,i64,pointer)` and 17
-  `i32(pointer,i64,pointer,pointer)` commands—568 total—while leaving the
-  other 274 Vulkan entries unsupported;
+  `i32(pointer,i64,pointer,pointer)`, 9 `void(pointer,i64,i32)`, and 5
+  `void(pointer,i64,i32,i32)` commands—586 total—while leaving the other 256
+  Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

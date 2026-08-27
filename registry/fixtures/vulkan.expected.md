@@ -2,15 +2,15 @@
 
 - Revision: `fixture-revision`
 - SHA-256: `fixture-sha256`
-- Commands: 20
+- Commands: 23
 - Core features: 1
 - Extensions: 2
 - Constants: 8
-- Types: 5
-- Command parameters: 44
+- Types: 7
+- Command parameters: 54
 - Aggregates: 1
 - Aggregate members: 4
-- Classified commands: 1/20
+- Classified commands: 1/23
 - Classified core features: 1/1
 - Classified extensions: 2/2
 
@@ -26,7 +26,10 @@
 | `vkEnumOutput` | definition | unclassified | - | - | - | - |
 | `vkEnumerateFixture` | definition | unclassified | - | - | - | - |
 | `vkHandleEnumerateResult` | definition | unclassified | - | - | - | - |
+| `vkHandleFlags` | definition | unclassified | - | - | - | - |
 | `vkHandleOutputResult` | definition | unclassified | - | - | - | - |
+| `vkHandleTwoScalars` | definition | unclassified | - | - | - | - |
+| `vkHandleWideFlags` | definition | unclassified | - | - | - | - |
 | `vkInternal` | definition | unclassified | - | - | - | - |
 | `vkPointerOnly` | definition | unclassified | - | - | - | - |
 | `vkPointerResult` | definition | unclassified | - | - | - | - |

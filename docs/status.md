@@ -26,20 +26,22 @@ Updated: 2026-08-27.
 - Generated raw command ABI foundation: all 2,892 OpenGL and 842 Vulkan
   commands have deterministic normalized call shapes. Separately generated
   compact name/shape modules prevent full coverage/type reports from entering
-  raw application builds. `RawOpenGlApi` resolves through `eglGetProcAddress`
+  raw application builds. Full type metadata preserves underlying native
+  declarations so 32-bit and 64-bit bitmasks cannot be conflated.
+  `RawOpenGlApi` resolves through `eglGetProcAddress`
   with process-symbol fallback, `RawVulkanApi` resolves instance/device
   commands through the Vulkan loaders, and exact-shape checking enables the
   first allocation-stable OpenGL indirect call families. Generated ABI tags
   classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
   callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
-  Vulkan classifies 8 `void(pointer)`, 52 `void(pointer,i32)`, 4
+  Vulkan classifies 8 `void(pointer)`, 55 `void(pointer,i32)`, 4
   `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81 four-pointer creation, 62
   pointer/64-bit-handle/pointer destruction, 14 handle-status, and 104
   two-pointer query entries, plus 61 result-returning and 47 void three-pointer
-  entries, 18 counted-pointer result entries, 18 scalar/scalar/output entries,
+  entries, 18 counted-pointer result entries, 19 scalar/scalar/output entries,
   36 pointer-result entries, 20 scalar/output entries, 24 handle/output result
-  entries, and 17 handle/enumeration result entries—568 total—and leaves the
-  other 274 unsupported.
+  entries, 17 handle/enumeration result entries, 9 handle/flag entries, and 5
+  handle/two-scalar entries—586 total—and leaves the other 256 unsupported.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -55,7 +57,7 @@ Updated: 2026-08-27.
   pool through raw `vkBeginCommandBuffer`, queries nonzero physical-device
   format properties through the enum/output family, enumerates the three
   swapchain images, advances a timeline semaphore from 7 to 9, retains zero
-  growth, and passes
+  growth, and records validated event and query-pool resets before passing
   validation in both build modes. Remaining signatures
   are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and

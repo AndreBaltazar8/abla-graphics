@@ -3279,7 +3279,8 @@ the documented synchronization/import operation is performed.
 The repository has stable `src/raw/opengl.ab` and `src/raw/vulkan.ab` facades
 backed by deterministic generated registry modules. Full modules expose pinned
 revisions/hashes and complete command, form, feature, extension, audit-status,
-parameter, aggregate, and normalized call-shape metadata, plus all 6,271
+parameter, aggregate, underlying native type, and normalized call-shape
+metadata, plus all 6,271
 selected OpenGL constants as directly usable Abla values. Compact generated
 name/shape modules keep those audit tables out of normal raw application
 builds.
@@ -3321,11 +3322,15 @@ Handle/output result calls use
 handle/enumeration calls use
 `callI32PointerI64PointerPointer(command, owner, handle, count, values, result)`;
 the final values pointer may be null for count-only enumeration.
+Handle/scalar command-buffer calls use
+`callVoidPointerI64I32(command, owner, handle, value)` and
+`callVoidPointerI64I32I32(command, owner, handle, first, second)`.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
-counts are 8, 52, 4, 2, 81, 62, 14, 104, 61, 47, 18, 18, 36, 20, 24, and 17
-respectively—568 Vulkan commands. The caller remains responsible for Vulkan
-object lifetime, command-buffer lifecycle, enabled features, and state rules.
+counts are 8, 55, 4, 2, 81, 62, 14, 104, 61, 47, 18, 19, 36, 20, 24, 17, 9,
+and 5 respectively—586 Vulkan commands. The caller remains responsible for
+Vulkan object lifetime, command-buffer lifecycle, enabled features, and state
+rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
 metadata or address presence is not represented as executable specification
@@ -3352,6 +3357,13 @@ through raw `vkGetSemaphoreCounterValue`, signals value 9, and reads 9 through
 the same checked family. It also performs count-only and filling
 `vkGetSwapchainImagesKHR` calls, observing the application's exact three image
 handles. Both build modes retain `live=0`, `stable=true`, and clean validation.
+
+Registry type metadata preserves each declared native base type. `VkFlags`
+bitmasks can therefore use exact 32-bit call families while `VkFlags64`
+commands remain unsupported until matching 64-bit signatures land. The live
+submission resets the real event through raw `vkCmdResetEvent` and a real
+timestamp query pool through raw `vkCmdResetQueryPool`; the event remains
+exactly reset after queue completion and both resources are destroyed.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are
