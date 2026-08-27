@@ -34,10 +34,12 @@ Updated: 2026-08-27.
   first allocation-stable OpenGL indirect call families. Generated ABI tags
   classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
   callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
-  Vulkan now classifies 738 exact callable layouts and leaves 104 entries
-  explicitly unsupported. The latest 56-command batch adds float state,
-  image transfer/clear/query, sparse query, pipeline creation, calibrated
-  timestamp, fence-wait, and broader pointer/status layouts.
+  Vulkan now classifies 783 exact callable layouts and leaves 59 entries
+  explicitly unsupported. The latest 45-command batch adds synchronization2
+  events, descriptor/query and private-data operations, swapchain creation,
+  acceleration queries, and larger pointer/status groups. Generated candidate
+  metadata normalizes 50 remaining one-off layouts and isolates nine
+  platform-scalar boundaries.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -46,7 +48,8 @@ Updated: 2026-08-27.
   rendering begin with a raw end, submits and waits for the command buffer,
   observes exact successful `vkDeviceWaitIdle` status, queries physical-device
   features, and completes an event create/status/destroy lifecycle with exact
-  `VK_EVENT_RESET`. It also creates a signaled fence, resets it through the
+  `VK_EVENT_SET` after a raw synchronization2 `vkCmdSetEvent2`. It also creates
+  a signaled fence, resets it through the
   counted-pointer family, observes exact `VK_NOT_READY`, and destroys it. It
   enumerates the physical-device list and resolves
   the application's exact queue through `vkGetDeviceQueue2`. It resets the
@@ -54,8 +57,9 @@ Updated: 2026-08-27.
   format properties through the enum/output family, enumerates the three
   swapchain images, advances a timeline semaphore from 7 to 9, retains zero
   growth, and records validated event and query-pool resets before passing
-  through raw timeline wait, synchronization2 reset/timestamp, and queue-submit
-  calls. It additionally records raw `vkCmdUpdateBuffer`, a transfer barrier,
+  through raw timeline wait, synchronization2 reset/set/timestamp, and
+  queue-submit calls. It additionally records raw `vkCmdUpdateBuffer`, a
+  transfer barrier,
   raw `vkCmdCopyBuffer`, and raw `vkCmdFillBuffer`; host readback observes the
   exact updated and filled 64-bit words. Raw compute bind/dispatch, vertex
   buffer binding, legacy and synchronization2 timestamps, command-pool reset,

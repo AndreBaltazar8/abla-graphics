@@ -122,8 +122,13 @@ update/copy/fill, and indirect-draw layouts add `i64(pointer,pointer)`,
 Float state, image copy/clear/query, sparse query, pipeline creation,
 calibrated timestamp, and fence-wait layouts add twenty further exact ABI
 families through a shared generated kind classifier.
+Descriptor updates, synchronization2 events, private-data operations,
+swapchain creation, acceleration queries, and larger pointer groups add 17
+more repeated layouts. A generated candidate ABI ledger now preserves the
+exact normalized layout even for entries not yet callable.
 Generated ABI classification marks exactly 352 currently callable OpenGL and
-738 callable Vulkan entries, leaving every other entry unsupported. The
+783 callable Vulkan entries, leaving 59 entries unsupported: 50 exact
+one-off layouts and nine platform-scalar boundaries. The
 remaining signature families, generated types/builders, capability gates, and
 complete raw coverage are intentionally still open, as is the remaining
 milestone work below.

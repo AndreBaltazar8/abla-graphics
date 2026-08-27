@@ -2397,16 +2397,35 @@ fun registryVulkanAdditionalCallAbiSupported(abi: string): bool =
     abi == "i32(pointer,i32,pointer,i32,i64)" ||
     abi == "i32(pointer,i64,i32,pointer,pointer,pointer)" ||
     abi == "i32(pointer,i64,i64,i32,pointer,pointer,pointer)" ||
-    abi == "i32(pointer,i64,i32,pointer)"
+    abi == "i32(pointer,i64,i32,pointer)" ||
+    abi == "i32(pointer,i32,pointer,pointer)" ||
+    abi == "void(pointer,i64,pointer)" ||
+    abi == "void(pointer,i32,pointer,i32,pointer)" ||
+    abi == "void(pointer,i32,pointer,i32,i64,i32)" ||
+    abi == "i32(pointer,pointer,pointer,pointer,pointer)" ||
+    abi == "i32(pointer,i64,i32,pointer,pointer)" ||
+    abi == "void(pointer,i32,i32,pointer,pointer,pointer,pointer)" ||
+    abi == "void(pointer,i64,i64,i64)" ||
+    abi == "void(pointer,pointer,pointer)" ||
+    abi == "void(pointer,i32,i64,i32,i32,pointer)" ||
+    abi == "i32(pointer,i64,pointer,pointer,pointer)" ||
+    abi == "i32(pointer,pointer,pointer)" ||
+    abi == "i32(pointer,i32,pointer,pointer,pointer,pointer)" ||
+    abi == "i32(pointer,pointer,i32,pointer)" ||
+    abi == "void(pointer,i32,i64,i64,pointer)" ||
+    abi == "i32(pointer,i32,i64,i64,i64)" ||
+    abi == "i32(pointer,i32,pointer,i32,i64,pointer,i64)"
 
-fun registryVulkanAdditionalCallAbi(
+fun registryVulkanNormalizedCallAbi(
     command: string,
     returnType: string,
     signatures: RegistryCommandSignatures,
     types: RegistryTypes
 ): string {
     var abi = if (returnType == "void") "void(" else
-        if (registryVulkanI32ReturnType(returnType)) "i32(" else ""
+        if (registryVulkanI32ReturnType(returnType)) "i32(" else
+        if (registryVulkanI64Type(types, returnType)) "i64(" else
+        if (returnType == "PFN_vkVoidFunction") "pointer(" else ""
     var valid = abi != ""
     var first = true
     var parameterIndex = 0
@@ -2430,7 +2449,19 @@ fun registryVulkanAdditionalCallAbi(
         parameterIndex = parameterIndex + 1
     }
     if (valid) abi = "$abi)"
-    if (valid && registryVulkanAdditionalCallAbiSupported(abi)) abi else ""
+    if (valid) abi else ""
+}
+
+fun registryVulkanAdditionalCallAbi(
+    command: string,
+    returnType: string,
+    signatures: RegistryCommandSignatures,
+    types: RegistryTypes
+): string {
+    val abi = registryVulkanNormalizedCallAbi(
+        command, returnType, signatures, types
+    )
+    if (registryVulkanAdditionalCallAbiSupported(abi)) abi else ""
 }
 
 fun registryCommandCallAbis(
@@ -3080,7 +3111,7 @@ fun registryCommandCallAbis(
         else if (vulkanI32PointerI64I32 && count == 3) {
             abi = "i32(pointer,i64,i32)"
         }
-        if (abi == "unsupported") {
+        if (api == "vulkan" && abi == "unsupported") {
             val additionalAbi = registryVulkanAdditionalCallAbi(
                 command,
                 signatures.returnTypes[commandIndex],
@@ -3093,6 +3124,29 @@ fun registryCommandCallAbis(
         commandIndex = commandIndex + 1
     }
     abis
+}
+
+fun registryCommandCallCandidates(
+    api: string,
+    inventory: RegistryInventory,
+    signatures: RegistryCommandSignatures,
+    types: RegistryTypes
+): array<string> {
+    if (api != "vulkan") return []
+    val candidates: array<string> = []
+    var commandIndex = 0
+    while (commandIndex < inventory.commands.size) {
+        var abi = registryVulkanNormalizedCallAbi(
+            inventory.commands[commandIndex],
+            signatures.returnTypes[commandIndex],
+            signatures,
+            types
+        )
+        if (abi == "") abi = "unsupported"
+        candidates.append(abi)
+        commandIndex = commandIndex + 1
+    }
+    candidates
 }
 
 fun registryCallSourcePrefix(api: string): string =
@@ -3110,6 +3164,9 @@ fun registryWriteCallSource(
     val prefix = registryCallSourcePrefix(api)
     val shapes = registryCommandCallShapes(inventory, signatures)
     val abis = registryCommandCallAbis(api, inventory, signatures, types)
+    val candidates = registryCommandCallCandidates(
+        api, inventory, signatures, types
+    )
     var success = output.writeText("")
     var batch = ""
     if (success) batch = registryAppend(
@@ -3136,6 +3193,9 @@ fun registryWriteCallSource(
     )
     if (success) batch = registryWriteSourceArray(
         output, batch, "${prefix}Abis", abis, false
+    )
+    if (success && api == "vulkan") batch = registryWriteSourceArray(
+        output, batch, "${prefix}CandidateAbis", candidates, false
     )
     if (batch == "#write-failed") success = false
     if (success && batch != "") success = output.appendText(batch)
@@ -3175,6 +3235,12 @@ fun registryWriteSource(
         signatures
     )
     val commandCallAbis = registryCommandCallAbis(
+        api,
+        inventory,
+        signatures,
+        types
+    )
+    val commandCallCandidates = registryCommandCallCandidates(
         api,
         inventory,
         signatures,
@@ -3368,6 +3434,12 @@ fun registryWriteSource(
         batch,
         "${prefix}CommandCallAbis",
         commandCallAbis
+    )
+    if (success && api == "vulkan") batch = registryWriteSourceArray(
+        output,
+        batch,
+        "${prefix}CommandCallCandidateAbis",
+        commandCallCandidates
     )
     if (success) batch = registryWriteSourceArray(
         output,

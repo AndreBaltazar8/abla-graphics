@@ -3348,10 +3348,17 @@ pipeline-creation pointer groups, calibrated timestamp outputs, and fence-wait
 status calls. Public wrappers retain the ABI name in their method name and
 accept ordinary Abla `f64` values only where the compiler performs an explicit
 `f64`-to-native-`f32` boundary conversion.
-Optional allocator/enumeration pointers may be null; required inputs, outputs,
-owners, and handles are rejected when null/zero. The complete generated family
-counts are asserted by `tests/raw_registry.ab`: 738 Vulkan commands are
-callable and 104 remain explicitly unsupported.
+The bulk descriptor/query extension adds synchronization2 events, larger
+pointer groups, descriptor updates, private-data operations, swapchain
+creation, and acceleration-query layouts. Generic trusted wrappers validate
+the resolved ABI, owner, availability, first native pointer, and status-output
+cell; the caller retains responsibility for command-specific optional and
+required arguments. The complete generated family counts are asserted by
+`tests/raw_registry.ab`: 783 Vulkan commands are callable and 59 remain
+explicitly unsupported. `rawVulkanCallCandidateAbis()` and
+`rawVulkanRegistryCommandCallCandidateAbis()` preserve normalized layouts for
+all but nine platform-specific scalar signatures, so future work can be
+selected without reparsing the registry.
 The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.
@@ -3391,9 +3398,11 @@ exactly reset after queue completion and both resources are destroyed.
 
 The latest live submission waits for timeline value 9 through raw
 `vkWaitSemaphores`, records raw `vkCmdResetEvent2` and
-`vkCmdWriteTimestamp2`, then submits through raw `vkQueueSubmit`. Both signed
-statuses are exact success, the timestamp result is nonzero, validation is
-clean, and normal/optimized runs retain `live=0` and `stable=true`.
+`vkCmdSetEvent2` with an exact packed synchronization2 dependency, records
+`vkCmdWriteTimestamp2`, then submits through raw `vkQueueSubmit`. The event is
+observed as exact `VK_EVENT_SET`; both signed statuses are exact success, the
+timestamp result is nonzero, validation is clean, and normal/optimized hot
+loops retain zero live-memory growth and `stable=true`.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are

@@ -182,11 +182,12 @@ proves the architecture rather than stopping at placeholder interfaces:
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
   unclassified; exact ABI-family metadata currently enables 352 OpenGL
-  commands and 738 Vulkan commands. The Vulkan surface includes exact float,
+  commands and 783 Vulkan commands. The Vulkan surface includes exact float,
   image transfer/clear/query, sparse query, pipeline creation, calibrated
-  timestamp, fence-wait, wide handle, mixed scalar/handle, pointer-pair, and
-  signed status families, leaving 104 entries explicitly
-  unsupported;
+  timestamp, fence-wait, descriptor/query, wide handle, mixed scalar/handle,
+  pointer-group, and signed status families, leaving 59 entries explicitly
+  unsupported. A parallel normalized-candidate inventory reduces those to 50
+  exact one-off layouts and nine platform-scalar boundaries;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
