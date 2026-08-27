@@ -3316,10 +3316,15 @@ scalar/scalar/output queries use
 Pointer-result calls use
 `callI32PointerPointer(command, first, second, result)`, and enum/scalar output
 queries use `callVoidPointerI32Pointer(command, owner, value, output)`.
+Handle/output result calls use
+`callI32PointerI64Pointer(command, owner, handle, output, result)`, while
+handle/enumeration calls use
+`callI32PointerI64PointerPointer(command, owner, handle, count, values, result)`;
+the final values pointer may be null for count-only enumeration.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
-counts are 8, 52, 4, 2, 81, 62, 14, 104, 61, 47, 18, 18, 36, and 20
-respectively—527 Vulkan commands. The caller remains responsible for Vulkan
+counts are 8, 52, 4, 2, 81, 62, 14, 104, 61, 47, 18, 18, 36, 20, 24, and 17
+respectively—568 Vulkan commands. The caller remains responsible for Vulkan
 object lifetime, command-buffer lifecycle, enabled features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
@@ -3341,6 +3346,12 @@ also queries `VK_FORMAT_R8G8B8A8_UNORM` through raw
 Normal and optimized runs report `begin=0`, the same nonzero format value,
 `live=0`, and `stable=true`; enum-backed 32-bit arguments are classified by
 their registry type category rather than a hand-maintained name list.
+
+The current live proof creates a timeline semaphore at value 7, reads it
+through raw `vkGetSemaphoreCounterValue`, signals value 9, and reads 9 through
+the same checked family. It also performs count-only and filling
+`vkGetSwapchainImagesKHR` calls, observing the application's exact three image
+handles. Both build modes retain `live=0`, `stable=true`, and clean validation.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are

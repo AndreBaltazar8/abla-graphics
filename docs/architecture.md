@@ -259,9 +259,9 @@ compiler-supported indirect calls. Vulkan additionally supports exact
 pointer/64-bit-handle destruction and status, and two-/three-pointer query
 families, plus counted-pointer result, scalar/scalar/output, pointer-result,
 and scalar/output query families. Generated ABI-family tags make the currently
-callable 352 OpenGL and 527
+callable 352 OpenGL and 568
 Vulkan commands explicit and retain `unsupported` for the other 2,540
-OpenGL and 315
+OpenGL and 274
 Vulkan commands. Further signatures remain
 unsupported until each has matching ABI, positive, negative, and live-driver
 evidence.

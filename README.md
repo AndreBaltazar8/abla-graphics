@@ -189,8 +189,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   `i32(pointer,pointer,pointer)`, and 47 `void(pointer,pointer,pointer)`
   commands, plus 18 `i32(pointer,i32,pointer)`, 18
   `void(pointer,i32,i32,pointer)`, 36 `i32(pointer,pointer)`, and 20
-  `void(pointer,i32,pointer)` commands—527 total—while leaving the other 315
-  Vulkan entries unsupported;
+  `void(pointer,i32,pointer)` commands, plus 24
+  `i32(pointer,i64,pointer)` and 17
+  `i32(pointer,i64,pointer,pointer)` commands—568 total—while leaving the
+  other 274 Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

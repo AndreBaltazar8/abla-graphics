@@ -37,8 +37,9 @@ Updated: 2026-08-27.
   pointer/64-bit-handle/pointer destruction, 14 handle-status, and 104
   two-pointer query entries, plus 61 result-returning and 47 void three-pointer
   entries, 18 counted-pointer result entries, 18 scalar/scalar/output entries,
-  36 pointer-result entries, and 20 scalar/output entries—527 total—and leaves
-  the other 315 unsupported.
+  36 pointer-result entries, 20 scalar/output entries, 24 handle/output result
+  entries, and 17 handle/enumeration result entries—568 total—and leaves the
+  other 274 unsupported.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -52,7 +53,9 @@ Updated: 2026-08-27.
   enumerates the physical-device list and resolves
   the application's exact queue through `vkGetDeviceQueue2`. It resets the
   pool through raw `vkBeginCommandBuffer`, queries nonzero physical-device
-  format properties through the enum/output family, retains zero growth, and passes
+  format properties through the enum/output family, enumerates the three
+  swapchain images, advances a timeline semaphore from 7 to 9, retains zero
+  growth, and passes
   validation in both build modes. Remaining signatures
   are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
