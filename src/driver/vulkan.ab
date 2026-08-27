@@ -5718,125 +5718,87 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
     if (succeeded) {
         val resolveBase = colorCount + (if (hasDepth) 1 else 0)
         val attachmentCount = resolveBase + resolveCount
-        val attachments = nativeByteBuffer(attachmentCount * 40)
+        val attachments = nativeByteBuffer(
+            attachmentCount * vulkanDriverSizeVkAttachmentDescription
+        )
         colorIndex = 0
-        while (colorIndex < colorCount) {
-            val offset = colorIndex * 36
+        while (succeeded && colorIndex < colorCount) {
+            val offset = colorIndex *
+                vulkanDriverSizeVkAttachmentDescription
             val finalLayout = colorFinalLayouts[colorIndex]
             val initialLayout = if (
                 colorLoadOperations[colorIndex] == 0
             ) finalLayout else 0
-            attachments.storeI64(
-                offset,
-                colorFormats[colorIndex] * 4294967296
+            succeeded = vulkanDriverAttachmentDescriptionAt(
+                attachments, offset, colorFormats[colorIndex], target.samples,
+                colorLoadOperations[colorIndex],
+                colorStoreOperations[colorIndex],
+                2, 1, initialLayout, finalLayout
             )
-            attachments.storeI64(
-                offset + 8,
-                colorLoadOperations[colorIndex] * 4294967296 + target.samples
-            )
-            attachments.storeI64(
-                offset + 16,
-                2 * 4294967296 + colorStoreOperations[colorIndex]
-            )
-            attachments.storeI64(
-                offset + 24,
-                initialLayout * 4294967296 + 1
-            )
-            attachments.storeI64(offset + 32, finalLayout)
             colorIndex = colorIndex + 1
         }
-        if (hasDepth) {
-            val depthOffset = colorCount * 36
+        if (succeeded && hasDepth) {
+            val depthOffset = colorCount *
+                vulkanDriverSizeVkAttachmentDescription
             val depthInitialLayout = if (depthLoadOperation == 0) 3 else 0
-            attachments.storeI64(
-                depthOffset,
-                target.depthFormat * 4294967296
+            succeeded = vulkanDriverAttachmentDescriptionAt(
+                attachments, depthOffset, target.depthFormat, target.samples,
+                depthLoadOperation, depthStoreOperation,
+                if (textureFormatHasStencil(target.depthFormat))
+                    depthLoadOperation else 2,
+                if (textureFormatHasStencil(target.depthFormat))
+                    depthStoreOperation else 1,
+                depthInitialLayout, 3
             )
-            attachments.storeI64(
-                depthOffset + 8,
-                depthLoadOperation * 4294967296 + target.samples
-            )
-            attachments.storeI64(
-                depthOffset + 16,
-                (if (textureFormatHasStencil(target.depthFormat))
-                    depthLoadOperation else 2) * 4294967296 +
-                    depthStoreOperation
-            )
-            attachments.storeI64(
-                depthOffset + 24,
-                depthInitialLayout * 4294967296 +
-                    (if (textureFormatHasStencil(target.depthFormat))
-                        depthStoreOperation else 1)
-            )
-            attachments.storeI64(depthOffset + 32, 3)
         }
         resolveIndex = 0
-        while (resolveIndex < resolveCount) {
-            val resolveOffset = (resolveBase + resolveIndex) * 36
-            attachments.storeI64(
-                resolveOffset,
-                colorFormats[resolveIndex] * 4294967296
-            )
-            attachments.storeI64(
-                resolveOffset + 8,
-                2 * 4294967296 + 1
-            )
-            attachments.storeI64(resolveOffset + 16, 2 * 4294967296)
-            attachments.storeI64(resolveOffset + 24, 1)
-            attachments.storeI64(
-                resolveOffset + 32,
+        while (succeeded && resolveIndex < resolveCount) {
+            val resolveOffset = (resolveBase + resolveIndex) *
+                vulkanDriverSizeVkAttachmentDescription
+            succeeded = vulkanDriverAttachmentDescriptionAt(
+                attachments, resolveOffset, colorFormats[resolveIndex],
+                1, 2, 0, 2, 1, 0,
                 resolveFinalLayouts[resolveIndex]
             )
             resolveIndex = resolveIndex + 1
         }
         val colorReferences = nativeByteBuffer(colorCount * 8)
         colorIndex = 0
-        while (colorIndex < colorCount) {
-            colorReferences.storeI64(
-                colorIndex * 8,
-                2 * 4294967296 + colorIndex
+        while (succeeded && colorIndex < colorCount) {
+            succeeded = vulkanDriverAttachmentReferenceAt(
+                colorReferences,
+                colorIndex * vulkanDriverSizeVkAttachmentReference,
+                colorIndex, 2
             )
             colorIndex = colorIndex + 1
         }
         val depthReference = nativeByteBuffer(8)
-        depthReference.storeI64(0, 3 * 4294967296 + colorCount)
+        if (succeeded && hasDepth) succeeded =
+            vulkanDriverAttachmentReferenceAt(
+                depthReference, 0, colorCount, 3
+            )
         val resolveReferences = nativeByteBuffer(resolveCount * 8)
         resolveIndex = 0
-        while (resolveIndex < resolveCount) {
-            resolveReferences.storeI64(
-                resolveIndex * 8,
-                2 * 4294967296 + resolveBase + resolveIndex
+        while (succeeded && resolveIndex < resolveCount) {
+            succeeded = vulkanDriverAttachmentReferenceAt(
+                resolveReferences,
+                resolveIndex * vulkanDriverSizeVkAttachmentReference,
+                resolveBase + resolveIndex, 2
             )
             resolveIndex = resolveIndex + 1
         }
-        val subpasses = nativeByteBuffer(subpassCount * 72)
+        val subpasses = nativeByteBuffer(
+            subpassCount * vulkanDriverSizeVkSubpassDescription
+        )
         var subpassIndex = 0
-        while (subpassIndex < subpassCount) {
-            val subpassOffset = subpassIndex * 72
-            subpasses.storeI64(subpassOffset, 0)
-            subpasses.storeI64(subpassOffset + 8, 0)
-            subpasses.storePointer(
-                subpassOffset + 16,
-                nativeNullPointer()
-            )
-            subpasses.storeI64(subpassOffset + 24, colorCount)
-            subpasses.storePointer(
-                subpassOffset + 32,
-                colorReferences.address
-            )
-            subpasses.storePointer(
-                subpassOffset + 40,
+        while (succeeded && subpassIndex < subpassCount) {
+            val subpassOffset = subpassIndex *
+                vulkanDriverSizeVkSubpassDescription
+            succeeded = vulkanDriverSubpassDescriptionAt(
+                subpasses, subpassOffset, colorCount, colorReferences.address,
                 if (resolveCount > 0) resolveReferences.address
-                else nativeNullPointer()
-            )
-            subpasses.storePointer(
-                subpassOffset + 48,
+                else nativeNullPointer(),
                 if (hasDepth) depthReference.address else nativeNullPointer()
-            )
-            subpasses.storeI64(subpassOffset + 56, 0)
-            subpasses.storePointer(
-                subpassOffset + 64,
-                nativeNullPointer()
             )
             subpassIndex = subpassIndex + 1
         }
@@ -5862,21 +5824,17 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             dependencies.storeI64(dependencyOffset + 24, 1)
             dependencyIndex = dependencyIndex + 1
         }
-        val createInfo = nativeByteBuffer(64)
-        createInfo.storeI64(0, 38)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, attachmentCount * 4294967296)
-        createInfo.storePointer(24, attachments.address)
-        createInfo.storeI64(32, subpassCount)
-        createInfo.storePointer(40, subpasses.address)
-        createInfo.storeI64(48, dependencyCount)
-        createInfo.storePointer(
-            56,
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkRenderPassCreateInfo
+        )
+        succeeded = succeeded && vulkanDriverRenderPassCreateInfoAt(
+            createInfo, 0, attachmentCount, attachments.address,
+            subpassCount, subpasses.address, dependencyCount,
             if (dependencyCount > 0) dependencies.address
             else nativeNullPointer()
         )
         val output = nativeI64Cell(0)
-        succeeded = vkCreateRenderPass(
+        if (succeeded) succeeded = vkCreateRenderPass(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -5910,20 +5868,15 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
             )
             resolveIndex = resolveIndex + 1
         }
-        val createInfo = nativeByteBuffer(64)
-        createInfo.storeI64(0, 37)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, handle)
-        createInfo.storeI64(32, attachmentCount)
-        createInfo.storePointer(40, attachments.address)
-        createInfo.storeI64(
-            48,
-            target.height * 4294967296 + target.width
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkFramebufferCreateInfo
         )
-        createInfo.storeI64(56, 1)
+        succeeded = vulkanDriverFramebufferCreateInfoAt(
+            createInfo, 0, handle, attachmentCount, attachments.address,
+            target.width, target.height
+        )
         val output = nativeI64Cell(0)
-        succeeded = vkCreateFramebuffer(
+        if (succeeded) succeeded = vkCreateFramebuffer(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -6058,112 +6011,84 @@ trusted fun VulkanDevice.renderTarget(
         val attachmentCount = colorCount + (if (hasDepth) 1 else 0) +
             resolveCount
         val attachments = nativeByteBuffer(
-            attachmentCount * 40
+            attachmentCount * vulkanDriverSizeVkAttachmentDescription
         )
         var colorIndex = 0
-        while (colorIndex < colorCount) {
+        while (succeeded && colorIndex < colorCount) {
             val color = if (colorIndex == 0) descriptor
                 else additionalDescriptors[colorIndex - 1]
-            val colorOffset = colorIndex * 36
-            attachments.storeI64(
-                colorOffset,
-                vulkanTextureFormat(color.format) * 4294967296
-            )
-            attachments.storeI64(
-                colorOffset + 8,
-                4294967296 + descriptor.samples
-            )
-            attachments.storeI64(colorOffset + 16, 2 * 4294967296)
-            attachments.storeI64(colorOffset + 24, 1)
-            attachments.storeI64(
-                colorOffset + 32,
+            val colorOffset = colorIndex *
+                vulkanDriverSizeVkAttachmentDescription
+            succeeded = vulkanDriverAttachmentDescriptionAt(
+                attachments, colorOffset, vulkanTextureFormat(color.format),
+                descriptor.samples, 1, 0, 2, 1, 0,
                 if ((color.usage & textureUsageSampled) != 0) 5 else 2
             )
             colorIndex = colorIndex + 1
         }
-        if (hasDepth) {
-            val depthOffset = colorCount * 36
-            attachments.storeI64(depthOffset, depthFormat * 4294967296)
-            attachments.storeI64(
-                depthOffset + 8,
-                4294967296 + descriptor.samples
+        if (succeeded && hasDepth) {
+            val depthOffset = colorCount *
+                vulkanDriverSizeVkAttachmentDescription
+            succeeded = vulkanDriverAttachmentDescriptionAt(
+                attachments, depthOffset, depthFormat, descriptor.samples,
+                1, 1, 1, 1, 0, 3
             )
-            attachments.storeI64(depthOffset + 16, 4294967296 + 1)
-            attachments.storeI64(depthOffset + 24, 1)
-            attachments.storeI64(depthOffset + 32, 3)
         }
         val resolveBase = colorCount + (if (hasDepth) 1 else 0)
         var resolveIndex = 0
-        while (resolveIndex < resolveCount) {
+        while (succeeded && resolveIndex < resolveCount) {
             val resolve = resolveDescriptors[resolveIndex]
-            val resolveOffset = (resolveBase + resolveIndex) * 36
-            attachments.storeI64(
-                resolveOffset,
-                vulkanTextureFormat(resolve.format) * 4294967296
-            )
-            attachments.storeI64(
-                resolveOffset + 8,
-                2 * 4294967296 + 1
-            )
-            attachments.storeI64(resolveOffset + 16, 2 * 4294967296)
-            attachments.storeI64(resolveOffset + 24, 1)
-            attachments.storeI64(
-                resolveOffset + 32,
+            val resolveOffset = (resolveBase + resolveIndex) *
+                vulkanDriverSizeVkAttachmentDescription
+            succeeded = vulkanDriverAttachmentDescriptionAt(
+                attachments, resolveOffset,
+                vulkanTextureFormat(resolve.format),
+                1, 2, 0, 2, 1, 0,
                 if ((resolve.usage & textureUsageSampled) != 0) 5 else 2
             )
             resolveIndex = resolveIndex + 1
         }
         val colorReference = nativeByteBuffer(colorCount * 8)
         colorIndex = 0
-        while (colorIndex < colorCount) {
-            colorReference.storeI64(
-                colorIndex * 8,
-                2 * 4294967296 + colorIndex
+        while (succeeded && colorIndex < colorCount) {
+            succeeded = vulkanDriverAttachmentReferenceAt(
+                colorReference,
+                colorIndex * vulkanDriverSizeVkAttachmentReference,
+                colorIndex, 2
             )
             colorIndex = colorIndex + 1
         }
         val depthReference = nativeByteBuffer(8)
-        depthReference.storeI64(0, 3 * 4294967296 + colorCount)
+        if (succeeded && hasDepth) succeeded =
+            vulkanDriverAttachmentReferenceAt(
+                depthReference, 0, colorCount, 3
+            )
         val resolveReferences = nativeByteBuffer(resolveCount * 8)
         resolveIndex = 0
-        while (resolveIndex < resolveCount) {
-            resolveReferences.storeI64(
-                resolveIndex * 8,
-                2 * 4294967296 + resolveBase + resolveIndex
+        while (succeeded && resolveIndex < resolveCount) {
+            succeeded = vulkanDriverAttachmentReferenceAt(
+                resolveReferences,
+                resolveIndex * vulkanDriverSizeVkAttachmentReference,
+                resolveBase + resolveIndex, 2
             )
             resolveIndex = resolveIndex + 1
         }
-        val subpass = nativeByteBuffer(72)
-        subpass.storeI64(0, 0)
-        subpass.storeI64(8, 0)
-        subpass.storePointer(16, nativeNullPointer())
-        subpass.storeI64(24, colorCount)
-        subpass.storePointer(32, colorReference.address)
-        subpass.storePointer(
-            40,
+        val subpass = nativeByteBuffer(vulkanDriverSizeVkSubpassDescription)
+        succeeded = succeeded && vulkanDriverSubpassDescriptionAt(
+            subpass, 0, colorCount, colorReference.address,
             if (resolveCount > 0) resolveReferences.address
-            else nativeNullPointer()
-        )
-        subpass.storePointer(
-            48,
+            else nativeNullPointer(),
             if (hasDepth) depthReference.address else nativeNullPointer()
         )
-        subpass.storeI64(56, 0)
-        subpass.storePointer(64, nativeNullPointer())
-        val createInfo = nativeByteBuffer(64)
-        createInfo.storeI64(0, 38)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(
-            16,
-            attachmentCount * 4294967296
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkRenderPassCreateInfo
         )
-        createInfo.storePointer(24, attachments.address)
-        createInfo.storeI64(32, 1)
-        createInfo.storePointer(40, subpass.address)
-        createInfo.storeI64(48, 0)
-        createInfo.storePointer(56, nativeNullPointer())
+        succeeded = succeeded && vulkanDriverRenderPassCreateInfoAt(
+            createInfo, 0, attachmentCount, attachments.address,
+            1, subpass.address
+        )
         val output = nativeI64Cell(0)
-        succeeded = vkCreateRenderPass(
+        if (succeeded) succeeded = vkCreateRenderPass(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -6196,23 +6121,15 @@ trusted fun VulkanDevice.renderTarget(
             )
             resolveIndex = resolveIndex + 1
         }
-        val createInfo = nativeByteBuffer(64)
-        createInfo.storeI64(0, 37)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, renderPass)
-        createInfo.storeI64(
-            32,
-            attachmentCount
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkFramebufferCreateInfo
         )
-        createInfo.storePointer(40, attachment.address)
-        createInfo.storeI64(
-            48,
-            descriptor.size.height * 4294967296 + descriptor.size.width
+        succeeded = vulkanDriverFramebufferCreateInfoAt(
+            createInfo, 0, renderPass, attachmentCount, attachment.address,
+            descriptor.size.width, descriptor.size.height
         )
-        createInfo.storeI64(56, 1)
         val output = nativeI64Cell(0)
-        succeeded = vkCreateFramebuffer(
+        if (succeeded) succeeded = vkCreateFramebuffer(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -8200,52 +8117,42 @@ trusted fun VulkanDevice.renderPipeline(
 
     if (succeeded && offscreen) renderPass = targetRenderPass
     if (succeeded && !offscreen && !dynamicRendering) {
-        val attachments = nativeByteBuffer(if (depthEnabled) 80 else 40)
-        attachments.storeI64(0, swapchain.format * 4294967296)
-        attachments.storeI64(8, 4294967296 + 1)
-        attachments.storeI64(16, 2 * 4294967296)
-        attachments.storeI64(24, 1)
-        attachments.storeI64(32, 1000001002)
-        if (depthEnabled) {
-            // VkAttachmentDescription is nine consecutive 32-bit fields,
-            // hence a 36-byte array stride on the supported ABI.
-            attachments.storeI64(36, 126 * 4294967296)
-            attachments.storeI64(44, 4294967296 + 1)
-            attachments.storeI64(52, 4294967296 + 1)
-            attachments.storeI64(60, 1)
-            attachments.storeI64(68, 3)
-        }
+        val attachments = nativeByteBuffer(
+            (if (depthEnabled) 2 else 1) *
+                vulkanDriverSizeVkAttachmentDescription
+        )
+        succeeded = vulkanDriverAttachmentDescriptionAt(
+            attachments, 0, swapchain.format, 1,
+            1, 0, 2, 1, 0, 1000001002
+        )
+        if (succeeded && depthEnabled) succeeded =
+            vulkanDriverAttachmentDescriptionAt(
+                attachments, vulkanDriverSizeVkAttachmentDescription,
+                126, 1, 1, 1, 1, 1, 0, 3
+            )
         val colorReference = nativeByteBuffer(8)
-        colorReference.storeI64(0, 2 * 4294967296)
+        if (succeeded) succeeded = vulkanDriverAttachmentReferenceAt(
+            colorReference, 0, 0, 2
+        )
         val depthReference = nativeByteBuffer(8)
-        depthReference.storeI64(0, 3 * 4294967296 + 1)
-        val subpass = nativeByteBuffer(72)
-        subpass.storeI64(0, 0)
-        subpass.storeI64(8, 0)
-        subpass.storePointer(16, nativeNullPointer())
-        subpass.storeI64(24, 1)
-        subpass.storePointer(32, colorReference.address)
-        subpass.storePointer(40, nativeNullPointer())
-        subpass.storePointer(
-            48,
+        if (succeeded && depthEnabled) succeeded =
+            vulkanDriverAttachmentReferenceAt(
+                depthReference, 0, 1, 3
+            )
+        val subpass = nativeByteBuffer(vulkanDriverSizeVkSubpassDescription)
+        if (succeeded) succeeded = vulkanDriverSubpassDescriptionAt(
+            subpass, 0, 1, colorReference.address, nativeNullPointer(),
             if (depthEnabled) depthReference.address else nativeNullPointer()
         )
-        subpass.storeI64(56, 0)
-        subpass.storePointer(64, nativeNullPointer())
-        val createInfo = nativeByteBuffer(64)
-        createInfo.storeI64(0, 38)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(
-            16,
-            (if (depthEnabled) 2 else 1) * 4294967296
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkRenderPassCreateInfo
         )
-        createInfo.storePointer(24, attachments.address)
-        createInfo.storeI64(32, 1)
-        createInfo.storePointer(40, subpass.address)
-        createInfo.storeI64(48, 0)
-        createInfo.storePointer(56, nativeNullPointer())
+        if (succeeded) succeeded = vulkanDriverRenderPassCreateInfoAt(
+            createInfo, 0, if (depthEnabled) 2 else 1,
+            attachments.address, 1, subpass.address
+        )
         val output = nativeI64Cell(0)
-        succeeded = vkCreateRenderPass(
+        if (succeeded) succeeded = vkCreateRenderPass(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -8346,20 +8253,16 @@ trusted fun VulkanDevice.renderPipeline(
             8,
             depthViews[imageIndex].handle
         )
-        val framebufferInfo = nativeByteBuffer(64)
-        framebufferInfo.storeI64(0, 37)
-        framebufferInfo.storePointer(8, nativeNullPointer())
-        framebufferInfo.storeI64(16, 0)
-        framebufferInfo.storeI64(24, renderPass)
-        framebufferInfo.storeI64(32, if (depthEnabled) 2 else 1)
-        framebufferInfo.storePointer(40, framebufferAttachments.address)
-        framebufferInfo.storeI64(
-            48,
-            swapchain.height * 4294967296 + swapchain.width
+        val framebufferInfo = nativeByteBuffer(
+            vulkanDriverSizeVkFramebufferCreateInfo
         )
-        framebufferInfo.storeI64(56, 1)
+        succeeded = vulkanDriverFramebufferCreateInfoAt(
+            framebufferInfo, 0, renderPass,
+            if (depthEnabled) 2 else 1, framebufferAttachments.address,
+            swapchain.width, swapchain.height
+        )
         val output = nativeI64Cell(0)
-        succeeded = vkCreateFramebuffer(
+        if (succeeded) succeeded = vkCreateFramebuffer(
             this.handle,
             framebufferInfo.address,
             nativeNullPointer(),

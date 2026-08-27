@@ -2869,7 +2869,20 @@ LLVM work had rebuilt the default payload mid-run; those LLVM files were left
 untouched. The isolated launcher change is published as compiler commit
 `db66329fb2aae2abf0020e494311a1dbd8093162`.
 
-Next migrate render-pass/framebuffer and graphics-pipeline creation structures,
+### Generated render-pass and framebuffer creation ABI
+
+The compact production subset now covers 57 structures and 414 members. Typed
+builders migrate attachment descriptions/references, subpass descriptions,
+render-pass creation, and framebuffer creation across compatible passes,
+offscreen targets, and surfaced legacy rendering. Generated 36-byte attachment
+sizes remove the former padded allocations and handwritten array strides.
+
+Deterministic registry tests and normal/optimized graph suites pass across
+depth, multisample resolve, MRT, multi-subpass, and transient rendering;
+1,001-frame Vulkan paths remain `live=0`. X11 Vulkan, Abla-only, and direct
+runtime linkage also pass with `unresolved=0`.
+
+Next migrate graphics-pipeline state and image/buffer allocation structures,
 then continue through the remaining registry-backed production ABI families in
 `plan.md`.
 
