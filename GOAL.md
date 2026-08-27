@@ -2159,6 +2159,45 @@ three/four-scalar commands, wider typed returns, and generated
 flags/structures with extension/feature ownership metadata. The full goal
 remains active.
 
+### Published checkpoint: counted pointer and legacy queue batch
+
+Compiler dependency `f73b8a311b2f8f1895c6436637a75ee80645c233`
+adds the exact `i32(pointer,i32,pointer)` indirect-call intrinsic and LLVM
+lowering. Its unsafe boundary proves `i32` argument truncation and signed
+return extension with real non-null pointers. The pure-Abla compiler fixed
+point and native boundary test pass.
+
+Graphics implementation `896616b9717777d1ce90a149ad8a4cdc915baa65`
+contains the registry classification, checked raw wrappers, deterministic
+fixture coverage, full-registry assertions, live Vulkan proof, and public
+contract updates.
+
+The generator classifies exactly 13 `i32(pointer,i32,pointer)` commands and 17
+`void(pointer,i32,i32,pointer)` commands. Total executable Vulkan raw coverage
+rises from 417 to 447 of 842 commands, leaving 395 explicit `unsupported`
+entries. The fixture and pinned full registry prove the exact `vkResetFences`
+and `vkGetDeviceQueue` shapes and ABI tags.
+
+The live sample resolves `vkGetDeviceQueue` and verifies that the legacy query
+returns the application's exact queue already observed through
+`vkGetDeviceQueue2`. It creates a signaled fence, observes success, resets the
+one-element fence array through the counted-pointer family, observes exact
+`VK_NOT_READY`, and destroys the fence. Normal and optimized Vulkan runs both
+report five devices, matching non-zero queue handles, `fenceStatus=1`,
+`reset=0`, `calls=1000`, `status=0`, `live=0`, and `stable=true`; OpenGL also
+reports `live=0` and `stable=true`, and both validation scans are clean.
+
+Compiler fixed point and unsafe boundary, deterministic/full registry, normal
+and optimized raw runs, Abla-only audit, and core tests pass. The 71-sample
+application matrix was not rerun because this checkpoint changes only opt-in
+raw ABI classification, exact compiler lowering, and its focused live sample.
+
+This batch moved another 30 commands into executable coverage with one new
+compiler primitive and reused the existing scalar/scalar/output lowering.
+Continue batching remaining exact ABI families around real resource,
+synchronization, transfer, and pipeline operations. The full goal remains
+active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
