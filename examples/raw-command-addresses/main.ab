@@ -3,7 +3,7 @@ import "abla/process/arguments"
 import "abla/runtime/memory"
 import "../../src/raw/opengl.ab"
 import "../../src/raw/vulkan.ab"
-import "../../src/buffer.ab"
+import "../../src/graphics.ab"
 
 trusted fun main: int {
     val requested = if (processArgumentCount() > 0)
@@ -124,6 +124,13 @@ trusted fun main: int {
         val drawIndirectCount = raw.deviceCommand(
             "vkCmdDrawIndirectCount"
         )
+        val resetCommandBuffer = raw.deviceCommand("vkResetCommandBuffer")
+        val resetCommandPool = raw.deviceCommand("vkResetCommandPool")
+        val unmapMemory = raw.deviceCommand("vkUnmapMemory")
+        val bindPipeline = raw.deviceCommand("vkCmdBindPipeline")
+        val dispatch = raw.deviceCommand("vkCmdDispatch")
+        val writeTimestamp = raw.deviceCommand("vkCmdWriteTimestamp")
+        val bindVertexBuffers = raw.deviceCommand("vkCmdBindVertexBuffers")
         val missing = raw.deviceCommand("vkAblaMissing")
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
@@ -152,11 +159,14 @@ trusted fun main: int {
         val submitStatus = nativeI64Cell(-1)
         val addressResult = nativeI64Cell(-1)
         val bindStatus = nativeI64Cell(-1)
+        val resetPoolStatus = nativeI64Cell(-1)
+        val resetBufferStatus = nativeI64Cell(-1)
         val updateData = nativeI64Cell(72623859790382856)
         val rawTransferSource = app.buffer(BufferDescriptor(
             label = "raw transfer source",
             size = 16,
-            usage = bufferUsageCopySource | bufferUsageCopyDestination,
+            usage = bufferUsageCopySource | bufferUsageCopyDestination |
+                bufferUsageVertex,
             memory = bufferMemoryHostVisible
         ))
         val rawTransferDestination = app.buffer(BufferDescriptor(
@@ -218,11 +228,13 @@ trusted fun main: int {
         var recorded = raw.available && !pointerIsNull(command) &&
             !app.vulkanPixels.frames[0].inFlight &&
             vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
-            vkResetCommandPool(
+            raw.callI32PointerI64I32(
+                resetCommandPool,
                 app.vulkanDevice.handle,
                 app.vulkanPixels.frames[0].commandPool,
-                0
-            ) == vulkanSuccess
+                0,
+                resetPoolStatus.address
+            ) && resetPoolStatus.load() == vulkanSuccess
         if (recorded) {
             app.vulkanPixels.frames[0].scratch.storeI64(0, 42)
             app.vulkanPixels.frames[0].scratch.storePointer(
@@ -463,11 +475,101 @@ trusted fun main: int {
                 0,
                 1,
                 16
+            ) &&
+            !raw.callVoidPointerI64(
+                unmapMemory,
+                nativeNullPointer(),
+                1
+            ) &&
+            !raw.callVoidPointerI32I64(
+                bindPipeline,
+                nativeNullPointer(),
+                1,
+                1
+            ) &&
+            !raw.callVoidPointerI32I64I32(
+                writeTimestamp,
+                nativeNullPointer(),
+                8192,
+                1,
+                0
+            ) &&
+            !raw.callVoidPointerI32I32I32(
+                dispatch,
+                nativeNullPointer(),
+                1,
+                1,
+                1
+            ) &&
+            !raw.callVoidPointerI32I32I32I32(
+                dispatch,
+                command,
+                1,
+                1,
+                1,
+                1
+            ) &&
+            !raw.callVoidPointerI32I32I32I32I32(
+                dispatch,
+                command,
+                1,
+                1,
+                1,
+                1,
+                1
+            ) &&
+            !raw.callVoidPointerI32I32I32I32I32I32(
+                dispatch,
+                command,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1
+            ) &&
+            !raw.callVoidPointerI32PointerPointer(
+                bindVertexBuffers,
+                command,
+                1,
+                nativeNullPointer(),
+                nativeNullPointer()
+            ) &&
+            !raw.callVoidPointerI32I32PointerPointer(
+                bindVertexBuffers,
+                nativeNullPointer(),
+                0,
+                1,
+                nativeNullPointer(),
+                nativeNullPointer()
+            ) &&
+            !raw.callI32PointerI32(
+                resetCommandBuffer,
+                nativeNullPointer(),
+                0,
+                resetBufferStatus.address
+            ) &&
+            !raw.callI32PointerI64I32(
+                resetCommandPool,
+                nativeNullPointer(),
+                1,
+                0,
+                resetPoolStatus.address
             )
+        val rawComputeShader = $glsl {
+            compute {
+                #version 450
+                layout(local_size_x = 1) in;
+                void main() {}
+            }
+        }
+        val rawCompute = app.computePipeline(rawComputeShader)
         val timeline = app.vulkanDevice.timelineSemaphore(7)
         val createdTimeline = timeline.handle
         val timestampQuery = app.vulkanDevice.timestampQuery()
         val createdQueryPool = timestampQuery.queryPool
+        val legacyTimestampQuery = app.vulkanDevice.timestampQuery()
+        val createdLegacyQueryPool = legacyTimestampQuery.queryPool
         val liveBefore = runtimeMemoryLiveBytes()
         var timelineRoundTrip = timeline.valid() &&
             raw.callI32PointerI64Pointer(
@@ -652,6 +754,7 @@ trusted fun main: int {
             if (fenceRoundTrip) fenceHandle.store(0)
         }
         recorded = recorded && resourceRoundTrip && timestampQuery.valid() &&
+            legacyTimestampQuery.valid() && rawCompute.valid() &&
             rawTransferSource.valid() && rawTransferDestination.valid() &&
             raw.callVoidPointerI64I64I64Pointer(
                 updateBuffer,
@@ -661,6 +764,35 @@ trusted fun main: int {
                 8,
                 updateData.address
             )
+        if (recorded) {
+            recorded = raw.callVoidPointerI32I64(
+                bindPipeline,
+                command,
+                1,
+                rawCompute.vulkan.handle
+            ) && raw.callVoidPointerI32I32I32(
+                dispatch,
+                command,
+                1,
+                1,
+                1
+            )
+        }
+        if (recorded) {
+            app.vulkanPixels.frames[0].scratch.storeI64(
+                344,
+                rawTransferSource.vulkan.handle
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(352, 0)
+            recorded = raw.callVoidPointerI32I32PointerPointer(
+                bindVertexBuffers,
+                command,
+                0,
+                1,
+                app.vulkanPixels.frames[0].scratch.pointerAt(344),
+                app.vulkanPixels.frames[0].scratch.pointerAt(352)
+            )
+        }
         if (recorded) {
             // Make the raw update visible to the following raw copy.
             app.vulkanPixels.frames[0].scratch.storeI64(240, 46)
@@ -735,6 +867,12 @@ trusted fun main: int {
                 timestampQuery.queryPool,
                 0,
                 1
+            ) && raw.callVoidPointerI64I32I32(
+                resetQueryPool,
+                command,
+                legacyTimestampQuery.queryPool,
+                0,
+                1
             ) && raw.callVoidPointerI64I64(
                 resetEvent2,
                 command,
@@ -746,7 +884,14 @@ trusted fun main: int {
                 8192,
                 timestampQuery.queryPool,
                 0
+            ) && raw.callVoidPointerI32I64I32(
+                writeTimestamp,
+                command,
+                2048,
+                legacyTimestampQuery.queryPool,
+                0
             )
+        val loopLiveBefore = runtimeMemoryLiveBytes()
         var call = 0
         while (recorded && resourceRoundTrip && fenceRoundTrip && call < 1000) {
             recorded = raw.callVoidPointerI32(
@@ -761,8 +906,12 @@ trusted fun main: int {
             )
             call = call + 1
         }
+        val loopLiveAfter = runtimeMemoryLiveBytes()
         recorded = recorded && call == 1000 &&
             vkEndCommandBuffer(command) == vulkanSuccess
+        var transferFirst = 0
+        var transferSecond = 0
+        var rawUnmapped = false
         if (recorded) {
             app.vulkanPixels.frames[0].scratch.storeI64(0, 4)
             app.vulkanPixels.frames[0].scratch.storePointer(
@@ -807,11 +956,34 @@ trusted fun main: int {
                     8,
                     3
                 ) == vulkanSuccess && timestampQuery.result.load() > 0 &&
+                legacyTimestampQuery.result.store(0) &&
+                vkGetQueryPoolResults(
+                    app.vulkanDevice.handle,
+                    legacyTimestampQuery.queryPool,
+                    0,
+                    1,
+                    8,
+                    legacyTimestampQuery.result.address,
+                    8,
+                    3
+                ) == vulkanSuccess &&
+                legacyTimestampQuery.result.load() > 0 &&
                 raw.callI32Pointer(
                     idle,
                     app.vulkanDevice.handle,
                     idleStatus.address
                 ) && idleStatus.load() == vulkanSuccess
+        }
+        if (recorded) {
+            transferFirst = rawTransferDestination.readI64(0)
+            transferSecond = rawTransferDestination.readI64(8)
+            rawUnmapped = rawTransferDestination.mapRead() &&
+                raw.callVoidPointerI64(
+                    unmapMemory,
+                    app.vulkanDevice.handle,
+                    rawTransferDestination.vulkan.memory
+                ) && rawTransferDestination.vulkan.clearMappedState()
+            recorded = rawUnmapped
         }
         if (recorded && resourceRoundTrip) {
             eventStatus.store(-1)
@@ -830,11 +1002,14 @@ trusted fun main: int {
             if (resourceRoundTrip) eventHandle.store(0)
         }
         val liveAfter = runtimeMemoryLiveBytes()
-        val restored = vkResetCommandPool(
+        resetPoolStatus.store(-1)
+        val restored = raw.callI32PointerI64I32(
+            resetCommandPool,
             app.vulkanDevice.handle,
             app.vulkanPixels.frames[0].commandPool,
-            0
-        ) == vulkanSuccess
+            0,
+            resetPoolStatus.address
+        ) && resetPoolStatus.load() == vulkanSuccess
         stable = raw.available && enumerate.valid() && idle.valid() &&
             setDeviceMask.valid() &&
             endRendering.valid() && setStencilReference.valid() &&
@@ -851,6 +1026,9 @@ trusted fun main: int {
             getBufferDeviceAddress.valid() && bindBufferMemory.valid() &&
             copyBuffer.valid() && fillBuffer.valid() && updateBuffer.valid() &&
             drawIndirect.valid() && drawIndirectCount.valid() &&
+            resetCommandBuffer.valid() && resetCommandPool.valid() &&
+            unmapMemory.valid() && bindPipeline.valid() && dispatch.valid() &&
+            writeTimestamp.valid() && bindVertexBuffers.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
@@ -947,30 +1125,46 @@ trusted fun main: int {
             drawIndirect.callAbi == "void(pointer,i64,i64,i32,i32)" &&
             drawIndirectCount.callAbi ==
                 "void(pointer,i64,i64,i64,i64,i32,i32)" &&
+            resetCommandBuffer.callAbi == "i32(pointer,i32)" &&
+            resetCommandPool.callAbi == "i32(pointer,i64,i32)" &&
+            unmapMemory.callAbi == "void(pointer,i64)" &&
+            bindPipeline.callAbi == "void(pointer,i32,i64)" &&
+            dispatch.callAbi == "void(pointer,i32,i32,i32)" &&
+            writeTimestamp.callAbi == "void(pointer,i32,i64,i32)" &&
+            bindVertexBuffers.callAbi ==
+                "void(pointer,i32,i32,pointer,pointer)" &&
             idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
             pointerQueries && timelineRoundTrip && createdTimeline != 0 &&
             timeline.valid() && createdQueryPool != 0 &&
-            timestampQuery.valid() && resourceRoundTrip && fenceRoundTrip &&
+            timestampQuery.valid() && createdLegacyQueryPool != 0 &&
+            legacyTimestampQuery.valid() && rawCompute.valid() &&
+            rawCompute.vulkan.handle != 0 &&
+            resourceRoundTrip && fenceRoundTrip &&
             createdEvent != 0 && eventHandle.load() == 0 &&
             createdFence != 0 && fenceHandle.load() == 0 &&
             fenceStatus.load() == 1 && resetStatus.load() == vulkanSuccess &&
             timelineWaitStatus.load() == vulkanSuccess &&
             submitStatus.load() == vulkanSuccess &&
             timestampQuery.result.load() > 0 &&
-            rawTransferDestination.readI64(0) == 72623859790382856 &&
-            rawTransferDestination.readI64(8) == 72623859723010820 &&
+            legacyTimestampQuery.result.load() > 0 && rawUnmapped &&
+            transferFirst == 72623859790382856 &&
+            transferSecond == 72623859723010820 &&
             beginStatus.load() == vulkanSuccess && recorded && restored &&
-            liveAfter == liveBefore
-        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} transfer=${rawTransferDestination.readI64(0)}/${rawTransferDestination.readI64(8)} submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
+            loopLiveAfter == loopLiveBefore
+        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
+        rawCompute.drop()
         timeline.drop()
         timestampQuery.drop()
+        legacyTimestampQuery.drop()
         rawTransferSource.drop()
         rawTransferDestination.drop()
         updateData.close()
         stable = stable && timeline.handle == 0 &&
             timestampQuery.queryPool == 0 &&
+            legacyTimestampQuery.queryPool == 0 &&
+            rawCompute.vulkan.handle == 0 &&
             rawTransferSource.vulkan.handle == 0 &&
             rawTransferDestination.vulkan.handle == 0 && updateData.closed
     }

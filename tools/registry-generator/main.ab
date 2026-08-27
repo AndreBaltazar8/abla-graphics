@@ -2437,6 +2437,21 @@ fun registryCommandCallAbis(
             vulkanVoidPointerI64I64I32Pointer
         var vulkanVoidPointerI64I64I64I64I32I32 =
             vulkanVoidPointerI64I64I32Pointer
+        var vulkanVoidPointerI64 = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI32I64 = vulkanVoidPointerI64
+        var vulkanVoidPointerI32I64I32 = vulkanVoidPointerI64
+        var vulkanVoidPointerI32I32I32 = vulkanVoidPointerI64
+        var vulkanVoidPointerI32I32I32I32 = vulkanVoidPointerI64
+        var vulkanVoidPointerI32I32I32I32I32 = vulkanVoidPointerI64
+        var vulkanVoidPointerI32I32I32I32I32I32 = vulkanVoidPointerI64
+        var vulkanVoidPointerI32PointerPointer = vulkanVoidPointerI64
+        var vulkanVoidPointerI32I32PointerPointer = vulkanVoidPointerI64
+        var vulkanI32PointerI32 = api == "vulkan" &&
+            registryVulkanI32ReturnType(
+                signatures.returnTypes[commandIndex]
+            )
+        var vulkanI32PointerI64I32 = vulkanI32PointerI32
         var parameterIndex = 0
         var count = 0
         while (parameterIndex < signatures.parameterOwners.size) {
@@ -2448,7 +2463,7 @@ fun registryCommandCallAbis(
                     )) compatible = false
                 if (count == 0 && (
                     signatures.parameterPointerLevels[parameterIndex] != "0" ||
-                    !registryVulkanDispatchableType(
+                    !registryVulkanAnyDispatchableType(
                         signatures.parameterTypes[parameterIndex]
                     ))) vulkanPointerI32 = false
                 else if (count == 1 && (
@@ -2459,13 +2474,13 @@ fun registryCommandCallAbis(
                 else if (count > 1) vulkanPointerI32 = false
                 if (count == 0 && (
                     signatures.parameterPointerLevels[parameterIndex] != "0" ||
-                    !registryVulkanDispatchableType(
+                    !registryVulkanAnyDispatchableType(
                         signatures.parameterTypes[parameterIndex]
                     ))) vulkanPointer = false
                 else if (count > 0) vulkanPointer = false
                 if (count == 0 && (
                     signatures.parameterPointerLevels[parameterIndex] != "0" ||
-                    !registryVulkanDispatchableType(
+                    !registryVulkanAnyDispatchableType(
                         signatures.parameterTypes[parameterIndex]
                     ))) vulkanPointerI32I32 = false
                 else if ((count == 1 || count == 2) && (
@@ -2476,7 +2491,7 @@ fun registryCommandCallAbis(
                 else if (count > 2) vulkanPointerI32I32 = false
                 if (count == 0 && (
                     signatures.parameterPointerLevels[parameterIndex] != "0" ||
-                    !registryVulkanStatusDispatchableType(
+                    !registryVulkanAnyDispatchableType(
                         signatures.parameterTypes[parameterIndex]
                     ))) vulkanI32Pointer = false
                 else if (count > 0) vulkanI32Pointer = false
@@ -2505,7 +2520,7 @@ fun registryCommandCallAbis(
                 } else if (count > 2) vulkanVoidPointerI64Pointer = false
                 if (count == 0 && (
                     signatures.parameterPointerLevels[parameterIndex] != "0" ||
-                    !registryVulkanStatusDispatchableType(
+                    !registryVulkanAnyDispatchableType(
                         signatures.parameterTypes[parameterIndex]
                     ))) vulkanI32PointerI64 = false
                 else if (count == 1 && (
@@ -2828,6 +2843,59 @@ fun registryCommandCallAbis(
                 else if (count > 6) {
                     vulkanVoidPointerI64I64I64I64I32I32 = false
                 }
+                val scalarPointer = count == 0 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0" &&
+                    registryVulkanAnyDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    )
+                val scalarI32 = count > 0 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0" &&
+                    registryVulkanI32Type(
+                        types, signatures.parameterTypes[parameterIndex]
+                    )
+                val scalarI64 = count > 0 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0" &&
+                    registryVulkanI64Type(
+                        types, signatures.parameterTypes[parameterIndex]
+                    )
+                val scalarAddress = count > 0 &&
+                    signatures.parameterPointerLevels[parameterIndex] != "0"
+                if (!(scalarPointer || (count == 1 && scalarI64)) || count > 1) {
+                    vulkanVoidPointerI64 = false
+                }
+                if (!(scalarPointer || (count == 1 && scalarI32) ||
+                    (count == 2 && scalarI64)) || count > 2) {
+                    vulkanVoidPointerI32I64 = false
+                }
+                if (!(scalarPointer || (count == 1 && scalarI32) ||
+                    (count == 2 && scalarI64) ||
+                    (count == 3 && scalarI32)) || count > 3) {
+                    vulkanVoidPointerI32I64I32 = false
+                }
+                if (!(scalarPointer || (count > 0 && count < 4 && scalarI32)) ||
+                    count > 3) vulkanVoidPointerI32I32I32 = false
+                if (!(scalarPointer || (count > 0 && count < 5 && scalarI32)) ||
+                    count > 4) vulkanVoidPointerI32I32I32I32 = false
+                if (!(scalarPointer || (count > 0 && count < 6 && scalarI32)) ||
+                    count > 5) vulkanVoidPointerI32I32I32I32I32 = false
+                if (!(scalarPointer || (count > 0 && count < 7 && scalarI32)) ||
+                    count > 6) vulkanVoidPointerI32I32I32I32I32I32 = false
+                if (!(scalarPointer || (count == 1 && scalarI32) ||
+                    ((count == 2 || count == 3) && scalarAddress)) || count > 3) {
+                    vulkanVoidPointerI32PointerPointer = false
+                }
+                if (!(scalarPointer ||
+                    ((count == 1 || count == 2) && scalarI32) ||
+                    ((count == 3 || count == 4) && scalarAddress)) || count > 4) {
+                    vulkanVoidPointerI32I32PointerPointer = false
+                }
+                if (!(scalarPointer || (count == 1 && scalarI32)) || count > 1) {
+                    vulkanI32PointerI32 = false
+                }
+                if (!(scalarPointer || (count == 1 && scalarI64) ||
+                    (count == 2 && scalarI32)) || count > 2) {
+                    vulkanI32PointerI64I32 = false
+                }
                 count = count + 1
             }
             parameterIndex = parameterIndex + 1
@@ -2922,6 +2990,39 @@ fun registryCommandCallAbis(
         }
         else if (vulkanVoidPointerI64I64I64I64I32I32 && count == 7) {
             abi = "void(pointer,i64,i64,i64,i64,i32,i32)"
+        }
+        else if (vulkanVoidPointerI64 && count == 2) {
+            abi = "void(pointer,i64)"
+        }
+        else if (vulkanVoidPointerI32I64 && count == 3) {
+            abi = "void(pointer,i32,i64)"
+        }
+        else if (vulkanVoidPointerI32I64I32 && count == 4) {
+            abi = "void(pointer,i32,i64,i32)"
+        }
+        else if (vulkanVoidPointerI32I32I32 && count == 4) {
+            abi = "void(pointer,i32,i32,i32)"
+        }
+        else if (vulkanVoidPointerI32I32I32I32 && count == 5) {
+            abi = "void(pointer,i32,i32,i32,i32)"
+        }
+        else if (vulkanVoidPointerI32I32I32I32I32 && count == 6) {
+            abi = "void(pointer,i32,i32,i32,i32,i32)"
+        }
+        else if (vulkanVoidPointerI32I32I32I32I32I32 && count == 7) {
+            abi = "void(pointer,i32,i32,i32,i32,i32,i32)"
+        }
+        else if (vulkanVoidPointerI32PointerPointer && count == 4) {
+            abi = "void(pointer,i32,pointer,pointer)"
+        }
+        else if (vulkanVoidPointerI32I32PointerPointer && count == 5) {
+            abi = "void(pointer,i32,i32,pointer,pointer)"
+        }
+        else if (vulkanI32PointerI32 && count == 2) {
+            abi = "i32(pointer,i32)"
+        }
+        else if (vulkanI32PointerI64I32 && count == 3) {
+            abi = "i32(pointer,i64,i32)"
         }
         abis.append(abi)
         commandIndex = commandIndex + 1

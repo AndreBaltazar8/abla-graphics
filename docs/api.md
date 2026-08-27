@@ -3338,10 +3338,14 @@ Typed 64-bit return and buffer operations use
 `callVoidPointerI64I64I64Pointer`. Indirect buffer command layouts use
 `callVoidPointerI64I64I32I32` and
 `callVoidPointerI64I64I64I64I32I32`.
+The scalar/transfer extension adds `callVoidPointerI64`,
+`callVoidPointerI32I64`, `callVoidPointerI32I64I32`, the three- through
+six-`i32` command families, two pointer-pair families, `callI32PointerI32`,
+and `callI32PointerI64I32`.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
-counts are 8, 55, 4, 2, 81, 62, 14, 104, 61, 47, 18, 19, 36, 20, 24, 17, 9,
-5, 5, 5, 3, 4, 10, 3, 3, 4, 1, 4, and 8 respectively—636 Vulkan commands.
+counts are asserted by `tests/raw_registry.ab`: 682 Vulkan commands are
+callable and 160 remain explicitly unsupported.
 The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.

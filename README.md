@@ -181,28 +181,12 @@ proves the architecture rather than stopping at placeholder interfaces:
   7,413 members; compact separately generated callable-command modules avoid
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
-  unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
-  `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
-  other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 55
-  `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81
-  `i32(pointer,pointer,pointer,pointer)`, 62 `void(pointer,i64,pointer)`, 14
-  `i32(pointer,i64)`, 104 `void(pointer,pointer)`, 61
-  `i32(pointer,pointer,pointer)`, and 47 `void(pointer,pointer,pointer)`
-  commands, plus 18 `i32(pointer,i32,pointer)`, 19
-  `void(pointer,i32,i32,pointer)`, 36 `i32(pointer,pointer)`, and 20
-  `void(pointer,i32,pointer)` commands, plus 24
-  `i32(pointer,i64,pointer)` and 17
-  `i32(pointer,i64,pointer,pointer)`, 9 `void(pointer,i64,i32)`, and 5
-  `void(pointer,i64,i32,i32)`, 5 `void(pointer,i64,i64)`, 5
-  `void(pointer,i64,i64,i32)`, 3
-  `i32(pointer,pointer,i64)`, and 4 `i32(pointer,i32,pointer,i64)` commands,
-  plus 10 `i64(pointer,pointer)`, 3 `i32(pointer,i64,i64,i64)`, 3
-  `void(pointer,i64,i64,i32,pointer)`, 4
-  `void(pointer,i64,i64,i64,i32)`, 1
-  `void(pointer,i64,i64,i64,pointer)`, 4
-  `void(pointer,i64,i64,i32,i32)`, and 8
-  `void(pointer,i64,i64,i64,i64,i32,i32)` commands, bringing the total to
-  636 and leaving 206 unsupported;
+  unclassified; exact ABI-family metadata currently enables 352 OpenGL
+  commands and 682 Vulkan commands. The Vulkan surface includes the new wide
+  handle, mixed scalar/handle, three- through six-scalar, pointer-pair, and
+  signed status families used by reset, compute dispatch, timestamp, vertex
+  binding, and memory-unmap commands, leaving 160 entries explicitly
+  unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
