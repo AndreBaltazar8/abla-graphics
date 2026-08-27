@@ -185,8 +185,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 35
   `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81
   `i32(pointer,pointer,pointer,pointer)`, 62 `void(pointer,i64,pointer)`, 13
-  `i32(pointer,i64)`, and 104 `void(pointer,pointer)` commands—309 total—while
-  leaving the other 533 Vulkan entries unsupported;
+  `i32(pointer,i64)`, 104 `void(pointer,pointer)`, 61
+  `i32(pointer,pointer,pointer)`, and 47 `void(pointer,pointer,pointer)`
+  commands—417 total—while leaving the other 425 Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

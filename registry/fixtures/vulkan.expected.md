@@ -2,15 +2,15 @@
 
 - Revision: `fixture-revision`
 - SHA-256: `fixture-sha256`
-- Commands: 12
+- Commands: 14
 - Core features: 1
 - Extensions: 2
 - Constants: 8
 - Types: 4
-- Command parameters: 19
+- Command parameters: 25
 - Aggregates: 1
 - Aggregate members: 4
-- Classified commands: 1/12
+- Classified commands: 1/14
 - Classified core features: 1/1
 - Classified extensions: 2/2
 
@@ -22,11 +22,13 @@
 | `vkAlpha` | definition | common | fixture loader | fixture ABI | fixture positive | fixture unsupported |
 | `vkCreateFixture` | definition | unclassified | - | - | - | - |
 | `vkDestroyFixture` | definition | unclassified | - | - | - | - |
+| `vkEnumerateFixture` | definition | unclassified | - | - | - | - |
 | `vkInternal` | definition | unclassified | - | - | - | - |
 | `vkPointerOnly` | definition | unclassified | - | - | - | - |
 | `vkPointerScalar` | definition | unclassified | - | - | - | - |
 | `vkPointerTwoScalar` | definition | unclassified | - | - | - | - |
 | `vkQueryPointer` | definition | unclassified | - | - | - | - |
+| `vkQueryTwoPointers` | definition | unclassified | - | - | - | - |
 | `vkStatusHandle` | definition | unclassified | - | - | - | - |
 | `vkStatusPointer` | definition | unclassified | - | - | - | - |
 | `vkZulu` | definition | unclassified | - | - | - | - |

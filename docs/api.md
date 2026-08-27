@@ -3305,12 +3305,15 @@ Resource and query families use
 `callI32Pointer4(command, owner, info, allocator, output, result)`,
 `callVoidPointerI64Pointer(command, owner, handle, allocator)`,
 `callI32PointerI64(command, owner, handle, result)`, and
-`callVoidPointerPointer(command, owner, value)`. Optional allocator pointers
-may be null; required inputs, outputs, owners, and handles are rejected when
-null/zero. The complete generated family counts are 8, 35, 4, 2, 81, 62, 13,
-and 104 respectively—309 Vulkan commands. The caller remains responsible for
-Vulkan object lifetime, command-buffer lifecycle, enabled features, and state
-rules.
+`callVoidPointerPointer(command, owner, value)`. Three-pointer native calls use
+`callI32Pointer3(command, owner, first, optionalSecond, result)` and
+`callVoidPointer3(command, owner, first, second)`; the result-returning form
+allows a null third native argument for Vulkan's count-only enumeration calls.
+Optional allocator/enumeration pointers may be null; required inputs, outputs,
+owners, and handles are rejected when null/zero. The complete generated family
+counts are 8, 35, 4, 2, 81, 62, 13, 104, 61, and 47 respectively—417 Vulkan
+commands. The caller remains responsible for Vulkan object lifetime,
+command-buffer lifecycle, enabled features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
 metadata or address presence is not represented as executable specification
