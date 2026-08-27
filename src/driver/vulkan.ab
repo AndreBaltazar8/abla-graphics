@@ -3540,46 +3540,27 @@ trusted fun VulkanDevice.sampler(
             capabilities,
             descriptor.maximumAnisotropy
         )) {
-        val createInfo = nativeByteBuffer(80)
-        createInfo.storeI64(0, 31)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, descriptor.magFilter * 4294967296)
-        createInfo.storeI64(
-            24,
-            descriptor.mipmapFilter * 4294967296 + descriptor.minFilter
-        )
-        createInfo.storeI64(
-            32,
-            vulkanSamplerAddress(descriptor.addressV) * 4294967296 +
-                vulkanSamplerAddress(descriptor.addressU)
-        )
-        createInfo.storeI64(40, vulkanSamplerAddress(descriptor.addressW))
-        createInfo.storeI64(
-            48,
-            graphicsUnsignedIntegerF32Bits(
-                descriptor.maximumAnisotropy
-            ) * 4294967296 +
-                (if (descriptor.maximumAnisotropy > 1) 1 else 0)
-        )
         var compareEnable = 0
         var compareOperation = 0
         if (descriptor.compare != compareFunctionUndefined) {
             compareEnable = 1
             compareOperation = descriptor.compare - 1
         }
-        createInfo.storeI64(
-            56,
-            compareOperation * 4294967296 + compareEnable
+        val createInfo = nativeByteBuffer(vulkanDriverSizeVkSamplerCreateInfo)
+        val packed = vulkanDriverSamplerCreateInfoAt(
+            createInfo, 0, descriptor.magFilter, descriptor.minFilter,
+            descriptor.mipmapFilter,
+            vulkanSamplerAddress(descriptor.addressU),
+            vulkanSamplerAddress(descriptor.addressV),
+            vulkanSamplerAddress(descriptor.addressW),
+            if (descriptor.maximumAnisotropy > 1) 1 else 0,
+            graphicsUnsignedIntegerF32Bits(descriptor.maximumAnisotropy),
+            compareEnable, compareOperation,
+            graphicsUnsignedIntegerF32Bits(descriptor.lodMinimum),
+            graphicsUnsignedIntegerF32Bits(descriptor.lodMaximum)
         )
-        createInfo.storeI64(
-            64,
-            graphicsUnsignedIntegerF32Bits(descriptor.lodMaximum) *
-                4294967296 +
-                graphicsUnsignedIntegerF32Bits(descriptor.lodMinimum)
-        )
-        createInfo.storeI64(72, 0)
         val output = nativeI64Cell(0)
-        if (vkCreateSampler(
+        if (packed && vkCreateSampler(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -3623,14 +3604,14 @@ trusted fun VulkanDevice.shaderModule(
             code.store(index * 4 + 3, (word >> 24) & 255)
             index = index + 1
         }
-        val createInfo = nativeByteBuffer(40)
-        createInfo.storeI64(0, 16)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, module.words.size * 4)
-        createInfo.storePointer(32, code.address)
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkShaderModuleCreateInfo
+        )
+        val packed = vulkanDriverShaderModuleCreateInfoAt(
+            createInfo, 0, module.words.size * 4, code.address
+        )
         val output = nativeI64Cell(0)
-        if (vkCreateShaderModule(
+        if (packed && vkCreateShaderModule(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -3937,28 +3918,17 @@ trusted fun VulkanDevice.computePipelineNative(
         ) == vulkanSuccess) layout = output.load()
     }
     if (layout != 0 && specialization.structurallyValid()) {
-        val createInfo = nativeByteBuffer(96)
-        createInfo.storeI64(0, 29)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, 18)
-        createInfo.storePointer(32, nativeNullPointer())
-        createInfo.storeI64(40, 32 * 4294967296)
-        createInfo.storeI64(48, shader.handle)
-        createInfo.storePointer(
-            56,
-            nativePointerFromAddress(nativeCStringAddress("main"))
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkComputePipelineCreateInfo
         )
-        createInfo.storePointer(
-            64,
+        val packed = vulkanDriverComputePipelineCreateInfoAt(
+            createInfo, 0, shader.handle,
+            nativePointerFromAddress(nativeCStringAddress("main")), layout,
             if (specialization.empty()) nativeNullPointer()
             else specializationStorage.address
         )
-        createInfo.storeI64(72, layout)
-        createInfo.storeI64(80, 0)
-        createInfo.storeI64(88, 4294967295)
         val output = nativeI64Cell(0)
-        if (vkCreateComputePipelines(
+        if (packed && vkCreateComputePipelines(
             this.handle,
             0,
             1,
@@ -6739,36 +6709,18 @@ trusted fun VulkanDevice.texture(
         (if (descriptor.samples > 1 &&
             !textureFormatHasDepth(descriptor.format)) 1 else 0)
     if (this.valid() && descriptor.valid() && format != 0 && usage != 0) {
-        val createInfo = nativeByteBuffer(88)
-        createInfo.storeI64(0, 14)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(
-            16,
-            vulkanTextureImageType(descriptor.dimension) * 4294967296 +
-                vulkanTextureFlags(descriptor.format, descriptor.dimension)
+        val createInfo = nativeByteBuffer(vulkanDriverSizeVkImageCreateInfo)
+        val packed = vulkanDriverImageCreateInfoAt(
+            createInfo, 0, vulkanTextureImageType(descriptor.dimension),
+            format, descriptor.size.width, descriptor.size.height,
+            if (descriptor.dimension == textureDimension3D)
+                descriptor.size.depth else 1,
+            descriptor.mipLevels, textureArrayLayerCount(descriptor),
+            descriptor.samples, 0, usage, 0, 0,
+            vulkanTextureFlags(descriptor.format, descriptor.dimension)
         )
-        createInfo.storeI64(
-            24,
-            descriptor.size.width * 4294967296 + format
-        )
-        createInfo.storeI64(
-            32,
-            (if (descriptor.dimension == textureDimension3D)
-                descriptor.size.depth else 1) * 4294967296 +
-                descriptor.size.height
-        )
-        createInfo.storeI64(
-            40,
-            textureArrayLayerCount(descriptor) * 4294967296 +
-                descriptor.mipLevels
-        )
-        createInfo.storeI64(48, descriptor.samples)
-        createInfo.storeI64(56, usage)
-        createInfo.storeI64(64, 0)
-        createInfo.storePointer(72, nativeNullPointer())
-        createInfo.storeI64(80, 0)
         val output = nativeI64Cell(0)
-        if (vkCreateImage(
+        if (packed && vkCreateImage(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -6776,10 +6728,16 @@ trusted fun VulkanDevice.texture(
         ) == vulkanSuccess) image = output.load()
     }
     if (image != 0) {
-        val requirements = nativeByteBuffer(24)
+        val requirements = nativeByteBuffer(
+            vulkanDriverSizeVkMemoryRequirements
+        )
         vkGetImageMemoryRequirements(this.handle, image, requirements.address)
-        val allocationSize = requirements.loadI64(0)
-        val typeBits = requirements.loadI64(16) & 4294967295
+        val allocationSize = requirements.loadI64(
+            vulkanDriverOffsetVkMemoryRequirements_size
+        )
+        val typeBits = requirements.loadI64(
+            vulkanDriverOffsetVkMemoryRequirements_memoryTypeBits
+        ) & 4294967295
         val properties = nativeByteBuffer(1024)
         vkGetPhysicalDeviceMemoryProperties(
             this.physicalDevice,
@@ -6799,13 +6757,14 @@ trusted fun VulkanDevice.texture(
         }
         if (typeIndex < 0) typeIndex = fallbackIndex
         if (typeIndex >= 0) {
-            val allocationInfo = nativeByteBuffer(32)
-            allocationInfo.storeI64(0, 5)
-            allocationInfo.storePointer(8, nativeNullPointer())
-            allocationInfo.storeI64(16, allocationSize)
-            allocationInfo.storeI64(24, typeIndex)
+            val allocationInfo = nativeByteBuffer(
+                vulkanDriverSizeVkMemoryAllocateInfo
+            )
+            val packed = vulkanDriverMemoryAllocateInfoAt(
+                allocationInfo, 0, allocationSize, typeIndex
+            )
             val output = nativeI64Cell(0)
-            if (vkAllocateMemory(
+            if (packed && vkAllocateMemory(
                 this.handle,
                 allocationInfo.address,
                 nativeNullPointer(),
@@ -6896,35 +6855,23 @@ trusted fun vulkanTextureViewHandle(
     val format = vulkanTextureFormat(descriptor.resolvedFormat(texture))
     if (!pointerIsNull(device) && image != 0 &&
         validation.succeeded && format != 0) {
-        val createInfo = nativeByteBuffer(80)
-        createInfo.storeI64(0, 15)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, image)
-        createInfo.storeI64(
-            32,
-            format * 4294967296 + vulkanTextureViewType(
-                descriptor.resolvedDimension(texture)
-            )
+        val createInfo = nativeByteBuffer(
+            vulkanDriverSizeVkImageViewCreateInfo
         )
-        createInfo.storeI64(40, 0)
-        createInfo.storeI64(48, 0)
-        createInfo.storeI64(
-            56,
-            descriptor.baseMipLevel * 4294967296 +
-                vulkanTextureAspect(
-                    descriptor.resolvedFormat(texture),
-                    descriptor.aspect
-                )
+        val packed = vulkanDriverImageViewCreateInfoAt(
+            createInfo, 0, image,
+            vulkanTextureViewType(descriptor.resolvedDimension(texture)),
+            format,
+            vulkanTextureAspect(
+                descriptor.resolvedFormat(texture), descriptor.aspect
+            ),
+            descriptor.baseMipLevel,
+            descriptor.resolvedMipLevelCount(texture),
+            descriptor.baseArrayLayer,
+            descriptor.resolvedArrayLayerCount(texture)
         )
-        createInfo.storeI64(
-            64,
-            descriptor.baseArrayLayer * 4294967296 +
-                descriptor.resolvedMipLevelCount(texture)
-        )
-        createInfo.storeI64(72, descriptor.resolvedArrayLayerCount(texture))
         val output = nativeI64Cell(0)
-        if (vkCreateImageView(
+        if (packed && vkCreateImageView(
             device,
             createInfo.address,
             nativeNullPointer(),
@@ -7479,16 +7426,12 @@ trusted fun VulkanDevice.buffer(
     if (this.valid() && size > 0 && size <= 1073741824 &&
         nativeUsage != 0 && memoryLocation >= bufferMemoryAutomatic &&
         memoryLocation <= bufferMemoryDeviceLocal) {
-        val createInfo = nativeByteBuffer(56)
-        createInfo.storeI64(0, 12)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 0)
-        createInfo.storeI64(24, size)
-        createInfo.storeI64(32, nativeUsage)
-        createInfo.storeI64(40, 0)
-        createInfo.storePointer(48, nativeNullPointer())
+        val createInfo = nativeByteBuffer(vulkanDriverSizeVkBufferCreateInfo)
+        val packed = vulkanDriverBufferCreateInfoAt(
+            createInfo, 0, size, nativeUsage
+        )
         val output = nativeI64Cell(0)
-        if (vkCreateBuffer(
+        if (packed && vkCreateBuffer(
             this.handle,
             createInfo.address,
             nativeNullPointer(),
@@ -7498,14 +7441,20 @@ trusted fun VulkanDevice.buffer(
         }
     }
     if (handle != 0) {
-        val requirements = nativeByteBuffer(24)
+        val requirements = nativeByteBuffer(
+            vulkanDriverSizeVkMemoryRequirements
+        )
         vkGetBufferMemoryRequirements(
             this.handle,
             handle,
             requirements.address
         )
-        val allocationSize = requirements.loadI64(0)
-        val typeBits = requirements.loadI64(16) & 4294967295
+        val allocationSize = requirements.loadI64(
+            vulkanDriverOffsetVkMemoryRequirements_size
+        )
+        val typeBits = requirements.loadI64(
+            vulkanDriverOffsetVkMemoryRequirements_memoryTypeBits
+        ) & 4294967295
         val properties = nativeByteBuffer(1024)
         vkGetPhysicalDeviceMemoryProperties(
             this.physicalDevice,
@@ -7533,13 +7482,14 @@ trusted fun VulkanDevice.buffer(
             index = index + 1
         }
         if (typeIndex >= 0) {
-            val allocationInfo = nativeByteBuffer(32)
-            allocationInfo.storeI64(0, 5)
-            allocationInfo.storePointer(8, nativeNullPointer())
-            allocationInfo.storeI64(16, allocationSize)
-            allocationInfo.storeI64(24, typeIndex)
+            val allocationInfo = nativeByteBuffer(
+                vulkanDriverSizeVkMemoryAllocateInfo
+            )
+            val packed = vulkanDriverMemoryAllocateInfoAt(
+                allocationInfo, 0, allocationSize, typeIndex
+            )
             val output = nativeI64Cell(0)
-            if (vkAllocateMemory(
+            if (packed && vkAllocateMemory(
                 this.handle,
                 allocationInfo.address,
                 nativeNullPointer(),
@@ -8196,19 +8146,13 @@ trusted fun VulkanDevice.renderPipeline(
 
     var imageIndex = 0
     while (succeeded && !offscreen && imageIndex < swapchain.images.size) {
-        val viewInfo = nativeByteBuffer(80)
-        viewInfo.storeI64(0, 15)
-        viewInfo.storePointer(8, nativeNullPointer())
-        viewInfo.storeI64(16, 0)
-        viewInfo.storeI64(24, swapchain.images[imageIndex])
-        viewInfo.storeI64(32, swapchain.format * 4294967296 + 1)
-        viewInfo.storeI64(40, 0)
-        viewInfo.storeI64(48, 0)
-        viewInfo.storeI64(56, 1)
-        viewInfo.storeI64(64, 1)
-        viewInfo.storeI64(72, 1)
+        val viewInfo = nativeByteBuffer(vulkanDriverSizeVkImageViewCreateInfo)
+        succeeded = vulkanDriverImageViewCreateInfoAt(
+            viewInfo, 0, swapchain.images[imageIndex],
+            1, swapchain.format, 1, 0, 1, 0, 1
+        )
         val viewOutput = nativeI64Cell(0)
-        succeeded = vkCreateImageView(
+        if (succeeded) succeeded = vkCreateImageView(
             this.handle,
             viewInfo.address,
             nativeNullPointer(),

@@ -3392,8 +3392,8 @@ because `GgpStreamDescriptor` and `GgpFrameToken` are external definitions with
 no width in `vk.xml`; the generator does not guess their ABI.
 
 The production Vulkan driver uses a separate compact generated layout selected
-by `registry/driver-vulkan-structures.txt`. It currently covers 72 structures
-and 536 members, while the complete 7,406-member schema remains opt-in. Device
+by `registry/driver-vulkan-structures.txt`. It currently covers 81 structures
+and 608 members, while the complete 7,406-member schema remains opt-in. Device
 feature queries and enablement, headless and surfaced device creation,
 descriptor layouts/pools/allocation/writes, command pools and buffers,
 fences/semaphores/timeline operations, query pools, legacy and synchronization2
@@ -3405,7 +3405,9 @@ and framebuffer creation use the same generated source. Setup-only generic
 access is available. Graphics shader stages, reflected vertex bindings and
 attributes, viewport/scissor state, rasterization, multisampling,
 depth/stencil, blending, dynamic-rendering compatibility, and final graphics
-pipeline creation are also registry-derived. Hot typed builders consume
+pipeline creation are also registry-derived. Sampler, shader-module, compute-
+pipeline, image, image-view, buffer, memory-requirement, and memory-allocation
+records use the same generated ABI source. Hot typed builders consume
 generated numeric size/tag/offset constants and allocate nothing. Adding a
 production structure requires updating the manifest and regenerating;
 handwritten byte offsets are not the extension mechanism.

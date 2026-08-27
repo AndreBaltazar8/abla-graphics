@@ -2895,8 +2895,24 @@ vertex formats, depth/stencil, blending, multisample resolve, MRT, subpasses,
 and dynamic rendering. Vulkan 1,001-frame paths remain `live=0`; X11 Vulkan,
 Abla-only, and direct runtime linkage remain clean.
 
-Next migrate image/view/buffer/memory allocation structures, then continue
-through the remaining registry-backed production ABI families in `plan.md`.
+### Generated resource creation and allocation ABI
+
+The compact production subset now covers 81 structures and 608 members. Typed
+builders migrate sampler, shader-module, compute-pipeline, image, image-view,
+buffer, and memory-allocation creation records. Generated member offsets also
+drive image and buffer memory-requirement reads, so shared texture, swapchain-
+view, storage-buffer, transfer-buffer, and compute paths no longer hand-pack
+these resource records.
+
+The consolidated registry, buffer-transfer, texture-transfer, wider-texture-
+transfer, render-graph, Vulkan-window, Abla-only, and runtime-linkage gate
+passes. OpenGL and both Vulkan modes retain exact stable transfers at
+`live=0/0`; 1,001-frame Vulkan graph loops remain `live=0`, and direct runtime
+linkage reports `unresolved=0`.
+
+Next migrate the remaining platform-surface, swapchain/presentation, memory-
+properties, render-pass dependency, and shader-specialization ABI families,
+then audit the production driver for any remaining handwritten Vulkan offsets.
 
 ## Working commands
 

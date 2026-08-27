@@ -1840,3 +1840,18 @@ Deterministic registry tests and normal/optimized graph suites pass across all
 reflected vertex layouts, depth/stencil, blend, multisample resolve, MRT,
 subpass, and dynamic-rendering cases. Vulkan 1,001-frame paths remain
 `live=0`; X11 Vulkan, Abla-only, and direct runtime linkage remain clean.
+
+### Generated Vulkan resource creation and allocation
+
+The production subset now contains 81 Vulkan structures and 608 members.
+Sampler and shader-module creation, compute-pipeline creation, image and image-
+view creation, buffer creation, memory-requirement reads, and device-memory
+allocation now use typed generated builders or generated member offsets.
+Shared texture, swapchain-view, storage-buffer, transfer-buffer, and compute
+paths no longer hand-pack these records.
+
+The consolidated deterministic registry, buffer-transfer, texture-transfer,
+wider-texture-transfer, render-graph, Vulkan-window, Abla-only, and runtime-
+linkage gate passes. OpenGL and both normal and optimized Vulkan transfer paths
+remain exact and stable at `live=0/0`; all Vulkan 1,001-frame graph loops remain
+`live=0`, and stripped-environment linkage reports `direct=true unresolved=0`.
