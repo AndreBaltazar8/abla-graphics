@@ -174,7 +174,7 @@ proves the architecture rather than stopping at placeholder interfaces:
   hash-verified Vulkan/OpenGL inputs plus strict, evidence-backed coverage
   audits, 6,271 generated OpenGL constants, 5,633 selected Vulkan constants,
   43 desktop OpenGL type records, 2,497 selected Vulkan type records, and
-  structured ABI signatures for 9,526 OpenGL and 2,845 Vulkan command
+  structured ABI signatures for 9,526 OpenGL and 2,809 Vulkan command
   parameters, normalized call shapes for all 2,892 OpenGL and 842 Vulkan
   commands, plus declaration-ordered metadata for 1,450 Vulkan aggregates and
   7,413 members; compact separately generated callable-command modules avoid
@@ -183,8 +183,10 @@ proves the architecture rather than stopping at placeholder interfaces:
   unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
   `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
   other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 35
-  `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, and 2 `i32(pointer)`
-  commands while leaving the other 793 Vulkan entries unsupported;
+  `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81
+  `i32(pointer,pointer,pointer,pointer)`, 62 `void(pointer,i64,pointer)`, 13
+  `i32(pointer,i64)`, and 104 `void(pointer,pointer)` commands—309 total—while
+  leaving the other 533 Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
@@ -514,8 +516,8 @@ resource descriptors, encoders, and render/compute passes described in
 resolves every known name through the appropriate EGL or Vulkan loader,
 retains its normalized call shape in `RawNativeCommand`, and safely invokes
 OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands. Vulkan now calls
-checked pointer-only, pointer-plus-one/two-`i32`, and `i32`-returning pointer
-families.
+checked pointer-only, pointer-plus-scalars, resource create/destroy, handle
+status, and pointer-query families.
 Other signatures remain explicitly unavailable until their checked native-call
 families are implemented.
 

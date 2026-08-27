@@ -980,6 +980,7 @@ fun registryResolveCommandAlias(
 
 fun registryParseCommandSignatures(
     source: string,
+    api: string,
     inventory: RegistryInventory
 ): RegistryCommandSignatures {
     val definitionNames: array<string> = []
@@ -998,8 +999,9 @@ fun registryParseCommandSignatures(
     val parameterTypes: array<string> = []
     val parameterPointerLevels: array<string> = []
     val parameterConstness: array<string> = []
-    var valid = true
-    var error = ""
+    val wantedApi = if (api == "opengl") "gl" else "vulkan"
+    var valid = api == "vulkan" || api == "opengl"
+    var error = if (valid) "" else "API must be vulkan or opengl"
     val commandsBegin = textFindSequence(source, "<commands")
     val commandsOpenEnd = if (commandsBegin >= 0)
         registryOpeningTagEnd(source, commandsBegin + 9) else -1
@@ -1030,11 +1032,18 @@ fun registryParseCommandSignatures(
             error = "unterminated command signature"
         } else {
             val opening = source.slice(begin, openEnd + 1)
+            val commandApi = registryAttribute(opening, "api")
+            val selectedApi = commandApi == "" ||
+                registryTokenListContains(commandApi, wantedApi) ||
+                (api == "opengl" &&
+                registryTokenListContains(commandApi, "glcore"))
             val alias = registryAttribute(opening, "name")
             val target = registryAttribute(opening, "alias")
             if (alias != "" && target != "") {
-                aliases.append(alias)
-                targets.append(target)
+                if (selectedApi) {
+                    aliases.append(alias)
+                    targets.append(target)
+                }
                 cursor = openEnd + 1
             } else {
                 val close = textFindSequence(
@@ -1044,104 +1053,113 @@ fun registryParseCommandSignatures(
                     valid = false
                     error = "unterminated command signature"
                 } else {
-                    val protoBegin = textFindSequence(
-                        source, "<proto", openEnd + 1, close
-                    )
-                    val protoOpenEnd = if (protoBegin >= 0)
-                        registryOpeningTagEnd(source, protoBegin + 6) else -1
-                    val protoEnd = if (protoOpenEnd >= 0)
-                        textFindSequence(
-                            source, "</proto>", protoOpenEnd + 1, close
+                    if (selectedApi) {
+                        val protoBegin = textFindSequence(
+                            source, "<proto", openEnd + 1, close
                         )
-                    else -1
-                    val name = if (protoOpenEnd >= 0 && protoEnd >= 0)
-                        registryTaggedText(
-                            source, protoOpenEnd + 1, protoEnd, "name"
-                        )
-                    else ""
-                    val returnType = if (protoOpenEnd >= 0 && protoEnd >= 0)
-                        registryCommandAbiType(
+                        val protoOpenEnd = if (protoBegin >= 0)
+                            registryOpeningTagEnd(
+                                source, protoBegin + 6
+                            ) else -1
+                        val protoEnd = if (protoOpenEnd >= 0)
+                            textFindSequence(
+                                source, "</proto>", protoOpenEnd + 1, close
+                            )
+                        else -1
+                        val name = if (protoOpenEnd >= 0 && protoEnd >= 0)
+                            registryTaggedText(
+                                source, protoOpenEnd + 1, protoEnd, "name"
+                            )
+                        else ""
+                        val returnType = if (
+                            protoOpenEnd >= 0 && protoEnd >= 0
+                        ) registryCommandAbiType(
                             source, protoOpenEnd + 1, protoEnd
-                        )
-                    else ""
-                    if (name == "" || returnType == "") {
-                        valid = false
-                        error = "command has incomplete ABI signature: $name"
-                    } else {
-                        definitionNames.append(name)
-                        definitionReturns.append(returnType)
-                        var parameterCursor = protoEnd + 8
-                        while (valid) {
-                            val parameterBegin = textFindSequence(
-                                source, "<param", parameterCursor, close
-                            )
-                            if (parameterBegin < 0) break
-                            val parameterAfterName = parameterBegin + 6
-                            val parameterOpenEnd = textFindByte(
-                                source, 62, parameterAfterName, close
-                            )
-                            val parameterEnd = if (parameterOpenEnd >= 0)
-                                textFindSequence(
+                        ) else ""
+                        if (name == "" || returnType == "") {
+                            valid = false
+                            error =
+                                "command has incomplete ABI signature: $name"
+                        } else {
+                            definitionNames.append(name)
+                            definitionReturns.append(returnType)
+                            var parameterCursor = protoEnd + 8
+                            while (valid) {
+                                val parameterBegin = textFindSequence(
+                                    source, "<param", parameterCursor, close
+                                )
+                                if (parameterBegin < 0) break
+                                val parameterAfterName = parameterBegin + 6
+                                val parameterOpenEnd = textFindByte(
+                                    source, 62, parameterAfterName, close
+                                )
+                                val parameterEnd = if (
+                                    parameterOpenEnd >= 0
+                                ) textFindSequence(
                                     source, "</param>",
                                     parameterOpenEnd + 1, close
-                                )
-                            else -1
-                            if (parameterOpenEnd < 0 || parameterEnd < 0) {
-                                valid = false
-                                error = "unterminated command parameter: $name"
-                            } else {
-                                val parameterName = registryTaggedText(
-                                    source,
-                                    parameterOpenEnd + 1,
-                                    parameterEnd,
-                                    "name"
-                                )
-                                val parameterType = registryCommandAbiType(
-                                    source,
-                                    parameterOpenEnd + 1,
-                                    parameterEnd
-                                )
-                                if (parameterName == "" &&
-                                    parameterType == "") {
-                                    // Registry prose may use param tags inside
-                                    // implicit synchronization descriptions.
-                                } else if (parameterName == "" ||
-                                    parameterType == "") {
+                                ) else -1
+                                if (parameterOpenEnd < 0 || parameterEnd < 0) {
                                     valid = false
-                                    error = "command has incomplete ABI parameter: $name"
+                                    error =
+                                        "unterminated command parameter: $name"
                                 } else {
-                                    var pointerLevel = registryPointerLevel(
+                                    val parameterName = registryTaggedText(
+                                        source,
+                                        parameterOpenEnd + 1,
+                                        parameterEnd,
+                                        "name"
+                                    )
+                                    val parameterType = registryCommandAbiType(
                                         source,
                                         parameterOpenEnd + 1,
                                         parameterEnd
                                     )
-                                    if (textFindByte(
-                                        source,
-                                        91,
-                                        parameterOpenEnd + 1,
-                                        parameterEnd
-                                    ) >= 0) pointerLevel = pointerLevel + 1
-                                    val isConst = textFindSequence(
-                                        source,
-                                        "const",
-                                        parameterOpenEnd + 1,
-                                        parameterEnd
-                                    ) >= 0
-                                    definitionParameterOwners.append(name)
-                                    definitionParameterNames.append(
-                                        parameterName
-                                    )
-                                    definitionParameterTypes.append(
-                                        parameterType
-                                    )
-                                    definitionParameterPointerLevels.append(
-                                        "$pointerLevel"
-                                    )
-                                    definitionParameterConstness.append(
-                                        if (isConst) "true" else "false"
-                                    )
+                                    if (parameterName == "" &&
+                                        parameterType == "") {
+                                        // Registry prose may use param tags
+                                        // inside synchronization descriptions.
+                                    } else if (parameterName == "" ||
+                                        parameterType == "") {
+                                        valid = false
+                                        error =
+                                            "command has incomplete ABI parameter: $name"
+                                    } else {
+                                        var pointerLevel = registryPointerLevel(
+                                            source,
+                                            parameterOpenEnd + 1,
+                                            parameterEnd
+                                        )
+                                        if (textFindByte(
+                                            source,
+                                            91,
+                                            parameterOpenEnd + 1,
+                                            parameterEnd
+                                        ) >= 0) {
+                                            pointerLevel = pointerLevel + 1
+                                        }
+                                        val isConst = textFindSequence(
+                                            source,
+                                            "const",
+                                            parameterOpenEnd + 1,
+                                            parameterEnd
+                                        ) >= 0
+                                        definitionParameterOwners.append(name)
+                                        definitionParameterNames.append(
+                                            parameterName
+                                        )
+                                        definitionParameterTypes.append(
+                                            parameterType
+                                        )
+                                        definitionParameterPointerLevels.append(
+                                            "$pointerLevel"
+                                        )
+                                        definitionParameterConstness.append(
+                                            if (isConst) "true" else "false"
+                                        )
+                                    }
+                                    parameterCursor = parameterEnd + 8
                                 }
-                                parameterCursor = parameterEnd + 8
                             }
                         }
                     }
@@ -2276,6 +2294,15 @@ fun registryOpenGlI32Type(name: string): bool =
 fun registryVulkanDispatchableType(name: string): bool =
     name == "VkCommandBuffer"
 
+fun registryVulkanAnyDispatchableType(name: string): bool =
+    name == "VkInstance" || name == "VkPhysicalDevice" ||
+    name == "VkDevice" || name == "VkQueue" ||
+    name == "VkCommandBuffer"
+
+fun registryVulkanResourceOwnerType(name: string): bool =
+    name == "VkInstance" || name == "VkPhysicalDevice" ||
+    name == "VkDevice"
+
 fun registryVulkanI32Type(name: string): bool =
     name == "VkBool32" || name == "uint32_t" || name == "int32_t" ||
     name == "VkStencilFaceFlags"
@@ -2283,10 +2310,21 @@ fun registryVulkanI32Type(name: string): bool =
 fun registryVulkanStatusDispatchableType(name: string): bool =
     name == "VkDevice" || name == "VkQueue"
 
+fun registryVulkanNonDispatchableHandleType(
+    types: RegistryTypes,
+    name: string
+): bool {
+    val index = registryArrayIndex(types.names, name)
+    index >= 0 && index < types.categories.size &&
+        types.categories[index] == "handle" &&
+        !registryVulkanAnyDispatchableType(name)
+}
+
 fun registryCommandCallAbis(
     api: string,
     inventory: RegistryInventory,
-    signatures: RegistryCommandSignatures
+    signatures: RegistryCommandSignatures,
+    types: RegistryTypes
 ): array<string> {
     val abis: array<string> = []
     var commandIndex = 0
@@ -2301,6 +2339,14 @@ fun registryCommandCallAbis(
             signatures.returnTypes[commandIndex] == "void"
         var vulkanI32Pointer = api == "vulkan" &&
             signatures.returnTypes[commandIndex] == "VkResult"
+        var vulkanI32Pointer4 = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "VkResult"
+        var vulkanVoidPointerI64Pointer = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "void"
+        var vulkanI32PointerI64 = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "VkResult"
+        var vulkanVoidPointerPointer = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "void"
         var parameterIndex = 0
         var count = 0
         while (parameterIndex < signatures.parameterOwners.size) {
@@ -2344,6 +2390,49 @@ fun registryCommandCallAbis(
                         signatures.parameterTypes[parameterIndex]
                     ))) vulkanI32Pointer = false
                 else if (count > 0) vulkanI32Pointer = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanResourceOwnerType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanI32Pointer4 = false
+                else if (count > 0 && count < 4 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0") {
+                    vulkanI32Pointer4 = false
+                } else if (count > 3) vulkanI32Pointer4 = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !(signatures.parameterTypes[parameterIndex] == "VkDevice" ||
+                    signatures.parameterTypes[parameterIndex] == "VkInstance")
+                )) vulkanVoidPointerI64Pointer = false
+                else if (count == 1 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanNonDispatchableHandleType(
+                        types, signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI64Pointer = false
+                else if (count == 2 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0") {
+                    vulkanVoidPointerI64Pointer = false
+                } else if (count > 2) vulkanVoidPointerI64Pointer = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanStatusDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanI32PointerI64 = false
+                else if (count == 1 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanNonDispatchableHandleType(
+                        types, signatures.parameterTypes[parameterIndex]
+                    ))) vulkanI32PointerI64 = false
+                else if (count > 1) vulkanI32PointerI64 = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanAnyDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerPointer = false
+                else if (count == 1 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0") {
+                    vulkanVoidPointerPointer = false
+                } else if (count > 1) vulkanVoidPointerPointer = false
                 count = count + 1
             }
             parameterIndex = parameterIndex + 1
@@ -2364,6 +2453,18 @@ fun registryCommandCallAbis(
         else if (vulkanI32Pointer && count == 1) {
             abi = "i32(pointer)"
         }
+        else if (vulkanI32Pointer4 && count == 4) {
+            abi = "i32(pointer,pointer,pointer,pointer)"
+        }
+        else if (vulkanVoidPointerI64Pointer && count == 3) {
+            abi = "void(pointer,i64,pointer)"
+        }
+        else if (vulkanI32PointerI64 && count == 2) {
+            abi = "i32(pointer,i64)"
+        }
+        else if (vulkanVoidPointerPointer && count == 2) {
+            abi = "void(pointer,pointer)"
+        }
         abis.append(abi)
         commandIndex = commandIndex + 1
     }
@@ -2379,11 +2480,12 @@ fun registryWriteCallSource(
     revision: string,
     sha256: string,
     inventory: RegistryInventory,
-    signatures: RegistryCommandSignatures
+    signatures: RegistryCommandSignatures,
+    types: RegistryTypes
 ): bool {
     val prefix = registryCallSourcePrefix(api)
     val shapes = registryCommandCallShapes(inventory, signatures)
-    val abis = registryCommandCallAbis(api, inventory, signatures)
+    val abis = registryCommandCallAbis(api, inventory, signatures, types)
     var success = output.writeText("")
     var batch = ""
     if (success) batch = registryAppend(
@@ -2451,7 +2553,8 @@ fun registryWriteSource(
     val commandCallAbis = registryCommandCallAbis(
         api,
         inventory,
-        signatures
+        signatures,
+        types
     )
     var success = output.writeText("")
     var batch = ""
@@ -2694,7 +2797,7 @@ fun main: int {
             val constants = registryParseConstants(input.readText(), api)
             val types = registryParseTypes(input.readText(), api, inventory)
             val signatures = registryParseCommandSignatures(
-                input.readText(), inventory
+                input.readText(), api, inventory
             )
             val aggregates = registryParseAggregates(
                 input.readText(), api, types
@@ -2747,7 +2850,8 @@ fun main: int {
                     processArgument(5),
                     processArgument(6),
                     inventory,
-                    signatures
+                    signatures,
+                    types
                 )) {
                 eprintln("failed to write callable registry source: ${processArgument(7)}")
                 5

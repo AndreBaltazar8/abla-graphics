@@ -86,9 +86,34 @@ trusted fun main: int {
         val setStencilReference = raw.deviceCommand(
             "vkCmdSetStencilReference"
         )
+        val createEvent = raw.deviceCommand("vkCreateEvent")
+        val destroyEvent = raw.deviceCommand("vkDestroyEvent")
+        val getEventStatus = raw.deviceCommand("vkGetEventStatus")
+        val getFeatures2 = raw.instanceCommand(
+            "vkGetPhysicalDeviceFeatures2"
+        )
         val missing = raw.deviceCommand("vkAblaMissing")
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
+        val eventHandle = nativeI64Cell(0)
+        val eventStatus = nativeI64Cell(-1)
+        val eventInfo = nativeByteBuffer(24)
+        val features2 = nativeByteBuffer(240)
+        var initialize = 0
+        while (initialize < eventInfo.capacity) {
+            eventInfo.store(initialize, 0)
+            initialize = initialize + 1
+        }
+        initialize = 0
+        while (initialize < features2.capacity) {
+            features2.store(initialize, 0)
+            initialize = initialize + 1
+        }
+        eventInfo.storeI64(0, 10)
+        eventInfo.storePointer(8, nativeNullPointer())
+        eventInfo.storeI64(16, 0)
+        features2.storeI64(0, 1000059000)
+        features2.storePointer(8, nativeNullPointer())
         var recorded = raw.available && !pointerIsNull(command) &&
             !app.vulkanPixels.frames[0].inFlight &&
             vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
@@ -159,10 +184,67 @@ trusted fun main: int {
                 idle,
                 app.vulkanDevice.handle,
                 nativeNullPointer()
+            ) &&
+            !raw.callI32Pointer4(
+                createEvent,
+                app.vulkanDevice.handle,
+                nativeNullPointer(),
+                nativeNullPointer(),
+                eventHandle.address,
+                eventStatus.address
+            ) &&
+            !raw.callVoidPointerI64Pointer(
+                destroyEvent,
+                app.vulkanDevice.handle,
+                0,
+                nativeNullPointer()
+            ) &&
+            !raw.callI32PointerI64(
+                getEventStatus,
+                app.vulkanDevice.handle,
+                0,
+                eventStatus.address
+            ) &&
+            !raw.callVoidPointerPointer(
+                getFeatures2,
+                app.vulkanDevice.physicalDevice,
+                nativeNullPointer()
             )
         val liveBefore = runtimeMemoryLiveBytes()
+        var createdEvent = 0
+        var resourceRoundTrip = raw.callVoidPointerPointer(
+            getFeatures2,
+            app.vulkanDevice.physicalDevice,
+            features2.address
+        ) && (features2.loadI64(16) & 4294967295) <= 1 &&
+            raw.callI32Pointer4(
+                createEvent,
+                app.vulkanDevice.handle,
+                eventInfo.address,
+                nativeNullPointer(),
+                eventHandle.address,
+                eventStatus.address
+            ) && eventStatus.load() == vulkanSuccess &&
+            eventHandle.load() != 0
+        if (resourceRoundTrip) {
+            createdEvent = eventHandle.load()
+            eventStatus.store(-1)
+            resourceRoundTrip = raw.callI32PointerI64(
+                getEventStatus,
+                app.vulkanDevice.handle,
+                createdEvent,
+                eventStatus.address
+            ) && eventStatus.load() == 4 &&
+                raw.callVoidPointerI64Pointer(
+                    destroyEvent,
+                    app.vulkanDevice.handle,
+                    createdEvent,
+                    nativeNullPointer()
+                )
+            if (resourceRoundTrip) eventHandle.store(0)
+        }
         var call = 0
-        while (recorded && call < 1000) {
+        while (recorded && resourceRoundTrip && call < 1000) {
             recorded = raw.callVoidPointerI32(
                 setDeviceMask,
                 command,
@@ -220,6 +302,8 @@ trusted fun main: int {
         stable = raw.available && enumerate.valid() && idle.valid() &&
             setDeviceMask.valid() &&
             endRendering.valid() && setStencilReference.valid() &&
+            createEvent.valid() && destroyEvent.valid() &&
+            getEventStatus.valid() && getFeatures2.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
@@ -231,12 +315,26 @@ trusted fun main: int {
             setStencilReference.callShape ==
                 "void(VkCommandBuffer,VkStencilFaceFlags,uint32_t)" &&
             setStencilReference.callAbi == "void(pointer,i32,i32)" &&
+            createEvent.callShape ==
+                "VkResult(VkDevice,const VkEventCreateInfo*,const VkAllocationCallbacks*,VkEvent*)" &&
+            createEvent.callAbi ==
+                "i32(pointer,pointer,pointer,pointer)" &&
+            destroyEvent.callShape ==
+                "void(VkDevice,VkEvent,const VkAllocationCallbacks*)" &&
+            destroyEvent.callAbi == "void(pointer,i64,pointer)" &&
+            getEventStatus.callShape == "VkResult(VkDevice,VkEvent)" &&
+            getEventStatus.callAbi == "i32(pointer,i64)" &&
+            getFeatures2.callShape ==
+                "void(VkPhysicalDevice,VkPhysicalDeviceFeatures2*)" &&
+            getFeatures2.callAbi == "void(pointer,pointer)" &&
             enumerate.callAbi == "unsupported" &&
             idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
-            recorded && restored && liveAfter == liveBefore
-        detail = "enumerate=${enumerate.address} mask=${setDeviceMask.address} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
+            resourceRoundTrip && createdEvent != 0 &&
+            eventHandle.load() == 0 && recorded && restored &&
+            liveAfter == liveBefore
+        detail = "enumerate=${enumerate.address} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"

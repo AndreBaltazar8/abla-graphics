@@ -14,6 +14,10 @@ class RawVulkanApi(
     val callAbis: array<string>,
     val available: bool
 ) {
+    trusted fun owns(command: RawNativeCommand): bool =
+        command.owner == nativePointerAddress(this.device) ||
+        command.owner == nativePointerAddress(this.instance)
+
     trusted fun instanceCommand(name: string): RawNativeCommand {
         val index = rawRegistryCommandIndex(this.commands, name)
         val address = if (this.available && index >= 0)
@@ -99,6 +103,78 @@ class RawVulkanApi(
                 result,
                 callNativeI32Pointer(command.address, first)
             )
+        }
+        callable
+    }
+
+    trusted fun callI32Pointer4(
+        command: RawNativeCommand,
+        first: i64*,
+        second: i64*,
+        third: i64*,
+        fourth: i64*,
+        result: i64*
+    ): bool {
+        val callable = command.callableAsI32Pointer4() &&
+            this.owns(command) && !pointerIsNull(first) &&
+            !pointerIsNull(second) && !pointerIsNull(fourth) &&
+            !pointerIsNull(result) && this.available
+        if (callable) {
+            ablaUnsafeStoreI64(
+                result,
+                callNativeI32Pointer4(
+                    command.address, first, second, third, fourth
+                )
+            )
+        }
+        callable
+    }
+
+    trusted fun callVoidPointerI64Pointer(
+        command: RawNativeCommand,
+        first: i64*,
+        second: int,
+        third: i64*
+    ): bool {
+        val callable = command.callableAsVoidPointerI64Pointer() &&
+            this.owns(command) && !pointerIsNull(first) && second != 0 &&
+            this.available
+        if (callable) {
+            callNativeVoidPointerIntPointer(
+                command.address, first, second, third
+            )
+        }
+        callable
+    }
+
+    trusted fun callI32PointerI64(
+        command: RawNativeCommand,
+        first: i64*,
+        second: int,
+        result: i64*
+    ): bool {
+        val callable = command.callableAsI32PointerI64() &&
+            this.owns(command) && !pointerIsNull(first) && second != 0 &&
+            !pointerIsNull(result) && this.available
+        if (callable) {
+            ablaUnsafeStoreI64(
+                result,
+                callNativeI32PointerI64(command.address, first, second)
+            )
+        }
+        callable
+    }
+
+    trusted fun callVoidPointerPointer(
+        command: RawNativeCommand,
+        first: i64*,
+        second: i64*
+    ): bool {
+        val callable = command.callableAsVoidPointerPointer() &&
+            this.owns(command) && !pointerIsNull(first) &&
+            !pointerIsNull(second) && this.available
+        if (callable) {
+            callNativeVoidPointerPointer(command.address, first, second)
         }
         callable
     }

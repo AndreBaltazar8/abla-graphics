@@ -7,7 +7,7 @@
 - Extensions: 473
 - Constants: 5633
 - Types: 2497
-- Command parameters: 2845
+- Command parameters: 2809
 - Aggregates: 1450
 - Aggregate members: 7413
 - Classified commands: 113/842

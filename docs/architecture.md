@@ -255,9 +255,10 @@ runtime family resolves application-scoped OpenGL/Vulkan addresses and invokes
 checked OpenGL zero-, one-, and two-`i32` void commands through exact
 compiler-supported indirect calls. Vulkan additionally supports exact
 `void(pointer)`, `void(pointer,i32)`, `void(pointer,i32,i32)`, and
-`i32(pointer)` families for selected command-buffer, device, and queue calls.
-Generated ABI-family tags make the currently callable 352 OpenGL and 49 Vulkan
-commands explicit and retain `unsupported` for the other 2,540 OpenGL and 793
+`i32(pointer)` families, plus exact four-pointer creation,
+pointer/64-bit-handle destruction and status, and two-pointer query families.
+Generated ABI-family tags make the currently callable 352 OpenGL and 309 Vulkan
+commands explicit and retain `unsupported` for the other 2,540 OpenGL and 533
 Vulkan commands. Further signatures remain
 unsupported until each has matching ABI, positive, negative, and live-driver
 evidence.

@@ -3301,10 +3301,16 @@ OpenGL commands respectively. Vulkan exposes
 generated tags. `callI32Pointer(command, pointer, result)` writes the complete
 signed 32-bit return value to caller-owned native storage and reports whether
 the checked call occurred, avoiding a sentinel value or result allocation.
-Every method requires the originating device and non-null native pointers.
-The generated families currently enable 8, 35, 4, and 2 Vulkan commands
-respectively—49 total; the caller remains responsible for Vulkan object
-lifetime, command-buffer lifecycle, enabled features, and state rules.
+Resource and query families use
+`callI32Pointer4(command, owner, info, allocator, output, result)`,
+`callVoidPointerI64Pointer(command, owner, handle, allocator)`,
+`callI32PointerI64(command, owner, handle, result)`, and
+`callVoidPointerPointer(command, owner, value)`. Optional allocator pointers
+may be null; required inputs, outputs, owners, and handles are rejected when
+null/zero. The complete generated family counts are 8, 35, 4, 2, 81, 62, 13,
+and 104 respectively—309 Vulkan commands. The caller remains responsible for
+Vulkan object lifetime, command-buffer lifecycle, enabled features, and state
+rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
 metadata or address presence is not represented as executable specification
