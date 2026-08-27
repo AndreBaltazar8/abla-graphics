@@ -6284,27 +6284,6 @@ trusted fun VulkanDevice.renderTarget(
     )
 }
 
-fun vulkanStoreClearScalars(
-    var storage: NativeByteBuffer,
-    offset: int,
-    red: f64,
-    green: f64,
-    blue: f64,
-    alpha: f64
-): void {
-    storage.storeI64(
-        offset,
-        (graphicsScalarF32Bits(green) & 4294967295) * 4294967296 +
-            (graphicsScalarF32Bits(red) & 4294967295)
-    )
-    storage.storeI64(
-        offset + 8,
-        (graphicsScalarF32Bits(alpha) & 4294967295) * 4294967296 +
-            (graphicsScalarF32Bits(blue) & 4294967295)
-    )
-    return
-}
-
 trusted fun VulkanDevice.clearRenderTarget(
     target: VulkanRenderTarget,
     clearRed: f64,
@@ -6323,43 +6302,31 @@ trusted fun VulkanDevice.clearRenderTarget(
         ) &&
         target.device == this.handle && this.beginTransfer()
     if (succeeded) {
-        this.transferScratch.storeI64(0, 43)
-        this.transferScratch.storePointer(8, nativeNullPointer())
-        this.transferScratch.storeI64(16, target.renderPass)
-        this.transferScratch.storeI64(24, target.framebuffer)
-        this.transferScratch.storeI64(32, 0)
-        this.transferScratch.storeI64(
-            40,
-            target.height * 4294967296 + target.width
-        )
-        this.transferScratch.storeI64(
-            48,
-            colorCount + (if (target.hasDepth()) 1 else 0)
-        )
-        this.transferScratch.storePointer(
-            56,
-            if (!pointerIsNull(clearStorage)) clearStorage
-            else this.transferScratch.pointerAt(72)
-        )
         var colorIndex = 0
-        while (pointerIsNull(clearStorage) && colorIndex < colorCount) {
+        while (succeeded && pointerIsNull(clearStorage) &&
+            colorIndex < colorCount) {
             val clearOffset = 72 + colorIndex * 16
-            vulkanStoreClearScalars(
-                this.transferScratch,
-                clearOffset,
-                clearRed,
-                clearGreen,
-                clearBlue,
-                clearAlpha
+            succeeded = vulkanDriverClearColorValueAt(
+                this.transferScratch, clearOffset,
+                graphicsScalarF32Bits(clearRed) & 4294967295,
+                graphicsScalarF32Bits(clearGreen) & 4294967295,
+                graphicsScalarF32Bits(clearBlue) & 4294967295,
+                graphicsScalarF32Bits(clearAlpha) & 4294967295
             )
             colorIndex = colorIndex + 1
         }
-        if (pointerIsNull(clearStorage) && target.hasDepth())
-          this.transferScratch.storeI64(
-            72 + colorCount * 16,
-            1065353216
+        if (succeeded && pointerIsNull(clearStorage) && target.hasDepth())
+          succeeded = vulkanDriverClearDepthStencilValueAt(
+            this.transferScratch, 72 + colorCount * 16, 1065353216, 0
         )
-        vkCmdBeginRenderPass(
+        if (succeeded) succeeded = vulkanDriverRenderPassBeginInfoAt(
+            this.transferScratch, 0, target.renderPass, target.framebuffer,
+            target.width, target.height,
+            colorCount + (if (target.hasDepth()) 1 else 0),
+            if (!pointerIsNull(clearStorage)) clearStorage
+            else this.transferScratch.pointerAt(72)
+        )
+        if (succeeded) vkCmdBeginRenderPass(
             this.transferCommand.load(),
             this.transferScratch.address,
             0
@@ -6476,43 +6443,31 @@ trusted fun VulkanDevice.recordRenderTargetProgram(
         indirectOffset
     )
     if (succeeded) {
-        this.transferScratch.storeI64(0, 43)
-        this.transferScratch.storePointer(8, nativeNullPointer())
-        this.transferScratch.storeI64(16, selectedRenderPass)
-        this.transferScratch.storeI64(24, target.framebuffer)
-        this.transferScratch.storeI64(32, 0)
-        this.transferScratch.storeI64(
-            40,
-            target.height * 4294967296 + target.width
-        )
-        this.transferScratch.storeI64(
-            48,
-            colorCount + (if (target.hasDepth()) 1 else 0)
-        )
-        this.transferScratch.storePointer(
-            56,
-            if (!pointerIsNull(clearStorage)) clearStorage
-            else this.transferScratch.pointerAt(72)
-        )
         var colorIndex = 0
-        while (pointerIsNull(clearStorage) && colorIndex < colorCount) {
+        while (succeeded && pointerIsNull(clearStorage) &&
+            colorIndex < colorCount) {
             val clearOffset = 72 + colorIndex * 16
-            vulkanStoreClearScalars(
-                this.transferScratch,
-                clearOffset,
-                clearRed,
-                clearGreen,
-                clearBlue,
-                clearAlpha
+            succeeded = vulkanDriverClearColorValueAt(
+                this.transferScratch, clearOffset,
+                graphicsScalarF32Bits(clearRed) & 4294967295,
+                graphicsScalarF32Bits(clearGreen) & 4294967295,
+                graphicsScalarF32Bits(clearBlue) & 4294967295,
+                graphicsScalarF32Bits(clearAlpha) & 4294967295
             )
             colorIndex = colorIndex + 1
         }
-        if (pointerIsNull(clearStorage) && target.hasDepth())
-          this.transferScratch.storeI64(
-            72 + colorCount * 16,
-            1065353216
+        if (succeeded && pointerIsNull(clearStorage) && target.hasDepth())
+          succeeded = vulkanDriverClearDepthStencilValueAt(
+            this.transferScratch, 72 + colorCount * 16, 1065353216, 0
         )
-        vkCmdBeginRenderPass(
+        if (succeeded) succeeded = vulkanDriverRenderPassBeginInfoAt(
+            this.transferScratch, 0, selectedRenderPass, target.framebuffer,
+            target.width, target.height,
+            colorCount + (if (target.hasDepth()) 1 else 0),
+            if (!pointerIsNull(clearStorage)) clearStorage
+            else this.transferScratch.pointerAt(72)
+        )
+        if (succeeded) vkCmdBeginRenderPass(
             this.transferCommand.load(),
             this.transferScratch.address,
             0
@@ -6749,25 +6704,17 @@ trusted fun VulkanDevice.renderTargetSubpasses(
     }
     if (succeeded && !recordOnly) succeeded = this.beginTransfer()
     if (succeeded) {
-        this.transferScratch.storeI64(0, 43)
-        this.transferScratch.storePointer(8, nativeNullPointer())
-        this.transferScratch.storeI64(16, compatibleRenderPass)
-        this.transferScratch.storeI64(24, compatibleFramebuffer)
-        this.transferScratch.storeI64(32, 0)
-        this.transferScratch.storeI64(
-            40,
-            target.height * 4294967296 + target.width
+        succeeded = vulkanDriverRenderPassBeginInfoAt(
+            this.transferScratch, 0,
+            compatibleRenderPass, compatibleFramebuffer,
+            target.width, target.height,
+            colorCount + (if (target.hasDepth()) 1 else 0), clearStorage
         )
-        this.transferScratch.storeI64(
-            48,
-            colorCount + (if (target.hasDepth()) 1 else 0)
-        )
-        this.transferScratch.storePointer(56, clearStorage)
-        vkCmdBeginRenderPass(
-            this.transferCommand.load(),
-            this.transferScratch.address,
-            0
-        )
+        if (succeeded) vkCmdBeginRenderPass(
+                this.transferCommand.load(),
+                this.transferScratch.address,
+                0
+            )
         this.transferScratch.storeI64(0, 0)
         this.transferScratch.storeI64(
             8,
@@ -8962,57 +8909,38 @@ trusted fun vulkanBeginDynamicRendering(
     clear: Color
 ): bool {
     val depthEnabled = depthView != 0
-    val succeeded = !pointerIsNull(command) && !scratch.closed &&
+    var succeeded = !pointerIsNull(command) && !scratch.closed &&
         scratch.capacity >= 376 && colorView != 0 && width > 0 &&
         height > 0 && clear.valid()
     if (succeeded) {
         // Color VkRenderingAttachmentInfo at 160.
-        scratch.storeI64(160, 1000044001)
-        scratch.storePointer(168, nativeNullPointer())
-        scratch.storeI64(176, colorView)
-        scratch.storeI64(184, 2)
-        scratch.storeI64(192, 0)
-        scratch.storeI64(200, 4294967296)
-        scratch.storeI64(208, 0)
-        scratch.storeI64(
-            216,
-            (graphicsScalarF32Bits(clear.green) & 4294967295) *
-                4294967296 +
-                (graphicsScalarF32Bits(clear.red) & 4294967295)
+        succeeded = vulkanDriverRenderingAttachmentAt(
+            scratch, 160, colorView, 2, 1, 0
+        ) && vulkanDriverClearColorValueAt(
+            scratch,
+            160 + vulkanDriverOffsetVkRenderingAttachmentInfo_clearValue,
+            graphicsScalarF32Bits(clear.red) & 4294967295,
+            graphicsScalarF32Bits(clear.green) & 4294967295,
+            graphicsScalarF32Bits(clear.blue) & 4294967295,
+            graphicsScalarF32Bits(clear.alpha) & 4294967295
         )
-        scratch.storeI64(
-            224,
-            (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
-                4294967296 +
-                (graphicsScalarF32Bits(clear.blue) & 4294967295)
-        )
-        if (depthEnabled) {
+        if (succeeded && depthEnabled) {
             // Depth VkRenderingAttachmentInfo at 232.
-            scratch.storeI64(232, 1000044001)
-            scratch.storePointer(240, nativeNullPointer())
-            scratch.storeI64(248, depthView)
-            scratch.storeI64(256, 3)
-            scratch.storeI64(264, 0)
-            scratch.storeI64(272, 4294967296)
-            scratch.storeI64(280, 0)
-            scratch.storeI64(288, 1065353216)
-            scratch.storeI64(296, 0)
+            succeeded = vulkanDriverRenderingAttachmentAt(
+                scratch, 232, depthView, 3, 1, 0
+            ) && vulkanDriverClearDepthStencilValueAt(
+                scratch,
+                232 +
+                    vulkanDriverOffsetVkRenderingAttachmentInfo_clearValue,
+                1065353216, 0
+            )
         }
-        // VkRenderingInfo at 304.
-        scratch.storeI64(304, 1000044000)
-        scratch.storePointer(312, nativeNullPointer())
-        scratch.storeI64(320, 0)
-        scratch.storeI64(328, width * 4294967296)
-        scratch.storeI64(336, 4294967296 + height)
-        scratch.storeI64(344, 4294967296)
-        scratch.storePointer(352, scratch.pointerAt(160))
-        scratch.storePointer(
-            360,
+        if (succeeded) succeeded = vulkanDriverRenderingInfoAt(
+            scratch, 304, width, height, 1, scratch.pointerAt(160),
             if (depthEnabled) scratch.pointerAt(232)
             else nativeNullPointer()
         )
-        scratch.storePointer(368, nativeNullPointer())
-        vkCmdBeginRendering(command, scratch.pointerAt(304))
+        if (succeeded) vkCmdBeginRendering(command, scratch.pointerAt(304))
     }
     succeeded
 }
@@ -9658,50 +9586,32 @@ trusted fun VulkanDevice.presentRenderOutcome(
                 )
             }
         } else {
-            presenter.frames[frame].scratch.storeI64(
-                120,
-                (graphicsScalarF32Bits(clear.green) & 4294967295) *
-                    4294967296 +
-                    (graphicsScalarF32Bits(clear.red) & 4294967295)
-            )
-            presenter.frames[frame].scratch.storeI64(
-                128,
-                (graphicsScalarF32Bits(clear.alpha) & 4294967295) *
-                    4294967296 +
-                    (graphicsScalarF32Bits(clear.blue) & 4294967295)
+            succeeded = vulkanDriverClearColorValueAt(
+                presenter.frames[frame].scratch, 120,
+                graphicsScalarF32Bits(clear.red) & 4294967295,
+                graphicsScalarF32Bits(clear.green) & 4294967295,
+                graphicsScalarF32Bits(clear.blue) & 4294967295,
+                graphicsScalarF32Bits(clear.alpha) & 4294967295
             )
             if (pipeline.depthEnabled) {
-                presenter.frames[frame].scratch.storeI64(136, 1065353216)
-                presenter.frames[frame].scratch.storeI64(144, 0)
+                succeeded = succeeded &&
+                    vulkanDriverClearDepthStencilValueAt(
+                        presenter.frames[frame].scratch,
+                        136, 1065353216, 0
+                    )
             }
-            presenter.frames[frame].scratch.storeI64(0, 43)
-            presenter.frames[frame].scratch.storePointer(
-                8,
-                nativeNullPointer()
-            )
-            presenter.frames[frame].scratch.storeI64(16, pipeline.renderPass)
-            presenter.frames[frame].scratch.storeI64(
-                24,
-                pipeline.framebuffers[imageIndex]
-            )
-            presenter.frames[frame].scratch.storeI64(32, 0)
-            presenter.frames[frame].scratch.storeI64(
-                40,
-                swapchain.height * 4294967296 + swapchain.width
-            )
-            presenter.frames[frame].scratch.storeI64(
-                48,
-                if (pipeline.depthEnabled) 2 else 1
-            )
-            presenter.frames[frame].scratch.storePointer(
-                56,
+            if (succeeded) succeeded = vulkanDriverRenderPassBeginInfoAt(
+                presenter.frames[frame].scratch, 0,
+                pipeline.renderPass, pipeline.framebuffers[imageIndex],
+                swapchain.width, swapchain.height,
+                if (pipeline.depthEnabled) 2 else 1,
                 presenter.frames[frame].scratch.pointerAt(120)
             )
-            vkCmdBeginRenderPass(
-                command,
-                presenter.frames[frame].scratch.address,
-                0
-            )
+            if (succeeded) vkCmdBeginRenderPass(
+                    command,
+                    presenter.frames[frame].scratch.address,
+                    0
+                )
         }
     }
     if (succeeded) {
