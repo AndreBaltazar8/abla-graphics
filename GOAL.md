@@ -2284,6 +2284,51 @@ submission, device-address returns, and command-buffer handle/scalar mixtures,
 grouping compatible families behind one live synchronization or transfer
 lifecycle. The full goal remains active.
 
+### Published checkpoint: native bitmask and synchronization batch
+
+Compiler dependency `482c640f11053d9fe4d29119939ee0f956039716`
+adds exact `void(pointer,i64,i32)` and `void(pointer,i64,i32,i32)` indirect
+calls. Their shared lowering preserves the 64-bit Vulkan object handle and
+truncates only the flag/index operands. The unsafe boundary proves both paths
+with a nontrivial 64-bit value and negative 32-bit values; the pure-Abla fixed
+point and native boundary pass.
+
+Graphics implementation `4823be8cb5265695516645874ea5ca1c9977ef3b`
+contains the richer type metadata, generator classifications, checked raw
+wrappers, deterministic fixture, pinned-registry assertions, live proof, and
+public contract updates.
+
+Generated type records now preserve their declared underlying native type.
+The classifier recognizes `bitmask` types based on `VkFlags` as exact 32-bit
+arguments while keeping `VkFlags64` signatures unsupported. The full registry
+test proves `VkPipelineStageFlags` is `VkFlags`,
+`VkPipelineStageFlags2` is `VkFlags64`, `vkCmdResetEvent` is callable, and
+`vkCmdResetEvent2` remains unsupported.
+
+The generator classifies 9 `void(pointer,i64,i32)` and 5
+`void(pointer,i64,i32,i32)` commands. Underlying-bitmask recognition also
+moves four commands into existing families. Total executable Vulkan raw
+coverage rises from 568 to 586 of 842 commands, leaving 256 explicit
+`unsupported` entries.
+
+The live sample creates a real event and timestamp query pool, records raw
+`vkCmdResetEvent` and raw `vkCmdResetQueryPool` into the existing command
+buffer, submits it, waits, observes exact `VK_EVENT_RESET`, and destroys both
+resources. Normal and optimized runs preserve all earlier enumeration, queue,
+timeline, format, fence, and state proofs and report a nonzero `queryPool`,
+`eventStatus=4`, `calls=1000`, `status=0`, `live=0`, and `stable=true`.
+Both validation scans are clean; OpenGL remains `live=0` and `stable=true`.
+
+Compiler fixed point and unsafe boundary, deterministic/full registry, normal
+and optimized raw runs, Abla-only audit, and core tests pass. The 71-sample
+matrix was not rerun because this checkpoint changes opt-in raw ABI/type
+metadata and its focused live sample.
+
+This batch adds durable ABI-width evidence instead of growing a fragile
+bitmask name list. Continue with 64-bit `VkFlags64` families, typed 64-bit
+returns/device addresses, and transfer/submission signatures backed by real
+buffers and queues. The full goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
