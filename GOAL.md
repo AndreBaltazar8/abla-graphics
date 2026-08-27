@@ -2123,6 +2123,42 @@ copies and synchronization, three/four-scalar command-buffer calls tied to a
 real pipeline, additional typed returns, and generated flags/structures with
 feature/extension ownership metadata. The full goal remains active.
 
+### Published checkpoint: three-pointer enumeration and query batch
+
+Compiler dependency `359573a88006ee14d2c5a0b9be0d391ed7957f5d`
+adds shared exact lowering for `i32(pointer,pointer,pointer)` and
+`void(pointer,pointer,pointer)`. The unsafe boundary proves the signed return
+and void paths with three real non-null pointers while the result-returning raw
+wrapper deliberately permits a null final native argument for Vulkan's
+count-only enumeration convention.
+
+Graphics implementation `0a7b9467dd2f4ee229370ad4b0d99ea50009331a`
+contains the generated classification, raw wrappers, deterministic/full tests,
+live enumeration/queue proof, and public contract updates.
+
+The generator classifies exactly 61 result-returning and 47 void three-pointer
+commands. Total executable Vulkan raw coverage rises from 309 to 417 of 842,
+leaving 425 explicit `unsupported` entries. Deterministic fixture commands
+prove both ABI tags, and the full registry test checks the exact
+`vkEnumeratePhysicalDevices` and `vkGetDeviceQueue2` normalized shapes.
+
+The live sample first performs count-only physical-device enumeration, then
+fills caller-owned storage and observes five devices. It packs a real
+`VkDeviceQueueInfo2`, calls raw `vkGetDeviceQueue2`, and verifies the returned
+pointer is the application's exact queue. Normal and optimized Vulkan runs
+retain the earlier event lifecycle and recorded command proof and report
+`devices=5`, a non-zero queue, `eventStatus=4`, `calls=1000`, `status=0`,
+`live=0`, and `stable=true`. Both validation scans are clean. Compiler fixed
+point, unsafe boundary, deterministic/full registry, stripped linkage,
+OpenGL/Vulkan raw runs, Abla-only audit, and core tests pass.
+
+This batch moved another 108 commands into executable coverage with one shared
+lowering and one live query proof. Next prioritize exact scalar/64-bit-handle
+mixtures used by buffer transfer and synchronization, pipeline-backed
+three/four-scalar commands, wider typed returns, and generated
+flags/structures with extension/feature ownership metadata. The full goal
+remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
