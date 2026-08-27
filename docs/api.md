@@ -3313,10 +3313,13 @@ Counted-pointer results use
 `callI32PointerI32Pointer(command, owner, count, values, result)`, while
 scalar/scalar/output queries use
 `callVoidPointerI32I32Pointer(command, owner, first, second, output)`.
+Pointer-result calls use
+`callI32PointerPointer(command, first, second, result)`, and enum/scalar output
+queries use `callVoidPointerI32Pointer(command, owner, value, output)`.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
-counts are 8, 35, 4, 2, 81, 62, 13, 104, 61, 47, 13, and 17
-respectively—447 Vulkan commands. The caller remains responsible for Vulkan
+counts are 8, 52, 4, 2, 81, 62, 14, 104, 61, 47, 18, 18, 36, and 20
+respectively—527 Vulkan commands. The caller remains responsible for Vulkan
 object lifetime, command-buffer lifecycle, enabled features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
@@ -3330,6 +3333,14 @@ one-element fence array through the counted-pointer result family, observes
 exact `VK_NOT_READY`, and destroys the fence. Normal and optimized runs report
 matching queue handles, `fenceStatus=1`, `reset=0`, `live=0`, and
 `stable=true`; both validation scans are clean.
+
+The newest live proof begins the real command buffer through raw
+`vkBeginCommandBuffer` and preserves the exact successful signed result. It
+also queries `VK_FORMAT_R8G8B8A8_UNORM` through raw
+`vkGetPhysicalDeviceFormatProperties` and observes nonzero feature flags.
+Normal and optimized runs report `begin=0`, the same nonzero format value,
+`live=0`, and `stable=true`; enum-backed 32-bit arguments are classified by
+their registry type category rather than a hand-maintained name list.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are

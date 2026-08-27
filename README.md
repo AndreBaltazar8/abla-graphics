@@ -182,14 +182,15 @@ proves the architecture rather than stopping at placeholder interfaces:
   compiled raw metadata modules leave every unaudited row visibly
   unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
   `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
-  other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 35
+  other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 52
   `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81
-  `i32(pointer,pointer,pointer,pointer)`, 62 `void(pointer,i64,pointer)`, 13
+  `i32(pointer,pointer,pointer,pointer)`, 62 `void(pointer,i64,pointer)`, 14
   `i32(pointer,i64)`, 104 `void(pointer,pointer)`, 61
   `i32(pointer,pointer,pointer)`, and 47 `void(pointer,pointer,pointer)`
-  commands, plus 13 `i32(pointer,i32,pointer)` and 17
-  `void(pointer,i32,i32,pointer)` commands—447 total—while leaving the other
-  395 Vulkan entries unsupported;
+  commands, plus 18 `i32(pointer,i32,pointer)`, 18
+  `void(pointer,i32,i32,pointer)`, 36 `i32(pointer,pointer)`, and 20
+  `void(pointer,i32,pointer)` commands—527 total—while leaving the other 315
+  Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

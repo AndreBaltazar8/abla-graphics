@@ -110,9 +110,10 @@ and Vulkan `void(pointer)`, `void(pointer,i32)`,
 `i32(pointer,i64)`, `void(pointer,pointer)`,
 `i32(pointer,pointer,pointer)`, `void(pointer,pointer,pointer)`,
 `i32(pointer,i32,pointer)`, and `void(pointer,i32,i32,pointer)` commands without
-steady-state allocation.
+steady-state allocation, plus `i32(pointer,pointer)` and
+`void(pointer,i32,pointer)` result/query families.
 Generated ABI classification marks exactly 352 currently callable OpenGL and
-447 callable Vulkan entries, leaving every other entry unsupported. The
+527 callable Vulkan entries, leaving every other entry unsupported. The
 remaining signature families, generated types/builders, capability gates, and
 complete raw coverage are intentionally still open, as is the remaining
 milestone work below.

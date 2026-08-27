@@ -32,12 +32,13 @@ Updated: 2026-08-27.
   first allocation-stable OpenGL indirect call families. Generated ABI tags
   classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
   callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
-  Vulkan classifies 8 `void(pointer)`, 35 `void(pointer,i32)`, 4
+  Vulkan classifies 8 `void(pointer)`, 52 `void(pointer,i32)`, 4
   `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81 four-pointer creation, 62
-  pointer/64-bit-handle/pointer destruction, 13 handle-status, and 104
+  pointer/64-bit-handle/pointer destruction, 14 handle-status, and 104
   two-pointer query entries, plus 61 result-returning and 47 void three-pointer
-  entries, 13 counted-pointer result entries, and 17 scalar/scalar/output
-  entries—447 total—and leaves the other 395 unsupported.
+  entries, 18 counted-pointer result entries, 18 scalar/scalar/output entries,
+  36 pointer-result entries, and 20 scalar/output entries—527 total—and leaves
+  the other 315 unsupported.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -50,7 +51,8 @@ Updated: 2026-08-27.
   counted-pointer family, observes exact `VK_NOT_READY`, and destroys it. It
   enumerates the physical-device list and resolves
   the application's exact queue through `vkGetDeviceQueue2`. It resets the
-  pool, retains zero growth, and passes
+  pool through raw `vkBeginCommandBuffer`, queries nonzero physical-device
+  format properties through the enum/output family, retains zero growth, and passes
   validation in both build modes. Remaining signatures
   are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
