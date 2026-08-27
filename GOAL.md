@@ -2463,6 +2463,59 @@ Keep the cadence broad: select several compatible families, rebuild the
 compiler once, regenerate once, run one consolidated gate, then commit and
 publish. The full framework goal remains active.
 
+### Published checkpoint: float, image, query, pipeline, and wait raw batch
+
+Compiler dependency `477edc7fce368a28ed9ea2602464dde058ccdf3f`
+adds 20 exact pure-Abla indirect-call layouts: 14 void families and 6 signed
+status families spanning native `f32`, image transfer/clear/query, sparse
+query, pipeline creation, calibrated timestamps, fence waits, and mixed
+pointer/handle arguments. The compiler now supports direct exported `f32`
+values and lowers Abla `f64` raw-wrapper inputs to exact native `f32` call
+lanes. Boundary fixtures exercise every layout with high-bit handles, negative
+32-bit values, native float targets, pointers, and negative status returns.
+The commit is rebased on the concurrently published Xtensa interrupt work;
+the byte-identical pure self-rebuild and unsafe native boundary pass on that
+integrated compiler.
+
+Graphics implementation `dc36216` adds the matching public raw predicates and
+checked Vulkan wrappers. The registry generator now derives pointer, `i32`,
+`i64`, and `f32` argument kinds generically, then admits only an explicit
+allowlist of exact implemented signatures. Deterministic fixtures and
+full-registry assertions cover all 20 families. This moves 56 commands in one
+batch: executable Vulkan raw coverage rises from 682 to 738 of 842, leaving
+104 explicit `unsupported` entries.
+
+The live Vulkan proof resolves and executes `vkCmdSetLineWidth` through the
+native `f32` boundary, clears a 1x1 RGBA8 transfer image through raw
+`vkCmdClearColorImage`, and waits on a signaled fence through raw
+`vkWaitForFences`. Readback is exact red `4278190335`, fence status is `0`,
+the 1,000-call steady-state loop has zero live-memory growth in normal and
+optimized builds, and the broader proof retains the same 96 bytes of one-time
+framework state.
+
+Verified commands for this checkpoint:
+
+```sh
+cd ../ablac
+nix-shell --run 'make self-rebuild && tools/test-unsafe-boundary.sh build/ablac'
+
+cd ../abla-graphics
+nix-shell --run 'make test-registry test-raw-commands'
+nix-shell --run 'make check-abla-only test-core'
+```
+
+Registry determinism, normal/fast OpenGL and Vulkan raw execution, exact image
+readback, fence status, Vulkan validation scans, stripped-environment `ldd`,
+the Abla-only audit, and core tests all pass. Both Vulkan validation logs are
+zero bytes. The 71-sample matrix was not rerun because this remains an opt-in
+raw ABI/compiler-boundary checkpoint with no common rendering API or runtime
+linkage-contract change.
+
+Continue with broad, generically normalized batches across the remaining 104
+signatures and generated typed builders. Preserve the fast cadence: define a
+coherent set, rebuild the compiler once, regenerate once, run consolidated
+gates, and publish. The full framework goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
