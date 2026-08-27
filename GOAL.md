@@ -2407,6 +2407,62 @@ coherence. High-yield next groups include larger pointer/scalar creation and
 query layouts, three/four-scalar command-buffer calls, float arguments, and
 image copy/blit/resolve families. The full framework goal remains active.
 
+### Published checkpoint: scalar, pointer-pair, compute, and unmap raw batch
+
+Compiler dependency `11d4d09` adds eleven pure-Abla indirect-call layouts:
+`void(pointer,i64)`, `void(pointer,i32,i64)`,
+`void(pointer,i32,i64,i32)`, the three- through six-`i32` command families,
+`void(pointer,i32,pointer,pointer)`,
+`void(pointer,i32,i32,pointer,pointer)`, `i32(pointer,i32)`, and
+`i32(pointer,i64,i32)`. Shared LLVM lowerings preserve 64-bit handles,
+truncate only declared 32-bit arguments, and sign-extend `VkResult`-style
+returns. High-bit and negative-value boundary fixtures cover every layout.
+The pure self-hosted fixed point and unsafe native boundary pass.
+
+Graphics implementation `fd0dd66` adds matching public raw predicates and
+checked Vulkan wrappers, exact registry classification, deterministic fixtures,
+and full-registry assertions. Safe existing dispatchable-owner classifiers are
+also widened beyond command buffers where their ABI is identical. This batch
+moves 46 commands at once: executable Vulkan raw coverage rises from 636 to
+682 of 842, leaving 160 explicit `unsupported` entries.
+
+The live Vulkan proof resolves and executes raw `vkResetCommandPool`,
+`vkCmdBindPipeline`, `vkCmdDispatch`, `vkCmdBindVertexBuffers`,
+`vkCmdWriteTimestamp`, and `vkUnmapMemory` alongside the existing raw update,
+barrier, copy, fill, synchronization2 timestamp, queue submit, and status
+operations. A custom `$glsl` no-op compute shader produces the bound pipeline.
+Both timestamp forms return nonzero ticks; transfer readback remains exactly
+`72623859790382856` and `72623859723010820`; raw unmap clears the framework's
+mapped state. The 1,000-call steady-state region has zero live-memory growth in
+normal and optimized builds. The broader proof retains 96 bytes of one-time
+framework state, so the allocation assertion intentionally measures the
+repeated hot loop rather than initialization.
+
+Verified commands for this checkpoint:
+
+```sh
+cd ../ablac
+nix-shell --run 'make self-rebuild && tools/test-unsafe-boundary.sh build/ablac'
+
+cd ../abla-graphics
+nix-shell --run 'make test-registry test-raw-commands check-abla-only test-core'
+```
+
+Registry determinism, normal/fast OpenGL and Vulkan raw execution, Vulkan
+validation scans, stripped-environment `ldd`, the Abla-only source audit, and
+core tests all pass. The normal and fast validation logs are empty. The raw
+test's stripped-environment linkage check directly guards the earlier problem
+where executables failed at startup because shared libraries were unresolved.
+The 71-sample matrix was not rerun because this remains an opt-in raw ABI batch
+with no common rendering API or linkage-contract change.
+
+Continue batching the remaining 160 signatures by coherent feature groups.
+The best next candidates are float/double arguments, image copy/blit/resolve
+layouts, larger creation/query pointer mixtures, and generated typed builders.
+Keep the cadence broad: select several compatible families, rebuild the
+compiler once, regenerate once, run one consolidated gate, then commit and
+publish. The full framework goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
