@@ -3054,9 +3054,30 @@ frames, and `live=0`. The same consolidated invocation passes the Abla-only
 audit. The preceding published checkpoint already proved stripped direct
 runtime linkage with `unresolved=0`; no linkage inputs changed here.
 
-Continue with integer-return `textureSize` and query operations, then explicit
-integer-to-floating conversion and mutable integer locals. Keep compiler-heavy
-shader cases in independent focused test roots.
+### Verified checkpoint: texture size and level queries
+
+Integer raster initializers now accept `textureSize(sampler, lod)` for 2D,
+2D-array, cube, and 3D sampled bindings, returning dimension-exact `ivec2` or
+`ivec3`. `textureQueryLevels(sampler)` returns scalar `int`. Query-derived
+locals remain immutable but compose through the signed component, constructor,
+arithmetic, constant-offset, and fetch layers. Wrong declaration width and
+missing LOD reject deterministically.
+
+The Vulkan emitter conditionally adds `ImageQuery` capability 50, extracts the
+reflected image, and uses Khronos opcodes 103 (`OpImageQuerySizeLod`) and 106
+(`OpImageQueryLevels`). The independent shader gate queries all four sampler
+dimensions, repeats those values inside three later fetches, verifies exact
+instruction-boundary counts and stable module words, and covers both rejection
+cases. `make test-glsl` passes. `examples/wider-sampling` now derives its exact
+3D fetch coordinate from runtime extent and accessible-level queries while
+retaining constant offsets. OpenGL, Vulkan, and automatic selection retain all
+exact pixels/views, mismatch rejection, stable handles, four frames, and
+`live=0`; the consolidated Abla-only audit passes. No compiler or linkage input
+changed.
+
+Continue with floating `textureQueryLod`, explicit signed-integer-to-floating
+conversion, and then mutable integer locals. Keep compiler-heavy shader cases
+in independent focused test roots.
 
 ## Working commands
 

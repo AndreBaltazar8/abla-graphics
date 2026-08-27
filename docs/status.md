@@ -1987,3 +1987,21 @@ boundaries, stable words, and cube/wrong-width/runtime-local rejection.
 retaining its 3D integer fetch. OpenGL, Vulkan, and automatic selection preserve
 all exact pixels/views, mismatch rejection, stable handles, four frames, and
 `live=0`; the Abla-only audit passes.
+
+### Integer texture size and level queries
+
+Raster integer initializers now accept `textureSize(sampler, lod)` across 2D,
+2D-array, cube, and 3D reflected samplers and return the GLSL-mandated `ivec2`
+or `ivec3` width. `textureQueryLevels` returns scalar `int`. The resulting
+immutable locals feed the existing signed component, constructor, arithmetic,
+offset, and fetch expressions; wrong declaration width and missing LOD reject.
+
+The Vulkan path conditionally declares `ImageQuery` capability 50 and emits
+specification opcodes 103 (`OpImageQuerySizeLod`) and 106
+(`OpImageQueryLevels`) against extracted reflected images. The focused module
+queries every sampler dimension, routes repeated results through three later
+fetches, checks exact instruction-boundary counts and deterministic words, and
+proves both invalid forms. The wider sample derives its exact 3D fetch point
+from live extent and level-count queries. OpenGL, Vulkan, and automatic
+selection preserve all exact pixels/views, mismatch rejection, stable handles,
+four frames, and `live=0`; the Abla-only audit passes.

@@ -2974,6 +2974,16 @@ spelled `const` whose own initializers are constant. Vulkan combines exact
 `ConstOffset`, `Lod | ConstOffset`, or `Grad | ConstOffset` image operands in
 specification order. Non-`const` locals and wrong widths reject before either
 backend creates a pipeline.
+Integer local initializers may call `textureSize(sampler, lod)` for
+`sampler2D`, `sampler2DArray`, `samplerCube`, or `sampler3D`. The result is
+`ivec2` for 2D/cube and `ivec3` for array/3D; LOD is any supported signed
+scalar expression. `textureQueryLevels(sampler)` returns signed `int` for the
+same families. Query results are ordinary immutable integer locals and may
+subsequently use components, constructors, arithmetic, offsets, or
+`texelFetch`. Vulkan conditionally declares `ImageQuery`, extracts the
+reflected image, and emits `OpImageQuerySizeLod` or `OpImageQueryLevels`;
+OpenGL consumes the unchanged GLSL. Wrong result widths, missing LOD, sampler
+arrays, and unsupported bindings reject before pipeline creation.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same

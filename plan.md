@@ -231,8 +231,12 @@ offsets now cover ordinary, LOD, gradient, and projected forms for 2D,
 2D-array, and 3D samplers with compile-time-constant provenance and exact
 `ConstOffset` combinations; cubes, runtime locals, and wrong widths reject.
 Array-gradient and 3D-LOD offset forms are live on both backends.
-Integer-return `textureSize`/query operations, conversion, and mutable integer
-locals remain open.
+`textureSize` now returns dimension-exact signed vectors for 2D, 2D-array,
+cube, and 3D samplers, while `textureQueryLevels` returns signed scalar values;
+both compose through later integer arithmetic and fetches and lower with the
+conditional `ImageQuery` capability. Query-driven 3D fetch is live on both
+backends. Floating `textureQueryLod`, explicit integer/floating conversion,
+and mutable integer locals remain open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the
