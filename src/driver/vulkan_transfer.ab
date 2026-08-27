@@ -90,16 +90,16 @@ resource class VulkanTransferSlot(
             ) == vulkanSuccess
         }
         if (succeeded) {
-            this.scratch.storeI64(0, sourceOffset)
-            this.scratch.storeI64(8, destinationOffset)
-            this.scratch.storeI64(16, byteCount)
-            vkCmdCopyBuffer(
-                this.command.load(),
-                source.handle,
-                destination.handle,
-                1,
-                this.scratch.address
+            succeeded = vulkanDriverBufferCopyAt(
+                this.scratch, 0, sourceOffset, destinationOffset, byteCount
             )
+            if (succeeded) vkCmdCopyBuffer(
+                    this.command.load(),
+                    source.handle,
+                    destination.handle,
+                    1,
+                    this.scratch.address
+                )
             succeeded = vulkanDriverMemoryBarrierAt(
                 this.scratch, 0, 4096,
                 if (destination.persistent) 8192 else 98304
@@ -229,21 +229,19 @@ resource class VulkanTransferSlot(
                 1,
                 this.scratch.address
             )
-            this.scratch.storeI64(0, stagingOffset)
-            this.scratch.storeI64(8, 0)
-            this.scratch.storeI64(16, mipLevel * 4294967296 + 1)
-            this.scratch.storeI64(24, 4294967296)
-            this.scratch.storeI64(32, y * 4294967296 + x)
-            this.scratch.storeI64(40, width * 4294967296)
-            this.scratch.storeI64(48, 4294967296 + height)
-            vkCmdCopyBufferToImage(
-                this.command.load(),
-                staging.handle,
-                texture.image,
-                7,
-                1,
-                this.scratch.address
+            succeeded = vulkanDriverBufferImageCopyAt(
+                this.scratch, 0, stagingOffset, 0, 0,
+                1, mipLevel, 0, 1,
+                x, y, 0, width, height, 1
             )
+            if (succeeded) vkCmdCopyBufferToImage(
+                    this.command.load(),
+                    staging.handle,
+                    texture.image,
+                    7,
+                    1,
+                    this.scratch.address
+                )
             finalLayout = if (
                 (usage & textureUsageSampled) != 0
             ) 5 else 1
@@ -323,21 +321,19 @@ resource class VulkanTransferSlot(
                 1,
                 this.scratch.address
             )
-            this.scratch.storeI64(0, stagingOffset)
-            this.scratch.storeI64(8, 0)
-            this.scratch.storeI64(16, mipLevel * 4294967296 + 1)
-            this.scratch.storeI64(24, 4294967296)
-            this.scratch.storeI64(32, y * 4294967296 + x)
-            this.scratch.storeI64(40, width * 4294967296)
-            this.scratch.storeI64(48, 4294967296 + height)
-            vkCmdCopyImageToBuffer(
-                this.command.load(),
-                texture.image,
-                6,
-                staging.handle,
-                1,
-                this.scratch.address
+            succeeded = vulkanDriverBufferImageCopyAt(
+                this.scratch, 0, stagingOffset, 0, 0,
+                1, mipLevel, 0, 1,
+                x, y, 0, width, height, 1
             )
+            if (succeeded) vkCmdCopyImageToBuffer(
+                    this.command.load(),
+                    texture.image,
+                    6,
+                    staging.handle,
+                    1,
+                    this.scratch.address
+                )
             vulkanStoreImageBarrier(
                 this.scratch.address,
                 texture.image,
@@ -475,21 +471,13 @@ resource class VulkanTransferSlot(
             val imageDepth = if (
                 descriptor.dimension == textureDimension3D
             ) depth else 1
-            this.scratch.storeI64(0, stagingOffset)
-            this.scratch.storeI64(8, 0)
-            this.scratch.storeI64(
-                16,
-                mipLevel * 4294967296 +
-                    vulkanTextureAspect(descriptor.format, textureAspectAll)
+            succeeded = vulkanDriverBufferImageCopyAt(
+                this.scratch, 0, stagingOffset, 0, 0,
+                vulkanTextureAspect(descriptor.format, textureAspectAll),
+                mipLevel, baseArrayLayer, arrayLayers,
+                x, y, imageZ, width, height, imageDepth
             )
-            this.scratch.storeI64(
-                24,
-                arrayLayers * 4294967296 + baseArrayLayer
-            )
-            this.scratch.storeI64(32, y * 4294967296 + x)
-            this.scratch.storeI64(40, width * 4294967296 + imageZ)
-            this.scratch.storeI64(48, imageDepth * 4294967296 + height)
-            if (upload) vkCmdCopyBufferToImage(
+            if (succeeded && upload) vkCmdCopyBufferToImage(
                 this.command.load(),
                 staging.handle,
                 texture.image,
@@ -497,7 +485,7 @@ resource class VulkanTransferSlot(
                 1,
                 this.scratch.address
             )
-            else vkCmdCopyImageToBuffer(
+            else if (succeeded) vkCmdCopyImageToBuffer(
                 this.command.load(),
                 texture.image,
                 transferLayout,

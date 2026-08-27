@@ -2080,43 +2080,22 @@ resource class VulkanDevice(
     ): void {
         if (this.synchronization2) {
             // VkDependencyInfo at 0 and VkImageMemoryBarrier2 at 80.
-            this.transferScratch.storeI64(80, 1000314002)
-            this.transferScratch.storePointer(88, nativeNullPointer())
-            this.transferScratch.storeI64(96, sourceStage)
-            this.transferScratch.storeI64(104, sourceAccess)
-            this.transferScratch.storeI64(112, destinationStage)
-            this.transferScratch.storeI64(120, destinationAccess)
-            this.transferScratch.storeI64(
-                128,
-                newLayout * 4294967296 + oldLayout
+            val packed = vulkanDriverImageMemoryBarrier2At(
+                this.transferScratch, 80, image, oldLayout, newLayout,
+                sourceStage, sourceAccess, destinationStage,
+                destinationAccess, aspect, baseMipLevel, mipLevels,
+                baseArrayLayer, arrayLayers
+            ) && vulkanDriverDependencyInfoAt(
+                this.transferScratch, 0, 0, nativeNullPointer(),
+                1, this.transferScratch.pointerAt(80)
             )
-            this.transferScratch.storeI64(136, 18446744073709551615)
-            this.transferScratch.storeI64(144, image)
-            this.transferScratch.storeI64(
-                152,
-                baseMipLevel * 4294967296 + aspect
-            )
-            this.transferScratch.storeI64(
-                160,
-                baseArrayLayer * 4294967296 + mipLevels
-            )
-            this.transferScratch.storeI64(168, arrayLayers)
-            this.transferScratch.storeI64(0, 1000314003)
-            this.transferScratch.storePointer(8, nativeNullPointer())
-            this.transferScratch.storeI64(16, 0)
-            this.transferScratch.storePointer(24, nativeNullPointer())
-            this.transferScratch.storeI64(32, 0)
-            this.transferScratch.storePointer(40, nativeNullPointer())
-            this.transferScratch.storeI64(48, 1)
-            this.transferScratch.storePointer(
-                56,
-                this.transferScratch.pointerAt(80)
-            )
-            vkCmdPipelineBarrier2(
-                this.transferCommand.load(),
-                this.transferScratch.address
-            )
-            this.transferBarrier2Count = this.transferBarrier2Count + 1
+            if (packed) {
+                vkCmdPipelineBarrier2(
+                    this.transferCommand.load(),
+                    this.transferScratch.address
+                )
+                this.transferBarrier2Count = this.transferBarrier2Count + 1
+            }
         } else {
             vulkanStoreImageBarrier(
                 this.transferScratch.address,
@@ -2296,18 +2275,19 @@ resource class VulkanDevice(
                 size,
                 source.size,
                 destination.size
-            ) && this.beginTransfer()
+        ) && this.beginTransfer()
         if (succeeded) {
-            this.transferScratch.storeI64(0, sourceOffset)
-            this.transferScratch.storeI64(8, destinationOffset)
-            this.transferScratch.storeI64(16, byteCount)
-            vkCmdCopyBuffer(
-                this.transferCommand.load(),
-                source.handle,
-                destination.handle,
-                1,
-                this.transferScratch.address
+            succeeded = vulkanDriverBufferCopyAt(
+                this.transferScratch, 0,
+                sourceOffset, destinationOffset, byteCount
             )
+            if (succeeded) vkCmdCopyBuffer(
+                    this.transferCommand.load(),
+                    source.handle,
+                    destination.handle,
+                    1,
+                    this.transferScratch.address
+                )
             this.recordTransferMemoryBarrier(
                 4096,
                 16384,
@@ -2411,37 +2391,24 @@ resource class VulkanDevice(
                 sourceDescriptor.format,
                 textureAspectAll
             )
-            this.transferScratch.storeI64(
-                0,
-                copy.sourceMipLevel * 4294967296 + aspect
+            succeeded = vulkanDriverImageCopyAt(
+                this.transferScratch, 0,
+                aspect, copy.sourceMipLevel, 0, 1,
+                copy.sourceX, copy.sourceY, 0,
+                aspect, copy.destinationMipLevel, 0, 1,
+                copy.destinationX, copy.destinationY, 0,
+                copy.resolvedWidth(sourceDescriptor),
+                copy.resolvedHeight(sourceDescriptor), 1
             )
-            this.transferScratch.storeI64(8, 4294967296)
-            this.transferScratch.storeI64(
-                16,
-                copy.sourceY * 4294967296 + copy.sourceX
-            )
-            this.transferScratch.storeI64(24, aspect * 4294967296)
-            this.transferScratch.storeI64(32, copy.destinationMipLevel)
-            this.transferScratch.storeI64(
-                40,
-                copy.destinationX * 4294967296 + 1
-            )
-            this.transferScratch.storeI64(48, copy.destinationY)
-            this.transferScratch.storeI64(
-                56,
-                copy.resolvedHeight(sourceDescriptor) * 4294967296 +
-                    copy.resolvedWidth(sourceDescriptor)
-            )
-            this.transferScratch.storeI64(64, 1)
-            vkCmdCopyImage(
-                this.transferCommand.load(),
-                source.image,
-                6,
-                destination.image,
-                7,
-                1,
-                this.transferScratch.address
-            )
+            if (succeeded) vkCmdCopyImage(
+                    this.transferCommand.load(),
+                    source.image,
+                    6,
+                    destination.image,
+                    7,
+                    1,
+                    this.transferScratch.address
+                )
             this.recordTransferImageBarrier(
                 source.image,
                 6,
@@ -2599,48 +2566,24 @@ resource class VulkanDevice(
             val imageDepth = if (
                 sourceDescriptor.dimension == textureDimension3D
             ) depth else 1
-            this.transferScratch.storeI64(
-                0,
-                sourceMipLevel * 4294967296 + aspect
+            succeeded = vulkanDriverImageCopyAt(
+                this.transferScratch, 0,
+                aspect, sourceMipLevel, sourceBaseLayer, arrayLayers,
+                sourceX, sourceY, sourceImageZ,
+                aspect, destinationMipLevel,
+                destinationBaseLayer, arrayLayers,
+                destinationX, destinationY, destinationImageZ,
+                width, height, imageDepth
             )
-            this.transferScratch.storeI64(
-                8,
-                arrayLayers * 4294967296 + sourceBaseLayer
-            )
-            this.transferScratch.storeI64(
-                16,
-                sourceY * 4294967296 + sourceX
-            )
-            this.transferScratch.storeI64(
-                24,
-                aspect * 4294967296 + sourceImageZ
-            )
-            this.transferScratch.storeI64(
-                32,
-                destinationBaseLayer * 4294967296 + destinationMipLevel
-            )
-            this.transferScratch.storeI64(
-                40,
-                destinationX * 4294967296 + arrayLayers
-            )
-            this.transferScratch.storeI64(
-                48,
-                destinationImageZ * 4294967296 + destinationY
-            )
-            this.transferScratch.storeI64(
-                56,
-                height * 4294967296 + width
-            )
-            this.transferScratch.storeI64(64, imageDepth)
-            vkCmdCopyImage(
-                this.transferCommand.load(),
-                source.image,
-                6,
-                destination.image,
-                7,
-                1,
-                this.transferScratch.address
-            )
+            if (succeeded) vkCmdCopyImage(
+                    this.transferCommand.load(),
+                    source.image,
+                    6,
+                    destination.image,
+                    7,
+                    1,
+                    this.transferScratch.address
+                )
         }
         layer = 0
         while (succeeded && layer < arrayLayers) {
@@ -2910,28 +2853,22 @@ resource class VulkanDevice(
                 1,
                 0
             )
-            this.transferScratch.storeI64(0, 1)
-            this.transferScratch.storeI64(8, 4294967296)
-            this.transferScratch.storeI64(16, 0)
-            this.transferScratch.storeI64(24, 4294967296)
-            this.transferScratch.storeI64(32, 0)
-            this.transferScratch.storeI64(40, 1)
-            this.transferScratch.storeI64(48, 0)
-            this.transferScratch.storeI64(
-                56,
-                sourceDescriptor.size.height * 4294967296 +
-                    sourceDescriptor.size.width
+            succeeded = vulkanDriverImageResolveAt(
+                this.transferScratch, 0,
+                1, 0, 0, 1, 0, 0, 0,
+                1, 0, 0, 1, 0, 0, 0,
+                sourceDescriptor.size.width,
+                sourceDescriptor.size.height, 1
             )
-            this.transferScratch.storeI64(64, 1)
-            vkCmdResolveImage(
-                this.transferCommand.load(),
-                source.image,
-                6,
-                destination.image,
-                7,
-                1,
-                this.transferScratch.address
-            )
+            if (succeeded) vkCmdResolveImage(
+                    this.transferCommand.load(),
+                    source.image,
+                    6,
+                    destination.image,
+                    7,
+                    1,
+                    this.transferScratch.address
+                )
             this.recordTransferImageBarrier(
                 source.image,
                 6,
@@ -4554,26 +4491,23 @@ trusted fun VulkanTexture.generateMipmaps(
             texture.size.height,
             destinationLevel
         )
-        this.scratch.storeI64(0, sourceLevel * 4294967296 + 1)
-        this.scratch.storeI64(8, 4294967296)
-        this.scratch.storeI64(16, 0)
-        this.scratch.storeI64(24, sourceWidth * 4294967296)
-        this.scratch.storeI64(32, 4294967296 + sourceHeight)
-        this.scratch.storeI64(40, destinationLevel * 4294967296 + 1)
-        this.scratch.storeI64(48, 4294967296)
-        this.scratch.storeI64(56, 0)
-        this.scratch.storeI64(64, destinationWidth * 4294967296)
-        this.scratch.storeI64(72, 4294967296 + destinationHeight)
-        vkCmdBlitImage(
-            this.command.load(),
-            this.image,
-            6,
-            this.image,
-            7,
-            1,
-            this.scratch.address,
-            1
+        succeeded = vulkanDriverImageBlitAt(
+            this.scratch, 0,
+            1, sourceLevel, 0, 1,
+            0, 0, 0, sourceWidth, sourceHeight, 1,
+            1, destinationLevel, 0, 1,
+            0, 0, 0, destinationWidth, destinationHeight, 1
         )
+        if (succeeded) vkCmdBlitImage(
+                this.command.load(),
+                this.image,
+                6,
+                this.image,
+                7,
+                1,
+                this.scratch.address,
+                1
+            )
         vulkanStoreImageBarrier(
             this.scratch.address,
             this.image,
@@ -4670,21 +4604,19 @@ trusted fun VulkanTexture.writePixels(
             1,
             this.scratch.address
         )
-        this.scratch.storeI64(0, 0)
-        this.scratch.storeI64(8, 0)
-        this.scratch.storeI64(16, write.mipLevel * 4294967296 + 1)
-        this.scratch.storeI64(24, 4294967296)
-        this.scratch.storeI64(32, write.y * 4294967296 + write.x)
-        this.scratch.storeI64(40, pixels.width * 4294967296)
-        this.scratch.storeI64(48, 4294967296 + pixels.height)
-        vkCmdCopyBufferToImage(
-            this.command.load(),
-            this.staging.handle,
-            this.image,
-            7,
-            1,
-            this.scratch.address
+        succeeded = vulkanDriverBufferImageCopyAt(
+            this.scratch, 0, 0, 0, 0,
+            1, write.mipLevel, 0, 1,
+            write.x, write.y, 0, pixels.width, pixels.height, 1
         )
+        if (succeeded) vkCmdCopyBufferToImage(
+                this.command.load(),
+                this.staging.handle,
+                this.image,
+                7,
+                1,
+                this.scratch.address
+            )
         val finalLayout = if ((texture.usage & textureUsageSampled) != 0)
             5 else 1
         val finalAccess = vulkanTextureRestingAccess(texture, finalLayout)
@@ -4762,21 +4694,19 @@ trusted fun VulkanTexture.rgba8(
             1,
             this.scratch.address
         )
-        this.scratch.storeI64(0, 0)
-        this.scratch.storeI64(8, 0)
-        this.scratch.storeI64(16, mipLevel * 4294967296 + 1)
-        this.scratch.storeI64(24, 4294967296)
-        this.scratch.storeI64(32, y * 4294967296 + x)
-        this.scratch.storeI64(40, 4294967296)
-        this.scratch.storeI64(48, 4294967297)
-        vkCmdCopyImageToBuffer(
-            this.command.load(),
-            this.image,
-            6,
-            this.staging.handle,
-            1,
-            this.scratch.address
+        succeeded = vulkanDriverBufferImageCopyAt(
+            this.scratch, 0, 0, 0, 0,
+            1, mipLevel, 0, 1,
+            x, y, 0, 1, 1, 1
         )
+        if (succeeded) vkCmdCopyImageToBuffer(
+                this.command.load(),
+                this.image,
+                6,
+                this.staging.handle,
+                1,
+                this.scratch.address
+            )
         vulkanStoreImageBarrier(
             this.scratch.address,
             this.image,
@@ -4921,28 +4851,13 @@ trusted fun VulkanTexture.storeBufferImageCopy(
         selection.z else 0
     val imageDepth = if (texture.dimension == textureDimension3D)
         selection.resolvedDepth(texture) else 1
-    this.scratch.storeI64(0, 0)
-    this.scratch.storeI64(8, 0)
-    this.scratch.storeI64(
-        16,
-        selection.mipLevel * 4294967296 +
-            vulkanTextureAspect(texture.format, textureAspectAll)
-    )
-    this.scratch.storeI64(
-        24,
-        arrayLayers * 4294967296 + baseArrayLayer
-    )
-    this.scratch.storeI64(
-        32,
-        selection.y * 4294967296 + selection.x
-    )
-    this.scratch.storeI64(
-        40,
-        selection.resolvedWidth(texture) * 4294967296 + imageZ
-    )
-    this.scratch.storeI64(
-        48,
-        imageDepth * 4294967296 + selection.resolvedHeight(texture)
+    vulkanDriverBufferImageCopyAt(
+        this.scratch, 0, 0, 0, 0,
+        vulkanTextureAspect(texture.format, textureAspectAll),
+        selection.mipLevel, baseArrayLayer, arrayLayers,
+        selection.x, selection.y, imageZ,
+        selection.resolvedWidth(texture),
+        selection.resolvedHeight(texture), imageDepth
     )
     return
 }
@@ -5294,17 +5209,12 @@ trusted fun VulkanTexture.storeBufferImageCopyRange(
     val arrayLayers = if (arrayed) depth else 1
     val imageZ = if (texture.dimension == textureDimension3D) z else 0
     val imageDepth = if (texture.dimension == textureDimension3D) depth else 1
-    this.scratch.storeI64(0, 0)
-    this.scratch.storeI64(8, 0)
-    this.scratch.storeI64(
-        16,
-        mipLevel * 4294967296 +
-            vulkanTextureAspect(texture.format, textureAspectAll)
+    vulkanDriverBufferImageCopyAt(
+        this.scratch, 0, 0, 0, 0,
+        vulkanTextureAspect(texture.format, textureAspectAll),
+        mipLevel, baseArrayLayer, arrayLayers,
+        x, y, imageZ, width, height, imageDepth
     )
-    this.scratch.storeI64(24, arrayLayers * 4294967296 + baseArrayLayer)
-    this.scratch.storeI64(32, y * 4294967296 + x)
-    this.scratch.storeI64(40, width * 4294967296 + imageZ)
-    this.scratch.storeI64(48, imageDepth * 4294967296 + height)
     return
 }
 
@@ -8925,37 +8835,66 @@ trusted fun vulkanStoreImageBarrier(
     mipLevels: int = 1,
     baseArrayLayer: int = 0,
     arrayLayers: int = 1
-): void {
-    ablaUnsafeStoreI64(barrier, 45)
+    ): void {
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(
+            barrier, vulkanDriverOffsetVkImageMemoryBarrier_sType
+        ),
+        vulkanDriverStructureTypeVkImageMemoryBarrier
+    )
     ablaUnsafeStorePointer(
-        ablaUnsafePointerOffset(barrier, 8),
+        ablaUnsafePointerOffset(
+            barrier, vulkanDriverOffsetVkImageMemoryBarrier_pNext
+        ),
         nativeNullPointer()
     )
     ablaUnsafeStoreI64(
-        ablaUnsafePointerOffset(barrier, 16),
+        ablaUnsafePointerOffset(
+            barrier, vulkanDriverOffsetVkImageMemoryBarrier_srcAccessMask
+        ),
         (destinationAccess & 4294967295) * 4294967296 +
             (sourceAccess & 4294967295)
     )
     ablaUnsafeStoreI64(
-        ablaUnsafePointerOffset(barrier, 24),
+        ablaUnsafePointerOffset(
+            barrier, vulkanDriverOffsetVkImageMemoryBarrier_oldLayout
+        ),
         (newLayout & 4294967295) * 4294967296 +
             (oldLayout & 4294967295)
     )
     ablaUnsafeStoreI64(
-        ablaUnsafePointerOffset(barrier, 32),
+        ablaUnsafePointerOffset(
+            barrier,
+            vulkanDriverOffsetVkImageMemoryBarrier_srcQueueFamilyIndex
+        ),
         18446744073709551615
     )
-    ablaUnsafeStoreI64(ablaUnsafePointerOffset(barrier, 40), image)
     ablaUnsafeStoreI64(
-        ablaUnsafePointerOffset(barrier, 48),
+        ablaUnsafePointerOffset(
+            barrier, vulkanDriverOffsetVkImageMemoryBarrier_image
+        ),
+        image
+    )
+    val rangeOffset = vulkanDriverOffsetVkImageMemoryBarrier_subresourceRange
+    ablaUnsafeStoreI64(
+        ablaUnsafePointerOffset(
+            barrier,
+            rangeOffset + vulkanDriverOffsetVkImageSubresourceRange_aspectMask
+        ),
         baseMipLevel * 4294967296 + aspect
     )
     ablaUnsafeStoreI64(
-        ablaUnsafePointerOffset(barrier, 56),
+        ablaUnsafePointerOffset(
+            barrier,
+            rangeOffset + vulkanDriverOffsetVkImageSubresourceRange_levelCount
+        ),
         baseArrayLayer * 4294967296 + mipLevels
     )
     ablaUnsafeStoreI64(
-        ablaUnsafePointerOffset(barrier, 64),
+        ablaUnsafePointerOffset(
+            barrier,
+            rangeOffset + vulkanDriverOffsetVkImageSubresourceRange_layerCount
+        ),
         arrayLayers
     )
     return
@@ -8978,27 +8917,15 @@ trusted fun vulkanRecordImageTransition(
         scratch.capacity >= 320 && image != 0
     if (succeeded && synchronization2) {
         // VkDependencyInfo at 160 and VkImageMemoryBarrier2 at 224.
-        scratch.storeI64(224, 1000314002)
-        scratch.storePointer(232, nativeNullPointer())
-        scratch.storeI64(240, sourceStage)
-        scratch.storeI64(248, sourceAccess)
-        scratch.storeI64(256, destinationStage)
-        scratch.storeI64(264, destinationAccess)
-        scratch.storeI64(272, newLayout * 4294967296 + oldLayout)
-        scratch.storeI64(280, 18446744073709551615)
-        scratch.storeI64(288, image)
-        scratch.storeI64(296, aspect)
-        scratch.storeI64(304, 1)
-        scratch.storeI64(312, 1)
-        scratch.storeI64(160, 1000314003)
-        scratch.storePointer(168, nativeNullPointer())
-        scratch.storeI64(176, 0)
-        scratch.storePointer(184, nativeNullPointer())
-        scratch.storeI64(192, 0)
-        scratch.storePointer(200, nativeNullPointer())
-        scratch.storeI64(208, 1)
-        scratch.storePointer(216, scratch.pointerAt(224))
-        vkCmdPipelineBarrier2(command, scratch.pointerAt(160))
+        succeeded = vulkanDriverImageMemoryBarrier2At(
+            scratch, 224, image, oldLayout, newLayout,
+            sourceStage, sourceAccess, destinationStage, destinationAccess,
+            aspect
+        ) && vulkanDriverDependencyInfoAt(
+            scratch, 160, 0, nativeNullPointer(),
+            1, scratch.pointerAt(224)
+        )
+        if (succeeded) vkCmdPipelineBarrier2(command, scratch.pointerAt(160))
     } else if (succeeded) {
         vulkanStoreImageBarrier(
             scratch.pointerAt(160),
@@ -9100,24 +9027,11 @@ trusted fun vulkanImageBarrier(
     baseMipLevel: int = 0,
     mipLevels: int = 1
 ): NativeByteBuffer {
-    val barrier = nativeByteBuffer(72)
-    barrier.storeI64(0, 45)
-    barrier.storePointer(8, nativeNullPointer())
-    barrier.storeI64(
-        16,
-        (destinationAccess & 4294967295) * 4294967296 +
-            (sourceAccess & 4294967295)
+    val barrier = nativeByteBuffer(vulkanDriverSizeVkImageMemoryBarrier)
+    vulkanDriverImageMemoryBarrierAt(
+        barrier, 0, image, oldLayout, newLayout,
+        sourceAccess, destinationAccess, aspect, baseMipLevel, mipLevels
     )
-    barrier.storeI64(
-        24,
-        (newLayout & 4294967295) * 4294967296 +
-            (oldLayout & 4294967295)
-    )
-    barrier.storeI64(32, 18446744073709551615)
-    barrier.storeI64(40, image)
-    barrier.storeI64(48, baseMipLevel * 4294967296 + aspect)
-    barrier.storeI64(56, mipLevels)
-    barrier.storeI64(64, 1)
     barrier
 }
 
@@ -10112,21 +10026,19 @@ trusted fun VulkanDevice.presentPixelFrameOutcome(
             1,
             frame.scratch.address
         )
-        frame.scratch.storeI64(0, 0)
-        frame.scratch.storeI64(8, 0)
-        frame.scratch.storeI64(16, 1)
-        frame.scratch.storeI64(24, 4294967296)
-        frame.scratch.storeI64(32, 0)
-        frame.scratch.storeI64(40, swapchain.width * 4294967296)
-        frame.scratch.storeI64(48, 4294967296 + swapchain.height)
-        vkCmdCopyBufferToImage(
-            frame.command.load(),
-            frame.staging.handle,
-            image,
-            7,
-            1,
-            frame.scratch.address
+        succeeded = vulkanDriverBufferImageCopyAt(
+            frame.scratch, 0, 0, 0, 0,
+            1, 0, 0, 1, 0, 0, 0,
+            swapchain.width, swapchain.height, 1
         )
+        if (succeeded) vkCmdCopyBufferToImage(
+                frame.command.load(),
+                frame.staging.handle,
+                image,
+                7,
+                1,
+                frame.scratch.address
+            )
         vulkanStoreImageBarrier(
             frame.scratch.address,
             image,

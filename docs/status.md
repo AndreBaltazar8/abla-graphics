@@ -1784,3 +1784,18 @@ space guard after the expanded source crossed their former 6 GiB limit.
 Registry determinism, headless/X11 Vulkan, normal/optimized raw execution,
 Abla-only, core, and stripped runtime linkage pass with zero unresolved shared
 dependencies.
+
+### Generated nested image transfer layouts
+
+The production subset now contains 43 Vulkan structures and 335 members.
+Generated nested writers compose image subresource ranges/layers, 3D offsets
+and extents into exact image barriers, buffer-image regions, image copies,
+blits, and resolves. Both legacy and synchronization2 barriers and every shared
+buffer/image transfer path use direct generated constants and caller-owned
+scratch storage, preserving allocation-free warmed execution.
+
+The consolidated registry, buffer/texture/wider transfer, graph-command,
+headless Vulkan, X11 Vulkan, normal/optimized raw-command, Abla-only, core, and
+runtime-linkage gate passes. Buffer and texture matrices remain exact and
+stable at `live=0/0`; 1,001-frame Vulkan graph loops remain `live=0`, and
+runtime linkage reports `direct=true unresolved=0`.

@@ -2833,9 +2833,22 @@ the established 8 GiB heavy-gate value. Deterministic generation, headless and
 X11 Vulkan, normal/optimized raw execution, Abla-only, core, and stripped
 runtime linkage all pass; linkage remains `direct=true unresolved=0`.
 
-Next add a typed generated nested-aggregate writer for image subresource
-ranges, offsets, and extents, then migrate image barriers/copy regions before
-the coherent pipeline/render structure group.
+### Generated nested image transfer ABI
+
+The compact production subset now covers 43 structures and 335 members. Typed
+allocation-free writers compose image subresource ranges and layers, offsets,
+and extents into exact buffer-image regions, image copy/blit/resolve regions,
+and legacy/synchronization2 image barriers. Shared device, texture, asynchronous
+transfer, mip-generation, and pixel-frame paths now use the generated numeric
+size/tag/member constants with caller-owned scratch storage.
+
+The consolidated registry, transfer, wider texture, graph/render, headless and
+X11 Vulkan, normal/optimized raw-command, Abla-only, core, and stripped runtime
+linkage gate passes. Exact transfers remain `live=0/0`, 1,001-frame Vulkan
+graph loops remain `live=0`, and linkage reports `direct=true unresolved=0`.
+
+Next migrate the coherent pipeline/render structure group, then continue
+through the remaining registry-backed production ABI families in `plan.md`.
 
 ## Working commands
 
