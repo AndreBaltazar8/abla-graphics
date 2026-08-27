@@ -238,8 +238,11 @@ conditional `ImageQuery` capability. Query-driven 3D fetch is live on both
 backends. Floating `textureQueryLod` now returns general `vec2` raster values
 with dimension-correct coordinates, and `float(intExpression)` supplies an
 explicit scalar `OpConvertSToF` bridge into floating arithmetic; both are live
-on both backends. Vector integer/floating conversions and mutable integer locals
-remain open.
+on both backends. Dimension-matched `vec2(ivec2)` and `vec3(ivec3)` conversions
+now share vector `OpConvertSToF`. Non-constant signed locals support direct and
+compound assignment as bounded SSA snapshots and are live on both backends.
+Integer increment/decrement, richer integer control flow, and broader sampler
+operations remain open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

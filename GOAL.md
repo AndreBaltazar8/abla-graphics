@@ -3093,9 +3093,29 @@ blend expression. OpenGL, Vulkan, and automatic selection retain all exact
 pixels/views, mismatch rejection, stable handles, four frames, and `live=0`;
 the Abla-only audit passes. No compiler or linkage input changed.
 
-Continue with vector signed-integer-to-floating conversions and mutable integer
-locals, then classify the next remaining sampler/control-flow specification
-gap. Keep compiler-heavy shader cases in independent focused test roots.
+### Verified checkpoint: vector conversion and mutable signed locals
+
+Signed-to-floating conversion now preserves scalar, two-component, or
+three-component width through `float(int)`, `vec2(ivec2)`, and `vec3(ivec3)`,
+all lowering to the correct scalar/vector `OpConvertSToF` result type.
+Non-`const` `int`, `ivec2`, and `ivec3` locals accept direct `=` and compound
+`+=`, `-=`, `*=`, and `/=` statements. Each update replaces the parser's
+bounded postfix SSA snapshot, so later queries, offsets, conversions, and
+fetches use the newest value without mutable SPIR-V variables. Assignment to
+`const` rejects deterministically.
+
+The focused mixed module updates all three signed widths, converts both vector
+widths, routes the results through floating math and three later fetches,
+checks six exact conversion instructions and stable words, and proves `const`
+rejection. `make test-glsl` passes. `examples/wider-sampling` performs live
+scalar/3D compound updates and 2D/3D conversions. OpenGL, Vulkan, and automatic
+selection retain exact pixels/views, mismatch rejection, stable handles, four
+frames, and `live=0`; the Abla-only audit passes. No compiler or linkage input
+changed.
+
+Continue by classifying and implementing the next remaining sampler or integer
+control-flow specification gap, including increment/decrement where it fits the
+general signed SSA model. Keep compiler-heavy cases in independent test roots.
 
 ## Working commands
 

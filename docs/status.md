@@ -2021,3 +2021,20 @@ forms. `examples/wider-sampling` executes an array LOD query and converts the
 live 3D level count into a floating blend expression. OpenGL, Vulkan, and
 automatic selection preserve all exact pixels/views, mismatch rejection,
 stable handles, four frames, and `live=0`; the Abla-only audit passes.
+
+### Vector conversion and mutable signed locals
+
+Explicit signed conversion now preserves widths across `float(int)`,
+`vec2(ivec2)`, and `vec3(ivec3)`, selecting scalar or vector `OpConvertSToF`
+result types. Non-`const` signed locals accept direct assignment and compound
+add, subtract, multiply, or signed divide. The parser snapshots each update as
+a bounded postfix SSA value, so later expressions see the newest value without
+introducing mutable runtime storage. `const` reassignment rejects.
+
+The focused mixed shader mutates scalar, 2D, and 3D query-derived coordinates,
+reuses them in three fetches, converts both vector widths into floating raster
+math, checks six exact conversion instructions and stable module words, and
+proves `const` rejection. `examples/wider-sampling` performs live scalar and
+3D compound updates plus 2D/3D vector conversions. OpenGL, Vulkan, and
+automatic selection preserve all exact pixels/views, mismatch rejection,
+stable handles, four frames, and `live=0`; the Abla-only audit passes.

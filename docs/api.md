@@ -2992,6 +2992,13 @@ gradient operands do. Vulkan emits `OpImageQueryLod` under the conditional
 an `int` expression or local into a floating scalar through `OpConvertSToF`,
 allowing size/level/fetch-derived integer state to compose with ordinary
 raster arithmetic. Wrong query widths and vector-to-scalar conversions reject.
+Dimension-matched `vec2(ivec2Expression)` and `vec3(ivec3Expression)` extend
+the same signed-to-floating conversion path and emit vector `OpConvertSToF`.
+Non-`const` `int`, `ivec2`, and `ivec3` locals may be updated with direct `=`
+or compound `+=`, `-=`, `*=`, and `/=` statements. Each statement snapshots a
+new bounded SSA expression used by later locals, conversions, offsets, queries,
+and fetches; no runtime variable allocation is introduced. Assignment to
+`const`, mismatched widths, and unsupported update operators reject.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same
