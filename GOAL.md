@@ -2516,6 +2516,69 @@ signatures and generated typed builders. Preserve the fast cadence: define a
 coherent set, rebuild the compiler once, regenerate once, run consolidated
 gates, and publish. The full framework goal remains active.
 
+### Published checkpoint: bulk query, descriptor, and event raw batch
+
+Compiler dependency `ec10bd9a22681f3d2c35c54b12cd9a2e0ae297ea`
+adds 14 new exact pure-Abla indirect-call layouts across pointer, `i32`, and
+`i64` arguments and signed status returns. The shared exact-kind lowering and
+bounded intrinsic classifiers cover every layout through a 77-export native
+boundary fixture with high-bit handles, negative 32-bit values, pointer
+positions, and negative results. The compiler's explicit export capacity is
+raised from 64 to 128, with the public limit documented. This commit is rebased
+on the concurrently published nominal-scalar native-storage and Xtensa
+interrupt-table work; the integrated compiler reaches the byte-identical pure
+self-hosted fixed point and passes the unsafe native boundary.
+
+Graphics implementation `6f41291520c2a0ddbb6a647872d03da18eddd0d4`
+adds 17 repeated registry layouts: the 14 new compiler families plus three
+already-lowered pointer-group families. They cover synchronization2 events,
+descriptor and query operations, private data, swapchain creation,
+acceleration queries, and larger pointer/status groups. Checked public raw
+predicates and wrappers, deterministic fixtures, rejection calls, and exact
+full-registry counts move 45 commands in one batch: executable Vulkan raw
+coverage rises from 738 to 783 of 842, leaving 59 explicit `unsupported`
+entries.
+
+The generator now emits a parallel normalized candidate-ABI ledger. Of the 59
+remaining commands, 50 already reduce to exact one-off pointer/`i32`/`i64`
+layouts; only nine remain at platform-specific scalar boundaries (`uint16_t`,
+Unix display IDs, and native OS handles). This inventory is generated into
+both compact and full Vulkan metadata and is checked against every callable
+ABI, eliminating repeated registry reparsing before future batches. The
+Vulkan-only fallback is explicitly guarded so OpenGL classification does not
+change.
+
+The live Vulkan proof records raw `vkCmdSetEvent2` with an exact packed
+`VkDependencyInfo`/`VkMemoryBarrier2` after the synchronization2 reset. Queue
+completion reports exact `VK_EVENT_SET` (`eventStatus=3`). Normal and optimized
+runs retain exact transfer words, red image readback `4278190335`, nonzero
+timestamps, successful fence wait, `loopLive=0`, and `live=96`; both validation
+logs are zero bytes. Every new public wrapper is compiled and rejects a
+mismatched command before native execution.
+
+Verified against the final integrated compiler:
+
+```sh
+cd ../ablac
+nix-shell --run 'make self-rebuild && tools/test-unsafe-boundary.sh build/ablac'
+
+cd ../abla-graphics
+nix-shell --run 'make test-registry test-raw-commands check-abla-only test-core'
+```
+
+Registry determinism, candidate/callable consistency, normal/fast OpenGL and
+Vulkan execution, exact event/image/fence/timestamp evidence, validation scans,
+stripped-environment `ldd`, the Abla-only audit, and core tests all pass. The
+71-sample matrix was not rerun because this remains an opt-in raw
+ABI/compiler-boundary checkpoint with no common rendering API or linkage
+contract change.
+
+Continue from the generated 50-layout candidate ledger rather than manually
+reconstructing signatures. Group as many one-off layouts as practical behind
+the shared exact-kind lowering, then address the nine platform scalar types
+with explicit width mappings. Generated typed builders and the wider framework
+milestones remain open; the full framework goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
