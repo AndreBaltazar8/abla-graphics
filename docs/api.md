@@ -3342,10 +3342,16 @@ The scalar/transfer extension adds `callVoidPointerI64`,
 `callVoidPointerI32I64`, `callVoidPointerI32I64I32`, the three- through
 six-`i32` command families, two pointer-pair families, `callI32PointerI32`,
 and `callI32PointerI64I32`.
+The image/float extension adds exact `f32` state calls, buffer/image and
+image/image copy layouts, clear-value/range pointers, subresource queries,
+pipeline-creation pointer groups, calibrated timestamp outputs, and fence-wait
+status calls. Public wrappers retain the ABI name in their method name and
+accept ordinary Abla `f64` values only where the compiler performs an explicit
+`f64`-to-native-`f32` boundary conversion.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
-counts are asserted by `tests/raw_registry.ab`: 682 Vulkan commands are
-callable and 160 remain explicitly unsupported.
+counts are asserted by `tests/raw_registry.ab`: 738 Vulkan commands are
+callable and 104 remain explicitly unsupported.
 The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.

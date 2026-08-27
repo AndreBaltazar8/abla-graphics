@@ -2377,6 +2377,62 @@ fun registryVulkanI64Type(types: RegistryTypes, name: string): bool {
         underlying == "size_t" || underlying == "VkFlags64"
 }
 
+fun registryVulkanAdditionalCallAbiSupported(abi: string): bool =
+    abi == "void(pointer,f32)" ||
+    abi == "void(pointer,f32,f32)" ||
+    abi == "void(pointer,f32,f32,f32)" ||
+    abi == "void(pointer,i64,f32)" ||
+    abi == "void(pointer,i64,i64,i32,i32,pointer)" ||
+    abi == "void(pointer,i64,i32,i64,i32,i32,pointer)" ||
+    abi == "void(pointer,i64,i32,i64,i32,i32,pointer,i32)" ||
+    abi == "void(pointer,i64,i32,pointer,i32,pointer)" ||
+    abi == "void(pointer,i64,pointer,pointer)" ||
+    abi == "void(pointer,pointer,pointer,pointer)" ||
+    abi == "void(pointer,i32,i32,i32,pointer)" ||
+    abi == "void(pointer,i64,i32,pointer)" ||
+    abi == "void(pointer,i64,i64,pointer)" ||
+    abi == "void(pointer,pointer,i64,pointer)" ||
+    abi == "i32(pointer,i64,i32,i32,i64,pointer)" ||
+    abi == "i32(pointer,i32,pointer,pointer,pointer)" ||
+    abi == "i32(pointer,i32,pointer,i32,i64)" ||
+    abi == "i32(pointer,i64,i32,pointer,pointer,pointer)" ||
+    abi == "i32(pointer,i64,i64,i32,pointer,pointer,pointer)" ||
+    abi == "i32(pointer,i64,i32,pointer)"
+
+fun registryVulkanAdditionalCallAbi(
+    command: string,
+    returnType: string,
+    signatures: RegistryCommandSignatures,
+    types: RegistryTypes
+): string {
+    var abi = if (returnType == "void") "void(" else
+        if (registryVulkanI32ReturnType(returnType)) "i32(" else ""
+    var valid = abi != ""
+    var first = true
+    var parameterIndex = 0
+    while (valid && parameterIndex < signatures.parameterOwners.size) {
+        if (signatures.parameterOwners[parameterIndex] == command) {
+            val type = signatures.parameterTypes[parameterIndex]
+            val pointerLevel = signatures.parameterPointerLevels[parameterIndex]
+            var kind = ""
+            if (pointerLevel != "0" ||
+                registryVulkanAnyDispatchableType(type)) kind = "pointer"
+            else if (registryVulkanI32Type(types, type)) kind = "i32"
+            else if (registryVulkanI64Type(types, type)) kind = "i64"
+            else if (type == "float") kind = "f32"
+            if (kind == "") valid = false
+            else {
+                if (!first) abi = "$abi,"
+                abi = "$abi$kind"
+                first = false
+            }
+        }
+        parameterIndex = parameterIndex + 1
+    }
+    if (valid) abi = "$abi)"
+    if (valid && registryVulkanAdditionalCallAbiSupported(abi)) abi else ""
+}
+
 fun registryCommandCallAbis(
     api: string,
     inventory: RegistryInventory,
@@ -3023,6 +3079,15 @@ fun registryCommandCallAbis(
         }
         else if (vulkanI32PointerI64I32 && count == 3) {
             abi = "i32(pointer,i64,i32)"
+        }
+        if (abi == "unsupported") {
+            val additionalAbi = registryVulkanAdditionalCallAbi(
+                command,
+                signatures.returnTypes[commandIndex],
+                signatures,
+                types
+            )
+            if (additionalAbi != "") abi = additionalAbi
         }
         abis.append(abi)
         commandIndex = commandIndex + 1

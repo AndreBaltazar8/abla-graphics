@@ -2,15 +2,15 @@
 
 - Revision: `fixture-revision`
 - SHA-256: `fixture-sha256`
-- Commands: 48
+- Commands: 68
 - Core features: 1
 - Extensions: 2
 - Constants: 8
 - Types: 7
-- Command parameters: 151
+- Command parameters: 248
 - Aggregates: 1
 - Aggregate members: 4
-- Classified commands: 1/48
+- Classified commands: 1/68
 - Classified core features: 1/1
 - Classified extensions: 2/2
 
@@ -23,6 +23,8 @@
 | `vkAlpha` | definition | common | fixture loader | fixture ABI | fixture positive | fixture unsupported |
 | `vkBindWide` | definition | unclassified | - | - | - | - |
 | `vkBindWideResult` | definition | unclassified | - | - | - | - |
+| `vkBufferImageWide` | definition | unclassified | - | - | - | - |
+| `vkClearImageWide` | definition | unclassified | - | - | - | - |
 | `vkCopyWide` | definition | unclassified | - | - | - | - |
 | `vkCountedResult` | definition | unclassified | - | - | - | - |
 | `vkCreateFixture` | definition | unclassified | - | - | - | - |
@@ -33,13 +35,23 @@
 | `vkEnumOutput` | definition | unclassified | - | - | - | - |
 | `vkEnumerateFixture` | definition | unclassified | - | - | - | - |
 | `vkFillWide` | definition | unclassified | - | - | - | - |
+| `vkFloatState` | definition | unclassified | - | - | - | - |
+| `vkFloatState2` | definition | unclassified | - | - | - | - |
+| `vkFloatState3` | definition | unclassified | - | - | - | - |
+| `vkFourPointers` | definition | unclassified | - | - | - | - |
 | `vkHandleEnumerateResult` | definition | unclassified | - | - | - | - |
 | `vkHandleFlags` | definition | unclassified | - | - | - | - |
+| `vkHandleFloatState` | definition | unclassified | - | - | - | - |
 | `vkHandleOutputResult` | definition | unclassified | - | - | - | - |
+| `vkHandlePointerPair` | definition | unclassified | - | - | - | - |
+| `vkHandleScalarPointer` | definition | unclassified | - | - | - | - |
 | `vkHandleTwoScalars` | definition | unclassified | - | - | - | - |
 | `vkHandleWideFlags` | definition | unclassified | - | - | - | - |
+| `vkImageFilteredWide` | definition | unclassified | - | - | - | - |
+| `vkImageWide` | definition | unclassified | - | - | - | - |
 | `vkInternal` | definition | unclassified | - | - | - | - |
 | `vkPhysicalStatusHandle` | definition | unclassified | - | - | - | - |
+| `vkPointerHandlePointer` | definition | unclassified | - | - | - | - |
 | `vkPointerOnly` | definition | unclassified | - | - | - | - |
 | `vkPointerPair` | definition | unclassified | - | - | - | - |
 | `vkPointerResult` | definition | unclassified | - | - | - | - |
@@ -56,11 +68,19 @@
 | `vkScalarPointerPair` | definition | unclassified | - | - | - | - |
 | `vkScalarSix` | definition | unclassified | - | - | - | - |
 | `vkScalarThree` | definition | unclassified | - | - | - | - |
+| `vkStatusCalibrated` | definition | unclassified | - | - | - | - |
+| `vkStatusCreateDeferredPipelines` | definition | unclassified | - | - | - | - |
+| `vkStatusCreatePipelines` | definition | unclassified | - | - | - | - |
 | `vkStatusHandle` | definition | unclassified | - | - | - | - |
+| `vkStatusHandleScalarPointer` | definition | unclassified | - | - | - | - |
 | `vkStatusPointer` | definition | unclassified | - | - | - | - |
 | `vkStatusScalar` | definition | unclassified | - | - | - | - |
+| `vkStatusShaderGroup` | definition | unclassified | - | - | - | - |
+| `vkStatusWait` | definition | unclassified | - | - | - | - |
 | `vkStatusWideScalar` | definition | unclassified | - | - | - | - |
+| `vkThreeScalarOutput` | definition | unclassified | - | - | - | - |
 | `vkTimestampWide` | definition | unclassified | - | - | - | - |
+| `vkTwoHandlePointer` | definition | unclassified | - | - | - | - |
 | `vkTwoWideScalar` | definition | unclassified | - | - | - | - |
 | `vkTwoWideValues` | definition | unclassified | - | - | - | - |
 | `vkUpdateWide` | definition | unclassified | - | - | - | - |

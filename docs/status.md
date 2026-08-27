@@ -34,10 +34,10 @@ Updated: 2026-08-27.
   first allocation-stable OpenGL indirect call families. Generated ABI tags
   classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
   callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
-  Vulkan now classifies 682 exact callable layouts and leaves 160 entries
-  explicitly unsupported. The latest 46-command batch adds wide handles,
-  mixed scalar/handle calls, three- through six-scalar command-buffer calls,
-  pointer pairs, and signed reset/status layouts.
+  Vulkan now classifies 738 exact callable layouts and leaves 104 entries
+  explicitly unsupported. The latest 56-command batch adds float state,
+  image transfer/clear/query, sparse query, pipeline creation, calibrated
+  timestamp, fence-wait, and broader pointer/status layouts.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -59,7 +59,8 @@ Updated: 2026-08-27.
   raw `vkCmdCopyBuffer`, and raw `vkCmdFillBuffer`; host readback observes the
   exact updated and filled 64-bit words. Raw compute bind/dispatch, vertex
   buffer binding, legacy and synchronization2 timestamps, command-pool reset,
-  and memory unmap execute in the same proof. Both timestamp queries return
+  memory unmap, line width, fence wait, and exact red image clear/readback
+  execute in the same proof. Both timestamp queries return
   nonzero ticks before resources are released. Both build modes pass
   validation.
   Remaining signatures
