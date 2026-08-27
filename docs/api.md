@@ -2952,6 +2952,17 @@ samplers reject projected operations. Vulkan emits the corresponding
 including exact `Lod`/`Grad` operands. Both legal 2D coordinate widths,
 projected 3D gradients, wrong-family rejection, and deterministic modules are
 covered independently.
+`texelFetch(sampler, coordinate, lod)` performs unfiltered integer lookup for
+`sampler2D`, `sampler2DArray`, and `sampler3D`. Coordinates are signed `ivec2`
+for 2D and signed `ivec3` for array/3D; LOD is a signed `int`. Fragment source
+may declare up to eight earlier `int`, `ivec2`, or `ivec3` locals with required
+initializers. These integer locals are immutable in the current raster subset,
+even when `const` is omitted. Literals, unary signs, parentheses, matching
+constructors, components, and precedence-aware `+`, `-`, `*`, and `/` compose
+inside fetch coordinates and LOD. Vulkan extracts the reflected image and
+emits `OpImageFetch` with an explicit `Lod` operand; OpenGL consumes the same
+GLSL. Cube fetches, wrong coordinate widths, integer reassignment, and
+unsupported integer uses reject before pipeline creation.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same

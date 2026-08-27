@@ -222,8 +222,13 @@ are verified. `textureProj`, `textureProjLod`, and `textureProjGrad` add the
 complete floating projected family for valid 2D `vec3`/`vec4` and 3D `vec4`
 coordinates, while arrays and cubes reject. Deterministic projected opcodes,
 live 2D projected LOD/grad, and live 3D projected LOD are verified on both
-backends. Offset, integer fetch, size, and query sampling operations remain
-open and require signed-integer raster values.
+backends. The raster subset now also accepts immutable initialized `int`,
+`ivec2`, and `ivec3` locals and signed constructor/component/arithmetic
+expressions. General `texelFetch` lowers dimension-exact 2D, 2D-array, and 3D
+coordinates plus scalar LOD through deterministic `OpImage`/`OpImageFetch` and
+is live on both backends. Cube fetches and wrong widths reject. Constant
+texture offsets, integer-return `textureSize`/query operations, conversion,
+and mutable integer locals remain open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

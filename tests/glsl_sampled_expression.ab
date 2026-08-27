@@ -90,7 +90,48 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCube sky; void main(){ color=textureProj(sky,vec4(0.0,0.0,1.0,1.0)); }"
         ]
     ).spirv(shaderStageFragment)
-    if (shader.valid && shader.bindings.size == 2 && program.valid &&
+    val fetched = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform sampler3D volume; void main(){ int lod=0; ivec2 p2=ivec2(0,0); ivec3 p3=ivec3(p2.x,p2.y,1); vec4 a=texelFetch(surface,p2+ivec2(1,1)*0,lod); vec4 b=texelFetch(layers,p3,lod); vec4 c=texelFetch(volume,p3,lod); color=a+b+c; }"
+        ]
+    )
+    val fetchedProgram = fetched.rasterFragmentProgram()
+    val fetchedFirst = fetched.spirv(shaderStageFragment)
+    val fetchedSecond = fetched.spirv(shaderStageFragment)
+    val invalidFetchedCube = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCube sky; void main(){ color=texelFetch(sky,ivec3(0,0,0),0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidFetchedWidth = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=texelFetch(surface,ivec3(0,0,0),0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val fetchResult = if (!fetched.valid) 2
+        else if (!fetchedProgram.valid) 3
+        else if (fetchedProgram.integerExpressions.size != 6) 4
+        else if (!fetchedFirst.succeeded) 5
+        else if (!fetchedFirst.module.valid()) 6
+        else if (sampledWordCount(fetchedFirst.module, 262244) != 3) 7
+        else if (sampledWordCount(fetchedFirst.module, 458847) != 3) 8
+        else if (!sampledWordsEqual(
+            fetchedFirst.module,
+            fetchedSecond.module
+        )) 9
+        else if (invalidFetchedCube.succeeded ||
+            invalidFetchedCube.error == "") 10
+        else if (invalidFetchedWidth.succeeded ||
+            invalidFetchedWidth.error == "") 11
+        else 42
+    if (fetchResult != 42) fetchResult
+    else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&
         first.module.valid() && sampledWordCount(first.module, 327767) == 0 &&

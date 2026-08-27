@@ -3009,10 +3009,31 @@ gradients did not preserve the selected exact texel on either backend; the
 gradient opcode/type path remains covered deterministically and through live
 projected 2D execution.
 
-Continue by adding signed integer scalar/vector values to the raster IR, then
-use them for texture offsets, integer texel fetch, texture size/query
-operations, and broader control flow. Keep compiler-heavy shader cases in
-independent focused test roots.
+### Verified checkpoint: signed integer raster values and texel fetch
+
+The raster parser now reuses the signed coordinate IR for up to eight earlier
+initialized `int`, `ivec2`, and `ivec3` locals. Literals, unary signs,
+parentheses, constructors, components, and precedence-aware arithmetic feed
+general `texelFetch` calls. Integer locals are immutable in this slice.
+`sampler2D` requires `ivec2`; `sampler2DArray` and `sampler3D` require `ivec3`;
+LOD is scalar `int`; cube and wrong-width forms reject deterministically.
+
+The Vulkan emitter declares only the signed vector widths actually used,
+deduplicates signed constants, extracts each reflected image with `OpImage`,
+and emits `OpImageFetch` with explicit `Lod`. The independent shader gate
+combines 2D, array, and 3D fetches, checks three instructions of each kind,
+stable module words, and both rejection cases. The wider-sampling volume path
+now builds `ivec3(0, 0, 1)` through an earlier local plus integer arithmetic and
+fetches the exact second depth slice. OpenGL, Vulkan, and automatic selection
+all preserve exact pixels/views, mismatch rejection, stable handles, four
+frames, and `live=0`. `make test-glsl` passed. The consolidated Nix-backed
+`make test-wider-sampling check-abla-only test-runtime-linkage` passed with
+`direct=true unresolved=0`. A bare-host build correctly demonstrated why the
+Nix command is required: its linker could not resolve Vulkan/X11/EGL/GL.
+
+Continue with constant integer texture offsets, then integer-return
+`textureSize`/query operations and explicit integer-to-floating conversion.
+Keep compiler-heavy shader cases in independent focused test roots.
 
 ## Working commands
 

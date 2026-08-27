@@ -1945,3 +1945,24 @@ frames, and `live=0` on both backends. A 3D projected-gradient live experiment
 did not preserve the exact selected texel on either driver, so the exact-texel
 proof deliberately uses projected LOD while gradient lowering remains
 covered by deterministic mixed-module and live 2D execution.
+
+### Signed integer raster values and texel fetch
+
+The typed raster parser now carries a bounded signed-integer expression layer
+alongside floating expressions. Up to eight initialized `int`, `ivec2`, or
+`ivec3` locals may feed later `texelFetch` calls through literals, unary signs,
+parentheses, constructors, components, and precedence-aware arithmetic. These
+locals are deliberately immutable in this first slice. Two-dimensional fetches
+require `ivec2`; 2D-array and 3D fetches require `ivec3`; all require scalar
+integer LOD, while cube and wrong-width forms reject.
+
+Vulkan deterministically emits signed scalar/vector types and constants,
+`OpImage`, and `OpImageFetch` with an explicit `Lod` operand. The independent
+sampled-expression gate composes all three supported dimensions in one module,
+finds exactly three image extractions and three fetch instructions, reproduces
+identical words, and proves both invalid forms. `examples/wider-sampling` now
+uses arithmetic-built `ivec3` coordinates for its live volume lookup. OpenGL,
+Vulkan, and automatic selection preserve every exact array/cube/volume pixel
+and explicit view, mismatch rejection, stable handles, four frames, and
+`live=0`. The Abla-only audit passes and stripped direct linkage remains
+`unresolved=0`.
