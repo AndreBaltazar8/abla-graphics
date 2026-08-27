@@ -2329,6 +2329,45 @@ bitmask name list. Continue with 64-bit `VkFlags64` families, typed 64-bit
 returns/device addresses, and transfer/submission signatures backed by real
 buffers and queues. The full goal remains active.
 
+### Published checkpoint: 64-bit synchronization and submission batch
+
+Compiler dependency `175000462040f530ae26b3661f5e7e46963a418c`
+adds exact `void(pointer,i64,i64)`, `void(pointer,i64,i64,i32)`,
+`i32(pointer,pointer,i64)`, and `i32(pointer,i32,pointer,i64)` indirect calls.
+The lowerings preserve high-bit 64-bit values, truncate only the explicit
+32-bit count/index, and sign-extend Vulkan results. The unsafe boundary proves
+all four signatures; the pure-Abla fixed point and boundary pass.
+
+Graphics implementation `cb7c9807de319817b1601b3d1820a9ed75827aed`
+contains native-width classification, checked raw wrappers, deterministic
+fixture coverage, full-registry assertions, the live synchronization path, and
+public contract updates.
+
+The generator classifies 5 `void(pointer,i64,i64)`, 5
+`void(pointer,i64,i64,i32)`, 3 `i32(pointer,pointer,i64)`, and 4
+`i32(pointer,i32,pointer,i64)` commands. Total executable Vulkan raw coverage
+rises from 586 to 603 of 842 commands, leaving 239 explicit `unsupported`
+entries.
+
+The live sample signals timeline value 9 and waits for it through raw
+`vkWaitSemaphores`. It records raw `vkCmdResetEvent2` and
+`vkCmdWriteTimestamp2` alongside the earlier event/query resets, submits the
+command buffer through raw `vkQueueSubmit`, waits for completion, and reads a
+nonzero 64-bit timestamp. Normal and optimized runs report `wait=0`,
+`submit=0`, nonzero `ticks`, `eventStatus=4`, `calls=1000`, `status=0`,
+`live=0`, and `stable=true`; both Vulkan validation scans are clean and
+OpenGL remains `live=0` and `stable=true`.
+
+Compiler fixed point and unsafe boundary, deterministic/full registry, normal
+and optimized raw runs, Abla-only audit, and core tests pass. The 71-sample
+matrix was not rerun because this remains an opt-in raw ABI and focused live
+sample checkpoint.
+
+This batch moves 17 more commands into executable coverage and proves the
+queue submission boundary itself. Continue with typed 64-bit return values,
+buffer address/transfer families, and larger pointer/handle/scalar creation
+and copy signatures. The full goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
