@@ -2242,6 +2242,48 @@ classify several compatible exact families, share one compiler build, prove
 them through one real lifecycle, and run one consolidated gate. The full goal
 remains active.
 
+### Published checkpoint: handle output and enumeration batch
+
+Compiler dependency `fac9877838248a730b50e078524587213e8c7f71`
+adds exact `i32(pointer,i64,pointer)` and
+`i32(pointer,i64,pointer,pointer)` indirect calls. A shared LLVM lowering keeps
+the Vulkan handle at 64 bits, converts surrounding arguments to pointers, and
+sign-extends the 32-bit result. The unsafe boundary proves both signatures
+with a nontrivial 64-bit value; the pure-Abla compiler fixed point and native
+boundary pass.
+
+Graphics implementation `76a602414b17f9fc18f2d78d9f247eb00377b9e4`
+contains the generator classifications, checked raw wrappers, deterministic
+fixture, pinned-registry assertions, live lifecycle, and public contracts.
+
+The generator classifies exactly 24 `i32(pointer,i64,pointer)` commands and 17
+`i32(pointer,i64,pointer,pointer)` commands. Total executable Vulkan raw
+coverage rises from 527 to 568 of 842 commands, leaving 274 explicit
+`unsupported` entries.
+
+The live sample creates a timeline semaphore at value 7, reads the value
+through raw `vkGetSemaphoreCounterValue`, signals value 9, reads 9 through the
+same family, and destroys the semaphore. It performs count-only and filling
+`vkGetSwapchainImagesKHR` calls, observes three images, and verifies every
+returned image handle against the application's owned swapchain list. Normal
+and optimized runs preserve all previous queue, command-buffer, format, event,
+fence, submission, and state-restoration proofs and report `images=3`,
+`timelineValue=9`, `calls=1000`, `status=0`, `live=0`, and `stable=true`.
+Both Vulkan validation scans are clean, and OpenGL remains `live=0` and
+`stable=true`.
+
+Compiler fixed point and unsafe boundary, deterministic/full registry, normal
+and optimized raw runs, Abla-only audit, and core tests pass. The 71-sample
+application matrix was not rerun because this checkpoint remains confined to
+opt-in raw ABI classification, exact compiler lowering, and its focused live
+sample.
+
+This batch moves another 41 commands into executable coverage with one shared
+compiler implementation and one regeneration. Continue with exact queue
+submission, device-address returns, and command-buffer handle/scalar mixtures,
+grouping compatible families behind one live synchronization or transfer
+lifecycle. The full goal remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
