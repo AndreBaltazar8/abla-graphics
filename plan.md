@@ -240,9 +240,13 @@ with dimension-correct coordinates, and `float(intExpression)` supplies an
 explicit scalar `OpConvertSToF` bridge into floating arithmetic; both are live
 on both backends. Dimension-matched `vec2(ivec2)` and `vec3(ivec3)` conversions
 now share vector `OpConvertSToF`. Non-constant signed locals support direct and
-compound assignment as bounded SSA snapshots and are live on both backends.
-Integer increment/decrement, richer integer control flow, and broader sampler
-operations remain open.
+compound assignment plus prefix/postfix increment and decrement as bounded SSA
+snapshots and are live on both backends. `textureGather` now covers 2D,
+2D-array, and cube samplers with optional components; `textureGatherOffset`
+covers 2D and 2D-array samplers with runtime signed offsets. Deterministic
+SPIR-V capability/opcode forms and live array/cube execution are verified.
+Richer integer control flow and remaining broader sampler operations remain
+open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

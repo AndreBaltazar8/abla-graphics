@@ -3243,3 +3243,22 @@ platform behavior, working OpenGL and Vulkan backends, classified raw
 specification coverage, source-accurate deterministic shader tooling,
 validated advanced features, extensive live samples, measured performance,
 portable CI, reproducible releases, and a clean synchronized published state.
+
+## Latest checkpoint: signed updates and texture gathering
+
+The raster integer subset accepts prefix/postfix `++` and `--` on non-`const`
+`int`, `ivec2`, and `ivec3` locals, preserving the allocation-free bounded SSA
+snapshot model. `textureGather` supports 2D, 2D-array, and cube samplers with
+optional constant component selection. `textureGatherOffset` supports 2D and
+2D-array samplers with runtime `ivec2` offsets. Vulkan lowers exact base and
+`Offset` `OpImageGather` forms and adds `ImageGatherExtended` only when needed.
+
+Authoritative focused proof is `tests/glsl_sampled_expression.ab`; live proof
+is `examples/wider-sampling/main.ab`. Run the focused shader gate once, then
+the combined native gate:
+
+```bash
+ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned \
+  ABLA_MAX_MEMORY_MB=8192 make test-glsl
+nix-shell --run 'ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned ABLA_MAX_MEMORY_MB=8192 make test-wider-sampling check-abla-only'
+```

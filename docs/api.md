@@ -2956,12 +2956,13 @@ covered independently.
 `sampler2D`, `sampler2DArray`, and `sampler3D`. Coordinates are signed `ivec2`
 for 2D and signed `ivec3` for array/3D; LOD is a signed `int`. Fragment source
 may declare up to eight earlier `int`, `ivec2`, or `ivec3` locals with required
-initializers. These integer locals are immutable in the current raster subset,
-even when `const` is omitted. Literals, unary signs, parentheses, matching
+initializers. Non-`const` integer locals may be reassigned, compound-assigned,
+or updated with prefix/postfix `++` and `--`; each update becomes a bounded SSA
+snapshot used by later expressions. Literals, unary signs, parentheses, matching
 constructors, components, and precedence-aware `+`, `-`, `*`, and `/` compose
 inside fetch coordinates and LOD. Vulkan extracts the reflected image and
 emits `OpImageFetch` with an explicit `Lod` operand; OpenGL consumes the same
-GLSL. Cube fetches, wrong coordinate widths, integer reassignment, and
+GLSL. Cube fetches, wrong coordinate widths, mutation of `const`, and
 unsupported integer uses reject before pipeline creation.
 Constant-offset sampling supports `textureOffset`, `textureLodOffset`, and
 `textureGradOffset`, plus `textureProjOffset`, `textureProjLodOffset`, and
@@ -2978,7 +2979,7 @@ Integer local initializers may call `textureSize(sampler, lod)` for
 `sampler2D`, `sampler2DArray`, `samplerCube`, or `sampler3D`. The result is
 `ivec2` for 2D/cube and `ivec3` for array/3D; LOD is any supported signed
 scalar expression. `textureQueryLevels(sampler)` returns signed `int` for the
-same families. Query results are ordinary immutable integer locals and may
+same families. Query results are ordinary signed integer locals and may
 subsequently use components, constructors, arithmetic, offsets, or
 `texelFetch`. Vulkan conditionally declares `ImageQuery`, extracts the
 reflected image, and emits `OpImageQuerySizeLod` or `OpImageQueryLevels`;
@@ -2995,10 +2996,18 @@ raster arithmetic. Wrong query widths and vector-to-scalar conversions reject.
 Dimension-matched `vec2(ivec2Expression)` and `vec3(ivec3Expression)` extend
 the same signed-to-floating conversion path and emit vector `OpConvertSToF`.
 Non-`const` `int`, `ivec2`, and `ivec3` locals may be updated with direct `=`
-or compound `+=`, `-=`, `*=`, and `/=` statements. Each statement snapshots a
+or compound `+=`, `-=`, `*=`, and `/=` statements, plus prefix/postfix `++`
+and `--`. Each statement snapshots a
 new bounded SSA expression used by later locals, conversions, offsets, queries,
 and fetches; no runtime variable allocation is introduced. Assignment to
 `const`, mismatched widths, and unsupported update operators reject.
+`textureGather` supports `sampler2D`, `sampler2DArray`, and `samplerCube`, with
+dimension-matched floating coordinates, optional compile-time component 0-3,
+and a `vec4` result. `textureGatherOffset` supports 2D and 2D-array samplers,
+adds any signed `ivec2` offset expression, and retains the optional component.
+Vulkan emits `OpImageGather`; offset forms use the `Offset` image operand and
+conditionally declare `ImageGatherExtended`. 3D gathering, cube offsets,
+wrong coordinate/offset widths, and runtime component selection reject.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same

@@ -2022,6 +2022,21 @@ live 3D level count into a floating blend expression. OpenGL, Vulkan, and
 automatic selection preserve all exact pixels/views, mismatch rejection,
 stable handles, four frames, and `live=0`; the Abla-only audit passes.
 
+### Signed updates and texture gathering
+
+Signed scalar and vector locals now accept prefix/postfix `++` and `--` as
+bounded SSA snapshots; mutation of `const` still rejects. General fragment
+expressions accept `textureGather` for 2D, 2D-array, and cube samplers and
+`textureGatherOffset` for 2D and 2D-array samplers, including runtime `ivec2`
+offsets and optional compile-time components 0-3.
+
+Vulkan emits base and offset `OpImageGather` forms and declares
+`ImageGatherExtended` only for offset modules. The focused gate checks three
+base gathers, two offset gathers, deterministic words, capability absence for
+plain gathering, and volume/cube-offset/wrong-width/runtime-component/const-
+update rejection. `examples/wider-sampling` executes array-offset and cube
+gathers plus scalar postfix/prefix updates while preserving its exact output.
+
 ### Vector conversion and mutable signed locals
 
 Explicit signed conversion now preserves widths across `float(int)`,

@@ -177,7 +177,7 @@ trusted fun main: int {
         [shaderStageVertex, shaderStageFragment],
         [
             "#version 450\nvoid main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); }",
-            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; layout(binding=3) uniform sampler3D volume; void main(){ int lod=0; ivec2 surfaceSize=textureSize(surface,lod); ivec3 layerSize=textureSize(layers,lod); ivec2 cubeSize=textureSize(sky,lod); ivec3 volumeSize=textureSize(volume,lod); int levels=textureQueryLevels(volume); ivec2 p2=surfaceSize-surfaceSize+cubeSize-cubeSize; ivec3 p3=layerSize-layerSize+volumeSize-volumeSize+ivec3(0,0,levels-levels); lod+=1; lod-=1; p2+=ivec2(1,1); p2=p2-ivec2(1,1); p3+=ivec3(1,1,1); p3-=ivec3(1,1,1); float levelValue=float(levels); vec2 surfaceValue=vec2(surfaceSize); vec3 volumeValue=vec3(volumeSize); vec2 queriedLod=textureQueryLod(surface,vec2(0.25)); vec4 a=texelFetch(surface,p2,lod+levels-levels); vec4 b=texelFetch(layers,p3,lod+levels-levels); vec4 c=texelFetch(volume,p3,lod+levels-levels); color=(a+b+c)*(queriedLod.x-queriedLod.x+levelValue-levelValue+surfaceValue.x-surfaceValue.x+volumeValue.z-volumeValue.z+1.0); }"
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; layout(binding=3) uniform sampler3D volume; void main(){ int lod=0; ivec2 surfaceSize=textureSize(surface,lod); ivec3 layerSize=textureSize(layers,lod); ivec2 cubeSize=textureSize(sky,lod); ivec3 volumeSize=textureSize(volume,lod); int levels=textureQueryLevels(volume); ivec2 p2=surfaceSize-surfaceSize+cubeSize-cubeSize; ivec3 p3=layerSize-layerSize+volumeSize-volumeSize+ivec3(0,0,levels-levels); lod++; --lod; p2++; --p2; p3++; --p3; float levelValue=float(levels); vec2 surfaceValue=vec2(surfaceSize); vec3 volumeValue=vec3(volumeSize); vec2 queriedLod=textureQueryLod(surface,vec2(0.25)); vec4 a=texelFetch(surface,p2,lod+levels-levels); vec4 b=texelFetch(layers,p3,lod+levels-levels); vec4 c=texelFetch(volume,p3,lod+levels-levels); color=(a+b+c)*(queriedLod.x-queriedLod.x+levelValue-levelValue+surfaceValue.x-surfaceValue.x+volumeValue.z-volumeValue.z+1.0); }"
         ]
     )
     val queriedProgram = queried.rasterFragmentProgram()
@@ -216,6 +216,58 @@ trusted fun main: int {
         [
             "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
             "#version 450\nlayout(location=0) out vec4 color; void main(){ const int value=1; value=2; color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidIntegerUpdate = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ const int value=1; value++; color=vec4(1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val gathered = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; void main(){ const int component=1+1; ivec2 offset=ivec2(0,0); vec4 a=textureGather(surface,vec2(0.25)); vec4 b=textureGather(layers,vec3(0.25),1); vec4 c=textureGather(sky,vec3(0.0,0.0,1.0),component); vec4 d=textureGatherOffset(surface,vec2(0.25),offset); vec4 e=textureGatherOffset(layers,vec3(0.25),offset,3); color=a+b+c+d+e; }"
+        ]
+    )
+    val gatheredProgram = gathered.rasterFragmentProgram()
+    val gatheredFirst = gathered.spirv(shaderStageFragment)
+    val gatheredSecond = gathered.spirv(shaderStageFragment)
+    val plainGather = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=textureGather(surface,vec2(0.25)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidGatherVolume = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler3D volume; void main(){ color=textureGather(volume,vec3(0.25)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidGatherCubeOffset = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCube sky; void main(){ color=textureGatherOffset(sky,vec3(0.0,0.0,1.0),ivec2(0,0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidGatherWidth = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=textureGather(surface,vec3(0.25)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidGatherComponent = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ int component=1; color=textureGather(surface,vec2(0.25),component); }"
         ]
     ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
@@ -300,10 +352,40 @@ trusted fun main: int {
             invalidSignedConversion.error == "") 55
         else if (invalidIntegerAssignment.succeeded ||
             invalidIntegerAssignment.error == "") 56
+        else if (invalidIntegerUpdate.succeeded ||
+            invalidIntegerUpdate.error == "") 57
+        else 42
+    val gatherResult = if (!gathered.valid) 60
+        else if (!gatheredProgram.valid) 61
+        else if (!gatheredFirst.succeeded) 62
+        else if (!gatheredFirst.module.valid()) 63
+        else if (sampledInstructionFormCount(
+            gatheredFirst.module, 393312
+        ) != 3) 64
+        else if (sampledInstructionFormCount(
+            gatheredFirst.module, 524384
+        ) != 2) 65
+        else if (!sampledCapability(gatheredFirst.module, 25)) 66
+        else if (!sampledWordsEqual(
+            gatheredFirst.module,
+            gatheredSecond.module
+        )) 67
+        else if (!plainGather.succeeded ||
+            !plainGather.module.valid() ||
+            sampledCapability(plainGather.module, 25)) 68
+        else if (invalidGatherVolume.succeeded ||
+            invalidGatherVolume.error == "") 69
+        else if (invalidGatherCubeOffset.succeeded ||
+            invalidGatherCubeOffset.error == "") 70
+        else if (invalidGatherWidth.succeeded ||
+            invalidGatherWidth.error == "") 71
+        else if (invalidGatherComponent.succeeded ||
+            invalidGatherComponent.error == "") 72
         else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult
     else if (queryResult != 42) queryResult
+    else if (gatherResult != 42) gatherResult
     else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&
