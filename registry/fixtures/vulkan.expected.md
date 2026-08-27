@@ -2,15 +2,15 @@
 
 - Revision: `fixture-revision`
 - SHA-256: `fixture-sha256`
-- Commands: 5
+- Commands: 8
 - Core features: 1
 - Extensions: 2
 - Constants: 8
 - Types: 4
-- Command parameters: 3
+- Command parameters: 8
 - Aggregates: 1
 - Aggregate members: 4
-- Classified commands: 1/5
+- Classified commands: 1/8
 - Classified core features: 1/1
 - Classified extensions: 2/2
 
@@ -21,7 +21,10 @@
 | `vkAlias` | alias | unclassified | - | - | - | - |
 | `vkAlpha` | definition | common | fixture loader | fixture ABI | fixture positive | fixture unsupported |
 | `vkInternal` | definition | unclassified | - | - | - | - |
+| `vkPointerOnly` | definition | unclassified | - | - | - | - |
 | `vkPointerScalar` | definition | unclassified | - | - | - | - |
+| `vkPointerTwoScalar` | definition | unclassified | - | - | - | - |
+| `vkStatusPointer` | definition | unclassified | - | - | - | - |
 | `vkZulu` | definition | unclassified | - | - | - | - |
 
 ## Core features

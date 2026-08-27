@@ -82,8 +82,13 @@ trusted fun main: int {
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")
         val idle = raw.deviceCommand("vkDeviceWaitIdle")
         val setDeviceMask = raw.deviceCommand("vkCmdSetDeviceMask")
+        val endRendering = raw.deviceCommand("vkCmdEndRendering")
+        val setStencilReference = raw.deviceCommand(
+            "vkCmdSetStencilReference"
+        )
         val missing = raw.deviceCommand("vkAblaMissing")
         val command = app.vulkanPixels.frames[0].command.load()
+        val idleStatus = nativeI64Cell(-1)
         var recorded = raw.available && !pointerIsNull(command) &&
             !app.vulkanPixels.frames[0].inFlight &&
             vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
@@ -106,12 +111,54 @@ trusted fun main: int {
                 app.vulkanPixels.frames[0].scratch.address
             ) == vulkanSuccess
         }
+        if (recorded) {
+            // Empty dynamic rendering is legal and gives the pointer-only
+            // raw family a real paired begin/end operation.
+            app.vulkanPixels.frames[0].scratch.storeI64(96, 1000044000)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                104, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(112, 0)
+            app.vulkanPixels.frames[0].scratch.storeI64(
+                120, 4294967296
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(
+                128, 4294967297
+            )
+            app.vulkanPixels.frames[0].scratch.storeI64(136, 0)
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                144, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                152, nativeNullPointer()
+            )
+            app.vulkanPixels.frames[0].scratch.storePointer(
+                160, nativeNullPointer()
+            )
+            vkCmdBeginRendering(
+                command,
+                app.vulkanPixels.frames[0].scratch.pointerAt(96)
+            )
+            recorded = raw.callVoidPointer(endRendering, command)
+        }
         val unsupportedRejected =
             !raw.callVoidPointerI32(idle, command, 1) &&
             !raw.callVoidPointerI32(
                 setDeviceMask,
                 nativeNullPointer(),
                 1
+            ) &&
+            !raw.callVoidPointer(setDeviceMask, command) &&
+            !raw.callVoidPointerI32I32(
+                setStencilReference,
+                nativeNullPointer(),
+                3,
+                1
+            ) &&
+            !raw.callI32Pointer(
+                idle,
+                app.vulkanDevice.handle,
+                nativeNullPointer()
             )
         val liveBefore = runtimeMemoryLiveBytes()
         var call = 0
@@ -120,10 +167,14 @@ trusted fun main: int {
                 setDeviceMask,
                 command,
                 1
+            ) && raw.callVoidPointerI32I32(
+                setStencilReference,
+                command,
+                3,
+                call
             )
             call = call + 1
         }
-        val liveAfter = runtimeMemoryLiveBytes()
         recorded = recorded && call == 1000 &&
             vkEndCommandBuffer(command) == vulkanSuccess
         if (recorded) {
@@ -153,8 +204,14 @@ trusted fun main: int {
                 app.vulkanPixels.frames[0].scratch.address,
                 0
             ) == vulkanSuccess &&
-                vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess
+                vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
+                raw.callI32Pointer(
+                    idle,
+                    app.vulkanDevice.handle,
+                    idleStatus.address
+                ) && idleStatus.load() == vulkanSuccess
         }
+        val liveAfter = runtimeMemoryLiveBytes()
         val restored = vkResetCommandPool(
             app.vulkanDevice.handle,
             app.vulkanPixels.frames[0].commandPool,
@@ -162,18 +219,24 @@ trusted fun main: int {
         ) == vulkanSuccess
         stable = raw.available && enumerate.valid() && idle.valid() &&
             setDeviceMask.valid() &&
+            endRendering.valid() && setStencilReference.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
             setDeviceMask.callShape ==
                 "void(VkCommandBuffer,uint32_t)" &&
             setDeviceMask.callAbi == "void(pointer,i32)" &&
+            endRendering.callShape == "void(VkCommandBuffer)" &&
+            endRendering.callAbi == "void(pointer)" &&
+            setStencilReference.callShape ==
+                "void(VkCommandBuffer,VkStencilFaceFlags,uint32_t)" &&
+            setStencilReference.callAbi == "void(pointer,i32,i32)" &&
             enumerate.callAbi == "unsupported" &&
-            idle.callAbi == "unsupported" &&
+            idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
             recorded && restored && liveAfter == liveBefore
-        detail = "enumerate=${enumerate.address} mask=${setDeviceMask.address} calls=$call live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} mask=${setDeviceMask.address} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"

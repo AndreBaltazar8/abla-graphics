@@ -3294,11 +3294,17 @@ Unknown names return an invalid command. `rawOpenGl.callVoid0(command)`,
 family, make the owning EGL context current, reject a command resolved by
 another context, and perform the indirect call without steady-state
 allocation. The generated classification currently enables 49, 146, and 157
-OpenGL commands respectively. `rawVulkan.callVoidPointerI32(command, pointer,
-second)` similarly requires the originating device, an exact
-`void(pointer,i32)` tag, and a non-null dispatchable handle. It currently
-enables 35 command-buffer plus `VkBool32`/`uint32_t` commands; the caller remains
-responsible for the Vulkan command-buffer lifecycle and feature/state rules.
+OpenGL commands respectively. Vulkan exposes
+`callVoidPointer(command, pointer)`,
+`callVoidPointerI32(command, pointer, second)`, and
+`callVoidPointerI32I32(command, pointer, second, third)` for their exact
+generated tags. `callI32Pointer(command, pointer, result)` writes the complete
+signed 32-bit return value to caller-owned native storage and reports whether
+the checked call occurred, avoiding a sentinel value or result allocation.
+Every method requires the originating device and non-null native pointers.
+The generated families currently enable 8, 35, 4, and 2 Vulkan commands
+respectively—49 total; the caller remains responsible for Vulkan object
+lifetime, command-buffer lifecycle, enabled features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
 metadata or address presence is not represented as executable specification

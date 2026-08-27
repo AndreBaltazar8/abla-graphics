@@ -32,12 +32,15 @@ Updated: 2026-08-26.
   first allocation-stable OpenGL indirect call families. Generated ABI tags
   classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
   callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
-  Vulkan classifies 35 command-buffer plus `VkBool32`/`uint32_t` entries as
-  `void(pointer,i32)` and leaves the other 807 unsupported. The live raw sample
+  Vulkan classifies 8 `void(pointer)`, 35 `void(pointer,i32)`, 4
+  `void(pointer,i32,i32)`, and 2 `i32(pointer)` entries—49 total—and leaves the
+  other 793 unsupported. The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
   in normal and optimized builds. Its Vulkan path records 1,000 device-mask
-  commands, submits and waits for the command buffer, resets the pool, retains
+  commands plus 1,000 stencil-reference commands, pairs an empty dynamic
+  rendering begin with a raw end, submits and waits for the command buffer,
+  observes exact successful `vkDeviceWaitIdle` status, resets the pool, retains
   zero growth, and passes validation in both build modes. Remaining signatures
   are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and

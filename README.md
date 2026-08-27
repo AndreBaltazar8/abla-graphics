@@ -182,9 +182,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   compiled raw metadata modules leave every unaudited row visibly
   unclassified; exact ABI-family metadata currently enables 49 `void()`, 146
   `void(i32)`, and 157 `void(i32,i32)` OpenGL commands while marking every
-  other OpenGL entry unsupported, plus 35 Vulkan
-  `void(pointer,i32)` command-buffer commands while leaving the other 807
-  Vulkan entries unsupported;
+  other OpenGL entry unsupported, plus 8 Vulkan `void(pointer)`, 35
+  `void(pointer,i32)`, 4 `void(pointer,i32,i32)`, and 2 `i32(pointer)`
+  commands while leaving the other 793 Vulkan entries unsupported;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
@@ -513,8 +513,9 @@ resource descriptors, encoders, and render/compute passes described in
 `graphics/raw/opengl` and `graphics/raw/vulkan`. Their first executable slice
 resolves every known name through the appropriate EGL or Vulkan loader,
 retains its normalized call shape in `RawNativeCommand`, and safely invokes
-OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands. The first Vulkan
-`void(pointer,i32)` command-buffer family is also callable.
+OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands. Vulkan now calls
+checked pointer-only, pointer-plus-one/two-`i32`, and `i32`-returning pointer
+families.
 Other signatures remain explicitly unavailable until their checked native-call
 families are implemented.
 

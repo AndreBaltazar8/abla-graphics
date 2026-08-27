@@ -104,9 +104,11 @@ now cover every pinned OpenGL and Vulkan command, compact callable-command
 modules keep audit metadata out of application builds, both backends expose
 explicit per-application address resolution, and the first checked indirect
 families execute OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands
-and Vulkan `void(pointer,i32)` commands without steady-state allocation.
+and Vulkan `void(pointer)`, `void(pointer,i32)`,
+`void(pointer,i32,i32)`, and `i32(pointer)` commands without steady-state
+allocation.
 Generated ABI classification marks exactly 352 currently callable OpenGL and
-35 callable Vulkan entries, leaving every other entry unsupported. The
+49 callable Vulkan entries, leaving every other entry unsupported. The
 remaining signature families, generated types/builders, capability gates, and
 complete raw coverage are intentionally still open, as is the remaining
 milestone work below.
