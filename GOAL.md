@@ -2634,6 +2634,52 @@ families; rebuild the compiler once, regenerate once, and run one consolidated
 gate per broad batch. Generated typed builders and the wider framework
 milestones remain open; the full framework goal remains active.
 
+### Published checkpoint: complete generated Vulkan call ABI coverage
+
+Compiler dependency `ce4b2a7832fc81a63be7465961b8ebd5636f8f07`
+adds the final 28 exact pure-Abla indirect-call layouts required by the pinned
+Vulkan registry: 25 ordinary pointer/`i32`/`i64` layouts plus three unique
+platform layouts. Exact lowering now handles native pointer-address results,
+full-width `i64` results, non-dispatchable leading handles, and a real `i16`
+lane. Boundary execution covers a 15-argument ray-tracing signature,
+`pointer(pointer,pointer)` through `dlsym`, full-width signed results, and
+`uint16_t` truncation from `4294967295` to `65535`. The compiler reaches the
+byte-identical pure self-hosted fixed point and passes the native boundary.
+
+Graphics implementation `154ea499ca6eef767d8a44f969dd6ea956f10e38`
+turns every command in the pinned Vulkan 1.4 registry into an exact generated
+call ABI: coverage rises from 807 to **842 of 842**, and both candidate and
+callable ledgers contain zero `unsupported` rows. Platform types are mapped
+explicitly rather than conflated: `uint16_t` uses `i16`; POSIX descriptors,
+Fuchsia handles, and XCB visual IDs use `i32`; Win32 `HANDLE` uses a pointer;
+and hosted 64-bit Xlib `VisualID`/`RROutput` use `i64`. Runtime availability
+still depends on the platform, enabled extension, and nonzero resolved command
+address, so a generated ABI does not falsely make an unavailable command
+callable.
+
+The live normal/fast proof calls `vkGetInstanceProcAddr` through its own raw
+pointer-return ABI and requires the returned address to equal the retained
+`vkEnumeratePhysicalDevices` address. API version remains `4211009`, surface
+support is `1`, transfer/image/event/fence/timestamp evidence remains exact,
+`loopLive=0`, and `live=96`. Both Vulkan validation logs are empty.
+
+Verified commands:
+
+```sh
+cd ../ablac
+nix-shell --run 'make self-rebuild && tools/test-unsafe-boundary.sh build/ablac'
+
+cd ../abla-graphics
+nix-shell --run 'make test-registry test-raw-commands check-abla-only test-core'
+```
+
+The generated raw Vulkan ABI milestone is complete for the pinned registry.
+Do not confuse this with completion of the whole framework: generated typed
+builders, wider live extension evidence, remaining window-system portability,
+shader/tooling milestones, samples, CI, and release requirements in `plan.md`
+remain active. Preserve the broad cadence and move to the next plan-level
+deliverable rather than rerunning raw signature discovery.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
