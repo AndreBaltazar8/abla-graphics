@@ -208,17 +208,47 @@ trusted fun vulkanDriverLoadI32At(
     } else 0
 }
 
+trusted fun vulkanDriverLoadI64At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    elementIndex: int = 0
+): int {
+    val member = vulkanDriverMemberLayout(typeName, memberName)
+    val offset = baseOffset + member.offset + elementIndex * member.elementSize
+    if (member.valid && member.kind == "i64" && member.elementSize == 8 &&
+        elementIndex >= 0 && elementIndex < member.elementCount &&
+        offset >= 0 && offset <= bytes.capacity - 8) {
+        bytes.loadI64(offset)
+    } else 0
+}
+
 trusted fun vulkanDriverZeroedStructure(
     typeName: string
 ): NativeByteBuffer {
     val layout = vulkanDriverTypeLayout(typeName)
     val bytes = vulkanDriverZeroedBytes(layout.size)
-    if (layout.valid && layout.structureType >= 0) {
-        vulkanDriverStoreI32At(
-            bytes, 0, typeName, "sType", layout.structureType
-        )
-    }
+    vulkanDriverZeroStructureAt(bytes, 0, typeName)
     move(bytes)
+}
+
+trusted fun vulkanDriverZeroStructureAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string
+): bool {
+    val layout = vulkanDriverTypeLayout(typeName)
+    val accepted = layout.valid && layout.size > 0 && baseOffset >= 0 &&
+        baseOffset <= bytes.capacity - layout.size
+    var index = 0
+    while (accepted && index < layout.size) {
+        bytes.store(baseOffset + index, 0)
+        index = index + 1
+    }
+    accepted && (layout.structureType < 0 || vulkanDriverStoreI32At(
+        bytes, baseOffset, typeName, "sType", layout.structureType
+    ))
 }
 
 trusted fun vulkanDriverStoreI32(
@@ -254,4 +284,408 @@ trusted fun vulkanDriverLoadI32(
     memberName: string
 ): int = vulkanDriverLoadI32At(
     bytes, 0, typeName, memberName
+)
+
+trusted fun vulkanDriverLoadI64(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string
+): int = vulkanDriverLoadI64At(
+    bytes, 0, typeName, memberName
+)
+
+trusted fun vulkanDriverStoreI32Offset(
+    var bytes: NativeByteBuffer,
+    offset: int,
+    value: int
+): bool = value >= -2147483648 && value <= 4294967295 && offset >= 0 &&
+    offset <= bytes.capacity - 4 && bytes.store(offset, value & 255) &&
+    bytes.store(offset + 1, (value >>> 8) & 255) &&
+    bytes.store(offset + 2, (value >>> 16) & 255) &&
+    bytes.store(offset + 3, (value >>> 24) & 255)
+
+trusted fun vulkanDriverStoreI64Offset(
+    var bytes: NativeByteBuffer,
+    offset: int,
+    value: int
+): bool = offset >= 0 && offset <= bytes.capacity - 8 &&
+    bytes.storeI64(offset, value)
+
+trusted fun vulkanDriverStorePointerOffset(
+    var bytes: NativeByteBuffer,
+    offset: int,
+    value: i64*
+): bool = offset >= 0 && offset <= bytes.capacity - 8 &&
+    bytes.storePointer(offset, value)
+
+trusted fun vulkanDriverZeroKnownStructureAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    size: int,
+    structureType: int,
+    structureTypeOffset: int = 0
+): bool {
+    val accepted = size > 0 && baseOffset >= 0 &&
+        baseOffset <= bytes.capacity - size
+    var index = 0
+    while (accepted && index < size) {
+        bytes.store(baseOffset + index, 0)
+        index = index + 1
+    }
+    accepted && (structureType < 0 || vulkanDriverStoreI32Offset(
+        bytes, baseOffset + structureTypeOffset, structureType
+    ))
+}
+
+trusted fun vulkanDriverCommandPoolCreateInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    queueFamilyIndex: int,
+    flags: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkCommandPoolCreateInfo,
+    vulkanDriverStructureTypeVkCommandPoolCreateInfo,
+    vulkanDriverOffsetVkCommandPoolCreateInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkCommandPoolCreateInfo_flags, flags
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkCommandPoolCreateInfo_queueFamilyIndex,
+    queueFamilyIndex
+)
+
+trusted fun vulkanDriverCommandBufferAllocateInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    commandPool: int,
+    commandBufferCount: int,
+    level: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkCommandBufferAllocateInfo,
+    vulkanDriverStructureTypeVkCommandBufferAllocateInfo,
+    vulkanDriverOffsetVkCommandBufferAllocateInfo_sType
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkCommandBufferAllocateInfo_commandPool,
+    commandPool
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkCommandBufferAllocateInfo_level,
+    level
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkCommandBufferAllocateInfo_commandBufferCount,
+    commandBufferCount
+)
+
+trusted fun vulkanDriverCommandBufferBeginInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    flags: int = 0,
+    inheritanceInfo: i64* = nativeNullPointer()
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkCommandBufferBeginInfo,
+    vulkanDriverStructureTypeVkCommandBufferBeginInfo,
+    vulkanDriverOffsetVkCommandBufferBeginInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkCommandBufferBeginInfo_flags,
+    flags
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkCommandBufferBeginInfo_pInheritanceInfo,
+    inheritanceInfo
+)
+
+trusted fun vulkanDriverFenceCreateInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    flags: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkFenceCreateInfo,
+    vulkanDriverStructureTypeVkFenceCreateInfo,
+    vulkanDriverOffsetVkFenceCreateInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkFenceCreateInfo_flags, flags
+)
+
+trusted fun vulkanDriverSemaphoreTypeCreateInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    semaphoreType: int,
+    initialValue: int
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSemaphoreTypeCreateInfo,
+    vulkanDriverStructureTypeVkSemaphoreTypeCreateInfo,
+    vulkanDriverOffsetVkSemaphoreTypeCreateInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkSemaphoreTypeCreateInfo_semaphoreType,
+    semaphoreType
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkSemaphoreTypeCreateInfo_initialValue,
+    initialValue
+)
+
+trusted fun vulkanDriverSemaphoreCreateInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    next: i64* = nativeNullPointer(),
+    flags: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSemaphoreCreateInfo,
+    vulkanDriverStructureTypeVkSemaphoreCreateInfo,
+    vulkanDriverOffsetVkSemaphoreCreateInfo_sType
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreCreateInfo_pNext, next
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreCreateInfo_flags, flags
+)
+
+trusted fun vulkanDriverSemaphoreSignalInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    semaphore: int,
+    value: int
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSemaphoreSignalInfo,
+    vulkanDriverStructureTypeVkSemaphoreSignalInfo,
+    vulkanDriverOffsetVkSemaphoreSignalInfo_sType
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreSignalInfo_semaphore,
+    semaphore
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreSignalInfo_value, value
+)
+
+trusted fun vulkanDriverSemaphoreWaitInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    semaphoreCount: int,
+    semaphores: i64*,
+    values: i64*,
+    flags: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSemaphoreWaitInfo,
+    vulkanDriverStructureTypeVkSemaphoreWaitInfo,
+    vulkanDriverOffsetVkSemaphoreWaitInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreWaitInfo_flags, flags
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkSemaphoreWaitInfo_semaphoreCount,
+    semaphoreCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreWaitInfo_pSemaphores,
+    semaphores
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreWaitInfo_pValues, values
+)
+
+trusted fun vulkanDriverQueryPoolCreateInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    queryType: int,
+    queryCount: int,
+    pipelineStatistics: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkQueryPoolCreateInfo,
+    vulkanDriverStructureTypeVkQueryPoolCreateInfo,
+    vulkanDriverOffsetVkQueryPoolCreateInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkQueryPoolCreateInfo_queryType,
+    queryType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkQueryPoolCreateInfo_queryCount,
+    queryCount
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkQueryPoolCreateInfo_pipelineStatistics,
+    pipelineStatistics
+)
+
+trusted fun vulkanDriverSubmitInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    commandBufferCount: int,
+    commandBuffers: i64*,
+    waitSemaphoreCount: int = 0,
+    waitSemaphores: i64* = nativeNullPointer(),
+    waitStageMasks: i64* = nativeNullPointer(),
+    signalSemaphoreCount: int = 0,
+    signalSemaphores: i64* = nativeNullPointer(),
+    next: i64* = nativeNullPointer()
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSubmitInfo,
+    vulkanDriverStructureTypeVkSubmitInfo,
+    vulkanDriverOffsetVkSubmitInfo_sType
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_pNext, next
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_waitSemaphoreCount,
+    waitSemaphoreCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_pWaitSemaphores,
+    waitSemaphores
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_pWaitDstStageMask,
+    waitStageMasks
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_commandBufferCount,
+    commandBufferCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_pCommandBuffers,
+    commandBuffers
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_signalSemaphoreCount,
+    signalSemaphoreCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo_pSignalSemaphores,
+    signalSemaphores
+)
+
+trusted fun vulkanDriverMemoryBarrierAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    sourceAccess: int,
+    destinationAccess: int
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkMemoryBarrier,
+    vulkanDriverStructureTypeVkMemoryBarrier,
+    vulkanDriverOffsetVkMemoryBarrier_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkMemoryBarrier_srcAccessMask,
+    sourceAccess
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkMemoryBarrier_dstAccessMask,
+    destinationAccess
+)
+
+trusted fun vulkanDriverMemoryBarrier2At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    sourceStage: int,
+    sourceAccess: int,
+    destinationStage: int,
+    destinationAccess: int
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkMemoryBarrier2,
+    vulkanDriverStructureTypeVkMemoryBarrier2,
+    vulkanDriverOffsetVkMemoryBarrier2_sType
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkMemoryBarrier2_srcStageMask,
+    sourceStage
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkMemoryBarrier2_srcAccessMask,
+    sourceAccess
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkMemoryBarrier2_dstStageMask,
+    destinationStage
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkMemoryBarrier2_dstAccessMask,
+    destinationAccess
+)
+
+trusted fun vulkanDriverDependencyInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    memoryBarrierCount: int = 0,
+    memoryBarriers: i64* = nativeNullPointer(),
+    imageBarrierCount: int = 0,
+    imageBarriers: i64* = nativeNullPointer()
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkDependencyInfo,
+    vulkanDriverStructureTypeVkDependencyInfo,
+    vulkanDriverOffsetVkDependencyInfo_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkDependencyInfo_memoryBarrierCount,
+    memoryBarrierCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkDependencyInfo_pMemoryBarriers,
+    memoryBarriers
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkDependencyInfo_imageMemoryBarrierCount,
+    imageBarrierCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkDependencyInfo_pImageMemoryBarriers,
+    imageBarriers
+)
+
+trusted fun vulkanDriverCommandBufferSubmitInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    commandBuffer: i64*,
+    deviceMask: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkCommandBufferSubmitInfo,
+    vulkanDriverStructureTypeVkCommandBufferSubmitInfo,
+    vulkanDriverOffsetVkCommandBufferSubmitInfo_sType
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkCommandBufferSubmitInfo_commandBuffer,
+    nativePointerAddress(commandBuffer)
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkCommandBufferSubmitInfo_deviceMask,
+    deviceMask
+)
+
+trusted fun vulkanDriverSemaphoreSubmitInfoAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    semaphore: int,
+    value: int,
+    stageMask: int,
+    deviceIndex: int = 0
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSemaphoreSubmitInfo,
+    vulkanDriverStructureTypeVkSemaphoreSubmitInfo,
+    vulkanDriverOffsetVkSemaphoreSubmitInfo_sType
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreSubmitInfo_semaphore,
+    semaphore
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreSubmitInfo_value, value
+) && vulkanDriverStoreI64Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreSubmitInfo_stageMask,
+    stageMask
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSemaphoreSubmitInfo_deviceIndex,
+    deviceIndex
+)
+
+trusted fun vulkanDriverSubmitInfo2At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    commandBufferInfoCount: int,
+    commandBufferInfos: i64*,
+    signalSemaphoreInfoCount: int = 0,
+    signalSemaphoreInfos: i64* = nativeNullPointer(),
+    waitSemaphoreInfoCount: int = 0,
+    waitSemaphoreInfos: i64* = nativeNullPointer()
+): bool = vulkanDriverZeroKnownStructureAt(
+    bytes, baseOffset, vulkanDriverSizeVkSubmitInfo2,
+    vulkanDriverStructureTypeVkSubmitInfo2,
+    vulkanDriverOffsetVkSubmitInfo2_sType
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo2_waitSemaphoreInfoCount,
+    waitSemaphoreInfoCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo2_pWaitSemaphoreInfos,
+    waitSemaphoreInfos
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkSubmitInfo2_commandBufferInfoCount,
+    commandBufferInfoCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo2_pCommandBufferInfos,
+    commandBufferInfos
+) && vulkanDriverStoreI32Offset(
+    bytes, baseOffset +
+        vulkanDriverOffsetVkSubmitInfo2_signalSemaphoreInfoCount,
+    signalSemaphoreInfoCount
+) && vulkanDriverStorePointerOffset(
+    bytes, baseOffset + vulkanDriverOffsetVkSubmitInfo2_pSignalSemaphoreInfos,
+    signalSemaphoreInfos
 )

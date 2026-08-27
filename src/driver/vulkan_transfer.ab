@@ -82,11 +82,9 @@ resource class VulkanTransferSlot(
                 0
             ) == vulkanSuccess
         if (succeeded) {
-            this.scratch.storeI64(0, 42)
-            this.scratch.storePointer(8, nativeNullPointer())
-            this.scratch.storeI64(16, 1)
-            this.scratch.storePointer(24, nativeNullPointer())
-            succeeded = vkBeginCommandBuffer(
+            succeeded = vulkanDriverCommandBufferBeginInfoAt(
+                this.scratch, 0, 1
+            ) && vkBeginCommandBuffer(
                 this.command.load(),
                 this.scratch.address
             ) == vulkanSuccess
@@ -102,14 +100,11 @@ resource class VulkanTransferSlot(
                 1,
                 this.scratch.address
             )
-            this.scratch.storeI64(0, 46)
-            this.scratch.storePointer(8, nativeNullPointer())
-            this.scratch.storeI64(
-                16,
-                (if (destination.persistent) 8192 else 98304) *
-                    4294967296 + 4096
+            succeeded = vulkanDriverMemoryBarrierAt(
+                this.scratch, 0, 4096,
+                if (destination.persistent) 8192 else 98304
             )
-            vkCmdPipelineBarrier(
+            if (succeeded) vkCmdPipelineBarrier(
                 this.command.load(),
                 4096,
                 if (destination.persistent) 16384 else 65536,
@@ -133,16 +128,9 @@ resource class VulkanTransferSlot(
             ) == vulkanSuccess
         }
         if (succeeded) {
-            this.scratch.storeI64(64, 4)
-            this.scratch.storePointer(72, nativeNullPointer())
-            this.scratch.storeI64(80, 0)
-            this.scratch.storePointer(88, nativeNullPointer())
-            this.scratch.storePointer(96, nativeNullPointer())
-            this.scratch.storeI64(104, 1)
-            this.scratch.storePointer(112, this.command.address)
-            this.scratch.storeI64(120, 0)
-            this.scratch.storePointer(128, nativeNullPointer())
-            succeeded = vkQueueSubmit(
+            succeeded = vulkanDriverSubmitInfoAt(
+                this.scratch, 64, 1, this.command.address
+            ) && vkQueueSubmit(
                 this.queue,
                 1,
                 this.scratch.pointerAt(64),
@@ -161,11 +149,9 @@ resource class VulkanTransferSlot(
                 0
             ) == vulkanSuccess
         if (succeeded) {
-            this.scratch.storeI64(0, 42)
-            this.scratch.storePointer(8, nativeNullPointer())
-            this.scratch.storeI64(16, 1)
-            this.scratch.storePointer(24, nativeNullPointer())
-            succeeded = vkBeginCommandBuffer(
+            succeeded = vulkanDriverCommandBufferBeginInfoAt(
+                this.scratch, 0, 1
+            ) && vkBeginCommandBuffer(
                 this.command.load(),
                 this.scratch.address
             ) == vulkanSuccess
@@ -185,16 +171,9 @@ resource class VulkanTransferSlot(
             ) == vulkanSuccess
         }
         if (succeeded) {
-            this.scratch.storeI64(128, 4)
-            this.scratch.storePointer(136, nativeNullPointer())
-            this.scratch.storeI64(144, 0)
-            this.scratch.storePointer(152, nativeNullPointer())
-            this.scratch.storePointer(160, nativeNullPointer())
-            this.scratch.storeI64(168, 1)
-            this.scratch.storePointer(176, this.command.address)
-            this.scratch.storeI64(184, 0)
-            this.scratch.storePointer(192, nativeNullPointer())
-            succeeded = vkQueueSubmit(
+            succeeded = vulkanDriverSubmitInfoAt(
+                this.scratch, 128, 1, this.command.address
+            ) && vkQueueSubmit(
                 this.queue,
                 1,
                 this.scratch.pointerAt(128),
@@ -381,10 +360,10 @@ resource class VulkanTransferSlot(
                 1,
                 this.scratch.address
             )
-            this.scratch.storeI64(0, 46)
-            this.scratch.storePointer(8, nativeNullPointer())
-            this.scratch.storeI64(16, 8192 * 4294967296 + 4096)
-            vkCmdPipelineBarrier(
+            succeeded = vulkanDriverMemoryBarrierAt(
+                this.scratch, 0, 4096, 8192
+            )
+            if (succeeded) vkCmdPipelineBarrier(
                 this.command.load(),
                 4096,
                 16384,
@@ -568,10 +547,10 @@ resource class VulkanTransferSlot(
             layer = layer + 1
         }
         if (succeeded && !upload) {
-            this.scratch.storeI64(0, 46)
-            this.scratch.storePointer(8, nativeNullPointer())
-            this.scratch.storeI64(16, 8192 * 4294967296 + 4096)
-            vkCmdPipelineBarrier(
+            succeeded = vulkanDriverMemoryBarrierAt(
+                this.scratch, 0, 4096, 8192
+            )
+            if (succeeded) vkCmdPipelineBarrier(
                 this.command.load(),
                 4096,
                 16384,
@@ -673,13 +652,9 @@ trusted fun VulkanDevice.transferSlot(): VulkanTransferSlot {
     var fence = 0
     var succeeded = this.valid()
     if (succeeded) {
-        scratch.storeI64(0, 39)
-        scratch.storePointer(8, nativeNullPointer())
-        scratch.storeI64(
-            16,
-            (this.queueFamily & 4294967295) * 4294967296 + 2
-        )
-        succeeded = vkCreateCommandPool(
+        succeeded = vulkanDriverCommandPoolCreateInfoAt(
+            scratch, 0, this.queueFamily, 2
+        ) && vkCreateCommandPool(
             this.handle,
             scratch.address,
             nativeNullPointer(),
@@ -688,21 +663,18 @@ trusted fun VulkanDevice.transferSlot(): VulkanTransferSlot {
         if (succeeded) commandPool = scratch.loadI64(208)
     }
     if (succeeded) {
-        scratch.storeI64(0, 40)
-        scratch.storePointer(8, nativeNullPointer())
-        scratch.storeI64(16, commandPool)
-        scratch.storeI64(24, 4294967296)
-        succeeded = vkAllocateCommandBuffers(
+        succeeded = vulkanDriverCommandBufferAllocateInfoAt(
+            scratch, 0, commandPool, 1
+        ) && vkAllocateCommandBuffers(
             this.handle,
             scratch.address,
             command.address
         ) == vulkanSuccess
     }
     if (succeeded) {
-        scratch.storeI64(0, 8)
-        scratch.storePointer(8, nativeNullPointer())
-        scratch.storeI64(16, 0)
-        succeeded = vkCreateFence(
+        succeeded = vulkanDriverFenceCreateInfoAt(
+            scratch, 0
+        ) && vkCreateFence(
             this.handle,
             scratch.address,
             nativeNullPointer(),

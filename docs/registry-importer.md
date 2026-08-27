@@ -56,6 +56,12 @@ missing, duplicate, or ABI-unresolved requested type fails generation. The
 full raw schema remains separate so normal applications compile only the small
 driver subset they actually need.
 
+The production output includes both compact inspection records and direct
+numeric size, structure-type, and member-offset constants. Setup code may use
+checked name-based lookup; warmed submission and transfer builders use the
+numeric constants so registry-driven packing introduces no runtime parsing or
+allocation.
+
 Generated ledger and Abla files carry the upstream revision and content hash. Generation uses
 byte-order sorting and no wall-clock timestamp. `make test-registry` checks the
 pure-Abla parser against a fixture twice and compares the exact expected bytes.

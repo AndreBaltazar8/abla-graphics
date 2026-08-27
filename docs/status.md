@@ -1762,3 +1762,25 @@ Deterministic registry tests, headless and X11 Vulkan, normal and optimized raw
 execution, Abla-only, core, and stripped-environment runtime linkage pass.
 Runtime linkage resolves OpenGL and Vulkan directly with zero unresolved
 dependencies.
+
+### Allocation-free generated submission layouts
+
+The production subset now contains 32 Vulkan structures and 275 members.
+Alongside the cold inspection schema, generation emits direct numeric size,
+structure-type, and member-offset constants. Typed pool/allocation/begin,
+fence/semaphore/timeline, query, legacy submit, synchronization2 submit, and
+memory-barrier builders use those constants without runtime schema parsing or
+handwritten ABI offsets.
+
+Timestamp queries, compute dispatch, texture and device transfer machinery,
+asynchronous buffer/texture slots, pixel frames, and surfaced presentation now
+share these builders. A first correct-output run exposed 19,584 warmed bytes
+from generic string parsing; the direct generated form restores `live=0/0` for
+OpenGL, Vulkan, and automatic buffer and texture transfer matrices while
+retaining exact readback and stable handles.
+
+The three compiler-heavy transfer gates use the established 8 GiB address-
+space guard after the expanded source crossed their former 6 GiB limit.
+Registry determinism, headless/X11 Vulkan, normal/optimized raw execution,
+Abla-only, core, and stripped runtime linkage pass with zero unresolved shared
+dependencies.

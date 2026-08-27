@@ -2808,9 +2808,34 @@ features now use the exact intended member. Headless Vulkan, X11 Vulkan,
 normal/optimized raw runs, deterministic generation, Abla-only, core, and
 stripped-runtime-linkage gates all pass; linkage reports `unresolved=0`.
 
-Next migrate coherent command submission/transfer and pipeline/render groups.
-Add production manifest types in batches, keep hot replay paths free of string
-layout lookup, and retain one consolidated live gate per published checkpoint.
+### Published checkpoint: allocation-free generated submission ABI
+
+The compact production subset now covers 32 structures and 275 members.
+Registry generation emits reviewed numeric size, `sType`, and member-offset
+constants in addition to the cold generic schema. Typed command-pool,
+command-buffer allocation/begin, fence/semaphore/timeline, query-pool, legacy
+submit, synchronization2 submit, and legacy/synchronization2 memory-barrier
+builders use only these constants: there is no runtime registry parsing or
+handwritten ABI offset in the migrated paths.
+
+Every shared submission path is migrated, including timestamp queries, compute
+dispatch, texture-owned transfers, asynchronous buffer/texture transfer slots,
+device transfer initialization/deferred submission, pixel frames, and surfaced
+presentation. The first live transfer run correctly exposed 19,584 bytes of
+warmed allocation from generic schema slices and layout objects. Direct
+generated constants removed it; OpenGL, Vulkan, and automatic-selection buffer
+and texture transfer matrices now report `live=0/0` with exact readback and
+stable native resources.
+
+The expanded source crossed the transfer gates' old 6 GiB compiler
+address-space guard, so only the three transfer-family compiler guards now use
+the established 8 GiB heavy-gate value. Deterministic generation, headless and
+X11 Vulkan, normal/optimized raw execution, Abla-only, core, and stripped
+runtime linkage all pass; linkage remains `direct=true unresolved=0`.
+
+Next add a typed generated nested-aggregate writer for image subresource
+ranges, offsets, and extents, then migrate image barriers/copy regions before
+the coherent pipeline/render structure group.
 
 ## Working commands
 

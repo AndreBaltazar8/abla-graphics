@@ -484,8 +484,40 @@ fun main: int {
     val driverDeviceInfo = vulkanDriverZeroedStructure("VkDeviceCreateInfo")
     val driverWriteSize = vulkanDriverStructureSize("VkWriteDescriptorSet")
     val driverWrites = vulkanDriverZeroedBytes(driverWriteSize * 2)
-    val driverBuilderReady = vulkanDriverBuilderTypeCount == 16 &&
-        vulkanDriverBuilderMemberCount == 189 &&
+    val driverSubmission = vulkanDriverZeroedBytes(208)
+    val driverSubmissionReady = vulkanDriverCommandPoolCreateInfoAt(
+        driverSubmission, 0, 7, 2
+    ) && vulkanDriverCommandBufferAllocateInfoAt(
+        driverSubmission, 32, 99, 3
+    ) && vulkanDriverCommandBufferBeginInfoAt(
+        driverSubmission, 64, 1
+    ) && vulkanDriverMemoryBarrier2At(
+        driverSubmission, 96, 4096, 2048, 65536, 8192
+    ) && vulkanDriverDependencyInfoAt(
+        driverSubmission, 144, 1, driverSubmission.pointerAt(96)
+    ) && vulkanDriverLoadI32At(
+        driverSubmission, 0, "VkCommandPoolCreateInfo", "sType"
+    ) == 39 && vulkanDriverLoadI32At(
+        driverSubmission, 0, "VkCommandPoolCreateInfo", "flags"
+    ) == 2 && vulkanDriverLoadI32At(
+        driverSubmission, 0, "VkCommandPoolCreateInfo", "queueFamilyIndex"
+    ) == 7 && vulkanDriverLoadI64At(
+        driverSubmission, 32, "VkCommandBufferAllocateInfo", "commandPool"
+    ) == 99 && vulkanDriverLoadI32At(
+        driverSubmission, 32, "VkCommandBufferAllocateInfo",
+        "commandBufferCount"
+    ) == 3 && vulkanDriverLoadI64At(
+        driverSubmission, 96, "VkMemoryBarrier2", "dstStageMask"
+    ) == 65536 && vulkanDriverLoadI32At(
+        driverSubmission, 144, "VkDependencyInfo", "memoryBarrierCount"
+    ) == 1 && driverSubmission.loadI64(
+        144 + vulkanDriverMemberLayout(
+            "VkDependencyInfo", "pMemoryBarriers"
+        ).offset
+    ) ==
+        nativePointerAddress(driverSubmission.pointerAt(96))
+    val driverBuilderReady = vulkanDriverBuilderTypeCount == 32 &&
+        vulkanDriverBuilderMemberCount == 275 && driverSubmissionReady &&
         driverDeviceInfo.capacity == 72 &&
         vulkanDriverLoadI32(
             driverDeviceInfo, "VkDeviceCreateInfo", "sType"
@@ -512,6 +544,7 @@ fun main: int {
         ) == 35 && driverWrites.loadI64(driverWriteSize + 16) == 1234
     driverDeviceInfo.close()
     driverWrites.close()
+    driverSubmission.close()
     val valid = rawVulkanBuilderTypeCount == 1448 &&
         rawVulkanBuilderMemberCount == 7406 &&
         driverBuilderReady &&

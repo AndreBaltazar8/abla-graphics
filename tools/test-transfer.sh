@@ -8,7 +8,7 @@ output_directory="$project_root/build/tests"
 
 mkdir -p "$output_directory"
 cd "$compiler_root"
-ABLA_MAX_MEMORY_MB=${ABLA_TRANSFER_TEST_MEMORY_MB:-6144} \
+ABLA_MAX_MEMORY_MB=${ABLA_TRANSFER_TEST_MEMORY_MB:-8192} \
     ABLA_SYSROOT="$compiler_root" "$compiler" \
     build "$project_root/tests/transfer/main.ab" \
     -o "$output_directory/transfer" --no-cache
