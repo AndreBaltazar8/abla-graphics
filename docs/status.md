@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-26.
+Updated: 2026-08-27.
 
 ## Verified now
 
@@ -36,7 +36,8 @@ Updated: 2026-08-26.
   `void(pointer,i32,i32)`, 2 `i32(pointer)`, 81 four-pointer creation, 62
   pointer/64-bit-handle/pointer destruction, 13 handle-status, and 104
   two-pointer query entries, plus 61 result-returning and 47 void three-pointer
-  entries—417 total—and leaves the other 425 unsupported.
+  entries, 13 counted-pointer result entries, and 17 scalar/scalar/output
+  entries—447 total—and leaves the other 395 unsupported.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -45,7 +46,9 @@ Updated: 2026-08-26.
   rendering begin with a raw end, submits and waits for the command buffer,
   observes exact successful `vkDeviceWaitIdle` status, queries physical-device
   features, and completes an event create/status/destroy lifecycle with exact
-  `VK_EVENT_RESET`. It also enumerates the physical-device list and resolves
+  `VK_EVENT_RESET`. It also creates a signaled fence, resets it through the
+  counted-pointer family, observes exact `VK_NOT_READY`, and destroys it. It
+  enumerates the physical-device list and resolves
   the application's exact queue through `vkGetDeviceQueue2`. It resets the
   pool, retains zero growth, and passes
   validation in both build modes. Remaining signatures

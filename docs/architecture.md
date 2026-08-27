@@ -257,9 +257,10 @@ compiler-supported indirect calls. Vulkan additionally supports exact
 `void(pointer)`, `void(pointer,i32)`, `void(pointer,i32,i32)`, and
 `i32(pointer)` families, plus exact four-pointer creation,
 pointer/64-bit-handle destruction and status, and two-/three-pointer query
-families. Generated ABI-family tags make the currently callable 352 OpenGL and
-417 Vulkan commands explicit and retain `unsupported` for the other 2,540
-OpenGL and 425
+families, plus counted-pointer result and scalar/scalar/output query families.
+Generated ABI-family tags make the currently callable 352 OpenGL and 447
+Vulkan commands explicit and retain `unsupported` for the other 2,540
+OpenGL and 395
 Vulkan commands. Further signatures remain
 unsupported until each has matching ABI, positive, negative, and live-driver
 evidence.

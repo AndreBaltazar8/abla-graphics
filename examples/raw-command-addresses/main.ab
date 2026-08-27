@@ -93,6 +93,11 @@ trusted fun main: int {
             "vkGetPhysicalDeviceFeatures2"
         )
         val getDeviceQueue2 = raw.deviceCommand("vkGetDeviceQueue2")
+        val getDeviceQueue = raw.deviceCommand("vkGetDeviceQueue")
+        val createFence = raw.deviceCommand("vkCreateFence")
+        val destroyFence = raw.deviceCommand("vkDestroyFence")
+        val getFenceStatus = raw.deviceCommand("vkGetFenceStatus")
+        val resetFences = raw.deviceCommand("vkResetFences")
         val missing = raw.deviceCommand("vkAblaMissing")
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
@@ -105,6 +110,11 @@ trusted fun main: int {
         val enumerateStatus = nativeI64Cell(-1)
         val queueInfo = nativeByteBuffer(32)
         val queriedQueue = nativePointerCell(nativeNullPointer())
+        val queriedLegacyQueue = nativePointerCell(nativeNullPointer())
+        val fenceHandle = nativeI64Cell(0)
+        val fenceStatus = nativeI64Cell(-1)
+        val resetStatus = nativeI64Cell(-1)
+        val fenceInfo = nativeByteBuffer(24)
         var initialize = 0
         while (initialize < eventInfo.capacity) {
             eventInfo.store(initialize, 0)
@@ -125,6 +135,11 @@ trusted fun main: int {
             queueInfo.store(initialize, 0)
             initialize = initialize + 1
         }
+        initialize = 0
+        while (initialize < fenceInfo.capacity) {
+            fenceInfo.store(initialize, 0)
+            initialize = initialize + 1
+        }
         eventInfo.storeI64(0, 10)
         eventInfo.storePointer(8, nativeNullPointer())
         eventInfo.storeI64(16, 0)
@@ -137,6 +152,9 @@ trusted fun main: int {
             app.vulkanDevice.queueFamily * 4294967296
         )
         queueInfo.storeI64(24, 0)
+        fenceInfo.storeI64(0, 8)
+        fenceInfo.storePointer(8, nativeNullPointer())
+        fenceInfo.storeI64(16, 1)
         var recorded = raw.available && !pointerIsNull(command) &&
             !app.vulkanPixels.frames[0].inFlight &&
             vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
@@ -245,6 +263,20 @@ trusted fun main: int {
                 app.vulkanDevice.handle,
                 nativeNullPointer(),
                 queriedQueue.address
+            ) &&
+            !raw.callI32PointerI32Pointer(
+                resetFences,
+                app.vulkanDevice.handle,
+                1,
+                nativeNullPointer(),
+                resetStatus.address
+            ) &&
+            !raw.callVoidPointerI32I32Pointer(
+                getDeviceQueue,
+                app.vulkanDevice.handle,
+                app.vulkanDevice.queueFamily,
+                0,
+                nativeNullPointer()
             )
         val liveBefore = runtimeMemoryLiveBytes()
         var pointerQueries = raw.callI32Pointer3(
@@ -273,7 +305,17 @@ trusted fun main: int {
                     queueInfo.address,
                     queriedQueue.address
                 ) && nativePointerAddress(queriedQueue.load()) ==
-                nativePointerAddress(app.vulkanDevice.queue)
+                nativePointerAddress(app.vulkanDevice.queue) &&
+                raw.callVoidPointerI32I32Pointer(
+                    getDeviceQueue,
+                    app.vulkanDevice.handle,
+                    app.vulkanDevice.queueFamily,
+                    0,
+                    queriedLegacyQueue.address
+                ) && nativePointerAddress(queriedLegacyQueue.load()) ==
+                nativePointerAddress(app.vulkanDevice.queue) &&
+                nativePointerAddress(queriedLegacyQueue.load()) ==
+                nativePointerAddress(queriedQueue.load())
         }
         var createdEvent = 0
         var resourceRoundTrip = pointerQueries &&
@@ -308,8 +350,50 @@ trusted fun main: int {
                 )
             if (resourceRoundTrip) eventHandle.store(0)
         }
+        var createdFence = 0
+        var fenceRoundTrip = pointerQueries && raw.callI32Pointer4(
+            createFence,
+            app.vulkanDevice.handle,
+            fenceInfo.address,
+            nativeNullPointer(),
+            fenceHandle.address,
+            fenceStatus.address
+        ) && fenceStatus.load() == vulkanSuccess && fenceHandle.load() != 0
+        if (fenceRoundTrip) {
+            createdFence = fenceHandle.load()
+            fenceStatus.store(-1)
+            fenceRoundTrip = raw.callI32PointerI64(
+                getFenceStatus,
+                app.vulkanDevice.handle,
+                createdFence,
+                fenceStatus.address
+            ) && fenceStatus.load() == vulkanSuccess
+            resetStatus.store(-1)
+            fenceRoundTrip = fenceRoundTrip &&
+                raw.callI32PointerI32Pointer(
+                    resetFences,
+                    app.vulkanDevice.handle,
+                    1,
+                    fenceHandle.address,
+                    resetStatus.address
+                ) && resetStatus.load() == vulkanSuccess
+            fenceStatus.store(-1)
+            fenceRoundTrip = fenceRoundTrip && raw.callI32PointerI64(
+                getFenceStatus,
+                app.vulkanDevice.handle,
+                createdFence,
+                fenceStatus.address
+            ) && fenceStatus.load() == 1 &&
+                raw.callVoidPointerI64Pointer(
+                    destroyFence,
+                    app.vulkanDevice.handle,
+                    createdFence,
+                    nativeNullPointer()
+                )
+            if (fenceRoundTrip) fenceHandle.store(0)
+        }
         var call = 0
-        while (recorded && resourceRoundTrip && call < 1000) {
+        while (recorded && resourceRoundTrip && fenceRoundTrip && call < 1000) {
             recorded = raw.callVoidPointerI32(
                 setDeviceMask,
                 command,
@@ -369,7 +453,9 @@ trusted fun main: int {
             endRendering.valid() && setStencilReference.valid() &&
             createEvent.valid() && destroyEvent.valid() &&
             getEventStatus.valid() && getFeatures2.valid() &&
-            getDeviceQueue2.valid() &&
+            getDeviceQueue.valid() && getDeviceQueue2.valid() &&
+            createFence.valid() && destroyFence.valid() &&
+            getFenceStatus.valid() && resetFences.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
@@ -398,13 +484,32 @@ trusted fun main: int {
                 "void(VkDevice,const VkDeviceQueueInfo2*,VkQueue*)" &&
             getDeviceQueue2.callAbi ==
                 "void(pointer,pointer,pointer)" &&
+            getDeviceQueue.callShape ==
+                "void(VkDevice,uint32_t,uint32_t,VkQueue*)" &&
+            getDeviceQueue.callAbi ==
+                "void(pointer,i32,i32,pointer)" &&
+            createFence.callShape ==
+                "VkResult(VkDevice,const VkFenceCreateInfo*,const VkAllocationCallbacks*,VkFence*)" &&
+            createFence.callAbi ==
+                "i32(pointer,pointer,pointer,pointer)" &&
+            destroyFence.callShape ==
+                "void(VkDevice,VkFence,const VkAllocationCallbacks*)" &&
+            destroyFence.callAbi == "void(pointer,i64,pointer)" &&
+            getFenceStatus.callShape == "VkResult(VkDevice,VkFence)" &&
+            getFenceStatus.callAbi == "i32(pointer,i64)" &&
+            resetFences.callShape ==
+                "VkResult(VkDevice,uint32_t,const VkFence*)" &&
+            resetFences.callAbi == "i32(pointer,i32,pointer)" &&
             idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
-            pointerQueries && resourceRoundTrip && createdEvent != 0 &&
-            eventHandle.load() == 0 && recorded && restored &&
+            pointerQueries && resourceRoundTrip && fenceRoundTrip &&
+            createdEvent != 0 && eventHandle.load() == 0 &&
+            createdFence != 0 && fenceHandle.load() == 0 &&
+            fenceStatus.load() == 1 && resetStatus.load() == vulkanSuccess &&
+            recorded && restored &&
             liveAfter == liveBefore
-        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"

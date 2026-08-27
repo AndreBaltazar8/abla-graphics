@@ -3309,15 +3309,27 @@ Resource and query families use
 `callI32Pointer3(command, owner, first, optionalSecond, result)` and
 `callVoidPointer3(command, owner, first, second)`; the result-returning form
 allows a null third native argument for Vulkan's count-only enumeration calls.
+Counted-pointer results use
+`callI32PointerI32Pointer(command, owner, count, values, result)`, while
+scalar/scalar/output queries use
+`callVoidPointerI32I32Pointer(command, owner, first, second, output)`.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
-counts are 8, 35, 4, 2, 81, 62, 13, 104, 61, and 47 respectively—417 Vulkan
-commands. The caller remains responsible for Vulkan object lifetime,
-command-buffer lifecycle, enabled features, and state rules.
+counts are 8, 35, 4, 2, 81, 62, 13, 104, 61, 47, 13, and 17
+respectively—447 Vulkan commands. The caller remains responsible for Vulkan
+object lifetime, command-buffer lifecycle, enabled features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
 metadata or address presence is not represented as executable specification
 coverage.
+
+The latest live proof resolves `vkGetDeviceQueue` through the
+scalar/scalar/output family and verifies that it returns the same queue as
+`vkGetDeviceQueue2`. It creates a signaled fence, observes success, resets the
+one-element fence array through the counted-pointer result family, observes
+exact `VK_NOT_READY`, and destroys the fence. Normal and optimized runs report
+matching queue handles, `fenceStatus=1`, `reset=0`, `live=0`, and
+`stable=true`; both validation scans are clean.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are

@@ -2351,6 +2351,10 @@ fun registryCommandCallAbis(
             signatures.returnTypes[commandIndex] == "VkResult"
         var vulkanVoidPointer3 = api == "vulkan" &&
             signatures.returnTypes[commandIndex] == "void"
+        var vulkanI32PointerI32Pointer = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "VkResult"
+        var vulkanVoidPointerI32I32Pointer = api == "vulkan" &&
+            signatures.returnTypes[commandIndex] == "void"
         var parameterIndex = 0
         var count = 0
         while (parameterIndex < signatures.parameterOwners.size) {
@@ -2455,6 +2459,36 @@ fun registryCommandCallAbis(
                     signatures.parameterPointerLevels[parameterIndex] == "0") {
                     vulkanVoidPointer3 = false
                 } else if (count > 2) vulkanVoidPointer3 = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanAnyDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanI32PointerI32Pointer = false
+                else if (count == 1 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanI32Type(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanI32PointerI32Pointer = false
+                else if (count == 2 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0") {
+                    vulkanI32PointerI32Pointer = false
+                } else if (count > 2) vulkanI32PointerI32Pointer = false
+                if (count == 0 && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanAnyDispatchableType(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI32I32Pointer = false
+                else if ((count == 1 || count == 2) && (
+                    signatures.parameterPointerLevels[parameterIndex] != "0" ||
+                    !registryVulkanI32Type(
+                        signatures.parameterTypes[parameterIndex]
+                    ))) vulkanVoidPointerI32I32Pointer = false
+                else if (count == 3 &&
+                    signatures.parameterPointerLevels[parameterIndex] == "0") {
+                    vulkanVoidPointerI32I32Pointer = false
+                } else if (count > 3) {
+                    vulkanVoidPointerI32I32Pointer = false
+                }
                 count = count + 1
             }
             parameterIndex = parameterIndex + 1
@@ -2492,6 +2526,12 @@ fun registryCommandCallAbis(
         }
         else if (vulkanVoidPointer3 && count == 3) {
             abi = "void(pointer,pointer,pointer)"
+        }
+        else if (vulkanI32PointerI32Pointer && count == 3) {
+            abi = "i32(pointer,i32,pointer)"
+        }
+        else if (vulkanVoidPointerI32I32Pointer && count == 4) {
+            abi = "void(pointer,i32,i32,pointer)"
         }
         abis.append(abi)
         commandIndex = commandIndex + 1
