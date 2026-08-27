@@ -99,6 +99,22 @@ class RegistryBuilderSchemas(
     val memberBitWidths: array<int>
 )
 
+fun registryParseDriverTypes(source: string): array<string> {
+    val names: array<string> = []
+    var cursor = 0
+    while (cursor <= source.size) {
+        var end = textFindByte(source, 10, cursor, source.size)
+        if (end < 0) end = source.size
+        var line = source.slice(cursor, end)
+        if (line.size > 0 && line[line.size - 1] == 13) {
+            line = line.slice(0, line.size - 1)
+        }
+        if (line != "" && line[0] != 35) names.append(line)
+        cursor = end + 1
+    }
+    names
+}
+
 fun registryOpeningTagEnd(source: string, begin: int): int =
     textFindByte(source, 62, begin, source.size)
 
@@ -3795,6 +3811,89 @@ fun registryWriteBuilderSource(
     success
 }
 
+fun registryWriteDriverBuilderSource(
+    output: Path,
+    revision: string,
+    sha256: string,
+    requestedTypes: array<string>,
+    constants: RegistryConstants,
+    types: RegistryTypes,
+    aggregates: RegistryAggregates
+): bool {
+    val builders = registryVulkanBuilderSchemas(
+        aggregates, types, constants
+    )
+    val typeRecords: array<string> = []
+    val memberRecords: array<string> = []
+    var typeIndex = 0
+    while (typeIndex < builders.typeNames.size) {
+        if (registryArrayContains(
+            requestedTypes, builders.typeNames[typeIndex]
+        )) {
+            typeRecords.append(
+                "${builders.typeNames[typeIndex]}|${builders.sizes[typeIndex]}|${builders.alignments[typeIndex]}|${builders.structureTypes[typeIndex]}|${builders.extendsTypes[typeIndex]}"
+            )
+        }
+        typeIndex = typeIndex + 1
+    }
+    var memberIndex = 0
+    while (memberIndex < builders.memberNames.size) {
+        if (registryArrayContains(
+            requestedTypes, builders.memberOwners[memberIndex]
+        )) {
+            memberRecords.append(
+                "${builders.memberOwners[memberIndex]}|${builders.memberNames[memberIndex]}|${builders.memberKinds[memberIndex]}|${builders.memberOffsets[memberIndex]}|${builders.memberElementSizes[memberIndex]}|${builders.memberElementCounts[memberIndex]}|${builders.memberBitOffsets[memberIndex]}|${builders.memberBitWidths[memberIndex]}"
+            )
+        }
+        memberIndex = memberIndex + 1
+    }
+    var valid = requestedTypes.size > 0 &&
+        typeRecords.size == requestedTypes.size
+    var requestedIndex = 0
+    while (valid && requestedIndex < requestedTypes.size) {
+        var earlier = 0
+        while (valid && earlier < requestedIndex) {
+            valid = requestedTypes[earlier] != requestedTypes[requestedIndex]
+            earlier = earlier + 1
+        }
+        requestedIndex = requestedIndex + 1
+    }
+    if (!valid) return false
+
+    var success = output.writeText("")
+    var batch = ""
+    if (success) batch = registryAppend(
+        output, batch,
+        "// Generated production Vulkan driver structure metadata. Do not edit."
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(
+        output, batch, "val vulkanDriverBuilderRevision = \"$revision\""
+    )
+    if (success) batch = registryAppend(
+        output, batch, "val vulkanDriverBuilderSha256 = \"$sha256\""
+    )
+    if (success) batch = registryAppend(
+        output, batch,
+        "val vulkanDriverBuilderTypeCount = ${typeRecords.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch,
+        "val vulkanDriverBuilderMemberCount = ${memberRecords.size}"
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "vulkanDriverBuilderTypeSchema", typeRecords
+    )
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "vulkanDriverBuilderMemberSchema", memberRecords,
+        false
+    )
+    if (batch == "#write-failed") success = false
+    if (success && batch != "") success = output.appendText(batch)
+    success
+}
+
 fun registryWriteSource(
     output: Path,
     api: string,
@@ -4072,8 +4171,8 @@ fun registryWriteSource(
 
 fun main: int {
     if (processArgumentCount() != 7 && processArgumentCount() != 8 &&
-        processArgumentCount() != 9) {
-        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256> [calls.ab] [builders.ab]")
+        processArgumentCount() != 9 && processArgumentCount() != 11) {
+        eprintln("usage: registry-generator <vulkan|opengl> <input.xml> <audit.tsv> <coverage.md> <raw.ab> <revision> <sha256> [calls.ab] [builders.ab] [driver-types.txt driver-builders.ab]")
         2
     } else {
         val api = processArgument(0)
@@ -4086,6 +4185,12 @@ fun main: int {
             3
         } else if (!auditInput.exists()) {
             eprintln("registry audit does not exist: ${auditInput.text}")
+            3
+        } else if (processArgumentCount() == 11 &&
+            !Path(processArgument(9)).exists()) {
+            eprintln(
+                "driver structure manifest does not exist: ${processArgument(9)}"
+            )
             3
         } else {
             val inventory = registryParse(input.readText(), api)
@@ -4161,6 +4266,29 @@ fun main: int {
                     aggregates
                 )) {
                 eprintln("failed to write builder registry source: ${processArgument(8)}")
+                5
+            } else if (processArgumentCount() == 11 &&
+                (!registryWriteBuilderSource(
+                    Path(processArgument(8)),
+                    processArgument(5),
+                    processArgument(6),
+                    constants,
+                    types,
+                    aggregates
+                ) || !registryWriteDriverBuilderSource(
+                    Path(processArgument(10)),
+                    processArgument(5),
+                    processArgument(6),
+                    registryParseDriverTypes(
+                        Path(processArgument(9)).readText()
+                    ),
+                    constants,
+                    types,
+                    aggregates
+                ))) {
+                eprintln(
+                    "failed to write production driver builder source: ${processArgument(10)}"
+                )
                 5
             } else {
                 println("$api: ${inventory.commands.size} commands, ${inventory.features.size} core features, ${inventory.extensions.size} extensions")

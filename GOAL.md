@@ -2783,10 +2783,34 @@ The only exclusions are `VkPresentFrameTokenGGP` and
 `GgpStreamDescriptor` definitions have no native width in `vk.xml`. Keep them
 explicitly unsupported until a pinned authoritative GGP ABI input exists.
 
-Next replace coherent manual Vulkan driver structure packing with generated
-builders and chains, beginning with feature/device creation and descriptor
-updates. Preserve the opt-in schema import and continue using broad
-generator/runtime/live-proof batches.
+### Published checkpoint: generated production Vulkan device and descriptors
+
+The production driver now consumes a second compact schema selected by
+`registry/driver-vulkan-structures.txt`. Its 16 structures and 189 members are
+generated from the same pinned `vk.xml` layout engine as the complete raw
+schema, but ordinary applications do not parse the other 7,217 members.
+Generation rejects missing or duplicate manifest types and the offline fixture
+compares this output byte-for-byte across two independent runs.
+
+Headless and surfaced device creation now build exact
+`VkPhysicalDeviceFeatures`, Vulkan 1.2/1.3 feature chains,
+`VkDeviceQueueCreateInfo`, and `VkDeviceCreateInfo` layouts by member name.
+Descriptor layout bindings, pipeline layouts and push ranges, pools,
+allocation, image/buffer payloads, and single or arrayed writes use the same
+generated production builder. The migration removes padded guesses such as a
+224-byte feature block and 16-byte push range in favor of the registry's exact
+220-byte and 12-byte layouts.
+
+Named access also corrected a latent capability bug: the old byte offset
+labeled `shaderStorageImageExtendedFormats` selected the following
+`shaderStorageImageMultisample` field. Capability reporting and enabled-device
+features now use the exact intended member. Headless Vulkan, X11 Vulkan,
+normal/optimized raw runs, deterministic generation, Abla-only, core, and
+stripped-runtime-linkage gates all pass; linkage reports `unresolved=0`.
+
+Next migrate coherent command submission/transfer and pipeline/render groups.
+Add production manifest types in batches, keep hot replay paths free of string
+layout lookup, and retain one consolidated live gate per published checkpoint.
 
 ## Working commands
 

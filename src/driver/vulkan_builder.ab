@@ -1,0 +1,257 @@
+// Compact generated-layout builder used by the production Vulkan driver.
+// Only structures named in registry/driver-vulkan-structures.txt are linked;
+// the complete 7,406-member schema remains an opt-in raw API.
+
+import "abla/unsafe/memory"
+import "vulkan_builder_schema.ab"
+
+class VulkanDriverTypeLayout(
+    val size: int,
+    val structureType: int,
+    val valid: bool
+)
+
+class VulkanDriverMemberLayout(
+    val kind: string,
+    val offset: int,
+    val elementSize: int,
+    val elementCount: int,
+    val valid: bool
+)
+
+fun vulkanDriverBuilderDelimiter(
+    schema: string,
+    begin: int,
+    delimiter: int
+): int {
+    var found = -1
+    var index = begin
+    while (found < 0 && index < schema.size) {
+        if (schema[index] == delimiter) found = index
+        index = index + 1
+    }
+    found
+}
+
+fun vulkanDriverBuilderInteger(
+    schema: string,
+    begin: int,
+    end: int
+): int {
+    val negative = begin < end && schema[begin] == 45
+    var index = if (negative) begin + 1 else begin
+    var value = 0
+    while (index < end && schema[index] >= 48 && schema[index] <= 57) {
+        value = value * 10 + schema[index] - 48
+        index = index + 1
+    }
+    if (negative) -value else value
+}
+
+fun vulkanDriverTypeLayout(typeName: string): VulkanDriverTypeLayout {
+    val schema = vulkanDriverBuilderTypeSchema()
+    var cursor = 0
+    var size = 0
+    var structureType = -1
+    var found = false
+    while (!found && cursor < schema.size) {
+        val nameEnd = vulkanDriverBuilderDelimiter(schema, cursor, 124)
+        val sizeEnd = vulkanDriverBuilderDelimiter(schema, nameEnd + 1, 124)
+        val alignmentEnd = vulkanDriverBuilderDelimiter(
+            schema, sizeEnd + 1, 124
+        )
+        val structureTypeEnd = vulkanDriverBuilderDelimiter(
+            schema, alignmentEnd + 1, 124
+        )
+        val recordEnd = vulkanDriverBuilderDelimiter(
+            schema, structureTypeEnd + 1, 59
+        )
+        if (nameEnd < 0 || sizeEnd < 0 || alignmentEnd < 0 ||
+            structureTypeEnd < 0 || recordEnd < 0) {
+            cursor = schema.size
+        } else if (schema.slice(cursor, nameEnd) == typeName) {
+            size = vulkanDriverBuilderInteger(schema, nameEnd + 1, sizeEnd)
+            structureType = vulkanDriverBuilderInteger(
+                schema, alignmentEnd + 1, structureTypeEnd
+            )
+            found = true
+        } else cursor = recordEnd + 1
+    }
+    VulkanDriverTypeLayout(size, structureType, found)
+}
+
+fun vulkanDriverMemberLayout(
+    typeName: string,
+    memberName: string
+): VulkanDriverMemberLayout {
+    val schema = vulkanDriverBuilderMemberSchema()
+    var cursor = 0
+    var kind = ""
+    var offset = -1
+    var elementSize = 0
+    var elementCount = 0
+    var found = false
+    while (!found && cursor < schema.size) {
+        val ownerEnd = vulkanDriverBuilderDelimiter(schema, cursor, 124)
+        val nameEnd = vulkanDriverBuilderDelimiter(schema, ownerEnd + 1, 124)
+        val kindEnd = vulkanDriverBuilderDelimiter(schema, nameEnd + 1, 124)
+        val offsetEnd = vulkanDriverBuilderDelimiter(schema, kindEnd + 1, 124)
+        val sizeEnd = vulkanDriverBuilderDelimiter(schema, offsetEnd + 1, 124)
+        val countEnd = vulkanDriverBuilderDelimiter(schema, sizeEnd + 1, 124)
+        val bitOffsetEnd = vulkanDriverBuilderDelimiter(
+            schema, countEnd + 1, 124
+        )
+        val recordEnd = vulkanDriverBuilderDelimiter(
+            schema, bitOffsetEnd + 1, 59
+        )
+        if (ownerEnd < 0 || nameEnd < 0 || kindEnd < 0 || offsetEnd < 0 ||
+            sizeEnd < 0 || countEnd < 0 || bitOffsetEnd < 0 ||
+            recordEnd < 0) {
+            cursor = schema.size
+        } else if (schema.slice(cursor, ownerEnd) == typeName &&
+            schema.slice(ownerEnd + 1, nameEnd) == memberName) {
+            kind = schema.slice(nameEnd + 1, kindEnd)
+            offset = vulkanDriverBuilderInteger(schema, kindEnd + 1, offsetEnd)
+            elementSize = vulkanDriverBuilderInteger(
+                schema, offsetEnd + 1, sizeEnd
+            )
+            elementCount = vulkanDriverBuilderInteger(
+                schema, sizeEnd + 1, countEnd
+            )
+            found = true
+        } else cursor = recordEnd + 1
+    }
+    VulkanDriverMemberLayout(
+        kind, offset, elementSize, elementCount, found
+    )
+}
+
+fun vulkanDriverStructureSize(typeName: string): int =
+    vulkanDriverTypeLayout(typeName).size
+
+trusted fun vulkanDriverZeroedBytes(size: int): NativeByteBuffer {
+    val bytes = nativeByteBuffer(if (size > 0) size else 0)
+    var index = 0
+    while (index < bytes.capacity) {
+        bytes.store(index, 0)
+        index = index + 1
+    }
+    move(bytes)
+}
+
+trusted fun vulkanDriverStoreI32At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    value: int,
+    elementIndex: int = 0
+): bool {
+    val member = vulkanDriverMemberLayout(typeName, memberName)
+    val offset = baseOffset + member.offset + elementIndex * member.elementSize
+    member.valid && member.kind == "i32" && member.elementSize == 4 &&
+        elementIndex >= 0 && elementIndex < member.elementCount &&
+        value >= -2147483648 && value <= 4294967295 && offset >= 0 &&
+        offset <= bytes.capacity - 4 && bytes.store(offset, value & 255) &&
+        bytes.store(offset + 1, (value >>> 8) & 255) &&
+        bytes.store(offset + 2, (value >>> 16) & 255) &&
+        bytes.store(offset + 3, (value >>> 24) & 255)
+}
+
+trusted fun vulkanDriverStoreI64At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    value: int,
+    elementIndex: int = 0
+): bool {
+    val member = vulkanDriverMemberLayout(typeName, memberName)
+    val offset = baseOffset + member.offset + elementIndex * member.elementSize
+    member.valid && member.kind == "i64" && member.elementSize == 8 &&
+        elementIndex >= 0 && elementIndex < member.elementCount &&
+        offset >= 0 && offset <= bytes.capacity - 8 &&
+        bytes.storeI64(offset, value)
+}
+
+trusted fun vulkanDriverStorePointerAt(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    value: i64*,
+    elementIndex: int = 0
+): bool {
+    val member = vulkanDriverMemberLayout(typeName, memberName)
+    val offset = baseOffset + member.offset + elementIndex * member.elementSize
+    member.valid && member.kind == "pointer" && member.elementSize == 8 &&
+        elementIndex >= 0 && elementIndex < member.elementCount &&
+        offset >= 0 && offset <= bytes.capacity - 8 &&
+        bytes.storePointer(offset, value)
+}
+
+trusted fun vulkanDriverLoadI32At(
+    var bytes: NativeByteBuffer,
+    baseOffset: int,
+    typeName: string,
+    memberName: string,
+    elementIndex: int = 0
+): int {
+    val member = vulkanDriverMemberLayout(typeName, memberName)
+    val offset = baseOffset + member.offset + elementIndex * member.elementSize
+    if (member.valid && member.kind == "i32" && member.elementSize == 4 &&
+        elementIndex >= 0 && elementIndex < member.elementCount &&
+        offset >= 0 && offset <= bytes.capacity - 4) {
+        bytes.load(offset) | (bytes.load(offset + 1) << 8) |
+            (bytes.load(offset + 2) << 16) |
+            (bytes.load(offset + 3) << 24)
+    } else 0
+}
+
+trusted fun vulkanDriverZeroedStructure(
+    typeName: string
+): NativeByteBuffer {
+    val layout = vulkanDriverTypeLayout(typeName)
+    val bytes = vulkanDriverZeroedBytes(layout.size)
+    if (layout.valid && layout.structureType >= 0) {
+        vulkanDriverStoreI32At(
+            bytes, 0, typeName, "sType", layout.structureType
+        )
+    }
+    move(bytes)
+}
+
+trusted fun vulkanDriverStoreI32(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string,
+    value: int
+): bool = vulkanDriverStoreI32At(
+    bytes, 0, typeName, memberName, value
+)
+
+trusted fun vulkanDriverStoreI64(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string,
+    value: int
+): bool = vulkanDriverStoreI64At(
+    bytes, 0, typeName, memberName, value
+)
+
+trusted fun vulkanDriverStorePointer(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string,
+    value: i64*
+): bool = vulkanDriverStorePointerAt(
+    bytes, 0, typeName, memberName, value
+)
+
+trusted fun vulkanDriverLoadI32(
+    var bytes: NativeByteBuffer,
+    typeName: string,
+    memberName: string
+): int = vulkanDriverLoadI32At(
+    bytes, 0, typeName, memberName
+)

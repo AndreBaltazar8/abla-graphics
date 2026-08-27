@@ -17,19 +17,25 @@ cd "$compiler_root"
     "$project_root/registry/fixtures/audit.tsv" \
     "$output_directory/first.md" "$output_directory/first.ab" \
     fixture-revision fixture-sha256 "$output_directory/first.calls.ab" \
-    "$output_directory/first.builders.ab"
+    "$output_directory/first.builders.ab" \
+    "$project_root/registry/fixtures/driver-vulkan-structures.txt" \
+    "$output_directory/first.driver-builders.ab"
 "$generator" vulkan \
     "$project_root/registry/fixtures/registry.xml" \
     "$project_root/registry/fixtures/audit.tsv" \
     "$output_directory/second.md" "$output_directory/second.ab" \
     fixture-revision fixture-sha256 "$output_directory/second.calls.ab" \
-    "$output_directory/second.builders.ab"
+    "$output_directory/second.builders.ab" \
+    "$project_root/registry/fixtures/driver-vulkan-structures.txt" \
+    "$output_directory/second.driver-builders.ab"
 
 cmp "$output_directory/first.md" "$output_directory/second.md"
 cmp "$output_directory/first.ab" "$output_directory/second.ab"
 cmp "$output_directory/first.calls.ab" "$output_directory/second.calls.ab"
 cmp "$output_directory/first.builders.ab" \
     "$output_directory/second.builders.ab"
+cmp "$output_directory/first.driver-builders.ab" \
+    "$output_directory/second.driver-builders.ab"
 cmp "$output_directory/first.md" \
     "$project_root/registry/fixtures/vulkan.expected.md"
 cmp "$output_directory/first.ab" \
@@ -38,6 +44,8 @@ cmp "$output_directory/first.calls.ab" \
     "$project_root/registry/fixtures/vulkan.calls.expected.ab"
 cmp "$output_directory/first.builders.ab" \
     "$project_root/registry/fixtures/vulkan.builders.expected.ab"
+cmp "$output_directory/first.driver-builders.ab" \
+    "$project_root/registry/fixtures/vulkan.driver-builders.expected.ab"
 
 if "$generator" vulkan \
     "$project_root/registry/fixtures/missing-definition.xml" \

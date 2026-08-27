@@ -26,12 +26,12 @@ revision/hash and complete byte-sorted arrays for command names/forms/statuses,
 public core features/statuses, and extensions/statuses. Normal applications do
 not import or initialize these inspection arrays. The offline fixture compares
 their exact bytes across two runs, and the full pinned modules are compiler-
-checked together. This is the generated raw namespace and metadata foundation;
-the OpenGL side also emits 6,271 exact signed-decimal/hexadecimal constant
-declarations. API-qualified desktop definitions override GLES-only collisions;
-unknown literal forms and conflicting equal-priority definitions are hard
-errors. Vulkan constants, ABI layouts, and callable commands are not yet
-emitted.
+checked together. The OpenGL side also emits exact signed-decimal/hexadecimal
+constant declarations. Vulkan generation emits constants, complete aggregate
+metadata, exact callable-command ABI families, a complete opt-in structure
+schema, and a compact manifest-selected production-driver schema.
+API-qualified desktop definitions override GLES-only collisions; unknown
+literal forms and conflicting equal-priority definitions are hard errors.
 
 The inventory parser recognizes only the XML structures needed for this stage;
 other registry structures are not interpreted or presented as generated ABI
@@ -39,15 +39,22 @@ coverage. The later binding stage must use an explicit tag/attribute allowlist
 for every structure it consumes. A newly encountered tag in a consumed context
 must stop generation with its location rather than being silently omitted.
 
-The binding stage will generate, in dependency order:
+The binding stage generates and validates, in dependency order:
 
 1. scalar aliases, handles, enums, bitmasks, and constants;
 2. structures and unions with target ABI layout assertions;
 3. command signatures and per-instance/per-device loading metadata;
-4. feature and extension negotiation metadata.
+4. feature and extension negotiation metadata;
+5. hosted aggregate layouts, bitfields, and `structextends` relationships;
+6. a reviewed production subset for driver structure packing.
 
 Generated declarations will feed the existing audit join rather than infer
 support from the presence of a registry token.
+
+`registry/driver-vulkan-structures.txt` is the production subset boundary. A
+missing, duplicate, or ABI-unresolved requested type fails generation. The
+full raw schema remains separate so normal applications compile only the small
+driver subset they actually need.
 
 Generated ledger and Abla files carry the upstream revision and content hash. Generation uses
 byte-order sorting and no wall-clock timestamp. `make test-registry` checks the

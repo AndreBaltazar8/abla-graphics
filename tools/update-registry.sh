@@ -63,7 +63,9 @@ cd "$compiler_root"
     "$project_root/src/raw/vulkan_registry.ab" \
     "$vulkan_revision" "$vulkan_sha256" \
     "$project_root/src/raw/vulkan_calls.ab" \
-    "$project_root/src/raw/vulkan_builder_schema.ab"
+    "$project_root/src/raw/vulkan_builder_schema.ab" \
+    "$project_root/registry/driver-vulkan-structures.txt" \
+    "$project_root/src/driver/vulkan_builder_schema.ab"
 "$generator" opengl "$cache_directory/gl.xml" \
     "$project_root/registry/audit/opengl.tsv" \
     "$project_root/registry/coverage/opengl.md" \

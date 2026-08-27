@@ -1740,3 +1740,25 @@ mappings cover Xlib/XCB, 64-bit Win32, Fuchsia, Metal, and StdVideo external
 enums; Xlib/XCB/Win32 surface-create layouts are 40 bytes. Only the two GGP
 aggregates remain unsupported because `vk.xml` does not define their external
 native token widths.
+
+### Generated layouts in production device and descriptor paths
+
+A compact manifest-selected schema now brings registry-derived layouts into
+the production Vulkan driver without importing the complete opt-in raw schema.
+It contains 16 device/feature/descriptor structures and 189 members. Missing or
+duplicate manifest entries fail generation, and the offline fixture proves
+byte-identical output across two runs.
+
+Both headless and surfaced device creation use generated feature, queue, and
+device layouts. Compute and general bind-group descriptor layout, pool,
+allocation, image/buffer payload, pipeline-layout, push-range, and write paths
+use generated member stores, including exact array strides. This replaces the
+old 224-byte feature padding and 16-byte push-range padding with exact 220-byte
+and 12-byte registry layouts. Named access fixed an incorrect legacy offset
+for `shaderStorageImageExtendedFormats`, which had read and enabled the next
+field instead.
+
+Deterministic registry tests, headless and X11 Vulkan, normal and optimized raw
+execution, Abla-only, core, and stripped-environment runtime linkage pass.
+Runtime linkage resolves OpenGL and Vulkan directly with zero unresolved
+dependencies.

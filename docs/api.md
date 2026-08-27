@@ -3391,6 +3391,17 @@ StdVideo enum widths are explicit. Exactly two GGP aggregates remain excluded
 because `GgpStreamDescriptor` and `GgpFrameToken` are external definitions with
 no width in `vk.xml`; the generator does not guess their ABI.
 
+The production Vulkan driver uses a separate compact generated layout selected
+by `registry/driver-vulkan-structures.txt`. It currently covers the 16
+feature/device/descriptor structures used by migrated driver paths and 189
+members, while the complete 7,406-member schema remains opt-in. Device feature
+queries and enablement, headless and surfaced device creation, descriptor set
+layouts/pools/allocation, pipeline-layout push ranges, descriptor image/buffer
+payloads, and single or arrayed writes use checked generated member offsets and
+exact structure strides. Adding a production structure requires updating the
+manifest and regenerating; handwritten byte offsets are not the extension
+mechanism.
+
 `rawVulkanStructureChain(rootTypeName, nodeTypes)` validates every generated
 `structextends` relationship, rejects duplicate node types, owns all nodes in
 one aligned zeroed buffer, writes their `sType` values, and links their `pNext`

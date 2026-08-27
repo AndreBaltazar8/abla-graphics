@@ -13,6 +13,7 @@ import "../shader/spirv.ab"
 import "../shader/specialization.ab"
 import "../platform/x11.ab"
 import "../platform/x11_wsi.ab"
+import "vulkan_builder.ab"
 
 val vulkanSuccess = 0
 val vulkanSuboptimal = 1000001003
@@ -1221,7 +1222,9 @@ trusted fun VulkanAdapter.queueFamilyTimestampValidBits(
 
 trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
     val properties = nativeByteBuffer(1024)
-    val deviceFeatures = nativeByteBuffer(224)
+    val deviceFeatures = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceFeatures"
+    )
     val memoryProperties = nativeByteBuffer(1024)
     vkGetPhysicalDeviceProperties(this.handle, properties.address)
     vkGetPhysicalDeviceFeatures(this.handle, deviceFeatures.address)
@@ -1250,25 +1253,32 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
             graphicsFeatureStorageBuffers | graphicsFeatureStorageTextures
     }
     if ((features & graphicsFeatureStorageTextures) != 0 &&
-        // VkPhysicalDeviceFeatures::fragmentStoresAndAtomics.
-        (deviceFeatures.loadI64(104) & 4294967295) != 0) {
+        vulkanDriverLoadI32(
+            deviceFeatures, "VkPhysicalDeviceFeatures",
+            "fragmentStoresAndAtomics"
+        ) != 0) {
         features = features | graphicsFeatureFragmentStorageTextures
     }
     if ((features & graphicsFeatureStorageTextures) != 0 &&
-        // VkPhysicalDeviceFeatures::shaderStorageImageExtendedFormats.
-        (deviceFeatures.loadI64(120) & 4294967295) != 0) {
+        vulkanDriverLoadI32(
+            deviceFeatures, "VkPhysicalDeviceFeatures",
+            "shaderStorageImageExtendedFormats"
+        ) != 0) {
         features = features | graphicsFeatureStorageTextureExtendedFormats
     }
     if ((features & graphicsFeatureStorageTextures) != 0 &&
-        // VkPhysicalDeviceFeatures::imageCubeArray; required by the SPIR-V
-        // ImageCubeArray capability used by storage imageCube.
-        (deviceFeatures.loadI64(8) & 4294967295) != 0) {
+        // Required by the SPIR-V ImageCubeArray storage-image capability.
+        vulkanDriverLoadI32(
+            deviceFeatures, "VkPhysicalDeviceFeatures", "imageCubeArray"
+        ) != 0) {
         features = features | graphicsFeatureCubeStorageTextures
     }
     val maximumAnisotropy = graphicsPositiveF32Floor(
         properties.loadI64(568) & 4294967295
     )
-    if (((deviceFeatures.loadI64(72) >>> 32) & 4294967295) != 0 &&
+    if (vulkanDriverLoadI32(
+        deviceFeatures, "VkPhysicalDeviceFeatures", "samplerAnisotropy"
+    ) != 0 &&
         maximumAnisotropy > 1) {
         features = features | graphicsFeatureSamplerAnisotropy
     }
@@ -1309,52 +1319,60 @@ trusted fun VulkanAdapter.capabilities(): GraphicsCapabilities {
 }
 
 trusted fun VulkanAdapter.enabledDeviceFeatures(): NativeByteBuffer {
-    val available = nativeByteBuffer(224)
-    val enabled = nativeByteBuffer(224)
+    val available = vulkanDriverZeroedStructure("VkPhysicalDeviceFeatures")
+    val enabled = vulkanDriverZeroedStructure("VkPhysicalDeviceFeatures")
     vkGetPhysicalDeviceFeatures(this.handle, available.address)
-    var index = 0
-    while (index < enabled.capacity) {
-        enabled.store(index, 0)
-        index = index + 1
+    if (vulkanDriverLoadI32(
+        available, "VkPhysicalDeviceFeatures", "samplerAnisotropy"
+    ) != 0) {
+        vulkanDriverStoreI32(
+            enabled, "VkPhysicalDeviceFeatures", "samplerAnisotropy", 1
+        )
     }
-    if (((available.loadI64(72) >>> 32) & 4294967295) != 0) {
-        enabled.store(76, 1)
+    if (vulkanDriverLoadI32(
+        available, "VkPhysicalDeviceFeatures", "imageCubeArray"
+    ) != 0) {
+        vulkanDriverStoreI32(
+            enabled, "VkPhysicalDeviceFeatures", "imageCubeArray", 1
+        )
     }
-    if ((available.loadI64(8) & 4294967295) != 0) {
-        enabled.store(8, 1)
+    if (vulkanDriverLoadI32(
+        available, "VkPhysicalDeviceFeatures", "fragmentStoresAndAtomics"
+    ) != 0) {
+        vulkanDriverStoreI32(
+            enabled, "VkPhysicalDeviceFeatures",
+            "fragmentStoresAndAtomics", 1
+        )
     }
-    // Preserve the exact VkPhysicalDeviceFeatures byte offsets queried above.
-    if ((available.loadI64(104) & 4294967295) != 0) {
-        enabled.store(104, 1)
-    }
-    if ((available.loadI64(120) & 4294967295) != 0) {
-        enabled.store(120, 1)
+    if (vulkanDriverLoadI32(
+        available, "VkPhysicalDeviceFeatures", "shaderStorageImageExtendedFormats"
+    ) != 0) {
+        vulkanDriverStoreI32(
+            enabled, "VkPhysicalDeviceFeatures",
+            "shaderStorageImageExtendedFormats", 1
+        )
     }
     enabled
 }
 
 trusted fun VulkanAdapter.timelineSemaphoreSupported(): bool {
-    val features12 = nativeByteBuffer(208)
-    val features2 = nativeByteBuffer(240)
-    var index = 0
-    while (index < features12.capacity) {
-        features12.store(index, 0)
-        index = index + 1
-    }
-    index = 0
-    while (index < features2.capacity) {
-        features2.store(index, 0)
-        index = index + 1
-    }
-    features12.storeI64(0, 51)
-    features12.storePointer(8, nativeNullPointer())
-    features2.storeI64(0, 1000059000)
-    features2.storePointer(8, features12.address)
+    val features12 = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceVulkan12Features"
+    )
+    val features2 = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceFeatures2"
+    )
+    vulkanDriverStorePointer(
+        features2, "VkPhysicalDeviceFeatures2", "pNext", features12.address
+    )
     if (this.apiVersion >= vulkanApiVersion12) {
         vkGetPhysicalDeviceFeatures2(this.handle, features2.address)
     }
     this.apiVersion >= vulkanApiVersion12 &&
-        (features12.loadI64(164) & 4294967295) != 0
+        vulkanDriverLoadI32(
+            features12, "VkPhysicalDeviceVulkan12Features",
+            "timelineSemaphore"
+        ) != 0
 }
 
 trusted fun VulkanAdapter.synchronization2Supported(): bool {
@@ -1367,45 +1385,41 @@ class Vulkan13FeatureSupport(
 )
 
 trusted fun VulkanAdapter.vulkan13Features(): Vulkan13FeatureSupport {
-    val features13 = nativeByteBuffer(80)
-    val features2 = nativeByteBuffer(240)
-    var index = 0
-    while (index < features13.capacity) {
-        features13.store(index, 0)
-        index = index + 1
-    }
-    index = 0
-    while (index < features2.capacity) {
-        features2.store(index, 0)
-        index = index + 1
-    }
-    features13.storeI64(0, 53)
-    features13.storePointer(8, nativeNullPointer())
-    features2.storeI64(0, 1000059000)
-    features2.storePointer(8, features13.address)
+    val features13 = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceVulkan13Features"
+    )
+    val features2 = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceFeatures2"
+    )
+    vulkanDriverStorePointer(
+        features2, "VkPhysicalDeviceFeatures2", "pNext", features13.address
+    )
     if (this.apiVersion >= vulkanApiVersion13) {
         vkGetPhysicalDeviceFeatures2(this.handle, features2.address)
     }
     Vulkan13FeatureSupport(
         this.apiVersion >= vulkanApiVersion13 &&
-            (features13.loadI64(52) & 4294967295) != 0,
+            vulkanDriverLoadI32(
+                features13, "VkPhysicalDeviceVulkan13Features",
+                "synchronization2"
+            ) != 0,
         this.apiVersion >= vulkanApiVersion13 &&
-            (features13.loadI64(64) & 4294967295) != 0
+            vulkanDriverLoadI32(
+                features13, "VkPhysicalDeviceVulkan13Features",
+                "dynamicRendering"
+            ) != 0
     )
 }
 
 fun vulkanEnabledTimelineSemaphoreFeatures(
     enabled: bool
 ): NativeByteBuffer {
-    val features = nativeByteBuffer(208)
-    var index = 0
-    while (index < features.capacity) {
-        features.store(index, 0)
-        index = index + 1
-    }
-    features.storeI64(0, 51)
-    features.storePointer(8, nativeNullPointer())
-    if (enabled) features.storeI64(164, 1)
+    val features = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceVulkan12Features"
+    )
+    if (enabled) vulkanDriverStoreI32(
+        features, "VkPhysicalDeviceVulkan12Features", "timelineSemaphore", 1
+    )
     features
 }
 
@@ -1413,16 +1427,15 @@ fun vulkanEnabledVulkan13Features(
     synchronization2: bool,
     dynamicRendering: bool
 ): NativeByteBuffer {
-    val features = nativeByteBuffer(80)
-    var index = 0
-    while (index < features.capacity) {
-        features.store(index, 0)
-        index = index + 1
-    }
-    features.storeI64(0, 53)
-    features.storePointer(8, nativeNullPointer())
-    if (synchronization2) features.storeI64(52, 1)
-    if (dynamicRendering) features.storeI64(64, 1)
+    val features = vulkanDriverZeroedStructure(
+        "VkPhysicalDeviceVulkan13Features"
+    )
+    if (synchronization2) vulkanDriverStoreI32(
+        features, "VkPhysicalDeviceVulkan13Features", "synchronization2", 1
+    )
+    if (dynamicRendering) vulkanDriverStoreI32(
+        features, "VkPhysicalDeviceVulkan13Features", "dynamicRendering", 1
+    )
     features
 }
 
@@ -3101,40 +3114,52 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
             synchronization2Supported,
             dynamicRenderingSupported
         )
-        timelineFeatures.storePointer(
-            8,
+        vulkanDriverStorePointer(
+            timelineFeatures,
+            "VkPhysicalDeviceVulkan12Features",
+            "pNext",
             if (synchronization2Supported || dynamicRenderingSupported)
                 enabledFeatures13.address
             else nativeNullPointer()
         )
         val priority = nativeByteBuffer(8)
         priority.storeI64(0, 1065353216)
-        val queueInfo = nativeByteBuffer(40)
-        queueInfo.storeI64(0, 2)
-        queueInfo.storePointer(8, nativeNullPointer())
-        queueInfo.storeI64(
-            16,
-            (queueFamily & 4294967295) * 4294967296
+        val queueInfo = vulkanDriverZeroedStructure(
+            "VkDeviceQueueCreateInfo"
         )
-        queueInfo.storeI64(24, 1)
-        queueInfo.storePointer(32, priority.address)
+        vulkanDriverStoreI32(
+            queueInfo, "VkDeviceQueueCreateInfo", "queueFamilyIndex",
+            queueFamily
+        )
+        vulkanDriverStoreI32(
+            queueInfo, "VkDeviceQueueCreateInfo", "queueCount", 1
+        )
+        vulkanDriverStorePointer(
+            queueInfo, "VkDeviceQueueCreateInfo", "pQueuePriorities",
+            priority.address
+        )
 
-        val createInfo = nativeByteBuffer(72)
-        createInfo.storeI64(0, 3)
-        createInfo.storePointer(
-            8,
+        val createInfo = vulkanDriverZeroedStructure("VkDeviceCreateInfo")
+        vulkanDriverStorePointer(
+            createInfo,
+            "VkDeviceCreateInfo",
+            "pNext",
             if (timelineSupported) timelineFeatures.address
             else if (synchronization2Supported || dynamicRenderingSupported)
                 enabledFeatures13.address
             else nativeNullPointer()
         )
-        createInfo.storeI64(16, 4294967296)
-        createInfo.storePointer(24, queueInfo.address)
-        createInfo.storeI64(32, 0)
-        createInfo.storePointer(40, nativeNullPointer())
-        createInfo.storeI64(48, 0)
-        createInfo.storePointer(56, nativeNullPointer())
-        createInfo.storePointer(64, enabledFeatures.address)
+        vulkanDriverStoreI32(
+            createInfo, "VkDeviceCreateInfo", "queueCreateInfoCount", 1
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDeviceCreateInfo", "pQueueCreateInfos",
+            queueInfo.address
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDeviceCreateInfo", "pEnabledFeatures",
+            enabledFeatures.address
+        )
 
         val output = nativePointerCell(nativeNullPointer())
         val status = vkCreateDevice(
@@ -3995,15 +4020,28 @@ trusted fun VulkanDevice.computePipelineNative(
         ((storageHandle == 0 && storageSize == 0) || storageRequested) &&
         !(storageRequested && externalDescriptorSetLayout != 0)
     if (this.valid() && bindingRequestValid && storageRequested) {
-        val binding = nativeByteBuffer(24)
-        binding.storeI64(0, 7 * 4294967296)
-        binding.storeI64(8, 32 * 4294967296 + 1)
-        binding.storePointer(16, nativeNullPointer())
-        val createInfo = nativeByteBuffer(32)
-        createInfo.storeI64(0, 32)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, 4294967296)
-        createInfo.storePointer(24, binding.address)
+        val binding = vulkanDriverZeroedStructure(
+            "VkDescriptorSetLayoutBinding"
+        )
+        vulkanDriverStoreI32(
+            binding, "VkDescriptorSetLayoutBinding", "descriptorType", 7
+        )
+        vulkanDriverStoreI32(
+            binding, "VkDescriptorSetLayoutBinding", "descriptorCount", 1
+        )
+        vulkanDriverStoreI32(
+            binding, "VkDescriptorSetLayoutBinding", "stageFlags", 32
+        )
+        val createInfo = vulkanDriverZeroedStructure(
+            "VkDescriptorSetLayoutCreateInfo"
+        )
+        vulkanDriverStoreI32(
+            createInfo, "VkDescriptorSetLayoutCreateInfo", "bindingCount", 1
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDescriptorSetLayoutCreateInfo", "pBindings",
+            binding.address
+        )
         val output = nativeI64Cell(0)
         if (vkCreateDescriptorSetLayout(
             this.handle,
@@ -4020,25 +4058,39 @@ trusted fun VulkanDevice.computePipelineNative(
         descriptorSetLayout else externalDescriptorSetLayout
     if (this.valid() && shader.valid() && shader.device == this.handle &&
         pushConstantsValid && bindingRequestValid) {
-        val layoutInfo = nativeByteBuffer(48)
-        layoutInfo.storeI64(0, 30)
-        layoutInfo.storePointer(8, nativeNullPointer())
-        layoutInfo.storeI64(
-            16,
-            if (pipelineDescriptorSetLayout != 0) 4294967296 else 0
+        val layoutInfo = vulkanDriverZeroedStructure(
+            "VkPipelineLayoutCreateInfo"
+        )
+        vulkanDriverStoreI32(
+            layoutInfo,
+            "VkPipelineLayoutCreateInfo",
+            "setLayoutCount",
+            if (pipelineDescriptorSetLayout != 0) 1 else 0
         )
         val setLayout = nativeI64Cell(pipelineDescriptorSetLayout)
-        layoutInfo.storePointer(
-            24,
+        vulkanDriverStorePointer(
+            layoutInfo,
+            "VkPipelineLayoutCreateInfo",
+            "pSetLayouts",
             if (pipelineDescriptorSetLayout != 0) setLayout.address
             else nativeNullPointer()
         )
-        val pushRange = nativeByteBuffer(16)
-        pushRange.storeI64(0, pushConstantStageMask)
-        pushRange.storeI64(8, pushConstantSize)
-        layoutInfo.storeI64(32, if (pushConstantSize > 0) 1 else 0)
-        layoutInfo.storePointer(
-            40,
+        val pushRange = vulkanDriverZeroedStructure("VkPushConstantRange")
+        vulkanDriverStoreI32(
+            pushRange, "VkPushConstantRange", "stageFlags",
+            pushConstantStageMask
+        )
+        vulkanDriverStoreI32(
+            pushRange, "VkPushConstantRange", "size", pushConstantSize
+        )
+        vulkanDriverStoreI32(
+            layoutInfo, "VkPipelineLayoutCreateInfo",
+            "pushConstantRangeCount", if (pushConstantSize > 0) 1 else 0
+        )
+        vulkanDriverStorePointer(
+            layoutInfo,
+            "VkPipelineLayoutCreateInfo",
+            "pPushConstantRanges",
             if (pushConstantSize > 0) pushRange.address
             else nativeNullPointer()
         )
@@ -4086,14 +4138,26 @@ trusted fun VulkanDevice.computePipelineNative(
         layout = 0
     }
     if (pipeline != 0 && descriptorSetLayout != 0) {
-        val poolSize = nativeByteBuffer(8)
-        poolSize.storeI64(0, 4294967296 + 7)
-        val poolInfo = nativeByteBuffer(40)
-        poolInfo.storeI64(0, 33)
-        poolInfo.storePointer(8, nativeNullPointer())
-        poolInfo.storeI64(16, 4294967296)
-        poolInfo.storeI64(24, 1)
-        poolInfo.storePointer(32, poolSize.address)
+        val poolSize = vulkanDriverZeroedStructure("VkDescriptorPoolSize")
+        vulkanDriverStoreI32(
+            poolSize, "VkDescriptorPoolSize", "type", 7
+        )
+        vulkanDriverStoreI32(
+            poolSize, "VkDescriptorPoolSize", "descriptorCount", 1
+        )
+        val poolInfo = vulkanDriverZeroedStructure(
+            "VkDescriptorPoolCreateInfo"
+        )
+        vulkanDriverStoreI32(
+            poolInfo, "VkDescriptorPoolCreateInfo", "maxSets", 1
+        )
+        vulkanDriverStoreI32(
+            poolInfo, "VkDescriptorPoolCreateInfo", "poolSizeCount", 1
+        )
+        vulkanDriverStorePointer(
+            poolInfo, "VkDescriptorPoolCreateInfo", "pPoolSizes",
+            poolSize.address
+        )
         val output = nativeI64Cell(0)
         if (vkCreateDescriptorPool(
             this.handle,
@@ -4104,12 +4168,21 @@ trusted fun VulkanDevice.computePipelineNative(
     }
     if (descriptorPool != 0) {
         val setLayout = nativeI64Cell(descriptorSetLayout)
-        val allocateInfo = nativeByteBuffer(40)
-        allocateInfo.storeI64(0, 34)
-        allocateInfo.storePointer(8, nativeNullPointer())
-        allocateInfo.storeI64(16, descriptorPool)
-        allocateInfo.storeI64(24, 1)
-        allocateInfo.storePointer(32, setLayout.address)
+        val allocateInfo = vulkanDriverZeroedStructure(
+            "VkDescriptorSetAllocateInfo"
+        )
+        vulkanDriverStoreI64(
+            allocateInfo, "VkDescriptorSetAllocateInfo", "descriptorPool",
+            descriptorPool
+        )
+        vulkanDriverStoreI32(
+            allocateInfo, "VkDescriptorSetAllocateInfo",
+            "descriptorSetCount", 1
+        )
+        vulkanDriverStorePointer(
+            allocateInfo, "VkDescriptorSetAllocateInfo", "pSetLayouts",
+            setLayout.address
+        )
         val output = nativeI64Cell(0)
         if (vkAllocateDescriptorSets(
             this.handle,
@@ -4118,19 +4191,26 @@ trusted fun VulkanDevice.computePipelineNative(
         ) == vulkanSuccess) descriptorSet = output.load()
     }
     if (descriptorSet != 0) {
-        val bufferInfo = nativeByteBuffer(24)
-        bufferInfo.storeI64(0, storageHandle)
-        bufferInfo.storeI64(8, 0)
-        bufferInfo.storeI64(16, storageSize)
-        val write = nativeByteBuffer(64)
-        write.storeI64(0, 35)
-        write.storePointer(8, nativeNullPointer())
-        write.storeI64(16, descriptorSet)
-        write.storeI64(24, 0)
-        write.storeI64(32, 7 * 4294967296 + 1)
-        write.storePointer(40, nativeNullPointer())
-        write.storePointer(48, bufferInfo.address)
-        write.storePointer(56, nativeNullPointer())
+        val bufferInfo = vulkanDriverZeroedStructure("VkDescriptorBufferInfo")
+        vulkanDriverStoreI64(
+            bufferInfo, "VkDescriptorBufferInfo", "buffer", storageHandle
+        )
+        vulkanDriverStoreI64(
+            bufferInfo, "VkDescriptorBufferInfo", "range", storageSize
+        )
+        val write = vulkanDriverZeroedStructure("VkWriteDescriptorSet")
+        vulkanDriverStoreI64(
+            write, "VkWriteDescriptorSet", "dstSet", descriptorSet
+        )
+        vulkanDriverStoreI32(
+            write, "VkWriteDescriptorSet", "descriptorCount", 1
+        )
+        vulkanDriverStoreI32(
+            write, "VkWriteDescriptorSet", "descriptorType", 7
+        )
+        vulkanDriverStorePointer(
+            write, "VkWriteDescriptorSet", "pBufferInfo", bufferInfo.address
+        )
         vkUpdateDescriptorSets(
             this.handle,
             1,
@@ -7309,11 +7389,13 @@ trusted fun VulkanDevice.bindGroup(
         else if (entry.descriptorType == 7) storageCount = storageCount + 1
         entryIndex = entryIndex + 1
     }
-    val imageInfos = nativeByteBuffer(
-        (sampledCount + storageImageCount) * 24
+    val imageInfoSize = vulkanDriverStructureSize("VkDescriptorImageInfo")
+    val bufferInfoSize = vulkanDriverStructureSize("VkDescriptorBufferInfo")
+    val imageInfos = vulkanDriverZeroedBytes(
+        (sampledCount + storageImageCount) * imageInfoSize
     )
-    val bufferInfos = nativeByteBuffer(
-        (uniformCount + storageCount) * 24
+    val bufferInfos = vulkanDriverZeroedBytes(
+        (uniformCount + storageCount) * bufferInfoSize
     )
     var imageIndex = 0
     var bufferIndex = 0
@@ -7332,44 +7414,78 @@ trusted fun VulkanDevice.bindGroup(
             succeeded = view != 0
             if (succeeded) {
                 if (ownsView) views.append(view)
-                imageInfos.storeI64(imageIndex * 24, entry.sampler)
-                imageInfos.storeI64(imageIndex * 24 + 8, view)
-                imageInfos.storeI64(
-                    imageIndex * 24 + 16,
+                val imageOffset = imageIndex * imageInfoSize
+                vulkanDriverStoreI64At(
+                    imageInfos, imageOffset, "VkDescriptorImageInfo",
+                    "sampler", entry.sampler
+                )
+                vulkanDriverStoreI64At(
+                    imageInfos, imageOffset, "VkDescriptorImageInfo",
+                    "imageView", view
+                )
+                vulkanDriverStoreI32At(
+                    imageInfos, imageOffset, "VkDescriptorImageInfo",
+                    "imageLayout",
                     entry.imageLayout
                 )
                 imageIndex = imageIndex + 1
             }
         } else {
-            bufferInfos.storeI64(bufferIndex * 24, entry.handle)
-            bufferInfos.storeI64(bufferIndex * 24 + 8, entry.offset)
-            bufferInfos.storeI64(bufferIndex * 24 + 16, entry.size)
+            val bufferOffset = bufferIndex * bufferInfoSize
+            vulkanDriverStoreI64At(
+                bufferInfos, bufferOffset, "VkDescriptorBufferInfo",
+                "buffer", entry.handle
+            )
+            vulkanDriverStoreI64At(
+                bufferInfos, bufferOffset, "VkDescriptorBufferInfo",
+                "offset", entry.offset
+            )
+            vulkanDriverStoreI64At(
+                bufferInfos, bufferOffset, "VkDescriptorBufferInfo",
+                "range", entry.size
+            )
             bufferIndex = bufferIndex + 1
         }
         entryIndex = entryIndex + 1
     }
     if (succeeded) {
-        val bindings = nativeByteBuffer(entries.size * 24)
+        val bindingSize = vulkanDriverStructureSize(
+            "VkDescriptorSetLayoutBinding"
+        )
+        val bindings = vulkanDriverZeroedBytes(entries.size * bindingSize)
         entryIndex = 0
         while (entryIndex < entries.size) {
             val entry = entries[entryIndex]
-            val offset = entryIndex * 24
-            bindings.storeI64(
-                offset,
-                entry.descriptorType * 4294967296 + entry.binding
+            val offset = entryIndex * bindingSize
+            vulkanDriverStoreI32At(
+                bindings, offset, "VkDescriptorSetLayoutBinding", "binding",
+                entry.binding
             )
-            bindings.storeI64(
-                offset + 8,
-                entry.stageFlags * 4294967296 + 1
+            vulkanDriverStoreI32At(
+                bindings, offset, "VkDescriptorSetLayoutBinding",
+                "descriptorType", entry.descriptorType
             )
-            bindings.storePointer(offset + 16, nativeNullPointer())
+            vulkanDriverStoreI32At(
+                bindings, offset, "VkDescriptorSetLayoutBinding",
+                "descriptorCount", 1
+            )
+            vulkanDriverStoreI32At(
+                bindings, offset, "VkDescriptorSetLayoutBinding",
+                "stageFlags", entry.stageFlags
+            )
             entryIndex = entryIndex + 1
         }
-        val createInfo = nativeByteBuffer(32)
-        createInfo.storeI64(0, 32)
-        createInfo.storePointer(8, nativeNullPointer())
-        createInfo.storeI64(16, entries.size * 4294967296)
-        createInfo.storePointer(24, bindings.address)
+        val createInfo = vulkanDriverZeroedStructure(
+            "VkDescriptorSetLayoutCreateInfo"
+        )
+        vulkanDriverStoreI32(
+            createInfo, "VkDescriptorSetLayoutCreateInfo", "bindingCount",
+            entries.size
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDescriptorSetLayoutCreateInfo", "pBindings",
+            bindings.address
+        )
         val output = nativeI64Cell(0)
         succeeded = vkCreateDescriptorSetLayout(
             this.handle,
@@ -7385,41 +7501,66 @@ trusted fun VulkanDevice.bindGroup(
         if (storageImageCount > 0) poolSizeCount = poolSizeCount + 1
         if (uniformCount > 0) poolSizeCount = poolSizeCount + 1
         if (storageCount > 0) poolSizeCount = poolSizeCount + 1
-        val poolSizes = nativeByteBuffer(poolSizeCount * 8)
+        val poolSizeSize = vulkanDriverStructureSize("VkDescriptorPoolSize")
+        val poolSizes = vulkanDriverZeroedBytes(poolSizeCount * poolSizeSize)
         var poolIndex = 0
         if (sampledCount > 0) {
-            poolSizes.storeI64(
-                poolIndex * 8,
-                sampledCount * 4294967296 + 1
+            val offset = poolIndex * poolSizeSize
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "type", 1
+            )
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "descriptorCount",
+                sampledCount
             )
             poolIndex = poolIndex + 1
         }
         if (storageImageCount > 0) {
-            poolSizes.storeI64(
-                poolIndex * 8,
-                storageImageCount * 4294967296 + 3
+            val offset = poolIndex * poolSizeSize
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "type", 3
+            )
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "descriptorCount",
+                storageImageCount
             )
             poolIndex = poolIndex + 1
         }
         if (uniformCount > 0) {
-            poolSizes.storeI64(
-                poolIndex * 8,
-                uniformCount * 4294967296 + 6
+            val offset = poolIndex * poolSizeSize
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "type", 6
+            )
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "descriptorCount",
+                uniformCount
             )
             poolIndex = poolIndex + 1
         }
         if (storageCount > 0) {
-            poolSizes.storeI64(
-                poolIndex * 8,
-                storageCount * 4294967296 + 7
+            val offset = poolIndex * poolSizeSize
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "type", 7
+            )
+            vulkanDriverStoreI32At(
+                poolSizes, offset, "VkDescriptorPoolSize", "descriptorCount",
+                storageCount
             )
         }
-        val poolInfo = nativeByteBuffer(40)
-        poolInfo.storeI64(0, 33)
-        poolInfo.storePointer(8, nativeNullPointer())
-        poolInfo.storeI64(16, 4294967296)
-        poolInfo.storeI64(24, poolSizeCount)
-        poolInfo.storePointer(32, poolSizes.address)
+        val poolInfo = vulkanDriverZeroedStructure(
+            "VkDescriptorPoolCreateInfo"
+        )
+        vulkanDriverStoreI32(
+            poolInfo, "VkDescriptorPoolCreateInfo", "maxSets", 1
+        )
+        vulkanDriverStoreI32(
+            poolInfo, "VkDescriptorPoolCreateInfo", "poolSizeCount",
+            poolSizeCount
+        )
+        vulkanDriverStorePointer(
+            poolInfo, "VkDescriptorPoolCreateInfo", "pPoolSizes",
+            poolSizes.address
+        )
         val output = nativeI64Cell(0)
         succeeded = vkCreateDescriptorPool(
             this.handle,
@@ -7431,12 +7572,21 @@ trusted fun VulkanDevice.bindGroup(
     }
     if (succeeded) {
         val setLayout = nativeI64Cell(descriptorSetLayout)
-        val allocateInfo = nativeByteBuffer(40)
-        allocateInfo.storeI64(0, 34)
-        allocateInfo.storePointer(8, nativeNullPointer())
-        allocateInfo.storeI64(16, descriptorPool)
-        allocateInfo.storeI64(24, 1)
-        allocateInfo.storePointer(32, setLayout.address)
+        val allocateInfo = vulkanDriverZeroedStructure(
+            "VkDescriptorSetAllocateInfo"
+        )
+        vulkanDriverStoreI64(
+            allocateInfo, "VkDescriptorSetAllocateInfo", "descriptorPool",
+            descriptorPool
+        )
+        vulkanDriverStoreI32(
+            allocateInfo, "VkDescriptorSetAllocateInfo",
+            "descriptorSetCount", 1
+        )
+        vulkanDriverStorePointer(
+            allocateInfo, "VkDescriptorSetAllocateInfo", "pSetLayouts",
+            setLayout.address
+        )
         val output = nativeI64Cell(0)
         succeeded = vkAllocateDescriptorSets(
             this.handle,
@@ -7446,36 +7596,45 @@ trusted fun VulkanDevice.bindGroup(
         if (succeeded) descriptorSet = output.load()
     }
     if (succeeded) {
-        val writes = nativeByteBuffer(entries.size * 64)
+        val writeSize = vulkanDriverStructureSize("VkWriteDescriptorSet")
+        val writes = vulkanDriverZeroedBytes(entries.size * writeSize)
         imageIndex = 0
         bufferIndex = 0
         entryIndex = 0
         while (entryIndex < entries.size) {
             val entry = entries[entryIndex]
-            val offset = entryIndex * 64
-            writes.storeI64(offset, 35)
-            writes.storePointer(offset + 8, nativeNullPointer())
-            writes.storeI64(offset + 16, descriptorSet)
-            writes.storeI64(offset + 24, entry.binding)
-            writes.storeI64(
-                offset + 32,
-                entry.descriptorType * 4294967296 + 1
+            val offset = entryIndex * writeSize
+            vulkanDriverStoreI32At(
+                writes, offset, "VkWriteDescriptorSet", "sType", 35
+            )
+            vulkanDriverStoreI64At(
+                writes, offset, "VkWriteDescriptorSet", "dstSet",
+                descriptorSet
+            )
+            vulkanDriverStoreI32At(
+                writes, offset, "VkWriteDescriptorSet", "dstBinding",
+                entry.binding
+            )
+            vulkanDriverStoreI32At(
+                writes, offset, "VkWriteDescriptorSet", "descriptorCount", 1
+            )
+            vulkanDriverStoreI32At(
+                writes, offset, "VkWriteDescriptorSet", "descriptorType",
+                entry.descriptorType
             )
             if (entry.descriptorType == 1 || entry.descriptorType == 3) {
-                writes.storePointer(
-                    offset + 40,
-                    imageInfos.pointerAt(imageIndex * 24)
+                vulkanDriverStorePointerAt(
+                    writes, offset, "VkWriteDescriptorSet", "pImageInfo",
+                    imageInfos.pointerAt(imageIndex * imageInfoSize)
                 )
                 imageIndex = imageIndex + 1
             } else {
-                writes.storePointer(offset + 40, nativeNullPointer())
-                writes.storePointer(
-                    offset + 48,
-                    bufferInfos.pointerAt(bufferIndex * 24)
+                vulkanDriverStorePointerAt(
+                    writes, offset, "VkWriteDescriptorSet", "pBufferInfo",
+                    bufferInfos.pointerAt(bufferIndex * bufferInfoSize)
                 )
                 bufferIndex = bufferIndex + 1
             }
-            writes.storePointer(offset + 56, nativeNullPointer())
             entryIndex = entryIndex + 1
         }
         vkUpdateDescriptorSets(
@@ -7940,23 +8099,30 @@ trusted fun VulkanAdapter.deviceForSurface(
             synchronization2Supported,
             dynamicRenderingSupported
         )
-        timelineFeatures.storePointer(
-            8,
+        vulkanDriverStorePointer(
+            timelineFeatures,
+            "VkPhysicalDeviceVulkan12Features",
+            "pNext",
             if (synchronization2Supported || dynamicRenderingSupported)
                 enabledFeatures13.address
             else nativeNullPointer()
         )
         val priority = nativeByteBuffer(8)
         priority.storeI64(0, 1065353216)
-        val queueInfo = nativeByteBuffer(40)
-        queueInfo.storeI64(0, 2)
-        queueInfo.storePointer(8, nativeNullPointer())
-        queueInfo.storeI64(
-            16,
-            (queueFamily & 4294967295) * 4294967296
+        val queueInfo = vulkanDriverZeroedStructure(
+            "VkDeviceQueueCreateInfo"
         )
-        queueInfo.storeI64(24, 1)
-        queueInfo.storePointer(32, priority.address)
+        vulkanDriverStoreI32(
+            queueInfo, "VkDeviceQueueCreateInfo", "queueFamilyIndex",
+            queueFamily
+        )
+        vulkanDriverStoreI32(
+            queueInfo, "VkDeviceQueueCreateInfo", "queueCount", 1
+        )
+        vulkanDriverStorePointer(
+            queueInfo, "VkDeviceQueueCreateInfo", "pQueuePriorities",
+            priority.address
+        )
 
         val extensionNames = nativeByteBuffer(8)
         extensionNames.storePointer(
@@ -7965,22 +8131,34 @@ trusted fun VulkanAdapter.deviceForSurface(
                 nativeCStringAddress("VK_KHR_swapchain")
             )
         )
-        val createInfo = nativeByteBuffer(72)
-        createInfo.storeI64(0, 3)
-        createInfo.storePointer(
-            8,
+        val createInfo = vulkanDriverZeroedStructure("VkDeviceCreateInfo")
+        vulkanDriverStorePointer(
+            createInfo,
+            "VkDeviceCreateInfo",
+            "pNext",
             if (timelineSupported) timelineFeatures.address
             else if (synchronization2Supported || dynamicRenderingSupported)
                 enabledFeatures13.address
             else nativeNullPointer()
         )
-        createInfo.storeI64(16, 4294967296)
-        createInfo.storePointer(24, queueInfo.address)
-        createInfo.storeI64(32, 0)
-        createInfo.storePointer(40, nativeNullPointer())
-        createInfo.storeI64(48, 1)
-        createInfo.storePointer(56, extensionNames.address)
-        createInfo.storePointer(64, enabledFeatures.address)
+        vulkanDriverStoreI32(
+            createInfo, "VkDeviceCreateInfo", "queueCreateInfoCount", 1
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDeviceCreateInfo", "pQueueCreateInfos",
+            queueInfo.address
+        )
+        vulkanDriverStoreI32(
+            createInfo, "VkDeviceCreateInfo", "enabledExtensionCount", 1
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDeviceCreateInfo", "ppEnabledExtensionNames",
+            extensionNames.address
+        )
+        vulkanDriverStorePointer(
+            createInfo, "VkDeviceCreateInfo", "pEnabledFeatures",
+            enabledFeatures.address
+        )
 
         val output = nativePointerCell(nativeNullPointer())
         if (vkCreateDevice(

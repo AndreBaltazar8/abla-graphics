@@ -1,5 +1,6 @@
 import "../src/raw/vulkan_registry.ab"
 import "../src/raw/vulkan_builder.ab"
+import "../src/driver/vulkan_builder.ab"
 
 fun registryContains(values: array<string>, wanted: string): bool {
     var found = false
@@ -480,8 +481,40 @@ fun main: int {
         "VkAccelerationStructureInstanceKHR",
         "instanceCustomIndex"
     )
+    val driverDeviceInfo = vulkanDriverZeroedStructure("VkDeviceCreateInfo")
+    val driverWriteSize = vulkanDriverStructureSize("VkWriteDescriptorSet")
+    val driverWrites = vulkanDriverZeroedBytes(driverWriteSize * 2)
+    val driverBuilderReady = vulkanDriverBuilderTypeCount == 16 &&
+        vulkanDriverBuilderMemberCount == 189 &&
+        driverDeviceInfo.capacity == 72 &&
+        vulkanDriverLoadI32(
+            driverDeviceInfo, "VkDeviceCreateInfo", "sType"
+        ) == 3 &&
+        vulkanDriverStoreI32(
+            driverDeviceInfo, "VkDeviceCreateInfo",
+            "queueCreateInfoCount", 1
+        ) &&
+        vulkanDriverLoadI32(
+            driverDeviceInfo, "VkDeviceCreateInfo",
+            "queueCreateInfoCount"
+        ) == 1 &&
+        !vulkanDriverStoreI64(
+            driverDeviceInfo, "VkDeviceCreateInfo",
+            "queueCreateInfoCount", 1
+        ) && driverWriteSize == 64 &&
+        vulkanDriverStoreI32At(
+            driverWrites, driverWriteSize, "VkWriteDescriptorSet", "sType", 35
+        ) && vulkanDriverStoreI64At(
+            driverWrites, driverWriteSize, "VkWriteDescriptorSet", "dstSet",
+            1234
+        ) && vulkanDriverLoadI32At(
+            driverWrites, driverWriteSize, "VkWriteDescriptorSet", "sType"
+        ) == 35 && driverWrites.loadI64(driverWriteSize + 16) == 1234
+    driverDeviceInfo.close()
+    driverWrites.close()
     val valid = rawVulkanBuilderTypeCount == 1448 &&
         rawVulkanBuilderMemberCount == 7406 &&
+        driverBuilderReady &&
         eventBuilderLayout.valid && eventBuilderLayout.size == 24 &&
         eventBuilderLayout.alignment == 8 &&
         eventBuilderLayout.structureType == 10 &&
