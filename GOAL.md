@@ -2882,9 +2882,21 @@ depth, multisample resolve, MRT, multi-subpass, and transient rendering;
 1,001-frame Vulkan paths remain `live=0`. X11 Vulkan, Abla-only, and direct
 runtime linkage also pass with `unresolved=0`.
 
-Next migrate graphics-pipeline state and image/buffer allocation structures,
-then continue through the remaining registry-backed production ABI families in
-`plan.md`.
+### Generated graphics-pipeline creation ABI
+
+The compact production subset now covers 72 structures and 536 members. Typed
+builders migrate shader stages, reflected vertex bindings/attributes, input
+assembly, viewport/scissor state, rasterization, multisampling, depth/stencil
+faces, color blending, dynamic-rendering compatibility, and the final graphics
+pipeline creation record.
+
+Deterministic registry tests and normal/optimized graph suites pass across
+vertex formats, depth/stencil, blending, multisample resolve, MRT, subpasses,
+and dynamic rendering. Vulkan 1,001-frame paths remain `live=0`; X11 Vulkan,
+Abla-only, and direct runtime linkage remain clean.
+
+Next migrate image/view/buffer/memory allocation structures, then continue
+through the remaining registry-backed production ABI families in `plan.md`.
 
 ## Working commands
 

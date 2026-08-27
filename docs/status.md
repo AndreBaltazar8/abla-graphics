@@ -1827,3 +1827,16 @@ Deterministic registry tests and normal/optimized graph suites pass across
 depth, multisample resolve, MRT, multi-subpass, and transient rendering with
 1,001-frame Vulkan loops at `live=0`. X11 Vulkan, Abla-only, and direct runtime
 linkage pass with `unresolved=0`.
+
+### Generated graphics-pipeline creation
+
+The production subset now contains 72 Vulkan structures and 536 members.
+Shader stages, vertex bindings/attributes, input assembly, viewports/scissors,
+rasterization, multisampling, depth/stencil faces, color blending,
+dynamic-rendering compatibility, and the final graphics pipeline record use
+typed generated builders throughout pipeline creation.
+
+Deterministic registry tests and normal/optimized graph suites pass across all
+reflected vertex layouts, depth/stencil, blend, multisample resolve, MRT,
+subpass, and dynamic-rendering cases. Vulkan 1,001-frame paths remain
+`live=0`; X11 Vulkan, Abla-only, and direct runtime linkage remain clean.
