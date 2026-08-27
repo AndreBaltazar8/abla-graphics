@@ -1855,3 +1855,20 @@ wider-texture-transfer, render-graph, Vulkan-window, Abla-only, and runtime-
 linkage gate passes. OpenGL and both normal and optimized Vulkan transfer paths
 remain exact and stable at `live=0/0`; all Vulkan 1,001-frame graph loops remain
 `live=0`, and stripped-environment linkage reports `direct=true unresolved=0`.
+
+### Generated platform, property, and presentation ABI
+
+The production subset now contains 99 Vulkan structures and 814 members.
+Generated typed builders cover application/instance creation, Xlib surfaces,
+specialization maps, pipeline layouts and push ranges, subpass dependencies,
+swapchains, and every presentation path. Generated sizes and member offsets
+also drive extension, surface, physical-device, queue-family, and memory-
+property outputs. The production-driver audit finds no remaining handwritten
+Vulkan aggregate layout among its numeric scratch allocations.
+
+One consolidated registry, core/shader, buffer-transfer, texture-transfer,
+wider-transfer, graph-command, Vulkan-window, Abla-only, and runtime-linkage
+gate passes. Transfers remain exact and stable at `live=0/0`; all OpenGL and
+both Vulkan graph matrices pass their 1,001-frame loops at `live=0`; surfaced
+Vulkan passes; and stripped-environment linkage reports
+`direct=true unresolved=0`.

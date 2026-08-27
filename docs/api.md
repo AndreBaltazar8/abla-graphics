@@ -3392,8 +3392,8 @@ because `GgpStreamDescriptor` and `GgpFrameToken` are external definitions with
 no width in `vk.xml`; the generator does not guess their ABI.
 
 The production Vulkan driver uses a separate compact generated layout selected
-by `registry/driver-vulkan-structures.txt`. It currently covers 81 structures
-and 608 members, while the complete 7,406-member schema remains opt-in. Device
+by `registry/driver-vulkan-structures.txt`. It currently covers 99 structures
+and 814 members, while the complete 7,406-member schema remains opt-in. Device
 feature queries and enablement, headless and surfaced device creation,
 descriptor layouts/pools/allocation/writes, command pools and buffers,
 fences/semaphores/timeline operations, query pools, legacy and synchronization2
@@ -3411,6 +3411,14 @@ records use the same generated ABI source. Hot typed builders consume
 generated numeric size/tag/offset constants and allocate nothing. Adding a
 production structure requires updating the manifest and regenerating;
 handwritten byte offsets are not the extension mechanism.
+
+Instance/application setup, extension enumeration, Xlib surface creation,
+surface capabilities/formats, physical-device properties and limits, queue-
+family and memory-property reads, specialization entries, push-constant and
+pipeline layouts, subpass dependencies, swapchain creation, and presentation
+also use generated layouts. The remaining fixed-size native buffers in the
+driver are scalar cells, command scratch, or exact generated element storage,
+not handwritten Vulkan aggregate definitions.
 
 `rawVulkanStructureChain(rootTypeName, nodeTypes)` validates every generated
 `structextends` relationship, rejects duplicate node types, owns all nodes in

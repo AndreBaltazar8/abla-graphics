@@ -2910,9 +2910,25 @@ passes. OpenGL and both Vulkan modes retain exact stable transfers at
 `live=0/0`; 1,001-frame Vulkan graph loops remain `live=0`, and direct runtime
 linkage reports `unresolved=0`.
 
-Next migrate the remaining platform-surface, swapchain/presentation, memory-
-properties, render-pass dependency, and shader-specialization ABI families,
-then audit the production driver for any remaining handwritten Vulkan offsets.
+### Generated platform, property, and presentation ABI
+
+The compact production subset now covers 99 structures and 814 members.
+Application/instance setup, Xlib surface creation, extension/surface/device/
+queue/memory property reads, shader specialization maps, push-constant and
+pipeline layouts, render-pass dependencies, swapchain creation, and every
+presentation path use generated sizes, offsets, and typed builders. A broad
+production-driver audit finds no remaining handwritten Vulkan aggregate layout
+among the fixed numeric scratch buffers.
+
+One consolidated registry, core/shader, buffer-transfer, texture-transfer,
+wider-transfer, graph-command, Vulkan-window, Abla-only, and runtime-linkage
+gate passes. Transfers remain exact and stable at `live=0/0`; all backend graph
+matrices retain 1,001-frame `live=0` execution; surfaced Vulkan passes; and
+direct runtime linkage reports `unresolved=0`.
+
+Next classify the remaining milestone/specification gaps in `plan.md` and
+choose one user-visible feature vertical slice. Treat the production Vulkan
+layout migration as complete unless a new driver path adds another structure.
 
 ## Working commands
 
