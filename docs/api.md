@@ -3325,12 +3325,17 @@ the final values pointer may be null for count-only enumeration.
 Handle/scalar command-buffer calls use
 `callVoidPointerI64I32(command, owner, handle, value)` and
 `callVoidPointerI64I32I32(command, owner, handle, first, second)`.
+64-bit synchronization calls use
+`callVoidPointerI64I64(command, owner, first, second)`,
+`callVoidPointerI64I64I32(command, owner, first, second, value)`,
+`callI32PointerPointerI64(command, owner, info, timeout, result)`, and
+`callI32PointerI32PointerI64(command, owner, count, info, handle, result)`.
 Optional allocator/enumeration pointers may be null; required inputs, outputs,
 owners, and handles are rejected when null/zero. The complete generated family
 counts are 8, 55, 4, 2, 81, 62, 14, 104, 61, 47, 18, 19, 36, 20, 24, 17, 9,
-and 5 respectively—586 Vulkan commands. The caller remains responsible for
-Vulkan object lifetime, command-buffer lifecycle, enabled features, and state
-rules.
+5, 5, 5, 3, and 4 respectively—603 Vulkan commands. The caller remains
+responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
+features, and state rules.
 Other signatures remain explicitly unavailable until matching compiler ABI
 primitives and tests land;
 metadata or address presence is not represented as executable specification
@@ -3364,6 +3369,12 @@ commands remain unsupported until matching 64-bit signatures land. The live
 submission resets the real event through raw `vkCmdResetEvent` and a real
 timestamp query pool through raw `vkCmdResetQueryPool`; the event remains
 exactly reset after queue completion and both resources are destroyed.
+
+The latest live submission waits for timeline value 9 through raw
+`vkWaitSemaphores`, records raw `vkCmdResetEvent2` and
+`vkCmdWriteTimestamp2`, then submits through raw `vkQueueSubmit`. Both signed
+statuses are exact success, the timestamp result is nonzero, validation is
+clean, and normal/optimized runs retain `live=0` and `stable=true`.
 
 Raw APIs remain typed and capability checked where the specification permits;
 they are called raw because they expose backend contracts, not because they are

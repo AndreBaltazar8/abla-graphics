@@ -108,6 +108,10 @@ trusted fun main: int {
         val getSwapchainImages = raw.deviceCommand("vkGetSwapchainImagesKHR")
         val resetEvent = raw.deviceCommand("vkCmdResetEvent")
         val resetQueryPool = raw.deviceCommand("vkCmdResetQueryPool")
+        val resetEvent2 = raw.deviceCommand("vkCmdResetEvent2")
+        val writeTimestamp2 = raw.deviceCommand("vkCmdWriteTimestamp2")
+        val waitSemaphores = raw.deviceCommand("vkWaitSemaphores")
+        val queueSubmit = raw.deviceCommand("vkQueueSubmit")
         val missing = raw.deviceCommand("vkAblaMissing")
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
@@ -132,6 +136,8 @@ trusted fun main: int {
         val swapchainImageCount = nativeI64Cell(0)
         val swapchainImages = nativeByteBuffer(256)
         val swapchainStatus = nativeI64Cell(-1)
+        val timelineWaitStatus = nativeI64Cell(-1)
+        val submitStatus = nativeI64Cell(-1)
         var initialize = 0
         while (initialize < eventInfo.capacity) {
             eventInfo.store(initialize, 0)
@@ -346,6 +352,34 @@ trusted fun main: int {
                 0,
                 0,
                 1
+            ) &&
+            !raw.callVoidPointerI64I64(
+                resetEvent2,
+                nativeNullPointer(),
+                1,
+                65536
+            ) &&
+            !raw.callVoidPointerI64I64I32(
+                writeTimestamp2,
+                nativeNullPointer(),
+                8192,
+                1,
+                0
+            ) &&
+            !raw.callI32PointerPointerI64(
+                waitSemaphores,
+                app.vulkanDevice.handle,
+                nativeNullPointer(),
+                1000000000,
+                timelineWaitStatus.address
+            ) &&
+            !raw.callI32PointerI32PointerI64(
+                queueSubmit,
+                app.vulkanDevice.queue,
+                1,
+                nativeNullPointer(),
+                0,
+                submitStatus.address
             )
         val timeline = app.vulkanDevice.timelineSemaphore(7)
         val createdTimeline = timeline.handle
@@ -372,6 +406,23 @@ trusted fun main: int {
                 timelineStatus.address
             ) && timelineStatus.load() == vulkanSuccess &&
                 timelineValue.load() == 9
+        }
+        if (timelineRoundTrip) {
+            timeline.scratch.storeI64(40, timeline.handle)
+            timeline.scratch.storeI64(48, 9)
+            timeline.scratch.storeI64(0, 1000207004)
+            timeline.scratch.storePointer(8, nativeNullPointer())
+            timeline.scratch.storeI64(16, 4294967296)
+            timeline.scratch.storePointer(24, timeline.scratch.pointerAt(40))
+            timeline.scratch.storePointer(32, timeline.scratch.pointerAt(48))
+            timelineWaitStatus.store(-1)
+            timelineRoundTrip = raw.callI32PointerPointerI64(
+                waitSemaphores,
+                app.vulkanDevice.handle,
+                timeline.scratch.address,
+                1000000000,
+                timelineWaitStatus.address
+            ) && timelineWaitStatus.load() == vulkanSuccess
         }
         var pointerQueries = raw.callVoidPointerI32Pointer(
             getFormatProperties,
@@ -529,6 +580,17 @@ trusted fun main: int {
                 timestampQuery.queryPool,
                 0,
                 1
+            ) && raw.callVoidPointerI64I64(
+                resetEvent2,
+                command,
+                createdEvent,
+                65536
+            ) && raw.callVoidPointerI64I64I32(
+                writeTimestamp2,
+                command,
+                8192,
+                timestampQuery.queryPool,
+                0
             )
         var call = 0
         while (recorded && resourceRoundTrip && fenceRoundTrip && call < 1000) {
@@ -567,13 +629,27 @@ trusted fun main: int {
             app.vulkanPixels.frames[0].scratch.storePointer(
                 64, nativeNullPointer()
             )
-            recorded = vkQueueSubmit(
+            submitStatus.store(-1)
+            recorded = raw.callI32PointerI32PointerI64(
+                queueSubmit,
                 app.vulkanDevice.queue,
                 1,
                 app.vulkanPixels.frames[0].scratch.address,
-                0
-            ) == vulkanSuccess &&
+                0,
+                submitStatus.address
+            ) && submitStatus.load() == vulkanSuccess &&
                 vkQueueWaitIdle(app.vulkanDevice.queue) == vulkanSuccess &&
+                timestampQuery.result.store(0) &&
+                vkGetQueryPoolResults(
+                    app.vulkanDevice.handle,
+                    timestampQuery.queryPool,
+                    0,
+                    1,
+                    8,
+                    timestampQuery.result.address,
+                    8,
+                    3
+                ) == vulkanSuccess && timestampQuery.result.load() > 0 &&
                 raw.callI32Pointer(
                     idle,
                     app.vulkanDevice.handle,
@@ -613,6 +689,8 @@ trusted fun main: int {
             beginCommandBuffer.valid() && getFormatProperties.valid() &&
             getSemaphoreCounterValue.valid() && getSwapchainImages.valid() &&
             resetEvent.valid() && resetQueryPool.valid() &&
+            resetEvent2.valid() && writeTimestamp2.valid() &&
+            waitSemaphores.valid() && queueSubmit.valid() &&
             enumerate.callShape ==
                 "VkResult(VkInstance,uint32_t*,VkPhysicalDevice*)" &&
             idle.callShape == "VkResult(VkDevice)" &&
@@ -677,6 +755,18 @@ trusted fun main: int {
             resetQueryPool.callShape ==
                 "void(VkCommandBuffer,VkQueryPool,uint32_t,uint32_t)" &&
             resetQueryPool.callAbi == "void(pointer,i64,i32,i32)" &&
+            resetEvent2.callShape ==
+                "void(VkCommandBuffer,VkEvent,VkPipelineStageFlags2)" &&
+            resetEvent2.callAbi == "void(pointer,i64,i64)" &&
+            writeTimestamp2.callShape ==
+                "void(VkCommandBuffer,VkPipelineStageFlags2,VkQueryPool,uint32_t)" &&
+            writeTimestamp2.callAbi == "void(pointer,i64,i64,i32)" &&
+            waitSemaphores.callShape ==
+                "VkResult(VkDevice,const VkSemaphoreWaitInfo*,uint64_t)" &&
+            waitSemaphores.callAbi == "i32(pointer,pointer,i64)" &&
+            queueSubmit.callShape ==
+                "VkResult(VkQueue,uint32_t,const VkSubmitInfo*,VkFence)" &&
+            queueSubmit.callAbi == "i32(pointer,i32,pointer,i64)" &&
             idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
@@ -686,9 +776,12 @@ trusted fun main: int {
             createdEvent != 0 && eventHandle.load() == 0 &&
             createdFence != 0 && fenceHandle.load() == 0 &&
             fenceStatus.load() == 1 && resetStatus.load() == vulkanSuccess &&
+            timelineWaitStatus.load() == vulkanSuccess &&
+            submitStatus.load() == vulkanSuccess &&
+            timestampQuery.result.load() > 0 &&
             beginStatus.load() == vulkanSuccess && recorded && restored &&
             liveAfter == liveBefore
-        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} queryPool=$createdQueryPool mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} reset=${resetStatus.load()} calls=$call status=${idleStatus.load()} live=${liveAfter - liveBefore}"
         timeline.drop()
         timestampQuery.drop()
         stable = stable && timeline.handle == 0 &&

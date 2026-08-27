@@ -261,9 +261,9 @@ families, plus counted-pointer result, scalar/scalar/output, pointer-result,
 scalar/output query, and handle/scalar command families. Registry type metadata
 distinguishes 32-bit `VkFlags` from 64-bit `VkFlags64` before classification.
 Generated ABI-family tags make the currently
-callable 352 OpenGL and 586
+callable 352 OpenGL and 603
 Vulkan commands explicit and retain `unsupported` for the other 2,540
-OpenGL and 256
+OpenGL and 239
 Vulkan commands. Further signatures remain
 unsupported until each has matching ABI, positive, negative, and live-driver
 evidence.

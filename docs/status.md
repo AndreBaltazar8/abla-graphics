@@ -41,7 +41,9 @@ Updated: 2026-08-27.
   entries, 18 counted-pointer result entries, 19 scalar/scalar/output entries,
   36 pointer-result entries, 20 scalar/output entries, 24 handle/output result
   entries, 17 handle/enumeration result entries, 9 handle/flag entries, and 5
-  handle/two-scalar entries—586 total—and leaves the other 256 unsupported.
+  handle/two-scalar entries. Five two-wide-value, 5 two-wide/scalar, 3
+  pointer/wide-result, and 4 queue-like result entries bring the total to 603
+  and leave the other 239 unsupported.
   The live raw sample
   observes and restores scissor and
   pack-alignment state through 1,000 calls per scalar family with zero growth
@@ -58,6 +60,9 @@ Updated: 2026-08-27.
   format properties through the enum/output family, enumerates the three
   swapchain images, advances a timeline semaphore from 7 to 9, retains zero
   growth, and records validated event and query-pool resets before passing
+  through raw timeline wait, synchronization2 reset/timestamp, and queue-submit
+  calls. The timestamp query returns nonzero ticks before resources are
+  released.
   validation in both build modes. Remaining signatures
   are still open and are not claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
