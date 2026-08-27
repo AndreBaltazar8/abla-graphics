@@ -304,6 +304,40 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=textureGatherOffsets(surface,vec2(0.25),ivec2[3](ivec2(0),ivec2(0),ivec2(0))); }"
         ]
     ).spirv(shaderStageFragment)
+    val biased = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler2DArray layers; layout(binding=2) uniform samplerCube sky; layout(binding=3) uniform sampler3D volume; void main(){ const ivec2 o2=ivec2(0,0); const ivec3 o3=ivec3(0,0,0); float bias=0.0; vec4 a=texture(surface,vec2(0.25),bias); vec4 b=texture(layers,vec3(0.25),bias); vec4 c=texture(sky,vec3(0.0,0.0,1.0),bias); vec4 d=texture(volume,vec3(0.25),bias); vec4 e=textureOffset(surface,vec2(0.25),o2,bias); vec4 f=textureOffset(layers,vec3(0.25),o2,bias); vec4 g=textureOffset(volume,vec3(0.25),o3,bias); color=a+b+c+d+e+f+g; }"
+        ]
+    )
+    val biasedProgram = biased.rasterFragmentProgram()
+    val biasedFirst = biased.spirv(shaderStageFragment)
+    val biasedSecond = biased.spirv(shaderStageFragment)
+    val projectedBiased = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; layout(binding=1) uniform sampler3D volume; void main(){ const ivec2 o2=ivec2(0,0); const ivec3 o3=ivec3(0,0,0); float bias=0.0; vec4 h=textureProj(surface,vec3(0.25,0.25,1.0),bias); vec4 i=textureProj(volume,vec4(0.25,0.25,0.25,1.0),bias); vec4 j=textureProjOffset(surface,vec3(0.25,0.25,1.0),o2,bias); vec4 k=textureProjOffset(volume,vec4(0.25,0.25,0.25,1.0),o3,bias); color=h+i+j+k; }"
+        ]
+    )
+    val projectedBiasedProgram = projectedBiased.rasterFragmentProgram()
+    val projectedBiasedFirst = projectedBiased.spirv(shaderStageFragment)
+    val projectedBiasedSecond = projectedBiased.spirv(shaderStageFragment)
+    val invalidBiasWidth = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=texture(surface,vec2(0.25),vec2(0.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidExplicitBias = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=textureLod(surface,vec2(0.25),0.0,0.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
         else if (!fetchedProgram.valid) 3
         else if (fetchedProgram.integerExpressions.size != 6) 4
@@ -426,10 +460,43 @@ trusted fun main: int {
         else if (invalidGatherOffsetsCount.succeeded ||
             invalidGatherOffsetsCount.error == "") 76
         else 42
+    val biasResult = if (!biased.valid) 80
+        else if (!biasedProgram.valid) 81
+        else if (!biasedFirst.succeeded) 82
+        else if (!biasedFirst.module.valid()) 83
+        else if (sampledInstructionFormCount(
+            biasedFirst.module, 458839
+        ) != 4) 84
+        else if (sampledInstructionFormCount(
+            biasedFirst.module, 524375
+        ) != 3) 85
+        else if (!projectedBiased.valid ||
+            !projectedBiasedProgram.valid ||
+            !projectedBiasedFirst.succeeded ||
+            !projectedBiasedFirst.module.valid()) 86
+        else if (sampledInstructionFormCount(
+            projectedBiasedFirst.module, 458843
+        ) != 2) 87
+        else if (sampledInstructionFormCount(
+            projectedBiasedFirst.module, 524379
+        ) != 2) 88
+        else if (!sampledWordsEqual(
+            biasedFirst.module,
+            biasedSecond.module
+        ) || !sampledWordsEqual(
+            projectedBiasedFirst.module,
+            projectedBiasedSecond.module
+        )) 91
+        else if (invalidBiasWidth.succeeded ||
+            invalidBiasWidth.error == "") 89
+        else if (invalidExplicitBias.succeeded ||
+            invalidExplicitBias.error == "") 90
+        else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult
     else if (queryResult != 42) queryResult
     else if (gatherResult != 42) gatherResult
+    else if (biasResult != 42) biasResult
     else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&

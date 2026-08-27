@@ -2041,6 +2041,19 @@ runtime-component/runtime-offset-array/wrong-array-length/const-update
 rejection. `examples/wider-sampling` executes array single/four-offset and cube
 gathers plus scalar postfix/prefix updates while preserving its exact output.
 
+### Fragment texture bias
+
+Implicit ordinary and projected sampling now accepts the GLSL fragment-stage
+scalar bias argument across 2D, 2D-array, cube, and 3D samplers. Constant-offset
+ordinary/projected calls accept bias after the offset. Vulkan preserves the
+implicit opcodes and emits exact `Bias` or `Bias | ConstOffset` operands;
+OpenGL consumes the same source.
+
+The focused module covers four ordinary, three offset, two projected, and two
+projected-offset bias calls at instruction boundaries with deterministic words,
+plus vector-bias and explicit-LOD-extra-argument rejection. The wider sample
+executes cube bias and 3D offset+bias while retaining exact output.
+
 ### Vector conversion and mutable signed locals
 
 Explicit signed conversion now preserves widths across `float(int)`,

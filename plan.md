@@ -248,6 +248,10 @@ covers 2D and 2D-array samplers with runtime signed offsets, and
 dimensions. Deterministic SPIR-V base, `Offset`, and constant-array
 `ConstOffsets` forms plus live array/cube execution are verified. Richer
 integer control flow and remaining broader sampler operations remain open.
+Fragment-stage optional LOD bias now covers implicit ordinary, projected,
+constant-offset, and projected-offset sampling across all currently supported
+dimensions, with deterministic `Bias`/`Bias | ConstOffset` lowering and live
+cube/3D execution.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

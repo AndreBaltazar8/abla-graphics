@@ -3260,6 +3260,12 @@ composites, and selects `ConstOffsets` independently from runtime `Offset`.
 Focused coverage distinguishes both operand masks and rejects runtime elements
 or non-four array constructors; the wider sample executes the new form live.
 
+The next sampling slice adds the optional fragment scalar bias to implicit
+ordinary/projected calls and their constant-offset variants. Vulkan retains
+implicit sampling opcodes and emits exact `Bias` or `Bias | ConstOffset`
+operands; focused tests cover every supported dimension and live cube/3D calls
+preserve exact output.
+
 Authoritative focused proof is `tests/glsl_sampled_expression.ab`; live proof
 is `examples/wider-sampling/main.ab`. Run the focused shader gate once, then
 the combined native gate:

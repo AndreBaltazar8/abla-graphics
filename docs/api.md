@@ -2943,6 +2943,12 @@ part of its derivatives. All operands may be general typed expressions. Vulkan
 emits `OpImageSampleExplicitLod` with exact `Lod` or `Grad` image operands,
 while OpenGL consumes the unchanged GLSL source. Wrong arity or width rejects
 before pipeline creation, and ordinary `texture` retains implicit derivatives.
+In fragment shaders, `texture(sampler, coordinate, bias)` adds an optional
+scalar LOD bias to implicit lookup across every supported sampler dimension.
+The same final bias argument is accepted by `textureOffset`, after its constant
+offset. Vulkan emits `Bias` or `Bias | ConstOffset` image operands while OpenGL
+uses the identical GLSL call. Bias is not accepted by explicit LOD or gradient
+forms, and non-scalar bias rejects.
 `textureProj` applies implicit projected sampling; `textureProjLod` and
 `textureProjGrad` accept the same scalar LOD or dimension-matched gradients as
 their non-projected counterparts. A `sampler2D` projection coordinate is
@@ -2952,6 +2958,9 @@ samplers reject projected operations. Vulkan emits the corresponding
 including exact `Lod`/`Grad` operands. Both legal 2D coordinate widths,
 projected 3D gradients, wrong-family rejection, and deterministic modules are
 covered independently.
+Implicit `textureProj` and `textureProjOffset` likewise accept a final scalar
+bias in fragment shaders, emitting projected implicit lookup with exact
+`Bias` or `Bias | ConstOffset` operands.
 `texelFetch(sampler, coordinate, lod)` performs unfiltered integer lookup for
 `sampler2D`, `sampler2DArray`, and `sampler3D`. Coordinates are signed `ivec2`
 for 2D and signed `ivec3` for array/3D; LOD is a signed `int`. Fragment source
