@@ -2923,16 +2923,18 @@ four-component selectors from one naming family emit a width-matched
 `OpVectorShuffle`. Every selected component must exist in the source width;
 repetition is supported.
 Fragment expressions may declare up to eight reflected, non-array set-zero
-`sampler2D` bindings and call `texture(samplerName, coordinateExpression)`.
-The coordinate is any supported typed `vec2` expression, including earlier
-locals, arithmetic, constructors, and swizzles; the returned `vec4` composes
-with the same locals, operators, selectors, and built-ins as other vector
-values. Binding qualifiers may spell `binding` alone or `set = 0` plus
-`binding` in either order. Unknown sampler names, non-`vec2` coordinates,
-arrays, nonzero sets, and unsupported binding kinds reject before backend
-creation. The older exact one-sample and dual-add forms remain byte-stable;
-array, cube, and 3D sampling retain their existing strict fixed forms until
-their general coordinate-expression lowering is added.
+`sampler2D`, `sampler2DArray`, `samplerCube`, or `sampler3D` bindings and call
+`texture(samplerName, coordinateExpression)`. A 2D sampler requires any
+supported typed `vec2` expression; array, cube, and 3D samplers require `vec3`.
+Coordinates may use earlier locals, arithmetic, constructors, swizzles, and
+built-ins, while every returned `vec4` composes with the same expression set.
+A mixed shader receives a distinct deterministic SPIR-V image, sampled-image,
+pointer, and variable type for each reflected sampler, preserving its exact
+dimension and arrayed bit. Binding qualifiers may spell `binding` alone or
+`set = 0` plus `binding` in either order. Unknown sampler names, wrong-width
+coordinates, sampler arrays, nonzero sets, and unsupported binding kinds
+reject before backend creation. The older exact one-sample and dual-add forms
+remain byte-stable.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same

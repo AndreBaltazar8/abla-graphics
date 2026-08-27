@@ -2953,9 +2953,27 @@ through `mix`. Explicit OpenGL and Vulkan both return exact yellow
 Abla-only, and runtime-linkage gates pass, and direct execution with
 `LD_LIBRARY_PATH` removed reports `unresolved=0`.
 
-Continue with general sampled lowering for `sampler2DArray`, `samplerCube`, and
-`sampler3D`, followed by explicit LOD/gradient operations and broader control
-flow. Keep new compiler-heavy shader cases in independent focused test roots.
+### Verified checkpoint: general wider sampled expressions
+
+General sampled expressions now cover `sampler2DArray`, `samplerCube`, and
+`sampler3D` in addition to `sampler2D`. The parser derives a required `vec2` or
+`vec3` coordinate type from each declaration. The deterministic Vulkan emitter
+allocates dimension-correct image, sampled-image, pointer, and variable types
+per sampler, so one shader can mix arrayed 2D, cube, and 3D bindings without
+collapsing their native types.
+
+The independent sampled-expression gate composes all three wider sampler kinds
+with computed coordinates, `normalize`, locals, arithmetic, swizzles, and
+`mix`, checks deterministic module words and exact SPIR-V image encodings, and
+rejects a `sampler3D` call with `vec2` coordinates. The upgraded
+`examples/wider-sampling` application routes its array/cube/volume pipelines
+through general expressions on both live backends. Exact pixels, explicit
+views, mismatch rejection, stable handles, four repeated frames, and `live=0`
+all pass. Abla-only and direct runtime linkage remain clean with
+`unresolved=0`.
+
+Continue with explicit LOD/gradient sampling and broader control flow. Keep
+new compiler-heavy shader cases in independent focused test roots.
 
 ## Working commands
 

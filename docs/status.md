@@ -1890,3 +1890,20 @@ OpenGL and Vulkan both produced exact yellow `4278255615` across 1,001
 executions with `live=0`; Vulkan submitted 1,001 frames. The full graph matrix,
 Vulkan window, Abla-only audit, and stripped-environment runtime-linkage gate
 also pass, with `direct=true unresolved=0`.
+
+### General wider sampled expressions
+
+The same pure-Abla raster expression IR now lowers `sampler2DArray`,
+`samplerCube`, and `sampler3D` alongside `sampler2D`. Every sample validates
+its `vec2` or `vec3` coordinate type, and mixed shaders emit independent Vulkan
+image/sample/pointer/variable types with the correct 2D-array, cube, or 3D
+encoding. One focused shader deterministically composes all three wider
+dimensions through computed coordinates, `normalize`, locals, arithmetic,
+swizzles, and `mix`; wrong-width 3D coordinates reject.
+
+`examples/wider-sampling` now forces all three live pipelines through this
+general expression path rather than their fixed templates. OpenGL and Vulkan
+both retain exact array/cube/volume pixels, explicit-view results, dimension-
+mismatch rejection, stable handles, four repeated frames, and `live=0`. The
+shader suite, Abla-only audit, and stripped runtime-linkage gate pass with
+`direct=true unresolved=0`.

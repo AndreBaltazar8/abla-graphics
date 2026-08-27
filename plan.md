@@ -205,15 +205,16 @@ grammar, bind-group subpass records, and broader compute forms remain milestone
 Recorded render resources can now borrow one to eight sampled color attachments
 from earlier render records while the command list retains the sole affine
 texture owners. The first deferred sample uses a buffered MRT G-buffer and a
-two-texture procedural lighting pass. General deterministic `sampler2D`
-expression lowering now composes `texture(sampler, vec2Expression)` results
-with typed coordinates, locals, swizzles, arithmetic, and built-ins across up
-to eight set-zero bindings. The upgraded sample exercises coordinate math,
-sampled locals, vector addition, and `mix`; exact dual-backend output,
-post-seal mutation rejection, 1,001 replays, one Vulkan submission per replay,
+two-texture procedural lighting pass. General deterministic sampled-expression
+lowering now composes `texture(sampler, coordinateExpression)` results with
+typed coordinates, locals, swizzles, arithmetic, and built-ins across up to
+eight mixed set-zero `sampler2D`, `sampler2DArray`, `samplerCube`, and
+`sampler3D` bindings. The deferred and wider-sampling applications exercise
+computed `vec2`/`vec3` coordinates, sampled locals, vector addition, `mix`, and
+mixed native image dimensions; exact dual-backend output, post-seal mutation
+rejection, 1,001 deferred replays, one Vulkan submission per deferred replay,
 stripped-environment linkage, and zero warmed live-byte growth are verified.
-General lowering for array/cube/3D samplers and explicit LOD/gradient sampling
-remains open.
+Explicit LOD/gradient sampling remains open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the

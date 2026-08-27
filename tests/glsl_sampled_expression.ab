@@ -21,6 +21,24 @@ fun sampledWordCount(module: SpirvModule, word: int): int {
     count
 }
 
+fun sampledImageType(
+    module: SpirvModule,
+    dimension: int,
+    arrayed: int
+): bool {
+    var found = false
+    var index = 5
+    while (!found && index < module.words.size) {
+        val instruction = module.words[index]
+        val count = (instruction >> 16) & 65535
+        found = (instruction & 65535) == 25 && count == 9 &&
+            module.words[index + 3] == dimension &&
+            module.words[index + 5] == arrayed
+        index = index + if (count > 0) count else 1
+    }
+    found
+}
+
 trusted fun main: int {
     val shader = glslPackage(
         [shaderStageVertex, shaderStageFragment],
@@ -39,10 +57,36 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D atlas; void main(){ color=texture(atlas,vec3(0.5)); }"
         ]
     ).spirv(shaderStageFragment)
+    val wider = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) out vec3 texCoord; void main(){ gl_Position=vec4(0.0,0.0,0.0,1.0); texCoord=vec3(0.25,0.25,0.75); }",
+            "#version 450\nlayout(location=0) in vec3 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArray layers; layout(binding=1) uniform samplerCube sky; layout(binding=2) uniform sampler3D volume; void main(){ vec3 shifted=texCoord*0.5+vec3(0.25); vec4 layer=texture(layers,shifted); vec4 cube=texture(sky,normalize(texCoord)); vec4 voxel=texture(volume,vec3(texCoord.x,texCoord.y,0.75)); color=mix(layer+cube,voxel.bgra,0.5); }"
+        ]
+    )
+    val widerProgram = wider.rasterFragmentProgram()
+    val widerFirst = wider.spirv(shaderStageFragment)
+    val widerSecond = wider.spirv(shaderStageFragment)
+    val invalidWider = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler3D volume; void main(){ color=texture(volume,vec2(0.5)); }"
+        ]
+    ).spirv(shaderStageFragment)
     if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&
         first.module.valid() && sampledWordCount(first.module, 327767) == 2 &&
         sampledWordsEqual(first.module, second.module) &&
-        !invalid.succeeded && invalid.error != "") 42 else 1
+        !invalid.succeeded && invalid.error != "" && wider.valid &&
+        widerProgram.valid && widerProgram.samplers.size == 3 &&
+        widerProgram.samplers[0].coordinateType == glslRasterTypeVector3 &&
+        widerFirst.succeeded && widerFirst.module.valid() &&
+        sampledWordCount(widerFirst.module, 327767) == 3 &&
+        sampledImageType(widerFirst.module, 1, 1) &&
+        sampledImageType(widerFirst.module, 3, 0) &&
+        sampledImageType(widerFirst.module, 2, 0) &&
+        sampledWordsEqual(widerFirst.module, widerSecond.module) &&
+        !invalidWider.succeeded && invalidWider.error != "") 42 else 1
 }
