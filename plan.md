@@ -124,14 +124,13 @@ calibrated timestamp, and fence-wait layouts add twenty further exact ABI
 families through a shared generated kind classifier.
 Descriptor updates, synchronization2 events, private-data operations,
 swapchain creation, acceleration queries, and larger pointer groups add 17
-more repeated layouts. A generated candidate ABI ledger now preserves the
-exact normalized layout even for entries not yet callable.
-Generated ABI classification marks exactly 352 currently callable OpenGL and
-783 callable Vulkan entries, leaving 59 entries unsupported: 50 exact
-one-off layouts and nine platform-scalar boundaries. The
-remaining signature families, generated types/builders, capability gates, and
-complete raw coverage are intentionally still open, as is the remaining
-milestone work below.
+more repeated layouts. A generated candidate ABI ledger preserves the exact
+normalized layout for every registry entry. Generated ABI classification marks
+exactly 352 currently callable OpenGL entries and all 842 pinned Vulkan
+entries. Vulkan's former 50 one-off layouts and nine platform-scalar boundaries
+are fully lowered with explicit native widths. Remaining OpenGL signature
+families, capability gates, live extension evidence, and the milestone work
+below are still open.
 
 Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
 without perturbing established `vec4` modules. Their exact-width and scalar-splat
