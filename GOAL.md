@@ -2696,11 +2696,8 @@ empty validation logs. `make check-abla-only test-core` also passes. Public API
 and status documentation now state the current 842/842 generated call-ABI
 coverage and distinguish ABI metadata from runtime extension availability.
 
-This is the runtime foundation, not completion of the structure-builder plan.
-Next extend the registry generator to emit size/alignment/member-offset/type
-schemas from `vk.xml`, route these typed constructors through that generated
-schema, then add typed `pNext` feature-chain composition and replace further
-manual driver packing in coherent batches.
+This was the runtime foundation, not completion of the structure-builder plan.
+The subsequent generated-schema and feature-chain work is recorded below.
 
 ### Current checkpoint: registry-generated Vulkan builder schemas
 
@@ -2737,9 +2734,34 @@ failure even though the same build completed normally without that tighter
 virtual-memory ceiling. Treat that signal as a compiler-resource failure, not
 as a graphics runtime or source failure.
 
-Next implement recursive nested-aggregate and fixed-array layout rules, then
-typed affine `pNext` chain composition and broader replacement of manual driver
-packing. Keep these as broad coherent generator/runtime/live-proof batches.
+The subsequent recursive-layout and affine-chain work is recorded below.
+
+### Current checkpoint: recursive layouts and affine `pNext` chains
+
+The generated builder schema now covers 1,395 Vulkan structures and 7,103
+members. It iteratively resolves by-value structure dependencies, C unions,
+multidimensional arrays, and symbolic fixed extents from pinned registry
+constants. Regression layouts prove `VkPhysicalDeviceFeatures2=240`,
+`VkClearValue=16`, `VkTransformMatrixKHR=48`, and `VkImageBlit=80`. Bitfields
+and any unresolved platform aggregate rules are the remaining layout classes.
+
+`RawVulkanStructureChain` owns a complete `pNext` chain in one aligned zeroed
+buffer. Construction validates generated `structextends` compatibility,
+requires `sType` and `pNext`, rejects duplicate nodes, writes exact tags, and
+links each node to the next. Checked node setters operate relative to generated
+offsets; drop invalidates every derived pointer at once.
+
+The live raw sample replaces its hand-packed 240-byte physical-device feature
+query with a generated root builder and a timeline-semaphore plus
+synchronization2 chain. Normal and fast runs report `features=1/1`, exact
+existing Vulkan evidence, stable handles, and `loopLive=0`. Deterministic tests
+also cover nested/union/array sizes, indexed fixed-array writes, exact chain
+links, duplicate rejection, incompatible-root rejection, and drop invalidation.
+
+Next add exact bitfield storage-unit packing and checked remaining scalar field
+setters, then use the generated builders to replace coherent groups of manual
+Vulkan driver packing. Preserve the opt-in schema import so ordinary programs
+do not pay its compile-time cost.
 
 ## Working commands
 

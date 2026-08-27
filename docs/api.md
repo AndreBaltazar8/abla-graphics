@@ -3369,18 +3369,32 @@ now come from the pinned `vk.xml` registry instead of hand-maintained layout
 constants.
 
 `rawVulkanStructureBuilder(typeName)` exposes the same generated schema for
-the wider raw surface. It accepts any of the 1,209 scalar/pointer-only hosted
-Vulkan structures, initializes a declared `sType`, and provides checked
-`storeI32`, `storeI64`, and `storePointer` operations. An unknown structure or
-wrong-width member fails without writing. The builder schema is emitted as two
-compact deterministic strings (5,832 members), keeping ordinary compilation
-bounded instead of materializing thousands of generated array elements.
+the wider raw surface. It accepts any of 1,395 hosted Vulkan structures,
+initializes a declared `sType`, and provides checked `storeI32`, `storeI64`,
+`storePointer`, indexed `i32` array, and exact nested/array byte-copy
+operations. An unknown structure, wrong-width member, or out-of-range element
+fails without writing. Registry constants resolve fixed array extents;
+structures and unions are laid out iteratively until every by-value aggregate
+dependency is known. Representative generated ABI checks include
+`VkPhysicalDeviceFeatures2=240`, `VkClearValue=16`,
+`VkTransformMatrixKHR=48`, and `VkImageBlit=80` bytes. The builder schema is
+emitted as two compact deterministic strings (7,103 members), keeping ordinary
+compilation bounded instead of materializing thousands of generated array
+elements.
 Import `raw/vulkan_builder.ab` explicitly when using this opt-in surface;
 `raw/vulkan.ab` does not make applications that only issue commands parse the
 complete structure schema.
-Nested aggregate, fixed-array, union, and bitfield ABI rules plus typed
-feature-chain composition remain required before the full structure-builder
-milestone is complete.
+Bitfield packing and any remaining unresolved platform aggregate rules remain
+required before the full structure-builder milestone is complete.
+
+`rawVulkanStructureChain(rootTypeName, nodeTypes)` validates every generated
+`structextends` relationship, rejects duplicate node types, owns all nodes in
+one aligned zeroed buffer, writes their `sType` values, and links their `pNext`
+pointers in request order. The chain exposes checked node pointers and scalar
+setters and invalidates all pointers together on drop. Keep the chain alive for
+every call that borrows its head pointer. The live raw proof queries timeline
+semaphore and synchronization2 support through a two-node
+`VkPhysicalDeviceFeatures2` chain and observes exact `1/1` support.
 The caller remains
 responsible for Vulkan object lifetime, command-buffer lifecycle, enabled
 features, and state rules.

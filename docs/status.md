@@ -1705,3 +1705,22 @@ the compiler's focused-gate time budget.
 The builder module is opt-in rather than re-exported by `raw/vulkan.ab`, so
 ordinary applications and the runtime-linkage probe do not pay its compile-time
 cost. The live builder proof imports it explicitly.
+
+### Recursive Vulkan layouts and affine feature chains
+
+Generated hosted layout coverage now reaches 1,395 Vulkan structures and 7,103
+members. Iterative dependency resolution adds by-value nested structures,
+unions, multidimensional fixed arrays, and symbolic array extents resolved from
+the pinned registry constants. Exact regression layouts cover the 240-byte
+`VkPhysicalDeviceFeatures2`, 16-byte `VkClearValue`, 48-byte
+`VkTransformMatrixKHR`, and 80-byte `VkImageBlit`. Bitfield packing and any
+remaining unresolved platform aggregate rules remain open.
+
+The generator also retains each structure's `structextends` list. A new affine
+chain validates root compatibility and duplicate node types, lays all nodes out
+in one aligned zeroed allocation, initializes `sType`, and links internal
+`pNext` pointers. Deterministic tests prove exact links, setters, drop
+invalidation, duplicate rejection, and incompatible-root rejection. The normal
+and optimized live raw runs query timeline semaphore and synchronization2
+features through a generated `VkPhysicalDeviceFeatures2` root and two-node
+chain, observe `features=1/1`, retain `loopLive=0`, and remain stable.

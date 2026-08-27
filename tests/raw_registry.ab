@@ -73,6 +73,17 @@ fun main: int {
     val beginBuilderLayout = rawVulkanBuilderTypeLayout(
         "VkCommandBufferBeginInfo"
     )
+    val features2BuilderLayout = rawVulkanBuilderTypeLayout(
+        "VkPhysicalDeviceFeatures2"
+    )
+    val clearValueBuilderLayout = rawVulkanBuilderTypeLayout("VkClearValue")
+    val imageBlitBuilderLayout = rawVulkanBuilderTypeLayout("VkImageBlit")
+    val matrixBuilderLayout = rawVulkanBuilderTypeLayout(
+        "VkTransformMatrixKHR"
+    )
+    val matrixMemberLayout = rawVulkanBuilderMemberLayout(
+        "VkTransformMatrixKHR", "matrix"
+    )
     val genericBuilder = rawVulkanStructureBuilder("VkEventCreateInfo")
     val genericBuilderReady = genericBuilder.valid() &&
         genericBuilder.bytes.loadI64(0) == 10 &&
@@ -82,6 +93,54 @@ fun main: int {
     genericBuilder.drop()
     val genericBuilderDropped = !genericBuilder.valid() &&
         pointerIsNull(genericBuilder.pointer())
+    val limitsBuilder = rawVulkanStructureBuilder("VkPhysicalDeviceLimits")
+    val workGroupCountLayout = rawVulkanBuilderMemberLayout(
+        "VkPhysicalDeviceLimits", "maxComputeWorkGroupCount"
+    )
+    val arrayBuilderReady = limitsBuilder.valid() &&
+        workGroupCountLayout.valid && workGroupCountLayout.kind == "i32" &&
+        workGroupCountLayout.elementSize == 4 &&
+        workGroupCountLayout.elementCount == 3 &&
+        limitsBuilder.storeI32Element("maxComputeWorkGroupCount", 2, 99) &&
+        !limitsBuilder.storeI32Element("maxComputeWorkGroupCount", 3, 99) &&
+        limitsBuilder.bytes.loadI64(workGroupCountLayout.offset + 8) == 99
+    limitsBuilder.drop()
+    val featureChain = rawVulkanStructureChain(
+        "VkPhysicalDeviceFeatures2",
+        [
+            "VkPhysicalDeviceTimelineSemaphoreFeatures",
+            "VkPhysicalDeviceSynchronization2Features"
+        ]
+    )
+    val featureChainReady = featureChain.valid() &&
+        featureChain.nodeCount() == 2 &&
+        !pointerIsNull(featureChain.pointer()) &&
+        featureChain.bytes.loadI64(featureChain.offsets[0]) == 1000207000 &&
+        featureChain.bytes.loadI64(featureChain.offsets[0] + 8) ==
+            nativePointerAddress(featureChain.nodePointer(1)) &&
+        featureChain.bytes.loadI64(featureChain.offsets[1]) == 1000314007 &&
+        featureChain.bytes.loadI64(featureChain.offsets[1] + 8) == 0 &&
+        featureChain.storeI32(0, "timelineSemaphore", 1) &&
+        featureChain.storeI32(1, "synchronization2", 1) &&
+        featureChain.bytes.loadI64(featureChain.offsets[0] + 16) == 1 &&
+        featureChain.bytes.loadI64(featureChain.offsets[1] + 16) == 1
+    val duplicateChain = rawVulkanStructureChain(
+        "VkPhysicalDeviceFeatures2",
+        [
+            "VkPhysicalDeviceTimelineSemaphoreFeatures",
+            "VkPhysicalDeviceTimelineSemaphoreFeatures"
+        ]
+    )
+    val incompatibleChain = rawVulkanStructureChain(
+        "VkPhysicalDeviceFeatures2", ["VkExportFenceCreateInfo"]
+    )
+    val invalidChainsRejected = !duplicateChain.valid() &&
+        !incompatibleChain.valid()
+    featureChain.drop()
+    duplicateChain.drop()
+    incompatibleChain.drop()
+    val featureChainDropped = !featureChain.valid() &&
+        pointerIsNull(featureChain.pointer())
     val vulkanCommands = rawVulkanRegistryCommands()
     val vulkanStatuses = rawVulkanRegistryCommandStatuses()
     val vulkanConstants = rawVulkanRegistryConstantNames()
@@ -361,8 +420,8 @@ fun main: int {
         "VkAccelerationStructureInstanceKHR",
         "instanceCustomIndex"
     )
-    val valid = rawVulkanBuilderTypeCount > 1000 &&
-        rawVulkanBuilderMemberCount > 5000 &&
+    val valid = rawVulkanBuilderTypeCount == 1395 &&
+        rawVulkanBuilderMemberCount == 7103 &&
         eventBuilderLayout.valid && eventBuilderLayout.size == 24 &&
         eventBuilderLayout.alignment == 8 &&
         eventBuilderLayout.structureType == 10 &&
@@ -372,13 +431,21 @@ fun main: int {
         queueBuilderLayout.structureType == 1000145003 &&
         beginBuilderLayout.valid && beginBuilderLayout.size == 32 &&
         beginBuilderLayout.structureType == 42 &&
+        features2BuilderLayout.valid && features2BuilderLayout.size == 240 &&
+        clearValueBuilderLayout.valid && clearValueBuilderLayout.size == 16 &&
+        imageBlitBuilderLayout.valid && imageBlitBuilderLayout.size == 80 &&
+        matrixBuilderLayout.valid && matrixBuilderLayout.size == 48 &&
+        matrixMemberLayout.valid && matrixMemberLayout.kind == "f32" &&
+        matrixMemberLayout.elementSize == 4 &&
+        matrixMemberLayout.elementCount == 12 &&
         rawVulkanBuilderMemberOffset(
             "VkDeviceQueueInfo2", "queueIndex"
         ) == 24 &&
         rawVulkanBuilderMemberKind(
             "VkEventCreateInfo", "pNext"
         ) == "pointer" &&
-        genericBuilderReady && genericBuilderDropped &&
+        genericBuilderReady && genericBuilderDropped && arrayBuilderReady &&
+        featureChainReady && invalidChainsRejected && featureChainDropped &&
         rawVulkanRegistryCommandCount == 842 &&
         rawVulkanRegistryCoreFeatureCount == 5 &&
         rawVulkanRegistryExtensionCount == 473 &&

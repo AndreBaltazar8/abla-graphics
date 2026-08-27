@@ -156,7 +156,16 @@ trusted fun main: int {
         val eventHandle = nativeI64Cell(0)
         val eventStatus = nativeI64Cell(-1)
         val eventInfo = rawVkEventCreateInfo()
-        val features2 = nativeByteBuffer(240)
+        val features2 = rawVulkanStructureBuilder("VkPhysicalDeviceFeatures2")
+        val featureChain = rawVulkanStructureChain(
+            "VkPhysicalDeviceFeatures2",
+            [
+                "VkPhysicalDeviceTimelineSemaphoreFeatures",
+                "VkPhysicalDeviceSynchronization2Features"
+            ]
+        )
+        val featureQueryReady = features2.valid() && featureChain.valid() &&
+            features2.storePointer("pNext", featureChain.pointer())
         val physicalDeviceCount = nativeI64Cell(0)
         val physicalDevices = nativeByteBuffer(256)
         val enumerateStatus = nativeI64Cell(-1)
@@ -205,11 +214,6 @@ trusted fun main: int {
             usage = textureUsageCopySource | textureUsageCopyDestination
         ))
         var initialize = 0
-        while (initialize < features2.capacity) {
-            features2.store(initialize, 0)
-            initialize = initialize + 1
-        }
-        initialize = 0
         while (initialize < physicalDevices.capacity) {
             physicalDevices.store(initialize, 0)
             initialize = initialize + 1
@@ -224,8 +228,6 @@ trusted fun main: int {
             swapchainImages.store(initialize, 0)
             initialize = initialize + 1
         }
-        features2.storeI64(0, 1000059000)
-        features2.storePointer(8, nativeNullPointer())
         val metadataQueries = raw.callAddressPointerPointer(
             getInstanceProcAddress,
             app.vulkanInstance.handle,
@@ -849,12 +851,14 @@ trusted fun main: int {
         pointerQueries = pointerQueries &&
             swapchainImage == app.vulkanSwapchain.images.size
         var createdEvent = 0
-        var resourceRoundTrip = pointerQueries &&
+        var resourceRoundTrip = pointerQueries && featureQueryReady &&
             raw.callVoidPointerPointer(
                 getFeatures2,
                 app.vulkanDevice.physicalDevice,
-                features2.address
-            ) && (features2.loadI64(16) & 4294967295) <= 1 &&
+                features2.pointer()
+            ) && (features2.bytes.loadI64(16) & 4294967295) <= 1 &&
+            featureChain.bytes.loadI64(featureChain.offsets[0] + 16) == 1 &&
+            featureChain.bytes.loadI64(featureChain.offsets[1] + 16) == 1 &&
             raw.callI32Pointer4(
                 createEvent,
                 app.vulkanDevice.handle,
@@ -1432,7 +1436,7 @@ trusted fun main: int {
             rawImagePixel == 4278190335 &&
             beginStatus.load() == vulkanSuccess && recorded && restored &&
             loopLiveAfter == loopLiveBefore
-        detail = "enumerate=${enumerate.address} resolved=${resolvedEnumerateAddress.load()} version=${instanceVersion.load()} surface=${surfaceSupported.load()} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond image=$rawImagePixel unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} fenceWait=${waitFenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} resolved=${resolvedEnumerateAddress.load()} version=${instanceVersion.load()} surface=${surfaceSupported.load()} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} features=${featureChain.bytes.loadI64(featureChain.offsets[0] + 16)}/${featureChain.bytes.loadI64(featureChain.offsets[1] + 16)} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond image=$rawImagePixel unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} fenceWait=${waitFenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
         rawCompute.drop()
         timeline.drop()
         timestampQuery.drop()
@@ -1444,6 +1448,8 @@ trusted fun main: int {
         fenceInfo.drop()
         queueInfo.drop()
         beginInfo.drop()
+        features2.drop()
+        featureChain.drop()
         updateData.close()
         stable = stable && timeline.handle == 0 &&
             timestampQuery.queryPool == 0 &&
@@ -1453,7 +1459,8 @@ trusted fun main: int {
             rawTransferDestination.vulkan.handle == 0 && updateData.closed
         stable = stable && rawImage.vulkan.image == 0 &&
             !eventInfo.valid() && !fenceInfo.valid() &&
-            !queueInfo.valid() && !beginInfo.valid()
+            !queueInfo.valid() && !beginInfo.valid() &&
+            !features2.valid() && !featureChain.valid()
     }
     println(
         "raw-command-addresses ${graphicsBackendName(app.backend)}: $detail stable=$stable"
