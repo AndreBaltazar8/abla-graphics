@@ -2935,6 +2935,14 @@ dimension and arrayed bit. Binding qualifiers may spell `binding` alone or
 coordinates, sampler arrays, nonzero sets, and unsupported binding kinds
 reject before backend creation. The older exact one-sample and dual-add forms
 remain byte-stable.
+`textureLod(sampler, coordinate, lod)` accepts the same dimension-matched
+coordinate plus one scalar LOD expression. `textureGrad(sampler, coordinate,
+dx, dy)` requires two `vec2` gradients for `sampler2D` and `sampler2DArray`, or
+two `vec3` gradients for `samplerCube` and `sampler3D`; the array layer is not
+part of its derivatives. All operands may be general typed expressions. Vulkan
+emits `OpImageSampleExplicitLod` with exact `Lod` or `Grad` image operands,
+while OpenGL consumes the unchanged GLSL source. Wrong arity or width rejects
+before pipeline creation, and ordinary `texture` retains implicit derivatives.
 `dot(left, right)` accepts two supported equal-width vector expressions, emits
 core SPIR-V `OpDot`, and returns a scalar usable by constructors, locals, or
 later mixed vector/scalar operations. Calls nest within the same

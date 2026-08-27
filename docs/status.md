@@ -1907,3 +1907,21 @@ both retain exact array/cube/volume pixels, explicit-view results, dimension-
 mismatch rejection, stable handles, four repeated frames, and `live=0`. The
 shader suite, Abla-only audit, and stripped runtime-linkage gate pass with
 `direct=true unresolved=0`.
+
+### Explicit LOD and gradient sampling
+
+General raster expressions now accept `textureLod` and `textureGrad` for 2D,
+2D-array, cube, and 3D samplers. LOD is a typed scalar expression. Gradients
+are `vec2` for 2D and 2D-array sampling and `vec3` for cube and 3D sampling,
+correctly excluding the array-layer coordinate. The deterministic Vulkan path
+emits `OpImageSampleExplicitLod` with exact `Lod` or `Grad` masks and operands;
+the focused test proves stable modules, exact instruction counts, mixed image
+dimensions, and rejection of `vec3` array gradients.
+
+`examples/deferred-renderer` now executes both 2D explicit forms for 1,001
+frames, preserving exact yellow, zero/1,001 backend submissions, and `live=0`.
+`examples/wider-sampling` executes array and cube gradients plus 3D explicit
+LOD, preserving every exact pixel, explicit view, mismatch rejection, stable
+handle, and `live=0` result on OpenGL and Vulkan. The complete shader suite,
+Abla-only audit, and stripped runtime-linkage gate pass with
+`direct=true unresolved=0`.

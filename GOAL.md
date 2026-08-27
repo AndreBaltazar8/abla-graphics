@@ -2972,8 +2972,27 @@ views, mismatch rejection, stable handles, four repeated frames, and `live=0`
 all pass. Abla-only and direct runtime linkage remain clean with
 `unresolved=0`.
 
-Continue with explicit LOD/gradient sampling and broader control flow. Keep
-new compiler-heavy shader cases in independent focused test roots.
+### Verified checkpoint: explicit LOD and gradient sampling
+
+The general sampled-expression IR now supports `textureLod` and `textureGrad`
+for every portable sampled dimension. LOD accepts a scalar expression.
+Gradients use `vec2` for 2D and 2D-array samplers and `vec3` for cube and 3D;
+this preserves GLSL's rule that the array layer is not differentiated. Vulkan
+emits deterministic `OpImageSampleExplicitLod` instructions with the exact
+`Lod` or `Grad` image-operands mask, while OpenGL executes the original source.
+
+The independent shader gate checks deterministic words, one LOD plus two
+gradient operations in a mixed wider module, both explicit forms in a 2D
+module, dimension-correct image types, and invalid `vec3` array-gradient
+rejection. `examples/deferred-renderer` runs 2D LOD and gradients for 1,001
+frames with exact yellow and `live=0`; `examples/wider-sampling` runs array and
+cube gradients plus 3D LOD with all exact pixels, explicit views, mismatch
+rejection, stable handles, and `live=0` on OpenGL and Vulkan. Abla-only and
+direct runtime linkage pass with `unresolved=0`.
+
+Continue with offset/projected sampling, integer texel fetch, texture size/query
+operations, and broader control flow. Keep compiler-heavy shader cases in
+independent focused test roots.
 
 ## Working commands
 

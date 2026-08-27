@@ -214,7 +214,12 @@ computed `vec2`/`vec3` coordinates, sampled locals, vector addition, `mix`, and
 mixed native image dimensions; exact dual-backend output, post-seal mutation
 rejection, 1,001 deferred replays, one Vulkan submission per deferred replay,
 stripped-environment linkage, and zero warmed live-byte growth are verified.
-Explicit LOD/gradient sampling remains open.
+`textureLod` and `textureGrad` share the same general path for every supported
+sampler dimension. LOD operands are typed scalars; gradients match coordinate
+width except that 2D-array gradients correctly exclude the layer and remain
+`vec2`. Deterministic explicit-image operands and live dual-backend execution
+are verified. Offset, projected, fetch, size, and query sampling operations
+remain open.
 
 The same list-owned borrow now recognizes full storage textures retained by an
 earlier compute binding. Vulkan sampled descriptors explicitly snapshot the
