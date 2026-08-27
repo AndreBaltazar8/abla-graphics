@@ -41,6 +41,18 @@ if [[ $status -ne 42 ]]; then
     exit 1
 fi
 
+"$compiler" build "$project_root/tests/glsl_sampled_expression.ab" \
+    -o "$output_directory/glsl-sampled-expression" --no-cache
+set +e
+"$output_directory/glsl-sampled-expression"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'GLSL sampled-expression test returned %s, expected 42\n' \
+        "$status" >&2
+    exit 1
+fi
+
 "$compiler" build "$project_root/tests/glsl_storage_image_push.ab" \
     -o "$output_directory/glsl-storage-image-push" --no-cache
 set +e

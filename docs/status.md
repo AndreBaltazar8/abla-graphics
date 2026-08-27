@@ -1872,3 +1872,21 @@ gate passes. Transfers remain exact and stable at `live=0/0`; all OpenGL and
 both Vulkan graph matrices pass their 1,001-frame loops at `live=0`; surfaced
 Vulkan passes; and stripped-environment linkage reports
 `direct=true unresolved=0`.
+
+### General sampled fragment expressions
+
+The pure-Abla typed raster parser and deterministic Vulkan emitter now lower
+`texture(sampler2D, vec2Expression)` as a first-class `vec4` postfix value for
+up to eight reflected set-zero samplers. Computed coordinates, earlier locals,
+arithmetic, swizzles, and extended built-ins compose around multiple samples;
+unknown samplers and non-`vec2` coordinates reject before backend creation.
+The focused coverage lives in its own compiler-friendly
+`tests/glsl_sampled_expression.ab` executable rather than extending the legacy
+4,400-line aggregate test function.
+
+The upgraded `examples/deferred-renderer` lighting pass computes shifted
+coordinates, samples two textures into locals, adds them, and feeds `mix`.
+OpenGL and Vulkan both produced exact yellow `4278255615` across 1,001
+executions with `live=0`; Vulkan submitted 1,001 frames. The full graph matrix,
+Vulkan window, Abla-only audit, and stripped-environment runtime-linkage gate
+also pass, with `direct=true unresolved=0`.

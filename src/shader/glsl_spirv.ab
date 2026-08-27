@@ -95,6 +95,7 @@ val glslRasterTokenDot = 8
 val glslRasterTokenExtInst = 9
 val glslRasterTokenDerivative = 10
 val glslRasterTokenImageLoad = 11
+val glslRasterTokenTextureSample = 12
 
 val glslRasterTypeInvalid = 0
 val glslRasterTypeScalar = 1
@@ -162,6 +163,12 @@ class GlslRasterLocal(
     val canAssign: bool = false
 )
 
+class GlslRasterSampler(
+    val name: string,
+    val set: int,
+    val binding: int
+)
+
 class GlslRasterFragmentProgram(
     val valid: bool,
     val expression: GlslRasterExpression,
@@ -169,7 +176,8 @@ class GlslRasterFragmentProgram(
     val memberCount: int = 0,
     val error: string = "",
     val outputs: array<ShaderLocation> = [],
-    val expressions: array<GlslRasterExpression> = []
+    val expressions: array<GlslRasterExpression> = [],
+    val samplers: array<GlslRasterSampler> = []
 )
 
 val glslImageCoordinateTokenPush = 0
@@ -693,6 +701,57 @@ fun glslRasterPrimary(
             ))
             index = index + 1
         }
+    } else if (valid && sourceTokens[index].text == "texture") {
+        index = index + 1
+        valid = glslRasterTokenText(sourceTokens, index, "(")
+        if (valid) index = index + 1
+        val samplerName = if (valid && index < sourceTokens.size)
+            sourceTokens[index].text else ""
+        var samplerIndex = -1
+        var samplerCount = 0
+        var samplerCandidate = 0
+        while (samplerIndex < 0 && samplerCandidate + 2 < sourceTokens.size) {
+            if (sourceTokens[samplerCandidate].text == "uniform" &&
+                sourceTokens[samplerCandidate + 1].text == "sampler2D") {
+                if (sourceTokens[samplerCandidate + 2].text == samplerName) {
+                    samplerIndex = samplerCount
+                }
+                samplerCount = samplerCount + 1
+            }
+            samplerCandidate = samplerCandidate + 1
+        }
+        valid = valid && samplerIndex >= 0
+        if (valid) index = index + 1
+        valid = valid && glslRasterTokenText(sourceTokens, index, ",")
+        if (valid) index = index + 1
+        val coordinate = if (valid) glslRasterExpression(
+            sourceTokens,
+            index,
+            1,
+            push,
+            inputs,
+            locals,
+            depth + 1
+        ) else GlslRasterExpression(false, [], index)
+        index = coordinate.next
+        valid = valid && coordinate.valid &&
+            glslRasterExpressionType(coordinate, push, inputs) ==
+                glslRasterTypeVector2 &&
+            glslRasterTokenText(sourceTokens, index, ")")
+        if (valid) {
+            val copied = glslRasterTokensCopy(coordinate.tokens)
+            var copiedIndex = 0
+            while (copiedIndex < copied.size) {
+                tokens.append(copied[copiedIndex])
+                copiedIndex = copiedIndex + 1
+            }
+            tokens.append(GlslRasterToken(
+                glslRasterTokenTextureSample,
+                memberIndex = samplerIndex,
+                first = 2
+            ))
+            index = index + 1
+        }
     } else if (valid && sourceTokens[index].text == "mod") {
         index = index + 1
         valid = glslRasterTokenText(sourceTokens, index, "(")
@@ -1028,6 +1087,14 @@ fun glslRasterExpressionType(
             valid = valid && valueType != glslRasterTypeInvalid
         } else if (token.kind == glslRasterTokenImageLoad) {
             valueType = glslRasterTypeVector
+        } else if (token.kind == glslRasterTokenTextureSample) {
+            valid = token.memberIndex >= 0 && token.first == 2 &&
+                stackSize >= 1 &&
+                stack[stackSize - 1] == glslRasterTypeVector2
+            if (valid) {
+                stackSize = stackSize - 1
+                valueType = glslRasterTypeVector
+            }
         } else if (token.kind == glslRasterTokenConstruct) {
             val arity = token.memberIndex
             val constructedType = glslRasterTypeForVectorWidth(token.first)
@@ -1282,8 +1349,29 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         }
         index = index + 1
     }
+    val samplers: array<GlslRasterSampler> = []
+    var fragmentBindingCount = 0
+    index = 0
+    while (index < this.bindings.size) {
+        val binding = this.bindings[index]
+        if (binding.stage == shaderStageFragment) {
+            fragmentBindingCount = fragmentBindingCount + 1
+            if (binding.set == 0 && binding.binding >= 0 &&
+                binding.storage == "uniform" &&
+                binding.dataType == "sampler2D" &&
+                binding.name != "" && binding.arraySize == 1) {
+                samplers.append(GlslRasterSampler(
+                    binding.name,
+                    binding.set,
+                    binding.binding
+                ))
+            }
+        }
+        index = index + 1
+    }
     var valid = this.valid && lexical.valid && inputs.size <= 8 &&
-        outputs.size > 0 && outputs.size <= 8
+        outputs.size > 0 && outputs.size <= 8 && samplers.size <= 8 &&
+        samplers.size == fragmentBindingCount
     var inputIndex = 0
     while (valid && inputIndex < inputs.size) {
         valid = glslRasterTypeIsVector(glslRasterDataType(
@@ -1355,6 +1443,56 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
             outputTokenIndex = outputTokenIndex + 1
         }
         outputIndex = outputIndex + 1
+    }
+    var samplerIndex = 0
+    while (valid && samplerIndex < samplers.size) {
+        val sampler = samplers[samplerIndex]
+        valid = glslRasterTokenText(lexical.tokens, index, "layout") &&
+            glslRasterTokenText(lexical.tokens, index + 1, "(")
+        if (valid) index = index + 2
+        var bindingSeen = false
+        var setSeen = false
+        var layoutDone = false
+        while (valid && !layoutDone) {
+            val qualifier = if (index < lexical.tokens.size)
+                lexical.tokens[index].text else ""
+            val expected = if (qualifier == "binding") sampler.binding
+                else if (qualifier == "set") sampler.set else -1
+            valid = expected >= 0 &&
+                glslRasterTokenText(lexical.tokens, index + 1, "=") &&
+                glslRasterTokenText(
+                    lexical.tokens,
+                    index + 2,
+                    "$expected"
+                ) &&
+                !((qualifier == "binding" && bindingSeen) ||
+                  (qualifier == "set" && setSeen))
+            if (valid) {
+                bindingSeen = bindingSeen || qualifier == "binding"
+                setSeen = setSeen || qualifier == "set"
+                index = index + 3
+                if (glslRasterTokenText(lexical.tokens, index, ",")) {
+                    index = index + 1
+                } else {
+                    valid = glslRasterTokenText(
+                        lexical.tokens, index, ")"
+                    )
+                    if (valid) {
+                        index = index + 1
+                        layoutDone = true
+                    }
+                }
+            }
+        }
+        valid = valid && bindingSeen &&
+            glslRasterTokenText(lexical.tokens, index, "uniform") &&
+            glslRasterTokenText(
+                lexical.tokens, index + 1, "sampler2D"
+            ) && glslRasterTokenText(
+                lexical.tokens, index + 2, sampler.name
+            ) && glslRasterTokenText(lexical.tokens, index + 3, ";")
+        if (valid) index = index + 4
+        samplerIndex = samplerIndex + 1
     }
     val pushTokens = [
         "layout", "(", "push_constant", ")", "uniform", push.dataType,
@@ -1447,6 +1585,11 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
                 while (!duplicate && interfaceIndex < outputs.size) {
                     duplicate = outputs[interfaceIndex].name == name
                     interfaceIndex = interfaceIndex + 1
+                }
+                var samplerNameIndex = 0
+                while (!duplicate && samplerNameIndex < samplers.size) {
+                    duplicate = samplers[samplerNameIndex].name == name
+                    samplerNameIndex = samplerNameIndex + 1
                 }
                 valid = !duplicate && glslRasterTokenText(
                     lexical.tokens,
@@ -1673,7 +1816,8 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         if (valid) "" else
             "fragment source is outside the typed raster expression subset",
         outputs,
-        expressions
+        expressions,
+        samplers
     )
 }
 
@@ -1689,7 +1833,8 @@ fun glslRasterFragmentSpirv(
          layout.members.size == program.memberCount) &&
         program.memberCount <= 8 && program.inputs.size <= 8 &&
         program.outputs.size > 0 && program.outputs.size <= 8 &&
-        program.expressions.size == program.outputs.size
+        program.expressions.size == program.outputs.size &&
+        program.samplers.size <= 8
     var inputIndex = 0
     while (valid && inputIndex < program.inputs.size) {
         val input = program.inputs[inputIndex]
@@ -1708,6 +1853,13 @@ fun glslRasterFragmentSpirv(
             output.arraySize == 1
         outputIndex = outputIndex + 1
     }
+    var samplerIndex = 0
+    while (valid && samplerIndex < program.samplers.size) {
+        val sampler = program.samplers[samplerIndex]
+        valid = sampler.set == 0 && sampler.binding >= 0 &&
+            sampler.name != ""
+        samplerIndex = samplerIndex + 1
+    }
     var hasScalarMember = false
     var hasVector2Member = false
     var hasVector3Member = false
@@ -1723,7 +1875,7 @@ fun glslRasterFragmentSpirv(
     }
     var usesExtendedInstructions = false
     var usesDerivativeControl = false
-    var usesVector2 = hasVector2Member
+    var usesVector2 = hasVector2Member || program.samplers.size > 0
     var usesVector3 = hasVector3Member
     inputIndex = 0
     while (valid && inputIndex < program.inputs.size) {
@@ -1886,6 +2038,22 @@ fun glslRasterFragmentSpirv(
         pushVector3PointerType = nextId
         nextId = nextId + 1
     }
+    var sampledImageBaseType = 0
+    var sampledImageType = 0
+    var sampledImagePointerType = 0
+    val samplerVariables: array<int> = []
+    if (valid && program.samplers.size > 0) {
+        sampledImageBaseType = nextId
+        sampledImageType = nextId + 1
+        sampledImagePointerType = nextId + 2
+        nextId = nextId + 3
+        samplerIndex = 0
+        while (samplerIndex < program.samplers.size) {
+            samplerVariables.append(nextId)
+            nextId = nextId + 1
+            samplerIndex = samplerIndex + 1
+        }
+    }
     if (valid) {
         words.append(131089)
         words.append(1)
@@ -1920,6 +2088,18 @@ fun glslRasterFragmentSpirv(
         while (inputIndex < inputVariables.size) {
             words.append(inputVariables[inputIndex])
             inputIndex = inputIndex + 1
+        }
+        samplerIndex = 0
+        while (samplerIndex < samplerVariables.size) {
+            words.append(262215)
+            words.append(samplerVariables[samplerIndex])
+            words.append(33)
+            words.append(program.samplers[samplerIndex].binding)
+            words.append(262215)
+            words.append(samplerVariables[samplerIndex])
+            words.append(34)
+            words.append(program.samplers[samplerIndex].set)
+            samplerIndex = samplerIndex + 1
         }
         words.append(196624)
         words.append(mainFunction)
@@ -1977,6 +2157,32 @@ fun glslRasterFragmentSpirv(
             words.append(vector3Type)
             words.append(floatType)
             words.append(3)
+        }
+        if (sampledImageType != 0) {
+            words.append(589849)
+            words.append(sampledImageBaseType)
+            words.append(floatType)
+            words.append(1)
+            words.append(0)
+            words.append(0)
+            words.append(0)
+            words.append(1)
+            words.append(0)
+            words.append(196635)
+            words.append(sampledImageType)
+            words.append(sampledImageBaseType)
+            words.append(262176)
+            words.append(sampledImagePointerType)
+            words.append(0)
+            words.append(sampledImageType)
+            samplerIndex = 0
+            while (samplerIndex < samplerVariables.size) {
+                words.append(262203)
+                words.append(sampledImagePointerType)
+                words.append(samplerVariables[samplerIndex])
+                words.append(0)
+                samplerIndex = samplerIndex + 1
+            }
         }
         words.append(262176)
         words.append(outputPointerType)
@@ -2312,6 +2518,29 @@ fun glslRasterFragmentSpirv(
                     words.append(inputVariables[token.memberIndex])
                     tokenTypes[tokenIndex] = inputType
                 }
+            }
+        } else if (token.kind == glslRasterTokenTextureSample) {
+            valid = token.memberIndex >= 0 &&
+                token.memberIndex < samplerVariables.size &&
+                sampledImageType != 0 && token.first == 2 &&
+                stackSize >= 1 &&
+                stackTypes[stackSize - 1] == glslRasterTypeVector2
+            if (valid) {
+                val coordinate = stack[stackSize - 1]
+                stackSize = stackSize - 1
+                val sampled = nextId
+                valueId = nextId + 1
+                nextId = nextId + 2
+                words.append(262205)
+                words.append(sampledImageType)
+                words.append(sampled)
+                words.append(samplerVariables[token.memberIndex])
+                words.append(327767)
+                words.append(vectorType)
+                words.append(valueId)
+                words.append(sampled)
+                words.append(coordinate)
+                tokenTypes[tokenIndex] = glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenConstruct) {
             val arity = token.memberIndex
@@ -8865,7 +9094,11 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
             false,
             GlslRasterExpression(false, [], 0)
         )
-    val rasterFragmentExpression = rasterFragmentProgram.valid
+    val rasterFragmentExpression = rasterFragmentProgram.valid &&
+        glslTexturedFragmentSampler(this.source(shaderStageFragment)) == 0 &&
+        !glslDualTexturedAddFragmentSource(
+            this.source(shaderStageFragment)
+        )
     val vertex = graphicsCommon && stage == shaderStageVertex &&
         glslTriangleVertexSource(this.source(shaderStageVertex))
     val proceduralTexturedVertex = graphicsCommon &&

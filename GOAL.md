@@ -2930,6 +2930,33 @@ Next classify the remaining milestone/specification gaps in `plan.md` and
 choose one user-visible feature vertical slice. Treat the production Vulkan
 layout migration as complete unless a new driver path adds another structure.
 
+### Verified checkpoint: general sampled fragment expressions
+
+The pure-Abla shader path now treats `texture(sampler2D, vec2Expression)` as a
+general typed `vec4` expression for as many as eight reflected set-zero
+samplers. Computed `vec2` coordinates, locals, arithmetic, swizzles, and
+extended built-ins can surround multiple samples. Invalid sampler names and
+coordinate widths fail deterministic emission. The old exact one-texture and
+dual-add modules remain byte-stable, while complex sources use the generated
+postfix/SPIR-V path.
+
+`tests/glsl_sampled_expression.ab` is intentionally independent: adding more
+work to the legacy 4,400-line `glsl_subparser` main crossed the compiler's
+address-space limit, while the smaller gate compiles and passes normally.
+`tools/test-glsl.sh` now builds and runs both suites.
+
+`examples/deferred-renderer` now computes shifted texture coordinates, stores
+two sampled values in locals, performs vector addition, and passes the result
+through `mix`. Explicit OpenGL and Vulkan both return exact yellow
+`4278255615`, complete 1,001 executions, and retain `live=0`; Vulkan reports
+1,001 submissions. The consolidated graph-command matrix, Vulkan-window,
+Abla-only, and runtime-linkage gates pass, and direct execution with
+`LD_LIBRARY_PATH` removed reports `unresolved=0`.
+
+Continue with general sampled lowering for `sampler2DArray`, `samplerCube`, and
+`sampler3D`, followed by explicit LOD/gradient operations and broader control
+flow. Keep new compiler-heavy shader cases in independent focused test roots.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
