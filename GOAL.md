@@ -2198,6 +2198,50 @@ Continue batching remaining exact ABI families around real resource,
 synchronization, transfer, and pipeline operations. The full goal remains
 active.
 
+### Published checkpoint: pointer result and enum output batch
+
+Compiler dependency `c6bbcba17ea9d03cf7873ef144ae8d7a90f82b40`
+adds exact `i32(pointer,pointer)` and `void(pointer,i32,pointer)` indirect-call
+intrinsics and LLVM lowerings. The unsafe boundary proves signed result
+extension, real pointer arguments, and 32-bit argument truncation. This commit
+is based on the concurrently published native-width preservation work; after
+promoting that compiler generation once, the pure-Abla compiler reaches a
+byte-identical fixed point and its native boundary passes.
+
+Graphics implementation `44861aa19659c93d1bd9e9db108ec2642b0df795`
+contains the generator changes, checked raw wrappers, deterministic fixture,
+full-registry assertions, live proof, and public contract updates.
+
+The generator classifies exactly 36 `i32(pointer,pointer)` and 20
+`void(pointer,i32,pointer)` commands. Treating Vulkan registry `enum` types as
+their specified 32-bit ABI also grows `void(pointer,i32)` from 35 to 52,
+`i32(pointer,i32,pointer)` from 13 to 18,
+`void(pointer,i32,i32,pointer)` from 17 to 18, and
+`i32(pointer,i64)` from 13 to 14. Total executable Vulkan raw coverage rises
+from 447 to 527 of 842 commands, leaving 315 explicit `unsupported` entries.
+
+The live sample begins the application's real command buffer through raw
+`vkBeginCommandBuffer` and observes exact success. It queries
+`VK_FORMAT_R8G8B8A8_UNORM` through raw
+`vkGetPhysicalDeviceFormatProperties` and observes nonzero feature flags while
+retaining all previous physical-device enumeration, queue identity, event,
+fence, submission, and state-restoration proofs. Normal and optimized runs
+both report `begin=0`, identical nonzero format data, matching queues,
+`fenceStatus=1`, `reset=0`, `calls=1000`, `status=0`, `live=0`, and
+`stable=true`; OpenGL remains `live=0` and `stable=true`, and both Vulkan
+validation scans are clean.
+
+Compiler fixed point and unsafe boundary, deterministic/full registry, normal
+and optimized raw runs, Abla-only audit, and core tests pass. The 71-sample
+application matrix was not rerun because this checkpoint changes opt-in raw
+ABI classification, exact compiler lowering, and its focused live sample.
+
+This batch moves 80 more commands into executable coverage with two compiler
+primitives and one registry regeneration. Continue using this cadence:
+classify several compatible exact families, share one compiler build, prove
+them through one real lifecycle, and run one consolidated gate. The full goal
+remains active.
+
 ## Working commands
 
 Use the repository Nix environment and the sibling compiler. Start focused,
