@@ -3695,7 +3695,7 @@ matching `callVoidF64...`, `callVoidI32F64...`, and
 double lanes. Wide checked methods additionally preserve OpenGL pointer-sized
 offsets and sizes, grouped pointer outputs, and long integer argument lists
 through eleven scalar lanes without a variadic fallback. The generated
-classification currently enables 2,590 OpenGL
+classification currently enables 2,666 OpenGL
 commands. Exact `callAddress...` families store native pointer results in a
 caller-owned `i64*` cell after command-shape, context-owner, and current-context
 checks. Boolean `i8(...)`, unsigned `u32(...)`, and signed `i32(...)` result methods

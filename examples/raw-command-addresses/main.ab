@@ -47,6 +47,7 @@ trusted fun main: int {
         val getAttribLocation = raw.command("glGetAttribLocation")
         val colorMask = raw.command("glColorMask")
         val depthMask = raw.command("glDepthMask")
+        val multiDrawArrays = raw.command("glMultiDrawArrays")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -69,6 +70,9 @@ trusted fun main: int {
             ) &&
             !raw.callVoidI8(colorMask, 1) &&
             !raw.callVoidI8I8I8I8(depthMask, 1, 1, 1, 1) &&
+            !raw.callVoidI32PointerPointer(
+                multiDrawArrays, 4, nativeNullPointer(), nativeNullPointer()
+            ) &&
             !raw.callVoidI32I64I64Pointer(
                 finish, 0, 0, 0, nativeNullPointer()
             ) &&
@@ -95,6 +99,13 @@ trusted fun main: int {
         val originalColorWriteMask = nativeByteBuffer(16)
         val depthWriteMask = nativeI64Cell(0)
         val originalDepthWriteMask = nativeI64Cell(0)
+        val firstVertex = nativeI64Cell(0)
+        val vertexCount = nativeI64Cell(0)
+        val vertexArray = nativeI64Cell(0)
+        val originalVertexArray = nativeI64Cell(0)
+        glGetIntegerv(34229, originalVertexArray.address)
+        glGenVertexArrays(1, vertexArray.address)
+        glBindVertexArray(vertexArray.load())
         glGetIntegerv(3107, originalColorWriteMask.address)
         glGetIntegerv(2930, originalDepthWriteMask.address)
         glGenBuffers(2, bufferNames.address)
@@ -160,6 +171,13 @@ trusted fun main: int {
                 ) && signedResult.load() == -1 &&
                 raw.callU32Zero(getError, errorResult.address) &&
                 errorResult.load() == 1281 &&
+                raw.callVoidI32PointerPointerI32(
+                    multiDrawArrays,
+                    4,
+                    firstVertex.address,
+                    vertexCount.address,
+                    0
+                ) && glGetError() == 0 &&
                 raw.callVoidI8I8I8I8(colorMask, 257, 256, 513, 512) &&
                 raw.callVoidI8(depthMask, 256) &&
                 raw.callVoidI32I32(pixelStore, 3333, 1) &&
@@ -210,6 +228,8 @@ trusted fun main: int {
             call = call + 1
         }
         val liveAfter = runtimeMemoryLiveBytes()
+        glBindVertexArray(originalVertexArray.load())
+        glDeleteVertexArrays(1, vertexArray.address)
         raw.callVoidI8I8I8I8(
             colorMask,
             graphicsPackedU32(originalColorWriteMask.address, 0),
@@ -266,6 +286,8 @@ trusted fun main: int {
             getAttribLocation.callAbi == "i32(i32,pointer)" &&
             colorMask.callAbi == "void(i8,i8,i8,i8)" &&
             depthMask.callAbi == "void(i8)" &&
+            multiDrawArrays.callAbi == "void(i32,pointer,pointer,i32)" &&
+            vertexArray.load() > 0 &&
             wideBuffersReady && pointerReturnReady &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
@@ -273,7 +295,7 @@ trusted fun main: int {
             restored && colorRestored && depthRangeRestored && masksRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true mask=true buffer=true pointer=true results=true live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true mask=true mixed=true buffer=true pointer=true results=true live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

@@ -13,7 +13,7 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,590 truthfully callable commands. Return declarators now preserve pointer
+to 2,666 truthfully callable commands. Return declarators now preserve pointer
 levels and `const`, so `void*`, `const GLubyte*`, `GLsync`, and function-pointer
 results cannot be mistaken for scalar or `void` returns. Exact pure-`i32` void
 calls now cover one through eleven
@@ -22,7 +22,7 @@ preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
 Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
 buffer, texture, query, and long scalar families. Continue in large
-normalized-signature batches from the remaining 301 explicit
+normalized-signature batches from the remaining 225 explicit
 `unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
@@ -4042,3 +4042,27 @@ ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only
 Continue with the remaining 301 mixed, wide, lower-volume result, and platform
 specific layouts in generated batches. Keep the persistent framework goal
 active.
+
+## Latest checkpoint: repeated mixed OpenGL layouts
+
+Every remaining representable void layout occurring at least three times is
+now exact: 22 layouts promote 76 commands, raising raw OpenGL coverage from
+2,590 to 2,666 of 2,892 and leaving 225 explicit `unsupported` rows. The batch
+includes 12-integer calls, four-pointer groups, 6/8-lane float calls, grouped
+multi-draw pointers, long 64-bit scalar calls, and repeated mixed boolean
+tails.
+
+Compiler commit `67fc49fe0abf2e3a3df960dee0799ef25610080b` adds the 22
+bounded exact signatures and trusted pure-Abla wrappers. The isolated compiler
+passed all 76 tests and the byte-identical pure self-rebuild.
+
+The live normal and optimized OpenGL proof creates a temporary core-profile
+VAO, executes 1,000 raw zero-count `glMultiDrawArrays` calls with non-null
+native first/count arrays, checks `glGetError()==0` after every call, and
+restores the prior VAO binding. Both modes report
+`mixed=true live=0 stable=true`; Vulkan remains validation-clean. The Abla-only
+and stripped direct-linkage gates remain green with `unresolved=0`.
+
+Continue by lowering the remaining lower-frequency families in generated
+batches and resolving the handful of special Khronos platform/half types.
+Keep the persistent framework goal active.
