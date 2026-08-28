@@ -20,6 +20,137 @@ class GltfTextureInfo(
         this.scale >= 0.0 && this.scale <= 64.0
 }
 
+class GltfClearcoatMaterial(
+    val present: bool = false,
+    val factor: f64 = 0.0,
+    val roughness: f64 = 0.0,
+    val texture: GltfTextureInfo = GltfTextureInfo(),
+    val roughnessTexture: GltfTextureInfo = GltfTextureInfo(),
+    val normalTexture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = !this.present || (
+        this.factor >= 0.0 && this.factor <= 1.0 &&
+        this.roughness >= 0.0 && this.roughness <= 1.0 &&
+        this.texture.valid() && this.roughnessTexture.valid() &&
+        this.normalTexture.valid()
+    )
+}
+
+class GltfSheenMaterial(
+    val present: bool = false,
+    val color: Vec3 = Vec3(0.0, 0.0, 0.0),
+    val roughness: f64 = 0.0,
+    val colorTexture: GltfTextureInfo = GltfTextureInfo(),
+    val roughnessTexture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = !this.present || (
+        gltfUnitVec3(this.color) &&
+        this.roughness >= 0.0 && this.roughness <= 1.0 &&
+        this.colorTexture.valid() && this.roughnessTexture.valid()
+    )
+}
+
+class GltfTransmissionMaterial(
+    val present: bool = false,
+    val factor: f64 = 0.0,
+    val texture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = !this.present || (
+        this.factor >= 0.0 && this.factor <= 1.0 && this.texture.valid()
+    )
+}
+
+class GltfVolumeMaterial(
+    val present: bool = false,
+    val thickness: f64 = 0.0,
+    val thicknessTexture: GltfTextureInfo = GltfTextureInfo(),
+    // -1 represents the specification's default infinite distance.
+    val attenuationDistance: f64 = -1.0,
+    val attenuationColor: Vec3 = Vec3(1.0, 1.0, 1.0)
+) {
+    fun valid(): bool = !this.present || (
+        this.thickness >= 0.0 && this.thicknessTexture.valid() &&
+        (this.attenuationDistance == -1.0 || this.attenuationDistance > 0.0) &&
+        gltfUnitVec3(this.attenuationColor)
+    )
+}
+
+class GltfSpecularMaterial(
+    val present: bool = false,
+    val factor: f64 = 1.0,
+    val texture: GltfTextureInfo = GltfTextureInfo(),
+    val color: Vec3 = Vec3(1.0, 1.0, 1.0),
+    val colorTexture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = !this.present || (
+        this.factor >= 0.0 && this.factor <= 1.0 &&
+        gltfPositiveVec3(this.color) && this.texture.valid() &&
+        this.colorTexture.valid()
+    )
+}
+
+class GltfIridescenceMaterial(
+    val present: bool = false,
+    val factor: f64 = 0.0,
+    val texture: GltfTextureInfo = GltfTextureInfo(),
+    val ior: f64 = 1.3,
+    val thicknessMinimum: f64 = 100.0,
+    val thicknessMaximum: f64 = 400.0,
+    val thicknessTexture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = !this.present || (
+        this.factor >= 0.0 && this.factor <= 1.0 &&
+        this.texture.valid() && this.ior >= 1.0 &&
+        this.thicknessMinimum >= 0.0 &&
+        this.thicknessMaximum >= this.thicknessMinimum &&
+        this.thicknessTexture.valid()
+    )
+}
+
+class GltfAnisotropyMaterial(
+    val present: bool = false,
+    val strength: f64 = 0.0,
+    val rotation: f64 = 0.0,
+    val texture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = !this.present || (
+        this.strength >= 0.0 && this.strength <= 1.0 &&
+        gltfFinite(this.rotation) && this.texture.valid()
+    )
+}
+
+class GltfMaterialExtensions(
+    val syntaxValid: bool = true,
+    val unlit: bool = false,
+    val clearcoat: GltfClearcoatMaterial = GltfClearcoatMaterial(),
+    val sheen: GltfSheenMaterial = GltfSheenMaterial(),
+    val transmission: GltfTransmissionMaterial = GltfTransmissionMaterial(),
+    val volume: GltfVolumeMaterial = GltfVolumeMaterial(),
+    val specular: GltfSpecularMaterial = GltfSpecularMaterial(),
+    val iorPresent: bool = false,
+    val ior: f64 = 1.5,
+    val iridescence: GltfIridescenceMaterial = GltfIridescenceMaterial(),
+    val anisotropy: GltfAnisotropyMaterial = GltfAnisotropyMaterial(),
+    val dispersionPresent: bool = false,
+    val dispersion: f64 = 0.0
+) {
+    fun advancedPresent(): bool = this.clearcoat.present ||
+        this.sheen.present || this.transmission.present ||
+        this.volume.present || this.specular.present || this.iorPresent ||
+        this.iridescence.present || this.anisotropy.present ||
+        this.dispersionPresent
+
+    fun valid(): bool = this.syntaxValid && this.clearcoat.valid() &&
+        this.sheen.valid() && this.transmission.valid() && this.volume.valid() &&
+        this.specular.valid() && this.iridescence.valid() &&
+        this.anisotropy.valid() &&
+        (!this.iorPresent || this.ior == 0.0 || this.ior >= 1.0) &&
+        (!this.dispersionPresent || this.dispersion >= 0.0) &&
+        (!this.volume.present || this.transmission.present) &&
+        (!this.dispersionPresent || this.volume.present) &&
+        (!this.unlit || !this.advancedPresent())
+}
+
 class GltfMaterial(
     val name: string = "",
     val pbr: PbrMaterial = PbrMaterial(),
@@ -30,19 +161,40 @@ class GltfMaterial(
     val metallicRoughnessTexture: GltfTextureInfo = GltfTextureInfo(),
     val normalTexture: GltfTextureInfo = GltfTextureInfo(),
     val occlusionTexture: GltfTextureInfo = GltfTextureInfo(),
-    val emissiveTexture: GltfTextureInfo = GltfTextureInfo()
+    val emissiveTexture: GltfTextureInfo = GltfTextureInfo(),
+    val extensions: GltfMaterialExtensions = GltfMaterialExtensions()
 ) {
     fun valid(): bool = this.name.size <= 4096 && this.pbr.valid() &&
         this.alphaMode >= gltfAlphaOpaque && this.alphaMode <= gltfAlphaBlend &&
         this.alphaCutoff >= 0.0 && this.alphaCutoff <= 1.0 &&
         this.baseColorTexture.valid() &&
         this.metallicRoughnessTexture.valid() && this.normalTexture.valid() &&
-        this.occlusionTexture.valid() && this.emissiveTexture.valid()
+        this.occlusionTexture.valid() && this.emissiveTexture.valid() &&
+        this.extensions.valid()
 
     fun blendState(): ColorBlendState = if (this.alphaMode == gltfAlphaBlend)
         graphicsAlphaBlendState() else ColorBlendState()
 
     fun cullMode(): int = if (this.doubleSided) cullModeNone else cullModeBack
+
+    fun textureReferencesValid(textureCount: int): bool =
+        gltfTextureReferenceValid(this.baseColorTexture, textureCount) &&
+        gltfTextureReferenceValid(this.metallicRoughnessTexture, textureCount) &&
+        gltfTextureReferenceValid(this.normalTexture, textureCount) &&
+        gltfTextureReferenceValid(this.occlusionTexture, textureCount) &&
+        gltfTextureReferenceValid(this.emissiveTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.clearcoat.texture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.clearcoat.roughnessTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.clearcoat.normalTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.sheen.colorTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.sheen.roughnessTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.transmission.texture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.volume.thicknessTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.specular.texture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.specular.colorTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.iridescence.texture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.iridescence.thicknessTexture, textureCount) &&
+        gltfTextureReferenceValid(this.extensions.anisotropy.texture, textureCount)
 }
 
 class GltfMaterialParseResult(
@@ -52,6 +204,22 @@ class GltfMaterialParseResult(
 )
 
 class GltfScalar(val value: f64, val valid: bool)
+
+fun gltfFinite(value: f64): bool = value == value &&
+    value >= -1.7976931348623157e308 && value <= 1.7976931348623157e308
+
+fun gltfUnitVec3(value: Vec3): bool = gltfFinite(value.x) &&
+    gltfFinite(value.y) && gltfFinite(value.z) &&
+    value.x >= 0.0 && value.x <= 1.0 &&
+    value.y >= 0.0 && value.y <= 1.0 &&
+    value.z >= 0.0 && value.z <= 1.0
+
+fun gltfPositiveVec3(value: Vec3): bool = gltfFinite(value.x) &&
+    gltfFinite(value.y) && gltfFinite(value.z) &&
+    value.x >= 0.0 && value.y >= 0.0 && value.z >= 0.0
+
+fun gltfTextureReferenceValid(info: GltfTextureInfo, count: int): bool =
+    info.valid() && (!info.present() || info.index < count)
 
 fun gltfPositivePower10(exponent: int): f64 {
     if (exponent <= 0) return 1.0
@@ -110,7 +278,8 @@ fun gltfScalar(number: Json): GltfScalar {
     val value = if (scaleExponent < 0)
         unscaled / gltfPositivePower10(-scaleExponent)
     else unscaled * gltfPositivePower10(scaleExponent)
-    GltfScalar(if (negative) -value else value, valid)
+    val signedValue = if (negative) -value else value
+    GltfScalar(signedValue, valid && gltfFinite(signedValue))
 }
 
 fun gltfOptionalScalar(object: Json, key: string, fallback: f64): GltfScalar =
@@ -139,6 +308,181 @@ fun gltfColor(arrayValue: Json, expected: int, fallback: Color): Color {
     if (red.valid && green.valid && blue.valid && alpha.valid)
         Color(red.value, green.value, blue.value, alpha.value)
     else Color(-1.0, 0.0, 0.0)
+}
+
+fun gltfOptionalVec3(object: Json, key: string, fallback: Vec3): Vec3 {
+    if (!object.has(key)) return fallback
+    val color = gltfColor(
+        object.get(key), 3, Color(fallback.x, fallback.y, fallback.z)
+    )
+    Vec3(color.red, color.green, color.blue)
+}
+
+fun gltfMaterialExtensions(value: Json): GltfMaterialExtensions {
+    if (!value.has("extensions")) return GltfMaterialExtensions()
+    val extensions = value.get("extensions")
+    if (!extensions.isObject()) return GltfMaterialExtensions(syntaxValid = false)
+
+    val unlitPresent = extensions.has("KHR_materials_unlit")
+    val unlitValue = if (unlitPresent)
+        extensions.get("KHR_materials_unlit") else jsonObject([], [])
+
+    val clearcoatPresent = extensions.has("KHR_materials_clearcoat")
+    val clearcoatValue = if (clearcoatPresent)
+        extensions.get("KHR_materials_clearcoat") else jsonObject([], [])
+    val clearcoat = if (clearcoatValue.isObject()) clearcoatValue
+        else jsonObject([], [])
+    val clearcoatFactor = gltfOptionalScalar(clearcoat, "clearcoatFactor", 0.0)
+    val clearcoatRoughness = gltfOptionalScalar(
+        clearcoat, "clearcoatRoughnessFactor", 0.0
+    )
+
+    val sheenPresent = extensions.has("KHR_materials_sheen")
+    val sheenValue = if (sheenPresent)
+        extensions.get("KHR_materials_sheen") else jsonObject([], [])
+    val sheen = if (sheenValue.isObject()) sheenValue else jsonObject([], [])
+    val sheenRoughness = gltfOptionalScalar(
+        sheen, "sheenRoughnessFactor", 0.0
+    )
+
+    val transmissionPresent = extensions.has("KHR_materials_transmission")
+    val transmissionValue = if (transmissionPresent)
+        extensions.get("KHR_materials_transmission") else jsonObject([], [])
+    val transmission = if (transmissionValue.isObject()) transmissionValue
+        else jsonObject([], [])
+    val transmissionFactor = gltfOptionalScalar(
+        transmission, "transmissionFactor", 0.0
+    )
+
+    val volumePresent = extensions.has("KHR_materials_volume")
+    val volumeValue = if (volumePresent)
+        extensions.get("KHR_materials_volume") else jsonObject([], [])
+    val volume = if (volumeValue.isObject()) volumeValue else jsonObject([], [])
+    val thickness = gltfOptionalScalar(volume, "thicknessFactor", 0.0)
+    val attenuationDistance = gltfOptionalScalar(
+        volume, "attenuationDistance", -1.0
+    )
+
+    val specularPresent = extensions.has("KHR_materials_specular")
+    val specularValue = if (specularPresent)
+        extensions.get("KHR_materials_specular") else jsonObject([], [])
+    val specular = if (specularValue.isObject()) specularValue
+        else jsonObject([], [])
+    val specularFactor = gltfOptionalScalar(specular, "specularFactor", 1.0)
+
+    val iorPresent = extensions.has("KHR_materials_ior")
+    val iorValue = if (iorPresent)
+        extensions.get("KHR_materials_ior") else jsonObject([], [])
+    val iorObject = if (iorValue.isObject()) iorValue else jsonObject([], [])
+    val ior = gltfOptionalScalar(iorObject, "ior", 1.5)
+
+    val iridescencePresent = extensions.has("KHR_materials_iridescence")
+    val iridescenceValue = if (iridescencePresent)
+        extensions.get("KHR_materials_iridescence") else jsonObject([], [])
+    val iridescence = if (iridescenceValue.isObject()) iridescenceValue
+        else jsonObject([], [])
+    val iridescenceFactor = gltfOptionalScalar(
+        iridescence, "iridescenceFactor", 0.0
+    )
+    val iridescenceIor = gltfOptionalScalar(
+        iridescence, "iridescenceIor", 1.3
+    )
+    val iridescenceMinimum = gltfOptionalScalar(
+        iridescence, "iridescenceThicknessMinimum", 100.0
+    )
+    val iridescenceMaximum = gltfOptionalScalar(
+        iridescence, "iridescenceThicknessMaximum", 400.0
+    )
+
+    val anisotropyPresent = extensions.has("KHR_materials_anisotropy")
+    val anisotropyValue = if (anisotropyPresent)
+        extensions.get("KHR_materials_anisotropy") else jsonObject([], [])
+    val anisotropy = if (anisotropyValue.isObject()) anisotropyValue
+        else jsonObject([], [])
+    val anisotropyStrength = gltfOptionalScalar(
+        anisotropy, "anisotropyStrength", 0.0
+    )
+    val anisotropyRotation = gltfOptionalScalar(
+        anisotropy, "anisotropyRotation", 0.0
+    )
+
+    val dispersionPresent = extensions.has("KHR_materials_dispersion")
+    val dispersionValue = if (dispersionPresent)
+        extensions.get("KHR_materials_dispersion") else jsonObject([], [])
+    val dispersionObject = if (dispersionValue.isObject()) dispersionValue
+        else jsonObject([], [])
+    val dispersion = gltfOptionalScalar(dispersionObject, "dispersion", 0.0)
+
+    val syntaxValid = (!unlitPresent || unlitValue.isObject()) &&
+        (!clearcoatPresent || clearcoatValue.isObject()) &&
+        (!sheenPresent || sheenValue.isObject()) &&
+        (!transmissionPresent || transmissionValue.isObject()) &&
+        (!volumePresent || volumeValue.isObject()) &&
+        (!specularPresent || specularValue.isObject()) &&
+        (!iorPresent || iorValue.isObject()) &&
+        (!iridescencePresent || iridescenceValue.isObject()) &&
+        (!anisotropyPresent || anisotropyValue.isObject()) &&
+        (!dispersionPresent || dispersionValue.isObject()) &&
+        clearcoatFactor.valid && clearcoatRoughness.valid &&
+        sheenRoughness.valid && transmissionFactor.valid &&
+        thickness.valid && attenuationDistance.valid && specularFactor.valid &&
+        ior.valid && iridescenceFactor.valid && iridescenceIor.valid &&
+        iridescenceMinimum.valid && iridescenceMaximum.valid &&
+        anisotropyStrength.valid && anisotropyRotation.valid && dispersion.valid
+
+    GltfMaterialExtensions(
+        syntaxValid = syntaxValid,
+        unlit = unlitPresent,
+        clearcoat = GltfClearcoatMaterial(
+            clearcoatPresent, clearcoatFactor.value, clearcoatRoughness.value,
+            gltfTextureInfo(clearcoat, "clearcoatTexture"),
+            gltfTextureInfo(clearcoat, "clearcoatRoughnessTexture"),
+            gltfTextureInfo(clearcoat, "clearcoatNormalTexture", "scale")
+        ),
+        sheen = GltfSheenMaterial(
+            sheenPresent,
+            gltfOptionalVec3(sheen, "sheenColorFactor", Vec3(0.0, 0.0, 0.0)),
+            sheenRoughness.value,
+            gltfTextureInfo(sheen, "sheenColorTexture"),
+            gltfTextureInfo(sheen, "sheenRoughnessTexture")
+        ),
+        transmission = GltfTransmissionMaterial(
+            transmissionPresent, transmissionFactor.value,
+            gltfTextureInfo(transmission, "transmissionTexture")
+        ),
+        volume = GltfVolumeMaterial(
+            volumePresent, thickness.value,
+            gltfTextureInfo(volume, "thicknessTexture"),
+            attenuationDistance.value,
+            gltfOptionalVec3(
+                volume, "attenuationColor", Vec3(1.0, 1.0, 1.0)
+            )
+        ),
+        specular = GltfSpecularMaterial(
+            specularPresent, specularFactor.value,
+            gltfTextureInfo(specular, "specularTexture"),
+            gltfOptionalVec3(
+                specular, "specularColorFactor", Vec3(1.0, 1.0, 1.0)
+            ),
+            gltfTextureInfo(specular, "specularColorTexture")
+        ),
+        iorPresent = iorPresent,
+        ior = ior.value,
+        iridescence = GltfIridescenceMaterial(
+            iridescencePresent, iridescenceFactor.value,
+            gltfTextureInfo(iridescence, "iridescenceTexture"),
+            iridescenceIor.value, iridescenceMinimum.value,
+            iridescenceMaximum.value,
+            gltfTextureInfo(iridescence, "iridescenceThicknessTexture")
+        ),
+        anisotropy = GltfAnisotropyMaterial(
+            anisotropyPresent, anisotropyStrength.value,
+            anisotropyRotation.value,
+            gltfTextureInfo(anisotropy, "anisotropyTexture")
+        ),
+        dispersionPresent = dispersionPresent,
+        dispersion = dispersion.value
+    )
 }
 
 fun gltfMaterial(value: Json): GltfMaterial {
@@ -184,7 +528,8 @@ fun gltfMaterial(value: Json): GltfMaterial {
         metallicRoughnessTexture = gltfTextureInfo(pbrValue, "metallicRoughnessTexture"),
         normalTexture = normal,
         occlusionTexture = occlusion,
-        emissiveTexture = gltfTextureInfo(value, "emissiveTexture")
+        emissiveTexture = gltfTextureInfo(value, "emissiveTexture"),
+        extensions = gltfMaterialExtensions(value)
     )
 }
 

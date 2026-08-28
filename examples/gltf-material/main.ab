@@ -1,35 +1,107 @@
 import "abla/io"
-import "../../src/graphics.ab"
-import "../../src/gltf_material.ab"
+import "../../src/gltf_scene.ab"
 
 fun close(actual: f64, expected: f64): bool =
     actual >= expected - 0.000001 && actual <= expected + 0.000001
 
+fun coreMapped(material: GltfMaterial): bool = material.valid() &&
+    material.name == "Layered gemstone" &&
+    close(material.pbr.baseColor.red, 0.82) &&
+    close(material.pbr.baseColor.alpha, 0.75) &&
+    close(material.pbr.metallic, 0.65) &&
+    close(material.pbr.roughness, 0.42) &&
+    close(material.pbr.ambientOcclusion, 0.7) &&
+    close(material.pbr.emissiveColor.red, 0.1) &&
+    close(material.pbr.emissiveStrength, 3.5) &&
+    material.baseColorTexture.index == 2 &&
+    material.baseColorTexture.texCoord == 1 &&
+    material.metallicRoughnessTexture.index == 3 &&
+    material.normalTexture.index == 4 &&
+    close(material.normalTexture.scale, 0.8) &&
+    material.emissiveTexture.index == 6 &&
+    material.alphaMode == gltfAlphaBlend &&
+    material.blendState().enabled && material.cullMode() == cullModeNone
+
+fun extensionsMapped(material: GltfMaterial): bool =
+    material.extensions.clearcoat.present &&
+    close(material.extensions.clearcoat.factor, 0.8) &&
+    material.extensions.clearcoat.texture.index == 7 &&
+    close(material.extensions.clearcoat.normalTexture.scale, 0.6) &&
+    material.extensions.sheen.present &&
+    close(material.extensions.sheen.color.z, 0.3) &&
+    material.extensions.sheen.roughnessTexture.index == 11 &&
+    material.extensions.transmission.present &&
+    close(material.extensions.transmission.factor, 0.65) &&
+    material.extensions.volume.present &&
+    close(material.extensions.volume.attenuationDistance, 2.5) &&
+    close(material.extensions.volume.attenuationColor.y, 0.8) &&
+    material.extensions.specular.present &&
+    close(material.extensions.specular.color.x, 1.2) &&
+    material.extensions.specular.colorTexture.index == 15 &&
+    material.extensions.iorPresent && close(material.extensions.ior, 1.45) &&
+    material.extensions.iridescence.present &&
+    close(material.extensions.iridescence.thicknessMinimum, 120.0) &&
+    close(material.extensions.iridescence.thicknessMaximum, 380.0) &&
+    material.extensions.anisotropy.present &&
+    close(material.extensions.anisotropy.rotation, 0.785) &&
+    material.extensions.dispersionPresent &&
+    close(material.extensions.dispersion, 0.35)
+
+fun invalidCasesRejected(): bool {
+    if (gltfMaterials("{\"materials\":[{\"alphaMode\":\"UNKNOWN\"}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"pbrMetallicRoughness\":{\"roughnessFactor\":-0.1}}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_unlit\":{},\"KHR_materials_clearcoat\":{}}}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_volume\":{}}}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_transmission\":{},\"KHR_materials_dispersion\":{}}}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_ior\":{\"ior\":0.5}}}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_iridescence\":{\"iridescenceThicknessMinimum\":500,\"iridescenceThicknessMaximum\":100}}}]}").succeeded)
+        return false
+    if (gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_clearcoat\":4}}]}").succeeded)
+        return false
+    !gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"materials\":[{\"extensions\":{\"KHR_materials_clearcoat\":{\"clearcoatTexture\":{\"index\":0}}}}]}").succeeded
+}
+
+fun extensionDefaultsMapped(): bool {
+    val parsed = gltfMaterials("{\"materials\":[{\"extensions\":{\"KHR_materials_clearcoat\":{},\"KHR_materials_sheen\":{},\"KHR_materials_transmission\":{},\"KHR_materials_volume\":{},\"KHR_materials_specular\":{},\"KHR_materials_ior\":{},\"KHR_materials_iridescence\":{},\"KHR_materials_anisotropy\":{},\"KHR_materials_dispersion\":{}}}]}")
+    if (!parsed.succeeded || parsed.materials.size != 1) return false
+    val extensions = parsed.materials[0].extensions
+    close(extensions.clearcoat.factor, 0.0) &&
+        close(extensions.clearcoat.roughness, 0.0) &&
+        close(extensions.sheen.color.x, 0.0) &&
+        close(extensions.sheen.roughness, 0.0) &&
+        close(extensions.transmission.factor, 0.0) &&
+        close(extensions.volume.thickness, 0.0) &&
+        close(extensions.volume.attenuationDistance, -1.0) &&
+        close(extensions.volume.attenuationColor.x, 1.0) &&
+        close(extensions.specular.factor, 1.0) &&
+        close(extensions.specular.color.x, 1.0) &&
+        close(extensions.ior, 1.5) &&
+        close(extensions.iridescence.factor, 0.0) &&
+        close(extensions.iridescence.ior, 1.3) &&
+        close(extensions.iridescence.thicknessMinimum, 100.0) &&
+        close(extensions.iridescence.thicknessMaximum, 400.0) &&
+        close(extensions.anisotropy.strength, 0.0) &&
+        close(extensions.anisotropy.rotation, 0.0) &&
+        close(extensions.dispersion, 0.0)
+}
+
 fun main: int {
-    val source = "{\"asset\":{\"version\":\"2.0\"},\"materials\":[{\"name\":\"Painted metal\",\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.82,0.22,0.08,0.75],\"baseColorTexture\":{\"index\":2,\"texCoord\":1},\"metallicFactor\":0.65,\"roughnessFactor\":4.2e-1,\"metallicRoughnessTexture\":{\"index\":3}},\"normalTexture\":{\"index\":4,\"scale\":0.8},\"occlusionTexture\":{\"index\":5,\"strength\":0.7},\"emissiveTexture\":{\"index\":6},\"emissiveFactor\":[0.1,0.02,0.005],\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":3.5}},\"alphaMode\":\"BLEND\",\"alphaCutoff\":0.33,\"doubleSided\":true}]}"
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"materials\":[{\"name\":\"Layered gemstone\",\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.82,0.22,0.08,0.75],\"baseColorTexture\":{\"index\":2,\"texCoord\":1},\"metallicFactor\":0.65,\"roughnessFactor\":4.2e-1,\"metallicRoughnessTexture\":{\"index\":3}},\"normalTexture\":{\"index\":4,\"scale\":0.8},\"occlusionTexture\":{\"index\":5,\"strength\":0.7},\"emissiveTexture\":{\"index\":6},\"emissiveFactor\":[0.1,0.02,0.005],\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":3.5},\"KHR_materials_clearcoat\":{\"clearcoatFactor\":0.8,\"clearcoatTexture\":{\"index\":7},\"clearcoatRoughnessFactor\":0.25,\"clearcoatRoughnessTexture\":{\"index\":8},\"clearcoatNormalTexture\":{\"index\":9,\"scale\":0.6}},\"KHR_materials_sheen\":{\"sheenColorFactor\":[0.1,0.2,0.3],\"sheenColorTexture\":{\"index\":10},\"sheenRoughnessFactor\":0.4,\"sheenRoughnessTexture\":{\"index\":11}},\"KHR_materials_transmission\":{\"transmissionFactor\":0.65,\"transmissionTexture\":{\"index\":12}},\"KHR_materials_volume\":{\"thicknessFactor\":0.02,\"thicknessTexture\":{\"index\":13},\"attenuationDistance\":2.5,\"attenuationColor\":[0.7,0.8,0.9]},\"KHR_materials_specular\":{\"specularFactor\":0.75,\"specularTexture\":{\"index\":14},\"specularColorFactor\":[1.2,0.9,0.8],\"specularColorTexture\":{\"index\":15}},\"KHR_materials_ior\":{\"ior\":1.45},\"KHR_materials_iridescence\":{\"iridescenceFactor\":0.55,\"iridescenceTexture\":{\"index\":16},\"iridescenceIor\":1.33,\"iridescenceThicknessMinimum\":120,\"iridescenceThicknessMaximum\":380,\"iridescenceThicknessTexture\":{\"index\":17}},\"KHR_materials_anisotropy\":{\"anisotropyStrength\":0.6,\"anisotropyRotation\":0.785,\"anisotropyTexture\":{\"index\":18}},\"KHR_materials_dispersion\":{\"dispersion\":0.35}},\"alphaMode\":\"BLEND\",\"alphaCutoff\":0.33,\"doubleSided\":true},{\"name\":\"UI marker\",\"extensions\":{\"KHR_materials_unlit\":{}}}]}"
     val parsed = gltfMaterials(source)
-    val material = if (parsed.succeeded && parsed.materials.size == 1)
+    val material = if (parsed.succeeded && parsed.materials.size == 2)
         parsed.materials[0] else GltfMaterial(alphaMode = -1)
-    val rejectedMode = gltfMaterials("{\"materials\":[{\"alphaMode\":\"UNKNOWN\"}]}")
-    val rejectedFactor = gltfMaterials("{\"materials\":[{\"pbrMetallicRoughness\":{\"roughnessFactor\":-0.1}}]}")
+    val unlit = if (parsed.succeeded && parsed.materials.size == 2)
+        parsed.materials[1] else GltfMaterial(alphaMode = -1)
     val passed = parsed.succeeded && parsed.error.size == 0 &&
-        material.valid() && material.name == "Painted metal" &&
-        close(material.pbr.baseColor.red, 0.82) &&
-        close(material.pbr.baseColor.alpha, 0.75) &&
-        close(material.pbr.metallic, 0.65) &&
-        close(material.pbr.roughness, 0.42) &&
-        close(material.pbr.ambientOcclusion, 0.7) &&
-        close(material.pbr.emissiveColor.red, 0.1) &&
-        close(material.pbr.emissiveStrength, 3.5) &&
-        material.baseColorTexture.index == 2 &&
-        material.baseColorTexture.texCoord == 1 &&
-        material.metallicRoughnessTexture.index == 3 &&
-        material.normalTexture.index == 4 &&
-        close(material.normalTexture.scale, 0.8) &&
-        material.emissiveTexture.index == 6 &&
-        material.alphaMode == gltfAlphaBlend &&
-        material.blendState().enabled && material.cullMode() == cullModeNone &&
-        !rejectedMode.succeeded && !rejectedFactor.succeeded
-    println("gltf-material: materials=${parsed.materials.size} textures=5 mapped=$passed error=${parsed.error}")
+        coreMapped(material) && extensionsMapped(material) &&
+        unlit.valid() && unlit.extensions.unlit &&
+        extensionDefaultsMapped() && invalidCasesRejected()
+    println("gltf-material: materials=${parsed.materials.size} coreTextures=5 extensions=10 mapped=$passed error=${parsed.error}")
     if (passed) 0 else 1
 }

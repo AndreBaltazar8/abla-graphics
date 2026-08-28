@@ -290,8 +290,10 @@ sequence on resize. Static and animated morph/skin deformation now use typed
 STEP/LINEAR/CUBICSPLINE poses; the cached path decodes accessors once, reuses
 fixed vertex scratch, preserves retained GPU topology, and proves 240 clamped/
 looping and two-clip crossfade updates with zero playback-arena growth on both
-backends. Shader-side deformation, extended PBR material models, and JPEG
-decoding remain open.
+backends. Ten Khronos material extensions now have typed factors, colors,
+textures, defaults, dependencies, exclusions, and complete scene texture
+cross-reference validation. Shader-side deformation, extended-lobe shader/
+retained-texture execution, and JPEG decoding remain open.
 
 ## Non-negotiable design rules
 

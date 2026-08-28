@@ -2141,17 +2141,21 @@ The pure-Abla `gltfMaterials` mapper consumes the standard library's bounded
 JSON tree and decodes exact JSON decimal/exponent spellings without `strtod` or
 another native helper. It covers metallic/roughness factors and textures,
 base-color, normal, occlusion, and emissive inputs, alpha and culling policy,
-and `KHR_materials_emissive_strength`. The independent
-`examples/gltf-material` program checks mapped values and invalid-mode/range
-rejection. This is material mapping, not yet full glTF buffer, accessor, mesh,
-node, camera, or scene loading.
+and `KHR_materials_emissive_strength`. It now also owns typed unlit, clearcoat,
+sheen, transmission, volume, specular, IOR, iridescence, anisotropy, and
+dispersion descriptors. Khronos defaults/ranges, 17 extended texture slots,
+full-scene texture references, extension object shapes, dependencies, and
+unlit exclusions are checked. The independent `examples/gltf-material`
+program maps the core and all ten extensions while rejecting malformed ranges,
+dependencies, combinations, and extended texture references.
 
 The consolidated environment/glTF gate produced exact tone-mapped pixel
 `4282610358` on OpenGL, Vulkan, and automatic selection, with four stable
-measured frames and `live=0`. The independently built glTF sample mapped one
-material and five texture references while rejecting an unknown alpha mode and
-an invalid factor. Both sample binaries launch with `LD_LIBRARY_PATH` removed,
-and the Abla-only source audit passes.
+measured frames and `live=0`. The material mapper is backend-free: its package
+no longer declares Vulkan, X11, EGL, or GL, and its optimized binary launches
+with `LD_LIBRARY_PATH` removed. Extended-lobe shader evaluation and retained
+extended texture tables remain open; the descriptors and validation are
+complete input contracts for that work.
 
 ### glTF scene metadata
 

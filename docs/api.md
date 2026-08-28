@@ -1312,11 +1312,23 @@ Import `src/gltf_material.ab` to use the optional asset-mapping layer.
 maps every entry in its `materials` array. The result preserves base color,
 metallic/roughness, emissive factors and strength, alpha mode/cutoff,
 double-sided policy, texture indices, texture-coordinate sets, normal scale,
-and occlusion strength. `GltfMaterial.blendState()` and `cullMode()` translate
-the glTF policy into portable pipeline state. Malformed numbers, unknown alpha
-modes, invalid ranges, missing texture indices, duplicate JSON keys, and limit
-violations fail the whole mapping instead of producing a partially valid
-material. `examples/gltf-material` is the independent mapping reference.
+and occlusion strength. `GltfMaterial.extensions` is a typed
+`GltfMaterialExtensions` value covering `KHR_materials_unlit`, clearcoat,
+sheen, transmission, volume, specular, IOR, iridescence, anisotropy, and
+dispersion with the Khronos defaults, factors, colors, and 17 possible texture
+references. The volume/transmission and dispersion/volume dependencies plus
+unlit shading-model exclusion are validated.
+
+`GltfMaterial.textureReferencesValid(textureCount)` checks both the five core
+and every extended texture slot; `gltfDocument` invokes it during full scene
+cross-reference validation. `blendState()` and `cullMode()` translate the core
+glTF policy into portable pipeline state. Malformed extension objects or
+numbers, unknown alpha modes, invalid ranges/dependencies, missing texture
+indices, duplicate JSON keys, and limit violations fail the whole mapping
+instead of producing a partially valid material. The typed descriptors are
+ready for custom shaders; the retained five-channel material table does not
+yet shade the extended lobes. `examples/gltf-material` is the independent
+mapping reference and needs no graphics shared libraries.
 
 Import `src/gltf_scene.ab` for scene metadata. `gltfDocument(source)` returns a
 validated `GltfDocument` containing buffers, buffer views, dense or sparse

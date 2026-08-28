@@ -440,9 +440,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   parameters plus reusable diffuse/specular cube environments drive an RGBA16F
   scene pass, followed by exposure, Reinhard tone mapping, and gamma correction
   with identical pixels and zero warmed growth on OpenGL and Vulkan;
-- `examples/gltf-material`: strict pure-Abla glTF 2.0 metallic/roughness
-  material mapping, including texture references, alpha/culling policy, and
-  `KHR_materials_emissive_strength`;
+- `examples/gltf-material`: strict pure-Abla glTF 2.0 metallic/roughness plus
+  ten typed Khronos material extensions, including all 17 extended texture
+  references, dependency/exclusion checks, alpha/culling policy, and direct
+  execution without graphics shared libraries;
 - `examples/gltf-scene`: bounded glTF 2.0 buffers, views, accessors, materials,
   meshes, cameras, node transforms/hierarchies, and scene selection with
   cross-reference, byte-span, and cycle rejection;

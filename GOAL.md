@@ -3685,7 +3685,35 @@ and 339 updates/s on Vulkan; the portable enforced floor remains 30.
 Shader-side skinning/morphing and performance measurement on larger real
 assets remain open.
 
+## Latest checkpoint: typed Khronos glTF material extensions
+
+`GltfMaterial.extensions` now retains typed descriptors for ten Khronos glTF
+material extensions: unlit, clearcoat, sheen, transmission, volume, specular,
+IOR, iridescence, anisotropy, and dispersion. Pure-Abla parsing preserves the
+specification defaults, factors, colors, thickness/attenuation values, and all
+17 extended texture references. It rejects malformed extension shapes,
+non-finite or out-of-range values, incompatible unlit shading models, missing
+volume/transmission or dispersion/volume dependencies, inverted iridescence
+thickness bounds, and invalid full-document texture references.
+
+`GltfMaterial.textureReferencesValid(...)` is now the single cross-reference
+contract for the five core and all extended texture slots. The comprehensive
+`examples/gltf-material` fixture maps one layered material plus a separate
+unlit material and exercises each rejection family. The sample no longer
+imports the graphics umbrella or declares Vulkan/X11/EGL/GL libraries, so its
+optimized binary builds within the normal compiler memory guard and launches
+directly with `LD_LIBRARY_PATH` removed.
+
+This checkpoint establishes material input and validation coverage. Rendering
+the extended lobes and retaining their additional sampled textures remain open.
+
 Validated with:
+
+```sh
+nix-shell --run 'make check-abla-only test-gltf-material test-gltf-material-batches test-gltf-scene test-gltf-texture test-gltf-live-scene test-runtime-linkage'
+```
+
+The preceding animation checkpoints were validated with:
 
 ```sh
 nix-shell --run 'make check-abla-only test-gltf-scene test-gltf-deformation-plan test-gltf-animation test-gltf-live-deformation test-gltf-live-animation test-runtime-linkage'
