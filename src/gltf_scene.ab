@@ -347,6 +347,115 @@ class GltfSceneResourcePlan(
     val error: string
 )
 
+val gltfMaximumMaterialBatchMaterials = 3
+
+class GltfMaterialBatchPlan(
+    val batchDrawableOffsets: array<int>,
+    val batchDrawableCounts: array<int>,
+    val batchMaterialOffsets: array<int>,
+    val batchMaterialCounts: array<int>,
+    val materialIndices: array<int>,
+    val drawableMaterialSlots: array<int>,
+    val valid: bool,
+    val error: string
+) {
+    fun batchCount(): int = this.batchDrawableOffsets.size
+
+    fun drawableMaterialSlot(drawable: int): int =
+        if (this.valid && drawable >= 0 &&
+            drawable < this.drawableMaterialSlots.size)
+            this.drawableMaterialSlots[drawable]
+        else -1
+
+    fun batchDrawableMaterialSlot(batch: int, draw: int): int =
+        if (this.valid && batch >= 0 && batch < this.batchCount() &&
+            draw >= 0 && draw < this.batchDrawableCounts[batch])
+            this.drawableMaterialSlots[
+                this.batchDrawableOffsets[batch] + draw
+            ]
+        else -1
+
+    fun batchMaterials(batch: int): array<int> {
+        val result: array<int> = []
+        if (!this.valid || batch < 0 || batch >= this.batchCount())
+            return result
+        val offset = this.batchMaterialOffsets[batch]
+        val count = this.batchMaterialCounts[batch]
+        var index = 0
+        while (index < count) {
+            result.append(this.materialIndices[offset + index])
+            index = index + 1
+        }
+        result
+    }
+}
+
+// Preserves draw order by forming contiguous batches. A batch ends immediately
+// before the first draw that would exceed its distinct-material capacity.
+fun gltfMaterialBatchPlan(
+    drawList: GltfSceneDrawList,
+    maximumMaterialsPerBatch: int = gltfMaximumMaterialBatchMaterials,
+    maximumBatches: int = 65536
+): GltfMaterialBatchPlan {
+    val drawableOffsets: array<int> = []
+    val drawableCounts: array<int> = []
+    val materialOffsets: array<int> = []
+    val materialCounts: array<int> = []
+    val materials: array<int> = []
+    val slots: array<int> = []
+    var valid = drawList.valid && drawList.drawables.size > 0 &&
+        maximumMaterialsPerBatch > 0 &&
+        maximumMaterialsPerBatch <= gltfMaximumMaterialBatchMaterials &&
+        maximumBatches > 0 && maximumBatches <= 1048576
+    var drawable = 0
+    while (valid && drawable < drawList.drawables.size) {
+        valid = drawableOffsets.size < maximumBatches
+        val drawableOffset = drawable
+        val materialOffset = materials.size
+        if (valid) {
+            drawableOffsets.append(drawableOffset)
+            materialOffsets.append(materialOffset)
+        }
+        var batchDone = false
+        while (valid && !batchDone && drawable < drawList.drawables.size) {
+            val material = drawList.drawables[drawable].material
+            var slot = -1
+            var candidate = materialOffset
+            while (slot < 0 && candidate < materials.size) {
+                if (materials[candidate] == material)
+                    slot = candidate - materialOffset
+                candidate = candidate + 1
+            }
+            if (slot < 0 &&
+                materials.size - materialOffset >= maximumMaterialsPerBatch) {
+                batchDone = true
+            } else {
+                if (slot < 0) {
+                    slot = materials.size - materialOffset
+                    materials.append(material)
+                }
+                slots.append(slot)
+                drawable = drawable + 1
+            }
+        }
+        if (valid) {
+            drawableCounts.append(drawable - drawableOffset)
+            materialCounts.append(materials.size - materialOffset)
+            valid = drawable > drawableOffset &&
+                materialCounts[materialCounts.size - 1] > 0
+        }
+    }
+    valid = valid && slots.size == drawList.drawables.size &&
+        drawableOffsets.size == drawableCounts.size &&
+        materialOffsets.size == materialCounts.size &&
+        drawableOffsets.size == materialOffsets.size
+    GltfMaterialBatchPlan(
+        drawableOffsets, drawableCounts, materialOffsets, materialCounts,
+        materials, slots, valid,
+        if (valid) "" else "invalid or over-capacity glTF material batch plan"
+    )
+}
+
 fun gltfSceneResourcePlan(
     drawList: GltfSceneDrawList,
     maximumUniquePrimitives: int = 65536

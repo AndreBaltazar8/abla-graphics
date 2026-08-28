@@ -1,0 +1,64 @@
+import "abla/io"
+import "../../src/gltf_scene.ab"
+
+fun materialDrawable(material: int): GltfSceneDrawable =
+    GltfSceneDrawable(0, 0, 0, material, mat4Identity())
+
+fun main: int {
+    val drawList = GltfSceneDrawList([
+        materialDrawable(0),
+        materialDrawable(1),
+        materialDrawable(0),
+        materialDrawable(2),
+        materialDrawable(3),
+        materialDrawable(3),
+        materialDrawable(4),
+        materialDrawable(-1)
+    ], [], true, "")
+    val plan = gltfMaterialBatchPlan(drawList)
+    val firstMaterials = plan.batchMaterials(0)
+    val secondMaterials = plan.batchMaterials(1)
+    val tight = gltfMaterialBatchPlan(drawList, 2)
+    val tooWide = gltfMaterialBatchPlan(drawList, 4)
+    val tooFewBatches = gltfMaterialBatchPlan(drawList, 3, 1)
+    val passed = plan.valid && plan.batchCount() == 2 &&
+        plan.batchDrawableOffsets.size == 2 &&
+        plan.batchDrawableOffsets[0] == 0 &&
+        plan.batchDrawableOffsets[1] == 4 &&
+        plan.batchDrawableCounts[0] == 4 &&
+        plan.batchDrawableCounts[1] == 4 &&
+        plan.batchMaterialOffsets[0] == 0 &&
+        plan.batchMaterialOffsets[1] == 3 &&
+        plan.batchMaterialCounts[0] == 3 &&
+        plan.batchMaterialCounts[1] == 3 &&
+        plan.materialIndices.size == 6 &&
+        plan.materialIndices[0] == 0 && plan.materialIndices[1] == 1 &&
+        plan.materialIndices[2] == 2 && plan.materialIndices[3] == 3 &&
+        plan.materialIndices[4] == 4 && plan.materialIndices[5] == -1 &&
+        plan.drawableMaterialSlots.size == 8 &&
+        plan.drawableMaterialSlots[0] == 0 &&
+        plan.drawableMaterialSlots[1] == 1 &&
+        plan.drawableMaterialSlots[2] == 0 &&
+        plan.drawableMaterialSlots[3] == 2 &&
+        plan.drawableMaterialSlots[4] == 0 &&
+        plan.drawableMaterialSlots[5] == 0 &&
+        plan.drawableMaterialSlots[6] == 1 &&
+        plan.drawableMaterialSlots[7] == 2 &&
+        firstMaterials.size == 3 && firstMaterials[0] == 0 &&
+        firstMaterials[1] == 1 && firstMaterials[2] == 2 &&
+        secondMaterials.size == 3 && secondMaterials[0] == 3 &&
+        secondMaterials[1] == 4 && secondMaterials[2] == -1 &&
+        plan.batchDrawableMaterialSlot(0, 2) == 0 &&
+        plan.batchDrawableMaterialSlot(1, 3) == 2 &&
+        plan.drawableMaterialSlot(7) == 2 &&
+        tight.valid && tight.batchCount() == 3 &&
+        tight.batchDrawableOffsets[0] == 0 &&
+        tight.batchDrawableOffsets[1] == 3 &&
+        tight.batchDrawableOffsets[2] == 6 &&
+        tight.batchDrawableCounts[0] == 3 &&
+        tight.batchDrawableCounts[1] == 3 &&
+        tight.batchDrawableCounts[2] == 2 &&
+        !tooWide.valid && !tooFewBatches.valid
+    println("gltf-material-batches: draws=${drawList.drawables.size} batches=${plan.batchCount()} materials=${plan.materialIndices.size} tight=${tight.batchCount()} ordered=$passed")
+    if (passed) 0 else 1
+}

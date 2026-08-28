@@ -1398,6 +1398,20 @@ fragment bindings suitable for one `bindGroup`. A table may therefore expose
 15 bindings while retaining fewer GPU objects. This is setup-time ownership;
 draw submission neither decodes images nor rebuilds descriptors.
 
+`gltfMaterialBatchPlan(drawList, maximumMaterialsPerBatch, maximumBatches)`
+preserves drawable order while splitting immediately before a new material
+would exceed the batch width. `GltfMaterialBatchPlan` stores contiguous
+drawable offsets/counts, flattened material offsets/counts, and one local slot
+per original drawable. Material `-1` is retained as glTF's implicit default.
+The portable width is at most three because each material occupies five of the
+16 binding entries.
+
+`app.gltfGpuMaterialTextureBatch(document, buffers, plan, batch,
+suppliedImages)` creates a deduplicated table from `plan.batchMaterials(batch)`.
+`drawableMaterialSlot` and `batchDrawableMaterialSlot` provide the exact local
+selector to place in a draw record. Planning is setup-time and does not reorder
+transparent draws.
+
 `app.gltfGpuTexturedPrimitive(document, buffers, meshIndex, primitiveIndex)`
 is the compact textured geometry contract. It requires FLOAT `VEC3` `POSITION`
 and accepts FLOAT, normalized `UNSIGNED_BYTE`, or normalized `UNSIGNED_SHORT`

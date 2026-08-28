@@ -55,7 +55,6 @@ val gltfMaterialTextureNormal = 2
 val gltfMaterialTextureOcclusion = 3
 val gltfMaterialTextureEmissive = 4
 val gltfMaterialTextureChannelCount = 5
-val gltfMaximumBoundMaterials = 3
 
 // Affine, deduplicated resources plus one stable slot per material/channel.
 // Three complete materials fit the portable 16-entry bind-group ceiling.
@@ -69,7 +68,7 @@ resource class GltfGpuMaterialTextureTable(
         var valid = this.error == "" && this.values.size > 0 &&
             this.values.size <= this.slots.size &&
             this.materialIndices.size > 0 &&
-            this.materialIndices.size <= gltfMaximumBoundMaterials &&
+            this.materialIndices.size <= gltfMaximumMaterialBatchMaterials &&
             this.slots.size == this.materialIndices.size *
                 gltfMaterialTextureChannelCount
         var index = 0
@@ -784,13 +783,13 @@ trusted fun GraphicsApplication.gltfGpuMaterialTextureTable(
     val keys: array<int> = []
     var valid = this.valid() && document.valid() && buffers.valid &&
         materialIndices.size > 0 &&
-        materialIndices.size <= gltfMaximumBoundMaterials &&
+        materialIndices.size <= gltfMaximumMaterialBatchMaterials &&
         (suppliedImages.size == 0 ||
          suppliedImages.size == document.images.size)
     var material = 0
     while (valid && material < materialIndices.size) {
         val materialIndex = materialIndices[material]
-        valid = materialIndex >= 0 && materialIndex < document.materials.size
+        valid = materialIndex >= -1 && materialIndex < document.materials.size
         var earlier = 0
         while (valid && earlier < material) {
             valid = materialIndices[earlier] != materialIndex
@@ -798,9 +797,9 @@ trusted fun GraphicsApplication.gltfGpuMaterialTextureTable(
         }
         var channel = 0
         while (valid && channel < gltfMaterialTextureChannelCount) {
-            val info = gltfMaterialTextureInfo(
-                document.materials[materialIndex], channel
-            )
+            val materialValue = if (materialIndex >= 0)
+                document.materials[materialIndex] else GltfMaterial()
+            val info = gltfMaterialTextureInfo(materialValue, channel)
             val srgb = gltfMaterialTextureSrgb(channel)
             val key = if (info.present()) info.index * 2 +
                 (if (srgb) 1 else 0)

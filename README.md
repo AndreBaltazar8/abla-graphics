@@ -446,6 +446,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-scene`: bounded glTF 2.0 buffers, views, accessors, materials,
   meshes, cameras, node transforms/hierarchies, and scene selection with
   cross-reference, byte-span, and cycle rejection;
+- `examples/gltf-material-batches`: order-preserving partitioning of arbitrary
+  draw lists into bounded three-material groups, including repeated-slot reuse,
+  implicit default materials, tighter policies, and capacity rejection;
 - `examples/gltf-live-scene`: an embedded base64 glTF buffer is decoded into
   one packed retained scene owner containing two distinct 48-byte
   position/normalized-UV/normal/tangent surface primitives; a reusable push

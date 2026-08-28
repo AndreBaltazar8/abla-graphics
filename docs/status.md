@@ -2272,6 +2272,19 @@ GPU texture/sampler pairs, samples every channel in its metallic/roughness
 expression, and reports exact green/blue pixels with `live=0` on OpenGL,
 Vulkan, and auto.
 
+### Order-preserving glTF material batches
+
+The material planner now partitions arbitrary draw lists into contiguous groups
+of at most three distinct materials without reordering. Repeated materials reuse
+their local slot; implicit default material `-1` is supported; width and total
+batch capacities fail explicitly.
+
+`gltfGpuMaterialTextureBatch` turns any group into the retained five-channel
+table, and the live scene derives pushed selectors from the same plan. The new
+independent sample proves eight draws become two ordered groups, while a tighter
+two-material policy becomes three, with exact offsets/counts and rejection
+paths.
+
 ### glTF packed multi-geometry submission
 
 `GltfGpuTexturedScene` combines every unique accessor-plan primitive into one

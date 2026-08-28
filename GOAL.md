@@ -68,8 +68,9 @@ backends keep a single binding/pass without copying arrays in the frame loop.
 The live fixture now proves two position accessors, two geometry resources,
 two materials, and exact green/blue output with `live=0` on OpenGL, Vulkan,
 and auto. Continue with material batching beyond three complete bound
-materials, skinning/morph targets, transmission/clearcoat extensions, and JPEG
-decoding.
+materials now has an order-preserving planner; continue with multi-pipeline
+submission orchestration, skinning/morph targets, transmission/clearcoat
+extensions, and JPEG decoding.
 
 ## Mission
 
@@ -3526,3 +3527,19 @@ shader samples all ten channel slots in a metallic/roughness lighting
 expression while only five GPU texture/sampler pairs are retained. OpenGL,
 Vulkan, and auto report exact green/blue pixels, four stable frames, and
 `live=0`.
+
+## Latest checkpoint: order-preserving glTF material batches
+
+`gltfMaterialBatchPlan(...)` partitions an arbitrary scene draw list into
+contiguous batches containing at most three distinct materials. It never
+reorders draws, reuses a local material slot inside each batch, accepts glTF's
+implicit default material, and rejects invalid width or batch-capacity policy.
+Exact drawable/material offsets and counts make later submission orchestration
+bounded and allocation-free after setup.
+
+`app.gltfGpuMaterialTextureBatch(...)` creates the existing five-channel affine
+table directly from any planned batch. The live scene now derives both its table
+and pushed material selectors from this plan. The independent
+`examples/gltf-material-batches` proof maps eight draws to two ordered batches,
+also verifies a tighter three-batch policy, default-material placement, slot
+reuse, and capacity rejection with `LD_LIBRARY_PATH` removed.

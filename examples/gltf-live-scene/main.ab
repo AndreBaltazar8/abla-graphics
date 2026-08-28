@@ -1,4 +1,5 @@
 import "abla/io"
+import "abla/float"
 import "abla/process/arguments"
 import "abla/runtime/memory"
 import "../../src/texture.ab"
@@ -49,6 +50,7 @@ fun main: int {
     val payloads = if (parsed.succeeded)
         gltfBufferPayloads(parsed.document) else GltfBufferPayloads([], false, "parse")
     val drawList = gltfSceneDrawList(parsed.document)
+    val materialPlan = gltfMaterialBatchPlan(drawList)
     val resourcePlan = gltfSceneAccessorResourcePlan(parsed.document, drawList)
     val shader = $glsl {
         vertex {
@@ -126,8 +128,8 @@ fun main: int {
         format = textureFormatRgba8Unorm,
         usage = textureUsageRenderAttachment | textureUsageCopySource
     )))
-    val materialTextures = app.gltfGpuMaterialTextureTable(
-        parsed.document, payloads, [0, 1]
+    val materialTextures = app.gltfGpuMaterialTextureBatch(
+        parsed.document, payloads, materialPlan, 0
     )
     val sceneGeometry = app.gltfGpuTexturedScene(
         parsed.document, payloads, drawList, resourcePlan
@@ -151,9 +153,11 @@ fun main: int {
     val batch = shader.pushConstantBatch(drawList.drawables.size)
     val batchReady = batch.valid() && batch.drawCount == 2 &&
         batch.layout.size == 64 && storeGltfDraw(
-            batch, 0, drawList.drawables[0].worldTransform, 0.0, 0.0
+            batch, 0, drawList.drawables[0].worldTransform,
+            f64FromInt(materialPlan.drawableMaterialSlot(0)), 0.0
         ) && storeGltfDraw(
-            batch, 1, drawList.drawables[1].worldTransform, 1.0, 0.0
+            batch, 1, drawList.drawables[1].worldTransform,
+            f64FromInt(materialPlan.drawableMaterialSlot(1)), 0.0
         ) && batch.storeIndexedDrawRange(
             0, drawIndexCounts[0], drawIndexOffsets[0]
         ) && batch.storeIndexedDrawRange(
@@ -162,6 +166,11 @@ fun main: int {
     val clear = Color(0.01, 0.01, 0.015)
     val initialized = app.valid() && parsed.succeeded && payloads.valid &&
         drawList.valid && drawList.drawables.size == 2 && resourcePlan.valid &&
+        materialPlan.valid && materialPlan.batchCount() == 1 &&
+        materialPlan.batchDrawableOffsets[0] == 0 &&
+        materialPlan.batchDrawableCounts[0] == 2 &&
+        materialPlan.drawableMaterialSlot(0) == 0 &&
+        materialPlan.drawableMaterialSlot(1) == 1 &&
         resourcePlan.meshIndices.size == 2 &&
         resourcePlan.drawableResources.size == 2 &&
         resourcePlan.drawableResources[0] == 0 &&

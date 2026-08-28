@@ -281,8 +281,10 @@ once into a fixed 48-byte position/UV/normal/tangent surface stream, including
 defaults for optional directions. Complete base-color, metallic/roughness,
 normal, occlusion, and emissive tables now bind up to three materials per
 portable 16-entry group with deduplicated real/fallback resources and zero
-warmed growth. Multi-group material batching, skinning/morph targets, extended
-PBR material models, and JPEG decoding remain open.
+warmed growth. Arbitrary draw lists now plan into contiguous three-material
+groups without reordering and feed tables/selectors directly. Multi-pipeline
+submission orchestration, skinning/morph targets, extended PBR material models,
+and JPEG decoding remain open.
 
 ## Non-negotiable design rules
 
