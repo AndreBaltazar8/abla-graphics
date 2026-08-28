@@ -48,6 +48,17 @@ four stable frames, and zero warmed-loop live-byte growth. Continue with parsed
 glTF images, textures, samplers, and per-material bindings; multi-node geometry
 submission is no longer the blocker.
 
+The texture checkpoint now parses and cross-validates glTF images, samplers,
+textures, and material texture references. It acquires data-URI, buffer-view,
+or caller-supplied payloads and strictly decodes noninterlaced 8-bit RGBA PNG
+through pure-Abla stored/fixed/dynamic DEFLATE, PNG filters, CRC32, and Adler32.
+`GltfGpuTexture` retains the uploaded texture and sampler. The live two-node
+scene binds its parsed base-color texture on OpenGL/Vulkan/auto, samples exact
+green pixels from both transformed instances, repeats four frames, and reports
+zero live-byte growth. Continue with per-draw material selection, texture
+coordinates/accessor layouts, full PBR channel binding, JPEG support, and a
+general multi-mesh scene; one shared base-color material is not a full loader.
+
 ## Mission
 
 Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and
@@ -3414,3 +3425,31 @@ ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned \
 `tools/test-glsl.sh` locally raises only the monolithic subparser fixture's
 virtual-address-space ceiling; all other builds retain the caller's 8 GiB cap.
 Continue with glTF image/texture/sampler decoding and parsed material bindings.
+
+## Latest checkpoint: glTF texture materialization
+
+`GltfDocument` now owns bounded image, sampler, and texture metadata with exact
+cross-reference validation. `src/gltf_texture.ab` resolves embedded PNG/JPEG
+data URIs, image buffer views, or caller-supplied bytes; its current pixel
+decoder deliberately accepts only noninterlaced RGBA8 PNG and validates every
+chunk CRC, zlib header/Adler checksum, stored/fixed/dynamic DEFLATE block, and
+PNG row filter. Unsupported JPEG decoding fails explicitly.
+
+`GraphicsApplication.gltfGpuTexture(...)` creates one affine sampled texture
+and sampler from the parsed material reference. The deterministic `$glsl`
+subset adds an affine pushed vertex transform with a typed texture-coordinate
+output. `examples/gltf-live-scene` reuses one geometry resource for two nodes,
+binds the parsed base-color material once, and produces exact green pixels on
+OpenGL, Vulkan, and auto for four stable frames with `live=0`.
+
+Use one consolidated checkpoint gate:
+
+```bash
+ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned \
+  ABLA_MAX_MEMORY_MB=8192 nix-shell --run \
+  'make test-gltf-texture test-glsl test-application test-gltf-live-scene check-abla-only'
+```
+
+Next, decode `TEXCOORD_0` into an interleaved or multi-buffer vertex contract,
+select material/bind-group state per planned drawable without per-frame
+allocation, and cover multiple primitives and materials in one scene.

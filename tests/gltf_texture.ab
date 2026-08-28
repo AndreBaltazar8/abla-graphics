@@ -1,0 +1,51 @@
+import "../src/gltf_texture.ab"
+
+fun main: int {
+    val png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP4z8DwHwyBNBAw/AcAR8oI+FuapL4AAAAASUVORK5CYII="
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"images\":[{\"name\":\"four colors\",\"uri\":\"data:image/png;base64,$png\"}],\"samplers\":[{\"name\":\"nearest repeat\",\"magFilter\":9728,\"minFilter\":9984,\"wrapS\":10497,\"wrapT\":33648}],\"textures\":[{\"name\":\"albedo\",\"sampler\":0,\"source\":0}],\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}}}]}"
+    val parsed = gltfDocument(source)
+    val buffers = gltfBufferPayloads(parsed.document)
+    val payload = gltfImagePayload(parsed.document, buffers, 0)
+    val decoded = gltfDecodePng(payload)
+    val sampler = gltfSamplerDescriptor(parsed.document.samplers[0])
+    val rejected = gltfDecodePng(GltfImagePayload(
+        "not a png", "image/png", true, ""
+    ))
+    val filtered = gltfDecodePng(GltfImagePayload(
+        base64Decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAAFCAYAAACEhIafAAAAHklEQVR42g3IyQEAAATAsDoGZ/KSZxAMxCSkdKe/OHSjCQWpAJaRAAAAAElFTkSuQmCC"),
+        "image/png", true, ""
+    ))
+    val stored = gltfZlibInflate(gltfByteArray(base64Decode(
+        "eAEBIADf/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fFXAB8Q=="
+    )), 32)
+    var storedValid = stored.size == 32
+    var storedIndex = 0
+    while (storedValid && storedIndex < stored.size) {
+        storedValid = stored[storedIndex] == storedIndex
+        storedIndex = storedIndex + 1
+    }
+    if (parsed.succeeded && parsed.document.images.size == 1 &&
+        parsed.document.samplers.size == 1 &&
+        parsed.document.textures.size == 1 &&
+        parsed.document.materials[0].baseColorTexture.index == 0 &&
+        buffers.valid && payload.valid && payload.mimeType == "image/png" &&
+        decoded.valid() && decoded.pixels.width == 2 &&
+        decoded.pixels.height == 2 &&
+        decoded.pixels.rgba8(0, 0) == 4278190335 &&
+        decoded.pixels.rgba8(1, 0) == 4278255360 &&
+        decoded.pixels.rgba8(0, 1) == 4294901760 &&
+        decoded.pixels.rgba8(1, 1) == 4278255615 &&
+        sampler.addressU == samplerAddressRepeat &&
+        sampler.addressV == samplerAddressMirrorRepeat &&
+        sampler.magFilter == samplerFilterNearest &&
+        sampler.minFilter == samplerFilterNearest &&
+        sampler.mipmapFilter == samplerFilterNearest &&
+        filtered.valid() && filtered.pixels.width == 1 &&
+        filtered.pixels.height == 5 &&
+        filtered.pixels.rgba8(0, 0) == 4278190335 &&
+        filtered.pixels.rgba8(0, 1) == 4278255360 &&
+        filtered.pixels.rgba8(0, 2) == 4294901760 &&
+        filtered.pixels.rgba8(0, 3) == 4278255615 &&
+        filtered.pixels.rgba8(0, 4) == 4294967295 && storedValid &&
+        !rejected.valid()) 42 else 1
+}

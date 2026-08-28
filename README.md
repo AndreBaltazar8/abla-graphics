@@ -448,8 +448,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   cross-reference, byte-span, and cycle rejection;
 - `examples/gltf-live-scene`: an embedded base64 glTF buffer is decoded into
   one retained vertex/index resource, then two scene nodes submit their
-  resolved affine transforms and colors as a reusable push batch inside one
-  pass on OpenGL and Vulkan;
+  resolved affine transforms as a reusable push batch inside one pass; a
+  strictly decoded embedded RGBA8 PNG and parsed glTF sampler/base-color
+  material are uploaded and sampled with exact matching output on OpenGL and
+  Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

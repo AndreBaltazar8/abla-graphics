@@ -2209,3 +2209,21 @@ instances and emits an exact drawable-to-resource mapping in deterministic
 first-use order. `GraphicsPushConstantBatch` now carries the resolved affine
 rows and per-draw tint, while the common render API reuses the retained vertex
 and index handles for every planned drawable in one native pass.
+
+### glTF images and sampled material texture
+
+The typed document now includes bounded images, samplers, and textures with
+complete buffer-view/source/sampler/material cross-reference validation.
+Image acquisition accepts caller-supplied bytes, buffer views, and embedded
+PNG/JPEG data URIs. The pure-Abla pixel path currently decodes strict
+noninterlaced RGBA8 PNG, including stored/fixed/dynamic DEFLATE, all five PNG
+row filters, chunk CRC32, and zlib Adler32 validation. Invalid or unsupported
+payloads fail with stage-specific errors.
+
+`GltfGpuTexture` owns the mapped sampler and uploaded sampled texture. The
+deterministic shader path adds an affine pushed vertex form that emits typed
+texture coordinates for the existing sampler fragment contract. The live
+two-node scene binds the parsed base-color material while preserving one shared
+geometry owner and one native pass. OpenGL, Vulkan, and automatic selection
+all report exact pixels `4278255360/4278255360`, four stable frames, and
+`live=0`.

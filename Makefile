@@ -4,14 +4,14 @@ export ABLA_MAX_MEMORY_MB ?= 4096
 .PHONY: all test test-core test-x11 test-wayland test-headless test-vulkan test-opengl \
 	test-vulkan-window test-opengl-window test-glsl test-raw-commands test-samples test-toolchain \
 	test-application test-transfer test-texture-transfer test-wider-texture-transfer test-debug test-registry update-registry \
-	test-texture-contract test-wider-texture test-wider-sampling test-shadow-mapping test-hdr-pbr test-gltf-material test-gltf-scene test-gltf-live-scene test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage check-abla-only clean
+	test-texture-contract test-wider-texture test-wider-sampling test-shadow-mapping test-hdr-pbr test-gltf-material test-gltf-scene test-gltf-texture test-gltf-live-scene test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage check-abla-only clean
 
 all: check-abla-only test
 
 check-abla-only:
 	./tools/check-abla-only.sh
 
-test: test-core test-texture-contract test-wider-texture test-wider-sampling test-shadow-mapping test-hdr-pbr test-gltf-material test-gltf-scene test-gltf-live-scene test-x11 test-wayland test-headless test-vulkan test-vulkan-window test-opengl \
+test: test-core test-texture-contract test-wider-texture test-wider-sampling test-shadow-mapping test-hdr-pbr test-gltf-material test-gltf-scene test-gltf-texture test-gltf-live-scene test-x11 test-wayland test-headless test-vulkan test-vulkan-window test-opengl \
 	test-opengl-window test-glsl test-application test-transfer test-texture-transfer test-wider-texture-transfer test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage test-debug test-registry
 
 test-core:
@@ -37,6 +37,9 @@ test-gltf-material:
 
 test-gltf-scene:
 	./tools/test-gltf-scene.sh
+
+test-gltf-texture:
+	./tools/test-gltf-texture.sh
 
 test-gltf-live-scene:
 	./tools/test-gltf-live-scene.sh

@@ -1,0 +1,657 @@
+// Pure-Abla glTF image acquisition, strict RGBA8 PNG decoding, and retained
+// sampled texture/sampler materialization.
+
+import "abla/crypto"
+import "gltf_buffer.ab"
+import "texture.ab"
+import "sampler.ab"
+
+class GltfImagePayload(
+    val bytes: string,
+    val mimeType: string,
+    val valid: bool,
+    val error: string
+)
+
+class GltfHuffman(
+    val symbols: array<int>,
+    val lengths: array<int>,
+    val valid: bool
+)
+
+resource class GltfImagePixels(
+    val pixels: PixelBuffer,
+    val mimeType: string,
+    val error: string
+) {
+    fun valid(): bool = this.error == "" && this.mimeType == "image/png" &&
+        this.pixels.valid()
+
+    trusted fun drop(): void {
+        this.pixels.storage.close()
+        return
+    }
+}
+
+resource class GltfGpuTexture(
+    val texture: GraphicsTexture,
+    val sampler: GraphicsSampler,
+    val source: int,
+    val error: string
+) {
+    fun valid(): bool = this.error == "" && this.source >= 0 &&
+        this.texture.valid() && this.sampler.valid()
+
+    trusted fun drop(): void {
+        this.texture.drop()
+        this.sampler.drop()
+        return
+    }
+}
+
+fun gltfImagePayload(
+    document: GltfDocument,
+    buffers: GltfBufferPayloads,
+    imageIndex: int,
+    supplied: array<string> = []
+): GltfImagePayload {
+    if (!document.valid() || !buffers.valid || imageIndex < 0 ||
+        imageIndex >= document.images.size ||
+        (supplied.size != 0 && supplied.size != document.images.size))
+        return GltfImagePayload("", "", false, "invalid glTF image request")
+    val image = document.images[imageIndex]
+    val external = if (supplied.size == document.images.size)
+        supplied[imageIndex] else ""
+    var bytes = external
+    var mimeType = image.mimeType
+    if (bytes.size == 0 && image.bufferView >= 0) {
+        val view = document.bufferViews[image.bufferView]
+        val source = buffers.values[view.buffer]
+        if (view.byteOffset <= source.size - view.byteLength)
+            bytes = source.slice(view.byteOffset, view.byteOffset + view.byteLength)
+    } else if (bytes.size == 0 && image.uri.size > 0) {
+        val png = "data:image/png;base64,"
+        val jpeg = "data:image/jpeg;base64,"
+        if (image.uri.size >= png.size &&
+            image.uri.slice(0, png.size) == png) {
+            bytes = base64Decode(image.uri.slice(png.size, image.uri.size))
+            mimeType = "image/png"
+        } else if (image.uri.size >= jpeg.size &&
+            image.uri.slice(0, jpeg.size) == jpeg) {
+            bytes = base64Decode(image.uri.slice(jpeg.size, image.uri.size))
+            mimeType = "image/jpeg"
+        }
+    }
+    val valid = bytes.size > 0 && bytes.size <= 67108864 &&
+        (mimeType == "image/png" || mimeType == "image/jpeg")
+    GltfImagePayload(
+        if (valid) bytes else "",
+        if (valid) mimeType else "",
+        valid,
+        if (valid) "" else "unsupported or missing glTF image payload"
+    )
+}
+
+fun gltfByteArray(bytes: string): array<int> {
+    val result: array<int> = []
+    var index = 0
+    while (index < bytes.size) {
+        result.append(bytes[index])
+        index = index + 1
+    }
+    result
+}
+
+fun gltfBigU32(bytes: array<int>, offset: int): int =
+    if (offset < 0 || offset > bytes.size - 4) -1
+    else bytes[offset] * 16777216 + bytes[offset + 1] * 65536 +
+        bytes[offset + 2] * 256 + bytes[offset + 3]
+
+fun gltfReverseBits(value: int, count: int): int {
+    var source = value
+    var result = 0
+    var index = 0
+    while (index < count) {
+        result = result * 2 + (source & 1)
+        source = source >>> 1
+        index = index + 1
+    }
+    result
+}
+
+fun gltfHuffman(codeLengths: array<int>): GltfHuffman {
+    val counts: array<int> = []
+    val next: array<int> = []
+    var index = 0
+    while (index < 16) {
+        counts.append(0)
+        next.append(0)
+        index = index + 1
+    }
+    var valid = codeLengths.size > 0 && codeLengths.size <= 320
+    index = 0
+    while (valid && index < codeLengths.size) {
+        val length = codeLengths[index]
+        valid = length >= 0 && length <= 15
+        if (valid && length > 0) counts[length] = counts[length] + 1
+        index = index + 1
+    }
+    var code = 0
+    var bits = 1
+    while (valid && bits <= 15) {
+        code = (code + counts[bits - 1]) << 1
+        valid = code + counts[bits] <= (1 << bits)
+        next[bits] = code
+        bits = bits + 1
+    }
+    val symbols: array<int> = []
+    val lengths: array<int> = []
+    index = 0
+    while (index < 32768) {
+        symbols.append(-1)
+        lengths.append(0)
+        index = index + 1
+    }
+    var used = 0
+    var symbol = 0
+    while (valid && symbol < codeLengths.size) {
+        val length = codeLengths[symbol]
+        if (length > 0) {
+            val reversed = gltfReverseBits(next[length], length)
+            next[length] = next[length] + 1
+            val combinations = 1 << (15 - length)
+            var suffix = 0
+            while (suffix < combinations) {
+                val entry = reversed | (suffix << length)
+                symbols[entry] = symbol
+                lengths[entry] = length
+                suffix = suffix + 1
+            }
+            used = used + 1
+        }
+        symbol = symbol + 1
+    }
+    GltfHuffman(symbols, lengths, valid && used > 0)
+}
+
+fun gltfInflatePeekBits(
+    bytes: array<int>,
+    end: int,
+    count: int,
+    state: array<int>
+): int {
+    if (state.size != 1 || count < 0 || count > 15 ||
+        state[0] < 0 || state[0] + count > end * 8) return -1
+    var result = 0
+    var index = 0
+    while (index < count) {
+        val bit = (bytes[(state[0] + index) / 8] >>>
+            ((state[0] + index) & 7)) & 1
+        result = result | (bit << index)
+        index = index + 1
+    }
+    result
+}
+
+fun gltfInflateReadBits(
+    bytes: array<int>,
+    end: int,
+    count: int,
+    var state: array<int>
+): int {
+    val value = gltfInflatePeekBits(bytes, end, count, state)
+    if (value >= 0) state[0] = state[0] + count
+    value
+}
+
+fun gltfInflateSymbol(
+    bytes: array<int>,
+    end: int,
+    table: GltfHuffman,
+    var state: array<int>
+): int {
+    if (!table.valid) return -1
+    val remaining = end * 8 - state[0]
+    val available = if (remaining < 15) remaining else 15
+    val peeked = gltfInflatePeekBits(bytes, end, available, state)
+    if (peeked < 0) return -1
+    val symbol = table.symbols[peeked]
+    val length = table.lengths[peeked]
+    if (symbol < 0 || length <= 0 || length > remaining) return -1
+    state[0] = state[0] + length
+    symbol
+}
+
+fun gltfFixedLiteralLengths(): array<int> {
+    val result: array<int> = []
+    var symbol = 0
+    while (symbol < 288) {
+        result.append(
+            if (symbol <= 143) 8 else if (symbol <= 255) 9
+            else if (symbol <= 279) 7 else 8
+        )
+        symbol = symbol + 1
+    }
+    result
+}
+
+fun gltfFixedDistanceLengths(): array<int> {
+    val result: array<int> = []
+    var symbol = 0
+    while (symbol < 32) {
+        result.append(5)
+        symbol = symbol + 1
+    }
+    result
+}
+
+class GltfHuffmanPair(
+    val literals: GltfHuffman,
+    val distances: GltfHuffman,
+    val valid: bool
+)
+
+fun gltfDynamicHuffman(
+    bytes: array<int>,
+    end: int,
+    var state: array<int>
+): GltfHuffmanPair {
+    val literalCount = gltfInflateReadBits(bytes, end, 5, state) + 257
+    val distanceCount = gltfInflateReadBits(bytes, end, 5, state) + 1
+    val codeCount = gltfInflateReadBits(bytes, end, 4, state) + 4
+    val order = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4,
+        12, 3, 13, 2, 14, 1, 15]
+    val codeLengths: array<int> = []
+    var index = 0
+    while (index < 19) {
+        codeLengths.append(0)
+        index = index + 1
+    }
+    var valid = literalCount >= 257 && literalCount <= 286 &&
+        distanceCount >= 1 && distanceCount <= 32 &&
+        codeCount >= 4 && codeCount <= 19
+    index = 0
+    while (valid && index < codeCount) {
+        val length = gltfInflateReadBits(bytes, end, 3, state)
+        valid = length >= 0
+        if (valid) codeLengths[order[index]] = length
+        index = index + 1
+    }
+    val codeTable = gltfHuffman(codeLengths)
+    val combined: array<int> = []
+    while (valid && combined.size < literalCount + distanceCount) {
+        val symbol = gltfInflateSymbol(bytes, end, codeTable, state)
+        if (symbol >= 0 && symbol <= 15) combined.append(symbol)
+        else if (symbol == 16 && combined.size > 0) {
+            val extra = gltfInflateReadBits(bytes, end, 2, state)
+            val repeat = extra + 3
+            valid = extra >= 0 && repeat <=
+                literalCount + distanceCount - combined.size
+            var repeated = 0
+            while (valid && repeated < repeat) {
+                combined.append(combined[combined.size - 1])
+                repeated = repeated + 1
+            }
+        } else if (symbol == 17 || symbol == 18) {
+            val extraBits = if (symbol == 17) 3 else 7
+            val extra = gltfInflateReadBits(bytes, end, extraBits, state)
+            val repeat = extra + (if (symbol == 17) 3 else 11)
+            valid = extra >= 0 && repeat <=
+                literalCount + distanceCount - combined.size
+            var repeated = 0
+            while (valid && repeated < repeat) {
+                combined.append(0)
+                repeated = repeated + 1
+            }
+        } else valid = false
+    }
+    val literalLengths: array<int> = []
+    val distanceLengths: array<int> = []
+    index = 0
+    while (valid && index < literalCount) {
+        literalLengths.append(combined[index])
+        index = index + 1
+    }
+    while (valid && index < literalCount + distanceCount) {
+        distanceLengths.append(combined[index])
+        index = index + 1
+    }
+    val literals = gltfHuffman(literalLengths)
+    val distances = gltfHuffman(distanceLengths)
+    valid = valid && combined.size == literalCount + distanceCount &&
+        literalLengths.size > 256 && literalLengths[256] > 0 &&
+        literals.valid && distances.valid
+    GltfHuffmanPair(literals, distances, valid)
+}
+
+fun gltfInflateCompressedBlock(
+    bytes: array<int>,
+    end: int,
+    literals: GltfHuffman,
+    distances: GltfHuffman,
+    expected: int,
+    var state: array<int>,
+    var output: array<int>
+): bool {
+    val lengthBases = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17,
+        19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115,
+        131, 163, 195, 227, 258]
+    val lengthExtras = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
+        2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5,
+        5, 5, 0]
+    val distanceBases = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49,
+        65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537,
+        2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577]
+    val distanceExtras = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4,
+        5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
+        12, 12, 13, 13]
+    var valid = literals.valid && distances.valid
+    var done = false
+    while (valid && !done) {
+        val symbol = gltfInflateSymbol(bytes, end, literals, state)
+        if (symbol >= 0 && symbol < 256) {
+            valid = output.size < expected
+            if (valid) output.append(symbol)
+        } else if (symbol == 256) done = true
+        else if (symbol >= 257 && symbol <= 285) {
+            val lengthIndex = symbol - 257
+            val lengthExtra = gltfInflateReadBits(
+                bytes, end, lengthExtras[lengthIndex], state
+            )
+            val distanceSymbol = gltfInflateSymbol(
+                bytes, end, distances, state
+            )
+            var distanceExtra = -1
+            if (distanceSymbol >= 0 && distanceSymbol < 30)
+                distanceExtra = gltfInflateReadBits(
+                    bytes, end, distanceExtras[distanceSymbol], state
+                )
+            val length = lengthBases[lengthIndex] + lengthExtra
+            val distance = if (distanceSymbol >= 0 && distanceSymbol < 30)
+                distanceBases[distanceSymbol] + distanceExtra else -1
+            valid = lengthExtra >= 0 && distanceExtra >= 0 &&
+                distance > 0 && distance <= output.size &&
+                length <= expected - output.size
+            var copied = 0
+            while (valid && copied < length) {
+                output.append(output[output.size - distance])
+                copied = copied + 1
+            }
+        } else valid = false
+    }
+    valid && done
+}
+
+fun gltfAdler32(bytes: array<int>): int {
+    var first = 1
+    var second = 0
+    var index = 0
+    while (index < bytes.size) {
+        val nextFirst = first + bytes[index]
+        first = nextFirst - (nextFirst / 65521) * 65521
+        val nextSecond = second + first
+        second = nextSecond - (nextSecond / 65521) * 65521
+        index = index + 1
+    }
+    second * 65536 + first
+}
+
+fun gltfZlibInflate(bytes: array<int>, expected: int): array<int> {
+    if (bytes.size < 6 || expected <= 0 || expected > 67125248)
+        return []
+    val output: array<int> = []
+    val cmf = bytes[0]
+    val flags = bytes[1]
+    val check = cmf * 256 + flags
+    var valid = (cmf & 15) == 8 && (cmf >>> 4) <= 7 &&
+        check - (check / 31) * 31 == 0 && (flags & 32) == 0
+    val end = bytes.size - 4
+    val state: array<int> = [16]
+    var finalBlock = false
+    while (valid && !finalBlock) {
+        val finalValue = gltfInflateReadBits(bytes, end, 1, state)
+        val blockType = gltfInflateReadBits(bytes, end, 2, state)
+        valid = finalValue >= 0 && blockType >= 0 && blockType <= 2
+        finalBlock = finalValue == 1
+        if (valid && blockType == 0) {
+            state[0] = ((state[0] + 7) / 8) * 8
+            val lowLength = gltfInflateReadBits(bytes, end, 8, state)
+            val highLength = gltfInflateReadBits(bytes, end, 8, state)
+            val lowInverse = gltfInflateReadBits(bytes, end, 8, state)
+            val highInverse = gltfInflateReadBits(bytes, end, 8, state)
+            val length = lowLength | (highLength << 8)
+            val inverse = lowInverse | (highInverse << 8)
+            valid = lowLength >= 0 && highLength >= 0 &&
+                lowInverse >= 0 && highInverse >= 0 &&
+                (length ^ inverse) == 65535 &&
+                length <= expected - output.size
+            var index = 0
+            while (valid && index < length) {
+                val value = gltfInflateReadBits(bytes, end, 8, state)
+                valid = value >= 0
+                if (valid) output.append(value)
+                index = index + 1
+            }
+        } else if (valid) {
+            val pair = if (blockType == 1) GltfHuffmanPair(
+                gltfHuffman(gltfFixedLiteralLengths()),
+                gltfHuffman(gltfFixedDistanceLengths()),
+                true
+            ) else gltfDynamicHuffman(bytes, end, state)
+            valid = pair.valid && gltfInflateCompressedBlock(
+                bytes, end, pair.literals, pair.distances,
+                expected, state, output
+            )
+        }
+    }
+    val expectedAdler = gltfBigU32(bytes, bytes.size - 4)
+    if (!valid || output.size != expected ||
+        gltfAdler32(output) != expectedAdler) return []
+    output
+}
+
+fun gltfCrc32(bytes: array<int>, offset: int, size: int): int {
+    if (offset < 0 || size < 0 || offset > bytes.size - size) return -1
+    var crc = 4294967295
+    var index = 0
+    while (index < size) {
+        crc = crc ^ bytes[offset + index]
+        var bit = 0
+        while (bit < 8) {
+            crc = if ((crc & 1) != 0)
+                (crc >>> 1) ^ 3988292384 else crc >>> 1
+            bit = bit + 1
+        }
+        index = index + 1
+    }
+    (crc ^ 4294967295) & 4294967295
+}
+
+fun gltfIntAbs(value: int): int = if (value < 0) -value else value
+
+fun gltfPaeth(left: int, up: int, upperLeft: int): int {
+    val estimate = left + up - upperLeft
+    val leftDistance = gltfIntAbs(estimate - left)
+    val upDistance = gltfIntAbs(estimate - up)
+    val cornerDistance = gltfIntAbs(estimate - upperLeft)
+    if (leftDistance <= upDistance && leftDistance <= cornerDistance) left
+    else if (upDistance <= cornerDistance) up else upperLeft
+}
+
+trusted fun gltfDecodePng(payload: GltfImagePayload): GltfImagePixels {
+    var invalidPixels = pixelBuffer(0, 0)
+    if (!payload.valid || payload.mimeType != "image/png")
+        return GltfImagePixels(
+            move(invalidPixels), "", "only PNG image payloads are decodable"
+        )
+    val bytes = gltfByteArray(payload.bytes)
+    val signature = [137, 80, 78, 71, 13, 10, 26, 10]
+    var valid = bytes.size >= 33
+    var index = 0
+    while (valid && index < signature.size) {
+        valid = bytes[index] == signature[index]
+        index = index + 1
+    }
+    var failure = if (valid) "" else "invalid PNG signature"
+    var cursor = 8
+    var width = 0
+    var height = 0
+    var sawHeader = false
+    var sawEnd = false
+    val compressed: array<int> = []
+    while (valid && !sawEnd && cursor <= bytes.size - 12) {
+        val length = gltfBigU32(bytes, cursor)
+        valid = length >= 0 && length <= 67108864 &&
+            cursor + 12 <= bytes.size - length
+        val chunkType = cursor + 4
+        val data = cursor + 8
+        if (valid) valid = gltfCrc32(bytes, chunkType, length + 4) ==
+            gltfBigU32(bytes, data + length)
+        val isHeader = valid && bytes[chunkType] == 73 &&
+            bytes[chunkType + 1] == 72 && bytes[chunkType + 2] == 68 &&
+            bytes[chunkType + 3] == 82
+        val isData = valid && bytes[chunkType] == 73 &&
+            bytes[chunkType + 1] == 68 && bytes[chunkType + 2] == 65 &&
+            bytes[chunkType + 3] == 84
+        val isEnd = valid && bytes[chunkType] == 73 &&
+            bytes[chunkType + 1] == 69 && bytes[chunkType + 2] == 78 &&
+            bytes[chunkType + 3] == 68
+        if (valid && isHeader) {
+            valid = !sawHeader && cursor == 8 && length == 13
+            if (valid) {
+                width = gltfBigU32(bytes, data)
+                height = gltfBigU32(bytes, data + 4)
+                valid = width > 0 && width <= 16384 && height > 0 &&
+                    height <= 16384 && width <= 16777216 / height &&
+                    bytes[data + 8] == 8 && bytes[data + 9] == 6 &&
+                    bytes[data + 10] == 0 && bytes[data + 11] == 0 &&
+                    bytes[data + 12] == 0
+                sawHeader = valid
+            }
+        } else if (valid && isData) {
+            valid = sawHeader && compressed.size <= 67108864 - length
+            var byteIndex = 0
+            while (valid && byteIndex < length) {
+                compressed.append(bytes[data + byteIndex])
+                byteIndex = byteIndex + 1
+            }
+        } else if (valid && isEnd) {
+            valid = sawHeader && length == 0 && compressed.size > 0
+            sawEnd = valid
+        } else if (valid && (bytes[chunkType] & 32) == 0) valid = false
+        cursor = cursor + length + 12
+    }
+    if (!valid && failure == "") failure = "invalid PNG chunk or CRC"
+    valid = valid && sawHeader && sawEnd && cursor == bytes.size
+    if (!valid && failure == "") failure = "incomplete PNG chunk stream"
+    val rowSize = if (valid) width * 4 else 0
+    val expected = if (valid) (rowSize + 1) * height else 0
+    val raw = gltfZlibInflate(compressed, expected)
+    if (valid && raw.size != expected)
+        failure = "invalid PNG zlib payload"
+    valid = valid && raw.size == expected
+    val pixels = pixelBuffer(if (valid) width else 0, if (valid) height else 0)
+    var row = 0
+    while (valid && row < height) {
+        val filterType = raw[row * (rowSize + 1)]
+        valid = filterType >= 0 && filterType <= 4
+        if (!valid && failure == "") failure = "unsupported PNG row filter"
+        var column = 0
+        while (valid && column < rowSize) {
+            val encoded = raw[row * (rowSize + 1) + 1 + column]
+            val left = if (column >= 4)
+                pixels.storage.load(row * rowSize + column - 4) else 0
+            val up = if (row > 0)
+                pixels.storage.load((row - 1) * rowSize + column) else 0
+            val upperLeft = if (row > 0 && column >= 4)
+                pixels.storage.load((row - 1) * rowSize + column - 4) else 0
+            val predictor = if (filterType == 0) 0
+                else if (filterType == 1) left
+                else if (filterType == 2) up
+                else if (filterType == 3) (left + up) / 2
+                else gltfPaeth(left, up, upperLeft)
+            valid = pixels.storage.store(
+                row * rowSize + column,
+                (encoded + predictor) & 255
+            )
+            column = column + 1
+        }
+        row = row + 1
+    }
+    if (valid) GltfImagePixels(move(pixels), "image/png", "")
+    else GltfImagePixels(
+        move(pixels), "", if (failure == "")
+            "invalid or unsupported 8-bit RGBA PNG" else failure
+    )
+}
+
+fun gltfSamplerAddress(mode: int): int =
+    if (mode == 33071) samplerAddressClampToEdge
+    else if (mode == 33648) samplerAddressMirrorRepeat
+    else samplerAddressRepeat
+
+fun gltfSamplerDescriptor(value: GltfSampler): SamplerDescriptor {
+    val mag = if (value.magFilter == 9728)
+        samplerFilterNearest else samplerFilterLinear
+    val min = if (value.minFilter == 9728 || value.minFilter == 9984 ||
+        value.minFilter == 9986) samplerFilterNearest else samplerFilterLinear
+    val mip = if (value.minFilter == 9986 || value.minFilter == 9987)
+        samplerFilterLinear else samplerFilterNearest
+    SamplerDescriptor(
+        label = value.name,
+        addressU = gltfSamplerAddress(value.wrapS),
+        addressV = gltfSamplerAddress(value.wrapT),
+        addressW = samplerAddressRepeat,
+        magFilter = mag,
+        minFilter = min,
+        mipmapFilter = mip,
+        lodMinimum = 0,
+        lodMaximum = 0
+    )
+}
+
+trusted fun GraphicsApplication.gltfGpuTexture(
+    document: GltfDocument,
+    buffers: GltfBufferPayloads,
+    textureIndex: int,
+    suppliedImages: array<string> = [],
+    srgb: bool = true
+): GltfGpuTexture {
+    if (!this.valid() || !document.valid() || !buffers.valid ||
+        textureIndex < 0 || textureIndex >= document.textures.size)
+        return GltfGpuTexture(
+            this.texture(TextureDescriptor()),
+            this.sampler(SamplerDescriptor(addressU = -1)),
+            -1,
+            "invalid glTF texture materialization request"
+        )
+    val metadata = document.textures[textureIndex]
+    val payload = gltfImagePayload(
+        document, buffers, metadata.source, suppliedImages
+    )
+    val decoded = gltfDecodePng(payload)
+    if (!decoded.valid()) return GltfGpuTexture(
+        this.texture(TextureDescriptor()),
+        this.sampler(SamplerDescriptor(addressU = -1)),
+        metadata.source,
+        decoded.error
+    )
+    val texture = this.texture(TextureDescriptor(
+        label = metadata.name,
+        size = Extent3D(decoded.pixels.width, decoded.pixels.height),
+        format = if (srgb) textureFormatRgba8UnormSrgb
+            else textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    ))
+    val samplerMetadata = if (metadata.sampler >= 0)
+        document.samplers[metadata.sampler] else GltfSampler()
+    val sampler = this.sampler(gltfSamplerDescriptor(samplerMetadata))
+    val uploaded = texture.valid() && sampler.valid() &&
+        texture.writePixels(decoded.pixels, TextureWriteDescriptor())
+    GltfGpuTexture(
+        move(texture),
+        move(sampler),
+        metadata.source,
+        if (uploaded) "" else "glTF texture upload or sampler creation failed"
+    )
+}

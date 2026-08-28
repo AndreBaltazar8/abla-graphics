@@ -249,11 +249,59 @@ class GltfScene(val name: string = "", val nodes: array<int> = []) {
     }
 }
 
+class GltfImage(
+    val name: string = "",
+    val uri: string = "",
+    val mimeType: string = "",
+    val bufferView: int = -1
+) {
+    fun valid(): bool = this.name.size <= 4096 &&
+        this.uri.size <= 1048576 && this.bufferView >= -1 &&
+        this.bufferView <= 1048575 &&
+        (this.mimeType == "" || this.mimeType == "image/png" ||
+         this.mimeType == "image/jpeg") &&
+        ((this.uri.size > 0 && this.bufferView == -1) ||
+         (this.uri.size == 0 && this.bufferView >= 0 &&
+          this.mimeType.size > 0))
+}
+
+class GltfSampler(
+    val name: string = "",
+    val magFilter: int = 0,
+    val minFilter: int = 0,
+    val wrapS: int = 10497,
+    val wrapT: int = 10497
+) {
+    fun valid(): bool = this.name.size <= 4096 &&
+        (this.magFilter == 0 || this.magFilter == 9728 ||
+         this.magFilter == 9729) &&
+        (this.minFilter == 0 || this.minFilter == 9728 ||
+         this.minFilter == 9729 ||
+         (this.minFilter >= 9984 && this.minFilter <= 9987)) &&
+        (this.wrapS == 33071 || this.wrapS == 33648 ||
+         this.wrapS == 10497) &&
+        (this.wrapT == 33071 || this.wrapT == 33648 ||
+         this.wrapT == 10497)
+}
+
+class GltfTexture(
+    val name: string = "",
+    val sampler: int = -1,
+    val source: int = -1
+) {
+    fun valid(): bool = this.name.size <= 4096 && this.sampler >= -1 &&
+        this.sampler <= 1048575 && this.source >= 0 &&
+        this.source <= 1048575
+}
+
 class GltfDocument(
     val buffers: array<GltfBuffer> = [],
     val bufferViews: array<GltfBufferView> = [],
     val accessors: array<GltfAccessor> = [],
     val materials: array<GltfMaterial> = [],
+    val images: array<GltfImage> = [],
+    val samplers: array<GltfSampler> = [],
+    val textures: array<GltfTexture> = [],
     val meshes: array<GltfMesh> = [],
     val cameras: array<GltfCamera> = [],
     val nodes: array<GltfNode> = [],
@@ -652,6 +700,32 @@ fun gltfScene(value: Json): GltfScene {
     )
 }
 
+fun gltfImage(value: Json): GltfImage = if (value.isObject()) GltfImage(
+    if (value.has("name") && value.get("name").isString())
+        value.getString("name") else "",
+    if (value.has("uri") && value.get("uri").isString())
+        value.getString("uri") else "",
+    if (value.has("mimeType") && value.get("mimeType").isString())
+        value.getString("mimeType") else "",
+    gltfOptionalInt(value, "bufferView", -1)
+) else GltfImage()
+
+fun gltfSampler(value: Json): GltfSampler = if (value.isObject()) GltfSampler(
+    if (value.has("name") && value.get("name").isString())
+        value.getString("name") else "",
+    gltfOptionalInt(value, "magFilter", 0),
+    gltfOptionalInt(value, "minFilter", 0),
+    gltfOptionalInt(value, "wrapS", 10497),
+    gltfOptionalInt(value, "wrapT", 10497)
+) else GltfSampler(wrapS = -1)
+
+fun gltfTexture(value: Json): GltfTexture = if (value.isObject()) GltfTexture(
+    if (value.has("name") && value.get("name").isString())
+        value.getString("name") else "",
+    gltfOptionalInt(value, "sampler", -1),
+    gltfOptionalInt(value, "source", -1)
+) else GltfTexture()
+
 fun gltfNodeHierarchyValid(nodes: array<GltfNode>): bool {
     val parents: array<int> = []
     val visited: array<bool> = []
@@ -829,7 +903,40 @@ fun gltfDocumentReferencesValid(document: GltfDocument): bool {
     }
     index = 0
     while (valid && index < document.materials.size) {
-        valid = document.materials[index].valid()
+        val material = document.materials[index]
+        valid = material.valid() &&
+            (!material.baseColorTexture.present() ||
+             material.baseColorTexture.index < document.textures.size) &&
+            (!material.metallicRoughnessTexture.present() ||
+             material.metallicRoughnessTexture.index <
+                document.textures.size) &&
+            (!material.normalTexture.present() ||
+             material.normalTexture.index < document.textures.size) &&
+            (!material.occlusionTexture.present() ||
+             material.occlusionTexture.index < document.textures.size) &&
+            (!material.emissiveTexture.present() ||
+             material.emissiveTexture.index < document.textures.size)
+        index = index + 1
+    }
+    index = 0
+    while (valid && index < document.images.size) {
+        val image = document.images[index]
+        valid = image.valid() &&
+            (image.bufferView == -1 ||
+             image.bufferView < document.bufferViews.size)
+        index = index + 1
+    }
+    index = 0
+    while (valid && index < document.samplers.size) {
+        valid = document.samplers[index].valid()
+        index = index + 1
+    }
+    index = 0
+    while (valid && index < document.textures.size) {
+        val texture = document.textures[index]
+        valid = texture.valid() && texture.source < document.images.size &&
+            (texture.sampler == -1 ||
+             texture.sampler < document.samplers.size)
         index = index + 1
     }
     index = 0
@@ -890,6 +997,9 @@ fun gltfDocument(source: string): GltfDocumentParseResult {
         gltfDocumentArrayLimit(root, "bufferViews", 65536) &&
         gltfDocumentArrayLimit(root, "accessors", 65536) &&
         gltfDocumentArrayLimit(root, "materials", 65536) &&
+        gltfDocumentArrayLimit(root, "images", 65536) &&
+        gltfDocumentArrayLimit(root, "samplers", 65536) &&
+        gltfDocumentArrayLimit(root, "textures", 65536) &&
         gltfDocumentArrayLimit(root, "meshes", 65536) &&
         gltfDocumentArrayLimit(root, "cameras", 65536) &&
         gltfDocumentArrayLimit(root, "nodes", 65536) &&
@@ -898,6 +1008,9 @@ fun gltfDocument(source: string): GltfDocumentParseResult {
     val views: array<GltfBufferView> = []
     val accessors: array<GltfAccessor> = []
     val materials: array<GltfMaterial> = []
+    val images: array<GltfImage> = []
+    val samplers: array<GltfSampler> = []
+    val textures: array<GltfTexture> = []
     val meshes: array<GltfMesh> = []
     val cameras: array<GltfCamera> = []
     val nodes: array<GltfNode> = []
@@ -927,6 +1040,24 @@ fun gltfDocument(source: string): GltfDocumentParseResult {
         index = index + 1
     }
     index = 0
+    val imageValues = root.get("images")
+    while (valid && index < imageValues.size()) {
+        images.append(gltfImage(imageValues.at(index)))
+        index = index + 1
+    }
+    index = 0
+    val samplerValues = root.get("samplers")
+    while (valid && index < samplerValues.size()) {
+        samplers.append(gltfSampler(samplerValues.at(index)))
+        index = index + 1
+    }
+    index = 0
+    val textureValues = root.get("textures")
+    while (valid && index < textureValues.size()) {
+        textures.append(gltfTexture(textureValues.at(index)))
+        index = index + 1
+    }
+    index = 0
     val meshValues = root.get("meshes")
     while (valid && index < meshValues.size()) {
         meshes.append(gltfMesh(meshValues.at(index)))
@@ -951,7 +1082,7 @@ fun gltfDocument(source: string): GltfDocumentParseResult {
         index = index + 1
     }
     val document = GltfDocument(
-        buffers, views, accessors, materials,
+        buffers, views, accessors, materials, images, samplers, textures,
         meshes, cameras, nodes, scenes,
         gltfOptionalInt(root, "scene", if (scenes.size > 0) 0 else -1)
     )

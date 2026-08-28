@@ -1366,6 +1366,25 @@ generated sequential index buffer. Upload failure produces an invalid owner
 with a stable error, never a partially usable pair. `examples/gltf-live-scene`
 is the end-to-end embedded-buffer reference.
 
+Import `src/gltf_texture.ab` for image and sampled-material resources.
+`GltfDocument` stores images, samplers, and textures and validates every image
+buffer-view, texture source/sampler, and material texture reference before any
+GPU work. `gltfImagePayload(document, buffers, imageIndex, supplied)` resolves
+caller-supplied bytes, image buffer views, or bounded PNG/JPEG base64 data URIs.
+
+`gltfDecodePng(payload)` currently accepts strict noninterlaced, 8-bit RGBA PNG.
+Its pure-Abla decoder validates chunk bounds/order, CRC32, the zlib wrapper and
+Adler32, stored/fixed/dynamic DEFLATE blocks, and PNG filters 0 through 4.
+Malformed streams, unsupported color/interlace modes, and JPEG pixel decoding
+return an invalid `GltfImagePixels` owner with a stable diagnostic.
+
+`app.gltfGpuTexture(document, buffers, textureIndex, suppliedImages, srgb)`
+decodes the selected source and returns one affine `GltfGpuTexture` owning the
+portable sampled texture and mapped glTF sampler. Filter and wrap enums map to
+the common descriptor contract; invalid metadata, decoding, resource creation,
+or upload never yields a partially valid owner. The live scene demonstrates a
+parsed base-color texture shared by two transformed draws.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan

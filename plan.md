@@ -267,8 +267,12 @@ supplied dense/sparse accessors, widens indices, and deduplicates geometry by
 mesh/primitive. `GraphicsPushConstantBatch` submits every planned instance
 with one reflected affine/tint record while retaining one shared geometry
 owner. The live two-node fixture produces exact distinct proof pixels on
-OpenGL, Vulkan, and auto for four zero-growth frames. Parsed images, textures,
-samplers, and full material bindings remain the next glTF execution slice.
+OpenGL, Vulkan, and auto for four zero-growth frames. Images, samplers, textures,
+and material references are now cross-validated; embedded/buffer-view/external
+payload acquisition, strict pure-Abla RGBA8 PNG decoding, retained GPU upload,
+and one parsed base-color binding are live on all three selections. Per-draw
+material switching, texture-coordinate accessor upload, all PBR channels,
+JPEG decoding, and broader multi-mesh fixtures remain open.
 
 ## Non-negotiable design rules
 
