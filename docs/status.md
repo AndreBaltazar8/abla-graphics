@@ -37,7 +37,9 @@ Updated: 2026-08-28.
   callable. Pure `f32`, one-`i32`/`f32`, and two-`i32`/`f32` families through
   four float lanes bring the total to 1,932 and leave 960 OpenGL entries
   before matching double-precision families raise the total to 2,027 and leave
-  865 OpenGL entries unsupported.
+  865 OpenGL entries. Thirty-three high-cardinality offset/size,
+  grouped-pointer, and long-integer layouts then raise coverage to 2,327 and
+  leave 565 OpenGL entries unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
@@ -47,7 +49,8 @@ Updated: 2026-08-28.
   The live raw sample observes and restores scissor and pack-alignment state,
   queries indexed compute limits, repeatedly sets the viewport, and writes and
   reads back exact four-lane floating clear-color and two-lane double depth
-  range state through
+  range state, plus exact raw 64-bit buffer allocation/subdata/copy/readback,
+  through
   1,000 calls per exercised family with zero growth
   in normal and optimized builds. Its Vulkan path records 1,000 device-mask
   commands plus 1,000 stencil-reference commands, pairs an empty dynamic

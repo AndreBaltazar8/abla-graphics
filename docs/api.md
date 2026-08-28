@@ -3692,7 +3692,10 @@ float suffix after one or two `i32` arguments. Abla `f64` inputs are explicitly
 truncated to the native OpenGL `GLfloat` lane at the call boundary. The
 matching `callVoidF64...`, `callVoidI32F64...`, and
 `callVoidI32I32F64...` methods retain Abla/native `f64` precision through four
-double lanes. The generated classification currently enables 2,027 OpenGL
+double lanes. Wide checked methods additionally preserve OpenGL pointer-sized
+offsets and sizes, grouped pointer outputs, and long integer argument lists
+through eleven scalar lanes without a variadic fallback. The generated
+classification currently enables 2,327 OpenGL
 commands. Vulkan
 exposes `callVoidPointer(command, pointer)`,
 `callVoidPointerI32(command, pointer, second)`, and

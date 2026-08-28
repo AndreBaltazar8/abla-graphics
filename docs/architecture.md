@@ -264,9 +264,11 @@ pointer/64-bit-handle destruction and status, and two-/three-pointer query
 families, plus counted-pointer result, scalar/scalar/output, pointer-result,
 scalar/output query, and handle/scalar command families. Registry type metadata
 distinguishes 32-bit `VkFlags` from 64-bit `VkFlags64` before classification.
-Generated ABI-family tags make the currently callable 2,027 OpenGL commands
+Wide OpenGL offset/size, grouped-pointer, and seven- through eleven-integer
+layouts retain exact 64-bit and pointer lanes rather than narrowing them.
+Generated ABI-family tags make the currently callable 2,327 OpenGL commands
 and all 842 pinned Vulkan commands explicit, retaining `unsupported` for the
-other 865 OpenGL commands. Vulkan's former 50 one-off layouts and nine
+other 565 OpenGL commands. Vulkan's former 50 one-off layouts and nine
 platform-scalar boundaries are fully lowered with explicit native widths.
 Further OpenGL signatures remain unsupported until each has matching ABI,
 positive, negative, and live-driver evidence.

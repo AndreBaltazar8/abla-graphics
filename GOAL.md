@@ -13,11 +13,14 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,027 callable commands. Exact pure-`i32` void calls cover one through six
+to 2,327 callable commands. Exact pure-`i32` void calls now cover one through
+eleven
 arguments; pointer-only and trailing-pointer calls cover zero through four
 preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
-Continue in large normalized-signature batches from the remaining 865 explicit
+Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
+buffer, texture, query, and long scalar families. Continue in large
+normalized-signature batches from the remaining 565 explicit
 `unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
@@ -3890,3 +3893,44 @@ ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only
 The stripped-library proof reports `direct=true unresolved=0`. Continue with
 the largest remaining boolean/result and scalar/pointer signature families;
 keep the persistent framework goal active.
+
+## Latest checkpoint: wide raw OpenGL call families
+
+Thirty-three high-cardinality normalized layouts cover long pure-`i32`
+argument lists, trailing and grouped pointers, pointer-sized offsets/sizes,
+mixed `i32`/`i64` layouts, and one wider float-state layout. Thirty-one
+required new compiler intrinsics; the existing exact two- and three-pointer
+lowerings are now also exposed by OpenGL. The generator promotes exactly 300
+commands, raising raw OpenGL coverage from 2,027 to 2,327 of 2,892 and leaving
+565 explicit `unsupported` rows.
+
+Compiler commit `d8ff73c39f3a8a35285653a54ad9e0a9f4df7b2a` adds exact
+LLVM signatures and trusted wrappers without a variadic or width-erasing
+fallback. Four small allowlist classifiers avoid rebuilding a deep logical
+chain. The native boundary fixture now checks 63 OpenGL ABI slots, including
+all 31 new layouts. The final complete compiler gate passed 76/76 tests and a
+byte-identical pure self-rebuild. One earlier concurrency execution
+transiently trapped; the same bounded binary then returned 42 in 10/10 runs,
+and the complete clean rerun passed.
+
+`RawOpenGlApi` has a checked method for every promoted layout. The normal and
+optimized live sample each allocate two real OpenGL buffers, then repeat raw
+`glBufferSubData`, `glCopyBufferSubData`, and `glGetBufferSubData` 1,000
+times after raw `glBufferData` allocation. Exact 64-bit contents round-trip,
+wrong-family calls reject, and both runs report `buffer=true`, `live=0`, and
+`stable=true`. The Vulkan half remains validation-clean and stable.
+
+Validated with the isolated compiler root:
+
+```sh
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make test-registry test-raw-commands'
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only test-runtime-linkage'
+```
+
+The Abla-only audit passes and the stripped-library proof reports
+`direct=true unresolved=0`. Unrelated active compiler work remains in
+`src/backend/llvm/exports.ab`, `src/eval.ab`, `src/ir.ab`, `src/module.ab`,
+`src/orc_main.ab`, `src/parser.ab`, `src/sema.ab`, and `src/toolchain.ab`;
+preserve it. Continue with the remaining boolean/narrow-scalar return families
+and lower-cardinality mixed pointer layouts in broad generated batches. Keep
+the persistent framework goal active.
