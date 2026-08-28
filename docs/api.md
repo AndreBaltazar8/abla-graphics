@@ -1436,14 +1436,16 @@ GPU work. `gltfImagePayload(document, buffers, imageIndex, supplied)` resolves
 caller-supplied bytes, image buffer views, or bounded PNG/JPEG base64 data URIs.
 
 `gltfDecodeImage(payload)` dispatches strict noninterlaced 8-bit RGBA PNG and
-baseline sequential 8-bit JPEG. The pure-Abla PNG decoder validates chunk
+the common baseline sequential 8-bit JPEG subset: grayscale or one interleaved
+three-component scan. The pure-Abla PNG decoder validates chunk
 bounds/order, CRC32, the zlib wrapper and Adler32, stored/fixed/dynamic DEFLATE
 blocks, and filters 0 through 4. The JPEG decoder validates bounded marker,
 quantization, canonical Huffman, and entropy streams; handles grayscale or
 three-component images, sampling factors through 4x4, restart intervals,
-integer IDCT, chroma expansion, and JFIF/Adobe color transforms. Progressive,
-arithmetic, malformed, or unsupported streams return an invalid
-`GltfImagePixels` owner with a stable diagnostic.
+integer IDCT, chroma expansion, and JFIF/Adobe color transforms.
+Non-interleaved, four-component, progressive, arithmetic, malformed, or
+unsupported streams return an invalid `GltfImagePixels` owner with a stable
+diagnostic.
 
 `app.gltfGpuTexture(document, buffers, textureIndex, suppliedImages, srgb)`
 decodes the selected source and returns one affine `GltfGpuTexture` owning the

@@ -271,8 +271,9 @@ OpenGL, Vulkan, and auto for four zero-growth frames. Images, samplers, textures
 and material references are now cross-validated; embedded/buffer-view/external
 payload acquisition, strict pure-Abla RGBA8 PNG decoding, retained GPU upload,
 and parsed base-color binding are live on all three selections. Bounded
-baseline sequential JPEG decoding now shares that path with grayscale/YCbCr,
-subsampling, restart, integer-IDCT, and malformed-stream validation. FLOAT `VEC3`
+baseline sequential JPEG decoding now shares that path for grayscale or one
+interleaved YCbCr scan, with subsampling, restart, integer-IDCT, and malformed-
+stream validation. FLOAT `VEC3`
 positions plus FLOAT or normalized U8/U16 `VEC2` `TEXCOORD_0` become retained
 stream. Geometry deduplicates by accessor identity, while distinct primitives
 pack into one combined affine scene vertex/index owner. Per-draw count/offset
@@ -297,9 +298,10 @@ textures, defaults, dependencies, exclusions, and complete scene texture
 cross-reference validation. Factor-only unlit, clearcoat, sheen, specular, and
 IOR now execute through a retained 112-byte surface record on both backends.
 Shader-side deformation and texture-dependent/scene-transmission material
-models remain open. Baseline sequential JPEG is implemented; progressive,
-arithmetic, lossless, and hierarchical JPEG processes remain explicit future
-extensions.
+models remain open. The ordinary glTF/JFIF grayscale and interleaved three-
+component baseline JPEG subset is implemented; non-interleaved, four-component,
+progressive, arithmetic, lossless, and hierarchical forms remain explicit
+future extensions.
 
 ## Non-negotiable design rules
 

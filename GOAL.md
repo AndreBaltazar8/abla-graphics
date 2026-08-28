@@ -12,13 +12,14 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 
 ## Current continuation focus
 
-The current broad slice completes bounded pure-Abla baseline sequential JPEG
-decoding and routes it through glTF texture upload. The backend-free fixture
+The current broad slice completes the bounded pure-Abla baseline sequential
+JPEG subset used by ordinary glTF/JFIF assets and routes it through texture
+upload. The backend-free fixture
 proves a real 4:2:0 color image; the live retained scene uses JPEG on OpenGL,
 Vulkan, and automatic selection with exact output and zero warmed growth.
 Continue with shader-side deformation and texture-dependent or scene-
-transmission material models; progressive/arithmetic JPEG can be added later
-as an explicit format extension without weakening baseline validation.
+transmission material models. Non-interleaved or four-component baseline scans
+and progressive/arithmetic JPEG remain explicit extensions.
 
 The scene metadata checkpoint now owns typed buffers, buffer views, dense and
 sparse accessors, mesh primitives, cameras, node transforms/hierarchies,
@@ -3753,12 +3754,13 @@ proof above.
 
 `src/gltf_image.ab` owns the shared payload/pixel contract and
 `src/gltf_jpeg.ab` implements a bounded baseline sequential 8-bit JPEG decoder
-entirely in Abla. It parses quantization, canonical Huffman, frame, scan,
+for grayscale and one interleaved three-component scan, entirely in Abla. It
+parses quantization, canonical Huffman, frame, scan,
 restart, JFIF, and Adobe markers; decodes grayscale or three-component MCUs
 with sampling factors through 4x4; performs dequantization and a separable
 fixed-point integer IDCT; expands chroma; and writes owned RGBA8 pixels.
-Malformed streams and progressive, arithmetic, lossless, or hierarchical
-processes fail explicitly.
+Malformed streams and non-interleaved, four-component, progressive, arithmetic,
+lossless, or hierarchical processes fail explicitly.
 
 `gltfDecodeImage(...)` dispatches PNG/JPEG by validated MIME type, and
 `GraphicsApplication.gltfGpuTexture(...)` uploads either result through the
