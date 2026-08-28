@@ -449,6 +449,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-deformation-plan`: bounded glTF 2.0 skins, inverse-bind
   matrices, joint streams, morph targets, mesh/node weights, strict accessor
   validation, and a retained per-draw deformation plan;
+- `examples/gltf-animation`: typed glTF 2.0 animation samplers/channels with
+  STEP, quaternion LINEAR, CUBICSPLINE, morph-weight, and world-pose
+  evaluation plus strict accessor/path validation;
 - `examples/gltf-live-deformation`: one pure-Abla retained geometry build
   applies a node morph-weight override and a joint/inverse-bind palette before
   identical zero-growth OpenGL and Vulkan indexed rendering;

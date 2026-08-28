@@ -1,0 +1,430 @@
+// Pure-Abla glTF 2.0 animation sampling and pose propagation.
+
+import "gltf_buffer.ab"
+
+class GltfAnimationPose(
+    val localTransforms: array<Mat4>,
+    val worldTransforms: array<Mat4>,
+    val nodeWeightOffsets: array<int>,
+    val nodeWeightCounts: array<int>,
+    val weights: array<f64>,
+    val time: f64,
+    val duration: f64,
+    val valid: bool,
+    val error: string
+) {
+    fun nodeWeight(node: int, target: int): f64 =
+        if (this.valid && node >= 0 && node < this.nodeWeightOffsets.size &&
+            target >= 0 && target < this.nodeWeightCounts[node])
+            this.weights[this.nodeWeightOffsets[node] + target]
+        else 0.0
+}
+
+class GltfAnimationKeyInterval(
+    val left: int,
+    val right: int,
+    val amount: f64,
+    val span: f64,
+    val duration: f64,
+    val valid: bool
+)
+
+fun gltfAnimationSqrt(value: f64): f64 {
+    if (value <= 0.0) return 0.0
+    var result = 1.0
+    if (value >= 1.0) result = value
+    var iteration = 0
+    while (iteration < 16) {
+        result = (result + value / result) * 0.5
+        iteration = iteration + 1
+    }
+    result
+}
+
+fun gltfAnimationSin(value: f64): f64 {
+    val square = value * value
+    var term = value
+    var result = value
+    var index = 1
+    while (index < 8) {
+        term = -term * square /
+            f64FromInt((index * 2) * (index * 2 + 1))
+        result = result + term
+        index = index + 1
+    }
+    result
+}
+
+// A bounded acos approximation keeps quaternion sampling self-contained in
+// pure Abla; every result is normalized before it enters a retained pose.
+fun gltfAnimationAcos(value: f64): f64 {
+    var clamped = value
+    if (clamped < -1.0) clamped = -1.0
+    if (clamped > 1.0) clamped = 1.0
+    val negative = clamped < 0.0
+    var magnitude = clamped
+    if (negative) magnitude = -clamped
+    var result = -0.0187293 * magnitude + 0.0742610
+    result = result * magnitude - 0.2121144
+    result = result * magnitude + 1.5707288
+    result = result * gltfAnimationSqrt(1.0 - magnitude)
+    if (negative) result = 3.141592653589793 - result
+    result
+}
+
+fun gltfNormalizeQuaternion(value: Vec4): Vec4 {
+    val length = gltfAnimationSqrt(
+        value.x * value.x + value.y * value.y +
+        value.z * value.z + value.w * value.w
+    )
+    if (length <= 0.000000000001) Vec4(0.0, 0.0, 0.0, 1.0)
+    else Vec4(
+        value.x / length, value.y / length,
+        value.z / length, value.w / length
+    )
+}
+
+fun gltfSlerpQuaternion(left: Vec4, rightValue: Vec4, amount: f64): Vec4 {
+    var right = rightValue
+    var dot = left.x * right.x + left.y * right.y +
+        left.z * right.z + left.w * right.w
+    if (dot < 0.0) {
+        dot = -dot
+        right = Vec4(-right.x, -right.y, -right.z, -right.w)
+    }
+    if (dot > 0.9995) return gltfNormalizeQuaternion(Vec4(
+        left.x + (right.x - left.x) * amount,
+        left.y + (right.y - left.y) * amount,
+        left.z + (right.z - left.z) * amount,
+        left.w + (right.w - left.w) * amount
+    ))
+    val angle = gltfAnimationAcos(dot)
+    val denominator = gltfAnimationSin(angle)
+    if (denominator < 0.000000000001)
+        return gltfNormalizeQuaternion(left)
+    val leftWeight = gltfAnimationSin((1.0 - amount) * angle) / denominator
+    val rightWeight = gltfAnimationSin(amount * angle) / denominator
+    gltfNormalizeQuaternion(Vec4(
+        left.x * leftWeight + right.x * rightWeight,
+        left.y * leftWeight + right.y * rightWeight,
+        left.z * leftWeight + right.z * rightWeight,
+        left.w * leftWeight + right.w * rightWeight
+    ))
+}
+
+fun gltfAnimationTrs(
+    translation: Vec3,
+    rotation: Vec4,
+    scale: Vec3
+): Mat4 {
+    val x = rotation.x
+    val y = rotation.y
+    val z = rotation.z
+    val w = rotation.w
+    val xx = x * x
+    val yy = y * y
+    val zz = z * z
+    val xy = x * y
+    val xz = x * z
+    val yz = y * z
+    val wx = w * x
+    val wy = w * y
+    val wz = w * z
+    Mat4(
+        (1.0 - 2.0 * (yy + zz)) * scale.x,
+        (2.0 * (xy - wz)) * scale.y,
+        (2.0 * (xz + wy)) * scale.z, translation.x,
+        (2.0 * (xy + wz)) * scale.x,
+        (1.0 - 2.0 * (xx + zz)) * scale.y,
+        (2.0 * (yz - wx)) * scale.z, translation.y,
+        (2.0 * (xz - wy)) * scale.x,
+        (2.0 * (yz + wx)) * scale.y,
+        (1.0 - 2.0 * (xx + yy)) * scale.z, translation.z,
+        0.0, 0.0, 0.0, 1.0
+    )
+}
+
+fun gltfAnimationHermite(
+    left: f64,
+    leftTangent: f64,
+    right: f64,
+    rightTangent: f64,
+    amount: f64,
+    interval: f64
+): f64 {
+    val square = amount * amount
+    val cube = square * amount
+    (2.0 * cube - 3.0 * square + 1.0) * left +
+        (cube - 2.0 * square + amount) * interval * leftTangent +
+        (-2.0 * cube + 3.0 * square) * right +
+        (cube - square) * interval * rightTangent
+}
+
+trusted fun gltfAnimationKeyInterval(
+    input: BufferBytes,
+    accessor: GltfAccessor,
+    time: f64
+): GltfAnimationKeyInterval {
+    var valid = input.valid() && accessor.count > 0
+    var index = 0
+    var previous = -1.0
+    while (valid && index < accessor.count) {
+        val key = input.loadF32(index * 4)
+        valid = key >= 0.0 && (index == 0 || key > previous)
+        previous = key
+        index = index + 1
+    }
+    if (!valid) return GltfAnimationKeyInterval(0, 0, 0.0, 0.0, 0.0, false)
+    val first = input.loadF32(0)
+    val last = input.loadF32((accessor.count - 1) * 4)
+    var sampled = time
+    if (sampled < first) sampled = first
+    if (sampled > last) sampled = last
+    var left = 0
+    while (left + 1 < accessor.count &&
+        input.loadF32((left + 1) * 4) <= sampled) left = left + 1
+    val right = if (left + 1 < accessor.count) left + 1 else left
+    val leftTime = input.loadF32(left * 4)
+    val rightTime = input.loadF32(right * 4)
+    var amount = 0.0
+    if (right != left)
+        amount = (sampled - leftTime) / (rightTime - leftTime)
+    GltfAnimationKeyInterval(
+        left, right, amount, rightTime - leftTime, last, true
+    )
+}
+
+trusted fun gltfAnimationSampleComponent(
+    output: BufferBytes,
+    accessor: GltfAccessor,
+    interpolation: int,
+    left: int,
+    right: int,
+    component: int,
+    amount: f64,
+    interval: f64
+): f64 {
+    val components = accessor.componentCount()
+    if (left == right &&
+        interpolation == gltfAnimationInterpolationCubicSpline)
+        return output.loadF32((left * 3 + 1) * components * 4 +
+            component * 4)
+    if (interpolation == gltfAnimationInterpolationStep || left == right)
+        return output.loadF32(left * components * 4 + component * 4)
+    if (interpolation == gltfAnimationInterpolationLinear) {
+        val a = output.loadF32(left * components * 4 + component * 4)
+        val b = output.loadF32(right * components * 4 + component * 4)
+        return a + (b - a) * amount
+    }
+    val leftValue = output.loadF32((left * 3 + 1) * components * 4 +
+        component * 4)
+    val leftTangent = output.loadF32((left * 3 + 2) * components * 4 +
+        component * 4)
+    val rightValue = output.loadF32((right * 3 + 1) * components * 4 +
+        component * 4)
+    val rightTangent = output.loadF32(right * 3 * components * 4 +
+        component * 4)
+    gltfAnimationHermite(
+        leftValue, leftTangent, rightValue, rightTangent, amount, interval
+    )
+}
+
+trusted fun gltfAnimationSampleWeight(
+    output: BufferBytes,
+    interpolation: int,
+    left: int,
+    right: int,
+    target: int,
+    targetCount: int,
+    amount: f64,
+    interval: f64
+): f64 {
+    if (left == right &&
+        interpolation == gltfAnimationInterpolationCubicSpline)
+        return output.loadF32(
+            (left * targetCount * 3 + targetCount + target) * 4
+        )
+    if (interpolation == gltfAnimationInterpolationStep || left == right)
+        return output.loadF32((left * targetCount + target) * 4)
+    if (interpolation == gltfAnimationInterpolationLinear) {
+        val a = output.loadF32((left * targetCount + target) * 4)
+        val b = output.loadF32((right * targetCount + target) * 4)
+        return a + (b - a) * amount
+    }
+    val stride = targetCount * 3
+    gltfAnimationHermite(
+        output.loadF32((left * stride + targetCount + target) * 4),
+        output.loadF32((left * stride + targetCount * 2 + target) * 4),
+        output.loadF32((right * stride + targetCount + target) * 4),
+        output.loadF32((right * stride + target) * 4),
+        amount,
+        interval
+    )
+}
+
+trusted fun gltfAnimationPose(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    animationIndex: int,
+    time: f64
+): GltfAnimationPose {
+    val translations: array<Vec3> = []
+    val rotations: array<Vec4> = []
+    val scales: array<Vec3> = []
+    val localTransforms: array<Mat4> = []
+    val worldTransforms: array<Mat4> = []
+    val weightOffsets: array<int> = []
+    val weightCounts: array<int> = []
+    val weights: array<f64> = []
+    var valid = document.valid() && payloads.valid && time >= 0.0 &&
+        animationIndex >= 0 && animationIndex < document.animations.size
+    var nodeIndex = 0
+    while (valid && nodeIndex < document.nodes.size) {
+        val node = document.nodes[nodeIndex]
+        translations.append(node.translation)
+        rotations.append(node.rotation)
+        scales.append(node.scale)
+        localTransforms.append(node.transform)
+        worldTransforms.append(mat4Identity())
+        weightOffsets.append(weights.size)
+        val targetCount = if (node.mesh >= 0)
+            document.meshes[node.mesh].primitives[0].targets.size else 0
+        weightCounts.append(targetCount)
+        var target = 0
+        while (target < targetCount) {
+            if (node.weights.size > 0) weights.append(node.weights[target])
+            else if (document.meshes[node.mesh].weights.size > 0)
+                weights.append(document.meshes[node.mesh].weights[target])
+            else weights.append(0.0)
+            target = target + 1
+        }
+        nodeIndex = nodeIndex + 1
+    }
+    val animation = if (valid) document.animations[animationIndex]
+        else GltfAnimation()
+    var duration = 0.0
+    var channelIndex = 0
+    while (valid && channelIndex < animation.channels.size) {
+        val channel = animation.channels[channelIndex]
+        val sampler = animation.samplers[channel.sampler]
+        val inputAccessor = document.accessors[sampler.input]
+        val outputAccessor = document.accessors[sampler.output]
+        val input = gltfAccessorBytes(document, payloads, sampler.input)
+        val output = gltfAccessorBytes(document, payloads, sampler.output)
+        val interval = gltfAnimationKeyInterval(input, inputAccessor, time)
+        valid = input.valid() && output.valid() && interval.valid
+        if (valid) {
+            val left = interval.left
+            val right = interval.right
+            val amount = interval.amount
+            val span = interval.span
+            if (interval.duration > duration) duration = interval.duration
+            if (channel.path == gltfAnimationPathTranslation) {
+                translations[channel.node] = Vec3(
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 0, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 1, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 2, amount, span)
+                )
+            } else if (channel.path == gltfAnimationPathScale) {
+                scales[channel.node] = Vec3(
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 0, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 1, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 2, amount, span)
+                )
+            } else if (channel.path == gltfAnimationPathRotation) {
+                if (sampler.interpolation == gltfAnimationInterpolationLinear &&
+                    left != right) {
+                    val a = Vec4(
+                        output.loadF32((left * 4) * 4),
+                        output.loadF32((left * 4 + 1) * 4),
+                        output.loadF32((left * 4 + 2) * 4),
+                        output.loadF32((left * 4 + 3) * 4)
+                    )
+                    val b = Vec4(
+                        output.loadF32((right * 4) * 4),
+                        output.loadF32((right * 4 + 1) * 4),
+                        output.loadF32((right * 4 + 2) * 4),
+                        output.loadF32((right * 4 + 3) * 4)
+                    )
+                    rotations[channel.node] = gltfSlerpQuaternion(
+                        a, b, amount
+                    )
+                } else rotations[channel.node] = gltfNormalizeQuaternion(Vec4(
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 0, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 1, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 2, amount, span),
+                    gltfAnimationSampleComponent(output, outputAccessor,
+                        sampler.interpolation, left, right, 3, amount, span)
+                ))
+            } else {
+                val count = weightCounts[channel.node]
+                var target = 0
+                while (target < count) {
+                    weights[weightOffsets[channel.node] + target] =
+                        gltfAnimationSampleWeight(
+                            output, sampler.interpolation, left, right,
+                            target, count, amount, span
+                        )
+                    target = target + 1
+                }
+            }
+        }
+        channelIndex = channelIndex + 1
+    }
+    nodeIndex = 0
+    while (valid && nodeIndex < document.nodes.size) {
+        if (!document.nodes[nodeIndex].matrixTransform)
+            localTransforms[nodeIndex] = gltfAnimationTrs(
+                translations[nodeIndex], rotations[nodeIndex], scales[nodeIndex]
+            )
+        nodeIndex = nodeIndex + 1
+    }
+    val parents: array<int> = []
+    val queued: array<int> = []
+    nodeIndex = 0
+    while (nodeIndex < document.nodes.size) {
+        parents.append(-1)
+        nodeIndex = nodeIndex + 1
+    }
+    nodeIndex = 0
+    while (valid && nodeIndex < document.nodes.size) {
+        var childIndex = 0
+        while (childIndex < document.nodes[nodeIndex].children.size) {
+            parents[document.nodes[nodeIndex].children[childIndex]] = nodeIndex
+            childIndex = childIndex + 1
+        }
+        nodeIndex = nodeIndex + 1
+    }
+    nodeIndex = 0
+    while (nodeIndex < parents.size) {
+        if (parents[nodeIndex] < 0) queued.append(nodeIndex)
+        nodeIndex = nodeIndex + 1
+    }
+    var queueIndex = 0
+    while (valid && queueIndex < queued.size) {
+        val node = queued[queueIndex]
+        worldTransforms[node] = if (parents[node] < 0) localTransforms[node]
+            else worldTransforms[parents[node]].multiplied(localTransforms[node])
+        var childIndex = 0
+        while (childIndex < document.nodes[node].children.size) {
+            queued.append(document.nodes[node].children[childIndex])
+            childIndex = childIndex + 1
+        }
+        queueIndex = queueIndex + 1
+    }
+    valid = valid && queueIndex == document.nodes.size
+    GltfAnimationPose(
+        localTransforms, worldTransforms, weightOffsets, weightCounts,
+        weights, time, duration, valid,
+        if (valid) "" else "invalid glTF animation payload or pose"
+    )
+}

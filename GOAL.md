@@ -3612,3 +3612,18 @@ joint through one exact shifted green target pixel and a real window. Explicit
 OpenGL and Vulkan each retain three vertices/three indices across four measured
 frames with `live=0`. This is a static high-frame-rate path: animation parsing,
 runtime palette/weight updates, and shader-side deformation remain open.
+
+## Latest checkpoint: typed glTF animation poses
+
+The glTF document model now preserves source TRS values alongside each local
+matrix and owns typed animation samplers/channels for translation, rotation,
+scale, and morph weights. Cross-reference validation enforces input/output
+accessor shapes and counts, cubic triplets, unique node/path targets, morph
+target widths, and the matrix-versus-TRS animation boundary.
+
+`gltfAnimationPose(...)` decodes bounded payloads and evaluates STEP, LINEAR,
+quaternion spherical interpolation, and CUBICSPLINE Hermite channels before
+propagating a complete local/world node pose. `examples/gltf-animation` proves
+all interpolation forms, node weight overrides, exact key selection, duration,
+and invalid output-shape rejection with no native graphics libraries. Retained
+in-place GPU geometry refresh and a live animated render remain the next step.

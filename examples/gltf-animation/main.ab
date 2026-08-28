@@ -1,0 +1,48 @@
+import "abla/io"
+import "../../src/gltf_animation.ab"
+
+fun near(actual: f64, expected: f64): bool =
+    actual >= expected - 0.001 && actual <= expected + 0.001
+
+fun main: int {
+    val payload = "AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAgD8AAIA/AACAPwAAAEAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIA/"
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,$payload\",\"byteLength\":192}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":12},{\"buffer\":0,\"byteOffset\":12,\"byteLength\":12},{\"buffer\":0,\"byteOffset\":24,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":32,\"byteLength\":24},{\"buffer\":0,\"byteOffset\":56,\"byteLength\":32},{\"buffer\":0,\"byteOffset\":88,\"byteLength\":24},{\"buffer\":0,\"byteOffset\":112,\"byteLength\":72},{\"buffer\":0,\"byteOffset\":184,\"byteLength\":8}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":1,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5126,\"count\":1,\"type\":\"VEC3\"},{\"bufferView\":2,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":3,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"},{\"bufferView\":4,\"componentType\":5126,\"count\":2,\"type\":\"VEC4\"},{\"bufferView\":5,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"},{\"bufferView\":6,\"componentType\":5126,\"count\":6,\"type\":\"VEC3\"},{\"bufferView\":7,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"}],\"meshes\":[{\"weights\":[0],\"primitives\":[{\"attributes\":{\"POSITION\":0},\"targets\":[{\"POSITION\":1}]}]}],\"nodes\":[{\"mesh\":0},{},{},{}],\"animations\":[{\"name\":\"all interpolation modes\",\"samplers\":[{\"input\":2,\"output\":3},{\"input\":2,\"output\":4,\"interpolation\":\"LINEAR\"},{\"input\":2,\"output\":5,\"interpolation\":\"STEP\"},{\"input\":2,\"output\":6,\"interpolation\":\"CUBICSPLINE\"},{\"input\":2,\"output\":7}],\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"translation\"}},{\"sampler\":1,\"target\":{\"node\":1,\"path\":\"rotation\"}},{\"sampler\":2,\"target\":{\"node\":2,\"path\":\"scale\"}},{\"sampler\":3,\"target\":{\"node\":3,\"path\":\"translation\"}},{\"sampler\":4,\"target\":{\"node\":0,\"path\":\"weights\"}}]}]}"
+    val parsed = gltfDocument(source)
+    val buffers = if (parsed.succeeded)
+        gltfBufferPayloads(parsed.document) else GltfBufferPayloads([], false, "parse")
+    val pose = if (buffers.valid)
+        gltfAnimationPose(parsed.document, buffers, 0, 0.5)
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val endPose = if (buffers.valid)
+        gltfAnimationPose(parsed.document, buffers, 0, 1.0)
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val inputBytes = if (buffers.valid)
+        gltfAccessorBytes(parsed.document, buffers, 2) else bufferBytes(0)
+    val sampledInterval = if (buffers.valid) gltfAnimationKeyInterval(
+        inputBytes, parsed.document.accessors[2], 0.5
+    ) else GltfAnimationKeyInterval(0, 0, 0.0, 0.0, 0.0, false)
+    val directRotation = gltfSlerpQuaternion(
+        Vec4(0.0, 0.0, 0.0, 1.0),
+        Vec4(0.0, 0.0, 1.0, 0.0),
+        0.5
+    )
+    val invalidShape = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":20}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":8,\"byteLength\":12}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":1,\"componentType\":5126,\"count\":1,\"type\":\"VEC3\"}],\"nodes\":[{}],\"animations\":[{\"samplers\":[{\"input\":0,\"output\":1}],\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"translation\"}}]}]}")
+    val passed = parsed.succeeded && parsed.document.animations.size == 1 &&
+        buffers.valid && pose.valid && endPose.valid &&
+        near(pose.duration, 1.0) && near(pose.localTransforms[0].m03, 1.0) &&
+        near(pose.nodeWeight(0, 0), 0.5) &&
+        near(pose.localTransforms[1].m00, 0.0) &&
+        near(pose.localTransforms[1].m01, -1.0) &&
+        near(pose.localTransforms[1].m10, 1.0) &&
+        near(pose.localTransforms[2].m00, 1.0) &&
+        near(endPose.localTransforms[2].m00, 2.0) &&
+        near(pose.localTransforms[3].m03, 1.25) &&
+        near(endPose.localTransforms[3].m03, 2.0) &&
+        !invalidShape.succeeded
+    if (!passed) println("gltf-animation checks: parsed=${parsed.succeeded} buffers=${buffers.valid} pose=${pose.valid}:${pose.error} end=${endPose.valid}:${endPose.error} duration=${near(pose.duration, 1.0)} translation=${near(pose.localTransforms[0].m03, 1.0)} weight=${near(pose.nodeWeight(0, 0), 0.5)} rotation=${near(pose.localTransforms[1].m00, 0.0)}:${near(pose.localTransforms[1].m01, -1.0)}:${near(pose.localTransforms[1].m10, 1.0)} step=${near(pose.localTransforms[2].m00, 1.0)}:${near(endPose.localTransforms[2].m00, 2.0)} cubic=${near(pose.localTransforms[3].m03, 1.25)} invalid=${!invalidShape.succeeded}")
+    if (!passed) println("gltf-animation bits: translation=${f64ToBits(pose.localTransforms[0].m03)} weight=${f64ToBits(pose.nodeWeight(0, 0))} rotation=${f64ToBits(pose.localTransforms[1].m00)}/${f64ToBits(pose.localTransforms[1].m01)}/${f64ToBits(pose.localTransforms[1].m10)} cubic=${f64ToBits(pose.localTransforms[3].m03)}")
+    if (!passed) println("gltf-animation interval: valid=${sampledInterval.valid} keys=${sampledInterval.left}/${sampledInterval.right} amount=${f64ToBits(sampledInterval.amount)} span=${f64ToBits(sampledInterval.span)}")
+    if (!passed) println("gltf-animation slerp: ${f64ToBits(directRotation.x)}/${f64ToBits(directRotation.y)}/${f64ToBits(directRotation.z)}/${f64ToBits(directRotation.w)}")
+    println("gltf-animation: animations=${parsed.document.animations.size} channels=${parsed.document.animations[0].channels.size} duration=1 step/linear/cubic/weights=true mapped=$passed")
+    if (passed) 0 else 1
+}
