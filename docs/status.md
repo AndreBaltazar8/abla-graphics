@@ -2245,6 +2245,19 @@ draw without frame-loop descriptor creation. OpenGL, Vulkan, and auto report
 `drawables=2 materials=0/1 resources=1`, exact green/blue pixels
 `4278255360/4294901760`, four stable frames, and `live=0`.
 
+### glTF normalized UV and surface vertices
+
+Retained textured geometry now expands normalized U8/U16 texture coordinates
+to portable floats once during setup. The packed scene owner uses a fixed
+48-byte position/UV/normal/tangent record and fills glTF-safe normal/tangent
+defaults when those optional accessors are absent.
+
+The deterministic affine-UV `$glsl` form reflects all four surface locations;
+its Vulkan module may remove unused direction inputs just as an optimizing GLSL
+compiler does. The live fixture supplies both normalized UV widths and real
+direction accessors. OpenGL, Vulkan, and auto report `stride=48 uv=u8/u16`,
+exact green/blue pixels, four stable frames, and `live=0`.
+
 ### glTF packed multi-geometry submission
 
 `GltfGpuTexturedScene` combines every unique accessor-plan primitive into one

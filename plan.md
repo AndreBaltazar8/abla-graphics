@@ -276,9 +276,10 @@ stream. Geometry deduplicates by accessor identity, while distinct primitives
 pack into one combined affine scene vertex/index owner. Per-draw count/offset
 records remain inside the push batch and are consumed directly by both native
 passes. The two-resource fixture selects exact green/blue entries from one
-bounded texture table with zero warmed growth. Normalized integer UVs,
-normals/tangents, larger material tables, all PBR channels, and JPEG decoding
-remain open.
+bounded texture table with zero warmed growth. Normalized U8/U16 UVs expand
+once into a fixed 48-byte position/UV/normal/tangent surface stream, including
+defaults for optional directions. Larger material tables, all PBR channels,
+skinning/morph targets, and JPEG decoding remain open.
 
 ## Non-negotiable design rules
 

@@ -55,12 +55,11 @@ through pure-Abla stored/fixed/dynamic DEFLATE, PNG filters, CRC32, and Adler32.
 `GltfGpuTexture` retains the uploaded texture and sampler. The live two-node
 scene binds its parsed base-color texture on OpenGL/Vulkan/auto, samples exact
 green pixels from both transformed instances, repeats four frames, and reports
-zero live-byte growth. FLOAT `VEC3` positions and FLOAT `VEC2` `TEXCOORD_0`
-now interleave into one retained vertex resource, and an accessor-identity plan
-lets two mesh primitives reuse that geometry while selecting two material-table
-textures per draw. Continue with normalized integer texture coordinates, larger
-material tables, all PBR channels, JPEG support, and genuinely distinct
-multi-geometry scenes; the current two-material fixture is not a full loader.
+zero live-byte growth. FLOAT `VEC3` positions and FLOAT or normalized unsigned
+`VEC2` `TEXCOORD_0` now interleave into retained vertex resources, and an
+accessor-identity plan lets mesh primitives select material-table textures per
+draw. Continue with larger material tables, all PBR channels, JPEG support,
+and broader scene features; the current fixture is not a full loader.
 
 Distinct textured primitives now pack into one affine `GltfGpuTexturedScene`
 vertex/index owner. Local indices are rewritten once during setup, and the
@@ -3496,3 +3495,17 @@ Vulkan read it directly while issuing the batch, so no Abla array is copied or
 allocated on a frame boundary. The live scene uses two distinct position
 accessors and reports `resources=2 vertices=6 indices=6 ranges=0:3/12:3`, exact
 green/blue pixels, four stable frames, and `live=0` on OpenGL, Vulkan, and auto.
+
+## Latest checkpoint: normalized UV and surface vertex contract
+
+The glTF GPU paths now accept FLOAT, normalized `UNSIGNED_BYTE`, or normalized
+`UNSIGNED_SHORT` `TEXCOORD_0`. Integer coordinates expand exactly once into
+portable floats during retained-buffer construction. Packed scene geometry now
+uses a fixed 48-byte position/UV/normal/tangent record, supplying `(0,0,1)` and
+`(1,0,0,1)` defaults when optional surface directions are absent.
+
+The deterministic `$glsl` affine-UV form accepts the corresponding four typed
+source locations and legally eliminates unused normal/tangent inputs from its
+Vulkan module. The live fixture supplies U8 and U16 normalized UV accessors plus
+real float normals/tangents and reports `stride=48 uv=u8/u16`, exact green/blue
+pixels, four stable frames, and `live=0` on OpenGL, Vulkan, and auto.

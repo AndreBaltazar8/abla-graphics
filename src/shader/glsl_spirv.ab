@@ -8643,6 +8643,36 @@ fun glslPushAffineUvVertexSource(source: string): bool =
         "1.0", ")", ";", "texCoord", "=", "uv", ";", "}"
     ])
 
+// Surface attributes may be present even when this affine texture-only shader
+// does not consume them yet. Vulkan's deterministic module performs the same
+// legal dead-input elimination as an optimizing GLSL compiler; the reflected
+// source contract still retains all four typed locations for pipeline checks.
+fun glslPushAffineSurfaceUvVertexSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "location", "=", "0", ")",
+        "in", "vec3", "position", ";",
+        "layout", "(", "location", "=", "1", ")",
+        "in", "vec2", "uv", ";",
+        "layout", "(", "location", "=", "2", ")",
+        "in", "vec3", "normal", ";",
+        "layout", "(", "location", "=", "3", ")",
+        "in", "vec4", "tangent", ";",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec2", "texCoord", ";",
+        "layout", "(", "push_constant", ")", "uniform", "Draw", "{",
+        "vec4", "row0", ";", "vec4", "row1", ";",
+        "vec4", "row2", ";", "vec4", "tint", ";", "}", "draw", ";",
+        "void", "main", "(", ")", "{",
+        "vec4", "point", "=", "vec4", "(",
+        "position", ",", "1.0", ")", ";",
+        "gl_Position", "=", "vec4", "(",
+        "dot", "(", "draw", ".", "row0", ",", "point", ")", ",",
+        "dot", "(", "draw", ".", "row1", ",", "point", ")", ",",
+        "dot", "(", "draw", ".", "row2", ",", "point", ")", ",",
+        "1.0", ")", ";", "texCoord", "=", "uv", ";", "}"
+    ])
+
 fun glslPushAffineUvVertexSpirv(): array<int> = [
     119734787, 65536, 524299, 54, 0, 131089, 1, 393227,
     1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
@@ -11378,7 +11408,10 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         this.bindings.size <= 8 && this.bindings[0].set == 0 &&
         this.bindings[0].binding == 0 &&
         this.bindings[0].dataType == "sampler2D" &&
-        glslPushAffineUvVertexSource(this.source(shaderStageVertex))
+        (glslPushAffineUvVertexSource(this.source(shaderStageVertex)) ||
+         glslPushAffineSurfaceUvVertexSource(
+             this.source(shaderStageVertex)
+         ))
     val vertexBuffer = graphicsCommon && stage == shaderStageVertex &&
         glslVertexBufferTriangleSource(this.source(shaderStageVertex))
     val coloredVertex = graphicsCommon && stage == shaderStageVertex &&

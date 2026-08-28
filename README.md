@@ -447,11 +447,11 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   meshes, cameras, node transforms/hierarchies, and scene selection with
   cross-reference, byte-span, and cycle rejection;
 - `examples/gltf-live-scene`: an embedded base64 glTF buffer is decoded into
-  one packed retained scene owner containing two distinct interleaved
-  position/`TEXCOORD_0` primitives; a reusable push batch supplies their exact
-  index ranges and selects two strictly decoded RGBA8 PNG textures from one
-  retained material table with exact green/blue, zero-growth output on OpenGL
-  and Vulkan;
+  one packed retained scene owner containing two distinct 48-byte
+  position/normalized-UV/normal/tangent surface primitives; a reusable push
+  batch supplies their exact index ranges and selects two strictly decoded
+  RGBA8 PNG textures from one retained material table with exact green/blue,
+  zero-growth output on OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

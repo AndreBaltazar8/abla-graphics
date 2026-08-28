@@ -1386,11 +1386,11 @@ or upload never yields a partially valid owner. The live scene demonstrates a
 parsed base-color texture shared by two transformed draws.
 
 `app.gltfGpuTexturedPrimitive(document, buffers, meshIndex, primitiveIndex)`
-is the typed first textured geometry contract. It requires matching FLOAT
-`VEC3` `POSITION` and FLOAT `VEC2` `TEXCOORD_0`, repacks either dense or sparse
-sources, and interleaves them once into a retained 20-byte layout at locations
-0 and 1. Indices retain the common widened `uint32` contract. Unsupported UV
-component formats fail explicitly rather than being interpreted incorrectly.
+is the compact textured geometry contract. It requires FLOAT `VEC3` `POSITION`
+and accepts FLOAT, normalized `UNSIGNED_BYTE`, or normalized `UNSIGNED_SHORT`
+`VEC2` `TEXCOORD_0`. Dense/sparse sources repack once into a retained 20-byte
+float layout at locations 0 and 1. Indices retain the common widened `uint32`
+contract; integer UVs normalize during setup rather than in the frame loop.
 
 `gltfSceneAccessorResourcePlan(document, drawList)` deduplicates geometry by
 all standard accessor indices plus topology, deliberately excluding material.
@@ -1400,11 +1400,13 @@ material textures and the existing push record can select the corresponding
 entry without rebuilding pipeline or descriptor state in the frame loop.
 
 `app.gltfGpuTexturedScene(document, buffers, drawList, plan)` packs every
-unique planned FLOAT `VEC3` position/FLOAT `VEC2` UV primitive into one affine
-`GltfGpuTexturedScene`. It interleaves vertices, rewrites local indices to
-absolute packed indices, uploads one vertex/index pair, and maps each drawable
-to an aligned index count and byte offset. Unsupported layouts or inconsistent
-plans fail before a partially valid GPU owner is returned.
+unique planned surface primitive into one affine `GltfGpuTexturedScene`. Its
+fixed 48-byte layout contains FLOAT position, expanded float UV, FLOAT normal,
+and FLOAT tangent at locations 0 through 3. Missing optional directions become
+normal `(0,0,1)` and tangent `(1,0,0,1)`. It rewrites local indices to absolute
+packed indices, uploads one vertex/index pair, and maps each drawable to an
+aligned count and byte offset. Unsupported layouts or inconsistent plans fail
+before a partially valid GPU owner is returned.
 
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource

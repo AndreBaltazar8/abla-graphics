@@ -1,6 +1,7 @@
 // Pure-Abla glTF buffer acquisition, accessor decoding, and GPU materialization.
 
 import "abla/crypto"
+import "abla/float"
 import "buffer.ab"
 import "gltf_scene.ab"
 
@@ -123,6 +124,72 @@ trusted fun gltfLoadUnsignedBuffer(
     else if (size == 4) bytes.load(offset) + bytes.load(offset + 1) * 256 +
         bytes.load(offset + 2) * 65536 + bytes.load(offset + 3) * 16777216
     else -1
+
+fun gltfTextureCoordinateAccessorSupported(accessor: GltfAccessor): bool =
+    accessor.elementType == "VEC2" &&
+    ((accessor.componentType == gltfComponentF32 && !accessor.normalized) ||
+     ((accessor.componentType == gltfComponentU8 ||
+       accessor.componentType == gltfComponentU16) && accessor.normalized))
+
+// Writes one compact accessor element into the portable float vertex contract.
+// glTF normalized unsigned values expand once during retained-buffer creation,
+// keeping backend formats and frame submission identical.
+trusted fun gltfStoreAccessorElementF32(
+    var destination: BufferBytes,
+    destinationOffset: int,
+    source: BufferBytes,
+    accessor: GltfAccessor,
+    element: int,
+    components: int
+): bool {
+    val componentSize = accessor.componentByteSize()
+    var valid = destination.valid() && source.valid() &&
+        destinationOffset >= 0 && components > 0 &&
+        destinationOffset <= destination.size - components * 4 &&
+        element >= 0 && element < accessor.count &&
+        accessor.elementByteSize() == components * componentSize &&
+        ((accessor.componentType == gltfComponentF32 &&
+          !accessor.normalized) ||
+         ((accessor.componentType == gltfComponentU8 ||
+           accessor.componentType == gltfComponentU16) &&
+          accessor.normalized))
+    var component = 0
+    while (valid && component < components) {
+        val sourceOffset = element * accessor.elementByteSize() +
+            component * componentSize
+        if (accessor.componentType == gltfComponentF32) {
+            var byteIndex = 0
+            while (valid && byteIndex < 4) {
+                valid = destination.store(
+                    destinationOffset + component * 4 + byteIndex,
+                    source.load(sourceOffset + byteIndex)
+                )
+                byteIndex = byteIndex + 1
+            }
+        } else {
+            val value = gltfLoadUnsignedBuffer(
+                source, sourceOffset, componentSize
+            )
+            val divisor = if (componentSize == 1) 255.0 else 65535.0
+            valid = value >= 0 && destination.storeF32(
+                f64FromInt(value) / divisor,
+                destinationOffset + component * 4
+            )
+        }
+        component = component + 1
+    }
+    valid
+}
+
+trusted fun gltfStoreDefaultSurfaceDirection(
+    var destination: BufferBytes,
+    destinationOffset: int,
+    tangent: bool
+): bool =
+    destination.storeF32(if (tangent) 1.0 else 0.0, destinationOffset) &&
+    destination.storeF32(0.0, destinationOffset + 4) &&
+    destination.storeF32(if (tangent) 0.0 else 1.0, destinationOffset + 8) &&
+    (!tangent || destination.storeF32(1.0, destinationOffset + 12))
 
 trusted fun gltfCopyStringBytes(
     source: string,
@@ -272,10 +339,8 @@ trusted fun GraphicsApplication.gltfGpuPrimitive(
     )
 }
 
-// The first textured path deliberately accepts the portable core glTF shape:
-// FLOAT VEC3 positions plus FLOAT VEC2 TEXCOORD_0, packed once at setup into a
-// retained 20-byte position/UV vertex stream. Normalized integer UV expansion
-// remains a later format-broadening step.
+// The compact textured path expands glTF's FLOAT or normalized unsigned UVs
+// once at setup into a retained 20-byte position/UV vertex stream.
 trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
     document: GltfDocument,
     payloads: GltfBufferPayloads,
@@ -306,10 +371,10 @@ trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
             vertexCount = position.count
             if (position.componentType != gltfComponentF32 ||
                 position.elementType != "VEC3" ||
-                texCoord.componentType != gltfComponentF32 ||
-                texCoord.elementType != "VEC2" ||
+                position.normalized ||
+                !gltfTextureCoordinateAccessorSupported(texCoord) ||
                 texCoord.count != vertexCount) {
-                error = "textured glTF primitive requires matching FLOAT VEC3/VEC2 accessors"
+                error = "textured glTF primitive requires FLOAT VEC3 positions and supported VEC2 UVs"
             } else {
                 val positions = gltfAccessorBytes(
                     document, payloads, primitive.position
@@ -330,14 +395,10 @@ trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
                         )
                         byteIndex = byteIndex + 1
                     }
-                    byteIndex = 0
-                    while (stored && byteIndex < 8) {
-                        stored = vertexBytes.store(
-                            vertex * 20 + 12 + byteIndex,
-                            coordinates.load(vertex * 8 + byteIndex)
-                        )
-                        byteIndex = byteIndex + 1
-                    }
+                    if (stored) stored = gltfStoreAccessorElementF32(
+                        vertexBytes, vertex * 20 + 12,
+                        coordinates, texCoord, vertex, 2
+                    )
                     vertex = vertex + 1
                 }
                 if (!stored) error = "textured glTF vertex interleave failed"
@@ -394,17 +455,20 @@ trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
     )
 }
 
-// Packs every unique accessor-identity resource once. Indices are rewritten to
-// absolute vertices, so one vertex binding serves every per-draw index range.
+// Packs every unique accessor-identity resource once. The fixed surface vertex
+// contains position, expanded UV, normal, and tangent; absent directions use
+// glTF-safe defaults. Indices become absolute packed vertices.
 trusted fun GraphicsApplication.gltfGpuTexturedScene(
     document: GltfDocument,
     payloads: GltfBufferPayloads,
     drawList: GltfSceneDrawList,
     plan: GltfSceneResourcePlan
 ): GltfGpuTexturedScene {
-    val layout = VertexBufferLayout(20, [
+    val layout = VertexBufferLayout(48, [
         VertexAttribute(0, 0, vertexFormatFloat32x3),
-        VertexAttribute(1, 12, vertexFormatFloat32x2)
+        VertexAttribute(1, 12, vertexFormatFloat32x2),
+        VertexAttribute(2, 20, vertexFormatFloat32x3),
+        VertexAttribute(3, 32, vertexFormatFloat32x4)
     ])
     val vertexBases: array<int> = []
     val resourceIndexOffsets: array<int> = []
@@ -431,14 +495,25 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
             if (valid) {
                 val position = document.accessors[primitive.position]
                 val texCoord = document.accessors[primitive.texCoord0]
+                val normal = if (primitive.normal >= 0)
+                    document.accessors[primitive.normal] else GltfAccessor()
+                val tangent = if (primitive.tangent >= 0)
+                    document.accessors[primitive.tangent] else GltfAccessor()
                 val primitiveIndexCount = if (primitive.indices >= 0)
                     document.accessors[primitive.indices].count
                     else position.count
                 valid = position.componentType == gltfComponentF32 &&
-                    position.elementType == "VEC3" &&
-                    texCoord.componentType == gltfComponentF32 &&
-                    texCoord.elementType == "VEC2" &&
+                    position.elementType == "VEC3" && !position.normalized &&
+                    gltfTextureCoordinateAccessorSupported(texCoord) &&
                     texCoord.count == position.count &&
+                    (primitive.normal < 0 ||
+                     (normal.componentType == gltfComponentF32 &&
+                      normal.elementType == "VEC3" && !normal.normalized &&
+                      normal.count == position.count)) &&
+                    (primitive.tangent < 0 ||
+                     (tangent.componentType == gltfComponentF32 &&
+                      tangent.elementType == "VEC4" && !tangent.normalized &&
+                      tangent.count == position.count)) &&
                     position.count <= 16777216 - vertexCount &&
                     primitiveIndexCount <= 16777216 - indexCount
                 if (valid) {
@@ -452,7 +527,7 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
         }
         resourceIndex = resourceIndex + 1
     }
-    val vertexBytes = bufferBytes(if (valid) vertexCount * 20 else 0)
+    val vertexBytes = bufferBytes(if (valid) vertexCount * 48 else 0)
     val indexBytes = bufferBytes(if (valid) indexCount * 4 else 0)
     resourceIndex = 0
     while (valid && resourceIndex < plan.meshIndices.size) {
@@ -466,27 +541,49 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
         val coordinates = gltfAccessorBytes(
             document, payloads, primitive.texCoord0
         )
+        val normals = if (primitive.normal >= 0) gltfAccessorBytes(
+            document, payloads, primitive.normal
+        ) else bufferBytes(0)
+        val tangents = if (primitive.tangent >= 0) gltfAccessorBytes(
+            document, payloads, primitive.tangent
+        ) else bufferBytes(0)
         val vertexBase = vertexBases[resourceIndex]
         var vertex = 0
         valid = positions.valid() && coordinates.valid() &&
+            (primitive.normal < 0 || normals.valid()) &&
+            (primitive.tangent < 0 || tangents.valid()) &&
             vertexBytes.valid() && indexBytes.valid()
         while (valid && vertex < position.count) {
             var byteIndex = 0
             while (valid && byteIndex < 12) {
                 valid = vertexBytes.store(
-                    (vertexBase + vertex) * 20 + byteIndex,
+                    (vertexBase + vertex) * 48 + byteIndex,
                     positions.load(vertex * 12 + byteIndex)
                 )
                 byteIndex = byteIndex + 1
             }
-            byteIndex = 0
-            while (valid && byteIndex < 8) {
-                valid = vertexBytes.store(
-                    (vertexBase + vertex) * 20 + 12 + byteIndex,
-                    coordinates.load(vertex * 8 + byteIndex)
+            val destinationOffset = (vertexBase + vertex) * 48
+            if (valid) valid = gltfStoreAccessorElementF32(
+                vertexBytes, destinationOffset + 12,
+                coordinates, document.accessors[primitive.texCoord0],
+                vertex, 2
+            )
+            if (valid) valid = if (primitive.normal >= 0)
+                gltfStoreAccessorElementF32(
+                    vertexBytes, destinationOffset + 20,
+                    normals, document.accessors[primitive.normal], vertex, 3
                 )
-                byteIndex = byteIndex + 1
-            }
+                else gltfStoreDefaultSurfaceDirection(
+                    vertexBytes, destinationOffset + 20, false
+                )
+            if (valid) valid = if (primitive.tangent >= 0)
+                gltfStoreAccessorElementF32(
+                    vertexBytes, destinationOffset + 32,
+                    tangents, document.accessors[primitive.tangent], vertex, 4
+                )
+                else gltfStoreDefaultSurfaceDirection(
+                    vertexBytes, destinationOffset + 32, true
+                )
             vertex = vertex + 1
         }
         val outputIndexOffset = resourceIndexOffsets[resourceIndex]
