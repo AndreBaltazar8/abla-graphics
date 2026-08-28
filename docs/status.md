@@ -47,9 +47,12 @@ Updated: 2026-08-28.
   representable void layout with at least three commands promotes another 76,
   reaching 2,666. A closed encoded compiler signature grammar and generated
   exact dispatch surface then promote 180 commands in one pass, reaching 2,847
-  and leaving 45 OpenGL declarations unsupported. The generated module owns
-  266 distinct non-variadic ABI methods, while the stable existing raw names
-  remain available.
+  and leaving 45 OpenGL declarations unsupported. Normalizing half-float,
+  opaque sync/callback/EGL pointer, VDPAU handle, bitfield-result, and floating
+  result types promotes another 42 commands, reaching 2,889. The generated
+  module owns 276 distinct non-variadic ABI methods, while the stable existing
+  raw names remain available. Only three platform-dependent `GLhandleARB`
+  return declarations remain unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
@@ -86,7 +89,7 @@ Updated: 2026-08-28.
   execute in the same proof. Both timestamp queries return
   nonzero ticks before resources are released. Both build modes pass
   validation.
-  The remaining special/platform declarations are still open and are not
+  The remaining platform-dependent declarations are still open and are not
   claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,

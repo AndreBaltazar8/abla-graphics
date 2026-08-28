@@ -48,6 +48,7 @@ trusted fun main: int {
         val colorMask = raw.command("glColorMask")
         val depthMask = raw.command("glDepthMask")
         val multiDrawArrays = raw.command("glMultiDrawArrays")
+        val getPathLength = raw.command("glGetPathLengthNV")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -95,6 +96,7 @@ trusted fun main: int {
         val unsignedResult = nativeI64Cell(-1)
         val signedResult = nativeI64Cell(0)
         val errorResult = nativeI64Cell(0)
+        val pathLengthResult = nativeI64Cell(0)
         val missingAttribute = nativePointerFromAddress(
             nativeCStringAddress("ablaMissing")
         )
@@ -148,6 +150,11 @@ trusted fun main: int {
                     getBufferSubData, 36662, 0, 8, copiedValue.address
                 ) && copiedValue.load() == uploadValue.load()
         }
+        val floatWrongShapeRejected = !raw.callExactF32I32I32I32(
+            clear, 0, 0, 0, pathLengthResult.address
+        )
+        val floatResultReady = getPathLength.callAbi ==
+            "f32(i32,i32,i32)" && floatWrongShapeRejected
         var pendingError = glGetError()
         while (pendingError != 0) pendingError = glGetError()
         val liveBefore = runtimeMemoryLiveBytes()
@@ -294,14 +301,15 @@ trusted fun main: int {
             depthMask.callAbi == "void(i8)" &&
             multiDrawArrays.callAbi == "void(i32,pointer,pointer,i32)" &&
             vertexArray.load() > 0 &&
-            wideBuffersReady && pointerReturnReady &&
+            wideBuffersReady && pointerReturnReady && floatWrongShapeRejected &&
+            floatResultReady &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
             restored && colorRestored && depthRangeRestored && masksRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true mask=true mixed=true generated=true buffer=true pointer=true results=true live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true floatShape=$floatResultReady buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

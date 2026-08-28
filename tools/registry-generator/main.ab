@@ -2423,13 +2423,19 @@ fun registryOpenGlI8Type(name: string): bool =
     name == "GLchar" || name == "GLcharARB"
 
 fun registryOpenGlI16Type(name: string): bool =
-    name == "GLshort" || name == "GLushort"
+    name == "GLshort" || name == "GLushort" || name == "GLhalfNV"
 
 fun registryOpenGlI64Type(name: string): bool =
     name == "GLint64" || name == "GLuint64" ||
     name == "GLint64EXT" || name == "GLuint64EXT" ||
     name == "GLintptr" || name == "GLsizeiptr" ||
-    name == "GLintptrARB" || name == "GLsizeiptrARB"
+    name == "GLintptrARB" || name == "GLsizeiptrARB" ||
+    name == "GLvdpauSurfaceNV"
+
+fun registryOpenGlPointerArgumentType(name: string): bool =
+    name == "GLsync" || name == "GLDEBUGPROC" ||
+    name == "GLDEBUGPROCARB" || name == "GLDEBUGPROCAMD" ||
+    name == "GLeglClientBufferEXT" || name == "GLeglImageOES"
 
 fun registryOpenGlPointerReturnType(name: string): bool =
     name == "GLsync" || name == "GLVULKANPROCNV"
@@ -2450,7 +2456,7 @@ fun registryOpenGlUnsignedI16ReturnType(name: string): bool =
     name == "GLushort"
 
 fun registryOpenGlUnsignedI32ReturnType(name: string): bool =
-    name == "GLenum" || name == "GLuint"
+    name == "GLenum" || name == "GLuint" || name == "GLbitfield"
 
 fun registryOpenGlSignedI32ReturnType(name: string): bool =
     name == "GLint"
@@ -2458,10 +2464,17 @@ fun registryOpenGlSignedI32ReturnType(name: string): bool =
 fun registryOpenGlSignedI64ReturnType(name: string): bool =
     name == "GLint64" || name == "GLint64EXT" ||
     name == "GLintptr" || name == "GLintptrARB" ||
-    name == "GLsizeiptr" || name == "GLsizeiptrARB"
+    name == "GLsizeiptr" || name == "GLsizeiptrARB" ||
+    name == "GLvdpauSurfaceNV"
 
 fun registryOpenGlUnsignedI64ReturnType(name: string): bool =
     name == "GLuint64" || name == "GLuint64EXT"
+
+fun registryOpenGlF32ReturnType(name: string): bool =
+    name == "GLfloat" || name == "GLclampf"
+
+fun registryOpenGlF64ReturnType(name: string): bool =
+    name == "GLdouble" || name == "GLclampd"
 
 fun registryOpenGlNormalizedCallAbi(
     command: string,
@@ -2482,6 +2495,8 @@ fun registryOpenGlNormalizedCallAbi(
     else if (registryOpenGlSignedI32ReturnType(returnType)) returnKind = "i32"
     else if (registryOpenGlSignedI64ReturnType(returnType)) returnKind = "i64"
     else if (registryOpenGlUnsignedI64ReturnType(returnType)) returnKind = "u64"
+    else if (registryOpenGlF32ReturnType(returnType)) returnKind = "f32"
+    else if (registryOpenGlF64ReturnType(returnType)) returnKind = "f64"
     else if (returnType == "void") returnKind = "void"
     var abi = if (returnKind != "") "$returnKind(" else ""
     var valid = abi != ""
@@ -2492,6 +2507,9 @@ fun registryOpenGlNormalizedCallAbi(
             var kind = ""
             if (signatures.parameterPointerLevels[parameterIndex] != "0")
                 kind = "pointer"
+            else if (registryOpenGlPointerArgumentType(
+                signatures.parameterTypes[parameterIndex]
+            )) kind = "pointer"
             else if (registryOpenGlI32Type(
                 signatures.parameterTypes[parameterIndex]
             )) kind = "i32"
@@ -4100,6 +4118,7 @@ fun registryWriteOpenGlDispatchSource(
     if (success) batch = registryAppend(
         output, batch, "import \"abla/unsafe/native\""
     )
+    if (success) batch = registryAppend(output, batch, "import \"abla/float\"")
     if (success) batch = registryAppend(output, batch, "")
     var index = 0
     while (success && batch != "#write-failed" && index < exact.size) {
@@ -4108,9 +4127,10 @@ fun registryWriteOpenGlDispatchSource(
         val intrinsic = registryOpenGlExactIntrinsicName(abi)
         val suffix = registryOpenGlExactMethodSuffix(abi)
         val returnsValue = result != "void"
+        val returnsFloat = result == "f32" || result == "f64"
         batch = registryAppend(
             output, batch,
-            "trusted noescape extern:\"intrinsic\" fun $intrinsic(${registryOpenGlExactParameters(abi, true, false, false)}): ${if (returnsValue) "int" else "void"}"
+            "trusted noescape extern:\"intrinsic\" fun $intrinsic(${registryOpenGlExactParameters(abi, true, false, false)}): ${if (returnsFloat) "f64" else if (returnsValue) "int" else "void"}"
         )
         batch = registryAppend(output, batch, "")
         batch = registryAppend(
@@ -4138,7 +4158,10 @@ fun registryWriteOpenGlDispatchSource(
             output, batch, "        !pointerIsNull(result) &&"
         )
         batch = registryAppend(output, batch, "        this.makeCurrent()")
-        if (returnsValue) batch = registryAppend(
+        if (returnsFloat) batch = registryAppend(
+            output, batch,
+            "    if (callable) ablaUnsafeStoreI64(result, f64ToBits($intrinsic(${registryOpenGlExactArguments(abi)})))"
+        ) else if (returnsValue) batch = registryAppend(
             output, batch,
             "    if (callable) ablaUnsafeStoreI64(result, $intrinsic(${registryOpenGlExactArguments(abi)}))"
         ) else batch = registryAppend(

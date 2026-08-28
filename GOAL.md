@@ -13,7 +13,7 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,847 truthfully callable commands. Return declarators now preserve pointer
+to 2,889 truthfully callable commands. Return declarators now preserve pointer
 levels and `const`, so `void*`, `const GLubyte*`, `GLsync`, and function-pointer
 results cannot be mistaken for scalar or `void` returns. Exact pure-`i32` void
 calls now cover one through eleven
@@ -22,12 +22,12 @@ preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
 Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
 buffer, texture, query, and long scalar families. A closed encoded ABI grammar
-in `ablac` now lets the pure-Abla registry generator emit all 266 distinct
+in `ablac` now lets the pure-Abla registry generator emit all 276 distinct
 normalized exact dispatch families without per-layout compiler edits. Continue
-from the remaining 45 explicit `unsupported` rows by normalizing their handful
-of special/platform types and result kinds, pairing each new family with
-registry, wrong-shape, live-driver, validation, and zero-growth evidence. Do
-not infer callability merely because an address resolves.
+from the remaining three explicit `unsupported` rows, all platform-dependent
+`GLhandleARB` returns. Add target-specific ABI selection before claiming them,
+and pair it with registry, wrong-shape, live-driver, validation, and zero-growth
+evidence. Do not infer callability merely because an address resolves.
 
 The scene metadata checkpoint now owns typed buffers, buffer views, dense and
 sparse accessors, mesh primitives, cameras, node transforms/hierarchies,
@@ -4107,3 +4107,35 @@ ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run './tools/update-regis
 Continue by classifying the remaining 45 special/platform OpenGL declarations,
 then reuse the generated-signature architecture for subsequent native API
 surfaces. Keep the persistent framework goal active.
+
+## Latest checkpoint: near-complete generated OpenGL ABI coverage
+
+Compiler commit `bd5bb7470a9d2ab6cc26e366c34a7bf98e80f31d`
+extends the closed exact-signature grammar with native `F32` and `F64` results.
+The LLVM call retains the exact native return width and widens `F32` once to
+Abla `f64`; generated raw methods store the resulting `f64` bits in the
+caller-owned result cell. All 76 compiler tests passed, including the encoded
+float-result regression, followed by a byte-identical pure-Abla self-rebuild
+and working native child.
+
+One pure-Abla normalization batch now classifies `GLhalfNV` as a 16-bit lane,
+opaque `GLsync`, debug callback, and EGL interop types as pointers,
+`GLvdpauSurfaceNV` as a pointer-width integer handle, `GLbitfield` results as
+unsigned 32-bit, and OpenGL float/double results as their exact native widths.
+This promotes 42 more commands, raising raw OpenGL ABI coverage from 2,847 to
+2,889 of 2,892. The generated dispatch surface now contains 276 exact layouts.
+Only `glCreateProgramObjectARB`, `glCreateShaderObjectARB`, and
+`glGetHandleARB` remain unsupported because `GLhandleARB` is an integer on
+some targets and a pointer on others; do not choose one ABI globally.
+
+The deterministic OpenGL registry fixture now includes a floating-result
+command and asserts its generated `f64ToBits` storage path. Normal and
+optimized raw samples pass on OpenGL and validation-enabled Vulkan with 1,000
+generated/stable calls, exact float-result shape rejection, restored state,
+and `live=0`. A nonzero `eglGetProcAddress` result for an unavailable extension
+was deliberately not treated as capability evidence.
+
+Continue with target-specific `GLhandleARB` selection if the raw compatibility
+surface is prioritized; otherwise move the same generated-signature approach
+to the next specification/platform milestone. Keep the persistent framework
+goal active.

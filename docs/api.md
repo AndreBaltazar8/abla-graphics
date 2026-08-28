@@ -3696,8 +3696,8 @@ matching `callVoidF64...`, `callVoidI32F64...`, and
 double lanes. Wide checked methods additionally preserve OpenGL pointer-sized
 offsets and sizes, grouped pointer outputs, and long integer argument lists
 through eleven scalar lanes without a variadic fallback. The generated
-classification currently enables 2,847 OpenGL commands. Importing
-`src/raw/opengl_dispatch.ab` adds generated `callExact...` methods for all 266
+classification currently enables 2,889 OpenGL commands. Importing
+`src/raw/opengl_dispatch.ab` adds generated `callExact...` methods for all 276
 normalized ABI layouts. Their names encode every result and argument lane,
 and each checks the generated ABI tag and owning current context before one
 non-variadic indirect call. Existing stable hand-authored method names remain

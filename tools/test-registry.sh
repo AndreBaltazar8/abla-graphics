@@ -110,6 +110,10 @@ rg -q '^val GL_FIXTURE_OVERRIDE = 0x3$' \
     "$output_directory/opengl-first.ab"
 rg -q 'ablaUnsafeCallExact_Void' \
     "$output_directory/opengl-first.dispatch.ab"
+rg -q 'ablaUnsafeCallExact_F32_I32' \
+    "$output_directory/opengl-first.dispatch.ab"
+rg -Fq 'f64ToBits(ablaUnsafeCallExact_F32_I32' \
+    "$output_directory/opengl-first.dispatch.ab"
 
 if "$generator" opengl \
     "$project_root/registry/fixtures/opengl-invalid-constant.xml" \
