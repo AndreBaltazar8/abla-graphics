@@ -34,7 +34,9 @@ Updated: 2026-08-28.
   allocation-stable OpenGL indirect call families. Generated ABI tags classify
   `void()` plus pure-`i32` commands through six arguments, `void(pointer)`, and
   trailing-pointer commands through four preceding `i32` arguments as
-  callable—1,792 total—and mark the other 1,100 OpenGL entries unsupported.
+  callable. Pure `f32`, one-`i32`/`f32`, and two-`i32`/`f32` families through
+  four float lanes bring the total to 1,932 and leave 960 OpenGL entries
+  unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
@@ -42,7 +44,8 @@ Updated: 2026-08-28.
   device-queue, and command-buffer-begin structures and are exercised by the
   live raw path. Registry-driven schema emission remains the next builder step.
   The live raw sample observes and restores scissor and pack-alignment state,
-  queries indexed compute limits, and repeatedly sets the viewport through
+  queries indexed compute limits, repeatedly sets the viewport, and writes and
+  reads back exact four-lane floating clear-color state through
   1,000 calls per exercised family with zero growth
   in normal and optimized builds. Its Vulkan path records 1,000 device-mask
   commands plus 1,000 stencil-reference commands, pairs an empty dynamic

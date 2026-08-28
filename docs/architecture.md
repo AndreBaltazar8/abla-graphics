@@ -254,19 +254,21 @@ Every command already has a deterministic normalized call shape. The raw
 runtime resolves application-scoped OpenGL/Vulkan addresses and invokes checked
 OpenGL void commands with zero through six `i32` arguments, a pointer alone,
 or a trailing pointer after as many as four `i32` arguments through exact
-compiler-supported indirect calls. Vulkan additionally supports exact
+compiler-supported indirect calls. Float state and uniform families add pure
+`f32`, `i32` plus `f32`, and two-`i32` plus `f32` layouts through four float
+lanes. Vulkan additionally supports exact
 `void(pointer)`, `void(pointer,i32)`, `void(pointer,i32,i32)`, and
 `i32(pointer)` families, plus exact four-pointer creation,
 pointer/64-bit-handle destruction and status, and two-/three-pointer query
 families, plus counted-pointer result, scalar/scalar/output, pointer-result,
 scalar/output query, and handle/scalar command families. Registry type metadata
 distinguishes 32-bit `VkFlags` from 64-bit `VkFlags64` before classification.
-Generated ABI-family tags make the currently callable 1,792 OpenGL commands
+Generated ABI-family tags make the currently callable 1,932 OpenGL commands
 and all 842 pinned Vulkan commands explicit, retaining `unsupported` for the
-other 1,100 OpenGL commands. Vulkan's former 50 one-off layouts and nine
-platform-scalar boundaries are fully lowered with explicit native widths. Further
-OpenGL signatures remain unsupported until each has matching ABI, positive,
-negative, and live-driver evidence.
+other 960 OpenGL commands. Vulkan's former 50 one-off layouts and nine
+platform-scalar boundaries are fully lowered with explicit native widths.
+Further OpenGL signatures remain unsupported until each has matching ABI,
+positive, negative, and live-driver evidence.
 
 The initial baselines are OpenGL 4.6 core/GLSL 4.60 and Vulkan 1.4. Registry
 patch revisions are pinned by the generator manifest and updated deliberately.

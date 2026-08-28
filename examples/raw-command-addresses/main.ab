@@ -33,18 +33,22 @@ trusted fun main: int {
         val viewport = raw.command("glViewport")
         val getInteger = raw.command("glGetIntegerv")
         val getIntegerIndexed = raw.command("glGetIntegeri_v")
+        val clearColor = raw.command("glClearColor")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
             !raw.callVoidI32I32(enable, 0, 0) &&
             !raw.callVoidI32Pointer(enable, 0, nativeNullPointer()) &&
             !raw.callVoidI32I32I32I32(pixelStore, 0, 0, 0, 0) &&
+            !raw.callVoidF32(finish, 0.0) &&
+            !raw.callVoidF32F32F32F32(viewport, 0.0, 0.0, 0.0, 0.0) &&
             !raw.callVoid0(missing)
         val scissorWasEnabled = glIsEnabled(3089) != 0
         val packAlignment = nativeI64Cell(0)
         glGetIntegerv(3333, packAlignment.address)
         val originalPackAlignment = packAlignment.load()
         val workgroupCount = nativeI64Cell(0)
+        val clearColorState = nativeByteBuffer(16)
         val liveBefore = runtimeMemoryLiveBytes()
         var call = 0
         var called = true
@@ -59,7 +63,16 @@ trusted fun main: int {
                 raw.callVoidI32I32Pointer(
                     getIntegerIndexed, 37310, 0, workgroupCount.address
                 ) && workgroupCount.load() > 0 &&
-                raw.callVoidI32I32I32I32(viewport, 0, 0, 160, 120)
+                raw.callVoidI32I32I32I32(viewport, 0, 0, 160, 120) &&
+                raw.callVoidF32F32F32F32(
+                    clearColor, 0.25, 0.5, 0.75, 1.0
+                )
+            if (called) glGetFloatv(3106, clearColorState.address)
+            called = called &&
+                graphicsPackedU32(clearColorState.address, 0) == 1048576000 &&
+                graphicsPackedU32(clearColorState.address, 4) == 1056964608 &&
+                graphicsPackedU32(clearColorState.address, 8) == 1061158912 &&
+                graphicsPackedU32(clearColorState.address, 12) == 1065353216
             called = called && packAlignment.load() == 1 &&
                 raw.callVoidI32I32(pixelStore, 3333, 4)
             if (called) raw.callVoidI32Pointer(
@@ -77,6 +90,13 @@ trusted fun main: int {
             originalPackAlignment
         )
         raw.callVoidI32Pointer(getInteger, 3333, packAlignment.address)
+        raw.callVoidF32F32F32F32(clearColor, 0.0, 0.0, 0.0, 0.0)
+        glGetFloatv(3106, clearColorState.address)
+        val colorRestored =
+            graphicsPackedU32(clearColorState.address, 0) == 0 &&
+            graphicsPackedU32(clearColorState.address, 4) == 0 &&
+            graphicsPackedU32(clearColorState.address, 8) == 0 &&
+            graphicsPackedU32(clearColorState.address, 12) == 0
         stable = raw.available && finish.valid() &&
             finish.callShape == "void()" && finish.callAbi == "void()" &&
             clear.callShape == "void(GLbitfield)" &&
@@ -88,12 +108,14 @@ trusted fun main: int {
             viewport.callAbi == "void(i32,i32,i32,i32)" &&
             getInteger.callAbi == "void(i32,pointer)" &&
             getIntegerIndexed.callAbi == "void(i32,i32,pointer)" &&
+            clearColor.callAbi == "void(f32,f32,f32,f32)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
-            restored && packAlignment.load() == originalPackAlignment &&
+            restored && colorRestored &&
+            packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

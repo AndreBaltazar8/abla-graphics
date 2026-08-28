@@ -12,11 +12,12 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 
 ## Current continuation focus
 
-The current broad slice expands the generated raw OpenGL surface from 352 to
-1,792 callable commands. Exact pure-`i32` void calls now cover one through six
+The current broad raw OpenGL work has expanded the generated surface from 352
+to 1,932 callable commands. Exact pure-`i32` void calls cover one through six
 arguments; pointer-only and trailing-pointer calls cover zero through four
-preceding `i32` arguments. Continue in large normalized-signature batches from
-the remaining 1,100 explicit `unsupported` rows, pairing each compiler ABI
+preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
+one through four float lanes. Continue in large normalized-signature batches
+from the remaining 960 explicit `unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
 
@@ -3815,3 +3816,40 @@ The normal and optimized OpenGL/Vulkan paths passed with `stable=true`; the
 stripped-library runtime proof reported `direct=true unresolved=0`. Continue by
 classifying the largest remaining normalized OpenGL signature batches instead
 of adding one command at a time. Keep the persistent goal active.
+
+## Latest checkpoint: raw OpenGL float-state families
+
+Twelve additional exact call layouts cover one through four pure `f32` lanes,
+the same float suffix after one `i32`, and the same suffix after two `i32`
+arguments. `GLfloat` and `GLclampf` are the only registry scalar aliases mapped
+to this native width. The generator promotes exactly 140 additional commands,
+raising OpenGL raw callability from 1,792 to 1,932 of 2,892 and leaving 960
+explicit `unsupported` rows.
+
+Compiler commit `31016ee` adds the trusted wrappers and exact LLVM signatures.
+The boundary fixture invokes all twelve exported pure-Abla targets by dynamic
+address, verifies the integer-prefix positions, and proves that the complete
+family reached native `f32` entry points. Because unrelated compiler optimizer
+work was active in the main worktree, this patch was also applied alone to a
+detached `f813b8f` worktree. That clean tree passed all 76 tests and a stabilized
+byte-identical pure self-rebuild. Preserve unrelated current compiler work in
+`src/eval.ab`, `src/ir.ab`, `src/module.ab`, `src/orc_main.ab`, `src/parser.ab`,
+`src/sema.ab`, and `src/toolchain.ab`.
+
+`RawOpenGlApi` now offers checked methods for every new layout. The normal and
+optimized live sample each perform 1,000 raw `glClearColor` calls, query all
+four `GL_COLOR_CLEAR_VALUE` lanes, verify exact binary32 bits for
+`0.25/0.5/0.75/1.0`, restore zero state, and report `color=true`, `live=0`, and
+`stable=true`. Wrong-family calls remain rejected. Both Vulkan validation runs
+remain silent and stable.
+
+Focused evidence:
+
+```sh
+nix-shell --run 'make test-registry'
+nix-shell --run 'make test-raw-commands'
+```
+
+Continue with another high-cardinality normalized family batch—double lanes,
+boolean/matrix signatures, and larger scalar/pointer layouts are the leading
+candidates. Keep the persistent framework goal active.

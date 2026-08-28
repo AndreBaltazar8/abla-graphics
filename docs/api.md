@@ -3687,8 +3687,11 @@ pure-scalar `callVoidI32...` methods support one through six `i32` arguments.
 arguments. Every method accepts only its exact generated ABI family, makes the
 owning EGL context current, rejects a command resolved by another context, and
 performs the indirect call without steady-state allocation. The generated
-classification currently enables 1,792 OpenGL commands. Vulkan exposes
-`callVoidPointer(command, pointer)`,
+float methods cover `callVoidF32...` through four float lanes, plus the same
+float suffix after one or two `i32` arguments. Abla `f64` inputs are explicitly
+truncated to the native OpenGL `GLfloat` lane at the call boundary. The
+generated classification currently enables 1,932 OpenGL commands. Vulkan
+exposes `callVoidPointer(command, pointer)`,
 `callVoidPointerI32(command, pointer, second)`, and
 `callVoidPointerI32I32(command, pointer, second, third)` for their exact
 generated tags. `callI32Pointer(command, pointer, result)` writes the complete
