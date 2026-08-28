@@ -235,8 +235,11 @@ fun glslRasterTextureFunctionValid(
 }
 
 fun glslRasterTextureGatherCoordinateType(dataType: string): int =
-    if (dataType == "sampler2D") glslRasterTypeVector2
-    else if (dataType == "sampler2DArray" || dataType == "samplerCube")
+    if (dataType == "sampler2D" || dataType == "sampler2DShadow")
+        glslRasterTypeVector2
+    else if (dataType == "sampler2DArray" || dataType == "samplerCube" ||
+        dataType == "sampler2DArrayShadow" ||
+        dataType == "samplerCubeShadow")
         glslRasterTypeVector3
     else glslRasterTypeInvalid
 
@@ -1009,6 +1012,27 @@ fun glslRasterPrimaryWithIntegers(
         valid = valid && coordinate.valid &&
             glslRasterExpressionType(coordinate, push, inputs) ==
                 coordinateType
+        val shadow = glslRasterShadowSamplerType(samplerDataType)
+        var reference = GlslRasterExpression(false, [], index)
+        if (valid && shadow) {
+            valid = glslRasterTokenText(sourceTokens, index, ",")
+            if (valid) index = index + 1
+            reference = if (valid) glslRasterExpressionWithIntegers(
+                sourceTokens,
+                index,
+                1,
+                push,
+                inputs,
+                locals,
+                depth + 1,
+                integerLocals,
+                integerExpressions
+            ) else GlslRasterExpression(false, [], index)
+            index = reference.next
+            valid = valid && reference.valid &&
+                glslRasterExpressionType(reference, push, inputs) ==
+                    glslRasterTypeScalar
+        }
         val integerPush = ShaderPushConstant("", "", "", [])
         var offset = GlslImageCoordinateExpression(false, [], index)
         val offsets: array<GlslImageCoordinateExpression> = []
@@ -1074,7 +1098,8 @@ fun glslRasterPrimaryWithIntegers(
             index,
             true
         )
-        if (valid && glslRasterTokenText(sourceTokens, index, ",")) {
+        if (valid && !shadow &&
+            glslRasterTokenText(sourceTokens, index, ",")) {
             index = index + 1
             component = glslImageCoordinateExpression(
                 sourceTokens,
@@ -1122,13 +1147,22 @@ fun glslRasterPrimaryWithIntegers(
                 tokens.append(copied[copiedIndex])
                 copiedIndex = copiedIndex + 1
             }
+            if (shadow) {
+                val referenceCopied = glslRasterTokensCopy(reference.tokens)
+                copiedIndex = 0
+                while (copiedIndex < referenceCopied.size) {
+                    tokens.append(referenceCopied[copiedIndex])
+                    copiedIndex = copiedIndex + 1
+                }
+            }
             tokens.append(GlslRasterToken(
                 glslRasterTokenTextureGather,
                 memberIndex = samplerIndex,
                 first = coordinateType,
                 second = componentIndex,
                 third = offsetIndex,
-                fourth = if (hasOffsets) 4 else 0
+                fourth = if (hasOffsets) 4 else 0,
+                opcode = if (shadow) 1 else 0
             ))
             index = index + 1
         }
@@ -1843,15 +1877,22 @@ fun glslRasterExpressionType(
                 valueType = glslRasterTypeVector2
             }
         } else if (token.kind == glslRasterTokenTextureGather) {
-            valid = token.memberIndex >= 0 && token.second >= 0 &&
+            val shadow = token.opcode == 1
+            val operandCount = if (shadow) 2 else 1
+            valid = token.memberIndex >= 0 &&
+                (token.opcode == 0 || shadow) &&
+                (shadow || token.second >= 0) &&
                 token.third >= -1 &&
                 (token.fourth == 0 || token.fourth == 4) &&
                 (token.fourth == 0 || token.third >= 0) &&
                 (token.first == glslRasterTypeVector2 ||
                  token.first == glslRasterTypeVector3) &&
-                stackSize >= 1 && stack[stackSize - 1] == token.first
+                stackSize >= operandCount &&
+                stack[stackSize - operandCount] == token.first &&
+                (!shadow || stack[stackSize - 1] ==
+                    glslRasterTypeScalar)
             if (valid) {
-                stackSize = stackSize - 1
+                stackSize = stackSize - operandCount
                 valueType = glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenTextureSample) {
@@ -3942,14 +3983,16 @@ fun glslRasterFragmentSpirv(
                 tokenTypes[tokenIndex] = glslRasterTypeVector2
             }
         } else if (token.kind == glslRasterTokenTextureGather) {
+            val shadow = token.opcode == 1
+            val operandCount = if (shadow) 2 else 1
             val hasOffset = token.third >= 0
             val multipleOffsets = token.fourth == 4
             val singleOffset = hasOffset && !multipleOffsets
             valid = token.memberIndex >= 0 &&
                 token.memberIndex < samplerVariables.size &&
                 token.memberIndex < samplerSampledImageTypes.size &&
-                token.second >= 0 &&
-                token.second < program.integerExpressions.size &&
+                (shadow || (token.second >= 0 &&
+                    token.second < program.integerExpressions.size)) &&
                 (!hasOffset || (token.third <
                     program.integerExpressions.size &&
                     (!multipleOffsets || token.third + 3 <
@@ -3958,15 +4001,20 @@ fun glslRasterFragmentSpirv(
                 (!multipleOffsets || (tokenIndex <
                     gatherOffsetArrayIds.size &&
                     gatherOffsetArrayIds[tokenIndex] != 0)) &&
-                stackSize >= 1 &&
-                stackTypes[stackSize - 1] == token.first &&
+                stackSize >= operandCount &&
+                stackTypes[stackSize - operandCount] == token.first &&
+                (!shadow || stackTypes[stackSize - 1] ==
+                    glslRasterTypeScalar) &&
                 token.first == glslRasterTextureGatherCoordinateType(
+                    program.samplers[token.memberIndex].dataType
+                ) &&
+                shadow == glslRasterShadowSamplerType(
                     program.samplers[token.memberIndex].dataType
                 ) &&
                 (!hasOffset || glslRasterTextureOffsetWidth(
                     program.samplers[token.memberIndex].dataType
                 ) == 2)
-            val componentEmission = if (valid)
+            val componentEmission = if (valid && !shadow)
                 glslImageCoordinateSpirv(
                     program.integerExpressions[token.second],
                     0,
@@ -3979,9 +4027,7 @@ fun glslRasterFragmentSpirv(
                     integerConstantBits,
                     integerConstantIds,
                     nextId
-                ) else GlslImageCoordinateSpirvEmission(
-                    [], 0, nextId, "invalid gather component"
-                )
+                ) else GlslImageCoordinateSpirvEmission([], 0, nextId)
             valid = valid && componentEmission.error == ""
             var componentWord = 0
             while (valid && componentWord < componentEmission.words.size) {
@@ -4011,8 +4057,9 @@ fun glslRasterFragmentSpirv(
             }
             if (valid) {
                 nextId = offsetEmission.nextId
-                val coordinate = stack[stackSize - 1]
-                stackSize = stackSize - 1
+                val coordinate = stack[stackSize - operandCount]
+                val reference = if (shadow) stack[stackSize - 1] else 0
+                stackSize = stackSize - operandCount
                 val sampled = nextId
                 valueId = nextId + 1
                 nextId = nextId + 2
@@ -4020,12 +4067,15 @@ fun glslRasterFragmentSpirv(
                 words.append(samplerSampledImageTypes[token.memberIndex])
                 words.append(sampled)
                 words.append(samplerVariables[token.memberIndex])
-                words.append(if (hasOffset) 524384 else 393312)
+                words.append(if (shadow)
+                    (if (hasOffset) 524385 else 393313)
+                    else (if (hasOffset) 524384 else 393312))
                 words.append(vectorType)
                 words.append(valueId)
                 words.append(sampled)
                 words.append(coordinate)
-                words.append(componentEmission.valueId)
+                words.append(if (shadow) reference
+                    else componentEmission.valueId)
                 if (hasOffset) {
                     words.append(if (multipleOffsets) 32 else 16)
                     words.append(if (multipleOffsets)

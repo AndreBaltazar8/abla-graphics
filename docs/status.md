@@ -2095,3 +2095,19 @@ through OpenGL, Vulkan, and automatic selection, checking four warmed frames, st
 native depth/sampler handles, and zero live-byte growth. The verified output is
 `configured=true depth=true comparison=true frames=4 live=0 stable=true` on
 OpenGL and Vulkan; automatic selection chose Vulkan with the same result.
+
+### Shadow gather filtering
+
+The strict `$glsl` subset now covers the portable shadow-gather family. A
+separate scalar comparison reference is required for `sampler2DShadow`,
+`sampler2DArrayShadow`, and `samplerCubeShadow`; unlike color gathers, shadow
+gathers reject a component selector. The 2D and 2D-array forms accept a runtime
+`ivec2` offset or exactly four constant `ivec2` offsets, while cube offsets are
+rejected.
+
+Pure-Abla Vulkan lowering emits `OpImageDrefGather` and selects `Offset` or
+`ConstOffsets` image operands with `ImageGatherExtended` only when required.
+Focused coverage checks exact instruction headers, operand masks, capability
+presence, stable words, all supported dimensions, and invalid signatures.
+`examples/shadow-mapping` uses the base gather live and averages its four
+comparison results into the visible shadow value.

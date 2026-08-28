@@ -1267,6 +1267,12 @@ dimension and depth pairing when the pipeline is created. The `$glsl` subset
 returns scalar comparison results for ordinary, LOD, gradient, constant-offset,
 and legal projected shadow calls. Vulkan emits depth image types and the exact
 `OpImageSampleDref*` instruction family; OpenGL compiles the same GLSL source.
+Fragment shaders can also use `textureGather(shadow, coordinate, reference)`,
+`textureGatherOffset(shadow, coordinate, reference, offset)`, and
+`textureGatherOffsets(shadow, coordinate, reference, offsets)` for 2D and
+2D-array shadow samplers; cube shadow samplers support the base gather. These
+return the four comparison results as `vec4`. Vulkan lowers them to exact
+`OpImageDrefGather` forms, including `Offset` and `ConstOffsets` operands.
 A render-target depth attachment carrying `textureUsageSampled` rests in shader
 read layout after a Vulkan pass, so it can feed the next pass without a copy.
 `examples/shadow-mapping` is the live two-pass reference.

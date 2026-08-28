@@ -397,6 +397,47 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArrayShadow layers; void main(){ color=vec4(texture(layers,vec4(0.25),0.0)); }"
         ]
     ).spirv(shaderStageFragment)
+    val shadowGather = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DShadow surface; void main(){ const ivec2 zero=ivec2(0,0); ivec2 offset=zero; vec4 a=textureGather(surface,vec2(0.25),0.5); vec4 b=textureGatherOffset(surface,vec2(0.25),0.5,offset); vec4 c=textureGatherOffsets(surface,vec2(0.25),0.5,ivec2[4](zero,zero,zero,zero)); color=a+b+c; }"
+        ]
+    )
+    val shadowGatherProgram = shadowGather.rasterFragmentProgram()
+    val shadowGatherFirst = shadowGather.spirv(shaderStageFragment)
+    val shadowGatherSecond = shadowGather.spirv(shaderStageFragment)
+    val widerShadowGather = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArrayShadow layers; layout(binding=1) uniform samplerCubeShadow sky; void main(){ const ivec2 zero=ivec2(0,0); vec4 a=textureGatherOffsets(layers,vec3(0.25),0.5,ivec2[4](zero,zero,zero,zero)); vec4 b=textureGather(sky,vec3(0.0,0.0,1.0),0.5); color=a+b; }"
+        ]
+    )
+    val widerShadowGatherFirst = widerShadowGather.spirv(
+        shaderStageFragment
+    )
+    val invalidShadowGatherReference = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DShadow surface; void main(){ color=textureGather(surface,vec2(0.25)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidShadowGatherComponent = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DShadow surface; void main(){ color=textureGather(surface,vec2(0.25),0.5,1); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidShadowGatherCubeOffset = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCubeShadow sky; void main(){ color=textureGatherOffset(sky,vec3(0.0,0.0,1.0),0.5,ivec2(0,0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
         else if (!fetchedProgram.valid) 3
         else if (fetchedProgram.integerExpressions.size != 6) 4
@@ -596,12 +637,48 @@ trusted fun main: int {
         else if (invalidShadowArrayBias.succeeded ||
             invalidShadowArrayBias.error == "") 112
         else 42
+    val shadowGatherResult = if (!shadowGather.valid) 130
+        else if (!shadowGatherProgram.valid) 131
+        else if (!shadowGatherFirst.succeeded ||
+            !shadowGatherFirst.module.valid()) 132
+        else if (sampledInstructionFormCount(
+            shadowGatherFirst.module, 393313
+        ) != 1) 133
+        else if (sampledInstructionFormCount(
+            shadowGatherFirst.module, 524385
+        ) != 2) 134
+        else if (sampledImageOperandCount(
+            shadowGatherFirst.module, 524385, 16
+        ) != 1 || sampledImageOperandCount(
+            shadowGatherFirst.module, 524385, 32
+        ) != 1) 135
+        else if (!sampledCapability(shadowGatherFirst.module, 25)) 136
+        else if (!sampledWordsEqual(
+            shadowGatherFirst.module,
+            shadowGatherSecond.module
+        )) 137
+        else if (!widerShadowGather.valid ||
+            !widerShadowGatherFirst.succeeded ||
+            !widerShadowGatherFirst.module.valid()) 138
+        else if (sampledInstructionFormCount(
+            widerShadowGatherFirst.module, 393313
+        ) != 1 || sampledImageOperandCount(
+            widerShadowGatherFirst.module, 524385, 32
+        ) != 1) 139
+        else if (invalidShadowGatherReference.succeeded ||
+            invalidShadowGatherReference.error == "") 140
+        else if (invalidShadowGatherComponent.succeeded ||
+            invalidShadowGatherComponent.error == "") 141
+        else if (invalidShadowGatherCubeOffset.succeeded ||
+            invalidShadowGatherCubeOffset.error == "") 142
+        else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult
     else if (queryResult != 42) queryResult
     else if (gatherResult != 42) gatherResult
     else if (biasResult != 42) biasResult
     else if (shadowResult != 42) shadowResult
+    else if (shadowGatherResult != 42) shadowGatherResult
     else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&

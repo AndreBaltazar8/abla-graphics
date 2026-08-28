@@ -3302,5 +3302,21 @@ gates are:
 nix-shell --run 'ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned ABLA_MAX_MEMORY_MB=8192 make test-glsl test-shadow-mapping check-abla-only'
 ```
 
-After this checkpoint, continue the sampling surface with shadow gathers and
-then use the working shadow foundation for the remaining HDR/PBR sample work.
+## Latest checkpoint: shadow gather filtering
+
+The pure-Abla shader path now covers the portable shadow-gather family:
+`textureGather` for 2D, 2D-array, and cube comparison samplers, plus runtime
+`textureGatherOffset` and constant four-element `textureGatherOffsets` for 2D
+and 2D-array comparison samplers. Shadow gathers require a separate scalar
+reference and reject the color-gather component selector. Cube offsets and
+invalid reference/offset signatures fail before pipeline creation.
+
+Vulkan emits exact `OpImageDrefGather` instructions with `Offset` or
+`ConstOffsets` operands and adds `ImageGatherExtended` only when necessary.
+The focused shader gate checks deterministic words, headers, operand masks,
+capabilities, supported dimensions, and negative cases. The live shadow sample
+averages four gathered comparisons into its visible result while retaining its
+two-pass depth resource and warmed zero-growth checks.
+
+After verifying and publishing this checkpoint, use the complete comparison
+sampling foundation for the next broad HDR/PBR material and lighting slice.
