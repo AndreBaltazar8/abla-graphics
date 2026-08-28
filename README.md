@@ -455,6 +455,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-live-deformation`: one pure-Abla retained geometry build
   applies a node morph-weight override and a joint/inverse-bind palette before
   identical zero-growth OpenGL and Vulkan indexed rendering;
+- `examples/gltf-live-animation`: evaluated morph-weight and joint-translation
+  channels repack vertex contents in place while preserving the retained GPU
+  vertex/index handles and exact draw topology on OpenGL and Vulkan;
 - `examples/gltf-material-batches`: order-preserving partitioning of arbitrary
   draw lists into bounded three-material groups, including repeated-slot reuse,
   implicit default materials, tighter policies, and capacity rejection;

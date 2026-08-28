@@ -481,6 +481,34 @@ class GltfSceneDrawList(
     val nodeWorldAvailable: array<bool> = []
 )
 
+// Backend-neutral evaluated deformation input. An invalid/default state asks
+// the packer to use the document's static node transforms and morph weights.
+class GltfDeformationState(
+    val worldTransforms: array<Mat4> = [],
+    val nodeWeightOffsets: array<int> = [],
+    val nodeWeightCounts: array<int> = [],
+    val weights: array<f64> = [],
+    val valid: bool = false
+) {
+    fun compatible(nodeCount: int): bool {
+        if (!this.valid) return true
+        var compatible = nodeCount >= 0 &&
+            this.worldTransforms.size == nodeCount &&
+            this.nodeWeightOffsets.size == nodeCount &&
+            this.nodeWeightCounts.size == nodeCount
+        var node = 0
+        while (compatible && node < nodeCount) {
+            compatible = this.nodeWeightOffsets[node] >= 0 &&
+                this.nodeWeightCounts[node] >= 0 &&
+                this.nodeWeightOffsets[node] <= this.weights.size &&
+                this.nodeWeightCounts[node] <=
+                    this.weights.size - this.nodeWeightOffsets[node]
+            node = node + 1
+        }
+        compatible
+    }
+}
+
 class GltfDeformationPlan(
     val skinIndices: array<int>,
     val skinJointOffsets: array<int>,

@@ -70,6 +70,31 @@ resource class GltfGpuTexturedScene(
     }
 }
 
+resource class GltfPackedTexturedScene(
+    val vertices: BufferBytes,
+    val indices: BufferBytes,
+    val vertexCount: int,
+    val indexCount: int,
+    val drawIndexCounts: array<int>,
+    val drawIndexOffsets: array<int>,
+    val layout: VertexBufferLayout,
+    val error: string
+) {
+    fun valid(): bool = this.error == "" && this.vertices.valid() &&
+        this.indices.valid() && this.vertexCount > 0 && this.indexCount > 0 &&
+        this.vertices.size == this.vertexCount * this.layout.stride &&
+        this.indices.size == this.indexCount * 4 &&
+        this.drawIndexCounts.size > 0 &&
+        this.drawIndexCounts.size == this.drawIndexOffsets.size &&
+        this.layout.valid()
+
+    trusted fun drop(): void {
+        this.vertices.storage.close()
+        this.indices.storage.close()
+        return
+    }
+}
+
 fun gltfDataUriPayload(uri: string): string {
     val prefix = "data:application/octet-stream;base64,"
     val generic = "data:application/gltf-buffer;base64,"
@@ -343,6 +368,7 @@ trusted fun gltfBakeSkin(
     document: GltfDocument,
     payloads: GltfBufferPayloads,
     drawList: GltfSceneDrawList,
+    state: GltfDeformationState,
     nodeIndex: int,
     primitive: GltfPrimitive,
     var vertices: BufferBytes,
@@ -352,9 +378,9 @@ trusted fun gltfBakeSkin(
     val node = document.nodes[nodeIndex]
     if (node.skin < 0) return true
     val skin = document.skins[node.skin]
-    val inverseMesh = mat4AffineInverse(
-        drawList.nodeWorldTransforms[nodeIndex]
-    )
+    var meshWorld = drawList.nodeWorldTransforms[nodeIndex]
+    if (state.valid) meshWorld = state.worldTransforms[nodeIndex]
+    val inverseMesh = mat4AffineInverse(meshWorld)
     val inverseBindBytes = if (skin.inverseBindMatrices >= 0)
         gltfAccessorBytes(document, payloads, skin.inverseBindMatrices)
         else bufferBytes(0)
@@ -373,9 +399,11 @@ trusted fun gltfBakeSkin(
             val inverseBind = if (skin.inverseBindMatrices >= 0)
                 gltfAccessorMat4(inverseBindBytes, joint)
                 else mat4Identity()
-            matrices.append(inverseMesh.value.multiplied(
-                drawList.nodeWorldTransforms[jointNode]
-            ).multiplied(inverseBind))
+            var jointWorld = drawList.nodeWorldTransforms[jointNode]
+            if (state.valid) jointWorld = state.worldTransforms[jointNode]
+            matrices.append(inverseMesh.value.multiplied(jointWorld).multiplied(
+                inverseBind
+            ))
         }
         joint = joint + 1
     }
@@ -651,12 +679,13 @@ trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
 // Packs every unique accessor-identity resource once. The fixed surface vertex
 // contains position, expanded UV, normal, and tangent; absent directions use
 // glTF-safe defaults. Indices become absolute packed vertices.
-trusted fun GraphicsApplication.gltfGpuTexturedScene(
+trusted fun gltfPackedTexturedScene(
     document: GltfDocument,
     payloads: GltfBufferPayloads,
     drawList: GltfSceneDrawList,
-    plan: GltfSceneResourcePlan
-): GltfGpuTexturedScene {
+    plan: GltfSceneResourcePlan,
+    state: GltfDeformationState = GltfDeformationState()
+): GltfPackedTexturedScene {
     val layout = VertexBufferLayout(48, [
         VertexAttribute(0, 0, vertexFormatFloat32x3),
         VertexAttribute(1, 12, vertexFormatFloat32x2),
@@ -668,8 +697,9 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
     val resourceIndexCounts: array<int> = []
     var vertexCount = 0
     var indexCount = 0
-    var valid = this.valid() && document.valid() && payloads.valid &&
+    var valid = document.valid() && payloads.valid &&
         drawList.valid && plan.valid &&
+        state.compatible(document.nodes.size) &&
         plan.meshIndices.size == plan.primitiveIndices.size &&
         plan.meshIndices.size == plan.resourceNodes.size &&
         plan.drawableResources.size == drawList.drawables.size &&
@@ -686,6 +716,9 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
             valid = (primitive.targets.size == 0 &&
                 document.nodes[drawable.node].skin < 0) ||
                 plan.resourceNodes[resourceId] == drawable.node
+            if (valid && state.valid && primitive.targets.size > 0)
+                valid = state.nodeWeightCounts[drawable.node] ==
+                    primitive.targets.size
         }
         drawableValidation = drawableValidation + 1
     }
@@ -801,10 +834,13 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
         var targetIndex = 0
         while (valid && targetIndex < primitive.targets.size) {
             val target = primitive.targets[targetIndex]
-            val weight = if (node.weights.size > 0)
-                node.weights[targetIndex]
-                else if (mesh.weights.size > 0) mesh.weights[targetIndex]
-                else 0.0
+            var weight = 0.0
+            if (state.valid)
+                weight = state.weights[
+                    state.nodeWeightOffsets[nodeIndex] + targetIndex
+                ]
+            else if (node.weights.size > 0) weight = node.weights[targetIndex]
+            else if (mesh.weights.size > 0) weight = mesh.weights[targetIndex]
             if (weight != 0.0 && target.position >= 0) {
                 val accessor = document.accessors[target.position]
                 val deltas = gltfAccessorBytes(
@@ -838,7 +874,7 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
             targetIndex = targetIndex + 1
         }
         if (valid) valid = gltfBakeSkin(
-            document, payloads, drawList, nodeIndex, primitive,
+            document, payloads, drawList, state, nodeIndex, primitive,
             vertexBytes, vertexBase, position.count
         )
         val outputIndexOffset = resourceIndexOffsets[resourceIndex]
@@ -885,21 +921,66 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
         }
         drawIndex = drawIndex + 1
     }
+    GltfPackedTexturedScene(
+        move(vertexBytes), move(indexBytes), vertexCount, indexCount,
+        drawIndexCounts, drawIndexOffsets, layout,
+        if (valid) "" else "glTF textured scene packing failed"
+    )
+}
+
+trusted fun GraphicsApplication.gltfGpuTexturedScene(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    state: GltfDeformationState = GltfDeformationState()
+): GltfGpuTexturedScene {
+    val packed = gltfPackedTexturedScene(
+        document, payloads, drawList, plan, state
+    )
+    var valid = this.valid() && packed.valid()
     val vertices = this.buffer(BufferDescriptor(
         label = "gltf-scene-position-uv",
-        size = if (valid) vertexBytes.size else 0,
+        size = if (valid) packed.vertices.size else 0,
         usage = bufferUsageVertex | bufferUsageCopyDestination
     ))
     val indices = this.buffer(BufferDescriptor(
         label = "gltf-scene-indices",
-        size = if (valid) indexBytes.size else 0,
+        size = if (valid) packed.indices.size else 0,
         usage = bufferUsageIndex | bufferUsageCopyDestination
     ))
-    if (valid) valid = vertices.writeAllBytes(vertexBytes) &&
-        indices.writeAllBytes(indexBytes)
+    if (valid) valid = vertices.writeAllBytes(packed.vertices) &&
+        indices.writeAllBytes(packed.indices)
     GltfGpuTexturedScene(
-        move(vertices), move(indices), vertexCount, indexCount,
-        drawIndexCounts, drawIndexOffsets, layout,
+        move(vertices), move(indices), packed.vertexCount, packed.indexCount,
+        packed.drawIndexCounts, packed.drawIndexOffsets, packed.layout,
         if (valid) "" else "glTF textured scene packing or upload failed"
     )
+}
+
+// Rebuilds deformed vertex contents while preserving both GPU objects and all
+// retained draw ranges. Animation cannot silently change scene topology.
+trusted fun GltfGpuTexturedScene.refreshDeformation(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    state: GltfDeformationState
+): bool {
+    val packed = gltfPackedTexturedScene(
+        document, payloads, drawList, plan, state
+    )
+    var valid = this.valid() && packed.valid() && state.valid &&
+        packed.vertexCount == this.vertexCount &&
+        packed.indexCount == this.indexCount &&
+        packed.layout.stride == this.layout.stride &&
+        packed.drawIndexCounts.size == this.drawIndexCounts.size &&
+        packed.drawIndexOffsets.size == this.drawIndexOffsets.size
+    var draw = 0
+    while (valid && draw < this.drawIndexCounts.size) {
+        valid = packed.drawIndexCounts[draw] == this.drawIndexCounts[draw] &&
+            packed.drawIndexOffsets[draw] == this.drawIndexOffsets[draw]
+        draw = draw + 1
+    }
+    valid && this.vertices.writeAllBytes(packed.vertices)
 }

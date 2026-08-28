@@ -3586,8 +3586,8 @@ maps every drawable to its skin, and retains flattened morph accessor/weight
 ranges with node weights overriding mesh defaults. The independent
 `examples/gltf-deformation-plan` proof also rejects duplicate joints, inverse
 bind count mismatches, and invalid target shapes. GPU palette upload, shader
-deformation, animation channels, and live skinned/morphed rendering remain
-open; this checkpoint deliberately does not claim those execution features.
+deformation, and a cached allocation-free animation player remain open; later
+checkpoints below complete static and CPU-refreshed live deformation.
 
 The pure metadata samples no longer request Vulkan/X11/EGL/GL at link time.
 For live programs, the pinned graphics shell injects the concrete Vulkan,
@@ -3610,8 +3610,9 @@ accessor-identical geometry remains deduplicated.
 `examples/gltf-live-deformation` proves a morph displacement plus a translated
 joint through one exact shifted green target pixel and a real window. Explicit
 OpenGL and Vulkan each retain three vertices/three indices across four measured
-frames with `live=0`. This is a static high-frame-rate path: animation parsing,
-runtime palette/weight updates, and shader-side deformation remain open.
+frames with `live=0`. This remains the static high-frame-rate path; shader-side
+deformation remains open, while the later live-animation checkpoint adds
+retained CPU-side updates.
 
 ## Latest checkpoint: typed glTF animation poses
 
@@ -3625,5 +3626,28 @@ target widths, and the matrix-versus-TRS animation boundary.
 quaternion spherical interpolation, and CUBICSPLINE Hermite channels before
 propagating a complete local/world node pose. `examples/gltf-animation` proves
 all interpolation forms, node weight overrides, exact key selection, duration,
-and invalid output-shape rejection with no native graphics libraries. Retained
-in-place GPU geometry refresh and a live animated render remain the next step.
+and invalid output-shape rejection with no native graphics libraries.
+
+## Latest checkpoint: retained live glTF animation refresh
+
+`GltfAnimationPose.deformationState()` now exposes evaluated world transforms
+and morph weights through a backend-neutral input. CPU packing is separated
+from GPU object creation, and `GltfGpuTexturedScene.refreshDeformation(...)`
+rebuilds only vertex contents after proving that vertex/index counts, layout,
+and every retained draw range are unchanged. It never replaces either GPU
+buffer.
+
+`examples/gltf-live-animation` samples a morph-weight channel and a joint
+translation channel, renders the initial pose, refreshes the same retained
+scene to the final pose, and verifies exact before/after pixels plus identical
+native vertex/index handles. Explicit OpenGL and Vulkan pass with
+`LD_LIBRARY_PATH` removed. This first correct refresh uses temporary CPU packing
+storage; cached decoded accessors, reusable scratch storage, shader-side
+skinning/morphing, animation playback controls, and performance measurement on
+larger animated assets remain open optimization work.
+
+Validated with:
+
+```sh
+nix-shell --run 'make check-abla-only test-gltf-scene test-gltf-deformation-plan test-gltf-animation test-gltf-live-deformation test-gltf-live-animation test-runtime-linkage'
+```

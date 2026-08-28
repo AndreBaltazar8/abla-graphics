@@ -1,0 +1,154 @@
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/texture.ab"
+import "../../src/texture_pool.ab"
+import "../../src/render.ab"
+import "../../src/gltf_animation.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, framesInFlight = 2),
+        WindowConfig(
+            title = "Abla Graphics glTF animation",
+            width = 640,
+            height = 360
+        )
+    )
+    val payload = "AAAAvwAAAL8AAAAAAAAAPwAAAL8AAAAAAAAAAAAAAD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAD8AAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPgAAAAAAAAAAAACAPgAAAAAAAAAAAACAPgAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAQACAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAAAAAAAAgD4AAAAAAAAAAA=="
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,$payload\",\"byteLength\":352}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":24},{\"buffer\":0,\"byteOffset\":60,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":144,\"byteLength\":12},{\"buffer\":0,\"byteOffset\":156,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":204,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":240,\"byteLength\":64},{\"buffer\":0,\"byteOffset\":304,\"byteLength\":6},{\"buffer\":0,\"byteOffset\":312,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":320,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":328,\"byteLength\":24}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":4,\"componentType\":5121,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":5,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":6,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":7,\"componentType\":5126,\"count\":1,\"type\":\"MAT4\"},{\"bufferView\":8,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"},{\"bufferView\":9,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":10,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":11,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"}],\"meshes\":[{\"weights\":[0.0],\"primitives\":[{\"attributes\":{\"POSITION\":0,\"TEXCOORD_0\":1,\"NORMAL\":2,\"TANGENT\":3,\"JOINTS_0\":4,\"WEIGHTS_0\":5},\"targets\":[{\"POSITION\":6}],\"indices\":8}]}],\"nodes\":[{\"mesh\":0,\"skin\":0},{}],\"skins\":[{\"inverseBindMatrices\":7,\"joints\":[1],\"skeleton\":1}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0,\"animations\":[{\"samplers\":[{\"input\":9,\"output\":10},{\"input\":9,\"output\":11}],\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"weights\"}},{\"sampler\":1,\"target\":{\"node\":1,\"path\":\"translation\"}}]}]}"
+    val parsed = gltfDocument(source)
+    val buffers = if (parsed.succeeded)
+        gltfBufferPayloads(parsed.document)
+        else GltfBufferPayloads([], false, "parse")
+    val draws = if (parsed.succeeded)
+        gltfSceneDrawList(parsed.document)
+        else GltfSceneDrawList([], [], false, "parse")
+    val resources = if (parsed.succeeded)
+        gltfSceneAccessorResourcePlan(parsed.document, draws)
+        else GltfSceneResourcePlan([], [], [], false, "parse")
+    val startPose = if (buffers.valid)
+        gltfAnimationPose(parsed.document, buffers, 0, 0.0)
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val endPose = if (buffers.valid)
+        gltfAnimationPose(parsed.document, buffers, 0, 1.0)
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val geometry = app.gltfGpuTexturedScene(
+        parsed.document, buffers, draws, resources,
+        startPose.deformationState()
+    )
+    val shader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D surface;
+            void main() { color = texture(surface, texCoord); }
+        }
+    }
+    val target = app.renderTarget(app.texture(TextureDescriptor(
+        label = "gltf-animation-target",
+        size = Extent3D(64, 64),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment | textureUsageCopySource
+    )))
+    val pixels = pixelBuffer(1, 1)
+    val texture = app.texture(TextureDescriptor(
+        label = "gltf-animation-green",
+        size = Extent3D(1, 1),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    ))
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val targetBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment, texture, sampler
+        )
+    ])
+    val windowBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment, texture, sampler
+        )
+    ])
+    val layout = VertexBufferLayout(48, [
+        VertexAttribute(0, 0, vertexFormatFloat32x3),
+        VertexAttribute(1, 12, vertexFormatFloat32x2)
+    ])
+    val targetPipeline = app.renderTargetPipeline(
+        target, shader, layout,
+        RasterPipelineState(), DepthStencilState(), move(targetBinding)
+    )
+    val windowPipeline = app.renderPipeline(
+        shader, layout,
+        RasterPipelineState(), DepthStencilState(), move(windowBinding)
+    )
+    val clear = Color(0.01, 0.01, 0.015)
+    var ready = app.valid() && parsed.succeeded && buffers.valid &&
+        draws.valid && resources.valid && startPose.valid && endPose.valid &&
+        geometry.valid() && shader.valid && target.valid() &&
+        targetPipeline.valid() && windowPipeline.valid() &&
+        pixels.clearRgba8(0, 255, 0) &&
+        texture.writePixels(pixels, TextureWriteDescriptor())
+    var vertexHandle = 0
+    var indexHandle = 0
+    if (app.backend == graphicsBackendOpenGl) {
+        vertexHandle = geometry.vertices.openGl.handle
+        indexHandle = geometry.indices.openGl.handle
+    } else if (app.backend == graphicsBackendVulkan) {
+        vertexHandle = geometry.vertices.vulkan.handle
+        indexHandle = geometry.indices.vulkan.handle
+    }
+    if (ready) ready = app.renderIndexedToTarget(
+        target, targetPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    ) && app.presentRenderIndexed(
+        windowPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    )
+    val beforeCenter = if (ready) target.texture.rgba8(32, 32) else -1
+    val beforeMoved = if (ready) target.texture.rgba8(48, 32) else -1
+    if (ready) ready = geometry.refreshDeformation(
+        parsed.document, buffers, draws, resources,
+        endPose.deformationState()
+    )
+    var stableHandles = false
+    if (ready && app.backend == graphicsBackendOpenGl)
+        stableHandles = vertexHandle == geometry.vertices.openGl.handle &&
+            indexHandle == geometry.indices.openGl.handle
+    else if (ready && app.backend == graphicsBackendVulkan)
+        stableHandles = vertexHandle == geometry.vertices.vulkan.handle &&
+            indexHandle == geometry.indices.vulkan.handle
+    if (ready) ready = app.renderIndexedToTarget(
+        target, targetPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    ) && app.presentRenderIndexed(
+        windowPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    )
+    val afterCenter = if (ready) target.texture.rgba8(32, 32) else -1
+    val afterMoved = if (ready) target.texture.rgba8(48, 32) else -1
+    val green = 4278255360
+    val passed = ready && stableHandles && beforeCenter == green &&
+        beforeMoved != green && afterCenter != green && afterMoved == green
+    if (!passed) println("gltf-live-animation setup: parsed=${parsed.succeeded}:${parsed.error} buffers=${buffers.valid}:${buffers.error} draws=${draws.valid}:${draws.error} resources=${resources.valid}:${resources.error} poses=${startPose.valid}:${startPose.error}/${endPose.valid}:${endPose.error} geometry=${geometry.valid()}:${geometry.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${targetPipeline.error.message}/${windowPipeline.valid()}:${windowPipeline.error.message}")
+    println("gltf-live-animation ${graphicsBackendName(app.backend)}: pixels=$beforeCenter/$beforeMoved->$afterCenter/$afterMoved handles=$stableHandles passed=$passed")
+    if (passed) 0 else 1
+}
