@@ -1262,13 +1262,22 @@ fun ShaderPackage.pushConstantLayout(
         stageMask = stageMask | mask
         pushIndex = pushIndex + 1
     }
+    var layoutPushIndex = 0
+    pushIndex = 1
+    while (pushIndex < this.pushConstants.size) {
+        if (this.pushConstants[pushIndex].members.size >
+            this.pushConstants[layoutPushIndex].members.size) {
+            layoutPushIndex = pushIndex
+        }
+        pushIndex = pushIndex + 1
+    }
     val memberCount = if (this.pushConstants.size > 0)
-        this.pushConstants[0].members.size else 0
+        this.pushConstants[layoutPushIndex].members.size else 0
     var cursor = 0
     var maximumAlignment = 4
     var index = 0
     while (valid && index < memberCount) {
-        val member = this.pushConstants[0].members[index]
+        val member = this.pushConstants[layoutPushIndex].members[index]
         val typeLayout = glslPushConstantTypeLayout(
             member.dataType,
             member.rowMajor
@@ -1449,6 +1458,27 @@ fun glslMembersTypesEqual(
         index = index + 1
     }
     equal
+}
+
+fun glslPushConstantMembersCompatible(
+    leftStage: string,
+    rightStage: string,
+    left: array<ShaderBlockMember>,
+    right: array<ShaderBlockMember>,
+    structures: array<ShaderStructure>
+): bool {
+    val shared = if (left.size < right.size) left.size else right.size
+    var compatible = shared > 0
+    var index = 0
+    while (compatible && index < shared) {
+        compatible = glslBlockMemberEqual(
+            left[index], right[index]
+        ) && glslStructureTypeEqual(
+            leftStage, rightStage, left[index].dataType, structures
+        )
+        index = index + 1
+    }
+    compatible
 }
 
 fun glslLocationMembersEqual(
@@ -1961,6 +1991,14 @@ fun glslReflectStage(stage: string, source: string): GlslStageReflection {
     )
 }
 
+fun glslBlockMemberEqual(
+    left: ShaderBlockMember,
+    right: ShaderBlockMember
+): bool = left.dataType == right.dataType && left.name == right.name &&
+    left.arraySize == right.arraySize && left.offset == right.offset &&
+    left.align == right.align && left.rowMajor == right.rowMajor &&
+    left.columnMajor == right.columnMajor
+
 fun glslBlockMembersEqual(
     left: array<ShaderBlockMember>,
     right: array<ShaderBlockMember>
@@ -1968,13 +2006,7 @@ fun glslBlockMembersEqual(
     var equal = left.size == right.size
     var index = 0
     while (equal && index < left.size) {
-        equal = left[index].dataType == right[index].dataType &&
-            left[index].name == right[index].name &&
-            left[index].arraySize == right[index].arraySize &&
-            left[index].offset == right[index].offset &&
-            left[index].align == right[index].align &&
-            left[index].rowMajor == right[index].rowMajor &&
-            left[index].columnMajor == right[index].columnMajor
+        equal = glslBlockMemberEqual(left[index], right[index])
         index = index + 1
     }
     equal
@@ -2161,7 +2193,7 @@ fun glslPackage(
                 while (valid && pushIndex < pushConstants.size) {
                     val previous = pushConstants[pushIndex]
                     if (previous.dataType != reflected.dataType ||
-                        !glslMembersTypesEqual(
+                        !glslPushConstantMembersCompatible(
                             previous.stage,
                             reflected.stage,
                             previous.members,

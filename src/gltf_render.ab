@@ -39,6 +39,30 @@ trusted fun GraphicsApplication.gltfMaterialTextureEntries(
     []
 }
 
+// Stores the 48-byte extension tail after the existing 64-byte affine draw
+// record. Seven vec4 members total 112 bytes, below the portable 128-byte
+// Vulkan push-constant floor and inside the matching OpenGL UBO emulation.
+trusted fun GraphicsPushConstantBatch.storeGltfMaterialSurface(
+    draw: int,
+    parameters: GltfMaterialSurfaceParameters
+): bool = parameters.valid() &&
+    this.storeMemberF32(
+        draw, "surface0", if (parameters.unlit) 1.0 else 0.0, 0
+    ) &&
+    this.storeMemberF32(draw, "surface0", parameters.clearcoat, 1) &&
+    this.storeMemberF32(
+        draw, "surface0", parameters.clearcoatRoughness, 2
+    ) &&
+    this.storeMemberF32(draw, "surface0", parameters.specular, 3) &&
+    this.storeMemberF32(draw, "surface1", parameters.sheenColor.x, 0) &&
+    this.storeMemberF32(draw, "surface1", parameters.sheenColor.y, 1) &&
+    this.storeMemberF32(draw, "surface1", parameters.sheenColor.z, 2) &&
+    this.storeMemberF32(draw, "surface1", parameters.sheenRoughness, 3) &&
+    this.storeMemberF32(draw, "surface2", parameters.specularColor.x, 0) &&
+    this.storeMemberF32(draw, "surface2", parameters.specularColor.y, 1) &&
+    this.storeMemberF32(draw, "surface2", parameters.specularColor.z, 2) &&
+    this.storeMemberF32(draw, "surface2", parameters.ior, 3)
+
 // Submits every planned group in drawable order. The first pass must clear the
 // target and following passes must load it, so opaque and transparent order is
 // preserved across descriptor/pipeline changes.

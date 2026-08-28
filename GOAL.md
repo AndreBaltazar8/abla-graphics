@@ -3704,8 +3704,9 @@ imports the graphics umbrella or declares Vulkan/X11/EGL/GL libraries, so its
 optimized binary builds within the normal compiler memory guard and launches
 directly with `LD_LIBRARY_PATH` removed.
 
-This checkpoint establishes material input and validation coverage. Rendering
-the extended lobes and retaining their additional sampled textures remain open.
+This checkpoint establishes material input and validation coverage. The next
+checkpoint executes five factor-only surface extensions; models requiring
+additional sampled textures or scene transmission remain open.
 
 Validated with:
 
@@ -3718,3 +3719,24 @@ The preceding animation checkpoints were validated with:
 ```sh
 nix-shell --run 'make check-abla-only test-gltf-scene test-gltf-deformation-plan test-gltf-animation test-gltf-live-deformation test-gltf-live-animation test-runtime-linkage'
 ```
+
+## Latest checkpoint: retained glTF surface factors
+
+`GltfMaterial.surfaceParameters()` now derives the portable factor-only subset
+for unlit, clearcoat, sheen, specular, and IOR. It fails explicitly for
+transmission/volume, iridescence, anisotropy, dispersion, and extended texture
+inputs so the retained renderer never silently drops an authored model.
+
+`GraphicsPushConstantBatch.storeGltfMaterialSurface(...)` writes three surface
+vectors after the existing affine transform/tint record. The complete 112-byte
+draw stays beneath the Vulkan 128-byte portable guarantee and uses the same
+OpenGL UBO emulation. `$glsl` reflection accepts compatible push-block stage
+prefixes, selects the longest layout, and lets the deterministic vertex module
+consume only the 64-byte affine prefix while the fragment stage owns the
+surface tail.
+
+`examples/gltf-live-scene` renders a clearcoat/sheen/specular/IOR green surface
+and an unlit blue surface through retained multi-batch target rendering and one
+window presentation. OpenGL, Vulkan, and automatic selection produce identical
+exact pixels `4278706703/4294901760` after resize and across four warmed frames,
+with stable resources and `live=0`.

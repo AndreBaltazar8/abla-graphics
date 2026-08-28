@@ -197,6 +197,60 @@ class GltfMaterial(
         gltfTextureReferenceValid(this.extensions.anisotropy.texture, textureCount)
 }
 
+// Portable factor-only surface contract for the retained reference shader.
+// Extensions needing additional sampled inputs or scene transmission reject
+// explicitly instead of being silently approximated by this path.
+class GltfMaterialSurfaceParameters(
+    val unlit: bool = false,
+    val clearcoat: f64 = 0.0,
+    val clearcoatRoughness: f64 = 0.0,
+    val sheenColor: Vec3 = Vec3(0.0, 0.0, 0.0),
+    val sheenRoughness: f64 = 0.0,
+    val specular: f64 = 1.0,
+    val specularColor: Vec3 = Vec3(1.0, 1.0, 1.0),
+    val ior: f64 = 1.5,
+    val accepted: bool = true,
+    val error: string = ""
+) {
+    fun valid(): bool = this.accepted && this.error == "" &&
+        this.clearcoat >= 0.0 && this.clearcoat <= 1.0 &&
+        this.clearcoatRoughness >= 0.0 && this.clearcoatRoughness <= 1.0 &&
+        gltfUnitVec3(this.sheenColor) &&
+        this.sheenRoughness >= 0.0 && this.sheenRoughness <= 1.0 &&
+        this.specular >= 0.0 && this.specular <= 1.0 &&
+        gltfPositiveVec3(this.specularColor) &&
+        (this.ior == 0.0 || this.ior >= 1.0)
+}
+
+fun GltfMaterial.surfaceParameters(): GltfMaterialSurfaceParameters {
+    val extension = this.extensions
+    val unsupportedModel = extension.transmission.present ||
+        extension.volume.present || extension.iridescence.present ||
+        extension.anisotropy.present || extension.dispersionPresent
+    val unsupportedTexture = extension.clearcoat.texture.present() ||
+        extension.clearcoat.roughnessTexture.present() ||
+        extension.clearcoat.normalTexture.present() ||
+        extension.sheen.colorTexture.present() ||
+        extension.sheen.roughnessTexture.present() ||
+        extension.specular.texture.present() ||
+        extension.specular.colorTexture.present()
+    val accepted = this.valid() && !unsupportedModel && !unsupportedTexture
+    GltfMaterialSurfaceParameters(
+        unlit = extension.unlit,
+        clearcoat = extension.clearcoat.factor,
+        clearcoatRoughness = extension.clearcoat.roughness,
+        sheenColor = extension.sheen.color,
+        sheenRoughness = extension.sheen.roughness,
+        specular = extension.specular.factor,
+        specularColor = extension.specular.color,
+        ior = extension.ior,
+        accepted = accepted,
+        error = if (accepted) "" else if (!this.valid())
+            "glTF material is invalid" else
+            "glTF material requires an unsupported texture or shading model"
+    )
+}
+
 class GltfMaterialParseResult(
     val materials: array<GltfMaterial>,
     val succeeded: bool,

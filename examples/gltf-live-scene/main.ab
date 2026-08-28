@@ -14,7 +14,8 @@ fun storeGltfDraw(
     draw: int,
     transform: Mat4,
     material: f64,
-    reserved: f64
+    reserved: f64,
+    surface: GltfMaterialSurfaceParameters
 ): bool =
     batch.storeMemberF32(draw, "row0", transform.m00, 0) &&
     batch.storeMemberF32(draw, "row0", transform.m01, 1) &&
@@ -31,26 +32,31 @@ fun storeGltfDraw(
     batch.storeMemberF32(draw, "tint", material, 0) &&
     batch.storeMemberF32(draw, "tint", reserved, 1) &&
     batch.storeMemberF32(draw, "tint", 0.0, 2) &&
-    batch.storeMemberF32(draw, "tint", 1.0, 3)
+    batch.storeMemberF32(draw, "tint", 1.0, 3) &&
+    batch.storeGltfMaterialSurface(draw, surface)
 
 fun storeGltfBatchPair(
     var first: GraphicsPushConstantBatch,
     var second: GraphicsPushConstantBatch,
+    document: GltfDocument,
     drawList: GltfSceneDrawList,
     materialPlan: GltfMaterialBatchPlan,
     indexCounts: array<int>,
     indexOffsets: array<int>
 ): bool = first.valid() && second.valid() &&
-    first.layout.size == 64 && second.layout.size == 64 &&
+    first.layout.size == 112 && second.layout.size == 112 &&
     storeGltfDraw(
         first, 0, drawList.drawables[0].worldTransform,
-        f64FromInt(materialPlan.drawableMaterialSlot(0)), 0.0
+        f64FromInt(materialPlan.drawableMaterialSlot(0)), 0.0,
+        document.materials[drawList.drawables[0].material].surfaceParameters()
     ) && storeGltfDraw(
         first, 1, drawList.drawables[1].worldTransform,
-        f64FromInt(materialPlan.drawableMaterialSlot(1)), 0.0
+        f64FromInt(materialPlan.drawableMaterialSlot(1)), 0.0,
+        document.materials[drawList.drawables[1].material].surfaceParameters()
     ) && storeGltfDraw(
         second, 0, drawList.drawables[2].worldTransform,
-        f64FromInt(materialPlan.drawableMaterialSlot(2)), 0.0
+        f64FromInt(materialPlan.drawableMaterialSlot(2)), 0.0,
+        document.materials[drawList.drawables[2].material].surfaceParameters()
     ) && first.storeIndexedDrawRange(
         0, indexCounts[0], indexOffsets[0]
     ) && first.storeIndexedDrawRange(
@@ -71,7 +77,7 @@ fun main: int {
     )
     val png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP4z8DwHwyBNBAw/AcAR8oI+FuapL4AAAAASUVORK5CYII="
     val bluePng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYPj/HwADAgH/OSkZvgAAAABJRU5ErkJggg=="
-    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIAv0C/QL9AzcxMvs3MTL4AAAAAzcxMPs3MTL4AAAAAAAAAAJqZmT4AAAAA/78AQP+/AED/vwBAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/\",\"byteLength\":180}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963},{\"buffer\":0,\"byteOffset\":42,\"byteLength\":6,\"target\":34962},{\"buffer\":0,\"byteOffset\":48,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":84,\"byteLength\":12,\"target\":34962},{\"buffer\":0,\"byteOffset\":96,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":132,\"byteLength\":48,\"target\":34962}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"},{\"bufferView\":2,\"componentType\":5121,\"normalized\":true,\"count\":3,\"type\":\"VEC2\"},{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":4,\"componentType\":5123,\"normalized\":true,\"count\":3,\"type\":\"VEC2\"},{\"bufferView\":5,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":6,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],\"images\":[{\"name\":\"four colors\",\"uri\":\"data:image/png;base64,$png\"},{\"name\":\"blue\",\"uri\":\"data:image/png;base64,$bluePng\"}],\"samplers\":[{\"name\":\"nearest repeat\",\"magFilter\":9728,\"minFilter\":9984,\"wrapS\":10497,\"wrapT\":10497}],\"textures\":[{\"name\":\"albedo green\",\"sampler\":0,\"source\":0},{\"name\":\"albedo blue\",\"sampler\":0,\"source\":1}],\"materials\":[{\"name\":\"green\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}}},{\"name\":\"blue\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":1}}}],\"meshes\":[{\"name\":\"green triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":5,\"TANGENT\":6,\"TEXCOORD_0\":2},\"indices\":1,\"material\":0}]},{\"name\":\"blue triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":3,\"NORMAL\":5,\"TANGENT\":6,\"TEXCOORD_0\":4},\"indices\":1,\"material\":1}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":1,\"translation\":[0.5,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIAv0C/QL9AzcxMvs3MTL4AAAAAzcxMPs3MTL4AAAAAAAAAAJqZmT4AAAAA/78AQP+/AED/vwBAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/\",\"byteLength\":180}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963},{\"buffer\":0,\"byteOffset\":42,\"byteLength\":6,\"target\":34962},{\"buffer\":0,\"byteOffset\":48,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":84,\"byteLength\":12,\"target\":34962},{\"buffer\":0,\"byteOffset\":96,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":132,\"byteLength\":48,\"target\":34962}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"},{\"bufferView\":2,\"componentType\":5121,\"normalized\":true,\"count\":3,\"type\":\"VEC2\"},{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":4,\"componentType\":5123,\"normalized\":true,\"count\":3,\"type\":\"VEC2\"},{\"bufferView\":5,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":6,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],\"images\":[{\"name\":\"four colors\",\"uri\":\"data:image/png;base64,$png\"},{\"name\":\"blue\",\"uri\":\"data:image/png;base64,$bluePng\"}],\"samplers\":[{\"name\":\"nearest repeat\",\"magFilter\":9728,\"minFilter\":9984,\"wrapS\":10497,\"wrapT\":10497}],\"textures\":[{\"name\":\"albedo green\",\"sampler\":0,\"source\":0},{\"name\":\"albedo blue\",\"sampler\":0,\"source\":1}],\"materials\":[{\"name\":\"green layered surface\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}},\"extensions\":{\"KHR_materials_clearcoat\":{\"clearcoatFactor\":0.8,\"clearcoatRoughnessFactor\":0.25},\"KHR_materials_sheen\":{\"sheenColorFactor\":[0.2,0.05,0.0],\"sheenRoughnessFactor\":0.4},\"KHR_materials_specular\":{\"specularFactor\":0.5,\"specularColorFactor\":[1.0,0.8,0.6]},\"KHR_materials_ior\":{\"ior\":1.5}}},{\"name\":\"blue unlit surface\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":1}},\"extensions\":{\"KHR_materials_unlit\":{}}}],\"meshes\":[{\"name\":\"green triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":5,\"TANGENT\":6,\"TEXCOORD_0\":2},\"indices\":1,\"material\":0}]},{\"name\":\"blue triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":3,\"NORMAL\":5,\"TANGENT\":6,\"TEXCOORD_0\":4},\"indices\":1,\"material\":1}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":1,\"translation\":[0.5,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
     val parsed = gltfDocument(source)
     val payloads = if (parsed.succeeded)
         gltfBufferPayloads(parsed.document) else GltfBufferPayloads([], false, "parse")
@@ -98,6 +104,9 @@ fun main: int {
                 vec4 row1;
                 vec4 row2;
                 vec4 tint;
+                vec4 surface0;
+                vec4 surface1;
+                vec4 surface2;
             } draw;
             void main() {
                 vec4 point = vec4(position, 1.0);
@@ -129,6 +138,9 @@ fun main: int {
                 vec4 row1;
                 vec4 row2;
                 vec4 tint;
+                vec4 surface0;
+                vec4 surface1;
+                vec4 surface2;
             } draw;
             void main() {
                 vec4 base0 = texture(baseColor0, texCoord);
@@ -147,10 +159,26 @@ fun main: int {
                         mix(256.0, 8.0, factors1.g)
                     )) * texture(occlusion1, texCoord).r +
                     texture(emissive1, texCoord).rgb;
+                vec4 base = mix(base0, base1, draw.tint.x);
+                vec3 shaded = mix(shaded0, shaded1, draw.tint.x);
                 color = mix(
-                    vec4(shaded0, base0.a),
-                    vec4(shaded1, base1.a),
-                    draw.tint.x
+                    vec4(
+                        shaded * (1.0 - draw.surface0.y *
+                            (1.0 - draw.surface0.z) * 0.25) +
+                        vec3(1.0) * draw.surface0.y *
+                            (1.0 - draw.surface0.z) * 0.04 +
+                        draw.surface2.rgb *
+                            ((draw.surface2.w - 1.0) /
+                             (draw.surface2.w + 1.0)) *
+                            ((draw.surface2.w - 1.0) /
+                             (draw.surface2.w + 1.0)) *
+                            draw.surface0.w * 0.25 +
+                        draw.surface1.rgb *
+                            (1.0 - draw.surface1.w) * 0.25,
+                        base.a
+                    ),
+                    base,
+                    draw.surface0.x
                 );
             }
         }
@@ -170,6 +198,12 @@ fun main: int {
     val sceneGeometry = app.gltfGpuTexturedScene(
         parsed.document, payloads, drawList, resourcePlan
     )
+    val layeredSurface = if (parsed.succeeded)
+        parsed.document.materials[0].surfaceParameters()
+        else GltfMaterialSurfaceParameters(accepted = false, error = "parse")
+    val unlitSurface = if (parsed.succeeded)
+        parsed.document.materials[1].surfaceParameters()
+        else GltfMaterialSurfaceParameters(accepted = false, error = "parse")
     val drawIndexCounts = sceneGeometry.drawIndexCounts
     val drawIndexOffsets = sceneGeometry.drawIndexOffsets
     val firstTargetEntries = app.gltfMaterialTextureEntries(
@@ -220,10 +254,11 @@ fun main: int {
     val firstWindowBatch = shader.pushConstantBatch(2)
     val secondWindowBatch = shader.pushConstantBatch(1)
     val batchReady = storeGltfBatchPair(
-        firstBatch, secondBatch, drawList, materialPlan,
+        firstBatch, secondBatch, parsed.document, drawList, materialPlan,
         drawIndexCounts, drawIndexOffsets
     ) && storeGltfBatchPair(
-        firstWindowBatch, secondWindowBatch, drawList, materialPlan,
+        firstWindowBatch, secondWindowBatch, parsed.document,
+        drawList, materialPlan,
         drawIndexCounts, drawIndexOffsets
     )
     val targetPipelines = [
@@ -251,6 +286,15 @@ fun main: int {
         resourcePlan.drawableResources[0] == 0 &&
         resourcePlan.drawableResources[1] == 0 &&
         resourcePlan.drawableResources[2] == 1 &&
+        layeredSurface.valid() && !layeredSurface.unlit &&
+        layeredSurface.clearcoat >= 0.799 &&
+        layeredSurface.clearcoat <= 0.801 &&
+        layeredSurface.sheenColor.x >= 0.199 &&
+        layeredSurface.sheenColor.x <= 0.201 &&
+        layeredSurface.specular >= 0.499 &&
+        layeredSurface.specular <= 0.501 &&
+        layeredSurface.ior >= 1.499 && layeredSurface.ior <= 1.501 &&
+        unlitSurface.valid() && unlitSurface.unlit &&
         sceneGeometry.valid() && sceneGeometry.vertexCount == 6 &&
         sceneGeometry.indexCount == 6 &&
         sceneGeometry.layout.stride == 48 &&
@@ -284,7 +328,7 @@ fun main: int {
         batches[0].valid() && batches[1].valid() &&
         passes[0].valid() && passes[1].valid() && batchReady
     if (!initialized) println(
-        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} geometry=${sceneGeometry.valid()}:${sceneGeometry.error} materials=${firstMaterialTextures.valid()}:${secondMaterialTextures.valid()} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipelines[0].valid()}:${targetPipelines[1].valid()}:${windowSequence.valid()}:${windowSequence.error.message}"
+        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} geometry=${sceneGeometry.valid()}:${sceneGeometry.error} materials=${firstMaterialTextures.valid()}:${secondMaterialTextures.valid()} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipelines[0].valid()}:${targetPipelines[0].error.message}/${targetPipelines[1].valid()}:${targetPipelines[1].error.message}/${windowSequence.valid()}:${windowSequence.error.message}"
     )
     val targetRendered = initialized && app.renderGltfMaterialBatchesToTarget(
         target, materialPlan, targetPipelines, batches, passes,
@@ -361,9 +405,9 @@ fun main: int {
     val indexHandle = if (app.backend == graphicsBackendOpenGl)
         sceneGeometry.indices.openGl.handle else sceneGeometry.indices.vulkan.handle
     val stable = rendered && frame == 4 &&
-        firstPixel == 4278255360 && secondPixel == 4294901760 &&
+        firstPixel == 4278706703 && secondPixel == 4294901760 &&
         liveAfter == liveBefore &&
         vertexHandle != 0 && indexHandle != 0
-    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} materialTextures=5/10 batches=${materialPlan.batchCount()} windowGroups=${windowSequence.groupCount()} resize=$resized drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[2].material} resources=${resourcePlan.meshIndices.size} vertices=${sceneGeometry.vertexCount} indices=${sceneGeometry.indexCount} stride=${sceneGeometry.layout.stride} uv=u8/u16 surface=normal+tangent channels=base/mr/normal/occlusion/emissive ranges=${drawIndexOffsets[0]}:${drawIndexCounts[0]}/${drawIndexOffsets[2]}:${drawIndexCounts[2]} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
+    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} materialTextures=5/10 batches=${materialPlan.batchCount()} windowGroups=${windowSequence.groupCount()} resize=$resized drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[2].material} resources=${resourcePlan.meshIndices.size} vertices=${sceneGeometry.vertexCount} indices=${sceneGeometry.indexCount} stride=${sceneGeometry.layout.stride} uv=u8/u16 surface=unlit+clearcoat+sheen+specular+ior channels=base/mr/normal/occlusion/emissive ranges=${drawIndexOffsets[0]}:${drawIndexCounts[0]}/${drawIndexOffsets[2]}:${drawIndexCounts[2]} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
     if (stable) 0 else 1
 }

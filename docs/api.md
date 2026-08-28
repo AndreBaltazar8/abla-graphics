@@ -1325,10 +1325,23 @@ cross-reference validation. `blendState()` and `cullMode()` translate the core
 glTF policy into portable pipeline state. Malformed extension objects or
 numbers, unknown alpha modes, invalid ranges/dependencies, missing texture
 indices, duplicate JSON keys, and limit violations fail the whole mapping
-instead of producing a partially valid material. The typed descriptors are
-ready for custom shaders; the retained five-channel material table does not
-yet shade the extended lobes. `examples/gltf-material` is the independent
-mapping reference and needs no graphics shared libraries.
+instead of producing a partially valid material. `surfaceParameters()` derives
+a `GltfMaterialSurfaceParameters` value for factor-only unlit, clearcoat,
+sheen, specular, and IOR execution. It rejects transmission/volume,
+iridescence, anisotropy, dispersion, or any extended texture rather than
+silently ignoring a model that needs more sampled or scene data.
+
+`GraphicsPushConstantBatch.storeGltfMaterialSurface(draw, parameters)` writes
+three reflected `vec4` members named `surface0`, `surface1`, and `surface2`
+after the 64-byte affine draw record. The resulting 112-byte layout stays below
+the portable 128-byte push-constant floor. `$glsl` accepts compatible stage
+prefixes: its vertex module reads the 64-byte affine prefix while reflection
+selects the fragment stage's complete seven-member 112-byte layout. The core
+retained texture table remains five channels; texture-dependent extended lobes
+are still open.
+`examples/gltf-material` is the independent mapping reference and needs no
+graphics shared libraries; `examples/gltf-live-scene` is the live factor-only
+surface reference.
 
 Import `src/gltf_scene.ab` for scene metadata. `gltfDocument(source)` returns a
 validated `GltfDocument` containing buffers, buffer views, dense or sparse

@@ -2153,9 +2153,19 @@ The consolidated environment/glTF gate produced exact tone-mapped pixel
 `4282610358` on OpenGL, Vulkan, and automatic selection, with four stable
 measured frames and `live=0`. The material mapper is backend-free: its package
 no longer declares Vulkan, X11, EGL, or GL, and its optimized binary launches
-with `LD_LIBRARY_PATH` removed. Extended-lobe shader evaluation and retained
-extended texture tables remain open; the descriptors and validation are
-complete input contracts for that work.
+with `LD_LIBRARY_PATH` removed.
+
+Factor-only unlit, clearcoat, sheen, specular, and IOR values now execute in
+the retained live scene. `surfaceParameters()` rejects every model or extended
+texture needing a broader renderer. Three reflected surface vectors extend the
+affine record from 64 to 112 bytes; `$glsl` links matching seven-member source
+blocks while its vertex module consumes only their compatible 64-byte prefix.
+The layered
+green and unlit blue materials produce identical exact RGBA8
+`4278706703/4294901760` on OpenGL, Vulkan, and automatic selection through
+resize plus four warmed frames, with stable resources and `live=0`.
+Transmission/volume, iridescence, anisotropy, dispersion, and extended texture
+tables remain open.
 
 ### glTF scene metadata
 

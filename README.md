@@ -471,10 +471,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   material pipelines compose a two-draw group and one-draw tail through clear
   then load passes and one ordered window presentation, including coordinated
   Vulkan sequence rebuild after resize; a reusable push
-  batch supplies exact index ranges while a deduplicated ten-slot table binds
-  both materials' base-color, metallic/roughness, normal, occlusion, and
-  emissive channels, producing exact green/blue zero-growth output on OpenGL
-  and Vulkan;
+  batch supplies exact index ranges and a 112-byte portable surface record for
+  unlit, clearcoat, sheen, specular, and IOR factors, while a deduplicated
+  ten-slot table binds both materials' core texture channels; the layered and
+  unlit surfaces produce exact zero-growth output on OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;
