@@ -40,6 +40,11 @@ resolved parent/child transforms and rejects overlapping roots or repeated
 visits. Continue by materializing the whole draw list, reusing shared accessor
 buffers across primitives, and binding parsed materials and images per draw.
 
+The resource plan now maps two node instances onto one shared mesh-primitive
+upload without duplicating geometry. The next execution slice must submit all
+instances with their world transforms and then add parsed image/texture/sampler
+ownership and material bindings.
+
 ## Mission
 
 Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and

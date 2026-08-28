@@ -291,6 +291,51 @@ class GltfSceneDrawList(
     val error: string
 )
 
+class GltfSceneResourcePlan(
+    val meshIndices: array<int>,
+    val primitiveIndices: array<int>,
+    val drawableResources: array<int>,
+    val valid: bool,
+    val error: string
+)
+
+fun gltfSceneResourcePlan(
+    drawList: GltfSceneDrawList,
+    maximumUniquePrimitives: int = 65536
+): GltfSceneResourcePlan {
+    val meshes: array<int> = []
+    val primitives: array<int> = []
+    val resources: array<int> = []
+    var valid = drawList.valid && drawList.drawables.size > 0 &&
+        maximumUniquePrimitives > 0 && maximumUniquePrimitives <= 1048576
+    var drawableIndex = 0
+    while (valid && drawableIndex < drawList.drawables.size) {
+        val drawable = drawList.drawables[drawableIndex]
+        var resourceIndex = -1
+        var candidate = 0
+        while (resourceIndex < 0 && candidate < meshes.size) {
+            if (meshes[candidate] == drawable.mesh &&
+                primitives[candidate] == drawable.primitive)
+                resourceIndex = candidate
+            candidate = candidate + 1
+        }
+        if (resourceIndex < 0) {
+            valid = meshes.size < maximumUniquePrimitives
+            if (valid) {
+                resourceIndex = meshes.size
+                meshes.append(drawable.mesh)
+                primitives.append(drawable.primitive)
+            }
+        }
+        if (valid) resources.append(resourceIndex)
+        drawableIndex = drawableIndex + 1
+    }
+    GltfSceneResourcePlan(
+        meshes, primitives, resources, valid,
+        if (valid) "" else "invalid or over-capacity glTF resource plan"
+    )
+}
+
 fun gltfEmptyDocument(): GltfDocument = GltfDocument()
 
 fun gltfSceneDrawList(

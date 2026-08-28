@@ -16,10 +16,12 @@ fun main: int {
         GraphicsConfig(backend = backend, framesInFlight = 2),
         WindowConfig(title = "Abla Graphics glTF scene", width = 640, height = 360)
     )
-    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIA\",\"byteLength\":42}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"meshes\":[{\"name\":\"Embedded triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"nodes\":[{\"mesh\":0}],\"scenes\":[{\"nodes\":[0]}],\"scene\":0}"
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIA\",\"byteLength\":42}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"meshes\":[{\"name\":\"Embedded triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":0,\"translation\":[0.1,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
     val parsed = gltfDocument(source)
     val payloads = if (parsed.succeeded)
         gltfBufferPayloads(parsed.document) else GltfBufferPayloads([], false, "parse")
+    val drawList = gltfSceneDrawList(parsed.document)
+    val resourcePlan = gltfSceneResourcePlan(drawList)
     val primitive = app.gltfGpuPrimitive(parsed.document, payloads, 0, 0)
     val shader = $glsl {
         vertex {
@@ -56,11 +58,17 @@ fun main: int {
     val windowPipeline = app.renderPipeline(shader, layout)
     val clear = Color(0.01, 0.01, 0.015)
     val initialized = app.valid() && parsed.succeeded && payloads.valid &&
+        drawList.valid && drawList.drawables.size == 2 && resourcePlan.valid &&
+        resourcePlan.meshIndices.size == 1 &&
+        resourcePlan.drawableResources.size == 2 &&
+        resourcePlan.drawableResources[0] == 0 &&
+        resourcePlan.drawableResources[1] == 0 &&
         primitive.valid() && primitive.vertexCount == 3 &&
-        primitive.indexCount == 3 && shader.valid && target.valid() &&
+        primitive.indexCount == 3 &&
+        shader.valid && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid()
     if (!initialized) println(
-        "gltf-live setup: app=${app.valid()} primitive=${primitive.valid()}:${primitive.error} shader=${shader.valid} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
+        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} primitive=${primitive.valid()}:${primitive.error} shader=${shader.valid} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
     )
     var rendered = initialized && app.renderIndexedToTarget(
         target, targetPipeline, primitive.vertices, primitive.indices,
@@ -101,6 +109,6 @@ fun main: int {
     val stable = rendered && frame == 4 && firstPixel >= 0 &&
         firstPixel != 4278190080 && liveAfter == liveBefore &&
         vertexHandle != 0 && indexHandle != 0
-    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} vertices=${primitive.vertexCount} indices=${primitive.indexCount} pixel=$firstPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
+    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} drawables=${drawList.drawables.size} resources=${resourcePlan.meshIndices.size} vertices=${primitive.vertexCount} indices=${primitive.indexCount} pixel=$firstPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
     if (stable) 0 else 1
 }

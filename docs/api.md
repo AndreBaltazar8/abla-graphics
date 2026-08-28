@@ -1344,6 +1344,13 @@ world transform. The caller controls a hard drawable bound; duplicate roots,
 root/descendant overlap, repeated visits, and capacity exhaustion fail the
 whole result rather than silently omitting instances.
 
+`gltfSceneResourcePlan(drawList)` deduplicates `(mesh, primitive)` pairs in
+first-use order and maps every drawable to one unique resource index. Node
+instances therefore share immutable geometry without duplicating accessor
+decoding or GPU uploads. The plan is intentionally a non-owning value: affine
+GPU resources remain explicit owners rather than becoming hidden inside a
+nested cache container.
+
 Import `src/gltf_buffer.ab` to connect metadata to bytes and retained GPU
 resources. `gltfBufferPayloads(document, supplied)` accepts caller-provided
 external or GLB payloads by buffer index and falls back to bounded base64 data

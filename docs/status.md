@@ -2200,3 +2200,11 @@ preallocated-by-growth arrays rather than recursion and rejects duplicate
 roots, a root repeated through an ancestor, repeated visits, and drawable or
 camera capacity exhaustion. The scene sample proves translation-plus-scale
 composition and deliberate root/descendant overlap rejection.
+
+The resource planner now deduplicates mesh/primitive pairs across node
+instances and emits an exact drawable-to-resource mapping in deterministic
+first-use order. The live glTF fixture contains two nodes referencing the same
+primitive and proves `drawables=2 resources=1` on OpenGL, Vulkan, and auto while
+retaining exact pixel `1028`, four stable frames, and `live=0`. GPU owners stay
+affine and explicit; this checkpoint does not claim that both node transforms
+are submitted in one render pass yet.
