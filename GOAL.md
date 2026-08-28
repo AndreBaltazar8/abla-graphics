@@ -3589,10 +3589,13 @@ bind count mismatches, and invalid target shapes. GPU palette upload, shader
 deformation, animation channels, and live skinned/morphed rendering remain
 open; this checkpoint deliberately does not claim those execution features.
 
-The pure metadata samples no longer request Vulkan/X11/EGL/GL at link time, so
-their generated executables run with `LD_LIBRARY_PATH` removed. Live graphics
-executables still need the broader standalone shared-library/runtime-path
-solution tracked by this goal.
+The pure metadata samples no longer request Vulkan/X11/EGL/GL at link time.
+For live programs, the pinned graphics shell injects the concrete Vulkan,
+GLVND/Mesa, and X11 loader directories as ELF RUNPATH entries. The runtime
+linkage gate and live samples launch with `LD_LIBRARY_PATH` removed, so built
+executables can be run directly after leaving the development shell. This is a
+project toolchain concern; `ablac` correctly remains independent of ambient
+platform-library discovery.
 
 ## Latest checkpoint: retained static glTF deformation execution
 
