@@ -49,10 +49,12 @@ Updated: 2026-08-28.
   exact dispatch surface then promote 180 commands in one pass, reaching 2,847
   and leaving 45 OpenGL declarations unsupported. Normalizing half-float,
   opaque sync/callback/EGL pointer, VDPAU handle, bitfield-result, and floating
-  result types promotes another 42 commands, reaching 2,889. The generated
-  module owns 276 distinct non-variadic ABI methods, while the stable existing
-  raw names remain available. Only three platform-dependent `GLhandleARB`
-  return declarations remain unsupported.
+  result types promotes another 42 commands, reaching 2,889. Platform-aware
+  `GLhandleARB` metadata closes the final three return rows and corrects every
+  by-value handle parameter: Apple selects pointer lanes and other targets
+  select unsigned-result/integer-parameter lanes. The generated ledger now
+  covers all 2,892 commands with 279 concrete non-variadic ABI methods, while
+  the stable existing raw names remain available.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.

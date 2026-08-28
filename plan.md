@@ -126,11 +126,13 @@ Descriptor updates, synchronization2 events, private-data operations,
 swapchain creation, acceleration queries, and larger pointer groups add 17
 more repeated layouts. A generated candidate ABI ledger preserves the exact
 normalized layout for every registry entry. Generated ABI classification marks
-exactly 2,889 currently callable OpenGL entries and all 842 pinned Vulkan
-entries. Vulkan's former 50 one-off layouts and nine platform-scalar boundaries
-are fully lowered with explicit native widths. The remaining three OpenGL
-declarations return platform-dependent `GLhandleARB`; capability gates, live
-extension evidence, and the milestone work below are still open.
+all 2,892 OpenGL entries and all 842 pinned Vulkan entries. Vulkan's former 50
+one-off layouts and nine platform-scalar boundaries are fully lowered with
+explicit native widths. OpenGL preserves `GLhandleARB` as a generated platform
+kind: it resolves to pointer returns and parameters on Apple and unsigned
+32-bit returns/integer parameters elsewhere. Capability gates, live extension
+evidence, and the milestone work below remain separate from ABI
+representability.
 
 Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
 without perturbing established `vec4` modules. Their exact-width and scalar-splat

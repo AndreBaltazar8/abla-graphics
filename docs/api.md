@@ -3696,9 +3696,12 @@ matching `callVoidF64...`, `callVoidI32F64...`, and
 double lanes. Wide checked methods additionally preserve OpenGL pointer-sized
 offsets and sizes, grouped pointer outputs, and long integer argument lists
 through eleven scalar lanes without a variadic fallback. The generated
-classification currently enables 2,889 OpenGL commands. Importing
-`src/raw/opengl_dispatch.ab` adds generated `callExact...` methods for all 276
-normalized ABI layouts. Their names encode every result and argument lane,
+classification currently represents all 2,892 OpenGL commands. Importing
+`src/raw/opengl_dispatch.ab` adds generated `callExact...` methods for all 279
+concrete ABI layouts. The generated ledger retains `GLhandleARB` as a platform
+kind and command resolution selects pointer lanes on Apple or an unsigned
+32-bit return plus integer parameters elsewhere. Their names encode every
+concrete result and argument lane,
 and each checks the generated ABI tag and owning current context before one
 non-variadic indirect call. Existing stable hand-authored method names remain
 available. Exact `callAddress...` families store native pointer results in a

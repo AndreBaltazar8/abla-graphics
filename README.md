@@ -181,8 +181,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   7,413 members; compact separately generated callable-command modules avoid
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
-  unclassified; generated exact ABI dispatch currently enables 2,889 OpenGL
-  commands and all 842 Vulkan commands. The Vulkan surface includes exact float,
+  unclassified; generated exact ABI dispatch currently represents all 2,892
+  OpenGL commands and all 842 Vulkan commands. The Vulkan surface includes exact float,
   image transfer/clear/query, sparse query, pipeline creation, calibrated
   timestamp, fence-wait, descriptor/query, wide handle, mixed scalar/handle,
   pointer-group, and signed status families. The OpenGL surface includes exact

@@ -2,6 +2,49 @@
 // calling it so steady-state indirect calls do not scan or allocate registry
 // metadata.
 
+import "abla/platform/host"
+import "abla/text"
+
+fun rawResolvePlatformCallAbiFor(
+    callAbi: string,
+    macOS: bool
+): string {
+    if (textFindSequence(callAbi, "handle") < 0) return callAbi
+    val resultWanted = "handleResult"
+    val resultReplacement = if (macOS) "pointer" else "u32"
+    var result = ""
+    var cursor = 0
+    var found = textFindSequence(
+        callAbi, resultWanted, cursor, callAbi.size
+    )
+    while (found >= 0) {
+        result = "$result${callAbi.slice(cursor, found)}$resultReplacement"
+        cursor = found + resultWanted.size
+        found = textFindSequence(
+            callAbi, resultWanted, cursor, callAbi.size
+        )
+    }
+    val resolvedResult = "$result${callAbi.slice(cursor, callAbi.size)}"
+    val wanted = "handle"
+    val replacement = if (macOS) "pointer" else "i32"
+    result = ""
+    cursor = 0
+    found = textFindSequence(
+        resolvedResult, wanted, cursor, resolvedResult.size
+    )
+    while (found >= 0) {
+        result = "$result${resolvedResult.slice(cursor, found)}$replacement"
+        cursor = found + wanted.size
+        found = textFindSequence(
+            resolvedResult, wanted, cursor, resolvedResult.size
+        )
+    }
+    "$result${resolvedResult.slice(cursor, resolvedResult.size)}"
+}
+
+fun rawResolvePlatformCallAbi(callAbi: string): string =
+    rawResolvePlatformCallAbiFor(callAbi, ablaHostIsMacOS())
+
 class RawNativeCommand(
     val name: string,
     val callShape: string,
@@ -570,8 +613,10 @@ fun rawRegistryCommand(
     RawNativeCommand(
         name,
         if (index >= 0 && index < callShapes.size) callShapes[index] else "",
-        if (index >= 0 && index < callAbis.size) callAbis[index] else
-            "unsupported",
+        rawResolvePlatformCallAbi(
+            if (index >= 0 && index < callAbis.size) callAbis[index] else
+                "unsupported"
+        ),
         if (index >= 0) address else 0,
         if (index >= 0) owner else 0
     )

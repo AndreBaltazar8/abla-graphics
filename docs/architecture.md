@@ -266,14 +266,15 @@ scalar/output query, and handle/scalar command families. Registry type metadata
 distinguishes 32-bit `VkFlags` from 64-bit `VkFlags64` before classification.
 Wide OpenGL offset/size, grouped-pointer, and seven- through eleven-integer
 layouts retain exact 64-bit and pointer lanes rather than narrowing them.
-Generated ABI-family tags make the currently callable 2,889 OpenGL commands
-and all 842 pinned Vulkan commands explicit, retaining `unsupported` for the
-other three OpenGL commands. A closed encoded intrinsic grammar lets the pure-Abla
-registry generator emit 276 non-variadic checked dispatch families without a
-compiler allowlist entry per layout. Vulkan's former 50 one-off layouts and nine
-platform-scalar boundaries are fully lowered with explicit native widths.
-The final `GLhandleARB` returns remain unsupported until target-specific ABI
-selection and matching positive, negative, and live-driver evidence exist.
+Generated ABI-family tags make all 2,892 OpenGL commands and all 842 pinned
+Vulkan commands explicit. A closed encoded intrinsic grammar lets the pure-Abla
+registry generator emit 279 concrete non-variadic checked dispatch families
+without a compiler allowlist entry per layout. Vulkan's former 50 one-off
+layouts and nine platform-scalar boundaries are fully lowered with explicit
+native widths. OpenGL metadata retains `GLhandleARB` as a platform kind until
+command resolution, which lowers all its by-value occurrences to pointers on
+Apple and to unsigned-result/integer-parameter lanes elsewhere. Both concrete
+families are emitted; driver feature advertisement remains a separate gate.
 
 The initial baselines are OpenGL 4.6 core/GLSL 4.60 and Vulkan 1.4. Registry
 patch revisions are pinned by the generator manifest and updated deliberately.

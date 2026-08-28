@@ -114,6 +114,12 @@ rg -q 'ablaUnsafeCallExact_F32_I32' \
     "$output_directory/opengl-first.dispatch.ab"
 rg -Fq 'f64ToBits(ablaUnsafeCallExact_F32_I32' \
     "$output_directory/opengl-first.dispatch.ab"
+rg -Fq '"handleResult(handle)"' \
+    "$output_directory/opengl-first.calls.ab"
+rg -q 'ablaUnsafeCallExact_U32_I32' \
+    "$output_directory/opengl-first.dispatch.ab"
+rg -q 'ablaUnsafeCallExact_Address_Pointer' \
+    "$output_directory/opengl-first.dispatch.ab"
 
 if "$generator" opengl \
     "$project_root/registry/fixtures/opengl-invalid-constant.xml" \

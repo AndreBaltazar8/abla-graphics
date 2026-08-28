@@ -49,6 +49,8 @@ trusted fun main: int {
         val depthMask = raw.command("glDepthMask")
         val multiDrawArrays = raw.command("glMultiDrawArrays")
         val getPathLength = raw.command("glGetPathLengthNV")
+        val createProgramObject = raw.command("glCreateProgramObjectARB")
+        val deleteObject = raw.command("glDeleteObjectARB")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -97,6 +99,7 @@ trusted fun main: int {
         val signedResult = nativeI64Cell(0)
         val errorResult = nativeI64Cell(0)
         val pathLengthResult = nativeI64Cell(0)
+        val legacyHandleResult = nativeI64Cell(0)
         val missingAttribute = nativePointerFromAddress(
             nativeCStringAddress("ablaMissing")
         )
@@ -155,6 +158,42 @@ trusted fun main: int {
         )
         val floatResultReady = getPathLength.callAbi ==
             "f32(i32,i32,i32)" && floatWrongShapeRejected
+        val legacyIntegerAbi = createProgramObject.callAbi == "u32()" &&
+            deleteObject.callAbi == "void(i32)"
+        val legacyPointerAbi = createProgramObject.callAbi == "pointer()" &&
+            deleteObject.callAbi == "void(pointer)"
+        val legacyWrongShapeRejected =
+            if (legacyIntegerAbi) !raw.callExactPointer(
+                createProgramObject, legacyHandleResult.address
+            ) else if (legacyPointerAbi) !raw.callExactU32(
+                createProgramObject, legacyHandleResult.address
+            ) else false
+        val legacyAdvertised = openGlExtensionAvailable(
+            "GL_ARB_shader_objects"
+        )
+        var legacyLive = !legacyAdvertised
+        if (legacyAdvertised) {
+            while (glGetError() != 0) {}
+            legacyHandleResult.store(0)
+            legacyLive = createProgramObject.valid() && deleteObject.valid()
+            if (legacyLive && legacyIntegerAbi) {
+                legacyLive = raw.callExactU32(
+                    createProgramObject, legacyHandleResult.address
+                ) && legacyHandleResult.load() != 0 &&
+                    raw.callExactVoidI32(
+                        deleteObject, legacyHandleResult.load()
+                    )
+            } else if (legacyLive && legacyPointerAbi) {
+                legacyLive = raw.callExactPointer(
+                    createProgramObject, legacyHandleResult.address
+                ) && legacyHandleResult.load() != 0 &&
+                    raw.callExactVoidPointer(
+                        deleteObject,
+                        nativePointerFromAddress(legacyHandleResult.load())
+                    )
+            } else legacyLive = false
+            legacyLive = legacyLive && glGetError() == 0
+        }
         var pendingError = glGetError()
         while (pendingError != 0) pendingError = glGetError()
         val liveBefore = runtimeMemoryLiveBytes()
@@ -302,14 +341,15 @@ trusted fun main: int {
             multiDrawArrays.callAbi == "void(i32,pointer,pointer,i32)" &&
             vertexArray.load() > 0 &&
             wideBuffersReady && pointerReturnReady && floatWrongShapeRejected &&
-            floatResultReady &&
+            floatResultReady && (legacyIntegerAbi || legacyPointerAbi) &&
+            legacyWrongShapeRejected && legacyLive &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
             restored && colorRestored && depthRangeRestored && masksRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true floatShape=$floatResultReady buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true floatShape=$floatResultReady platformHandle=$legacyIntegerAbi/$legacyPointerAbi advertised=$legacyAdvertised liveCall=$legacyLive wrongShape=$legacyWrongShapeRejected buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")
