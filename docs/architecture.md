@@ -153,7 +153,9 @@ base/graphics/compute feature partitions normalize to their public
 `VK_VERSION_x_y` owner while extension platform restrictions remain explicit.
 Capability ownership is separate from address resolution: loaders may return
 addresses for commands that the current context/device did not advertise or
-enable.
+enable. Vulkan instances/devices retain exactly the extension-name arrays used
+at native creation, and a generated dispatch-scope schema keeps global,
+instance, and device resolver queries distinct.
 
 `src/shader/` contains the `$glsl` parser, reflection model, and target emitters.
 The parser is an ordinary Abla compile-time subparser registered through

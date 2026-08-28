@@ -397,7 +397,11 @@ trusted fun main: int {
         val surfaceSupport = raw.instanceCommand(
             "vkGetPhysicalDeviceSurfaceSupportKHR"
         )
+        val createXlibSurface = raw.instanceCommand(
+            "vkCreateXlibSurfaceKHR"
+        )
         val idle = raw.deviceCommand("vkDeviceWaitIdle")
+        val queuePresent = raw.deviceCommand("vkQueuePresentKHR")
         val setDeviceMask = raw.deviceCommand("vkCmdSetDeviceMask")
         val endRendering = raw.deviceCommand("vkCmdEndRendering")
         val setStencilReference = raw.deviceCommand(
@@ -461,6 +465,7 @@ trusted fun main: int {
         val xlibCapability = raw.capability("vkCreateXlibSurfaceKHR")
         val missingCapability = raw.capability("vkAblaMissing")
         val capabilityReady = enumerateCapability.valid() &&
+            enumerateCapability.dispatchScope == "instance" &&
             enumerateCapability.hasCoreFeature("VK_VERSION_1_0") &&
             surfaceCapability.valid() &&
             surfaceCapability.hasExtension("VK_KHR_surface") &&
@@ -468,7 +473,35 @@ trusted fun main: int {
             xlibCapability.hasExtension("VK_KHR_xlib_surface") &&
             xlibCapability.extensionPlatform(
                 "VK_KHR_xlib_surface"
-            ) == "xlib" && !missingCapability.valid()
+            ) == "xlib" &&
+            raw.instanceExtensionEnabled("VK_KHR_surface") &&
+            raw.instanceExtensionEnabled("VK_KHR_xlib_surface") &&
+            raw.deviceExtensionEnabled("VK_KHR_swapchain") &&
+            !raw.deviceExtensionEnabled("VK_EXT_debug_marker") &&
+            raw.instanceCommandAdvertised(
+                "vkEnumeratePhysicalDevices"
+            ) && raw.instanceCommandSupported(
+                "vkEnumeratePhysicalDevices"
+            ) && raw.instanceCommandAdvertised(
+                "vkGetPhysicalDeviceSurfaceSupportKHR"
+            ) && raw.instanceCommandSupported(
+                "vkGetPhysicalDeviceSurfaceSupportKHR"
+            ) && raw.instanceCommandAdvertised(
+                "vkCreateXlibSurfaceKHR"
+            ) && raw.instanceCommandSupported(
+                "vkCreateXlibSurfaceKHR"
+            ) && raw.deviceCommandAdvertised("vkDeviceWaitIdle") &&
+            raw.deviceCommandSupported("vkDeviceWaitIdle") &&
+            raw.deviceCommandAdvertised("vkQueuePresentKHR") &&
+            raw.deviceCommandSupported("vkQueuePresentKHR") &&
+            !raw.deviceCommandAdvertised("vkCmdDebugMarkerBeginEXT") &&
+            !raw.deviceCommandSupported("vkCmdDebugMarkerBeginEXT") &&
+            raw.globalCommandAdvertised("vkEnumerateInstanceVersion") &&
+            raw.globalCommandSupported("vkEnumerateInstanceVersion") &&
+            !raw.instanceCommandAdvertised("vkQueuePresentKHR") &&
+            !raw.deviceCommandAdvertised("vkCreateXlibSurfaceKHR") &&
+            createXlibSurface.valid() && queuePresent.valid() &&
+            !missingCapability.valid()
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
         val instanceVersion = nativeI64Cell(0)

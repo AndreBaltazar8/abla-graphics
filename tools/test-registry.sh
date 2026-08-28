@@ -126,6 +126,10 @@ rg -Fq 'GL_EXT_fixture:x11:all' \
     "$output_directory/opengl-first.calls.ab"
 rg -Fq 'VK_EXT_alpha:xlib:all' \
     "$output_directory/first.calls.ab"
+rg -Fq 'fun rawVulkanCallDispatchScopeSchema' \
+    "$output_directory/first.calls.ab"
+rg -Fq 'fun rawOpenGlCallDispatchScopeSchema' \
+    "$output_directory/opengl-first.calls.ab"
 
 if "$generator" opengl \
     "$project_root/registry/fixtures/opengl-invalid-constant.xml" \

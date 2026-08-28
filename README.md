@@ -577,6 +577,9 @@ exact scalar, pointer, floating-point, and pointer-return OpenGL families.
 Both raw views expose generated `RawCommandCapability` ownership. OpenGL
 separately checks context advertisement and resolver availability, avoiding the
 common mistake of treating a nonzero loader address as feature support.
+Vulkan retains exact enabled instance/device extension sets and combines them
+with generated dispatch scope, platform, negotiated API versions, and the
+correct resolver.
 Vulkan calls
 checked pointer-only, pointer-plus-scalars, resource create/destroy, handle
 status, and pointer-query families.

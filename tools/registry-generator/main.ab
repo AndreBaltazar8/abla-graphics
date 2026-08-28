@@ -15,6 +15,7 @@ class RegistryInventory(
 class RegistryCommandCapabilities(
     val coreTransitions: array<string>,
     val extensionProviders: array<string>,
+    val dispatchScopes: array<string>,
     val valid: bool,
     val error: string
 )
@@ -2262,14 +2263,36 @@ fun registryAppendCommandCapabilityTag(
 fun registryParseCommandCapabilities(
     source: string,
     api: string,
-    inventory: RegistryInventory
+    inventory: RegistryInventory,
+    signatures: RegistryCommandSignatures
 ): RegistryCommandCapabilities {
     val coreTransitions: array<string> = []
     val extensionProviders: array<string> = []
+    val dispatchScopes: array<string> = []
     var index = 0
     while (index < inventory.commands.size) {
         coreTransitions.append("")
         extensionProviders.append("")
+        var scope = "context"
+        if (api == "vulkan") {
+            scope = "global"
+            var parameter = 0
+            var found = false
+            while (!found && parameter < signatures.parameterOwners.size) {
+                if (signatures.parameterOwners[parameter] ==
+                    inventory.commands[index]) {
+                    val firstType = signatures.parameterTypes[parameter]
+                    if (firstType == "VkInstance" ||
+                        firstType == "VkPhysicalDevice") scope = "instance"
+                    else if (firstType == "VkDevice" ||
+                        firstType == "VkQueue" ||
+                        firstType == "VkCommandBuffer") scope = "device"
+                    found = true
+                }
+                parameter = parameter + 1
+            }
+        }
+        dispatchScopes.append(scope)
         index = index + 1
     }
     val wantedApi = if (api == "opengl") "gl" else "vulkan"
@@ -2381,7 +2404,7 @@ fun registryParseCommandCapabilities(
         index = index + 1
     }
     RegistryCommandCapabilities(
-        coreTransitions, extensionProviders, valid, error
+        coreTransitions, extensionProviders, dispatchScopes, valid, error
     )
 }
 
@@ -4421,7 +4444,11 @@ fun registryWriteCallSource(
     )
     if (success) batch = registryWriteCompactSource(
         output, batch, "${prefix}ExtensionProviderSchema",
-        capabilities.extensionProviders, false
+        capabilities.extensionProviders
+    )
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "${prefix}DispatchScopeSchema",
+        capabilities.dispatchScopes, false
     )
     if (success && api == "vulkan") batch = registryWriteSourceArray(
         output, batch, "${prefix}CandidateAbis", candidates, false
@@ -4900,7 +4927,7 @@ fun main: int {
                 inputSource, api, types
             )
             val capabilities = registryParseCommandCapabilities(
-                inputSource, api, inventory
+                inputSource, api, inventory, signatures
             )
             if (!inventory.valid) {
                 eprintln("registry parse failed: ${inventory.error}")

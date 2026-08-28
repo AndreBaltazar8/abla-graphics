@@ -3692,8 +3692,12 @@ queries without making address availability a capability claim. OpenGL also
 offers `commandAdvertised(name)`, which evaluates those transitions against the
 current context version/profile and extension strings, and
 `commandSupported(name)`, which additionally requires a resolved address.
-Vulkan intentionally exposes metadata only at this layer until the raw view
-also owns an exact record of extensions enabled on its instance and device.
+Vulkan instances and devices retain the exact extension sets enabled in their
+create-info structures. `instanceCommandAdvertised`,
+`deviceCommandAdvertised`, and `globalCommandAdvertised` combine those sets
+with the correct negotiated API version, platform restriction, and generated
+dispatch scope. Their matching `...CommandSupported` methods additionally
+require a nonzero address from the correct resolver.
 `callVoidPointer(command, pointer)` and the trailing-pointer
 `callVoidI32...Pointer` methods support zero through four preceding `i32`
 arguments. Every method accepts only its exact generated ABI family, makes the

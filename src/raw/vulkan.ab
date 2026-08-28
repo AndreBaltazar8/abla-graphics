@@ -4,16 +4,142 @@
 import "vulkan_calls.ab"
 import "native.ab"
 import "../application.ab"
+import "abla/text"
+
+fun rawVulkanDecimal(text: string, begin: int, end: int): int {
+    var value = 0
+    var valid = begin < end
+    var index = begin
+    while (valid && index < end) {
+        val byte = text[index]
+        valid = byte >= 48 && byte <= 57
+        if (valid) value = value * 10 + byte - 48
+        index = index + 1
+    }
+    if (valid) value else -1
+}
+
+fun rawVulkanCoreTransitionVersion(transition: string): int {
+    val prefix = "VK_VERSION_"
+    val featureEnd = textFindByte(transition, 58)
+    var version = -1
+    if (featureEnd > prefix.size && transition.size >= prefix.size &&
+        transition.slice(0, prefix.size) == prefix) {
+        val separator = textFindByte(
+            transition, 95, prefix.size, featureEnd
+        )
+        if (separator > prefix.size && separator + 1 < featureEnd) {
+            val major = rawVulkanDecimal(
+                transition, prefix.size, separator
+            )
+            val minor = rawVulkanDecimal(
+                transition, separator + 1, featureEnd
+            )
+            if (major >= 0 && minor >= 0) version = major * 100 + minor
+        }
+    }
+    version
+}
+
+fun rawVulkanApiVersionNumber(apiVersion: int): int =
+    ((apiVersion >> 22) & 127) * 100 + ((apiVersion >> 12) & 1023)
+
+fun rawVulkanCoreTransitionsAdvertised(
+    transitions: string,
+    apiVersion: int
+): bool {
+    val version = rawVulkanApiVersionNumber(apiVersion)
+    var advertised = false
+    var begin = 0
+    var cursor = 0
+    while (cursor <= transitions.size) {
+        if (cursor == transitions.size || transitions[cursor] == 124) {
+            val transition = transitions.slice(begin, cursor)
+            val first = textFindByte(transition, 58)
+            val second = if (first >= 0)
+                textFindByte(transition, 58, first + 1, transition.size)
+                else -1
+            val transitionVersion = rawVulkanCoreTransitionVersion(
+                transition
+            )
+            if (first >= 0 && second > first &&
+                transitionVersion >= 0 && transitionVersion <= version &&
+                transition.slice(second + 1, transition.size) == "all") {
+                advertised = transition.slice(first + 1, second) == "+"
+            }
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    advertised
+}
+
+fun rawVulkanNameEnabled(names: string, wanted: string): bool {
+    var found = false
+    var begin = 0
+    var cursor = 0
+    while (!found && cursor <= names.size) {
+        if (cursor == names.size || names[cursor] == 124) {
+            found = names.slice(begin, cursor) == wanted
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    found
+}
+
+fun rawVulkanExtensionProvidersAdvertised(
+    providers: string,
+    enabledExtensions: string,
+    platform: string
+): bool {
+    var advertised = false
+    var begin = 0
+    var cursor = 0
+    while (!advertised && cursor <= providers.size) {
+        if (cursor == providers.size || providers[cursor] == 124) {
+            val provider = providers.slice(begin, cursor)
+            val first = textFindByte(provider, 58)
+            val second = if (first >= 0)
+                textFindByte(provider, 58, first + 1, provider.size)
+                else -1
+            val third = if (second >= 0)
+                textFindByte(provider, 58, second + 1, provider.size)
+                else -1
+            val providerPlatform = if (first >= 0 && second > first)
+                provider.slice(first + 1, second) else ""
+            val profile = if (second >= 0)
+                provider.slice(second + 1, provider.size) else ""
+            if (first > 0 && second > first && third < 0 &&
+                profile == "all" &&
+                (providerPlatform == "all" ||
+                    providerPlatform == platform)) {
+                advertised = rawVulkanNameEnabled(
+                    enabledExtensions, provider.slice(0, first)
+                )
+            }
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    advertised
+}
 
 // This non-owning view must not outlive the GraphicsApplication it came from.
 class RawVulkanApi(
     val instance: i64*,
     val device: i64*,
+    val instanceApiVersion: int,
+    val deviceApiVersion: int,
+    val instanceExtensions: string,
+    val deviceExtensions: string,
+    val platform: string,
     val commands: array<string>,
     val callShapes: array<string>,
     val callAbis: array<string>,
     val coreTransitionSchema: string,
     val extensionProviderSchema: string,
+    val dispatchScopeSchema: string,
     val available: bool
 ) {
     fun capability(name: string): RawCommandCapability =
@@ -21,8 +147,63 @@ class RawVulkanApi(
             this.commands,
             this.coreTransitionSchema,
             this.extensionProviderSchema,
+            this.dispatchScopeSchema,
             name
         )
+
+    fun instanceExtensionEnabled(name: string): bool =
+        rawVulkanNameEnabled(this.instanceExtensions, name)
+
+    fun deviceExtensionEnabled(name: string): bool =
+        rawVulkanNameEnabled(this.deviceExtensions, name)
+
+    fun instanceCommandAdvertised(name: string): bool {
+        val capability = this.capability(name)
+        capability.valid() && capability.dispatchScope == "instance" && (
+            rawVulkanCoreTransitionsAdvertised(
+                capability.coreTransitions, this.instanceApiVersion
+            ) || rawVulkanExtensionProvidersAdvertised(
+                capability.extensionProviders,
+                this.instanceExtensions,
+                this.platform
+            )
+        )
+    }
+
+    fun deviceCommandAdvertised(name: string): bool {
+        val capability = this.capability(name)
+        capability.valid() && capability.dispatchScope == "device" && (
+            rawVulkanCoreTransitionsAdvertised(
+                capability.coreTransitions, this.deviceApiVersion
+            ) || rawVulkanExtensionProvidersAdvertised(
+                capability.extensionProviders,
+                this.deviceExtensions,
+                this.platform
+            )
+        )
+    }
+
+    fun globalCommandAdvertised(name: string): bool {
+        val capability = this.capability(name)
+        capability.valid() &&
+            (capability.dispatchScope == "global" ||
+                name == "vkGetInstanceProcAddr") &&
+            rawVulkanCoreTransitionsAdvertised(
+                capability.coreTransitions, this.instanceApiVersion
+            )
+    }
+
+    trusted fun instanceCommandSupported(name: string): bool =
+        this.instanceCommandAdvertised(name) &&
+        this.instanceCommand(name).valid()
+
+    trusted fun deviceCommandSupported(name: string): bool =
+        this.deviceCommandAdvertised(name) &&
+        this.deviceCommand(name).valid()
+
+    trusted fun globalCommandSupported(name: string): bool =
+        this.globalCommandAdvertised(name) &&
+        this.globalCommand(name).valid()
 
     trusted fun owns(command: RawNativeCommand): bool =
         command.owner == nativePointerAddress(this.device) ||
@@ -2009,11 +2190,17 @@ trusted fun GraphicsApplication.rawVulkanApi(): RawVulkanApi {
     RawVulkanApi(
         this.vulkanInstance.handle,
         this.vulkanDevice.handle,
+        this.vulkanInstance.apiVersion,
+        this.vulkanDevice.apiVersion,
+        this.vulkanInstance.enabledExtensions,
+        this.vulkanDevice.enabledExtensions,
+        this.vulkanInstance.platform,
         rawVulkanCallNames(),
         rawVulkanCallShapes(),
         rawVulkanCallAbis(),
         rawVulkanCallCoreTransitionSchema(),
         rawVulkanCallExtensionProviderSchema(),
+        rawVulkanCallDispatchScopeSchema(),
         available
     )
 }

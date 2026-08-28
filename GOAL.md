@@ -21,9 +21,10 @@ strings. `RawCommandCapability` exposes the truthful metadata on both raw
 views. OpenGL additionally distinguishes `commandAdvertised(name)` from
 `commandSupported(name)`: the former evaluates the current version/profile and
 advertised extensions, while the latter also requires a nonzero resolver
-address. Continue by feeding the same generated ownership into Vulkan
-instance/device extension enablement and the raw feature-lab matrices; metadata
-alone is not proof that a Vulkan extension was enabled at device creation.
+address. Vulkan instances/devices retain the exact extension-name sets passed
+at creation, and generated dispatch scope prevents global, instance, and device
+queries from being conflated. Continue by expanding the raw feature-lab
+matrices from these truthful gates.
 
 The current broad raw OpenGL work has expanded the generated surface from 352
 to all 2,892 registry commands with target-correct ABI metadata. Return
@@ -4188,7 +4189,29 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic make test-registry
 ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-raw-commands test-runtime-linkage'
 ```
 
-Continue by recording Vulkan instance/device enabled extensions so generated
-metadata can become a truthful runtime advertisement query, then use the same
-ownership records to generate broad raw feature-lab coverage. Keep the
-persistent framework goal active.
+## Latest checkpoint: truthful Vulkan runtime command gates
+
+`VulkanInstance` and `VulkanDevice` now retain the exact extension names
+enabled in their native create-info structures. The registry also generates one
+compact dispatch-scope record per command. `RawVulkanApi` therefore separates
+global, instance, and device advertisement/support checks, compares core
+transitions against the appropriate negotiated API version, requires the
+extension in the matching enabled set, and rejects platform-restricted
+providers outside the instance's native platform.
+
+The surfaced live proof covers core instance/device commands, Xlib surface
+commands, `VK_KHR_swapchain`, a global core command, wrong-scope rejection,
+and rejection of the not-enabled `VK_EXT_debug_marker` family. Normal and
+optimized runs remain validation-clean with `capability=true` and zero
+measured loop growth; the Abla-only audit also passes.
+
+Validated with:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic make test-registry
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-raw-commands'
+```
+
+Continue by generating broader positive and negative feature-lab cases from
+these gates rather than adding one-off address checks. Keep the persistent
+framework goal active.

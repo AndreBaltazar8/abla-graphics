@@ -847,7 +847,9 @@ trusted fun vulkanX11InstanceCreateInfo(
 resource class VulkanInstance(
     var handle: i64*,
     val apiVersion: int,
-    val debugUtils: bool = false
+    val debugUtils: bool = false,
+    val enabledExtensions: string = "",
+    val platform: string = "headless"
 ) {
     trusted fun valid(): bool = !pointerIsNull(this.handle)
 
@@ -899,7 +901,14 @@ trusted fun vulkanInstance(
     val handle = if (status == vulkanSuccess)
         output.load()
     else nativeNullPointer()
-    VulkanInstance(handle, selectedVersion, debugUtils && status == vulkanSuccess)
+    VulkanInstance(
+        handle,
+        selectedVersion,
+        debugUtils && status == vulkanSuccess,
+        if (debugUtils && status == vulkanSuccess)
+            "VK_EXT_debug_utils" else "",
+        "headless"
+    )
 }
 
 trusted fun vulkanX11Instance(
@@ -945,7 +954,15 @@ trusted fun vulkanX11Instance(
     val handle = if (status == vulkanSuccess)
         output.load()
     else nativeNullPointer()
-    VulkanInstance(handle, selectedVersion, debugUtils && status == vulkanSuccess)
+    VulkanInstance(
+        handle,
+        selectedVersion,
+        debugUtils && status == vulkanSuccess,
+        if (status != vulkanSuccess) "" else if (debugUtils)
+            "VK_KHR_surface|VK_KHR_xlib_surface|VK_EXT_debug_utils"
+        else "VK_KHR_surface|VK_KHR_xlib_surface",
+        "xlib"
+    )
 }
 
 resource class VulkanX11Surface(
@@ -1801,6 +1818,7 @@ resource class VulkanDevice(
     var transferTimeline: int,
     var transferTimelineValue: int,
     var transferPool: int,
+    val enabledExtensions: string,
     val transferCommand: NativePointerCell,
     val transferScratch: NativeByteBuffer
 ) {
@@ -3176,6 +3194,7 @@ trusted fun VulkanAdapter.device(): VulkanDevice {
         0,
         0,
         0,
+        "",
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(408)
     )
@@ -7982,6 +8001,7 @@ trusted fun VulkanAdapter.deviceForSurface(
         0,
         0,
         0,
+        "VK_KHR_swapchain",
         nativePointerCell(nativeNullPointer()),
         nativeByteBuffer(408)
     )

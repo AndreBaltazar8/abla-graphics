@@ -61,8 +61,10 @@ Updated: 2026-08-28.
   platform/profile requirements. The compact schemas are parsed on demand by
   `RawCommandCapability`. OpenGL's live raw view separately reports whether a
   command is advertised and whether it is both advertised and addressable.
-  Vulkan enabled-extension runtime tracking is still open and is not inferred
-  from an address.
+  Vulkan instances/devices retain the exact extensions enabled at creation;
+  generated global/instance/device dispatch scope, negotiated API versions,
+  platform filters, and the corresponding resolver now jointly determine its
+  advertised/supported result.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
