@@ -2258,6 +2258,20 @@ compiler does. The live fixture supplies both normalized UV widths and real
 direction accessors. OpenGL, Vulkan, and auto report `stride=48 uv=u8/u16`,
 exact green/blue pixels, four stable frames, and `live=0`.
 
+### Core glTF material texture table
+
+`GltfGpuMaterialTextureTable` now provides five stable sampled slots per
+material for base color, metallic/roughness, normal, occlusion, and emissive.
+Up to three materials fit one portable bind group. Resources deduplicate by
+texture identity plus color space, and missing slots reuse canonical white,
+flat-normal, and black textures.
+
+Typed raster `$glsl` and deterministic SPIR-V now share the backend's 16-sampler
+ceiling. The live scene binds ten slots for two materials while retaining five
+GPU texture/sampler pairs, samples every channel in its metallic/roughness
+expression, and reports exact green/blue pixels with `live=0` on OpenGL,
+Vulkan, and auto.
+
 ### glTF packed multi-geometry submission
 
 `GltfGpuTexturedScene` combines every unique accessor-plan primitive into one

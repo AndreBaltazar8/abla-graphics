@@ -6,6 +6,7 @@ import "../../src/texture_pool.ab"
 import "../../src/render.ab"
 import "../../src/gltf_buffer.ab"
 import "../../src/gltf_texture.ab"
+import "../../src/gltf_render.ab"
 
 fun storeGltfDraw(
     var batch: GraphicsPushConstantBatch,
@@ -78,8 +79,16 @@ fun main: int {
             #version 450
             layout(location = 0) in vec2 texCoord;
             layout(location = 0) out vec4 color;
-            layout(binding = 0) uniform sampler2D greenAtlas;
-            layout(binding = 1) uniform sampler2D blueAtlas;
+            layout(binding = 0) uniform sampler2D baseColor0;
+            layout(binding = 1) uniform sampler2D metallicRoughness0;
+            layout(binding = 2) uniform sampler2D normal0;
+            layout(binding = 3) uniform sampler2D occlusion0;
+            layout(binding = 4) uniform sampler2D emissive0;
+            layout(binding = 5) uniform sampler2D baseColor1;
+            layout(binding = 6) uniform sampler2D metallicRoughness1;
+            layout(binding = 7) uniform sampler2D normal1;
+            layout(binding = 8) uniform sampler2D occlusion1;
+            layout(binding = 9) uniform sampler2D emissive1;
             layout(push_constant) uniform Draw {
                 vec4 row0;
                 vec4 row1;
@@ -87,9 +96,27 @@ fun main: int {
                 vec4 tint;
             } draw;
             void main() {
-                vec4 green = texture(greenAtlas, texCoord);
-                vec4 blue = texture(blueAtlas, texCoord);
-                color = mix(green, blue, draw.tint.x);
+                vec4 base0 = texture(baseColor0, texCoord);
+                vec4 factors0 = texture(metallicRoughness0, texCoord);
+                vec3 shaded0 = (base0.rgb * (1.0 - factors0.b) +
+                    mix(vec3(0.04), base0.rgb, factors0.b) * pow(
+                        texture(normal0, texCoord).b,
+                        mix(256.0, 8.0, factors0.g)
+                    )) * texture(occlusion0, texCoord).r +
+                    texture(emissive0, texCoord).rgb;
+                vec4 base1 = texture(baseColor1, texCoord);
+                vec4 factors1 = texture(metallicRoughness1, texCoord);
+                vec3 shaded1 = (base1.rgb * (1.0 - factors1.b) +
+                    mix(vec3(0.04), base1.rgb, factors1.b) * pow(
+                        texture(normal1, texCoord).b,
+                        mix(256.0, 8.0, factors1.g)
+                    )) * texture(occlusion1, texCoord).r +
+                    texture(emissive1, texCoord).rgb;
+                color = mix(
+                    vec4(shaded0, base0.a),
+                    vec4(shaded1, base1.a),
+                    draw.tint.x
+                );
             }
         }
     }
@@ -99,39 +126,18 @@ fun main: int {
         format = textureFormatRgba8Unorm,
         usage = textureUsageRenderAttachment | textureUsageCopySource
     )))
-    val greenTexture = app.gltfGpuTexture(
-        parsed.document, payloads,
-        parsed.document.materials[0].baseColorTexture.index
-    )
-    val blueTexture = app.gltfGpuTexture(
-        parsed.document, payloads,
-        parsed.document.materials[1].baseColorTexture.index
+    val materialTextures = app.gltfGpuMaterialTextureTable(
+        parsed.document, payloads, [0, 1]
     )
     val sceneGeometry = app.gltfGpuTexturedScene(
         parsed.document, payloads, drawList, resourcePlan
     )
     val drawIndexCounts = sceneGeometry.drawIndexCounts
     val drawIndexOffsets = sceneGeometry.drawIndexOffsets
-    val targetBinding = app.bindGroup([
-        app.sampledTextureEntry(
-            0, shaderVisibilityFragment,
-            greenTexture.texture, greenTexture.sampler
-        ),
-        app.sampledTextureEntry(
-            1, shaderVisibilityFragment,
-            blueTexture.texture, blueTexture.sampler
-        )
-    ])
-    val windowBinding = app.bindGroup([
-        app.sampledTextureEntry(
-            0, shaderVisibilityFragment,
-            greenTexture.texture, greenTexture.sampler
-        ),
-        app.sampledTextureEntry(
-            1, shaderVisibilityFragment,
-            blueTexture.texture, blueTexture.sampler
-        )
-    ])
+    val targetEntries = app.gltfMaterialTextureEntries(materialTextures)
+    val windowEntries = app.gltfMaterialTextureEntries(materialTextures)
+    val targetBinding = app.bindGroup(targetEntries)
+    val windowBinding = app.bindGroup(windowEntries)
     val targetPipeline = app.renderTargetPipeline(
         target, shader, sceneGeometry.layout,
         RasterPipelineState(), DepthStencilState(),
@@ -174,12 +180,15 @@ fun main: int {
         drawIndexCounts[1] == 3 && drawIndexOffsets.size == 2 &&
         drawIndexOffsets[0] == 0 && drawIndexOffsets[1] == 12 &&
         drawList.drawables[0].material == 0 &&
-        drawList.drawables[1].material == 1 && greenTexture.valid() &&
-        blueTexture.valid() &&
+        drawList.drawables[1].material == 1 && materialTextures.valid() &&
+        materialTextures.materialCount() == 2 &&
+        materialTextures.values.size == 5 &&
+        materialTextures.slots.size == 10 && targetEntries.size == 10 &&
+        windowEntries.size == 10 &&
         shader.valid && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() && batchReady
     if (!initialized) println(
-        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} geometry=${sceneGeometry.valid()}:${sceneGeometry.error} textures=${greenTexture.valid()}:${greenTexture.error}/${blueTexture.valid()}:${blueTexture.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
+        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} geometry=${sceneGeometry.valid()}:${sceneGeometry.error} materials=${materialTextures.valid()}:${materialTextures.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
     )
     var rendered = initialized && app.renderPushBatchIndexedToTarget(
         target, targetPipeline, batch, sceneGeometry.vertices,
@@ -224,6 +233,6 @@ fun main: int {
         firstPixel == 4278255360 && secondPixel == 4294901760 &&
         liveAfter == liveBefore &&
         vertexHandle != 0 && indexHandle != 0
-    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} textures=${greenTexture.valid()}:${blueTexture.valid()} drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[1].material} resources=${resourcePlan.meshIndices.size} vertices=${sceneGeometry.vertexCount} indices=${sceneGeometry.indexCount} stride=${sceneGeometry.layout.stride} uv=u8/u16 surface=normal+tangent ranges=${drawIndexOffsets[0]}:${drawIndexCounts[0]}/${drawIndexOffsets[1]}:${drawIndexCounts[1]} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
+    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} materialTextures=${materialTextures.values.size}/10 drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[1].material} resources=${resourcePlan.meshIndices.size} vertices=${sceneGeometry.vertexCount} indices=${sceneGeometry.indexCount} stride=${sceneGeometry.layout.stride} uv=u8/u16 surface=normal+tangent channels=base/mr/normal/occlusion/emissive ranges=${drawIndexOffsets[0]}:${drawIndexCounts[0]}/${drawIndexOffsets[1]}:${drawIndexCounts[1]} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
     if (stable) 0 else 1
 }

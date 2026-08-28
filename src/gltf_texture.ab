@@ -49,6 +49,86 @@ resource class GltfGpuTexture(
     }
 }
 
+val gltfMaterialTextureBaseColor = 0
+val gltfMaterialTextureMetallicRoughness = 1
+val gltfMaterialTextureNormal = 2
+val gltfMaterialTextureOcclusion = 3
+val gltfMaterialTextureEmissive = 4
+val gltfMaterialTextureChannelCount = 5
+val gltfMaximumBoundMaterials = 3
+
+// Affine, deduplicated resources plus one stable slot per material/channel.
+// Three complete materials fit the portable 16-entry bind-group ceiling.
+resource class GltfGpuMaterialTextureTable(
+    val values: array<GltfGpuTexture>,
+    val materialIndices: array<int>,
+    val slots: array<int>,
+    val error: string
+) {
+    fun valid(): bool {
+        var valid = this.error == "" && this.values.size > 0 &&
+            this.values.size <= this.slots.size &&
+            this.materialIndices.size > 0 &&
+            this.materialIndices.size <= gltfMaximumBoundMaterials &&
+            this.slots.size == this.materialIndices.size *
+                gltfMaterialTextureChannelCount
+        var index = 0
+        while (valid && index < this.values.size) {
+            valid = this.values[index].valid()
+            index = index + 1
+        }
+        index = 0
+        while (valid && index < this.slots.size) {
+            valid = this.slots[index] >= 0 &&
+                this.slots[index] < this.values.size
+            index = index + 1
+        }
+        valid
+    }
+
+    fun materialCount(): int = this.materialIndices.size
+
+    fun resourceSlot(material: int, channel: int): int =
+        if (this.valid() && material >= 0 &&
+            material < this.materialIndices.size && channel >= 0 &&
+            channel < gltfMaterialTextureChannelCount)
+            this.slots[material * gltfMaterialTextureChannelCount + channel]
+        else -1
+
+    fun binding(material: int, channel: int): int =
+        if (material >= 0 && material < this.materialIndices.size &&
+            channel >= 0 && channel < gltfMaterialTextureChannelCount)
+            material * gltfMaterialTextureChannelCount + channel
+        else -1
+}
+
+fun gltfMaterialTextureInfo(
+    material: GltfMaterial,
+    channel: int
+): GltfTextureInfo =
+    if (channel == gltfMaterialTextureBaseColor)
+        material.baseColorTexture
+    else if (channel == gltfMaterialTextureMetallicRoughness)
+        material.metallicRoughnessTexture
+    else if (channel == gltfMaterialTextureNormal)
+        material.normalTexture
+    else if (channel == gltfMaterialTextureOcclusion)
+        material.occlusionTexture
+    else if (channel == gltfMaterialTextureEmissive)
+        material.emissiveTexture
+    else GltfTextureInfo(index = -2)
+
+fun gltfMaterialTextureSrgb(channel: int): bool =
+    channel == gltfMaterialTextureBaseColor ||
+    channel == gltfMaterialTextureEmissive
+
+fun gltfMaterialFallbackKey(channel: int): int =
+    if (channel == gltfMaterialTextureBaseColor) -1
+    else if (channel == gltfMaterialTextureMetallicRoughness ||
+        channel == gltfMaterialTextureOcclusion) -2
+    else if (channel == gltfMaterialTextureNormal) -3
+    else -4
+
 fun gltfImagePayload(
     document: GltfDocument,
     buffers: GltfBufferPayloads,
@@ -653,5 +733,104 @@ trusted fun GraphicsApplication.gltfGpuTexture(
         move(sampler),
         metadata.source,
         if (uploaded) "" else "glTF texture upload or sampler creation failed"
+    )
+}
+
+trusted fun GraphicsApplication.gltfGpuFallbackTexture(
+    channel: int,
+    source: int
+): GltfGpuTexture {
+    val pixels = pixelBuffer(1, 1)
+    val red = if (channel == gltfMaterialTextureNormal) 128
+        else if (channel == gltfMaterialTextureEmissive) 0 else 255
+    val green = if (channel == gltfMaterialTextureNormal) 128
+        else if (channel == gltfMaterialTextureEmissive) 0 else 255
+    val blue = if (channel == gltfMaterialTextureEmissive) 0 else 255
+    val filled = pixels.valid() && pixels.clearRgba8(red, green, blue, 255)
+    val texture = this.texture(TextureDescriptor(
+        label = "gltf-material-fallback-$channel",
+        size = Extent3D(1, 1),
+        format = if (gltfMaterialTextureSrgb(channel))
+            textureFormatRgba8UnormSrgb else textureFormatRgba8Unorm,
+        usage = textureUsageSampled | textureUsageCopyDestination
+    ))
+    val sampler = this.sampler(SamplerDescriptor(
+        label = "gltf-material-fallback-$channel",
+        addressU = samplerAddressClampToEdge,
+        addressV = samplerAddressClampToEdge,
+        addressW = samplerAddressClampToEdge,
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest,
+        lodMinimum = 0,
+        lodMaximum = 0
+    ))
+    val uploaded = filled && texture.valid() && sampler.valid() &&
+        texture.writePixels(pixels, TextureWriteDescriptor())
+    GltfGpuTexture(
+        move(texture), move(sampler), source,
+        if (uploaded) "" else "glTF fallback texture creation failed"
+    )
+}
+
+trusted fun GraphicsApplication.gltfGpuMaterialTextureTable(
+    document: GltfDocument,
+    buffers: GltfBufferPayloads,
+    materialIndices: array<int>,
+    suppliedImages: array<string> = []
+): GltfGpuMaterialTextureTable {
+    val values: array<GltfGpuTexture> = []
+    val slots: array<int> = []
+    val keys: array<int> = []
+    var valid = this.valid() && document.valid() && buffers.valid &&
+        materialIndices.size > 0 &&
+        materialIndices.size <= gltfMaximumBoundMaterials &&
+        (suppliedImages.size == 0 ||
+         suppliedImages.size == document.images.size)
+    var material = 0
+    while (valid && material < materialIndices.size) {
+        val materialIndex = materialIndices[material]
+        valid = materialIndex >= 0 && materialIndex < document.materials.size
+        var earlier = 0
+        while (valid && earlier < material) {
+            valid = materialIndices[earlier] != materialIndex
+            earlier = earlier + 1
+        }
+        var channel = 0
+        while (valid && channel < gltfMaterialTextureChannelCount) {
+            val info = gltfMaterialTextureInfo(
+                document.materials[materialIndex], channel
+            )
+            val srgb = gltfMaterialTextureSrgb(channel)
+            val key = if (info.present()) info.index * 2 +
+                (if (srgb) 1 else 0)
+                else gltfMaterialFallbackKey(channel)
+            var slot = -1
+            var candidate = 0
+            while (slot < 0 && candidate < keys.size) {
+                if (keys[candidate] == key) slot = candidate
+                candidate = candidate + 1
+            }
+            if (slot < 0) {
+                val gpu = if (info.present()) this.gltfGpuTexture(
+                    document, buffers, info.index, suppliedImages, srgb
+                ) else this.gltfGpuFallbackTexture(
+                    channel,
+                    document.images.size + document.textures.size +
+                        channel + 1
+                )
+                valid = gpu.valid()
+                keys.append(key)
+                values.append(move(gpu))
+                slot = values.size - 1
+            }
+            if (valid) slots.append(slot)
+            channel = channel + 1
+        }
+        material = material + 1
+    }
+    GltfGpuMaterialTextureTable(
+        move(values), materialIndices, slots,
+        if (valid) "" else "glTF material texture table creation failed"
     )
 }

@@ -271,15 +271,18 @@ OpenGL, Vulkan, and auto for four zero-growth frames. Images, samplers, textures
 and material references are now cross-validated; embedded/buffer-view/external
 payload acquisition, strict pure-Abla RGBA8 PNG decoding, retained GPU upload,
 and parsed base-color binding are live on all three selections. FLOAT `VEC3`
-positions plus FLOAT `VEC2` `TEXCOORD_0` now become one retained interleaved
+positions plus FLOAT or normalized U8/U16 `VEC2` `TEXCOORD_0` become retained
 stream. Geometry deduplicates by accessor identity, while distinct primitives
 pack into one combined affine scene vertex/index owner. Per-draw count/offset
 records remain inside the push batch and are consumed directly by both native
 passes. The two-resource fixture selects exact green/blue entries from one
 bounded texture table with zero warmed growth. Normalized U8/U16 UVs expand
 once into a fixed 48-byte position/UV/normal/tangent surface stream, including
-defaults for optional directions. Larger material tables, all PBR channels,
-skinning/morph targets, and JPEG decoding remain open.
+defaults for optional directions. Complete base-color, metallic/roughness,
+normal, occlusion, and emissive tables now bind up to three materials per
+portable 16-entry group with deduplicated real/fallback resources and zero
+warmed growth. Multi-group material batching, skinning/morph targets, extended
+PBR material models, and JPEG decoding remain open.
 
 ## Non-negotiable design rules
 

@@ -58,8 +58,8 @@ green pixels from both transformed instances, repeats four frames, and reports
 zero live-byte growth. FLOAT `VEC3` positions and FLOAT or normalized unsigned
 `VEC2` `TEXCOORD_0` now interleave into retained vertex resources, and an
 accessor-identity plan lets mesh primitives select material-table textures per
-draw. Continue with larger material tables, all PBR channels, JPEG support,
-and broader scene features; the current fixture is not a full loader.
+draw. Complete core five-channel tables now bind three materials per group;
+continue with multi-group batching, JPEG support, and broader scene features.
 
 Distinct textured primitives now pack into one affine `GltfGpuTexturedScene`
 vertex/index owner. Local indices are rewritten once during setup, and the
@@ -67,8 +67,9 @@ push batch retains one validated count/byte-offset record per draw so both
 backends keep a single binding/pass without copying arrays in the frame loop.
 The live fixture now proves two position accessors, two geometry resources,
 two materials, and exact green/blue output with `live=0` on OpenGL, Vulkan,
-and auto. Continue with normalized integer UVs, normals/tangents, larger
-material tables, remaining PBR channels, and JPEG decoding.
+and auto. Continue with material batching beyond three complete bound
+materials, skinning/morph targets, transmission/clearcoat extensions, and JPEG
+decoding.
 
 ## Mission
 
@@ -3509,3 +3510,19 @@ source locations and legally eliminates unused normal/tangent inputs from its
 Vulkan module. The live fixture supplies U8 and U16 normalized UV accessors plus
 real float normals/tangents and reports `stride=48 uv=u8/u16`, exact green/blue
 pixels, four stable frames, and `live=0` on OpenGL, Vulkan, and auto.
+
+## Latest checkpoint: complete core glTF material texture tables
+
+`app.gltfGpuMaterialTextureTable(...)` retains base-color,
+metallic/roughness, normal, occlusion, and emissive slots for as many as three
+materials per portable bind group. Actual resources deduplicate by glTF texture
+index plus linear/sRGB interpretation. Missing channels share canonical white,
+flat-normal, or black 1x1 resources, so every shader slot is valid without
+special frame-loop branches.
+
+The typed raster `$glsl` parser and deterministic SPIR-V emitter now accept the
+same 16 sampled bindings supported by both backends. The live two-material
+shader samples all ten channel slots in a metallic/roughness lighting
+expression while only five GPU texture/sampler pairs are retained. OpenGL,
+Vulkan, and auto report exact green/blue pixels, four stable frames, and
+`live=0`.

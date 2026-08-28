@@ -449,9 +449,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-live-scene`: an embedded base64 glTF buffer is decoded into
   one packed retained scene owner containing two distinct 48-byte
   position/normalized-UV/normal/tangent surface primitives; a reusable push
-  batch supplies their exact index ranges and selects two strictly decoded
-  RGBA8 PNG textures from one retained material table with exact green/blue,
-  zero-growth output on OpenGL and Vulkan;
+  batch supplies exact index ranges while a deduplicated ten-slot table binds
+  both materials' base-color, metallic/roughness, normal, occlusion, and
+  emissive channels, producing exact green/blue zero-growth output on OpenGL
+  and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

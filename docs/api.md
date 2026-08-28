@@ -1385,6 +1385,19 @@ the common descriptor contract; invalid metadata, decoding, resource creation,
 or upload never yields a partially valid owner. The live scene demonstrates a
 parsed base-color texture shared by two transformed draws.
 
+`app.gltfGpuMaterialTextureTable(document, buffers, materialIndices,
+suppliedImages)` creates one affine `GltfGpuMaterialTextureTable` for one to
+three distinct materials. Every material receives five stable slots in glTF
+order: base color, metallic/roughness, normal, occlusion, and emissive. Actual
+textures deduplicate by texture index and color space; absent slots share
+canonical white, flat-normal, or black 1x1 resources. Base/emissive resources
+use sRGB storage while data channels remain linear.
+
+`app.gltfMaterialTextureEntries(table)` maps the flattened slots to consecutive
+fragment bindings suitable for one `bindGroup`. A table may therefore expose
+15 bindings while retaining fewer GPU objects. This is setup-time ownership;
+draw submission neither decodes images nor rebuilds descriptors.
+
 `app.gltfGpuTexturedPrimitive(document, buffers, meshIndex, primitiveIndex)`
 is the compact textured geometry contract. It requires FLOAT `VEC3` `POSITION`
 and accepts FLOAT, normalized `UNSIGNED_BYTE`, or normalized `UNSIGNED_SHORT`
