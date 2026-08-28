@@ -50,6 +50,8 @@ class RegistryTypes(
 
 class RegistryCommandSignatures(
     val returnTypes: array<string>,
+    val returnPointerLevels: array<string>,
+    val returnConstness: array<string>,
     val parameterCounts: array<string>,
     val parameterOwners: array<string>,
     val parameterNames: array<string>,
@@ -1042,6 +1044,8 @@ fun registryParseCommandSignatures(
 ): RegistryCommandSignatures {
     val definitionNames: array<string> = []
     val definitionReturns: array<string> = []
+    val definitionReturnPointerLevels: array<string> = []
+    val definitionReturnConstness: array<string> = []
     val aliases: array<string> = []
     val targets: array<string> = []
     val definitionParameterOwners: array<string> = []
@@ -1050,6 +1054,8 @@ fun registryParseCommandSignatures(
     val definitionParameterPointerLevels: array<string> = []
     val definitionParameterConstness: array<string> = []
     val returnTypes: array<string> = []
+    val returnPointerLevels: array<string> = []
+    val returnConstness: array<string> = []
     val parameterCounts: array<string> = []
     val parameterOwners: array<string> = []
     val parameterNames: array<string> = []
@@ -1140,6 +1146,14 @@ fun registryParseCommandSignatures(
                         } else {
                             definitionNames.append(name)
                             definitionReturns.append(returnType)
+                            definitionReturnPointerLevels.append(
+                                "${registryPointerLevel(source, protoOpenEnd + 1, protoEnd)}"
+                            )
+                            definitionReturnConstness.append(
+                                if (textFindSequence(
+                                    source, "const", protoOpenEnd + 1, protoEnd
+                                ) >= 0) "true" else "false"
+                            )
                             var parameterCursor = protoEnd + 8
                             while (valid) {
                                 val parameterBegin = textFindSequence(
@@ -1240,6 +1254,10 @@ fun registryParseCommandSignatures(
             error = "command ABI target has no definition: $command=$canonical"
         } else {
             returnTypes.append(definitionReturns[definition])
+            returnPointerLevels.append(
+                definitionReturnPointerLevels[definition]
+            )
+            returnConstness.append(definitionReturnConstness[definition])
             var count = 0
             var parameterIndex = 0
             while (parameterIndex < definitionParameterOwners.size) {
@@ -1267,6 +1285,8 @@ fun registryParseCommandSignatures(
     }
     RegistryCommandSignatures(
         returnTypes,
+        returnPointerLevels,
+        returnConstness,
         parameterCounts,
         parameterOwners,
         parameterNames,
@@ -2351,7 +2371,15 @@ fun registryCommandCallShapes(
     var commandIndex = 0
     while (commandIndex < inventory.commands.size) {
         val command = inventory.commands[commandIndex]
-        var shape = "${signatures.returnTypes[commandIndex]}("
+        var shape = if (signatures.returnConstness[commandIndex] == "true")
+            "const " else ""
+        shape = "$shape${signatures.returnTypes[commandIndex]}"
+        val returnPointers = signatures.returnPointerLevels[commandIndex]
+        if (returnPointers == "1") shape = "$shape*"
+        else if (returnPointers == "2") shape = "$shape**"
+        else if (returnPointers == "3") shape = "$shape***"
+        else if (returnPointers != "0") shape = "$shape*[$returnPointers]"
+        shape = "$shape("
         var parameterIndex = 0
         var count = 0
         while (parameterIndex < signatures.parameterOwners.size) {
@@ -2396,12 +2424,20 @@ fun registryOpenGlI64Type(name: string): bool =
     name == "GLintptr" || name == "GLsizeiptr" ||
     name == "GLintptrARB" || name == "GLsizeiptrARB"
 
+fun registryOpenGlPointerReturnType(name: string): bool =
+    name == "GLsync" || name == "GLVULKANPROCNV"
+
 fun registryOpenGlNormalizedCallAbi(
     command: string,
     returnType: string,
+    returnPointerLevel: string,
     signatures: RegistryCommandSignatures
 ): string {
-    var abi = if (returnType == "void") "void(" else ""
+    var returnKind = ""
+    if (returnPointerLevel != "0" ||
+        registryOpenGlPointerReturnType(returnType)) returnKind = "pointer"
+    else if (returnType == "void") returnKind = "void"
+    var abi = if (returnKind != "") "$returnKind(" else ""
     var valid = abi != ""
     var first = true
     var parameterIndex = 0
@@ -2471,6 +2507,10 @@ fun registryOpenGlWideCallAbiSupported(abi: string): bool =
     abi == "void(pointer,pointer,pointer)"
 
 fun registryOpenGlCallAbiSupported(abi: string): bool =
+    abi == "pointer(i32)" || abi == "pointer(i32,i32)" ||
+    abi == "pointer(i32,i64)" || abi == "pointer(i32,i64,i32)" ||
+    abi == "pointer(i32,i64,i64,i32)" || abi == "pointer(pointer)" ||
+    abi == "pointer(i32,i32,i32,pointer,pointer)" ||
     abi == "void()" || abi == "void(i32)" ||
     abi == "void(i32,i32)" || abi == "void(i32,i32,i32)" ||
     abi == "void(i32,i32,i32,i32)" ||
@@ -3153,36 +3193,29 @@ fun registryCommandCallAbis(
     var commandIndex = 0
     while (commandIndex < inventory.commands.size) {
         val command = inventory.commands[commandIndex]
-        var compatible = signatures.returnTypes[commandIndex] == "void"
-        var vulkanPointerI32 = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
-        var vulkanPointer = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
-        var vulkanPointerI32I32 = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        val voidReturn = signatures.returnTypes[commandIndex] == "void" &&
+            signatures.returnPointerLevels[commandIndex] == "0"
+        var compatible = voidReturn
+        var vulkanPointerI32 = api == "vulkan" && voidReturn
+        var vulkanPointer = api == "vulkan" && voidReturn
+        var vulkanPointerI32I32 = api == "vulkan" && voidReturn
         var vulkanI32Pointer = api == "vulkan" &&
             registryVulkanI32ReturnType(
                 signatures.returnTypes[commandIndex]
             )
         var vulkanI32Pointer4 = vulkanI32Pointer
-        var vulkanVoidPointerI64Pointer = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI64Pointer = api == "vulkan" && voidReturn
         var vulkanI32PointerI64 = vulkanI32Pointer
-        var vulkanVoidPointerPointer = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerPointer = api == "vulkan" && voidReturn
         var vulkanI32Pointer3 = vulkanI32Pointer
-        var vulkanVoidPointer3 = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointer3 = api == "vulkan" && voidReturn
         var vulkanI32PointerI32Pointer = vulkanI32Pointer
-        var vulkanVoidPointerI32I32Pointer = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI32I32Pointer = api == "vulkan" && voidReturn
         var vulkanI32PointerPointer = vulkanI32Pointer
-        var vulkanVoidPointerI32Pointer = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI32Pointer = api == "vulkan" && voidReturn
         var vulkanI32PointerI64Pointer = vulkanI32Pointer
         var vulkanI32PointerI64PointerPointer = vulkanI32Pointer
-        var vulkanVoidPointerI64I32 = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI64I32 = api == "vulkan" && voidReturn
         var vulkanVoidPointerI64I32I32 = vulkanVoidPointerI64I32
         var vulkanVoidPointerI64I64 = vulkanVoidPointerI64I32
         var vulkanVoidPointerI64I64I32 = vulkanVoidPointerI64I32
@@ -3193,8 +3226,7 @@ fun registryCommandCallAbis(
                 types, signatures.returnTypes[commandIndex]
             )
         var vulkanI32PointerI64I64I64 = vulkanI32Pointer
-        var vulkanVoidPointerI64I64I32Pointer = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI64I64I32Pointer = api == "vulkan" && voidReturn
         var vulkanVoidPointerI64I64I64I32 =
             vulkanVoidPointerI64I64I32Pointer
         var vulkanVoidPointerI64I64I64Pointer =
@@ -3203,8 +3235,7 @@ fun registryCommandCallAbis(
             vulkanVoidPointerI64I64I32Pointer
         var vulkanVoidPointerI64I64I64I64I32I32 =
             vulkanVoidPointerI64I64I32Pointer
-        var vulkanVoidPointerI64 = api == "vulkan" &&
-            signatures.returnTypes[commandIndex] == "void"
+        var vulkanVoidPointerI64 = api == "vulkan" && voidReturn
         var vulkanVoidPointerI32I64 = vulkanVoidPointerI64
         var vulkanVoidPointerI32I64I32 = vulkanVoidPointerI64
         var vulkanVoidPointerI32I32I32 = vulkanVoidPointerI64
@@ -3801,7 +3832,10 @@ fun registryCommandCallAbis(
         }
         if (api == "opengl" && abi == "unsupported") {
             val additionalAbi = registryOpenGlNormalizedCallAbi(
-                command, signatures.returnTypes[commandIndex], signatures
+                command,
+                signatures.returnTypes[commandIndex],
+                signatures.returnPointerLevels[commandIndex],
+                signatures
             )
             if (registryOpenGlCallAbiSupported(additionalAbi))
                 abi = additionalAbi

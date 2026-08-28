@@ -181,11 +181,11 @@ proves the architecture rather than stopping at placeholder interfaces:
   7,413 members; compact separately generated callable-command modules avoid
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
-  unclassified; exact ABI-family metadata currently enables 2,327 OpenGL
+  unclassified; exact ABI-family metadata currently enables 2,334 OpenGL
   commands and all 842 Vulkan commands. The Vulkan surface includes exact float,
   image transfer/clear/query, sparse query, pipeline creation, calibrated
   timestamp, fence-wait, descriptor/query, wide handle, mixed scalar/handle,
-  pointer-group, and signed status families. OpenGL retains 565 explicitly
+  pointer-group, pointer-return, and signed status families. OpenGL retains 558 explicitly
   unsupported signatures for subsequent exact ABI batches;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
@@ -274,7 +274,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   command addresses through explicit application-scoped raw views, rejects
   unknown or mismatched call ABIs, and executes 1,000 allocation-stable
   indirect `glFinish`, scissor enable/disable, and pack-alignment state changes
-  with exact state observation/restoration; its Vulkan path records and submits
+  with exact state observation/restoration, plus maps a real buffer through an
+  exact pointer-return call and verifies the mapped write; its Vulkan path records and submits
   1,000 raw device-mask commands, resets the borrowed command pool, and stays
   validation-clean in normal and optimized builds;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
@@ -563,7 +564,8 @@ resource descriptors, encoders, and render/compute passes described in
 `graphics/raw/opengl` and `graphics/raw/vulkan`. Their first executable slice
 resolves every known name through the appropriate EGL or Vulkan loader,
 retains its normalized call shape in `RawNativeCommand`, and safely invokes
-OpenGL `void()`, `void(i32)`, and `void(i32,i32)` commands. Vulkan now calls
+exact scalar, pointer, floating-point, and pointer-return OpenGL families.
+Vulkan calls
 checked pointer-only, pointer-plus-scalars, resource create/destroy, handle
 status, and pointer-query families.
 Other signatures remain explicitly unavailable until their checked native-call

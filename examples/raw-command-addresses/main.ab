@@ -40,6 +40,7 @@ trusted fun main: int {
         val bufferSubData = raw.command("glBufferSubData")
         val copyBufferSubData = raw.command("glCopyBufferSubData")
         val getBufferSubData = raw.command("glGetBufferSubData")
+        val mapBuffer = raw.command("glMapBuffer")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -51,6 +52,10 @@ trusted fun main: int {
             !raw.callVoidF64(finish, 0.0) &&
             !raw.callVoidF64F64(viewport, 0.0, 1.0) &&
             !raw.callVoidI32I64(bufferData, 0, 0) &&
+            !raw.callVoidI32I32(mapBuffer, 36662, 35001) &&
+            !raw.callAddressI32(
+                mapBuffer, 36662, nativeNullPointer()
+            ) &&
             !raw.callVoidI32I64I64Pointer(
                 finish, 0, 0, 0, nativeNullPointer()
             ) &&
@@ -65,6 +70,7 @@ trusted fun main: int {
         val bufferNames = nativeByteBuffer(8)
         val uploadValue = nativeI64Cell(72623859790382856)
         val copiedValue = nativeI64Cell(0)
+        val mappedAddress = nativeI64Cell(0)
         glGenBuffers(2, bufferNames.address)
         val sourceBuffer = graphicsPackedU32(bufferNames.address, 0)
         val destinationBuffer = graphicsPackedU32(bufferNames.address, 4)
@@ -83,6 +89,24 @@ trusted fun main: int {
                 raw.callVoidI32I64PointerI32(
                     bufferData, 36663, 8, nativeNullPointer(), 35048
                 )
+        }
+        var pointerReturnReady = wideBuffersReady &&
+            mapBuffer.callShape == "void*(GLenum,GLenum)" &&
+            mapBuffer.callAbi == "pointer(i32,i32)"
+        if (pointerReturnReady) {
+            glBindBuffer(36662, sourceBuffer)
+            pointerReturnReady = raw.callAddressI32I32(
+                mapBuffer, 36662, 35001, mappedAddress.address
+            ) && mappedAddress.load() != 0
+            if (pointerReturnReady) ablaUnsafeStoreI64(
+                nativePointerFromAddress(mappedAddress.load()),
+                uploadValue.load()
+            )
+            pointerReturnReady = pointerReturnReady &&
+                glUnmapBuffer(36662) == 1 &&
+                raw.callVoidI32I64I64Pointer(
+                    getBufferSubData, 36662, 0, 8, copiedValue.address
+                ) && copiedValue.load() == uploadValue.load()
         }
         val liveBefore = runtimeMemoryLiveBytes()
         var call = 0
@@ -168,14 +192,14 @@ trusted fun main: int {
             clearColor.callAbi == "void(f32,f32,f32,f32)" &&
             depthRange.callAbi == "void(f64,f64)" &&
             getDouble.callAbi == "void(i32,pointer)" &&
-            wideBuffersReady &&
+            wideBuffersReady && pointerReturnReady &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
             restored && colorRestored && depthRangeRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true buffer=true live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true buffer=true pointer=true live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

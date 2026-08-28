@@ -38,8 +38,9 @@ Updated: 2026-08-28.
   four float lanes bring the total to 1,932 and leave 960 OpenGL entries
   before matching double-precision families raise the total to 2,027 and leave
   865 OpenGL entries. Thirty-three high-cardinality offset/size,
-  grouped-pointer, and long-integer layouts then raise coverage to 2,327 and
-  leave 565 OpenGL entries unsupported.
+  grouped-pointer, and long-integer layouts raise coverage to 2,327. Truthful
+  pointer-return parsing and exact address-result layouts then raise coverage
+  to 2,334 and leave 558 OpenGL entries unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.

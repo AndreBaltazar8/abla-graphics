@@ -13,14 +13,16 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,327 callable commands. Exact pure-`i32` void calls now cover one through
-eleven
+to 2,334 truthfully callable commands. Return declarators now preserve pointer
+levels and `const`, so `void*`, `const GLubyte*`, `GLsync`, and function-pointer
+results cannot be mistaken for scalar or `void` returns. Exact pure-`i32` void
+calls now cover one through eleven
 arguments; pointer-only and trailing-pointer calls cover zero through four
 preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
 Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
 buffer, texture, query, and long scalar families. Continue in large
-normalized-signature batches from the remaining 565 explicit
+normalized-signature batches from the remaining 558 explicit
 `unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
@@ -3934,3 +3936,39 @@ The Abla-only audit passes and the stripped-library proof reports
 preserve it. Continue with the remaining boolean/narrow-scalar return families
 and lower-cardinality mixed pointer layouts in broad generated batches. Keep
 the persistent framework goal active.
+
+## Latest checkpoint: truthful OpenGL pointer returns
+
+The Khronos command parser now retains return `const` and pointer depth instead
+of reducing declarations such as `void *glMapBuffer(...)` to `void(...)`.
+Fifteen affected registry rows changed classification: fourteen now use exact
+pointer-return ABIs, while the remaining unimplemented mixed layout stays
+explicitly `unsupported`. Raw OpenGL coverage is therefore 2,334 of 2,892 with
+558 unsupported rows, and no pointer-return command is advertised as a void
+call.
+
+Compiler commit `97b074c553afe1da8ce818cd3a5c16f2c3ff9054` adds seven exact
+address-return intrinsic layouts and trusted pure-Abla wrappers. Its isolated
+worktree passed all 76 compiler tests and the byte-identical pure self-rebuild.
+The unrelated main-worktree changes in `src/backend/llvm/exports.ab`,
+`src/eval.ab`, `src/ir.ab`, `src/module.ab`, `src/orc_main.ab`, `src/parser.ab`,
+`src/sema.ab`, and `src/toolchain.ab` remain untouched.
+
+`RawOpenGlApi` exposes matching owner-checked, exact-shape calls with a
+caller-owned result cell. The live normal and optimized proof maps a real GL
+buffer through raw `glMapBuffer`, writes through the returned address, unmaps,
+and reads the exact 64-bit value back. Both runs report `pointer=true`,
+`buffer=true`, `live=0`, and `stable=true`; Vulkan remains validation-clean.
+The stripped-environment executable proof reports
+`runtime-linkage direct=true unresolved=0`, addressing direct launches that
+previously failed from missing shared libraries.
+
+Validated in one focused batch with the isolated compiler root:
+
+```sh
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only test-registry test-raw-commands test-runtime-linkage'
+```
+
+Continue with the remaining narrow-scalar/boolean result families and the
+lower-cardinality mixed pointer layouts in broad batches. Keep the persistent
+framework goal active.
