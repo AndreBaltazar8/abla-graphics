@@ -1435,11 +1435,15 @@ buffer-view, texture source/sampler, and material texture reference before any
 GPU work. `gltfImagePayload(document, buffers, imageIndex, supplied)` resolves
 caller-supplied bytes, image buffer views, or bounded PNG/JPEG base64 data URIs.
 
-`gltfDecodePng(payload)` currently accepts strict noninterlaced, 8-bit RGBA PNG.
-Its pure-Abla decoder validates chunk bounds/order, CRC32, the zlib wrapper and
-Adler32, stored/fixed/dynamic DEFLATE blocks, and PNG filters 0 through 4.
-Malformed streams, unsupported color/interlace modes, and JPEG pixel decoding
-return an invalid `GltfImagePixels` owner with a stable diagnostic.
+`gltfDecodeImage(payload)` dispatches strict noninterlaced 8-bit RGBA PNG and
+baseline sequential 8-bit JPEG. The pure-Abla PNG decoder validates chunk
+bounds/order, CRC32, the zlib wrapper and Adler32, stored/fixed/dynamic DEFLATE
+blocks, and filters 0 through 4. The JPEG decoder validates bounded marker,
+quantization, canonical Huffman, and entropy streams; handles grayscale or
+three-component images, sampling factors through 4x4, restart intervals,
+integer IDCT, chroma expansion, and JFIF/Adobe color transforms. Progressive,
+arithmetic, malformed, or unsupported streams return an invalid
+`GltfImagePixels` owner with a stable diagnostic.
 
 `app.gltfGpuTexture(document, buffers, textureIndex, suppliedImages, srgb)`
 decodes the selected source and returns one affine `GltfGpuTexture` owning the

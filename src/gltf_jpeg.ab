@@ -1,0 +1,599 @@
+// Bounded pure-Abla baseline sequential JPEG decoding for glTF images.
+
+import "gltf_image.ab"
+
+class GltfJpegHuffman(
+    val counts: array<int> = [],
+    val firstCodes: array<int> = [],
+    val offsets: array<int> = [],
+    val symbols: array<int> = [],
+    val valid: bool = false
+)
+
+fun gltfJpegU16(bytes: array<int>, offset: int): int =
+    if (offset < 0 || offset > bytes.size - 2) -1
+    else bytes[offset] * 256 + bytes[offset + 1]
+
+fun gltfJpegFilled(size: int, value: int = 0): array<int> {
+    val result: array<int> = []
+    var index = 0
+    while (index < size) {
+        result.append(value)
+        index = index + 1
+    }
+    result
+}
+
+fun gltfJpegZigzag(): array<int> = [
+    0, 1, 8, 16, 9, 2, 3, 10,
+    17, 24, 32, 25, 18, 11, 4, 5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13, 6, 7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63
+]
+
+fun gltfJpegIdctMatrix(): array<int> = [
+    11585, 16069, 15137, 13623, 11585, 9102, 6270, 3196,
+    11585, 13623, 6270, -3196, -11585, -16069, -15137, -9102,
+    11585, 9102, -6270, -16069, -11585, 3196, 15137, 13623,
+    11585, 3196, -15137, -9102, 11585, 13623, -6270, -16069,
+    11585, -3196, -15137, 9102, 11585, -13623, -6270, 16069,
+    11585, -9102, -6270, 16069, -11585, -3196, 15137, -13623,
+    11585, -13623, 6270, 3196, -11585, 16069, -15137, 9102,
+    11585, -16069, 15137, -13623, 11585, -9102, 6270, -3196
+]
+
+fun gltfJpegHuffman(
+    bytes: array<int>,
+    countsOffset: int,
+    symbolsOffset: int,
+    symbolCount: int
+): GltfJpegHuffman {
+    val counts = gltfJpegFilled(17)
+    val firstCodes = gltfJpegFilled(17)
+    val offsets = gltfJpegFilled(17)
+    val symbols: array<int> = []
+    var valid = countsOffset >= 0 && countsOffset <= bytes.size - 16 &&
+        symbolsOffset >= 0 && symbolCount > 0 && symbolCount <= 256 &&
+        symbolsOffset <= bytes.size - symbolCount
+    var length = 1
+    var total = 0
+    while (valid && length <= 16) {
+        counts[length] = bytes[countsOffset + length - 1]
+        offsets[length] = total
+        total = total + counts[length]
+        valid = total <= symbolCount
+        length = length + 1
+    }
+    valid = valid && total == symbolCount
+    var code = 0
+    length = 1
+    while (valid && length <= 16) {
+        firstCodes[length] = code
+        valid = code + counts[length] <= (1 << length)
+        code = (code + counts[length]) << 1
+        length = length + 1
+    }
+    var index = 0
+    while (valid && index < symbolCount) {
+        symbols.append(bytes[symbolsOffset + index])
+        index = index + 1
+    }
+    GltfJpegHuffman(counts, firstCodes, offsets, symbols, valid)
+}
+
+// State: byte cursor, current byte, unread bits, valid flag.
+fun gltfJpegReadBit(bytes: array<int>, var state: array<int>): int {
+    if (state.size != 4 || state[3] == 0) return -1
+    if (state[2] == 0) {
+        if (state[0] >= bytes.size) {
+            state[3] = 0
+            return -1
+        }
+        var value = bytes[state[0]]
+        state[0] = state[0] + 1
+        if (value == 255) {
+            if (state[0] >= bytes.size || bytes[state[0]] != 0) {
+                state[3] = 0
+                return -1
+            }
+            state[0] = state[0] + 1
+            value = 255
+        }
+        state[1] = value
+        state[2] = 8
+    }
+    state[2] = state[2] - 1
+    (state[1] >>> state[2]) & 1
+}
+
+fun gltfJpegReadBits(
+    bytes: array<int>, var state: array<int>, count: int
+): int {
+    if (count < 0 || count > 16) return -1
+    var result = 0
+    var index = 0
+    while (state[3] != 0 && index < count) {
+        val bit = gltfJpegReadBit(bytes, state)
+        if (bit < 0) state[3] = 0
+        else result = (result << 1) | bit
+        index = index + 1
+    }
+    if (state[3] != 0) result else -1
+}
+
+fun gltfJpegDecodeHuffman(
+    bytes: array<int>, var state: array<int>, table: GltfJpegHuffman
+): int {
+    if (!table.valid) return -1
+    var code = 0
+    var length = 1
+    var symbol = -1
+    while (state[3] != 0 && symbol < 0 && length <= 16) {
+        val bit = gltfJpegReadBit(bytes, state)
+        if (bit < 0) state[3] = 0
+        else {
+            code = (code << 1) | bit
+            val delta = code - table.firstCodes[length]
+            if (delta >= 0 && delta < table.counts[length])
+                symbol = table.symbols[table.offsets[length] + delta]
+        }
+        length = length + 1
+    }
+    if (symbol < 0) state[3] = 0
+    symbol
+}
+
+fun gltfJpegExtend(value: int, count: int): int {
+    if (count <= 0) return 0
+    val threshold = 1 << (count - 1)
+    if (value < threshold) value - (1 << count) + 1 else value
+}
+
+fun gltfJpegClear64(var values: array<int>): bool {
+    if (values.size != 64) return false
+    var index = 0
+    while (index < 64) {
+        values[index] = 0
+        index = index + 1
+    }
+    true
+}
+
+fun gltfJpegDecodeBlock(
+    bytes: array<int>,
+    var state: array<int>,
+    dcTable: GltfJpegHuffman,
+    acTable: GltfJpegHuffman,
+    quantTables: array<int>,
+    quantIndex: int,
+    var predictors: array<int>,
+    component: int,
+    var coefficients: array<int>
+): bool {
+    var valid = gltfJpegClear64(coefficients) && quantIndex >= 0 &&
+        quantIndex < 4 && quantTables.size == 256 &&
+        component >= 0 && component < predictors.size
+    val dcSize = if (valid)
+        gltfJpegDecodeHuffman(bytes, state, dcTable) else -1
+    valid = valid && dcSize >= 0 && dcSize <= 11
+    val dcBits = if (valid) gltfJpegReadBits(bytes, state, dcSize) else -1
+    valid = valid && dcBits >= 0
+    if (valid) {
+        predictors[component] = predictors[component] +
+            gltfJpegExtend(dcBits, dcSize)
+        coefficients[0] = predictors[component] * quantTables[quantIndex * 64]
+    }
+    val zigzag = gltfJpegZigzag()
+    var coefficient = 1
+    while (valid && coefficient < 64) {
+        val symbol = gltfJpegDecodeHuffman(bytes, state, acTable)
+        valid = symbol >= 0
+        if (valid && symbol == 0) coefficient = 64
+        else if (valid && symbol == 240) coefficient = coefficient + 16
+        else if (valid) {
+            val run = symbol >>> 4
+            val size = symbol & 15
+            coefficient = coefficient + run
+            valid = size > 0 && size <= 10 && coefficient < 64
+            val bits = if (valid)
+                gltfJpegReadBits(bytes, state, size) else -1
+            valid = valid && bits >= 0
+            if (valid) {
+                val natural = zigzag[coefficient]
+                coefficients[natural] = gltfJpegExtend(bits, size) *
+                    quantTables[quantIndex * 64 + natural]
+                coefficient = coefficient + 1
+            }
+        }
+    }
+    valid && coefficient >= 64 && state[3] != 0
+}
+
+fun gltfJpegRoundedIdct(value: int): int {
+    val half = 536870912
+    val divisor = 1073741824
+    if (value >= 0) (value + half) / divisor
+    else -((-value + half) / divisor)
+}
+
+fun gltfJpegIdct(
+    coefficients: array<int>, var temporary: array<int>,
+    var samples: array<int>
+): bool {
+    if (coefficients.size != 64 || temporary.size != 64 ||
+        samples.size != 64) return false
+    val matrix = gltfJpegIdctMatrix()
+    var v = 0
+    while (v < 8) {
+        var x = 0
+        while (x < 8) {
+            var sum = 0
+            var u = 0
+            while (u < 8) {
+                sum = sum + coefficients[v * 8 + u] * matrix[x * 8 + u]
+                u = u + 1
+            }
+            temporary[v * 8 + x] = sum
+            x = x + 1
+        }
+        v = v + 1
+    }
+    var y = 0
+    while (y < 8) {
+        var x = 0
+        while (x < 8) {
+            var sum = 0
+            v = 0
+            while (v < 8) {
+                sum = sum + temporary[v * 8 + x] * matrix[y * 8 + v]
+                v = v + 1
+            }
+            var sample = gltfJpegRoundedIdct(sum) + 128
+            if (sample < 0) sample = 0
+            if (sample > 255) sample = 255
+            samples[y * 8 + x] = sample
+            x = x + 1
+        }
+        y = y + 1
+    }
+    true
+}
+
+fun gltfJpegConsumeRestart(
+    bytes: array<int>, var state: array<int>, expected: int
+): bool {
+    state[2] = 0
+    val cursor = state[0]
+    val valid = cursor <= bytes.size - 2 && bytes[cursor] == 255 &&
+        bytes[cursor + 1] == 208 + expected
+    if (valid) state[0] = cursor + 2
+    else state[3] = 0
+    valid
+}
+
+fun gltfJpegClamp(value: int): int =
+    if (value < 0) 0 else if (value > 255) 255 else value
+
+fun gltfJpegRemainder(value: int, divisor: int): int =
+    if (divisor > 0) value - (value / divisor) * divisor else -1
+
+trusted fun gltfDecodeJpeg(payload: GltfImagePayload): GltfImagePixels {
+    if (!payload.valid || payload.mimeType != "image/jpeg") {
+        val invalidPixels = pixelBuffer(0, 0)
+        return GltfImagePixels(
+            move(invalidPixels), "", "only JPEG image payloads are decodable"
+        )
+    }
+    val bytes: array<int> = []
+    var byteIndex = 0
+    while (byteIndex < payload.bytes.size) {
+        bytes.append(payload.bytes[byteIndex])
+        byteIndex = byteIndex + 1
+    }
+    if (bytes.size < 4 || bytes[0] != 255 || bytes[1] != 216) {
+        val invalidPixels = pixelBuffer(0, 0)
+        return GltfImagePixels(
+            move(invalidPixels), "", "invalid JPEG signature"
+        )
+    }
+
+    val quantTables = gltfJpegFilled(256)
+    val quantPresent = gltfJpegFilled(4)
+    val huffman: array<GltfJpegHuffman> = []
+    var tableIndex = 0
+    while (tableIndex < 8) {
+        huffman.append(GltfJpegHuffman())
+        tableIndex = tableIndex + 1
+    }
+    val componentIds: array<int> = []
+    val componentH: array<int> = []
+    val componentV: array<int> = []
+    val componentQuant: array<int> = []
+    val componentDc: array<int> = []
+    val componentAc: array<int> = []
+    var width = 0
+    var height = 0
+    var maxH = 0
+    var maxV = 0
+    var restartInterval = 0
+    var adobeTransform = -1
+    var cursor = 2
+    var scanOffset = -1
+    var lastMarker = -1
+    var valid = true
+    var failure = ""
+    val zigzag = gltfJpegZigzag()
+
+    while (valid && scanOffset < 0 && cursor < bytes.size) {
+        valid = bytes[cursor] == 255
+        while (valid && cursor < bytes.size && bytes[cursor] == 255)
+            cursor = cursor + 1
+        valid = valid && cursor < bytes.size
+        val marker = if (valid) bytes[cursor] else -1
+        lastMarker = marker
+        cursor = cursor + 1
+        if (valid && marker == 217) valid = false
+        else if (valid && marker >= 208 && marker <= 215) valid = false
+        else {
+            val length = if (valid) gltfJpegU16(bytes, cursor) else -1
+            valid = length >= 2 && cursor <= bytes.size - length
+            val data = cursor + 2
+            val end = cursor + length
+            if (valid && marker == 219) {
+                var position = data
+                while (valid && position < end) {
+                    val selector = bytes[position]
+                    val precision = selector >>> 4
+                    val index = selector & 15
+                    position = position + 1
+                    valid = precision == 0 && index < 4 && position <= end - 64
+                    if (!valid) failure =
+                        "invalid JPEG quantization header p=$precision t=$index remaining=${end - position}"
+                    var valueIndex = 0
+                    while (valid && valueIndex < 64) {
+                        val value = bytes[position + valueIndex]
+                        valid = value > 0
+                        if (!valid) failure =
+                            "zero JPEG quantization value at $valueIndex"
+                        if (valid) quantTables[index * 64 + zigzag[valueIndex]] = value
+                        valueIndex = valueIndex + 1
+                    }
+                    if (valid) quantPresent[index] = 1
+                    position = position + 64
+                }
+                valid = valid && position == end
+                if (!valid && failure == "") failure =
+                    "invalid JPEG quantization segment end $position/$end"
+            } else if (valid && marker == 196) {
+                var position = data
+                while (valid && position < end) {
+                    val selector = bytes[position]
+                    val kind = selector >>> 4
+                    val index = selector & 15
+                    position = position + 1
+                    valid = kind <= 1 && index < 4 && position <= end - 16
+                    var symbolCount = 0
+                    var lengthIndex = 0
+                    while (valid && lengthIndex < 16) {
+                        symbolCount = symbolCount + bytes[position + lengthIndex]
+                        lengthIndex = lengthIndex + 1
+                    }
+                    valid = valid && symbolCount > 0 && symbolCount <= 256 &&
+                        position + 16 <= end - symbolCount
+                    if (valid) {
+                        val built = gltfJpegHuffman(
+                            bytes, position, position + 16, symbolCount
+                        )
+                        valid = built.valid
+                        if (valid) huffman[kind * 4 + index] = built
+                    }
+                    position = position + 16 + symbolCount
+                }
+                valid = valid && position == end
+            } else if (valid && marker == 192) {
+                valid = componentIds.size == 0 && length >= 11 &&
+                    bytes[data] == 8
+                if (valid) {
+                    height = gltfJpegU16(bytes, data + 1)
+                    width = gltfJpegU16(bytes, data + 3)
+                    val count = bytes[data + 5]
+                    valid = (count == 1 || count == 3) && length == 8 + count * 3 &&
+                        width > 0 && width <= 16384 && height > 0 &&
+                        height <= 16384 && width <= 16777216 / height
+                    var component = 0
+                    while (valid && component < count) {
+                        val offset = data + 6 + component * 3
+                        val horizontal = bytes[offset + 1] >>> 4
+                        val vertical = bytes[offset + 1] & 15
+                        val quant = bytes[offset + 2]
+                        valid = horizontal > 0 && horizontal <= 4 &&
+                            vertical > 0 && vertical <= 4 && quant < 4
+                        if (valid) {
+                            componentIds.append(bytes[offset])
+                            componentH.append(horizontal)
+                            componentV.append(vertical)
+                            componentQuant.append(quant)
+                            componentDc.append(-1)
+                            componentAc.append(-1)
+                            if (horizontal > maxH) maxH = horizontal
+                            if (vertical > maxV) maxV = vertical
+                        }
+                        component = component + 1
+                    }
+                    valid = valid && (count == 3 ||
+                        (componentH[0] == 1 && componentV[0] == 1))
+                }
+            } else if (valid && marker == 221) {
+                valid = length == 4
+                if (valid) restartInterval = gltfJpegU16(bytes, data)
+            } else if (valid && marker == 238) {
+                if (length >= 14 && bytes[data] == 65 && bytes[data + 1] == 100 &&
+                    bytes[data + 2] == 111 && bytes[data + 3] == 98 &&
+                    bytes[data + 4] == 101)
+                    adobeTransform = bytes[data + 11]
+            } else if (valid && marker == 218) {
+                val scanComponents = if (length >= 6) bytes[data] else 0
+                valid = componentIds.size > 0 &&
+                    scanComponents == componentIds.size &&
+                    length == 6 + scanComponents * 2
+                var scanComponent = 0
+                while (valid && scanComponent < scanComponents) {
+                    val id = bytes[data + 1 + scanComponent * 2]
+                    val selector = bytes[data + 2 + scanComponent * 2]
+                    var frameComponent = -1
+                    var lookup = 0
+                    while (lookup < componentIds.size) {
+                        if (componentIds[lookup] == id) frameComponent = lookup
+                        lookup = lookup + 1
+                    }
+                    valid = frameComponent >= 0 && (selector >>> 4) < 4 &&
+                        (selector & 15) < 4
+                    if (valid) {
+                        componentDc[frameComponent] = selector >>> 4
+                        componentAc[frameComponent] = selector & 15
+                    }
+                    scanComponent = scanComponent + 1
+                }
+                valid = valid && bytes[end - 3] == 0 &&
+                    bytes[end - 2] == 63 && bytes[end - 1] == 0
+                if (valid) scanOffset = end
+            } else if (valid && marker >= 193 && marker <= 207 &&
+                marker != 196) valid = false
+            cursor = end
+        }
+    }
+    if (!valid && failure == "") failure =
+        "invalid or unsupported baseline JPEG marker stream at $lastMarker"
+    var component = 0
+    while (valid && component < componentIds.size) {
+        valid = quantPresent[componentQuant[component]] != 0 &&
+            componentDc[component] >= 0 && componentAc[component] >= 0 &&
+            huffman[componentDc[component]].valid &&
+            huffman[4 + componentAc[component]].valid &&
+            gltfJpegRemainder(maxH, componentH[component]) == 0 &&
+            gltfJpegRemainder(maxV, componentV[component]) == 0
+        component = component + 1
+    }
+    if (!valid && failure == "") failure = "missing or invalid JPEG coding table"
+
+    val pixels = pixelBuffer(if (valid) width else 0, if (valid) height else 0)
+    val state = [scanOffset, 0, 0, if (valid) 1 else 0]
+    val predictors = gltfJpegFilled(componentIds.size)
+    val coefficients = gltfJpegFilled(64)
+    val temporary = gltfJpegFilled(64)
+    val samples = gltfJpegFilled(64)
+    val planes = gltfJpegFilled(componentIds.size * 1024)
+    val mcuWidth = maxH * 8
+    val mcuHeight = maxV * 8
+    val mcuColumns = if (valid) (width + mcuWidth - 1) / mcuWidth else 0
+    val mcuRows = if (valid) (height + mcuHeight - 1) / mcuHeight else 0
+    var mcu = 0
+    val mcuCount = mcuColumns * mcuRows
+    while (valid && mcu < mcuCount) {
+        if (restartInterval > 0 && mcu > 0 &&
+            gltfJpegRemainder(mcu, restartInterval) == 0) {
+            valid = gltfJpegConsumeRestart(
+                bytes, state, ((mcu / restartInterval) - 1) & 7
+            )
+            var predictor = 0
+            while (predictor < predictors.size) {
+                predictors[predictor] = 0
+                predictor = predictor + 1
+            }
+        }
+        component = 0
+        while (valid && component < componentIds.size) {
+            var blockY = 0
+            while (valid && blockY < componentV[component]) {
+                var blockX = 0
+                while (valid && blockX < componentH[component]) {
+                    valid = gltfJpegDecodeBlock(
+                        bytes, state,
+                        huffman[componentDc[component]],
+                        huffman[4 + componentAc[component]],
+                        quantTables, componentQuant[component], predictors,
+                        component, coefficients
+                    ) && gltfJpegIdct(coefficients, temporary, samples)
+                    var sampleY = 0
+                    while (valid && sampleY < 8) {
+                        var sampleX = 0
+                        while (sampleX < 8) {
+                            val planeWidth = componentH[component] * 8
+                            val destination = component * 1024 +
+                                (blockY * 8 + sampleY) * planeWidth +
+                                blockX * 8 + sampleX
+                            planes[destination] = samples[sampleY * 8 + sampleX]
+                            sampleX = sampleX + 1
+                        }
+                        sampleY = sampleY + 1
+                    }
+                    blockX = blockX + 1
+                }
+                blockY = blockY + 1
+            }
+            component = component + 1
+        }
+        val mcuX = gltfJpegRemainder(mcu, mcuColumns) * mcuWidth
+        val mcuY = (mcu / mcuColumns) * mcuHeight
+        var localY = 0
+        while (valid && localY < mcuHeight && mcuY + localY < height) {
+            var localX = 0
+            while (valid && localX < mcuWidth && mcuX + localX < width) {
+                val yWidth = componentH[0] * 8
+                val ySample = planes[
+                    (localY * componentV[0] / maxV) * yWidth +
+                    localX * componentH[0] / maxH
+                ]
+                var red = ySample
+                var green = ySample
+                var blue = ySample
+                if (componentIds.size == 3) {
+                    val secondWidth = componentH[1] * 8
+                    val thirdWidth = componentH[2] * 8
+                    val second = planes[1024 +
+                        (localY * componentV[1] / maxV) * secondWidth +
+                        localX * componentH[1] / maxH]
+                    val third = planes[2048 +
+                        (localY * componentV[2] / maxV) * thirdWidth +
+                        localX * componentH[2] / maxH]
+                    if (adobeTransform == 0) {
+                        red = ySample
+                        green = second
+                        blue = third
+                    } else {
+                        val cb = second - 128
+                        val cr = third - 128
+                        red = gltfJpegClamp(ySample +
+                            (91881 * cr + 32768) / 65536)
+                        green = gltfJpegClamp(ySample -
+                            (22554 * cb + 46802 * cr + 32768) / 65536)
+                        blue = gltfJpegClamp(ySample +
+                            (116130 * cb + 32768) / 65536)
+                    }
+                }
+                valid = pixels.setRgba8(
+                    mcuX + localX, mcuY + localY,
+                    gltfJpegClamp(red), gltfJpegClamp(green),
+                    gltfJpegClamp(blue), 255
+                )
+                localX = localX + 1
+            }
+            localY = localY + 1
+        }
+        mcu = mcu + 1
+    }
+    state[2] = 0
+    if (valid) {
+        cursor = state[0]
+        while (cursor < bytes.size && bytes[cursor] == 255) cursor = cursor + 1
+        valid = cursor < bytes.size && bytes[cursor] == 217
+        if (!valid) failure = "JPEG scan did not terminate at EOI"
+    }
+    if (valid) GltfImagePixels(move(pixels), "image/jpeg", "")
+    else GltfImagePixels(move(pixels), "", if (failure == "")
+        "invalid baseline JPEG entropy stream" else failure)
+}

@@ -18,6 +18,17 @@ fun main: int {
     val stored = gltfZlibInflate(gltfByteArray(base64Decode(
         "eAEBIADf/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fFXAB8Q=="
     )), 32)
+    val jpegBytes = base64Decode("/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAQABADASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAACAcJ/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/EABUBAQEAAAAAAAAAAAAAAAAAAAQG/8QAJhEAAQMACAcAAAAAAAAAAAAAERITFAIDBgcXIUFhFSNCRGJjc//aAAwDAQACEQMRAD8AhhDBC14QV/tjMLOH8+RIe6W0tteVMlewGpyfeZWY2Re1ir9q3UfNKW9ydBn/AP/Z")
+    val jpeg = gltfDecodeImage(GltfImagePayload(
+        jpegBytes, "image/jpeg", true, ""
+    ))
+    val jpegRed = jpeg.pixels.rgba8(2, 2)
+    val jpegGreen = jpeg.pixels.rgba8(13, 2)
+    val jpegBlue = jpeg.pixels.rgba8(2, 13)
+    val jpegYellow = jpeg.pixels.rgba8(13, 13)
+    val badJpeg = gltfDecodeJpeg(GltfImagePayload(
+        "not a jpeg", "image/jpeg", true, ""
+    ))
     var storedValid = stored.size == 32
     var storedIndex = 0
     while (storedValid && storedIndex < stored.size) {
@@ -47,5 +58,12 @@ fun main: int {
         filtered.pixels.rgba8(0, 2) == 4294901760 &&
         filtered.pixels.rgba8(0, 3) == 4278255615 &&
         filtered.pixels.rgba8(0, 4) == 4294967295 && storedValid &&
-        !rejected.valid()) 42 else 1
+        jpeg.valid() && jpeg.mimeType == "image/jpeg" &&
+        jpeg.pixels.width == 16 && jpeg.pixels.height == 16 &&
+        (jpegRed & 255) > 180 && ((jpegRed >>> 8) & 255) < 70 &&
+        ((jpegGreen >>> 8) & 255) > 180 && (jpegGreen & 255) < 70 &&
+        ((jpegBlue >>> 16) & 255) > 170 && (jpegBlue & 255) < 80 &&
+        (jpegYellow & 255) > 170 && ((jpegYellow >>> 8) & 255) > 170 &&
+        ((jpegYellow >>> 16) & 255) < 80 &&
+        !badJpeg.valid() && !rejected.valid()) 42 else 1
 }

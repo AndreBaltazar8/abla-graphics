@@ -1,37 +1,18 @@
-// Pure-Abla glTF image acquisition, strict RGBA8 PNG decoding, and retained
-// sampled texture/sampler materialization.
+// Pure-Abla glTF image acquisition, PNG/JPEG decoding, and retained sampled
+// texture/sampler materialization.
 
 import "abla/crypto"
 import "gltf_buffer.ab"
+import "gltf_image.ab"
+import "gltf_jpeg.ab"
 import "texture.ab"
 import "sampler.ab"
-
-class GltfImagePayload(
-    val bytes: string,
-    val mimeType: string,
-    val valid: bool,
-    val error: string
-)
 
 class GltfHuffman(
     val symbols: array<int>,
     val lengths: array<int>,
     val valid: bool
 )
-
-resource class GltfImagePixels(
-    val pixels: PixelBuffer,
-    val mimeType: string,
-    val error: string
-) {
-    fun valid(): bool = this.error == "" && this.mimeType == "image/png" &&
-        this.pixels.valid()
-
-    trusted fun drop(): void {
-        this.pixels.storage.close()
-        return
-    }
-}
 
 resource class GltfGpuTexture(
     val texture: GraphicsTexture,
@@ -664,6 +645,10 @@ trusted fun gltfDecodePng(payload: GltfImagePayload): GltfImagePixels {
     )
 }
 
+trusted fun gltfDecodeImage(payload: GltfImagePayload): GltfImagePixels =
+    if (payload.mimeType == "image/png") gltfDecodePng(payload)
+    else gltfDecodeJpeg(payload)
+
 fun gltfSamplerAddress(mode: int): int =
     if (mode == 33071) samplerAddressClampToEdge
     else if (mode == 33648) samplerAddressMirrorRepeat
@@ -708,7 +693,7 @@ trusted fun GraphicsApplication.gltfGpuTexture(
     val payload = gltfImagePayload(
         document, buffers, metadata.source, suppliedImages
     )
-    val decoded = gltfDecodePng(payload)
+    val decoded = gltfDecodeImage(payload)
     if (!decoded.valid()) return GltfGpuTexture(
         this.texture(TextureDescriptor()),
         this.sampler(SamplerDescriptor(addressU = -1)),

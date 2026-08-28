@@ -2229,10 +2229,18 @@ and index handles for every planned drawable in one native pass.
 The typed document now includes bounded images, samplers, and textures with
 complete buffer-view/source/sampler/material cross-reference validation.
 Image acquisition accepts caller-supplied bytes, buffer views, and embedded
-PNG/JPEG data URIs. The pure-Abla pixel path currently decodes strict
-noninterlaced RGBA8 PNG, including stored/fixed/dynamic DEFLATE, all five PNG
-row filters, chunk CRC32, and zlib Adler32 validation. Invalid or unsupported
-payloads fail with stage-specific errors.
+PNG/JPEG data URIs. The pure-Abla pixel path decodes strict noninterlaced RGBA8
+PNG, including stored/fixed/dynamic DEFLATE, all five PNG row filters, chunk
+CRC32, and zlib Adler32 validation. It also decodes bounded baseline sequential
+8-bit JPEG with grayscale or three components, canonical Huffman entropy,
+common chroma subsampling, restart intervals, integer IDCT, and JFIF/Adobe color
+handling. Invalid, progressive, arithmetic, or unsupported payloads fail with
+stage-specific errors.
+
+The backend-free texture fixture decodes a real 16x16 4:2:0 JPEG and checks
+four distinct color regions. The retained live scene sources its unlit blue
+material from JPEG; OpenGL, Vulkan, and automatic selection produce exact
+pixels `4278706703/4294770688`, four stable frames, and `live=0`.
 
 `GltfGpuTexture` owns the mapped sampler and uploaded sampled texture. The
 deterministic shader path adds an affine pushed vertex form that emits typed

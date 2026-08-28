@@ -12,13 +12,13 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 
 ## Current continuation focus
 
-The current broad slice adds typed environment lighting and strict glTF 2.0
-metallic/roughness material mapping. The live HDR/PBR sample now uses reusable
-diffuse and specular cube inputs, and the independent mapping sample covers the
-material contract and rejection paths. The consolidated OpenGL/Vulkan/auto,
-stripped-runtime, and Abla-only gates pass. Continue from scene/mesh/camera
-composition and glTF buffer/accessor decoding; do not mistake material mapping
-alone for general glTF scene loading.
+The current broad slice completes bounded pure-Abla baseline sequential JPEG
+decoding and routes it through glTF texture upload. The backend-free fixture
+proves a real 4:2:0 color image; the live retained scene uses JPEG on OpenGL,
+Vulkan, and automatic selection with exact output and zero warmed growth.
+Continue with shader-side deformation and texture-dependent or scene-
+transmission material models; progressive/arithmetic JPEG can be added later
+as an explicit format extension without weakening baseline validation.
 
 The scene metadata checkpoint now owns typed buffers, buffer views, dense and
 sparse accessors, mesh primitives, cameras, node transforms/hierarchies,
@@ -59,7 +59,7 @@ zero live-byte growth. FLOAT `VEC3` positions and FLOAT or normalized unsigned
 `VEC2` `TEXCOORD_0` now interleave into retained vertex resources, and an
 accessor-identity plan lets mesh primitives select material-table textures per
 draw. Complete core five-channel tables now bind three materials per group;
-continue with multi-group batching, JPEG support, and broader scene features.
+continue with broader scene and material features.
 
 Distinct textured primitives now pack into one affine `GltfGpuTexturedScene`
 vertex/index owner. Local indices are rewritten once during setup, and the
@@ -69,8 +69,8 @@ The live fixture now proves two position accessors, two geometry resources,
 two materials, and exact green/blue output with `live=0` on OpenGL, Vulkan,
 and auto. Continue with material batching beyond three complete bound
 materials now has order-preserving planning plus retained multi-pipeline target
-and window submission; continue with skinning/morph targets,
-transmission/clearcoat extensions, and JPEG decoding.
+and window submission; continue with shader-side skinning/morph targets and
+texture-dependent transmission/material extensions.
 
 ## Mission
 
@@ -3748,3 +3748,32 @@ preserving short-circuit order and nullable refinements. The unchanged 64 GiB
 `make test-glsl` gate passes again, backed by a focused 2,048-operand compiler
 regression, byte-identical pure self-rebuild, and the same exact live graphics
 proof above.
+
+## Latest checkpoint: pure-Abla baseline JPEG glTF textures
+
+`src/gltf_image.ab` owns the shared payload/pixel contract and
+`src/gltf_jpeg.ab` implements a bounded baseline sequential 8-bit JPEG decoder
+entirely in Abla. It parses quantization, canonical Huffman, frame, scan,
+restart, JFIF, and Adobe markers; decodes grayscale or three-component MCUs
+with sampling factors through 4x4; performs dequantization and a separable
+fixed-point integer IDCT; expands chroma; and writes owned RGBA8 pixels.
+Malformed streams and progressive, arithmetic, lossless, or hierarchical
+processes fail explicitly.
+
+`gltfDecodeImage(...)` dispatches PNG/JPEG by validated MIME type, and
+`GraphicsApplication.gltfGpuTexture(...)` uploads either result through the
+same affine texture/sampler path. The backend-free fixture checks a real
+16x16 4:2:0 JPEG with distinct red, green, blue, and yellow regions plus
+malformed-input rejection. `examples/gltf-live-scene` obtains its unlit blue
+material from an embedded JPEG. OpenGL, Vulkan, and automatic selection all
+produce exact pixels `4278706703/4294770688` for four stable frames with
+`live=0`.
+
+Validated with `LD_LIBRARY_PATH` removed from every launched executable:
+
+```sh
+nix-shell --run 'make check-abla-only test-gltf-texture test-gltf-live-scene test-runtime-linkage'
+```
+
+The source audit passed, and the standalone runtime proof reported
+`direct=true unresolved=0`.
