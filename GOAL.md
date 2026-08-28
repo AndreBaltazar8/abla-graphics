@@ -3572,3 +3572,24 @@ swapchain, rebuilds every pipeline against the new images, then refreshes the
 retained handle/layout tables. The live glTF proof presents two window groups,
 resizes from 640x360 to 672x384, verifies both rebuilt pipelines, and retains
 exact target pixels with `live=0` on OpenGL, Vulkan, and auto.
+
+## Current slice: glTF deformation metadata and retained planning
+
+`src/gltf_scene.ab` now models bounded skins, joint-node lists, optional
+inverse-bind matrix accessors, primitive morph targets, and mesh/node morph
+weights. Validation requires exact glTF accessor shapes and counts, unique and
+in-range joints, consistent target counts across a mesh, and complete
+`JOINTS_0`/`WEIGHTS_0` streams on skinned draws.
+
+`gltfDeformationPlan(...)` deduplicates skin metadata, flattens joint ranges,
+maps every drawable to its skin, and retains flattened morph accessor/weight
+ranges with node weights overriding mesh defaults. The independent
+`examples/gltf-deformation-plan` proof also rejects duplicate joints, inverse
+bind count mismatches, and invalid target shapes. GPU palette upload, shader
+deformation, animation channels, and live skinned/morphed rendering remain
+open; this checkpoint deliberately does not claim those execution features.
+
+The pure metadata samples no longer request Vulkan/X11/EGL/GL at link time, so
+their generated executables run with `LD_LIBRARY_PATH` removed. Live graphics
+executables still need the broader standalone shared-library/runtime-path
+solution tracked by this goal.

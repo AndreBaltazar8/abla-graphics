@@ -1,0 +1,36 @@
+import "abla/io"
+import "../../src/gltf_scene.ab"
+
+fun near(actual: f64, expected: f64): bool =
+    actual >= expected - 0.000001 && actual <= expected + 0.000001
+
+fun main: int {
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":260}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":12},{\"buffer\":0,\"byteOffset\":48,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":96,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":132,\"byteLength\":128}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5121,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":4,\"componentType\":5126,\"count\":2,\"type\":\"MAT4\"}],\"meshes\":[{\"weights\":[0.25],\"primitives\":[{\"attributes\":{\"POSITION\":0,\"JOINTS_0\":1,\"WEIGHTS_0\":2},\"targets\":[{\"POSITION\":3}]}]}],\"nodes\":[{\"mesh\":0,\"skin\":0,\"weights\":[0.75]},{\"children\":[2]},{\"translation\":[0,1,0]}],\"skins\":[{\"name\":\"two joint skin\",\"inverseBindMatrices\":4,\"skeleton\":1,\"joints\":[1,2]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
+    val parsed = gltfDocument(source)
+    val draws = if (parsed.succeeded)
+        gltfSceneDrawList(parsed.document) else GltfSceneDrawList([], [], false, "parse")
+    val plan = if (parsed.succeeded)
+        gltfDeformationPlan(parsed.document, draws)
+    else GltfDeformationPlan([], [], [], [], [], [], [], [], [], [], [], [], false, "parse")
+    val duplicateJoints = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{},{}],\"skins\":[{\"joints\":[0,0]}]}")
+    val wrongInverseCount = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":64}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":64}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":1,\"type\":\"MAT4\"}],\"nodes\":[{},{}],\"skins\":[{\"inverseBindMatrices\":0,\"joints\":[0,1]}]}")
+    val wrongTargetShape = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":84}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":48}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"}],\"meshes\":[{\"primitives\":[{\"attributes\":{\"POSITION\":0},\"targets\":[{\"POSITION\":1}]}]}],\"nodes\":[{\"mesh\":0}],\"scenes\":[{\"nodes\":[0]}]}")
+    val passed = parsed.succeeded && draws.valid && plan.valid &&
+        parsed.document.skins.size == 1 &&
+        parsed.document.meshes[0].primitives[0].targets.size == 1 &&
+        parsed.document.nodes[0].skin == 0 &&
+        plan.skinIndices.size == 1 && plan.skinIndices[0] == 0 &&
+        plan.skinJointOffsets[0] == 0 && plan.skinJointCounts[0] == 2 &&
+        plan.skinJointNodes.size == 2 && plan.skinJointNodes[0] == 1 &&
+        plan.skinJointNodes[1] == 2 && plan.skinInverseBindAccessors[0] == 4 &&
+        plan.drawableSkins.size == 1 && plan.drawableSkins[0] == 0 &&
+        plan.drawableMorphOffsets[0] == 0 && plan.drawableMorphCounts[0] == 1 &&
+        plan.morphPositionAccessors[0] == 3 &&
+        plan.morphNormalAccessors[0] == -1 &&
+        plan.morphTangentAccessors[0] == -1 &&
+        near(plan.morphWeights[0], 0.75) &&
+        !duplicateJoints.succeeded && !wrongInverseCount.succeeded &&
+        !wrongTargetShape.succeeded
+    println("gltf-deformation-plan: skins=${parsed.document.skins.size} joints=${plan.skinJointNodes.size} morphs=${plan.morphWeights.size} nodeOverride=true mapped=$passed")
+    if (passed) 0 else 1
+}
