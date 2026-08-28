@@ -446,6 +446,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-scene`: bounded glTF 2.0 buffers, views, accessors, materials,
   meshes, cameras, node transforms/hierarchies, and scene selection with
   cross-reference, byte-span, and cycle rejection;
+- `examples/gltf-live-scene`: an embedded base64 glTF buffer is decoded into
+  retained vertex/index buffers and rendered unchanged on OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

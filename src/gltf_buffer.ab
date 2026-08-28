@@ -1,0 +1,231 @@
+// Pure-Abla glTF buffer acquisition, accessor decoding, and GPU materialization.
+
+import "abla/crypto"
+import "buffer.ab"
+import "gltf_scene.ab"
+
+class GltfBufferPayloads(
+    val values: array<string>,
+    val valid: bool,
+    val error: string
+)
+
+resource class GltfGpuPrimitive(
+    val vertices: GraphicsBuffer,
+    val indices: GraphicsBuffer,
+    val vertexCount: int,
+    val indexCount: int,
+    val error: string
+) {
+    fun valid(): bool = this.error.size == 0 && this.vertices.valid() &&
+        this.indices.valid() && this.vertexCount > 0 && this.indexCount > 0
+
+    trusted fun drop(): void {
+        this.vertices.drop()
+        this.indices.drop()
+        return
+    }
+}
+
+fun gltfDataUriPayload(uri: string): string {
+    val prefix = "data:application/octet-stream;base64,"
+    val generic = "data:application/gltf-buffer;base64,"
+    if (uri.size >= prefix.size && uri.slice(0, prefix.size) == prefix)
+        base64Decode(uri.slice(prefix.size, uri.size))
+    else if (uri.size >= generic.size && uri.slice(0, generic.size) == generic)
+        base64Decode(uri.slice(generic.size, uri.size))
+    else ""
+}
+
+// A caller may supply external/GLB payloads by index. An empty supplied value
+// falls back to a base64 data URI; all byte lengths must match the document.
+fun gltfBufferPayloads(
+    document: GltfDocument,
+    supplied: array<string> = []
+): GltfBufferPayloads {
+    val values: array<string> = []
+    var valid = document.valid() &&
+        (supplied.size == 0 || supplied.size == document.buffers.size)
+    var index = 0
+    while (valid && index < document.buffers.size) {
+        val external = if (supplied.size == document.buffers.size)
+            supplied[index] else ""
+        val payload = if (external.size > 0) external
+            else gltfDataUriPayload(document.buffers[index].uri)
+        valid = payload.size == document.buffers[index].byteLength
+        if (valid) values.append(payload)
+        index = index + 1
+    }
+    GltfBufferPayloads(
+        values,
+        valid,
+        if (valid) "" else "glTF buffer payload count or byte length mismatch"
+    )
+}
+
+fun gltfLoadUnsigned(bytes: string, offset: int, size: int): int =
+    if (offset < 0 || offset > bytes.size - size) -1
+    else if (size == 1) bytes[offset]
+    else if (size == 2) bytes[offset] + bytes[offset + 1] * 256
+    else if (size == 4) bytes[offset] + bytes[offset + 1] * 256 +
+        bytes[offset + 2] * 65536 + bytes[offset + 3] * 16777216
+    else -1
+
+trusted fun gltfLoadUnsignedBuffer(
+    bytes: BufferBytes,
+    offset: int,
+    size: int
+): int = if (!bytes.valid() || offset < 0 || offset > bytes.size - size) -1
+    else if (size == 1) bytes.load(offset)
+    else if (size == 2) bytes.load(offset) + bytes.load(offset + 1) * 256
+    else if (size == 4) bytes.load(offset) + bytes.load(offset + 1) * 256 +
+        bytes.load(offset + 2) * 65536 + bytes.load(offset + 3) * 16777216
+    else -1
+
+trusted fun gltfCopyStringBytes(
+    source: string,
+    sourceOffset: int,
+    var destination: BufferBytes,
+    destinationOffset: int,
+    size: int
+): bool {
+    var valid = sourceOffset >= 0 && destinationOffset >= 0 && size >= 0 &&
+        sourceOffset <= source.size - size &&
+        destinationOffset <= destination.size - size
+    var index = 0
+    while (valid && index < size) {
+        valid = destination.store(
+            destinationOffset + index, source[sourceOffset + index]
+        )
+        index = index + 1
+    }
+    valid
+}
+
+trusted fun gltfAccessorBytes(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    accessorIndex: int
+): BufferBytes {
+    if (!document.valid() || !payloads.valid ||
+        accessorIndex < 0 || accessorIndex >= document.accessors.size)
+        return bufferBytes(0)
+    val accessor = document.accessors[accessorIndex]
+    val elementSize = accessor.elementByteSize()
+    val output = bufferBytes(accessor.count * elementSize)
+    var valid = output.valid() && output.fill(0)
+    if (valid && accessor.bufferView >= 0) {
+        val view = document.bufferViews[accessor.bufferView]
+        val payload = payloads.values[view.buffer]
+        val stride = if (view.byteStride == 0) elementSize else view.byteStride
+        var element = 0
+        while (valid && element < accessor.count) {
+            valid = gltfCopyStringBytes(
+                payload,
+                view.byteOffset + accessor.byteOffset + element * stride,
+                output,
+                element * elementSize,
+                elementSize
+            )
+            element = element + 1
+        }
+    }
+    if (valid && accessor.sparse.present()) {
+        val sparse = accessor.sparse
+        val indexView = document.bufferViews[sparse.indicesBufferView]
+        val valueView = document.bufferViews[sparse.valuesBufferView]
+        val indexPayload = payloads.values[indexView.buffer]
+        val valuePayload = payloads.values[valueView.buffer]
+        val indexSize = gltfComponentByteSize(sparse.indicesComponentType)
+        var sparseIndex = 0
+        var previous = -1
+        while (valid && sparseIndex < sparse.count) {
+            val destinationIndex = gltfLoadUnsigned(
+                indexPayload,
+                indexView.byteOffset + sparse.indicesByteOffset +
+                    sparseIndex * indexSize,
+                indexSize
+            )
+            valid = destinationIndex > previous &&
+                destinationIndex < accessor.count && gltfCopyStringBytes(
+                    valuePayload,
+                    valueView.byteOffset + sparse.valuesByteOffset +
+                        sparseIndex * elementSize,
+                    output,
+                    destinationIndex * elementSize,
+                    elementSize
+                )
+            previous = destinationIndex
+            sparseIndex = sparseIndex + 1
+        }
+    }
+    if (valid) output else bufferBytes(0)
+}
+
+trusted fun GraphicsApplication.gltfGpuPrimitive(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    meshIndex: int,
+    primitiveIndex: int
+): GltfGpuPrimitive {
+    var error = ""
+    var vertexCount = 0
+    var indexCount = 0
+    var vertexBytes = bufferBytes(0)
+    var indexBytes = bufferBytes(0)
+    if (!this.valid() || !document.valid() || !payloads.valid ||
+        meshIndex < 0 || meshIndex >= document.meshes.size ||
+        primitiveIndex < 0 ||
+        primitiveIndex >= document.meshes[meshIndex].primitives.size) {
+        error = "invalid glTF primitive materialization request"
+    } else {
+        val primitive = document.meshes[meshIndex].primitives[primitiveIndex]
+        val position = document.accessors[primitive.position]
+        vertexCount = position.count
+        vertexBytes = gltfAccessorBytes(document, payloads, primitive.position)
+        if (primitive.indices >= 0) {
+            val source = gltfAccessorBytes(document, payloads, primitive.indices)
+            val accessor = document.accessors[primitive.indices]
+            val sourceSize = accessor.componentByteSize()
+            indexCount = accessor.count
+            indexBytes = bufferBytes(indexCount * 4)
+            var index = 0
+            var stored = source.valid() && indexBytes.valid()
+            while (stored && index < indexCount) {
+                stored = indexBytes.storeU32(
+                    gltfLoadUnsignedBuffer(source, index * sourceSize, sourceSize),
+                    index * 4
+                )
+                index = index + 1
+            }
+            if (!stored) error = "glTF index accessor decoding failed"
+        } else {
+            indexCount = vertexCount
+            indexBytes = bufferBytes(indexCount * 4)
+            var index = 0
+            var stored = indexBytes.valid()
+            while (stored && index < indexCount) {
+                stored = indexBytes.storeU32(index, index * 4)
+                index = index + 1
+            }
+            if (!stored) error = "glTF generated index decoding failed"
+        }
+        if (!vertexBytes.valid()) error = "glTF position accessor decoding failed"
+    }
+    val vertices = this.buffer(BufferDescriptor(
+        label = "gltf-positions",
+        size = if (vertexBytes.valid()) vertexBytes.size else 0,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val indices = this.buffer(BufferDescriptor(
+        label = "gltf-indices",
+        size = if (indexBytes.valid()) indexBytes.size else 0,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    if (error.size == 0 &&
+        (!vertices.writeAllBytes(vertexBytes) || !indices.writeAllBytes(indexBytes)))
+        error = "glTF GPU buffer upload failed"
+    GltfGpuPrimitive(
+        move(vertices), move(indices), vertexCount, indexCount, error
+    )
+}

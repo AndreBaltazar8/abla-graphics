@@ -2172,3 +2172,19 @@ parents, and cycles. The independent stripped-runtime `gltf-scene` sample maps
 one indexed triangle scene (`buffers=1 accessors=3 meshes=1 nodes=2`) and also
 covers sparse accessors, padded `MAT3`, both camera forms, matrix/TRS transforms,
 cycle rejection, and byte-span rejection. The Abla-only audit passes.
+
+### glTF buffer decoding and live rendering
+
+The optional pure-Abla `gltf_buffer.ab` layer resolves exact-length caller
+payloads or embedded base64 data URIs, copies dense accessors with their
+declared stride, applies bounded ordered sparse overrides, and rejects any
+payload, source span, sparse index, or destination mismatch. Mesh indices in
+8-, 16-, or 32-bit form are widened once to the common renderer's 32-bit index
+contract; non-indexed primitives receive deterministic sequential indices.
+
+`GltfGpuPrimitive` affinely owns retained vertex and index buffers uploaded
+through the selected backend. The independent `gltf-live-scene` sample parses
+an embedded indexed-triangle document, decodes and uploads its accessors, draws
+to a readable target, and presents the same buffers. OpenGL, Vulkan, and auto
+all produced exact pixel `1028`, four stable measured frames, and `live=0` with
+`LD_LIBRARY_PATH` removed; automatic selection chose Vulkan.

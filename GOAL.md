@@ -28,6 +28,13 @@ Continue with binary buffer acquisition, typed accessor decoding, retained GPU
 materialization, and a live scene draw; metadata mapping alone is not a full
 glTF renderer.
 
+The buffer execution checkpoint now resolves supplied/GLB or embedded base64
+payloads, decodes dense and sparse accessors, widens indices, owns retained GPU
+buffers, and renders the parsed indexed primitive on OpenGL/Vulkan/auto with
+exact output and zero warmed growth. Continue with full node traversal,
+world-transform propagation, multi-primitive/material scene submission, and
+texture/image acquisition; one live primitive is not yet a full glTF renderer.
+
 ## Mission
 
 Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and

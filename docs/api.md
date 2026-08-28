@@ -1335,6 +1335,21 @@ component/type combinations, and configured document limits.
 rejection. Binary buffer acquisition and GPU resource materialization remain a
 separate layer.
 
+Import `src/gltf_buffer.ab` to connect metadata to bytes and retained GPU
+resources. `gltfBufferPayloads(document, supplied)` accepts caller-provided
+external or GLB payloads by buffer index and falls back to bounded base64 data
+URIs. Every payload must exactly match its declared byte length.
+`gltfAccessorBytes` repacks dense strided elements and applies strictly ordered
+sparse overrides after validating every source and destination span.
+
+`app.gltfGpuPrimitive(document, payloads, meshIndex, primitiveIndex)` creates
+one affine `GltfGpuPrimitive`. Position data remains tightly packed in a
+retained vertex buffer; `u8`, `u16`, and `u32` index accessors are widened to
+the portable 32-bit renderer contract, while non-indexed primitives receive a
+generated sequential index buffer. Upload failure produces an invalid owner
+with a stable error, never a partially usable pair. `examples/gltf-live-scene`
+is the end-to-end embedded-buffer reference.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan
