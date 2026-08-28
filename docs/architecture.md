@@ -250,9 +250,10 @@ A coverage ledger classifies every core command and extension as common, raw,
 intentionally unsupported, or platform-inapplicable, with evidence for supported
 families.
 
-Every command already has a deterministic normalized call shape. The first
-runtime family resolves application-scoped OpenGL/Vulkan addresses and invokes
-checked OpenGL zero-, one-, and two-`i32` void commands through exact
+Every command already has a deterministic normalized call shape. The raw
+runtime resolves application-scoped OpenGL/Vulkan addresses and invokes checked
+OpenGL void commands with zero through six `i32` arguments, a pointer alone,
+or a trailing pointer after as many as four `i32` arguments through exact
 compiler-supported indirect calls. Vulkan additionally supports exact
 `void(pointer)`, `void(pointer,i32)`, `void(pointer,i32,i32)`, and
 `i32(pointer)` families, plus exact four-pointer creation,
@@ -260,10 +261,10 @@ pointer/64-bit-handle destruction and status, and two-/three-pointer query
 families, plus counted-pointer result, scalar/scalar/output, pointer-result,
 scalar/output query, and handle/scalar command families. Registry type metadata
 distinguishes 32-bit `VkFlags` from 64-bit `VkFlags64` before classification.
-Generated ABI-family tags make the currently callable 352 OpenGL commands and
-all 842 pinned Vulkan commands explicit, retaining `unsupported` for the other
-2,540 OpenGL commands. Vulkan's former 50 one-off layouts and nine platform-
-scalar boundaries are fully lowered with explicit native widths. Further
+Generated ABI-family tags make the currently callable 1,792 OpenGL commands
+and all 842 pinned Vulkan commands explicit, retaining `unsupported` for the
+other 1,100 OpenGL commands. Vulkan's former 50 one-off layouts and nine
+platform-scalar boundaries are fully lowered with explicit native widths. Further
 OpenGL signatures remain unsupported until each has matching ABI, positive,
 negative, and live-driver evidence.
 

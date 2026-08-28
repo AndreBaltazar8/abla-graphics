@@ -12,14 +12,13 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 
 ## Current continuation focus
 
-The current broad slice completes the bounded pure-Abla baseline sequential
-JPEG subset used by ordinary glTF/JFIF assets and routes it through texture
-upload. The backend-free fixture
-proves a real 4:2:0 color image; the live retained scene uses JPEG on OpenGL,
-Vulkan, and automatic selection with exact output and zero warmed growth.
-Continue with shader-side deformation and texture-dependent or scene-
-transmission material models. Non-interleaved or four-component baseline scans
-and progressive/arithmetic JPEG remain explicit extensions.
+The current broad slice expands the generated raw OpenGL surface from 352 to
+1,792 callable commands. Exact pure-`i32` void calls now cover one through six
+arguments; pointer-only and trailing-pointer calls cover zero through four
+preceding `i32` arguments. Continue in large normalized-signature batches from
+the remaining 1,100 explicit `unsupported` rows, pairing each compiler ABI
+family with registry, wrong-shape, live-driver, validation, and zero-growth
+evidence. Do not infer callability merely because an address resolves.
 
 The scene metadata checkpoint now owns typed buffers, buffer views, dense and
 sparse accessors, mesh primitives, cameras, node transforms/hierarchies,
@@ -3779,3 +3778,40 @@ nix-shell --run 'make check-abla-only test-gltf-texture test-gltf-live-scene tes
 
 The source audit passed, and the standalone runtime proof reported
 `direct=true unresolved=0`.
+
+## Latest checkpoint: broad raw OpenGL ABI expansion
+
+The pure-Abla registry generator now promotes only exact OpenGL void signatures
+made entirely from supported 32-bit scalar typedefs and pointers. Pure `i32`
+families cover zero through six arguments; pointer-only and trailing-pointer
+families cover zero through four preceding `i32` arguments. The generated raw
+surface therefore rises from 352 to 1,792 callable commands, leaving 1,100 of
+2,892 entries explicitly `unsupported`.
+
+`RawOpenGlApi` exposes one checked, allocation-stable method per exact family.
+The raw sample proves wrong-family rejection and exercises `glViewport`,
+`glGetIntegerv`, and `glGetIntegeri_v` across 1,000 warmed iterations in normal
+and optimized builds. Both report `pack=4`, `workgroups=65535`, and `live=0`.
+The Vulkan half remains stable and emits no validation messages; the validation
+gate now checks both stdout and stderr because the Abla debug callback reports
+on stdout. Raw sample compilation has a 16 GiB guard because the generated
+OpenGL/Vulkan surface is compiled together in both modes.
+
+Compiler commit `f813b8f` adds the eight exact indirect-call families and fixes
+zero-offset unsafe pointer lowering so native structure field zero addresses the
+real buffer rather than boxed temporary storage. Its complete `make check` gate
+passed 76 tests and a byte-identical pure-Abla self-rebuild. As of this
+checkpoint, unrelated uncommitted compiler optimization work existed in
+`src/module.ab`, `src/parser.ab`, and `src/toolchain.ab`; preserve it and do not
+include it in graphics-driven commits without separate ownership and proof.
+
+Validated as one graphics batch:
+
+```sh
+nix-shell --run 'make check-abla-only test-registry test-raw-commands test-runtime-linkage'
+```
+
+The normal and optimized OpenGL/Vulkan paths passed with `stable=true`; the
+stripped-library runtime proof reported `direct=true unresolved=0`. Continue by
+classifying the largest remaining normalized OpenGL signature batches instead
+of adding one command at a time. Keep the persistent goal active.

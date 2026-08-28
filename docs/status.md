@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-27.
+Updated: 2026-08-28.
 
 ## Verified now
 
@@ -31,18 +31,19 @@ Updated: 2026-08-27.
   `RawOpenGlApi` resolves through `eglGetProcAddress`
   with process-symbol fallback, `RawVulkanApi` resolves instance/device
   commands through the Vulkan loaders, and exact-shape checking enables the
-  first allocation-stable OpenGL indirect call families. Generated ABI tags
-  classify 49 `void()`, 146 `void(i32)`, and 157 `void(i32,i32)` entries as
-  callable—352 total—and mark the other 2,540 OpenGL entries unsupported.
+  allocation-stable OpenGL indirect call families. Generated ABI tags classify
+  `void()` plus pure-`i32` commands through six arguments, `void(pointer)`, and
+  trailing-pointer commands through four preceding `i32` arguments as
+  callable—1,792 total—and mark the other 1,100 OpenGL entries unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
   Affine typed builders now own exact zeroed native storage for event, fence,
   device-queue, and command-buffer-begin structures and are exercised by the
   live raw path. Registry-driven schema emission remains the next builder step.
-  The live raw sample
-  observes and restores scissor and
-  pack-alignment state through 1,000 calls per scalar family with zero growth
+  The live raw sample observes and restores scissor and pack-alignment state,
+  queries indexed compute limits, and repeatedly sets the viewport through
+  1,000 calls per exercised family with zero growth
   in normal and optimized builds. Its Vulkan path records 1,000 device-mask
   commands plus 1,000 stencil-reference commands, pairs an empty dynamic
   rendering begin with a raw end, submits and waits for the command buffer,

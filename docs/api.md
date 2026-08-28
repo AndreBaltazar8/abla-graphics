@@ -3680,13 +3680,14 @@ builds.
 not outlive `app`. `command`, `instanceCommand`, and `deviceCommand` resolve a
 known registry name once and return a `RawNativeCommand` with its name, call
 shape, classified ABI family, address, and owning context/dispatch handle.
-Unknown names return an invalid command. `rawOpenGl.callVoid0(command)`,
-`callVoidI32(command, first)`, and
-`callVoidI32I32(command, first, second)` accept only their exact generated ABI
-family, make the owning EGL context current, reject a command resolved by
-another context, and perform the indirect call without steady-state
-allocation. The generated classification currently enables 49, 146, and 157
-OpenGL commands respectively. Vulkan exposes
+Unknown names return an invalid command. `rawOpenGl.callVoid0(command)` and the
+pure-scalar `callVoidI32...` methods support one through six `i32` arguments.
+`callVoidPointer(command, pointer)` and the trailing-pointer
+`callVoidI32...Pointer` methods support zero through four preceding `i32`
+arguments. Every method accepts only its exact generated ABI family, makes the
+owning EGL context current, rejects a command resolved by another context, and
+performs the indirect call without steady-state allocation. The generated
+classification currently enables 1,792 OpenGL commands. Vulkan exposes
 `callVoidPointer(command, pointer)`,
 `callVoidPointerI32(command, pointer, second)`, and
 `callVoidPointerI32I32(command, pointer, second, third)` for their exact

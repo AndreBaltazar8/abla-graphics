@@ -12,7 +12,7 @@ for mode in normal fast; do
     flags=()
     if [[ $mode == fast ]]; then flags+=(--fast); fi
     cd "$compiler_root"
-    ABLA_MAX_MEMORY_MB=${ABLA_RAW_COMMAND_TEST_MEMORY_MB:-8192} \
+    ABLA_MAX_MEMORY_MB=${ABLA_RAW_COMMAND_TEST_MEMORY_MB:-16384} \
         ABLA_SYSROOT="$compiler_root" "$compiler" \
         build "$project_root/examples/raw-command-addresses/main.ab" \
         -o "$executable" --no-cache "${flags[@]}"
@@ -32,7 +32,8 @@ for mode in normal fast; do
         xvfb-run -a -s "-screen 0 800x600x24" \
         "$executable" vulkan >"$validation_output" 2>"$validation_log"
     cat "$validation_output"
-    if rg -q 'Validation Error|VUID-|ERROR' "$validation_log"; then
+    if rg -q 'Validation Error|VUID-|ERROR' \
+        "$validation_output" "$validation_log"; then
         cat "$validation_log" >&2
         exit 1
     fi

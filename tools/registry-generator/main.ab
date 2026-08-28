@@ -2384,6 +2384,47 @@ fun registryOpenGlI32Type(name: string): bool =
     name == "GLint" || name == "GLsizei" || name == "GLfixed" ||
     name == "GLclampx" || name == "GLhandleARB"
 
+fun registryOpenGlNormalizedCallAbi(
+    command: string,
+    returnType: string,
+    signatures: RegistryCommandSignatures
+): string {
+    var abi = if (returnType == "void") "void(" else ""
+    var valid = abi != ""
+    var first = true
+    var parameterIndex = 0
+    while (valid && parameterIndex < signatures.parameterOwners.size) {
+        if (signatures.parameterOwners[parameterIndex] == command) {
+            var kind = ""
+            if (signatures.parameterPointerLevels[parameterIndex] != "0")
+                kind = "pointer"
+            else if (registryOpenGlI32Type(
+                signatures.parameterTypes[parameterIndex]
+            )) kind = "i32"
+            if (kind == "") valid = false
+            else {
+                if (!first) abi = "$abi,"
+                abi = "$abi$kind"
+                first = false
+            }
+        }
+        parameterIndex = parameterIndex + 1
+    }
+    if (valid) abi = "$abi)"
+    if (valid) abi else ""
+}
+
+fun registryOpenGlCallAbiSupported(abi: string): bool =
+    abi == "void()" || abi == "void(i32)" ||
+    abi == "void(i32,i32)" || abi == "void(i32,i32,i32)" ||
+    abi == "void(i32,i32,i32,i32)" ||
+    abi == "void(i32,i32,i32,i32,i32)" ||
+    abi == "void(i32,i32,i32,i32,i32,i32)" ||
+    abi == "void(pointer)" || abi == "void(i32,pointer)" ||
+    abi == "void(i32,i32,pointer)" ||
+    abi == "void(i32,i32,i32,pointer)" ||
+    abi == "void(i32,i32,i32,i32,pointer)"
+
 fun registryVulkanDispatchableType(name: string): bool =
     name == "VkCommandBuffer"
 
@@ -3682,6 +3723,13 @@ fun registryCommandCallAbis(
                 types
             )
             if (additionalAbi != "") abi = additionalAbi
+        }
+        if (api == "opengl" && abi == "unsupported") {
+            val additionalAbi = registryOpenGlNormalizedCallAbi(
+                command, signatures.returnTypes[commandIndex], signatures
+            )
+            if (registryOpenGlCallAbiSupported(additionalAbi))
+                abi = additionalAbi
         }
         abis.append(abi)
         commandIndex = commandIndex + 1
