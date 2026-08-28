@@ -1380,11 +1380,27 @@ mode, cache)` samples and uploads one pose while preserving both GPU buffer
 handles, index contents, vertex count/layout, and every draw range.
 `refreshDeformationCached` accepts an already evaluated state directly.
 
+`gltfAnimationBlend(document, left, right, amount)` blends two compatible
+poses for `amount` in `[0, 1]`. Translation, scale, and morph weights are
+linear; rotation uses shortest-path quaternion slerp; world transforms are
+recomputed from the blended local hierarchy. Matrix-authored nodes must have
+identical local matrices because the framework does not invent a lossy matrix
+decomposition. Invalid documents, poses, weight layouts, or amounts return an
+invalid pose.
+
+`geometry.refreshAnimationBlendCached(document, drawList, plan,
+leftAnimation, leftElapsed, leftMode, rightAnimation, rightElapsed, rightMode,
+amount, cache)` independently samples and blends two clips beneath one
+transient checkpoint, then uploads the result through the same retained vertex
+buffer. This is the allocation-bounded crossfade path; neither clip needs to
+share a playback clock or playback mode.
+
 Pose and skin-matrix values are transient Abla region allocations. Long-running
 applications should bracket their complete update/render unit with
 `runtimeMemoryCheckpoint()` and `runtimeMemoryReset(checkpoint)`, leaving the
 application, scene, cache, pipelines, and GPU resources outside that scope.
-`examples/gltf-live-animation` is the reference: it performs 240 alternating
+`examples/gltf-live-animation` is the reference: it proves both endpoints and
+the exact midpoint of a two-clip crossfade, then performs 240 alternating blend
 updates with exact readback, real presentation, stable native handles, a
 30-updates/s minimum gate, and zero live-byte growth on OpenGL and Vulkan.
 

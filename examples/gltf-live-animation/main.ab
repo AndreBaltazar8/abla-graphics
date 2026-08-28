@@ -23,7 +23,9 @@ fun main: int {
     )
     val payload = "AAAAvwAAAL8AAAAAAAAAPwAAAL8AAAAAAAAAAAAAAD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAD8AAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAAAAAAAAAAACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAACAPgAAAAAAAAAAAACAPgAAAAAAAAAAAACAPgAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAQACAAAAAAAAAAAAgD8AAAAAAACAPwAAAAAAAAAAAAAAAAAAgD4AAAAAAAAAAA=="
     val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,$payload\",\"byteLength\":352}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":24},{\"buffer\":0,\"byteOffset\":60,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":96,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":144,\"byteLength\":12},{\"buffer\":0,\"byteOffset\":156,\"byteLength\":48},{\"buffer\":0,\"byteOffset\":204,\"byteLength\":36},{\"buffer\":0,\"byteOffset\":240,\"byteLength\":64},{\"buffer\":0,\"byteOffset\":304,\"byteLength\":6},{\"buffer\":0,\"byteOffset\":312,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":320,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":328,\"byteLength\":24}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"},{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":3,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":4,\"componentType\":5121,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":5,\"componentType\":5126,\"count\":3,\"type\":\"VEC4\"},{\"bufferView\":6,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":7,\"componentType\":5126,\"count\":1,\"type\":\"MAT4\"},{\"bufferView\":8,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"},{\"bufferView\":9,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":10,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":11,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"}],\"meshes\":[{\"weights\":[0.0],\"primitives\":[{\"attributes\":{\"POSITION\":0,\"TEXCOORD_0\":1,\"NORMAL\":2,\"TANGENT\":3,\"JOINTS_0\":4,\"WEIGHTS_0\":5},\"targets\":[{\"POSITION\":6}],\"indices\":8}]}],\"nodes\":[{\"mesh\":0,\"skin\":0},{}],\"skins\":[{\"inverseBindMatrices\":7,\"joints\":[1],\"skeleton\":1}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0,\"animations\":[{\"samplers\":[{\"input\":9,\"output\":10},{\"input\":9,\"output\":11}],\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"weights\"}},{\"sampler\":1,\"target\":{\"node\":1,\"path\":\"translation\"}}]}]}"
-    val parsed = gltfDocument(source)
+    val secondAnimation = "{\"name\":\"independent return clip\",\"samplers\":[{\"input\":9,\"output\":10},{\"input\":9,\"output\":11}],\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"weights\"}},{\"sampler\":1,\"target\":{\"node\":1,\"path\":\"translation\"}}]}"
+    val twoClipSource = "${source.slice(0, source.size - 2)},$secondAnimation]}"
+    val parsed = gltfDocument(twoClipSource)
     val buffers = if (parsed.succeeded)
         gltfBufferPayloads(parsed.document)
         else GltfBufferPayloads([], false, "parse")
@@ -57,6 +59,18 @@ fun main: int {
             gltfAnimationPlaybackLoop
         )
         else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val returnPose = if (updates.valid)
+        gltfAnimationPlaybackPoseCached(
+            parsed.document, updates.accessors, 1, 0.0,
+            gltfAnimationPlaybackClamp
+        )
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val middlePose = gltfAnimationBlend(
+        parsed.document, endPose, returnPose, 0.5
+    )
+    val invalidBlend = gltfAnimationBlend(
+        parsed.document, endPose, returnPose, 1.1
+    )
     val geometry = app.gltfGpuTexturedScene(
         parsed.document, buffers, draws, resources,
         startPose.deformationState()
@@ -123,9 +137,13 @@ fun main: int {
     val clear = Color(0.01, 0.01, 0.015)
     var ready = app.valid() && parsed.succeeded && buffers.valid &&
         draws.valid && resources.valid && updates.valid &&
+        parsed.document.animations.size == 2 &&
         startPose.valid && endPose.valid && loopPose.valid &&
+        returnPose.valid && middlePose.valid && !invalidBlend.valid &&
         loopPose.nodeWeight(0, 0) >= 0.499 &&
         loopPose.nodeWeight(0, 0) <= 0.501 &&
+        middlePose.nodeWeight(0, 0) >= 0.499 &&
+        middlePose.nodeWeight(0, 0) <= 0.501 &&
         geometry.valid() && shader.valid && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() &&
         pixels.clearRgba8(0, 255, 0) &&
@@ -169,13 +187,56 @@ fun main: int {
     val afterCenter = if (ready) target.texture.rgba8(32, 32) else -1
     val afterMoved = if (ready) target.texture.rgba8(48, 32) else -1
     val green = 4278255360
+    if (ready) ready = geometry.refreshAnimationBlendCached(
+        parsed.document, draws, resources,
+        0, 1.0, gltfAnimationPlaybackClamp,
+        1, 0.0, gltfAnimationPlaybackClamp,
+        0.0, updates
+    ) && app.renderIndexedToTarget(
+        target, targetPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    ) && app.presentRenderIndexed(
+        windowPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    )
+    val blendRight = if (ready) target.texture.rgba8(48, 32) else -1
+    if (ready) ready = geometry.refreshAnimationBlendCached(
+        parsed.document, draws, resources,
+        0, 1.0, gltfAnimationPlaybackClamp,
+        1, 0.0, gltfAnimationPlaybackClamp,
+        0.5, updates
+    ) && app.renderIndexedToTarget(
+        target, targetPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    ) && app.presentRenderIndexed(
+        windowPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    )
+    val blendMiddle = if (ready) target.texture.rgba8(40, 32) else -1
+    val blendMiddleRight = if (ready) target.texture.rgba8(48, 32) else -1
+    if (ready) ready = geometry.refreshAnimationBlendCached(
+        parsed.document, draws, resources,
+        0, 1.0, gltfAnimationPlaybackClamp,
+        1, 0.0, gltfAnimationPlaybackClamp,
+        1.0, updates
+    ) && app.renderIndexedToTarget(
+        target, targetPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    ) && app.presentRenderIndexed(
+        windowPipeline, geometry.vertices, geometry.indices,
+        geometry.indexCount, clear
+    )
+    val blendReturn = if (ready) target.texture.rgba8(32, 32) else -1
+    val blendReturnRight = if (ready) target.texture.rgba8(48, 32) else -1
     var warm = 0
     while (ready && warm < 2) {
-        var sampleTime = 0.0
-        if ((warm & 1) != 0) sampleTime = 1.0
-        ready = geometry.refreshAnimationCached(
-            parsed.document, draws, resources, 0, sampleTime,
-            gltfAnimationPlaybackClamp, updates
+        var blendAmount = 0.0
+        if ((warm & 1) != 0) blendAmount = 1.0
+        ready = geometry.refreshAnimationBlendCached(
+            parsed.document, draws, resources,
+            0, 1.0, gltfAnimationPlaybackClamp,
+            1, 0.0, gltfAnimationPlaybackClamp,
+            blendAmount, updates
         ) && app.renderIndexedToTarget(
             target, targetPipeline, geometry.vertices, geometry.indices,
             geometry.indexCount, clear
@@ -190,11 +251,13 @@ fun main: int {
     val started = graphicsMonotonicNanoseconds()
     var frame = 0
     while (ready && frame < 240) {
-        var sampleTime = 0.0
-        if ((frame & 1) != 0) sampleTime = 1.0
-        ready = geometry.refreshAnimationCached(
-            parsed.document, draws, resources, 0, sampleTime,
-            gltfAnimationPlaybackClamp, updates
+        var blendAmount = 0.0
+        if ((frame & 1) != 0) blendAmount = 1.0
+        ready = geometry.refreshAnimationBlendCached(
+            parsed.document, draws, resources,
+            0, 1.0, gltfAnimationPlaybackClamp,
+            1, 0.0, gltfAnimationPlaybackClamp,
+            blendAmount, updates
         ) && app.renderIndexedToTarget(
             target, targetPipeline, geometry.vertices, geometry.indices,
             geometry.indexCount, clear
@@ -203,10 +266,10 @@ fun main: int {
             geometry.indexCount, clear
         )
         if (ready && (frame & 1) == 0)
-            ready = target.texture.rgba8(32, 32) == green &&
-                target.texture.rgba8(48, 32) != green
-        else if (ready) ready = target.texture.rgba8(32, 32) != green &&
-            target.texture.rgba8(48, 32) == green
+            ready = target.texture.rgba8(32, 32) != green &&
+                target.texture.rgba8(48, 32) == green
+        else if (ready) ready = target.texture.rgba8(32, 32) == green &&
+            target.texture.rgba8(48, 32) != green
         frame = frame + 1
     }
     val elapsed = graphicsMonotonicNanoseconds() - started
@@ -216,10 +279,13 @@ fun main: int {
     if (elapsed > 0) updatesPerSecond = frame * 1000000000 / elapsed
     val passed = ready && stableHandles && beforeCenter == green &&
         beforeMoved != green && afterCenter != green && afterMoved == green &&
+        blendRight == green && blendMiddle == green &&
+        blendMiddleRight != green && blendReturn == green &&
+        blendReturnRight != green &&
         warm == 2 && frame == 240 && elapsed > 0 &&
         updatesPerSecond >= 30 &&
         liveAfter == liveBefore
     if (!passed) println("gltf-live-animation setup: parsed=${parsed.succeeded}:${parsed.error} buffers=${buffers.valid}:${buffers.error} draws=${draws.valid}:${draws.error} resources=${resources.valid}:${resources.error} updates=${updates.valid}:${updates.error} poses=${startPose.valid}:${startPose.error}/${endPose.valid}:${endPose.error}/${loopPose.valid}:${loopPose.error} geometry=${geometry.valid()}:${geometry.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${targetPipeline.error.message}/${windowPipeline.valid()}:${windowPipeline.error.message}")
-    println("gltf-live-animation ${graphicsBackendName(app.backend)}: pixels=$beforeCenter/$beforeMoved->$afterCenter/$afterMoved handles=$stableHandles frames=$frame rate=$updatesPerSecond live=${liveAfter - liveBefore} passed=$passed")
+    println("gltf-live-animation ${graphicsBackendName(app.backend)}: pixels=$beforeCenter/$beforeMoved->$afterCenter/$afterMoved blend=$blendRight/$blendMiddle/$blendMiddleRight/$blendReturn/$blendReturnRight handles=$stableHandles frames=$frame rate=$updatesPerSecond live=${liveAfter - liveBefore} passed=$passed")
     if (passed) 0 else 1
 }

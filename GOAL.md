@@ -3660,7 +3660,30 @@ across 240 update/render/readback/present cycles. The consolidated Xvfb gate
 reports about 1,658 updates/s on OpenGL and 338 updates/s on Vulkan, exact pixels,
 stable vertex/index handles, and `live=0`; the enforced portable floor is 30
 updates/s. Shader-side skinning/morphing, blending between animation clips,
-and performance measurement on larger real assets remain open.
+and performance measurement on larger real assets remain open. The following
+checkpoint completes clip blending.
+
+## Latest checkpoint: cached two-clip glTF crossfades
+
+`GltfAnimationPose` now retains its sampled translation, rotation, and scale
+components alongside local/world matrices and morph weights.
+`gltfAnimationBlend(...)` validates compatible pose layouts, linearly blends
+translation/scale/morph weights, applies shortest-path quaternion slerp, and
+rebuilds the complete world hierarchy. Matrix-authored nodes remain supported
+when both poses have exactly the same matrix; no lossy decomposition is
+introduced.
+
+`refreshAnimationBlendCached(...)` samples independently indexed, timed, and
+clamped/looping clips under one transient checkpoint before refreshing the same
+retained vertex buffer. The backend-free animation sample verifies midpoint
+TRS, quaternion, and morph results plus invalid-amount rejection. The live
+sample verifies exact crossfade endpoint/midpoint pixels, then performs 240
+alternating two-clip updates with stable vertex/index handles and `live=0` on
+OpenGL and Vulkan. The consolidated Xvfb proof reports 880 updates/s on OpenGL
+and 339 updates/s on Vulkan; the portable enforced floor remains 30.
+
+Shader-side skinning/morphing and performance measurement on larger real
+assets remain open.
 
 Validated with:
 

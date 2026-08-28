@@ -12,7 +12,10 @@ class GltfAnimationPose(
     val time: f64,
     val duration: f64,
     val valid: bool,
-    val error: string
+    val error: string,
+    val translations: array<Vec3> = [],
+    val rotations: array<Vec4> = [],
+    val scales: array<Vec3> = []
 ) {
     fun nodeWeight(node: int, target: int): f64 =
         if (this.valid && node >= 0 && node < this.nodeWeightOffsets.size &&
@@ -435,7 +438,153 @@ trusted fun gltfAnimationPoseCached(
     GltfAnimationPose(
         localTransforms, worldTransforms, weightOffsets, weightCounts,
         weights, time, duration, valid,
-        if (valid) "" else "invalid glTF animation payload or pose"
+        if (valid) "" else "invalid glTF animation payload or pose",
+        translations, rotations, scales
+    )
+}
+
+fun gltfAnimationMatricesEqual(left: Mat4, right: Mat4): bool =
+    left.m00 == right.m00 && left.m01 == right.m01 &&
+    left.m02 == right.m02 && left.m03 == right.m03 &&
+    left.m10 == right.m10 && left.m11 == right.m11 &&
+    left.m12 == right.m12 && left.m13 == right.m13 &&
+    left.m20 == right.m20 && left.m21 == right.m21 &&
+    left.m22 == right.m22 && left.m23 == right.m23 &&
+    left.m30 == right.m30 && left.m31 == right.m31 &&
+    left.m32 == right.m32 && left.m33 == right.m33
+
+fun gltfAnimationBlendVec3(
+    left: Vec3,
+    right: Vec3,
+    amount: f64
+): Vec3 = Vec3(
+    left.x + (right.x - left.x) * amount,
+    left.y + (right.y - left.y) * amount,
+    left.z + (right.z - left.z) * amount
+)
+
+// Blends complete compatible poses. TRS nodes use component-space blending;
+// matrix-authored nodes must be identical because decomposition would invent
+// information that glTF did not provide. World transforms are propagated from
+// the blended locals rather than interpolated independently.
+trusted fun gltfAnimationBlend(
+    document: GltfDocument,
+    left: GltfAnimationPose,
+    right: GltfAnimationPose,
+    amount: f64
+): GltfAnimationPose {
+    val translations: array<Vec3> = []
+    val rotations: array<Vec4> = []
+    val scales: array<Vec3> = []
+    val localTransforms: array<Mat4> = []
+    val worldTransforms: array<Mat4> = []
+    val weights: array<f64> = []
+    var valid = document.valid() && left.valid && right.valid &&
+        amount >= 0.0 && amount <= 1.0 &&
+        left.localTransforms.size == document.nodes.size &&
+        right.localTransforms.size == document.nodes.size &&
+        left.translations.size == document.nodes.size &&
+        right.translations.size == document.nodes.size &&
+        left.rotations.size == document.nodes.size &&
+        right.rotations.size == document.nodes.size &&
+        left.scales.size == document.nodes.size &&
+        right.scales.size == document.nodes.size &&
+        left.nodeWeightOffsets.size == document.nodes.size &&
+        right.nodeWeightOffsets.size == document.nodes.size &&
+        left.nodeWeightCounts.size == document.nodes.size &&
+        right.nodeWeightCounts.size == document.nodes.size &&
+        left.weights.size == right.weights.size
+    var nodeIndex = 0
+    while (valid && nodeIndex < document.nodes.size) {
+        valid = left.nodeWeightOffsets[nodeIndex] ==
+                right.nodeWeightOffsets[nodeIndex] &&
+            left.nodeWeightCounts[nodeIndex] ==
+                right.nodeWeightCounts[nodeIndex]
+        if (valid && document.nodes[nodeIndex].matrixTransform)
+            valid = gltfAnimationMatricesEqual(
+                left.localTransforms[nodeIndex],
+                right.localTransforms[nodeIndex]
+            )
+        if (valid) {
+            var translation = left.translations[nodeIndex]
+            var rotation = left.rotations[nodeIndex]
+            var scale = left.scales[nodeIndex]
+            var local = left.localTransforms[nodeIndex]
+            if (!document.nodes[nodeIndex].matrixTransform) {
+                translation = gltfAnimationBlendVec3(
+                    left.translations[nodeIndex],
+                    right.translations[nodeIndex], amount
+                )
+                rotation = gltfSlerpQuaternion(
+                    left.rotations[nodeIndex],
+                    right.rotations[nodeIndex], amount
+                )
+                scale = gltfAnimationBlendVec3(
+                    left.scales[nodeIndex], right.scales[nodeIndex], amount
+                )
+                local = gltfAnimationTrs(translation, rotation, scale)
+            }
+            translations.append(translation)
+            rotations.append(rotation)
+            scales.append(scale)
+            localTransforms.append(local)
+            worldTransforms.append(mat4Identity())
+        }
+        nodeIndex = nodeIndex + 1
+    }
+    var weightIndex = 0
+    while (valid && weightIndex < left.weights.size) {
+        weights.append(
+            left.weights[weightIndex] +
+                (right.weights[weightIndex] - left.weights[weightIndex]) *
+                    amount
+        )
+        weightIndex = weightIndex + 1
+    }
+    val parents: array<int> = []
+    val queued: array<int> = []
+    nodeIndex = 0
+    while (valid && nodeIndex < document.nodes.size) {
+        parents.append(-1)
+        nodeIndex = nodeIndex + 1
+    }
+    nodeIndex = 0
+    while (valid && nodeIndex < document.nodes.size) {
+        var childIndex = 0
+        while (childIndex < document.nodes[nodeIndex].children.size) {
+            parents[document.nodes[nodeIndex].children[childIndex]] = nodeIndex
+            childIndex = childIndex + 1
+        }
+        nodeIndex = nodeIndex + 1
+    }
+    nodeIndex = 0
+    while (valid && nodeIndex < parents.size) {
+        if (parents[nodeIndex] < 0) queued.append(nodeIndex)
+        nodeIndex = nodeIndex + 1
+    }
+    var queueIndex = 0
+    while (valid && queueIndex < queued.size) {
+        val node = queued[queueIndex]
+        worldTransforms[node] = if (parents[node] < 0) localTransforms[node]
+            else worldTransforms[parents[node]].multiplied(localTransforms[node])
+        var childIndex = 0
+        while (childIndex < document.nodes[node].children.size) {
+            queued.append(document.nodes[node].children[childIndex])
+            childIndex = childIndex + 1
+        }
+        queueIndex = queueIndex + 1
+    }
+    valid = valid && queueIndex == document.nodes.size
+    var time = left.time
+    time = time + (right.time - time) * amount
+    var duration = left.duration
+    if (right.duration > duration) duration = right.duration
+    GltfAnimationPose(
+        localTransforms, worldTransforms,
+        left.nodeWeightOffsets, left.nodeWeightCounts, weights,
+        time, duration, valid,
+        if (valid) "" else "incompatible glTF animation blend poses",
+        translations, rotations, scales
     )
 }
 
@@ -551,6 +700,58 @@ trusted fun GltfGpuTexturedScene.refreshAnimationCached(
     val refreshed = gltfRefreshAnimationCachedTransient(
         this, document, drawList, plan, animationIndex, elapsed,
         playback, cache
+    )
+    runtimeMemoryReset(checkpoint)
+    refreshed
+}
+
+trusted fun gltfRefreshAnimationBlendCachedTransient(
+    var geometry: GltfGpuTexturedScene,
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    leftAnimation: int,
+    leftElapsed: f64,
+    leftPlayback: int,
+    rightAnimation: int,
+    rightElapsed: f64,
+    rightPlayback: int,
+    amount: f64,
+    var cache: GltfTexturedSceneUpdateCache
+): bool {
+    val left = gltfAnimationPlaybackPoseCached(
+        document, cache.accessors, leftAnimation, leftElapsed, leftPlayback
+    )
+    val right = gltfAnimationPlaybackPoseCached(
+        document, cache.accessors, rightAnimation, rightElapsed, rightPlayback
+    )
+    val blended = gltfAnimationBlend(document, left, right, amount)
+    blended.valid && geometry.refreshDeformationCached(
+        document, drawList, plan, blended.deformationState(), cache
+    )
+}
+
+// Crossfades two independently timed clips into the same retained geometry.
+// All sampled/blended pose values live beneath one transient checkpoint.
+trusted fun GltfGpuTexturedScene.refreshAnimationBlendCached(
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    leftAnimation: int,
+    leftElapsed: f64,
+    leftPlayback: int,
+    rightAnimation: int,
+    rightElapsed: f64,
+    rightPlayback: int,
+    amount: f64,
+    var cache: GltfTexturedSceneUpdateCache
+): bool {
+    val checkpoint = runtimeMemoryCheckpoint()
+    val refreshed = gltfRefreshAnimationBlendCachedTransient(
+        this, document, drawList, plan,
+        leftAnimation, leftElapsed, leftPlayback,
+        rightAnimation, rightElapsed, rightPlayback,
+        amount, cache
     )
     runtimeMemoryReset(checkpoint)
     refreshed

@@ -2333,7 +2333,11 @@ bounded pure-Abla loop-time reduction.
 `GltfAccessorCache` performs dense/sparse accessor expansion once.
 `GltfTexturedSceneUpdateCache` retains those bytes, fixed vertex scratch, and
 topology metadata; cached refresh rewrites vertices only, never indices,
-handles, layouts, or draw ranges. The live animation proof alternates morph and
-joint poses for 240 update/render/readback/present cycles. OpenGL reports over
-1,400 updates/s and Vulkan over 300 updates/s under the Xvfb software proof,
-with exact pixels, stable handles, and `live=0` after the playback arena reset.
+handles, layouts, or draw ranges. Compatible poses now blend translation,
+scale, and morph weights linearly and rotations by shortest-path quaternion
+slerp, then rebuild world transforms. The cached retained path independently
+samples two clips for crossfades. The live proof checks exact endpoint and
+midpoint pixels, then alternates two clips for 240 update/render/readback/
+present cycles. The consolidated Xvfb proof reports 880 updates/s on OpenGL
+and 339 updates/s on Vulkan, with stable handles and `live=0` after the
+playback arena reset.

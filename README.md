@@ -451,14 +451,16 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   validation, and a retained per-draw deformation plan;
 - `examples/gltf-animation`: typed glTF 2.0 animation samplers/channels with
   STEP, quaternion LINEAR, CUBICSPLINE, morph-weight, and world-pose
-  evaluation plus strict accessor/path validation;
+  evaluation, compatible-pose TRS/quaternion/morph blending, and strict
+  accessor/path validation;
 - `examples/gltf-live-deformation`: one pure-Abla retained geometry build
   applies a node morph-weight override and a joint/inverse-bind palette before
   identical zero-growth OpenGL and Vulkan indexed rendering;
 - `examples/gltf-live-animation`: evaluated morph-weight and joint-translation
   channels reuse one decoded-accessor/vertex-scratch cache, support clamped and
-  looping playback, and preserve GPU handles/draw topology across a 240-update
-  zero-growth OpenGL/Vulkan throughput gate;
+  looping playback plus independently timed two-clip crossfades, and preserve
+  GPU handles/draw topology across a 240-update zero-growth OpenGL/Vulkan
+  throughput gate;
 - `examples/gltf-material-batches`: order-preserving partitioning of arbitrary
   draw lists into bounded three-material groups, including repeated-slot reuse,
   implicit default materials, tighter policies, and capacity rejection;

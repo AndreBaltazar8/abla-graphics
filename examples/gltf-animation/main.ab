@@ -16,6 +16,21 @@ fun main: int {
     val endPose = if (buffers.valid)
         gltfAnimationPose(parsed.document, buffers, 0, 1.0)
         else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val cache = if (buffers.valid)
+        gltfAccessorCache(parsed.document, buffers)
+        else GltfAccessorCache([], false, "parse")
+    val startPose = if (cache.valid)
+        gltfAnimationPoseCached(parsed.document, cache, 0, 0.0)
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val cachedEndPose = if (cache.valid)
+        gltfAnimationPoseCached(parsed.document, cache, 0, 1.0)
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val blendedPose = gltfAnimationBlend(
+        parsed.document, startPose, cachedEndPose, 0.5
+    )
+    val invalidBlend = gltfAnimationBlend(
+        parsed.document, startPose, cachedEndPose, 1.01
+    )
     val inputBytes = if (buffers.valid)
         gltfAccessorBytes(parsed.document, buffers, 2) else bufferBytes(0)
     val sampledInterval = if (buffers.valid) gltfAnimationKeyInterval(
@@ -28,7 +43,8 @@ fun main: int {
     )
     val invalidShape = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":20}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":8},{\"buffer\":0,\"byteOffset\":8,\"byteLength\":12}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"SCALAR\"},{\"bufferView\":1,\"componentType\":5126,\"count\":1,\"type\":\"VEC3\"}],\"nodes\":[{}],\"animations\":[{\"samplers\":[{\"input\":0,\"output\":1}],\"channels\":[{\"sampler\":0,\"target\":{\"node\":0,\"path\":\"translation\"}}]}]}")
     val passed = parsed.succeeded && parsed.document.animations.size == 1 &&
-        buffers.valid && pose.valid && endPose.valid &&
+        buffers.valid && pose.valid && endPose.valid && cache.valid &&
+        startPose.valid && cachedEndPose.valid && blendedPose.valid &&
         near(pose.duration, 1.0) && near(pose.localTransforms[0].m03, 1.0) &&
         near(pose.nodeWeight(0, 0), 0.5) &&
         near(pose.localTransforms[1].m00, 0.0) &&
@@ -38,11 +54,18 @@ fun main: int {
         near(endPose.localTransforms[2].m00, 2.0) &&
         near(pose.localTransforms[3].m03, 1.25) &&
         near(endPose.localTransforms[3].m03, 2.0) &&
+        near(blendedPose.localTransforms[0].m03, 1.0) &&
+        near(blendedPose.nodeWeight(0, 0), 0.5) &&
+        near(blendedPose.localTransforms[1].m00, 0.0) &&
+        near(blendedPose.localTransforms[1].m01, -1.0) &&
+        near(blendedPose.localTransforms[1].m10, 1.0) &&
+        near(blendedPose.localTransforms[2].m00, 1.5) &&
+        !invalidBlend.valid &&
         !invalidShape.succeeded
     if (!passed) println("gltf-animation checks: parsed=${parsed.succeeded} buffers=${buffers.valid} pose=${pose.valid}:${pose.error} end=${endPose.valid}:${endPose.error} duration=${near(pose.duration, 1.0)} translation=${near(pose.localTransforms[0].m03, 1.0)} weight=${near(pose.nodeWeight(0, 0), 0.5)} rotation=${near(pose.localTransforms[1].m00, 0.0)}:${near(pose.localTransforms[1].m01, -1.0)}:${near(pose.localTransforms[1].m10, 1.0)} step=${near(pose.localTransforms[2].m00, 1.0)}:${near(endPose.localTransforms[2].m00, 2.0)} cubic=${near(pose.localTransforms[3].m03, 1.25)} invalid=${!invalidShape.succeeded}")
     if (!passed) println("gltf-animation bits: translation=${f64ToBits(pose.localTransforms[0].m03)} weight=${f64ToBits(pose.nodeWeight(0, 0))} rotation=${f64ToBits(pose.localTransforms[1].m00)}/${f64ToBits(pose.localTransforms[1].m01)}/${f64ToBits(pose.localTransforms[1].m10)} cubic=${f64ToBits(pose.localTransforms[3].m03)}")
     if (!passed) println("gltf-animation interval: valid=${sampledInterval.valid} keys=${sampledInterval.left}/${sampledInterval.right} amount=${f64ToBits(sampledInterval.amount)} span=${f64ToBits(sampledInterval.span)}")
     if (!passed) println("gltf-animation slerp: ${f64ToBits(directRotation.x)}/${f64ToBits(directRotation.y)}/${f64ToBits(directRotation.z)}/${f64ToBits(directRotation.w)}")
-    println("gltf-animation: animations=${parsed.document.animations.size} channels=${parsed.document.animations[0].channels.size} duration=1 step/linear/cubic/weights=true mapped=$passed")
+    println("gltf-animation: animations=${parsed.document.animations.size} channels=${parsed.document.animations[0].channels.size} duration=1 step/linear/cubic/weights/blend=true mapped=$passed")
     if (passed) 0 else 1
 }
