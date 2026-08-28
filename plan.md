@@ -272,10 +272,12 @@ and material references are now cross-validated; embedded/buffer-view/external
 payload acquisition, strict pure-Abla RGBA8 PNG decoding, retained GPU upload,
 and parsed base-color binding are live on all three selections. FLOAT `VEC3`
 positions plus FLOAT `VEC2` `TEXCOORD_0` now become one retained interleaved
-stream. Geometry deduplicates by accessor identity across two mesh/material
-drawables, and the push batch selects exact green/blue entries from one bounded
-texture table with zero warmed growth. Normalized integer UVs, larger material
-tables, all PBR channels, JPEG decoding, and distinct multi-geometry fixtures
+stream. Geometry deduplicates by accessor identity, while distinct primitives
+pack into one combined affine scene vertex/index owner. Per-draw count/offset
+records remain inside the push batch and are consumed directly by both native
+passes. The two-resource fixture selects exact green/blue entries from one
+bounded texture table with zero warmed growth. Normalized integer UVs,
+normals/tangents, larger material tables, all PBR channels, and JPEG decoding
 remain open.
 
 ## Non-negotiable design rules

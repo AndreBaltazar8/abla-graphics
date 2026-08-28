@@ -2754,7 +2754,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     indexOffset: int = 0,
     indirectOffset: int = 0,
     drawCount: int = 1,
-    pushConstantStride: int = 0
+    pushConstantStride: int = 0,
+    indexedDrawRanges: i64* = nativeNullPointer(),
+    indexedDrawRangeCount: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
@@ -2783,6 +2785,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         ((drawCount == 1 && pushConstantStride == 0) ||
          (drawCount > 1 && program.pushConstantSize > 0 &&
           pushConstantStride >= program.pushConstantSize)) &&
+        ((indexedDrawRangeCount == 0 && pointerIsNull(indexedDrawRanges)) ||
+         (indexedDrawRangeCount == drawCount &&
+          !pointerIsNull(indexedDrawRanges))) &&
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (rendered) {
@@ -2888,6 +2893,15 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             openGlApplyRasterState(raster, target.width, target.height)
         var drawIndex = 0
         while (rendered && drawIndex < drawCount) {
+            val selectedIndexCount = if (indexedDrawRangeCount == drawCount)
+                graphicsPackedIndexedDrawCount(indexedDrawRanges, drawIndex)
+                else indexCount
+            val selectedIndexOffset = if (indexedDrawRangeCount == drawCount)
+                graphicsPackedIndexedDrawOffset(indexedDrawRanges, drawIndex)
+                else indexOffset
+            rendered = !indexed || (selectedIndexCount > 0 &&
+                selectedIndexOffset >= 0 &&
+                (selectedIndexOffset & 3) == 0)
             if (program.pushConstantSize > 0) glBufferSubData(
                 35345,
                 0,
@@ -2907,15 +2921,15 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             } else if (indexed && instanceCount == 1) {
                 glDrawElements(
                     openGlPrimitiveMode(raster.topology),
-                    indexCount,
+                    selectedIndexCount,
                     5125,
-                    nativePointerFromAddress(indexOffset)
+                    nativePointerFromAddress(selectedIndexOffset)
                 )
             } else if (indexed) glDrawElementsInstanced(
                 openGlPrimitiveMode(raster.topology),
-                indexCount,
+                selectedIndexCount,
                 5125,
-                nativePointerFromAddress(indexOffset),
+                nativePointerFromAddress(selectedIndexOffset),
                 instanceCount
             )
             else if (indirectBuffer != 0) {
@@ -4088,7 +4102,9 @@ resource class OpenGlWindowContext(
         indexOffset: int = 0,
         indirectOffset: int = 0,
         drawCount: int = 1,
-        pushConstantStride: int = 0
+        pushConstantStride: int = 0,
+        indexedDrawRanges: i64* = nativeNullPointer(),
+        indexedDrawRangeCount: int = 0
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
@@ -4108,6 +4124,9 @@ resource class OpenGlWindowContext(
             ((drawCount == 1 && pushConstantStride == 0) ||
              (drawCount > 1 && program.pushConstantSize > 0 &&
               pushConstantStride >= program.pushConstantSize)) &&
+            ((indexedDrawRangeCount == 0 && pointerIsNull(indexedDrawRanges)) ||
+             (indexedDrawRangeCount == drawCount &&
+              !pointerIsNull(indexedDrawRanges))) &&
             this.makeCurrent()
         if (presented) {
             openGlStoreI32(
@@ -4161,6 +4180,19 @@ resource class OpenGlWindowContext(
                 openGlApplyRasterState(raster, this.width, this.height)
             var drawIndex = 0
             while (presented && drawIndex < drawCount) {
+                val selectedIndexCount = if (
+                    indexedDrawRangeCount == drawCount
+                ) graphicsPackedIndexedDrawCount(
+                    indexedDrawRanges, drawIndex
+                ) else indexCount
+                val selectedIndexOffset = if (
+                    indexedDrawRangeCount == drawCount
+                ) graphicsPackedIndexedDrawOffset(
+                    indexedDrawRanges, drawIndex
+                ) else indexOffset
+                presented = selectedIndexCount > 0 &&
+                    selectedIndexOffset >= 0 &&
+                    (selectedIndexOffset & 3) == 0
                 if (program.pushConstantSize > 0) glBufferSubData(
                     35345,
                     0,
@@ -4179,14 +4211,14 @@ resource class OpenGlWindowContext(
                     )
                 } else if (instanceCount == 1) glDrawElements(
                     openGlPrimitiveMode(raster.topology),
-                    indexCount,
+                    selectedIndexCount,
                     5125,
-                    nativePointerFromAddress(indexOffset)
+                    nativePointerFromAddress(selectedIndexOffset)
                 ) else glDrawElementsInstanced(
                     openGlPrimitiveMode(raster.topology),
-                    indexCount,
+                    selectedIndexCount,
                     5125,
-                    nativePointerFromAddress(indexOffset),
+                    nativePointerFromAddress(selectedIndexOffset),
                     instanceCount
                 )
                 drawIndex = drawIndex + 1

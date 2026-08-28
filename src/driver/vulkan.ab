@@ -6360,7 +6360,9 @@ trusted fun VulkanDevice.renderTargetProgramValid(
     indexOffset: int = 0,
     indirectOffset: int = 0,
     drawCount: int = 1,
-    pushConstantStride: int = 0
+    pushConstantStride: int = 0,
+    indexedDrawRanges: i64* = nativeNullPointer(),
+    indexedDrawRangeCount: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     val selectedRenderPass = if (compatibleRenderPass != 0)
@@ -6393,6 +6395,9 @@ trusted fun VulkanDevice.renderTargetProgramValid(
         ((drawCount == 1 && pushConstantStride == 0) ||
          (drawCount > 1 && pipeline.pushConstantSize > 0 &&
           pushConstantStride >= pipeline.pushConstantSize)) &&
+        ((indexedDrawRangeCount == 0 && pointerIsNull(indexedDrawRanges)) ||
+         (indexedDrawRangeCount == drawCount &&
+          !pointerIsNull(indexedDrawRanges))) &&
         pipeline.requiresBinding == (descriptorSet != 0) &&
         pipeline.renderPass == target.renderPass &&
         selectedRenderPass != 0 &&
@@ -6424,7 +6429,9 @@ trusted fun VulkanDevice.recordRenderTargetProgram(
     indexOffset: int = 0,
     indirectOffset: int = 0,
     drawCount: int = 1,
-    pushConstantStride: int = 0
+    pushConstantStride: int = 0,
+    indexedDrawRanges: i64* = nativeNullPointer(),
+    indexedDrawRangeCount: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     val colorCount = 1 + target.additionalViews.size
@@ -6452,7 +6459,9 @@ trusted fun VulkanDevice.recordRenderTargetProgram(
         indexOffset,
         indirectOffset,
         drawCount,
-        pushConstantStride
+        pushConstantStride,
+        indexedDrawRanges,
+        indexedDrawRangeCount
     )
     if (succeeded) {
         var colorIndex = 0
@@ -6542,12 +6551,22 @@ trusted fun VulkanDevice.recordRenderTargetProgram(
             vkCmdBindIndexBuffer(
                 this.transferCommand.load(),
                 indexBuffer,
-                if (indirectBuffer != 0) 0 else indexOffset,
+                if (indirectBuffer != 0 || indexedDrawRangeCount > 0)
+                    0 else indexOffset,
                 1
             )
         }
         var drawIndex = 0
-        while (drawIndex < drawCount) {
+        while (succeeded && drawIndex < drawCount) {
+            val selectedIndexCount = if (indexedDrawRangeCount == drawCount)
+                graphicsPackedIndexedDrawCount(indexedDrawRanges, drawIndex)
+                else indexCount
+            val selectedIndexOffset = if (indexedDrawRangeCount == drawCount)
+                graphicsPackedIndexedDrawOffset(indexedDrawRanges, drawIndex)
+                else indexOffset
+            succeeded = !indexed || (selectedIndexCount > 0 &&
+                selectedIndexOffset >= 0 &&
+                (selectedIndexOffset & 3) == 0)
             if (pipeline.pushConstantSize > 0) vkCmdPushConstants(
                 this.transferCommand.load(),
                 pipeline.layout,
@@ -6568,9 +6587,9 @@ trusted fun VulkanDevice.recordRenderTargetProgram(
             )
             else if (indexed) vkCmdDrawIndexed(
                 this.transferCommand.load(),
-                indexCount,
+                selectedIndexCount,
                 instanceCount,
-                0,
+                selectedIndexOffset / 4,
                 0,
                 0
             )
@@ -6618,7 +6637,9 @@ trusted fun VulkanDevice.renderTargetProgram(
     indexOffset: int = 0,
     indirectOffset: int = 0,
     drawCount: int = 1,
-    pushConstantStride: int = 0
+    pushConstantStride: int = 0,
+    indexedDrawRanges: i64* = nativeNullPointer(),
+    indexedDrawRangeCount: int = 0
 ): bool {
     this.transferSubmissionAccepted = false
     var succeeded = this.renderTargetProgramValid(
@@ -6643,7 +6664,9 @@ trusted fun VulkanDevice.renderTargetProgram(
         indexOffset,
         indirectOffset,
         drawCount,
-        pushConstantStride
+        pushConstantStride,
+        indexedDrawRanges,
+        indexedDrawRangeCount
     ) && this.beginTransfer()
     if (succeeded) succeeded = this.recordRenderTargetProgram(
         target,
@@ -6668,7 +6691,9 @@ trusted fun VulkanDevice.renderTargetProgram(
         indexOffset,
         indirectOffset,
         drawCount,
-        pushConstantStride
+        pushConstantStride,
+        indexedDrawRanges,
+        indexedDrawRangeCount
     )
     if (succeeded) succeeded = this.submitTransfer()
     succeeded
@@ -9350,7 +9375,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
     indexOffset: int = 0,
     indirectOffset: int = 0,
     drawCount: int = 1,
-    pushConstantStride: int = 0
+    pushConstantStride: int = 0,
+    indexedDrawRanges: i64* = nativeNullPointer(),
+    indexedDrawRangeCount: int = 0
 ): int {
     val indexed = indexCount > 0 || indexedIndirect
     var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
@@ -9385,6 +9412,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
         ((drawCount == 1 && pushConstantStride == 0) ||
          (drawCount > 1 && pipeline.pushConstantSize > 0 &&
           pushConstantStride >= pipeline.pushConstantSize)) &&
+        ((indexedDrawRangeCount == 0 && pointerIsNull(indexedDrawRanges)) ||
+         (indexedDrawRangeCount == drawCount &&
+          !pointerIsNull(indexedDrawRanges))) &&
         pipeline.requiresBinding == (descriptorSet != 0)
     var recreateSwapchain = false
     var status = if (succeeded) vulkanSuccess else -1
@@ -9610,12 +9640,22 @@ trusted fun VulkanDevice.presentRenderOutcome(
             vkCmdBindIndexBuffer(
                 presenter.frames[frame].command.load(),
                 indexBuffer,
-                if (indirectBuffer != 0) 0 else indexOffset,
+                if (indirectBuffer != 0 || indexedDrawRangeCount > 0)
+                    0 else indexOffset,
                 1
             )
         }
         var drawIndex = 0
-        while (drawIndex < drawCount) {
+        while (succeeded && drawIndex < drawCount) {
+            val selectedIndexCount = if (indexedDrawRangeCount == drawCount)
+                graphicsPackedIndexedDrawCount(indexedDrawRanges, drawIndex)
+                else indexCount
+            val selectedIndexOffset = if (indexedDrawRangeCount == drawCount)
+                graphicsPackedIndexedDrawOffset(indexedDrawRanges, drawIndex)
+                else indexOffset
+            succeeded = !indexed || (selectedIndexCount > 0 &&
+                selectedIndexOffset >= 0 &&
+                (selectedIndexOffset & 3) == 0)
             if (pipeline.pushConstantSize > 0) vkCmdPushConstants(
                 presenter.frames[frame].command.load(),
                 pipeline.layout,
@@ -9636,9 +9676,9 @@ trusted fun VulkanDevice.presentRenderOutcome(
             )
             else if (indexed) vkCmdDrawIndexed(
                 presenter.frames[frame].command.load(),
-                indexCount,
+                selectedIndexCount,
                 instanceCount,
-                0,
+                selectedIndexOffset / 4,
                 0,
                 0
             )

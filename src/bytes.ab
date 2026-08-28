@@ -19,6 +19,23 @@ trusted noescape fun graphicsUnsafeCopyMemory(
     return
 }
 
+trusted noescape fun graphicsPackedU32(address: i64*, offset: int): int =
+    if (pointerIsNull(address) || offset < 0) 0
+    else ablaUnsafeLoadU8(ablaUnsafePointerOffset(address, offset)) +
+        ablaUnsafeLoadU8(ablaUnsafePointerOffset(address, offset + 1)) * 256 +
+        ablaUnsafeLoadU8(ablaUnsafePointerOffset(address, offset + 2)) * 65536 +
+        ablaUnsafeLoadU8(ablaUnsafePointerOffset(address, offset + 3)) * 16777216
+
+trusted noescape fun graphicsPackedIndexedDrawCount(
+    address: i64*,
+    draw: int
+): int = graphicsPackedU32(address, draw * 8)
+
+trusted noescape fun graphicsPackedIndexedDrawOffset(
+    address: i64*,
+    draw: int
+): int = graphicsPackedU32(address, draw * 8 + 4)
+
 resource class BufferBytes(
     val storage: NativeByteBuffer,
     val size: int
@@ -51,6 +68,14 @@ resource class BufferBytes(
         this.storage.store(offset + 1, (value >>> 8) & 255) &&
         this.storage.store(offset + 2, (value >>> 16) & 255) &&
         this.storage.store(offset + 3, (value >>> 24) & 255)
+
+    trusted fun loadU32(offset: int = 0): int =
+        if (this.valid() && offset >= 0 && offset <= this.size - 4)
+            this.storage.load(offset) +
+            this.storage.load(offset + 1) * 256 +
+            this.storage.load(offset + 2) * 65536 +
+            this.storage.load(offset + 3) * 16777216
+        else 0
 
     trusted fun storeI32(value: int, offset: int = 0): bool =
         value >= -2147483648 && value <= 2147483647 &&

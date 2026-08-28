@@ -62,6 +62,15 @@ textures per draw. Continue with normalized integer texture coordinates, larger
 material tables, all PBR channels, JPEG support, and genuinely distinct
 multi-geometry scenes; the current two-material fixture is not a full loader.
 
+Distinct textured primitives now pack into one affine `GltfGpuTexturedScene`
+vertex/index owner. Local indices are rewritten once during setup, and the
+push batch retains one validated count/byte-offset record per draw so both
+backends keep a single binding/pass without copying arrays in the frame loop.
+The live fixture now proves two position accessors, two geometry resources,
+two materials, and exact green/blue output with `live=0` on OpenGL, Vulkan,
+and auto. Continue with normalized integer UVs, normals/tangents, larger
+material tables, remaining PBR channels, and JPEG decoding.
+
 ## Mission
 
 Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and
@@ -3473,3 +3482,17 @@ table through their existing push record. The live fixture reports
 `drawables=2 materials=0/1 resources=1`, exact green/blue pixels
 `4278255360/4294901760`, four stable frames, and `live=0` on OpenGL, Vulkan,
 and auto.
+
+## Latest checkpoint: packed multi-geometry glTF submission
+
+`app.gltfGpuTexturedScene(...)` materializes every unique accessor-plan entry
+into one retained interleaved vertex buffer and one widened 32-bit index
+buffer. Each primitive's local indices become absolute packed vertex indices;
+each drawable keeps an exact index count and aligned byte offset.
+
+`GraphicsPushConstantBatch.storeIndexedDrawRange(...)` stores that metadata in
+one contiguous native block next to the existing reflected records. OpenGL and
+Vulkan read it directly while issuing the batch, so no Abla array is copied or
+allocated on a frame boundary. The live scene uses two distinct position
+accessors and reports `resources=2 vertices=6 indices=6 ranges=0:3/12:3`, exact
+green/blue pixels, four stable frames, and `live=0` on OpenGL, Vulkan, and auto.

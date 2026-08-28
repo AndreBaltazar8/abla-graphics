@@ -1584,6 +1584,11 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
         indexSize,
         indices.descriptor.size
     )
+    val usesIndexedDrawRanges = batch.usesIndexedDrawRanges()
+    val indexedDrawRanges = if (usesIndexedDrawRanges)
+        batch.indexedDrawRanges.storage.address else nativeNullPointer()
+    val indexedDrawRangeCount = if (usesIndexedDrawRanges)
+        batch.drawCount else 0
     var succeeded = this.valid() && target.valid() && pipeline.valid() &&
         batch.valid() && batch.layout.matches(pipeline.pushConstantLayout) &&
         vertices.valid() && indices.valid() && clear.valid() &&
@@ -1607,7 +1612,8 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
         this.ownsBuffer(vertices) && this.ownsBuffer(indices) &&
         (vertices.descriptor.usage & bufferUsageVertex) != 0 &&
         (indices.descriptor.usage & bufferUsageIndex) != 0 &&
-        pipeline.depth.enabled == target.hasDepth()
+        pipeline.depth.enabled == target.hasDepth() &&
+        batch.indexedDrawRangesValid(indices.descriptor.size)
     if (succeeded && this.backend == graphicsBackendOpenGl) {
         succeeded = pipeline.targetHandle == target.openGl.handle &&
             this.openGl.renderProgramTarget(
@@ -1643,7 +1649,9 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
                 indexOffset,
                 0,
                 batch.drawCount,
-                batch.layout.size
+                batch.layout.size,
+                indexedDrawRanges,
+                indexedDrawRangeCount
             )
     } else if (succeeded && this.backend == graphicsBackendVulkan) {
         succeeded = pipeline.targetHandle == target.vulkan.framebuffer &&
@@ -1670,7 +1678,9 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
                 indexOffset,
                 0,
                 batch.drawCount,
-                batch.layout.size
+                batch.layout.size,
+                indexedDrawRanges,
+                indexedDrawRangeCount
             )
     } else if (succeeded) succeeded = false
     if (succeeded) succeeded = this.finishRenderTarget(target)
@@ -3612,6 +3622,11 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
         indexSize,
         indices.descriptor.size
     )
+    val usesIndexedDrawRanges = batch.usesIndexedDrawRanges()
+    val indexedDrawRanges = if (usesIndexedDrawRanges)
+        batch.indexedDrawRanges.storage.address else nativeNullPointer()
+    val indexedDrawRangeCount = if (usesIndexedDrawRanges)
+        batch.drawCount else 0
     if (!this.valid() || !pipeline.valid() || !batch.valid() ||
         !batch.layout.matches(pipeline.pushConstantLayout) ||
         !vertices.valid() || !indices.valid() || !clear.valid() ||
@@ -3630,7 +3645,8 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
         instanceCount <= 0 || indexCount > indexBytes / 4 ||
         !this.ownsBuffer(vertices) || !this.ownsBuffer(indices) ||
         (vertices.descriptor.usage & bufferUsageVertex) == 0 ||
-        (indices.descriptor.usage & bufferUsageIndex) == 0) false
+        (indices.descriptor.usage & bufferUsageIndex) == 0 ||
+        !batch.indexedDrawRangesValid(indices.descriptor.size)) false
     else if (this.backend == graphicsBackendOpenGl) {
         this.openGl.presentProgramIndexed(
             pipeline.openGl,
@@ -3655,7 +3671,9 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
             indexOffset,
             0,
             batch.drawCount,
-            batch.layout.size
+            batch.layout.size,
+            indexedDrawRanges,
+            indexedDrawRangeCount
         )
     } else if (this.backend == graphicsBackendVulkan) {
         var ready = this.renderTargetReady(pipeline)
@@ -3679,7 +3697,9 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
             indexOffset,
             0,
             batch.drawCount,
-            batch.layout.size
+            batch.layout.size,
+            indexedDrawRanges,
+            indexedDrawRangeCount
         )
         var presented = vulkanPresentSucceeded(outcome)
         if (ready && vulkanPresentNeedsRecreation(outcome)) {
@@ -3708,7 +3728,9 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
                 indexOffset,
                 0,
                 batch.drawCount,
-                batch.layout.size
+                batch.layout.size,
+                indexedDrawRanges,
+                indexedDrawRangeCount
             )
             presented = presented ||
                 (vulkanPresentSucceeded(outcome) &&

@@ -2244,3 +2244,15 @@ sampled bind group and the existing push batch select the material texture per
 draw without frame-loop descriptor creation. OpenGL, Vulkan, and auto report
 `drawables=2 materials=0/1 resources=1`, exact green/blue pixels
 `4278255360/4294901760`, four stable frames, and `live=0`.
+
+### glTF packed multi-geometry submission
+
+`GltfGpuTexturedScene` combines every unique accessor-plan primitive into one
+retained interleaved vertex buffer and one widened 32-bit index buffer. Indices
+are rebased during setup, and the push batch owns packed per-draw index
+count/byte-offset records consumed directly by the backend loops.
+
+The live fixture uses two genuinely distinct position accessors and material
+textures. OpenGL, Vulkan, and automatic selection report
+`resources=2 vertices=6 indices=6 ranges=0:3/12:3`, exact pixels
+`4278255360/4294901760`, four stable frames, and `live=0`.

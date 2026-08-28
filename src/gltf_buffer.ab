@@ -46,6 +46,29 @@ resource class GltfGpuTexturedPrimitive(
     }
 }
 
+resource class GltfGpuTexturedScene(
+    val vertices: GraphicsBuffer,
+    val indices: GraphicsBuffer,
+    val vertexCount: int,
+    val indexCount: int,
+    val drawIndexCounts: array<int>,
+    val drawIndexOffsets: array<int>,
+    val layout: VertexBufferLayout,
+    val error: string
+) {
+    fun valid(): bool = this.error == "" && this.vertices.valid() &&
+        this.indices.valid() && this.vertexCount > 0 && this.indexCount > 0 &&
+        this.drawIndexCounts.size > 0 &&
+        this.drawIndexCounts.size == this.drawIndexOffsets.size &&
+        this.layout.valid()
+
+    trusted fun drop(): void {
+        this.vertices.drop()
+        this.indices.drop()
+        return
+    }
+}
+
 fun gltfDataUriPayload(uri: string): string {
     val prefix = "data:application/octet-stream;base64,"
     val generic = "data:application/gltf-buffer;base64,"
@@ -368,5 +391,163 @@ trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
         error = "textured glTF GPU buffer upload failed"
     GltfGpuTexturedPrimitive(
         move(vertices), move(indices), vertexCount, indexCount, layout, error
+    )
+}
+
+// Packs every unique accessor-identity resource once. Indices are rewritten to
+// absolute vertices, so one vertex binding serves every per-draw index range.
+trusted fun GraphicsApplication.gltfGpuTexturedScene(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan
+): GltfGpuTexturedScene {
+    val layout = VertexBufferLayout(20, [
+        VertexAttribute(0, 0, vertexFormatFloat32x3),
+        VertexAttribute(1, 12, vertexFormatFloat32x2)
+    ])
+    val vertexBases: array<int> = []
+    val resourceIndexOffsets: array<int> = []
+    val resourceIndexCounts: array<int> = []
+    var vertexCount = 0
+    var indexCount = 0
+    var valid = this.valid() && document.valid() && payloads.valid &&
+        drawList.valid && plan.valid &&
+        plan.meshIndices.size == plan.primitiveIndices.size &&
+        plan.drawableResources.size == drawList.drawables.size &&
+        plan.meshIndices.size > 0
+    var resourceIndex = 0
+    while (valid && resourceIndex < plan.meshIndices.size) {
+        val meshIndex = plan.meshIndices[resourceIndex]
+        val primitiveIndex = plan.primitiveIndices[resourceIndex]
+        valid = meshIndex >= 0 && meshIndex < document.meshes.size &&
+            primitiveIndex >= 0 &&
+            primitiveIndex < document.meshes[meshIndex].primitives.size
+        if (valid) {
+            val primitive = document.meshes[meshIndex].primitives[
+                primitiveIndex
+            ]
+            valid = primitive.texCoord0 >= 0
+            if (valid) {
+                val position = document.accessors[primitive.position]
+                val texCoord = document.accessors[primitive.texCoord0]
+                val primitiveIndexCount = if (primitive.indices >= 0)
+                    document.accessors[primitive.indices].count
+                    else position.count
+                valid = position.componentType == gltfComponentF32 &&
+                    position.elementType == "VEC3" &&
+                    texCoord.componentType == gltfComponentF32 &&
+                    texCoord.elementType == "VEC2" &&
+                    texCoord.count == position.count &&
+                    position.count <= 16777216 - vertexCount &&
+                    primitiveIndexCount <= 16777216 - indexCount
+                if (valid) {
+                    vertexBases.append(vertexCount)
+                    resourceIndexOffsets.append(indexCount * 4)
+                    resourceIndexCounts.append(primitiveIndexCount)
+                    vertexCount = vertexCount + position.count
+                    indexCount = indexCount + primitiveIndexCount
+                }
+            }
+        }
+        resourceIndex = resourceIndex + 1
+    }
+    val vertexBytes = bufferBytes(if (valid) vertexCount * 20 else 0)
+    val indexBytes = bufferBytes(if (valid) indexCount * 4 else 0)
+    resourceIndex = 0
+    while (valid && resourceIndex < plan.meshIndices.size) {
+        val primitive = document.meshes[plan.meshIndices[resourceIndex]].primitives[
+            plan.primitiveIndices[resourceIndex]
+        ]
+        val position = document.accessors[primitive.position]
+        val positions = gltfAccessorBytes(
+            document, payloads, primitive.position
+        )
+        val coordinates = gltfAccessorBytes(
+            document, payloads, primitive.texCoord0
+        )
+        val vertexBase = vertexBases[resourceIndex]
+        var vertex = 0
+        valid = positions.valid() && coordinates.valid() &&
+            vertexBytes.valid() && indexBytes.valid()
+        while (valid && vertex < position.count) {
+            var byteIndex = 0
+            while (valid && byteIndex < 12) {
+                valid = vertexBytes.store(
+                    (vertexBase + vertex) * 20 + byteIndex,
+                    positions.load(vertex * 12 + byteIndex)
+                )
+                byteIndex = byteIndex + 1
+            }
+            byteIndex = 0
+            while (valid && byteIndex < 8) {
+                valid = vertexBytes.store(
+                    (vertexBase + vertex) * 20 + 12 + byteIndex,
+                    coordinates.load(vertex * 8 + byteIndex)
+                )
+                byteIndex = byteIndex + 1
+            }
+            vertex = vertex + 1
+        }
+        val outputIndexOffset = resourceIndexOffsets[resourceIndex]
+        if (valid && primitive.indices >= 0) {
+            val source = gltfAccessorBytes(
+                document, payloads, primitive.indices
+            )
+            val accessor = document.accessors[primitive.indices]
+            val sourceSize = accessor.componentByteSize()
+            var index = 0
+            valid = source.valid()
+            while (valid && index < accessor.count) {
+                val value = gltfLoadUnsignedBuffer(
+                    source, index * sourceSize, sourceSize
+                )
+                valid = value >= 0 && value < position.count &&
+                    indexBytes.storeU32(
+                        vertexBase + value,
+                        outputIndexOffset + index * 4
+                    )
+                index = index + 1
+            }
+        } else if (valid) {
+            var index = 0
+            while (valid && index < position.count) {
+                valid = indexBytes.storeU32(
+                    vertexBase + index,
+                    outputIndexOffset + index * 4
+                )
+                index = index + 1
+            }
+        }
+        resourceIndex = resourceIndex + 1
+    }
+    val drawIndexCounts: array<int> = []
+    val drawIndexOffsets: array<int> = []
+    var drawIndex = 0
+    while (valid && drawIndex < plan.drawableResources.size) {
+        val resourceId = plan.drawableResources[drawIndex]
+        valid = resourceId >= 0 && resourceId < resourceIndexCounts.size
+        if (valid) {
+            drawIndexCounts.append(resourceIndexCounts[resourceId])
+            drawIndexOffsets.append(resourceIndexOffsets[resourceId])
+        }
+        drawIndex = drawIndex + 1
+    }
+    val vertices = this.buffer(BufferDescriptor(
+        label = "gltf-scene-position-uv",
+        size = if (valid) vertexBytes.size else 0,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val indices = this.buffer(BufferDescriptor(
+        label = "gltf-scene-indices",
+        size = if (valid) indexBytes.size else 0,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    if (valid) valid = vertices.writeAllBytes(vertexBytes) &&
+        indices.writeAllBytes(indexBytes)
+    GltfGpuTexturedScene(
+        move(vertices), move(indices), vertexCount, indexCount,
+        drawIndexCounts, drawIndexOffsets, layout,
+        if (valid) "" else "glTF textured scene packing or upload failed"
     )
 }

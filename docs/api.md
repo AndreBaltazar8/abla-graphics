@@ -1399,6 +1399,13 @@ while reusing one immutable upload. A bounded bind group can retain several
 material textures and the existing push record can select the corresponding
 entry without rebuilding pipeline or descriptor state in the frame loop.
 
+`app.gltfGpuTexturedScene(document, buffers, drawList, plan)` packs every
+unique planned FLOAT `VEC3` position/FLOAT `VEC2` UV primitive into one affine
+`GltfGpuTexturedScene`. It interleaves vertices, rewrites local indices to
+absolute packed indices, uploads one vertex/index pair, and maps each drawable
+to an aligned index count and byte offset. Unsupported layouts or inconsistent
+plans fail before a partially valid GPU owner is returned.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan
@@ -2777,6 +2784,10 @@ leading draw index, while `writeDraw()` copies a complete compatible
 and descriptors once, then update push data and issue every indexed draw
 inside the same render pass. Counts are bounded to 65,536 and total storage to
 8 MiB; the warmed submission path performs no general allocation.
+`storeIndexedDrawRange(draw, count, byteOffset)` optionally gives each record a
+distinct validated index slice. The ranges live in packed native storage owned
+by the batch and are read directly by OpenGL and Vulkan, avoiding frame-time
+array copies while retaining one geometry binding and one native pass.
 
 The deterministic vertex-buffer shader subset includes a reflected 64-byte
 affine draw block containing `row0`, `row1`, `row2`, and `tint`. The vertex

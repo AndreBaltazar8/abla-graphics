@@ -325,17 +325,60 @@ resource class GraphicsPushConstantBatch(
     val layout: ShaderPushConstantLayout,
     val drawCount: int,
     val bytes: BufferBytes,
+    val indexedDrawRanges: BufferBytes,
     val error: string
 ) {
     fun valid(): bool = this.error == "" && this.layout.valid &&
         this.layout.size > 0 && this.drawCount > 0 &&
         this.drawCount <= 65536 && this.bytes.valid() &&
-        this.bytes.size == this.layout.size * this.drawCount
+        this.bytes.size == this.layout.size * this.drawCount &&
+        this.indexedDrawRanges.valid() &&
+        this.indexedDrawRanges.size == this.drawCount * 8
 
     fun drawOffset(draw: int): int =
         if (draw >= 0 && draw < this.drawCount)
             draw * this.layout.size
         else -1
+
+    fun usesIndexedDrawRanges(): bool =
+        this.valid() && this.indexedDrawRanges.loadU32() > 0
+
+    fun indexedDrawCount(draw: int): int =
+        if (this.valid() && draw >= 0 && draw < this.drawCount)
+            this.indexedDrawRanges.loadU32(draw * 8)
+        else 0
+
+    fun indexedDrawOffset(draw: int): int =
+        if (this.valid() && draw >= 0 && draw < this.drawCount)
+            this.indexedDrawRanges.loadU32(draw * 8 + 4)
+        else 0
+
+    trusted fun storeIndexedDrawRange(
+        draw: int,
+        indexCount: int,
+        indexOffset: int
+    ): bool =
+        this.valid() && draw >= 0 && draw < this.drawCount &&
+        indexCount > 0 && indexOffset >= 0 && (indexOffset & 3) == 0 &&
+        this.indexedDrawRanges.storeU32(indexCount, draw * 8) &&
+        this.indexedDrawRanges.storeU32(indexOffset, draw * 8 + 4)
+
+    fun indexedDrawRangesValid(indexBufferSize: int): bool {
+        val usesRanges = this.usesIndexedDrawRanges()
+        var valid = this.valid() && indexBufferSize >= 0
+        var draw = 0
+        while (valid && draw < this.drawCount) {
+            val count = this.indexedDrawCount(draw)
+            val offset = this.indexedDrawOffset(draw)
+            valid = if (usesRanges)
+                count > 0 && offset >= 0 && (offset & 3) == 0 &&
+                count <= indexBufferSize / 4 &&
+                offset <= indexBufferSize - count * 4
+            else count == 0 && offset == 0
+            draw = draw + 1
+        }
+        valid
+    }
 
     trusted fun writeDraw(
         draw: int,
@@ -497,6 +540,7 @@ resource class GraphicsPushConstantBatch(
 
     trusted fun drop(): void {
         this.bytes.storage.close()
+        this.indexedDrawRanges.storage.close()
         return
     }
 }
@@ -759,10 +803,12 @@ trusted fun ShaderPackage.pushConstantBatch(
     val valid = layout.valid && layout.size > 0 && drawCount > 0 &&
         drawCount <= 65536 && layout.size <= 8388608 / drawCount
     val bytes = bufferBytes(if (valid) layout.size * drawCount else 0)
+    val indexedDrawRanges = bufferBytes(if (valid) drawCount * 8 else 0)
     GraphicsPushConstantBatch(
         layout,
         drawCount,
         move(bytes),
+        move(indexedDrawRanges),
         if (!layout.valid) layout.error
         else if (layout.size <= 0) "shader has no push-constant block"
         else if (drawCount <= 0 || drawCount > 65536)
