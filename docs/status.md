@@ -2295,8 +2295,21 @@ the target for every following group.
 
 The live proof composes a two-draw material group and one-draw tail on OpenGL,
 Vulkan, and auto. Exact green/blue pixels survive four measured frames with
-zero live-byte growth. Swapchain-wide multi-pipeline presentation remains a
-separate next step; the current proof presents its final group to the window.
+zero live-byte growth.
+
+### One-present retained window sequences
+
+Compatible pushed indexed batches can now be materialized into one retained
+window sequence. Push bytes, index ranges, binding spans, and backend handles
+are flattened at setup. OpenGL clears once, switches program/bind-group state,
+and swaps once. Vulkan records all groups inside one render scope and performs
+one acquire, submit, and present cycle.
+
+Vulkan resize recovery releases every sequence pipeline before replacing the
+swapchain, rebuilds all pipelines against the new images, and refreshes retained
+pipeline/layout tables. The live glTF proof presents two groups with a one-draw
+tail, resizes to 672x384, and then holds exact pixels over four zero-growth
+frames on OpenGL, Vulkan, and auto.
 
 ### glTF packed multi-geometry submission
 

@@ -1424,6 +1424,21 @@ owners/records; the frame path performs no table construction or allocation.
 The first pass must clear color attachment zero and following passes must load
 without discarding it; every pass must retain its attachments afterward.
 
+`app.pushBatchRenderSequence(pipelines, batches)` takes ownership of one to 64
+compatible window pipelines and their indexed push batches. Vertex layout,
+raster state, and depth/stencil state must match. Setup flattens push records,
+indexed ranges, OpenGL binding tables, and Vulkan pipeline/layout/descriptor
+handles into retained storage.
+
+`app.presentPushBatchRenderIndexedSequence(sequence, vertices, indices,
+indexCount, clear)` clears once and submits all groups in order with one window
+swap/present. OpenGL switches programs and bindings before one `eglSwapBuffers`;
+Vulkan binds every pipeline inside one dynamic-rendering or render-pass scope,
+one command buffer, and one acquire/submit/present cycle. A one-draw group uses
+zero record stride. Vulkan resize recovery rebuilds all sequence pipelines only
+after releasing every old swapchain attachment, then refreshes native tables.
+The warmed path performs no allocation or metadata copying.
+
 `app.gltfGpuTexturedPrimitive(document, buffers, meshIndex, primitiveIndex)`
 is the compact textured geometry contract. It requires FLOAT `VEC3` `POSITION`
 and accepts FLOAT, normalized `UNSIGNED_BYTE`, or normalized `UNSIGNED_SHORT`

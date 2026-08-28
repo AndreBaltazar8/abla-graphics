@@ -453,7 +453,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   one packed retained scene owner containing two distinct 48-byte
   position/normalized-UV/normal/tangent surface primitives; two ordered
   material pipelines compose a two-draw group and one-draw tail through clear
-  then load passes; a reusable push
+  then load passes and one ordered window presentation, including coordinated
+  Vulkan sequence rebuild after resize; a reusable push
   batch supplies exact index ranges while a deduplicated ten-slot table binds
   both materials' base-color, metallic/roughness, normal, occlusion, and
   emissive channels, producing exact green/blue zero-growth output on OpenGL

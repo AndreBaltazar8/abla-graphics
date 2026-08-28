@@ -68,9 +68,9 @@ backends keep a single binding/pass without copying arrays in the frame loop.
 The live fixture now proves two position accessors, two geometry resources,
 two materials, and exact green/blue output with `live=0` on OpenGL, Vulkan,
 and auto. Continue with material batching beyond three complete bound
-materials now has an order-preserving planner and retained multi-pipeline target
-submission; continue with window-wide multi-pipeline presentation,
-skinning/morph targets, transmission/clearcoat extensions, and JPEG decoding.
+materials now has order-preserving planning plus retained multi-pipeline target
+and window submission; continue with skinning/morph targets,
+transmission/clearcoat extensions, and JPEG decoding.
 
 ## Mission
 
@@ -3556,5 +3556,19 @@ multi-draw groups keep the packed layout stride.
 The live glTF proof now submits two material pipelines as a two-draw group plus
 a one-draw tail. OpenGL, Vulkan, and auto preserve exact green/blue target
 pixels across four measured frames with no live-memory growth. Direct window
-presentation remains a single group until the swapchain path gains the same
-ordered multi-pipeline sequence contract.
+presentation now uses the same ordered group boundaries.
+
+## Latest checkpoint: one-present retained window sequences
+
+`app.pushBatchRenderSequence(...)` owns compatible window pipelines and pushed
+indexed batches, flattening push bytes, draw ranges, binding metadata, and
+native handles once at setup. `presentPushBatchRenderIndexedSequence(...)`
+clears once, switches every group in order, and performs exactly one EGL swap
+or Vulkan acquire/command-buffer/submit/present cycle. One-draw tail groups use
+zero push stride and warmed frames allocate nothing.
+
+Vulkan resize recovery drops every old sequence pipeline before replacing the
+swapchain, rebuilds every pipeline against the new images, then refreshes the
+retained handle/layout tables. The live glTF proof presents two window groups,
+resizes from 640x360 to 672x384, verifies both rebuilt pipelines, and retains
+exact target pixels with `live=0` on OpenGL, Vulkan, and auto.

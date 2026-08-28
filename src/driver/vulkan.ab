@@ -9780,6 +9780,341 @@ trusted fun VulkanDevice.presentRenderOutcome(
     )
 }
 
+trusted fun VulkanDevice.presentIndexedRenderSequenceOutcome(
+    swapchain: VulkanSwapchain,
+    var presenter: VulkanPixelPresenter,
+    firstPipeline: VulkanRenderPipeline,
+    pipelineHandles: array<int>,
+    pipelineLayouts: array<int>,
+    descriptorSets: array<int>,
+    pushStageMasks: array<int>,
+    drawCounts: array<int>,
+    pushOffsets: array<int>,
+    pushSizes: array<int>,
+    pushStrides: array<int>,
+    rangeOffsets: array<int>,
+    pushData: i64*,
+    indexedRanges: i64*,
+    clear: Color,
+    vertexBuffer: int,
+    vertexCount: int,
+    indexBuffer: int,
+    indexCount: int,
+    instanceCount: int = 1,
+    vertexOffset: int = 0
+): int {
+    val groups = pipelineHandles.size
+    var succeeded = this.valid() && swapchain.valid() && presenter.valid() &&
+        firstPipeline.valid() && firstPipeline.device == this.handle &&
+        groups > 0 && groups <= 64 && pipelineLayouts.size == groups &&
+        descriptorSets.size == groups && pushStageMasks.size == groups &&
+        drawCounts.size == groups && pushOffsets.size == groups &&
+        pushSizes.size == groups && pushStrides.size == groups &&
+        rangeOffsets.size == groups && !pointerIsNull(pushData) &&
+        !pointerIsNull(indexedRanges) &&
+        presenter.width == swapchain.width &&
+        presenter.height == swapchain.height &&
+        presenter.format == swapchain.format &&
+        firstPipeline.width == swapchain.width &&
+        firstPipeline.height == swapchain.height &&
+        firstPipeline.format == swapchain.format &&
+        ((firstPipeline.dynamicRendering &&
+          firstPipeline.framebuffers.size == 0 &&
+          firstPipeline.imageViews.size == swapchain.images.size) ||
+         (!firstPipeline.dynamicRendering &&
+          firstPipeline.framebuffers.size == swapchain.images.size)) &&
+        clear.valid() && firstPipeline.vertexStride > 0 &&
+        vertexBuffer != 0 && vertexCount > 0 && indexBuffer != 0 &&
+        indexCount > 0 && instanceCount > 0 && vertexOffset >= 0 &&
+        (vertexOffset & 3) == 0 &&
+        pipelineHandles[0] == firstPipeline.handle &&
+        pipelineLayouts[0] == firstPipeline.layout
+    var group = 0
+    while (succeeded && group < groups) {
+        succeeded = pipelineHandles[group] != 0 &&
+            pipelineLayouts[group] != 0 && drawCounts[group] > 0 &&
+            drawCounts[group] <= 65536 && pushOffsets[group] >= 0 &&
+            pushSizes[group] > 0 && pushSizes[group] <= 128 &&
+            pushStageMasks[group] != 0 &&
+            ((drawCounts[group] == 1 && pushStrides[group] == 0) ||
+             (drawCounts[group] > 1 &&
+              pushStrides[group] >= pushSizes[group])) &&
+            rangeOffsets[group] >= 0
+        group = group + 1
+    }
+    var recreateSwapchain = false
+    var status = if (succeeded) vulkanSuccess else -1
+    var submitted = false
+    var frame = if (presenter.frames.size > 0) presenter.frameIndex else 0
+    if (frame < 0 || frame >= presenter.frames.size) succeeded = false
+
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            96, presenter.frames[frame].fence
+        )
+        val fence = nativePointerFromAddress(
+            nativePointerAddress(presenter.frames[frame].scratch.address) + 96
+        )
+        if (presenter.frames[frame].inFlight) {
+            succeeded = vkWaitForFences(
+                this.handle, 1, fence, 1, 18446744073709551615
+            ) == vulkanSuccess
+            if (succeeded) presenter.frames[frame].inFlight = false
+        }
+    }
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            72, presenter.frames[frame].acquired
+        )
+        presenter.frames[frame].scratch.storeI64(80, 0)
+        status = vkAcquireNextImageKHR(
+            this.handle,
+            swapchain.handle,
+            9223372036854775807,
+            presenter.frames[frame].acquired,
+            0,
+            presenter.frames[frame].scratch.pointerAt(80)
+        )
+        val outcome = vulkanPresentStatus(status)
+        succeeded = vulkanPresentSucceeded(outcome)
+        recreateSwapchain = vulkanPresentNeedsRecreation(outcome)
+    }
+    val imageIndex = if (succeeded)
+        presenter.frames[frame].scratch.loadI64(80) & 4294967295
+    else -1
+    if (imageIndex < 0 || imageIndex >= swapchain.images.size ||
+        imageIndex >= presenter.rendered.size ||
+        imageIndex >= firstPipeline.imageViews.size ||
+        (!firstPipeline.dynamicRendering &&
+         imageIndex >= firstPipeline.framebuffers.size) ||
+        (firstPipeline.dynamicRendering && firstPipeline.depthEnabled &&
+         imageIndex >= firstPipeline.depthTextures.size)) succeeded = false
+
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(
+            88, presenter.rendered[imageIndex]
+        )
+        succeeded = vkResetCommandPool(
+            this.handle, presenter.frames[frame].commandPool, 0
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        succeeded = vulkanDriverCommandBufferBeginInfoAt(
+            presenter.frames[frame].scratch, 0, 1
+        ) && vkBeginCommandBuffer(
+            presenter.frames[frame].command.load(),
+            presenter.frames[frame].scratch.address
+        ) == vulkanSuccess
+    }
+    if (succeeded) {
+        val command = presenter.frames[frame].command.load()
+        if (firstPipeline.dynamicRendering) {
+            succeeded = vulkanRecordImageTransition(
+                command,
+                presenter.frames[frame].scratch,
+                this.synchronization2,
+                swapchain.images[imageIndex],
+                0, 2, 1, 1024, 0, 256
+            )
+            if (succeeded && firstPipeline.depthEnabled) {
+                succeeded = vulkanRecordImageTransition(
+                    command,
+                    presenter.frames[frame].scratch,
+                    this.synchronization2,
+                    firstPipeline.depthTextures[imageIndex].image,
+                    0, 3, 1, 768, 0, 1536, 2
+                )
+            }
+            if (succeeded) succeeded = vulkanBeginDynamicRendering(
+                command,
+                presenter.frames[frame].scratch,
+                firstPipeline.imageViews[imageIndex],
+                if (firstPipeline.depthEnabled)
+                    firstPipeline.depthViews[imageIndex].handle
+                else 0,
+                swapchain.width,
+                swapchain.height,
+                clear
+            )
+        } else {
+            succeeded = vulkanDriverClearColorValueAt(
+                presenter.frames[frame].scratch,
+                120,
+                graphicsScalarF32Bits(clear.red) & 4294967295,
+                graphicsScalarF32Bits(clear.green) & 4294967295,
+                graphicsScalarF32Bits(clear.blue) & 4294967295,
+                graphicsScalarF32Bits(clear.alpha) & 4294967295
+            )
+            if (firstPipeline.depthEnabled) succeeded = succeeded &&
+                vulkanDriverClearDepthStencilValueAt(
+                    presenter.frames[frame].scratch, 136, 1065353216, 0
+                )
+            if (succeeded) succeeded = vulkanDriverRenderPassBeginInfoAt(
+                presenter.frames[frame].scratch,
+                0,
+                firstPipeline.renderPass,
+                firstPipeline.framebuffers[imageIndex],
+                swapchain.width,
+                swapchain.height,
+                if (firstPipeline.depthEnabled) 2 else 1,
+                presenter.frames[frame].scratch.pointerAt(120)
+            )
+            if (succeeded) vkCmdBeginRenderPass(
+                command, presenter.frames[frame].scratch.address, 0
+            )
+        }
+    }
+    if (succeeded) {
+        val command = presenter.frames[frame].command.load()
+        presenter.frames[frame].scratch.storeI64(0, 0)
+        presenter.frames[frame].scratch.storeI64(
+            8,
+            (graphicsUnsignedIntegerF32Bits(swapchain.height) & 4294967295) *
+                4294967296 +
+                (graphicsUnsignedIntegerF32Bits(swapchain.width) & 4294967295)
+        )
+        presenter.frames[frame].scratch.storeI64(
+            16, 1065353216 * 4294967296
+        )
+        vkCmdSetViewport(
+            command, 0, 1, presenter.frames[frame].scratch.address
+        )
+        presenter.frames[frame].scratch.storeI64(0, 0)
+        presenter.frames[frame].scratch.storeI64(
+            8, swapchain.height * 4294967296 + swapchain.width
+        )
+        vkCmdSetScissor(
+            command, 0, 1, presenter.frames[frame].scratch.address
+        )
+        presenter.frames[frame].scratch.storeI64(136, vertexBuffer)
+        presenter.frames[frame].scratch.storeI64(144, vertexOffset)
+        vkCmdBindVertexBuffers(
+            command,
+            0,
+            1,
+            presenter.frames[frame].scratch.pointerAt(136),
+            presenter.frames[frame].scratch.pointerAt(144)
+        )
+        vkCmdBindIndexBuffer(command, indexBuffer, 0, 1)
+        group = 0
+        while (succeeded && group < groups) {
+            vkCmdBindPipeline(command, 0, pipelineHandles[group])
+            if (descriptorSets[group] != 0) {
+                presenter.frames[frame].scratch.storeI64(
+                    152, descriptorSets[group]
+                )
+                vkCmdBindDescriptorSets(
+                    command,
+                    0,
+                    pipelineLayouts[group],
+                    0,
+                    1,
+                    presenter.frames[frame].scratch.pointerAt(152),
+                    0,
+                    nativeNullPointer()
+                )
+            }
+            var draw = 0
+            while (succeeded && draw < drawCounts[group]) {
+                val range = nativePointerFromAddress(
+                    nativePointerAddress(indexedRanges) + rangeOffsets[group]
+                )
+                val selectedCount = graphicsPackedIndexedDrawCount(range, draw)
+                val selectedOffset = graphicsPackedIndexedDrawOffset(range, draw)
+                succeeded = selectedCount > 0 &&
+                    selectedCount <= indexCount && selectedOffset >= 0 &&
+                    (selectedOffset & 3) == 0
+                if (succeeded) vkCmdPushConstants(
+                    command,
+                    pipelineLayouts[group],
+                    pushStageMasks[group],
+                    0,
+                    pushSizes[group],
+                    nativePointerFromAddress(
+                        nativePointerAddress(pushData) + pushOffsets[group] +
+                            draw * pushStrides[group]
+                    )
+                )
+                if (succeeded) vkCmdDrawIndexed(
+                    command,
+                    selectedCount,
+                    instanceCount,
+                    selectedOffset / 4,
+                    0,
+                    0
+                )
+                draw = draw + 1
+            }
+            group = group + 1
+        }
+        if (firstPipeline.dynamicRendering) {
+            vkCmdEndRendering(command)
+            succeeded = vulkanRecordImageTransition(
+                command,
+                presenter.frames[frame].scratch,
+                this.synchronization2,
+                swapchain.images[imageIndex],
+                2, 1000001002, 1024, 8192, 256, 0
+            )
+        } else vkCmdEndRenderPass(command)
+    }
+    if (succeeded) succeeded = vkEndCommandBuffer(
+        presenter.frames[frame].command.load()
+    ) == vulkanSuccess
+    if (succeeded) succeeded = vkResetFences(
+        this.handle,
+        1,
+        presenter.frames[frame].scratch.pointerAt(96)
+    ) == vulkanSuccess
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(104, 1024)
+        succeeded = vulkanDriverSubmitInfoAt(
+            presenter.frames[frame].scratch,
+            0,
+            1,
+            presenter.frames[frame].command.address,
+            1,
+            presenter.frames[frame].scratch.pointerAt(72),
+            presenter.frames[frame].scratch.pointerAt(104),
+            1,
+            presenter.frames[frame].scratch.pointerAt(88)
+        ) && vkQueueSubmit(
+            this.queue,
+            1,
+            presenter.frames[frame].scratch.address,
+            presenter.frames[frame].fence
+        ) == vulkanSuccess
+        if (succeeded) {
+            presenter.frames[frame].inFlight = true
+            submitted = true
+        }
+    }
+    if (succeeded) {
+        presenter.frames[frame].scratch.storeI64(112, swapchain.handle)
+        succeeded = vulkanDriverPresentInfoAt(
+            presenter.frames[frame].scratch,
+            0,
+            1,
+            presenter.frames[frame].scratch.pointerAt(88),
+            1,
+            presenter.frames[frame].scratch.pointerAt(112),
+            presenter.frames[frame].scratch.pointerAt(80)
+        )
+        if (succeeded) status = vkQueuePresentKHR(
+            this.queue, presenter.frames[frame].scratch.address
+        )
+        val outcome = vulkanPresentStatus(status)
+        succeeded = vulkanPresentSucceeded(outcome)
+        recreateSwapchain = recreateSwapchain ||
+            vulkanPresentNeedsRecreation(outcome)
+    }
+    if (submitted) presenter.frameIndex =
+        if (frame + 1 == presenter.frames.size) 0 else frame + 1
+    vulkanPresentOutcome(
+        succeeded, recreateSwapchain, status, submitted
+    )
+}
+
 trusted fun VulkanDevice.presentPixelFrameOutcome(
     swapchain: VulkanSwapchain,
     var frame: VulkanPixelFrame,

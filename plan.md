@@ -284,9 +284,10 @@ portable 16-entry group with deduplicated real/fallback resources and zero
 warmed growth. Arbitrary draw lists now plan into contiguous three-material
 groups without reordering and feed tables/selectors directly. Multi-pipeline
 target submission now composes retained groups with one clear followed by load
-passes, including a one-draw tail. Window-wide multi-pipeline presentation,
-skinning/morph targets, extended PBR material models, and JPEG decoding remain
-open.
+passes, including a one-draw tail. Window presentation now records compatible
+retained groups into one swap/present operation and rebuilds the entire Vulkan
+sequence on resize. Skinning/morph targets, extended PBR material models, and
+JPEG decoding remain open.
 
 ## Non-negotiable design rules
 

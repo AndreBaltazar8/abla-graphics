@@ -846,19 +846,22 @@ trusted fun openGlWaitForCommands(): bool {
     succeeded
 }
 
-trusted fun openGlApplyBindGroup(
+trusted fun openGlApplyBindGroupRange(
     kinds: array<int>,
     bindings: array<int>,
     resources: array<int>,
     offsets: array<int>,
     sizes: array<int>,
-    samplers: array<int>
+    samplers: array<int>,
+    first: int,
+    count: int
 ): bool {
     var succeeded = kinds.size == bindings.size &&
         kinds.size == resources.size && kinds.size == offsets.size &&
-        kinds.size == sizes.size && kinds.size == samplers.size
-    var index = 0
-    while (succeeded && index < kinds.size) {
+        kinds.size == sizes.size && kinds.size == samplers.size &&
+        first >= 0 && count >= 0 && first <= kinds.size - count
+    var index = first
+    while (succeeded && index < first + count) {
         val kind = kinds[index]
         val binding = bindings[index]
         val handle = resources[index]
@@ -889,16 +892,36 @@ trusted fun openGlApplyBindGroup(
     succeeded && glGetError() == 0
 }
 
-trusted fun openGlApplyBindGroupWriteBarrier(kinds: array<int>): void {
+trusted fun openGlApplyBindGroup(
+    kinds: array<int>,
+    bindings: array<int>,
+    resources: array<int>,
+    offsets: array<int>,
+    sizes: array<int>,
+    samplers: array<int>
+): bool = openGlApplyBindGroupRange(
+    kinds, bindings, resources, offsets, sizes, samplers, 0, kinds.size
+)
+
+trusted fun openGlApplyBindGroupWriteBarrierRange(
+    kinds: array<int>,
+    first: int,
+    count: int
+): void {
     var bits = 0
-    var index = 0
-    while (index < kinds.size) {
+    var index = first
+    while (index >= 0 && count >= 0 &&
+        first <= kinds.size - count && index < first + count) {
         if (kinds[index] == 3) bits = bits | 8192
         else if (kinds[index] == 4) bits = bits | 32
         index = index + 1
     }
     if (bits != 0) glMemoryBarrier(bits)
+    return
 }
+
+trusted fun openGlApplyBindGroupWriteBarrier(kinds: array<int>): void =
+    openGlApplyBindGroupWriteBarrierRange(kinds, 0, kinds.size)
 
 trusted fun openGlCurrentCapabilities(): GraphicsCapabilities {
     val major = nativeI64Cell(0)
@@ -4227,6 +4250,167 @@ resource class OpenGlWindowContext(
                 glDisable(3089)
                 glColorMask(1, 1, 1, 1)
                 openGlApplyBindGroupWriteBarrier(bindingKinds)
+            }
+            presented = presented && glGetError() == 0 &&
+                eglSwapBuffers(this.display, this.surface) == eglTrue
+        }
+        presented
+    }
+
+    trusted fun presentProgramIndexedSequence(
+        programs: array<int>,
+        vertexArrays: array<int>,
+        pushBuffers: array<int>,
+        drawCounts: array<int>,
+        pushOffsets: array<int>,
+        pushSizes: array<int>,
+        pushStrides: array<int>,
+        rangeOffsets: array<int>,
+        bindingOffsets: array<int>,
+        bindingCounts: array<int>,
+        bindingKinds: array<int>,
+        bindingNumbers: array<int>,
+        bindingResources: array<int>,
+        bindingByteOffsets: array<int>,
+        bindingSizes: array<int>,
+        bindingSamplers: array<int>,
+        pushData: i64*,
+        indexedRanges: i64*,
+        vertices: OpenGlBuffer,
+        indices: OpenGlBuffer,
+        indexCount: int,
+        instanceCount: int,
+        vertexLayout: VertexBufferLayout,
+        clear: Color,
+        raster: RasterPipelineState,
+        depth: DepthStencilState,
+        vertexOffset: int = 0
+    ): bool {
+        val groups = programs.size
+        var presented = groups > 0 && groups <= 64 &&
+            vertexArrays.size == groups && pushBuffers.size == groups &&
+            drawCounts.size == groups && pushOffsets.size == groups &&
+            pushSizes.size == groups && pushStrides.size == groups &&
+            rangeOffsets.size == groups && bindingOffsets.size == groups &&
+            bindingCounts.size == groups &&
+            bindingKinds.size == bindingNumbers.size &&
+            bindingKinds.size == bindingResources.size &&
+            bindingKinds.size == bindingByteOffsets.size &&
+            bindingKinds.size == bindingSizes.size &&
+            bindingKinds.size == bindingSamplers.size &&
+            !pointerIsNull(pushData) && !pointerIsNull(indexedRanges) &&
+            vertices.valid() && indices.valid() && indexCount > 0 &&
+            instanceCount > 0 && vertexOffset >= 0 &&
+            (vertexOffset & 3) == 0 && vertexLayout.valid() &&
+            vertexLayout.buffered() && clear.valid() &&
+            raster.fits(this.width, this.height) && depth.valid() &&
+            this.makeCurrent()
+        var group = 0
+        while (presented && group < groups) {
+            presented = programs[group] != 0 && vertexArrays[group] != 0 &&
+                pushBuffers[group] != 0 && drawCounts[group] > 0 &&
+                drawCounts[group] <= 65536 && pushOffsets[group] >= 0 &&
+                pushSizes[group] > 0 && pushSizes[group] <= 128 &&
+                ((drawCounts[group] == 1 && pushStrides[group] == 0) ||
+                 (drawCounts[group] > 1 &&
+                  pushStrides[group] >= pushSizes[group])) &&
+                rangeOffsets[group] >= 0 && bindingOffsets[group] >= 0 &&
+                bindingCounts[group] >= 0 &&
+                bindingOffsets[group] <=
+                    bindingKinds.size - bindingCounts[group]
+            group = group + 1
+        }
+        if (presented) {
+            openGlStoreI32(
+                this.clearScratch, 0, graphicsScalarF32Bits(clear.red)
+            )
+            openGlStoreI32(
+                this.clearScratch, 1, graphicsScalarF32Bits(clear.green)
+            )
+            openGlStoreI32(
+                this.clearScratch, 2, graphicsScalarF32Bits(clear.blue)
+            )
+            openGlStoreI32(
+                this.clearScratch, 3, graphicsScalarF32Bits(clear.alpha)
+            )
+            glDisable(3089)
+            glViewport(0, 0, this.width, this.height)
+            glColorMask(1, 1, 1, 1)
+            glClearBufferfv(6144, 0, this.clearScratch.address)
+            group = 0
+            while (presented && group < groups) {
+                glUseProgram(programs[group])
+                glBindVertexArray(vertexArrays[group])
+                glBindBuffer(35345, pushBuffers[group])
+                glBindBufferBase(
+                    35345, openGlPushConstantBinding, pushBuffers[group]
+                )
+                glBindBuffer(34962, vertices.handle)
+                presented = openGlConfigureVertexLayout(
+                    vertexLayout, vertexOffset
+                ) && openGlApplyBindGroupRange(
+                    bindingKinds,
+                    bindingNumbers,
+                    bindingResources,
+                    bindingByteOffsets,
+                    bindingSizes,
+                    bindingSamplers,
+                    bindingOffsets[group],
+                    bindingCounts[group]
+                )
+                glBindBuffer(34963, indices.handle)
+                presented = presented && openGlApplyDepthState(depth) &&
+                    openGlApplyRasterState(raster, this.width, this.height)
+                var draw = 0
+                while (presented && draw < drawCounts[group]) {
+                    val range = nativePointerFromAddress(
+                        nativePointerAddress(indexedRanges) +
+                            rangeOffsets[group]
+                    )
+                    val selectedCount = graphicsPackedIndexedDrawCount(
+                        range, draw
+                    )
+                    val selectedOffset = graphicsPackedIndexedDrawOffset(
+                        range, draw
+                    )
+                    presented = selectedCount > 0 &&
+                        selectedCount <= indexCount && selectedOffset >= 0 &&
+                        (selectedOffset & 3) == 0
+                    if (presented) glBufferSubData(
+                        35345,
+                        0,
+                        pushSizes[group],
+                        nativePointerFromAddress(
+                            nativePointerAddress(pushData) +
+                                pushOffsets[group] +
+                                draw * pushStrides[group]
+                        )
+                    )
+                    if (presented && instanceCount == 1) glDrawElements(
+                        openGlPrimitiveMode(raster.topology),
+                        selectedCount,
+                        5125,
+                        nativePointerFromAddress(selectedOffset)
+                    )
+                    else if (presented) glDrawElementsInstanced(
+                        openGlPrimitiveMode(raster.topology),
+                        selectedCount,
+                        5125,
+                        nativePointerFromAddress(selectedOffset),
+                        instanceCount
+                    )
+                    draw = draw + 1
+                }
+                if (presented) openGlApplyBindGroupWriteBarrierRange(
+                    bindingKinds,
+                    bindingOffsets[group],
+                    bindingCounts[group]
+                )
+                group = group + 1
+            }
+            if (presented) {
+                glDisable(3089)
+                glColorMask(1, 1, 1, 1)
             }
             presented = presented && glGetError() == 0 &&
                 eglSwapBuffers(this.display, this.surface) == eglTrue

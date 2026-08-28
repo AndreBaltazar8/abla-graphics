@@ -33,6 +33,32 @@ fun storeGltfDraw(
     batch.storeMemberF32(draw, "tint", 0.0, 2) &&
     batch.storeMemberF32(draw, "tint", 1.0, 3)
 
+fun storeGltfBatchPair(
+    var first: GraphicsPushConstantBatch,
+    var second: GraphicsPushConstantBatch,
+    drawList: GltfSceneDrawList,
+    materialPlan: GltfMaterialBatchPlan,
+    indexCounts: array<int>,
+    indexOffsets: array<int>
+): bool = first.valid() && second.valid() &&
+    first.layout.size == 64 && second.layout.size == 64 &&
+    storeGltfDraw(
+        first, 0, drawList.drawables[0].worldTransform,
+        f64FromInt(materialPlan.drawableMaterialSlot(0)), 0.0
+    ) && storeGltfDraw(
+        first, 1, drawList.drawables[1].worldTransform,
+        f64FromInt(materialPlan.drawableMaterialSlot(1)), 0.0
+    ) && storeGltfDraw(
+        second, 0, drawList.drawables[2].worldTransform,
+        f64FromInt(materialPlan.drawableMaterialSlot(2)), 0.0
+    ) && first.storeIndexedDrawRange(
+        0, indexCounts[0], indexOffsets[0]
+    ) && first.storeIndexedDrawRange(
+        1, indexCounts[1], indexOffsets[1]
+    ) && second.storeIndexedDrawRange(
+        0, indexCounts[2], indexOffsets[2]
+    )
+
 fun main: int {
     val requested = if (processArgumentCount() > 0)
         processArgument(0) else "auto"
@@ -152,7 +178,12 @@ fun main: int {
     val secondTargetEntries = app.gltfMaterialTextureEntries(
         secondMaterialTextures
     )
-    val windowEntries = app.gltfMaterialTextureEntries(secondMaterialTextures)
+    val firstWindowEntries = app.gltfMaterialTextureEntries(
+        firstMaterialTextures
+    )
+    val secondWindowEntries = app.gltfMaterialTextureEntries(
+        secondMaterialTextures
+    )
     val clearPass = app.renderPass(
         target,
         renderPassClearValues(Color(0.01, 0.01, 0.015))
@@ -174,36 +205,36 @@ fun main: int {
         RasterPipelineState(), DepthStencilState(),
         app.bindGroup(secondTargetEntries)
     )
-    val windowPipeline = app.renderPipeline(
+    val firstWindowPipeline = app.renderPipeline(
         shader, sceneGeometry.layout,
         RasterPipelineState(), DepthStencilState(),
-        app.bindGroup(windowEntries)
+        app.bindGroup(firstWindowEntries)
+    )
+    val secondWindowPipeline = app.renderPipeline(
+        shader, sceneGeometry.layout,
+        RasterPipelineState(), DepthStencilState(),
+        app.bindGroup(secondWindowEntries)
     )
     val firstBatch = shader.pushConstantBatch(2)
     val secondBatch = shader.pushConstantBatch(1)
-    val batchReady = firstBatch.valid() && secondBatch.valid() &&
-        firstBatch.layout.size == 64 && secondBatch.layout.size == 64 &&
-        storeGltfDraw(
-            firstBatch, 0, drawList.drawables[0].worldTransform,
-            f64FromInt(materialPlan.drawableMaterialSlot(0)), 0.0
-        ) && storeGltfDraw(
-            firstBatch, 1, drawList.drawables[1].worldTransform,
-            f64FromInt(materialPlan.drawableMaterialSlot(1)), 0.0
-        ) && storeGltfDraw(
-            secondBatch, 0, drawList.drawables[2].worldTransform,
-            f64FromInt(materialPlan.drawableMaterialSlot(2)), 0.0
-        ) && firstBatch.storeIndexedDrawRange(
-            0, drawIndexCounts[0], drawIndexOffsets[0]
-        ) && firstBatch.storeIndexedDrawRange(
-            1, drawIndexCounts[1], drawIndexOffsets[1]
-        ) && secondBatch.storeIndexedDrawRange(
-            0, drawIndexCounts[2], drawIndexOffsets[2]
-        )
+    val firstWindowBatch = shader.pushConstantBatch(2)
+    val secondWindowBatch = shader.pushConstantBatch(1)
+    val batchReady = storeGltfBatchPair(
+        firstBatch, secondBatch, drawList, materialPlan,
+        drawIndexCounts, drawIndexOffsets
+    ) && storeGltfBatchPair(
+        firstWindowBatch, secondWindowBatch, drawList, materialPlan,
+        drawIndexCounts, drawIndexOffsets
+    )
     val targetPipelines = [
         move(firstTargetPipeline), move(secondTargetPipeline)
     ]
     val batches = [move(firstBatch), move(secondBatch)]
     val passes = [move(clearPass), move(loadPass)]
+    val windowSequence = app.pushBatchRenderSequence(
+        [move(firstWindowPipeline), move(secondWindowPipeline)],
+        [move(firstWindowBatch), move(secondWindowBatch)]
+    )
     val clear = Color(0.01, 0.01, 0.015)
     val initialized = app.valid() && parsed.succeeded && payloads.valid &&
         drawList.valid && drawList.drawables.size == 3 && resourcePlan.valid &&
@@ -246,34 +277,63 @@ fun main: int {
         firstMaterialTextures.slots.size == 10 &&
         secondMaterialTextures.slots.size == 10 &&
         firstTargetEntries.size == 10 && secondTargetEntries.size == 10 &&
-        windowEntries.size == 10 &&
+        firstWindowEntries.size == 10 && secondWindowEntries.size == 10 &&
         shader.valid && target.valid() &&
         targetPipelines[0].valid() && targetPipelines[1].valid() &&
-        windowPipeline.valid() && batches[0].valid() && batches[1].valid() &&
+        windowSequence.valid() && windowSequence.groupCount() == 2 &&
+        batches[0].valid() && batches[1].valid() &&
         passes[0].valid() && passes[1].valid() && batchReady
     if (!initialized) println(
-        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} geometry=${sceneGeometry.valid()}:${sceneGeometry.error} materials=${firstMaterialTextures.valid()}:${secondMaterialTextures.valid()} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipelines[0].valid()}:${targetPipelines[1].valid()}:${windowPipeline.valid()}"
+        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} geometry=${sceneGeometry.valid()}:${sceneGeometry.error} materials=${firstMaterialTextures.valid()}:${secondMaterialTextures.valid()} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipelines[0].valid()}:${targetPipelines[1].valid()}:${windowSequence.valid()}:${windowSequence.error.message}"
     )
     val targetRendered = initialized && app.renderGltfMaterialBatchesToTarget(
         target, materialPlan, targetPipelines, batches, passes,
         sceneGeometry.vertices, sceneGeometry.indices, sceneGeometry.indexCount
     )
-    val windowRendered = targetRendered && app.presentPushBatchRenderIndexed(
-        windowPipeline, batches[1], sceneGeometry.vertices,
+    val windowRendered = targetRendered &&
+        app.presentPushBatchRenderIndexedSequence(
+        windowSequence, sceneGeometry.vertices,
         sceneGeometry.indices, sceneGeometry.indexCount, clear
     )
     if (!targetRendered || !windowRendered) println(
         "gltf-live first-frame: target=$targetRendered window=$windowRendered"
     )
-    var rendered = targetRendered && windowRendered
+    val firstWindowPipelineHandle = if (
+        app.backend == graphicsBackendVulkan && windowSequence.valid()
+    ) windowSequence.vulkanPipelines[0] else 0
+    var resized = targetRendered && windowRendered && app.resize(672, 384)
+    var resizeEvent = WindowEvent()
+    var resizePoll = 0
+    while (resized && resizeEvent.kind != windowEventResized &&
+        resizePoll < 32) {
+        resizeEvent = app.pollEvent(50)
+        resizePoll = resizePoll + 1
+    }
+    resized = resized && resizeEvent.first == 672 &&
+        resizeEvent.second == 384 &&
+        app.presentPushBatchRenderIndexedSequence(
+            windowSequence, sceneGeometry.vertices, sceneGeometry.indices,
+            sceneGeometry.indexCount, clear
+        ) && (app.backend == graphicsBackendOpenGl || (
+            app.vulkanSwapchain.width == 672 &&
+            app.vulkanSwapchain.height == 384 &&
+            windowSequence.pipelines[0].vulkan.width == 672 &&
+            windowSequence.pipelines[1].vulkan.width == 672 &&
+            windowSequence.vulkanPipelines[0] ==
+                windowSequence.pipelines[0].vulkan.handle &&
+            windowSequence.vulkanPipelines[1] ==
+                windowSequence.pipelines[1].vulkan.handle &&
+            windowSequence.vulkanPipelines[0] != firstWindowPipelineHandle
+        ))
+    var rendered = targetRendered && windowRendered && resized
     var warm = 0
     while (rendered && warm < 4) {
         rendered = app.renderGltfMaterialBatchesToTarget(
             target, materialPlan, targetPipelines, batches, passes,
             sceneGeometry.vertices, sceneGeometry.indices,
             sceneGeometry.indexCount
-        ) && app.presentPushBatchRenderIndexed(
-            windowPipeline, batches[1], sceneGeometry.vertices,
+        ) && app.presentPushBatchRenderIndexedSequence(
+            windowSequence, sceneGeometry.vertices,
             sceneGeometry.indices, sceneGeometry.indexCount, clear
         )
         warm = warm + 1
@@ -287,8 +347,8 @@ fun main: int {
             target, materialPlan, targetPipelines, batches, passes,
             sceneGeometry.vertices, sceneGeometry.indices,
             sceneGeometry.indexCount
-        ) && app.presentPushBatchRenderIndexed(
-            windowPipeline, batches[1], sceneGeometry.vertices,
+        ) && app.presentPushBatchRenderIndexedSequence(
+            windowSequence, sceneGeometry.vertices,
             sceneGeometry.indices, sceneGeometry.indexCount, clear
         ) && target.texture.rgba8(24, 32) == firstPixel &&
             target.texture.rgba8(51, 32) == secondPixel
@@ -304,6 +364,6 @@ fun main: int {
         firstPixel == 4278255360 && secondPixel == 4294901760 &&
         liveAfter == liveBefore &&
         vertexHandle != 0 && indexHandle != 0
-    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} materialTextures=5/10 batches=${materialPlan.batchCount()} drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[2].material} resources=${resourcePlan.meshIndices.size} vertices=${sceneGeometry.vertexCount} indices=${sceneGeometry.indexCount} stride=${sceneGeometry.layout.stride} uv=u8/u16 surface=normal+tangent channels=base/mr/normal/occlusion/emissive ranges=${drawIndexOffsets[0]}:${drawIndexCounts[0]}/${drawIndexOffsets[2]}:${drawIndexCounts[2]} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
+    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} materialTextures=5/10 batches=${materialPlan.batchCount()} windowGroups=${windowSequence.groupCount()} resize=$resized drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[2].material} resources=${resourcePlan.meshIndices.size} vertices=${sceneGeometry.vertexCount} indices=${sceneGeometry.indexCount} stride=${sceneGeometry.layout.stride} uv=u8/u16 surface=normal+tangent channels=base/mr/normal/occlusion/emissive ranges=${drawIndexOffsets[0]}:${drawIndexCounts[0]}/${drawIndexOffsets[2]}:${drawIndexCounts[2]} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
     if (stable) 0 else 1
 }
