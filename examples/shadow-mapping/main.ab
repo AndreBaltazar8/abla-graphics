@@ -1,0 +1,190 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0)
+    else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            framesInFlight = 2,
+            requiredFeatures = graphicsFeatureDepthTextures |
+                graphicsFeatureComparisonSamplers
+        ),
+        WindowConfig(
+            title = "Abla Graphics shadow mapping",
+            width = 640,
+            height = 360
+        )
+    )
+    val depthShader = $glsl {
+        vertex {
+            #version 450
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) out vec4 color;
+            void main() {
+                color = vec4(0.03, 0.04, 0.06, 1.0);
+            }
+        }
+    }
+    val displayShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) out vec2 texCoord;
+            const vec2 positions[3] = vec2[3](
+                vec2(-0.75, -0.65),
+                vec2(0.75, -0.65),
+                vec2(0.0, 0.75)
+            );
+            const vec2 texCoords[3] = vec2[3](
+                vec2(0.0, 0.0),
+                vec2(1.0, 0.0),
+                vec2(0.0, 1.0)
+            );
+            void main() {
+                gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+                texCoord = texCoords[gl_VertexID];
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2DShadow shadowMap;
+            void main() {
+                color = vec4(texture(
+                    shadowMap,
+                    vec3(texCoord.x, texCoord.y, 0.75)
+                ));
+            }
+        }
+    }
+    val mapColor = app.texture(TextureDescriptor(
+        label = "shadow-map-color",
+        size = Extent3D(256, 256),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageRenderAttachment
+    ))
+    val mapDepth = app.texture(TextureDescriptor(
+        label = "shadow-map-depth",
+        size = Extent3D(256, 256),
+        format = textureFormatDepth32Float,
+        usage = textureUsageRenderAttachment | textureUsageSampled
+    ))
+    val mapTarget = app.renderTargetWithDepth(
+        move(mapColor),
+        move(mapDepth)
+    )
+    val depthPipeline = app.renderTargetPipeline(
+        mapTarget,
+        depthShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(
+            enabled = true,
+            write = true,
+            compare = compareFunctionLess
+        )
+    )
+    val comparisonSampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterLinear,
+        minFilter = samplerFilterLinear,
+        compare = compareFunctionLess
+    ))
+    val shadowBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0,
+            shaderVisibilityFragment,
+            mapTarget.depthTexture,
+            comparisonSampler
+        )
+    ])
+    val displayPipeline = app.renderPipeline(
+        displayShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(shadowBinding)
+    )
+    val depthHandle = if (app.backend == graphicsBackendOpenGl)
+        mapTarget.depthTexture.openGl.handle
+    else mapTarget.depthTexture.vulkan.image
+    val samplerHandle = if (app.backend == graphicsBackendOpenGl)
+        comparisonSampler.openGl.handle
+    else comparisonSampler.vulkan.handle
+    val mapClear = Color(0.0, 0.0, 0.0)
+    val windowClear = Color(0.02, 0.025, 0.04)
+    val configured = app.valid() && depthShader.valid && displayShader.valid &&
+        mapTarget.valid() && mapTarget.hasDepth() && depthPipeline.valid() &&
+        comparisonSampler.valid() && displayPipeline.valid()
+    val depthRendered = configured && app.renderToTarget(
+        mapTarget,
+        depthPipeline,
+        mapClear
+    )
+    var rendered = depthRendered && app.presentRender(
+        displayPipeline,
+        windowClear
+    )
+    if (rendered) rendered = app.renderToTarget(
+        mapTarget,
+        depthPipeline,
+        mapClear
+    ) && app.presentRender(
+        displayPipeline,
+        windowClear
+    )
+    var warmFrame = 0
+    while (rendered && warmFrame < 4) {
+        rendered = app.renderToTarget(
+            mapTarget,
+            depthPipeline,
+            mapClear
+        ) && app.presentRender(
+            displayPipeline,
+            windowClear
+        )
+        warmFrame = warmFrame + 1
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    var frame = 0
+    while (rendered && frame < 4) {
+        rendered = app.renderToTarget(
+            mapTarget,
+            depthPipeline,
+            mapClear
+        ) && app.presentRender(
+            displayPipeline,
+            windowClear
+        )
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stable = rendered && frame == 4 && liveAfter == liveBefore &&
+        depthHandle != 0 && samplerHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            mapTarget.depthTexture.openGl.handle == depthHandle &&
+                comparisonSampler.openGl.handle == samplerHandle
+         else mapTarget.depthTexture.vulkan.image == depthHandle &&
+                comparisonSampler.vulkan.handle == samplerHandle)
+    println(
+        "shadow-mapping ${graphicsBackendName(app.backend)}: configured=$configured depth=$depthRendered comparison=${comparisonSampler.valid()} frames=$frame live=${liveAfter - liveBefore} stable=$stable depthError=${depthPipeline.error.message} displayError=${displayPipeline.error.message}"
+    )
+    if (stable) 0 else 1
+}

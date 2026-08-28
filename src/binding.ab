@@ -42,9 +42,12 @@ fun graphicsBindingStageVisibility(stage: string): int =
     else 0
 
 fun graphicsSampledTextureDimension(dataType: string): int =
-    if (dataType == "sampler2D") textureDimension2D
-    else if (dataType == "sampler2DArray") textureDimension2DArray
-    else if (dataType == "samplerCube") textureDimensionCube
+    if (dataType == "sampler2D" || dataType == "sampler2DShadow")
+        textureDimension2D
+    else if (dataType == "sampler2DArray" ||
+        dataType == "sampler2DArrayShadow") textureDimension2DArray
+    else if (dataType == "samplerCube" ||
+        dataType == "samplerCubeShadow") textureDimensionCube
     else if (dataType == "sampler3D") textureDimension3D
     else textureDimensionUndefined
 
@@ -213,7 +216,9 @@ class GraphicsBindingEntry(
             (this.kind == graphicsBindingSampledTexture &&
              reflected.storage == "uniform" &&
              sampledDimension != textureDimensionUndefined &&
-             this.textureDimension == sampledDimension) ||
+             this.textureDimension == sampledDimension &&
+             textureFormatHasDepth(this.texture.format) ==
+                glslRasterShadowSamplerType(reflected.dataType)) ||
             (this.kind == graphicsBindingUniformBuffer &&
              reflected.storage == "uniform" &&
              !glslSamplerType(reflected.dataType) &&
@@ -339,11 +344,12 @@ trusted fun GraphicsApplication.sampledTextureEntry(
         binding < 0 || binding > 31 ||
         !graphicsBindingVisibilityValid(visibility) ||
         (texture.descriptor.usage & textureUsageSampled) == 0 ||
-        textureFormatHasDepth(texture.descriptor.format)) {
+        textureFormatHasDepth(texture.descriptor.format) !=
+            (sampler.descriptor.compare != compareFunctionUndefined)) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.sampledTextureEntry",
-            "sampled texture entries require owned color resources, a binding from 0 to 31, and valid visibility"
+            "sampled texture entries require owned compatible color/regular-sampler or depth/comparison-sampler resources, a binding from 0 to 31, and valid visibility"
         )
     }
     GraphicsBindingEntry(
@@ -381,11 +387,12 @@ trusted fun GraphicsApplication.sampledTextureViewEntry(
         !validation.succeeded || binding < 0 || binding > 31 ||
         !graphicsBindingVisibilityValid(visibility) ||
         (view.texture.usage & textureUsageSampled) == 0 ||
-        view.texture.samples != 1 || textureFormatHasDepth(format)) {
+        view.texture.samples != 1 || textureFormatHasDepth(format) !=
+            (sampler.descriptor.compare != compareFunctionUndefined)) {
         error = GraphicsError(
             graphicsErrorInvalidConfiguration,
             "GraphicsApplication.sampledTextureViewEntry",
-            "sampled texture-view entries require an owned single-sample color view, a binding from 0 to 31, and valid visibility"
+            "sampled texture-view entries require an owned single-sample compatible color/regular-sampler or depth/comparison-sampler view, a binding from 0 to 31, and valid visibility"
         )
     }
     GraphicsBindingEntry(

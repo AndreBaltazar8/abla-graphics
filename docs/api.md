@@ -1259,6 +1259,18 @@ checks the same exact pixels without hidden replacement views: OpenGL binds the
 view object directly, while Vulkan borrows the existing `VkImageView` and only
 destroys default views that the bind group created itself.
 
+Depth sampling uses the same binding API with a deliberately strict pairing:
+a depth texture or depth-aspect view requires a comparison sampler, while a
+color texture requires a regular sampler. Reflected `sampler2DShadow`,
+`sampler2DArrayShadow`, and `samplerCubeShadow` declarations enforce the same
+dimension and depth pairing when the pipeline is created. The `$glsl` subset
+returns scalar comparison results for ordinary, LOD, gradient, constant-offset,
+and legal projected shadow calls. Vulkan emits depth image types and the exact
+`OpImageSampleDref*` instruction family; OpenGL compiles the same GLSL source.
+A render-target depth attachment carrying `textureUsageSampled` rests in shader
+read layout after a Vulkan pass, so it can feed the next pass without a copy.
+`examples/shadow-mapping` is the live two-pass reference.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan

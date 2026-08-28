@@ -525,7 +525,9 @@ fun applicationBackendProbe(
         addressV = samplerAddressMirrorRepeat,
         magFilter = samplerFilterLinear,
         minFilter = samplerFilterLinear,
-        mipmapFilter = samplerFilterLinear,
+        mipmapFilter = samplerFilterLinear
+    ))
+    val comparisonSampler = app.sampler(SamplerDescriptor(
         compare = compareFunctionLessEqual
     ))
     val anisotropicSampler = app.sampler(SamplerDescriptor(
@@ -827,6 +829,18 @@ fun applicationBackendProbe(
         depthTextureView,
         sampler
     )
+    val comparisonDepthViewEntry = app.sampledTextureViewEntry(
+        6,
+        shaderVisibilityFragment,
+        depthTextureView,
+        comparisonSampler
+    )
+    val comparisonColorEntry = app.sampledTextureEntry(
+        6,
+        shaderVisibilityFragment,
+        texture,
+        comparisonSampler
+    )
     val uniformEntry = app.uniformBufferEntry(
         5,
         shaderVisibilityVertex | shaderVisibilityFragment,
@@ -937,6 +951,24 @@ fun applicationBackendProbe(
             "viewAtlas"
         )) && !sampledDepthViewEntry.valid() &&
         sampledDepthViewEntry.error.code ==
+            graphicsErrorInvalidConfiguration &&
+        comparisonDepthViewEntry.valid() &&
+        comparisonDepthViewEntry.matches(ShaderBinding(
+            shaderStageFragment,
+            0,
+            6,
+            "uniform",
+            "sampler2DShadow",
+            "shadowMap"
+        )) && !comparisonDepthViewEntry.matches(ShaderBinding(
+            shaderStageFragment,
+            0,
+            6,
+            "uniform",
+            "sampler2D",
+            "shadowMap"
+        )) && !comparisonColorEntry.valid() &&
+        comparisonColorEntry.error.code ==
             graphicsErrorInvalidConfiguration
     val duplicateBindGroup = app.bindGroup([
         sampledEntry,
@@ -1940,7 +1972,7 @@ fun applicationBackendProbe(
         missingCopySourceUsageRejected &&
         missingCopyDestinationUsageRejected &&
         missingFillUsageRejected &&
-        sampler.valid() &&
+        sampler.valid() && comparisonSampler.valid() &&
         anisotropicSampler.valid() &&
         texture.valid() && textureUploaded && textureReuploaded &&
         uploadedPixel == 1835094855 && invalidUploadRejected &&

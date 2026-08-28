@@ -72,7 +72,8 @@ fun sampledCapability(module: SpirvModule, capability: int): bool {
 fun sampledImageType(
     module: SpirvModule,
     dimension: int,
-    arrayed: int
+    arrayed: int,
+    depth: int = 0
 ): bool {
     var found = false
     var index = 5
@@ -81,6 +82,7 @@ fun sampledImageType(
         val count = (instruction >> 16) & 65535
         found = (instruction & 65535) == 25 && count == 9 &&
             module.words[index + 3] == dimension &&
+            module.words[index + 4] == depth &&
             module.words[index + 5] == arrayed
         index = index + if (count > 0) count else 1
     }
@@ -338,6 +340,63 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2D surface; void main(){ color=textureLod(surface,vec2(0.25),0.0,0.0); }"
         ]
     ).spirv(shaderStageFragment)
+    val shadowed = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DShadow surface; void main(){ const ivec2 zero=ivec2(0,0); color=vec4(textureOffset(surface,vec3(0.25,0.25,0.5),zero,0.0)); }"
+        ]
+    )
+    val shadowProgram = shadowed.rasterFragmentProgram()
+    val shadowFirst = shadowed.spirv(shaderStageFragment)
+    val shadowSecond = shadowed.spirv(shaderStageFragment)
+    val arrayShadow = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArrayShadow layers; void main(){ color=vec4(textureGrad(layers,vec4(0.25,0.25,0.0,0.5),vec2(0.0),vec2(0.0))); }"
+        ]
+    )
+    val arrayShadowProgram = arrayShadow.rasterFragmentProgram()
+    val arrayShadowFirst = arrayShadow.spirv(shaderStageFragment)
+    val cubeShadow = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCubeShadow sky; void main(){ color=vec4(texture(sky,vec4(0.0,0.0,1.0,0.5),0.0)); }"
+        ]
+    )
+    val cubeShadowProgram = cubeShadow.rasterFragmentProgram()
+    val cubeShadowFirst = cubeShadow.spirv(shaderStageFragment)
+    val projectedShadow = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DShadow surface; void main(){ const ivec2 zero=ivec2(0,0); float a=textureProjOffset(surface,vec4(0.25,0.25,0.5,1.0),zero,0.0); float b=textureLodOffset(surface,vec3(0.25,0.25,0.5),0.0,zero); color=vec4(a+b); }"
+        ]
+    )
+    val projectedShadowFirst = projectedShadow.spirv(shaderStageFragment)
+    val invalidShadowCoordinate = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DShadow surface; void main(){ color=vec4(texture(surface,vec2(0.25))); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidShadowCubeLod = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCubeShadow sky; void main(){ color=vec4(textureLod(sky,vec4(0.0,0.0,1.0,0.5),0.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
+    val invalidShadowArrayBias = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform sampler2DArrayShadow layers; void main(){ color=vec4(texture(layers,vec4(0.25),0.0)); }"
+        ]
+    ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
         else if (!fetchedProgram.valid) 3
         else if (fetchedProgram.integerExpressions.size != 6) 4
@@ -492,11 +551,57 @@ trusted fun main: int {
         else if (invalidExplicitBias.succeeded ||
             invalidExplicitBias.error == "") 90
         else 42
+    val shadowResult = if (!shadowed.valid) 100
+        else if (!shadowProgram.valid) 113
+        else if (!shadowFirst.succeeded || !shadowFirst.module.valid()) 101
+        else if (!sampledImageType(shadowFirst.module, 1, 0, 1)) 102
+        else if (sampledInstructionFormCount(
+            shadowFirst.module, 589913
+        ) != 1) 103
+        else if (!sampledWordsEqual(
+            shadowFirst.module,
+            shadowSecond.module
+        )) 106
+        else if (!arrayShadow.valid) 114
+        else if (!arrayShadowProgram.valid) 115
+        else if (!arrayShadowFirst.succeeded) 116
+        else if (!arrayShadowFirst.module.valid()) 117
+        else if (
+            !sampledImageType(arrayShadowFirst.module, 1, 1, 1) ||
+            sampledInstructionFormCount(
+                arrayShadowFirst.module, 589914
+            ) != 1) 104
+        else if (!cubeShadow.valid) 118
+        else if (!cubeShadowProgram.valid) 119
+        else if (!cubeShadowFirst.succeeded) 120
+        else if (!cubeShadowFirst.module.valid()) 121
+        else if (
+            !sampledImageType(cubeShadowFirst.module, 3, 0, 1) ||
+            sampledInstructionFormCount(
+                cubeShadowFirst.module, 524377
+            ) != 1) 105
+        else if (!projectedShadow.valid ||
+            !projectedShadowFirst.succeeded ||
+            !projectedShadowFirst.module.valid()) 107
+        else if (sampledInstructionFormCount(
+            projectedShadowFirst.module, 589917
+        ) != 1) 108
+        else if (sampledInstructionFormCount(
+            projectedShadowFirst.module, 589914
+        ) != 1) 109
+        else if (invalidShadowCoordinate.succeeded ||
+            invalidShadowCoordinate.error == "") 110
+        else if (invalidShadowCubeLod.succeeded ||
+            invalidShadowCubeLod.error == "") 111
+        else if (invalidShadowArrayBias.succeeded ||
+            invalidShadowArrayBias.error == "") 112
+        else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult
     else if (queryResult != 42) queryResult
     else if (gatherResult != 42) gatherResult
     else if (biasResult != 42) biasResult
+    else if (shadowResult != 42) shadowResult
     else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&

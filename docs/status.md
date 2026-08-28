@@ -2070,3 +2070,28 @@ proves `const` rejection. `examples/wider-sampling` performs live scalar and
 3D compound updates plus 2D/3D vector conversions. OpenGL, Vulkan, and
 automatic selection preserve all exact pixels/views, mismatch rejection,
 stable handles, four frames, and `live=0`; the Abla-only audit passes.
+
+### Comparison sampling and shadow maps
+
+The common sampled-binding contract now pairs color textures with regular
+samplers and depth textures/views with comparison samplers. Reflection accepts
+`sampler2DShadow`, `sampler2DArrayShadow`, and `samplerCubeShadow` with exact
+dimension/depth validation. `$glsl` gives their samples scalar result types,
+checks the specification-specific coordinate, LOD, gradient, offset, bias, and
+projection signatures, and rejects mismatched forms before pipeline creation.
+
+Pure-Abla Vulkan emission declares depth image types, splits the GLSL packed
+coordinate into spatial coordinate and depth reference, and emits ordinary or
+projected `OpImageSampleDrefImplicitLod` / `OpImageSampleDrefExplicitLod` with
+exact image operands. Sampled depth render attachments finish in shader-read
+layout rather than the depth-attachment resting layout. The focused shader gate
+covers 2D, array, cube, projected, explicit LOD, gradient, bias, and constant
+offset forms with deterministic words and negative signatures.
+
+`examples/shadow-mapping` renders a triangle into an owned 256x256 depth
+attachment, then comparison-samples that depth map into a visible shadow-
+visibility window. Its dedicated gate builds once and launches the same binary
+through OpenGL, Vulkan, and automatic selection, checking four warmed frames, stable
+native depth/sampler handles, and zero live-byte growth. The verified output is
+`configured=true depth=true comparison=true frames=4 live=0 stable=true` on
+OpenGL and Vulkan; automatic selection chose Vulkan with the same result.

@@ -3596,7 +3596,6 @@ class VulkanBindingEntry(
           (this.handle != 0 || this.view != 0) && this.sampler != 0 &&
           this.offset == 0 && this.size == 0 && this.texture.valid() &&
           (this.texture.usage & textureUsageSampled) != 0 &&
-          !textureFormatHasDepth(this.texture.format) &&
           (this.imageLayout == 1 || this.imageLayout == 5)) ||
          (this.descriptorType == 3 &&
           (this.handle != 0 || this.view != 0) && this.sampler == 0 &&
@@ -5768,6 +5767,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
     colorStoreOperations: array<int>,
     depthLoadOperation: int,
     depthStoreOperation: int,
+    depthFinalLayout: int,
     subpassCount: int = 1
 ): VulkanCompatibleRenderPass {
     val colorCount = 1 + target.additionalViews.size
@@ -5784,7 +5784,8 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
         subpassCount >= 1 && subpassCount <= 8 &&
         (!hasDepth || (
             depthLoadOperation >= 0 && depthLoadOperation <= 2 &&
-            depthStoreOperation >= 0 && depthStoreOperation <= 1
+            depthStoreOperation >= 0 && depthStoreOperation <= 1 &&
+            (depthFinalLayout == 3 || depthFinalLayout == 5)
         ))
     var colorIndex = 0
     while (succeeded && colorIndex < colorCount) {
@@ -5828,7 +5829,8 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
         if (succeeded && hasDepth) {
             val depthOffset = colorCount *
                 vulkanDriverSizeVkAttachmentDescription
-            val depthInitialLayout = if (depthLoadOperation == 0) 3 else 0
+            val depthInitialLayout = if (depthLoadOperation == 0)
+                depthFinalLayout else 0
             succeeded = vulkanDriverAttachmentDescriptionAt(
                 attachments, depthOffset, target.depthFormat, target.samples,
                 depthLoadOperation, depthStoreOperation,
@@ -5836,7 +5838,7 @@ trusted fun VulkanDevice.compatibleRenderTargetPass(
                     depthLoadOperation else 2,
                 if (textureFormatHasStencil(target.depthFormat))
                     depthStoreOperation else 1,
-                depthInitialLayout, 3
+                depthInitialLayout, depthFinalLayout
             )
         }
         resolveIndex = 0
@@ -7140,7 +7142,11 @@ trusted fun VulkanDevice.bindGroup(
                 this.handle,
                 entry.handle,
                 entry.texture,
-                TextureViewDescriptor()
+                TextureViewDescriptor(
+                    aspect = if (textureFormatHasDepth(
+                        entry.texture.format
+                    )) textureAspectDepth else textureAspectColor
+                )
             )
             succeeded = view != 0
             if (succeeded) {

@@ -432,6 +432,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   pure-Abla SPIR-V, including explicit narrowed array-layer/cube-face/volume
   views, mismatch rejection, stable native handles, and zero live-byte growth
   on explicit OpenGL and Vulkan;
+- `examples/shadow-mapping`: a depth-only comparison path renders an offscreen
+  2D depth map and samples it through `sampler2DShadow` into a visible shadow
+  visibility window, with stable resources and zero warmed growth on both
+  backends;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

@@ -3275,3 +3275,32 @@ ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned \
   ABLA_MAX_MEMORY_MB=8192 make test-glsl
 nix-shell --run 'ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned ABLA_MAX_MEMORY_MB=8192 make test-wider-sampling check-abla-only'
 ```
+
+## Latest checkpoint: comparison sampling and shadow mapping
+
+The framework now accepts sampled depth textures and depth-aspect views when
+paired with a comparison sampler, while rejecting depth/regular and
+color/comparison mismatches. Reflection understands `sampler2DShadow`,
+`sampler2DArrayShadow`, and `samplerCubeShadow` and preserves the same strict
+dimension and resource-format checks as ordinary sampled bindings.
+
+The pure-Abla `$glsl` path types shadow lookups as scalar results, validates the
+portable ordinary, explicit-LOD, gradient, constant-offset, bias, and projected
+signatures, and lowers them to depth `OpTypeImage` plus the corresponding
+`OpImageSampleDref*` instructions. The emitter splits packed GLSL shadow
+coordinates into the spatial coordinate and `Dref` without native helper code.
+Sampled Vulkan depth attachments now end a render pass in shader-read layout.
+
+`examples/shadow-mapping` is the independently buildable two-pass proof: it
+renders an occluder into a 256x256 depth attachment and comparison-samples that
+map into a visible shadow-visibility window. OpenGL, Vulkan, and automatic
+selection each report `configured=true depth=true comparison=true frames=4
+live=0 stable=true` (automatic selection chose Vulkan). The focused and live
+gates are:
+
+```bash
+nix-shell --run 'ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned ABLA_MAX_MEMORY_MB=8192 make test-glsl test-shadow-mapping check-abla-only'
+```
+
+After this checkpoint, continue the sampling surface with shadow gathers and
+then use the working shadow foundation for the remaining HDR/PBR sample work.

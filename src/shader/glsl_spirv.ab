@@ -148,14 +148,31 @@ fun glslRasterSamplerCoordinateType(dataType: string): int =
     if (dataType == "sampler2D") glslRasterTypeVector2
     else if (dataType == "sampler2DArray" || dataType == "samplerCube" ||
         dataType == "sampler3D") glslRasterTypeVector3
+    else if (dataType == "sampler2DShadow") glslRasterTypeVector3
+    else if (dataType == "sampler2DArrayShadow" ||
+        dataType == "samplerCubeShadow") glslRasterTypeVector
     else glslRasterTypeInvalid
 
 fun glslRasterSamplerGradientType(dataType: string): int =
-    if (dataType == "sampler2D" || dataType == "sampler2DArray")
+    if (dataType == "sampler2D" || dataType == "sampler2DArray" ||
+        dataType == "sampler2DShadow" ||
+        dataType == "sampler2DArrayShadow")
         glslRasterTypeVector2
-    else if (dataType == "samplerCube" || dataType == "sampler3D")
+    else if (dataType == "samplerCube" || dataType == "sampler3D" ||
+        dataType == "samplerCubeShadow")
         glslRasterTypeVector3
     else glslRasterTypeInvalid
+
+fun glslRasterShadowSamplerType(dataType: string): bool =
+    dataType == "sampler2DShadow" ||
+    dataType == "sampler2DArrayShadow" ||
+    dataType == "samplerCubeShadow"
+
+fun glslRasterSamplerSamplingCoordinateType(dataType: string): int =
+    if (dataType == "sampler2DShadow") glslRasterTypeVector2
+    else if (dataType == "sampler2DArrayShadow" ||
+        dataType == "samplerCubeShadow") glslRasterTypeVector3
+    else glslRasterSamplerCoordinateType(dataType)
 
 fun glslRasterProjectedCoordinateValid(
     dataType: string,
@@ -164,18 +181,24 @@ fun glslRasterProjectedCoordinateValid(
     if (dataType == "sampler2D")
         coordinateType == glslRasterTypeVector3 ||
             coordinateType == glslRasterTypeVector
+    else if (dataType == "sampler2DShadow")
+        coordinateType == glslRasterTypeVector
     else if (dataType == "sampler3D")
         coordinateType == glslRasterTypeVector
     else false
 
 fun glslRasterSamplerSpirvDimension(dataType: string): int =
     if (dataType == "sampler3D") 2
-    else if (dataType == "samplerCube") 3
-    else if (dataType == "sampler2D" || dataType == "sampler2DArray") 1
+    else if (dataType == "samplerCube" ||
+        dataType == "samplerCubeShadow") 3
+    else if (dataType == "sampler2D" || dataType == "sampler2DArray" ||
+        dataType == "sampler2DShadow" ||
+        dataType == "sampler2DArrayShadow") 1
     else -1
 
 fun glslRasterSamplerSpirvArrayed(dataType: string): int =
-    if (dataType == "sampler2DArray") 1
+    if (dataType == "sampler2DArray" ||
+        dataType == "sampler2DArrayShadow") 1
     else if (glslRasterSamplerCoordinateType(dataType) !=
         glslRasterTypeInvalid) 0 else -1
 
@@ -185,13 +208,31 @@ fun glslRasterTexelFetchCoordinateWidth(dataType: string): int =
     else 0
 
 fun glslRasterTextureOffsetWidth(dataType: string): int =
-    if (dataType == "sampler2D" || dataType == "sampler2DArray") 2
+    if (dataType == "sampler2D" || dataType == "sampler2DArray" ||
+        dataType == "sampler2DShadow" ||
+        dataType == "sampler2DArrayShadow") 2
     else if (dataType == "sampler3D") 3 else 0
 
 fun glslRasterTextureSizeWidth(dataType: string): int =
-    if (dataType == "sampler2D" || dataType == "samplerCube") 2
-    else if (dataType == "sampler2DArray" || dataType == "sampler3D") 3
+    if (dataType == "sampler2D" || dataType == "samplerCube" ||
+        dataType == "sampler2DShadow" ||
+        dataType == "samplerCubeShadow") 2
+    else if (dataType == "sampler2DArray" || dataType == "sampler3D" ||
+        dataType == "sampler2DArrayShadow") 3
     else 0
+
+fun glslRasterTextureFunctionValid(
+    dataType: string,
+    functionName: string
+): bool {
+    if (!glslRasterShadowSamplerType(dataType)) true
+    else if (dataType == "sampler2DShadow") true
+    else if (dataType == "sampler2DArrayShadow")
+        functionName == "texture" || functionName == "textureOffset" ||
+        functionName == "textureGrad" ||
+        functionName == "textureGradOffset"
+    else functionName == "texture" || functionName == "textureGrad"
+}
 
 fun glslRasterTextureGatherCoordinateType(dataType: string): int =
     if (dataType == "sampler2D") glslRasterTypeVector2
@@ -1245,7 +1286,11 @@ fun glslRasterPrimaryWithIntegers(
             samplerCandidate = samplerCandidate + 1
         }
         valid = valid && samplerIndex >= 0 &&
-            (!hasOffset || samplerOffsetWidth > 0)
+            (!hasOffset || samplerOffsetWidth > 0) &&
+            glslRasterTextureFunctionValid(
+                samplerDataType,
+                sampleFunction
+            )
         if (valid) index = index + 1
         valid = valid && glslRasterTokenText(sourceTokens, index, ",")
         if (valid) index = index + 1
@@ -1365,6 +1410,8 @@ fun glslRasterPrimaryWithIntegers(
                     glslRasterTypeScalar
             if (valid) finalImageOperands = 1
         }
+        if (valid && samplerDataType == "sampler2DArrayShadow" &&
+            finalImageOperands == 1) valid = false
         valid = valid && glslRasterTokenText(sourceTokens, index, ")")
         if (valid) {
             val copied = glslRasterTokensCopy(coordinate.tokens)
@@ -1396,7 +1443,9 @@ fun glslRasterPrimaryWithIntegers(
                 second = finalImageOperands,
                 third = samplerGradientType,
                 fourth = if (projected) 1 else 0,
-                fifth = offsetExpressionIndex
+                fifth = offsetExpressionIndex,
+                opcode = if (glslRasterShadowSamplerType(samplerDataType))
+                    1 else 0
             ))
             index = index + 1
         }
@@ -1810,10 +1859,13 @@ fun glslRasterExpressionType(
                 else if (token.second == 1 || token.second == 2) 2
                 else if (token.second == 4) 3 else 0
             valid = token.memberIndex >= 0 && operandCount > 0 &&
+                (token.opcode == 0 || token.opcode == 1) &&
                 (token.fourth == 0 || token.fourth == 1) &&
                 ((token.fourth == 0 &&
                   (token.first == glslRasterTypeVector2 ||
-                   token.first == glslRasterTypeVector3)) ||
+                   token.first == glslRasterTypeVector3 ||
+                   (token.opcode == 1 &&
+                    token.first == glslRasterTypeVector))) ||
                  (token.fourth == 1 &&
                   (token.first == glslRasterTypeVector3 ||
                    token.first == glslRasterTypeVector))) &&
@@ -1829,7 +1881,8 @@ fun glslRasterExpressionType(
             }
             if (valid) {
                 stackSize = stackSize - operandCount
-                valueType = glslRasterTypeVector
+                valueType = if (token.opcode == 1)
+                    glslRasterTypeScalar else glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenConstruct) {
             val arity = token.memberIndex
@@ -2867,13 +2920,15 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
         lexical.tokens[index + 1].kind == glslTokenEnd
     val expression = if (expressions.size > 0) expressions[0]
         else GlslRasterExpression(false, [], index)
+    val failureToken = if (index >= 0 && index < lexical.tokens.size)
+        lexical.tokens[index].text else "<end>"
     GlslRasterFragmentProgram(
         valid,
         expression,
         inputs,
         push.members.size,
         if (valid) "" else
-            "fragment source is outside the typed raster expression subset",
+            "fragment source is outside the typed raster expression subset at token $index ($failureToken)",
         outputs,
         expressions,
         samplers,
@@ -2950,12 +3005,17 @@ fun glslRasterFragmentSpirv(
     var usesGatherOffsets = false
     samplerIndex = 0
     while (samplerIndex < program.samplers.size) {
+        val samplingType = glslRasterSamplerSamplingCoordinateType(
+            program.samplers[samplerIndex].dataType
+        )
         usesVector2 = usesVector2 || program.samplers[
             samplerIndex
-        ].coordinateType == glslRasterTypeVector2
+        ].coordinateType == glslRasterTypeVector2 ||
+            samplingType == glslRasterTypeVector2
         usesVector3 = usesVector3 || program.samplers[
             samplerIndex
-        ].coordinateType == glslRasterTypeVector3
+        ].coordinateType == glslRasterTypeVector3 ||
+            samplingType == glslRasterTypeVector3
         samplerIndex = samplerIndex + 1
     }
     inputIndex = 0
@@ -3320,7 +3380,9 @@ fun glslRasterFragmentSpirv(
             words.append(samplerImageTypes[samplerIndex])
             words.append(floatType)
             words.append(program.samplers[samplerIndex].spirvDimension)
-            words.append(0)
+            words.append(if (glslRasterShadowSamplerType(
+                program.samplers[samplerIndex].dataType
+            )) 1 else 0)
             words.append(program.samplers[samplerIndex].spirvArrayed)
             words.append(0)
             words.append(1)
@@ -4072,10 +4134,12 @@ fun glslRasterFragmentSpirv(
                 stackTypes[stackSize - operandCount] == token.first
             if (valid) {
                 val sampler = program.samplers[token.memberIndex]
+                val shadow = glslRasterShadowSamplerType(sampler.dataType)
                 valid = if (projected) glslRasterProjectedCoordinateValid(
                     sampler.dataType,
                     token.first
                 ) else token.first == sampler.coordinateType
+                valid = valid && token.opcode == (if (shadow) 1 else 0)
                 valid = valid && (!hasOffset ||
                     glslRasterTextureOffsetWidth(sampler.dataType) > 0)
             }
@@ -4123,6 +4187,52 @@ fun glslRasterFragmentSpirv(
                     offsetWord = offsetWord + 1
                 }
                 if (valid) nextId = offsetEmission.nextId
+                val shadow = glslRasterShadowSamplerType(
+                    program.samplers[token.memberIndex].dataType
+                )
+                var samplingCoordinate = coordinate
+                var depthReference = 0
+                if (valid && shadow) {
+                    val referenceComponent = if (
+                        program.samplers[token.memberIndex].dataType ==
+                            "sampler2DShadow"
+                    ) 2 else 3
+                    depthReference = nextId
+                    nextId = nextId + 1
+                    words.append(327761)
+                    words.append(floatType)
+                    words.append(depthReference)
+                    words.append(coordinate)
+                    words.append(referenceComponent)
+                    val samplingType = if (projected)
+                        glslRasterTypeVector3
+                    else glslRasterSamplerSamplingCoordinateType(
+                        program.samplers[token.memberIndex].dataType
+                    )
+                    val samplingSpirvType = glslRasterSpirvType(
+                        samplingType,
+                        floatType,
+                        vector2Type,
+                        vector3Type,
+                        vectorType
+                    )
+                    valid = samplingSpirvType != 0
+                    if (valid) {
+                        samplingCoordinate = nextId
+                        nextId = nextId + 1
+                        words.append((if (samplingType ==
+                            glslRasterTypeVector2) 7 else 8) * 65536 + 79)
+                        words.append(samplingSpirvType)
+                        words.append(samplingCoordinate)
+                        words.append(coordinate)
+                        words.append(coordinate)
+                        words.append(0)
+                        words.append(1)
+                        if (samplingType == glslRasterTypeVector3) {
+                            words.append(if (projected) 3 else 2)
+                        }
+                    }
+                }
                 val sampled = nextId
                 valueId = nextId + 1
                 nextId = nextId + 2
@@ -4137,19 +4247,26 @@ fun glslRasterFragmentSpirv(
                     else if (token.second == 1 || token.second == 2)
                         (if (hasOffset) 2 else 1)
                     else if (hasOffset) 3 else 2
-                val instructionWords = 5 +
+                val instructionWords = (if (shadow) 6 else 5) +
                     (if (fullImageOperands == 0) 0
                      else 1 + imageOperandCount)
                 words.append(instructionWords * 65536 +
-                    (if (projected)
+                    (if (shadow)
+                        (if (projected)
+                            (if (token.second == 0 || token.second == 1)
+                                93 else 94)
+                         else (if (token.second == 0 || token.second == 1)
+                            89 else 90))
+                     else if (projected)
                         (if (token.second == 0 || token.second == 1)
                             91 else 92)
                      else (if (token.second == 0 || token.second == 1)
                         87 else 88)))
-                words.append(vectorType)
+                words.append(if (shadow) floatType else vectorType)
                 words.append(valueId)
                 words.append(sampled)
-                words.append(coordinate)
+                words.append(samplingCoordinate)
+                if (shadow) words.append(depthReference)
                 if (fullImageOperands != 0) {
                     words.append(fullImageOperands)
                     if (token.second != 0) {
@@ -4158,7 +4275,8 @@ fun glslRasterFragmentSpirv(
                     }
                     if (hasOffset) words.append(offsetEmission.valueId)
                 }
-                tokenTypes[tokenIndex] = glslRasterTypeVector
+                tokenTypes[tokenIndex] = if (shadow)
+                    glslRasterTypeScalar else glslRasterTypeVector
             }
         } else if (token.kind == glslRasterTokenConstruct) {
             val arity = token.memberIndex

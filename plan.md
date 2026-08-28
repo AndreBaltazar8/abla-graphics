@@ -413,7 +413,8 @@ backends unless it demonstrates a backend-specific feature:
 5. instancing and indirect drawing;
 6. render-to-texture and post-processing;
 7. compute particles;
-8. shadow mapping and HDR/PBR lighting;
+8. shadow mapping (delivered by `examples/shadow-mapping` with a sampled depth
+   attachment and comparison sampler) and HDR/PBR lighting;
 9. deferred renderer/render graph;
 10. UI overlay and text rendering;
 11. multi-window and multi-monitor;
