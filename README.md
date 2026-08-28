@@ -449,6 +449,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-deformation-plan`: bounded glTF 2.0 skins, inverse-bind
   matrices, joint streams, morph targets, mesh/node weights, strict accessor
   validation, and a retained per-draw deformation plan;
+- `examples/gltf-live-deformation`: one pure-Abla retained geometry build
+  applies a node morph-weight override and a joint/inverse-bind palette before
+  identical zero-growth OpenGL and Vulkan indexed rendering;
 - `examples/gltf-material-batches`: order-preserving partitioning of arbitrary
   draw lists into bounded three-material groups, including repeated-slot reuse,
   implicit default materials, tighter policies, and capacity rejection;

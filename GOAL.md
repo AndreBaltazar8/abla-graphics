@@ -3593,3 +3593,19 @@ The pure metadata samples no longer request Vulkan/X11/EGL/GL at link time, so
 their generated executables run with `LD_LIBRARY_PATH` removed. Live graphics
 executables still need the broader standalone shared-library/runtime-path
 solution tracked by this goal.
+
+## Latest checkpoint: retained static glTF deformation execution
+
+The packed glTF materializer now bakes node morph-weight overrides followed by
+four-influence skinning into each retained 48-byte surface stream. Pure-Abla
+binary32 decoding, affine inverse calculation, node-world transforms, joint
+palettes, optional inverse-bind matrices, normalized integer or float weights,
+and morph position/normal/tangent deltas all execute once during setup. A
+deformed drawable receives a distinct packed resource, while undeformed
+accessor-identical geometry remains deduplicated.
+
+`examples/gltf-live-deformation` proves a morph displacement plus a translated
+joint through one exact shifted green target pixel and a real window. Explicit
+OpenGL and Vulkan each retain three vertices/three indices across four measured
+frames with `live=0`. This is a static high-frame-rate path: animation parsing,
+runtime palette/weight updates, and shader-side deformation remain open.

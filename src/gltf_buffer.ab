@@ -271,6 +271,199 @@ trusted fun gltfAccessorBytes(
     if (valid) output else bufferBytes(0)
 }
 
+trusted fun gltfAccessorComponentF64(
+    bytes: BufferBytes,
+    accessor: GltfAccessor,
+    element: int,
+    component: int
+): f64 {
+    if (!bytes.valid() || element < 0 || element >= accessor.count ||
+        component < 0 || component >= accessor.componentCount()) return 0.0
+    val size = accessor.componentByteSize()
+    val offset = element * accessor.elementByteSize() + component * size
+    if (accessor.componentType == gltfComponentF32) bytes.loadF32(offset)
+    else {
+        val value = gltfLoadUnsignedBuffer(bytes, offset, size)
+        if (accessor.normalized)
+            f64FromInt(value) / if (size == 1) 255.0 else 65535.0
+        else f64FromInt(value)
+    }
+}
+
+trusted fun gltfAccessorMat4(
+    bytes: BufferBytes,
+    element: int
+): Mat4 {
+    val offset = element * 64
+    Mat4(
+        bytes.loadF32(offset), bytes.loadF32(offset + 16),
+        bytes.loadF32(offset + 32), bytes.loadF32(offset + 48),
+        bytes.loadF32(offset + 4), bytes.loadF32(offset + 20),
+        bytes.loadF32(offset + 36), bytes.loadF32(offset + 52),
+        bytes.loadF32(offset + 8), bytes.loadF32(offset + 24),
+        bytes.loadF32(offset + 40), bytes.loadF32(offset + 56),
+        bytes.loadF32(offset + 12), bytes.loadF32(offset + 28),
+        bytes.loadF32(offset + 44), bytes.loadF32(offset + 60)
+    )
+}
+
+trusted fun gltfAddWeightedVec3(
+    var destination: BufferBytes,
+    vertexBase: int,
+    vertexCount: int,
+    componentOffset: int,
+    source: BufferBytes,
+    accessor: GltfAccessor,
+    weight: f64
+): bool {
+    var valid = destination.valid() && source.valid() &&
+        vertexBase >= 0 && vertexCount == accessor.count &&
+        componentOffset >= 0 && componentOffset <= 36 &&
+        accessor.componentType == gltfComponentF32 &&
+        accessor.elementType == "VEC3" && !accessor.normalized
+    var vertex = 0
+    while (valid && vertex < vertexCount) {
+        var component = 0
+        while (valid && component < 3) {
+            val destinationOffset = (vertexBase + vertex) * 48 +
+                componentOffset + component * 4
+            valid = destination.storeF32(
+                destination.loadF32(destinationOffset) +
+                    source.loadF32(vertex * 12 + component * 4) * weight,
+                destinationOffset
+            )
+            component = component + 1
+        }
+        vertex = vertex + 1
+    }
+    valid
+}
+
+trusted fun gltfBakeSkin(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    drawList: GltfSceneDrawList,
+    nodeIndex: int,
+    primitive: GltfPrimitive,
+    var vertices: BufferBytes,
+    vertexBase: int,
+    vertexCount: int
+): bool {
+    val node = document.nodes[nodeIndex]
+    if (node.skin < 0) return true
+    val skin = document.skins[node.skin]
+    val inverseMesh = mat4AffineInverse(
+        drawList.nodeWorldTransforms[nodeIndex]
+    )
+    val inverseBindBytes = if (skin.inverseBindMatrices >= 0)
+        gltfAccessorBytes(document, payloads, skin.inverseBindMatrices)
+        else bufferBytes(0)
+    val matrices: array<Mat4> = []
+    var valid = vertices.valid() && inverseMesh.valid &&
+        primitive.joints0 >= 0 && primitive.weights0 >= 0 &&
+        drawList.nodeWorldTransforms.size == document.nodes.size &&
+        drawList.nodeWorldAvailable.size == document.nodes.size &&
+        drawList.nodeWorldAvailable[nodeIndex] &&
+        (skin.inverseBindMatrices < 0 || inverseBindBytes.valid())
+    var joint = 0
+    while (valid && joint < skin.joints.size) {
+        val jointNode = skin.joints[joint]
+        valid = drawList.nodeWorldAvailable[jointNode]
+        if (valid) {
+            val inverseBind = if (skin.inverseBindMatrices >= 0)
+                gltfAccessorMat4(inverseBindBytes, joint)
+                else mat4Identity()
+            matrices.append(inverseMesh.value.multiplied(
+                drawList.nodeWorldTransforms[jointNode]
+            ).multiplied(inverseBind))
+        }
+        joint = joint + 1
+    }
+    val jointAccessor = document.accessors[primitive.joints0]
+    val weightAccessor = document.accessors[primitive.weights0]
+    val jointBytes = gltfAccessorBytes(document, payloads, primitive.joints0)
+    val weightBytes = gltfAccessorBytes(document, payloads, primitive.weights0)
+    valid = valid && jointBytes.valid() && weightBytes.valid() &&
+        jointAccessor.count == vertexCount && weightAccessor.count == vertexCount
+    var vertex = 0
+    while (valid && vertex < vertexCount) {
+        val offset = (vertexBase + vertex) * 48
+        val position = Vec3(
+            vertices.loadF32(offset), vertices.loadF32(offset + 4),
+            vertices.loadF32(offset + 8)
+        )
+        val normal = Vec3(
+            vertices.loadF32(offset + 20), vertices.loadF32(offset + 24),
+            vertices.loadF32(offset + 28)
+        )
+        val tangent = Vec3(
+            vertices.loadF32(offset + 32), vertices.loadF32(offset + 36),
+            vertices.loadF32(offset + 40)
+        )
+        var px = 0.0
+        var py = 0.0
+        var pz = 0.0
+        var nx = 0.0
+        var ny = 0.0
+        var nz = 0.0
+        var tx = 0.0
+        var ty = 0.0
+        var tz = 0.0
+        var total = 0.0
+        var influence = 0
+        while (valid && influence < 4) {
+            val jointIndex = gltfLoadUnsignedBuffer(
+                jointBytes,
+                vertex * jointAccessor.elementByteSize() +
+                    influence * jointAccessor.componentByteSize(),
+                jointAccessor.componentByteSize()
+            )
+            val weight = gltfAccessorComponentF64(
+                weightBytes, weightAccessor, vertex, influence
+            )
+            valid = jointIndex >= 0 && jointIndex < matrices.size &&
+                weight >= 0.0 && weight <= 1.0
+            if (valid && weight > 0.0) {
+                val transformedPosition = matrices[jointIndex].transformPoint(
+                    position
+                )
+                val transformedNormal = matrices[jointIndex].transformDirection(
+                    normal
+                )
+                val transformedTangent = matrices[jointIndex].transformDirection(
+                    tangent
+                )
+                px = px + transformedPosition.x * weight
+                py = py + transformedPosition.y * weight
+                pz = pz + transformedPosition.z * weight
+                nx = nx + transformedNormal.x * weight
+                ny = ny + transformedNormal.y * weight
+                nz = nz + transformedNormal.z * weight
+                tx = tx + transformedTangent.x * weight
+                ty = ty + transformedTangent.y * weight
+                tz = tz + transformedTangent.z * weight
+                total = total + weight
+            }
+            influence = influence + 1
+        }
+        valid = valid && total >= 0.99 && total <= 1.01
+        if (valid) {
+            val scale = 1.0 / total
+            valid = vertices.storeF32(px * scale, offset) &&
+                vertices.storeF32(py * scale, offset + 4) &&
+                vertices.storeF32(pz * scale, offset + 8) &&
+                vertices.storeF32(nx * scale, offset + 20) &&
+                vertices.storeF32(ny * scale, offset + 24) &&
+                vertices.storeF32(nz * scale, offset + 28) &&
+                vertices.storeF32(tx * scale, offset + 32) &&
+                vertices.storeF32(ty * scale, offset + 36) &&
+                vertices.storeF32(tz * scale, offset + 40)
+        }
+        vertex = vertex + 1
+    }
+    valid
+}
+
 trusted fun GraphicsApplication.gltfGpuPrimitive(
     document: GltfDocument,
     payloads: GltfBufferPayloads,
@@ -478,8 +671,24 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
     var valid = this.valid() && document.valid() && payloads.valid &&
         drawList.valid && plan.valid &&
         plan.meshIndices.size == plan.primitiveIndices.size &&
+        plan.meshIndices.size == plan.resourceNodes.size &&
         plan.drawableResources.size == drawList.drawables.size &&
         plan.meshIndices.size > 0
+    var drawableValidation = 0
+    while (valid && drawableValidation < drawList.drawables.size) {
+        val resourceId = plan.drawableResources[drawableValidation]
+        valid = resourceId >= 0 && resourceId < plan.resourceNodes.size
+        if (valid) {
+            val drawable = drawList.drawables[drawableValidation]
+            val primitive = document.meshes[drawable.mesh].primitives[
+                drawable.primitive
+            ]
+            valid = (primitive.targets.size == 0 &&
+                document.nodes[drawable.node].skin < 0) ||
+                plan.resourceNodes[resourceId] == drawable.node
+        }
+        drawableValidation = drawableValidation + 1
+    }
     var resourceIndex = 0
     while (valid && resourceIndex < plan.meshIndices.size) {
         val meshIndex = plan.meshIndices[resourceIndex]
@@ -586,6 +795,52 @@ trusted fun GraphicsApplication.gltfGpuTexturedScene(
                 )
             vertex = vertex + 1
         }
+        val nodeIndex = plan.resourceNodes[resourceIndex]
+        val mesh = document.meshes[plan.meshIndices[resourceIndex]]
+        val node = document.nodes[nodeIndex]
+        var targetIndex = 0
+        while (valid && targetIndex < primitive.targets.size) {
+            val target = primitive.targets[targetIndex]
+            val weight = if (node.weights.size > 0)
+                node.weights[targetIndex]
+                else if (mesh.weights.size > 0) mesh.weights[targetIndex]
+                else 0.0
+            if (weight != 0.0 && target.position >= 0) {
+                val accessor = document.accessors[target.position]
+                val deltas = gltfAccessorBytes(
+                    document, payloads, target.position
+                )
+                valid = gltfAddWeightedVec3(
+                    vertexBytes, vertexBase, position.count, 0,
+                    deltas, accessor, weight
+                )
+            }
+            if (valid && weight != 0.0 && target.normal >= 0) {
+                val accessor = document.accessors[target.normal]
+                val deltas = gltfAccessorBytes(
+                    document, payloads, target.normal
+                )
+                valid = gltfAddWeightedVec3(
+                    vertexBytes, vertexBase, position.count, 20,
+                    deltas, accessor, weight
+                )
+            }
+            if (valid && weight != 0.0 && target.tangent >= 0) {
+                val accessor = document.accessors[target.tangent]
+                val deltas = gltfAccessorBytes(
+                    document, payloads, target.tangent
+                )
+                valid = gltfAddWeightedVec3(
+                    vertexBytes, vertexBase, position.count, 32,
+                    deltas, accessor, weight
+                )
+            }
+            targetIndex = targetIndex + 1
+        }
+        if (valid) valid = gltfBakeSkin(
+            document, payloads, drawList, nodeIndex, primitive,
+            vertexBytes, vertexBase, position.count
+        )
         val outputIndexOffset = resourceIndexOffsets[resourceIndex]
         if (valid && primitive.indices >= 0) {
             val source = gltfAccessorBytes(

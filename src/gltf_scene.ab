@@ -402,7 +402,9 @@ class GltfSceneDrawList(
     val drawables: array<GltfSceneDrawable>,
     val cameras: array<GltfSceneCameraInstance>,
     val valid: bool,
-    val error: string
+    val error: string,
+    val nodeWorldTransforms: array<Mat4> = [],
+    val nodeWorldAvailable: array<bool> = []
 )
 
 class GltfDeformationPlan(
@@ -427,7 +429,8 @@ class GltfSceneResourcePlan(
     val primitiveIndices: array<int>,
     val drawableResources: array<int>,
     val valid: bool,
-    val error: string
+    val error: string,
+    val resourceNodes: array<int> = []
 )
 
 val gltfMaximumMaterialBatchMaterials = 3
@@ -546,6 +549,7 @@ fun gltfSceneResourcePlan(
     val meshes: array<int> = []
     val primitives: array<int> = []
     val resources: array<int> = []
+    val resourceNodes: array<int> = []
     var valid = drawList.valid && drawList.drawables.size > 0 &&
         maximumUniquePrimitives > 0 && maximumUniquePrimitives <= 1048576
     var drawableIndex = 0
@@ -565,6 +569,7 @@ fun gltfSceneResourcePlan(
                 resourceIndex = meshes.size
                 meshes.append(drawable.mesh)
                 primitives.append(drawable.primitive)
+                resourceNodes.append(drawable.node)
             }
         }
         if (valid) resources.append(resourceIndex)
@@ -572,7 +577,8 @@ fun gltfSceneResourcePlan(
     }
     GltfSceneResourcePlan(
         meshes, primitives, resources, valid,
-        if (valid) "" else "invalid or over-capacity glTF resource plan"
+        if (valid) "" else "invalid or over-capacity glTF resource plan",
+        resourceNodes
     )
 }
 
@@ -610,6 +616,7 @@ fun gltfSceneAccessorResourcePlan(
     val meshes: array<int> = []
     val primitives: array<int> = []
     val resources: array<int> = []
+    val resourceNodes: array<int> = []
     var valid = document.valid() && drawList.valid &&
         drawList.drawables.size > 0 && maximumUniquePrimitives > 0 &&
         maximumUniquePrimitives <= 1048576
@@ -619,9 +626,11 @@ fun gltfSceneAccessorResourcePlan(
         val geometry = document.meshes[drawable.mesh].primitives[
             drawable.primitive
         ]
+        val deformed = geometry.targets.size > 0 ||
+            document.nodes[drawable.node].skin >= 0
         var resourceIndex = -1
         var candidate = 0
-        while (resourceIndex < 0 && candidate < meshes.size) {
+        while (!deformed && resourceIndex < 0 && candidate < meshes.size) {
             val retained = document.meshes[meshes[candidate]].primitives[
                 primitives[candidate]
             ]
@@ -635,6 +644,7 @@ fun gltfSceneAccessorResourcePlan(
                 resourceIndex = meshes.size
                 meshes.append(drawable.mesh)
                 primitives.append(drawable.primitive)
+                resourceNodes.append(drawable.node)
             }
         }
         if (valid) resources.append(resourceIndex)
@@ -642,7 +652,8 @@ fun gltfSceneAccessorResourcePlan(
     }
     GltfSceneResourcePlan(
         meshes, primitives, resources, valid,
-        if (valid) "" else "invalid or over-capacity glTF accessor resource plan"
+        if (valid) "" else "invalid or over-capacity glTF accessor resource plan",
+        resourceNodes
     )
 }
 
@@ -662,9 +673,11 @@ fun gltfSceneDrawList(
     val queuedNodes: array<int> = []
     val queuedParents: array<Mat4> = []
     val visited: array<bool> = []
+    val worldTransforms: array<Mat4> = []
     var index = 0
     while (index < document.nodes.size) {
         visited.append(false)
+        worldTransforms.append(mat4Identity())
         index = index + 1
     }
     if (valid) {
@@ -685,6 +698,7 @@ fun gltfSceneDrawList(
         val nodeIndex = queuedNodes[queueIndex]
         val node = document.nodes[nodeIndex]
         val world = queuedParents[queueIndex].multiplied(node.transform)
+        worldTransforms[nodeIndex] = world
         if (node.mesh >= 0) {
             val mesh = document.meshes[node.mesh]
             var primitiveIndex = 0
@@ -723,7 +737,9 @@ fun gltfSceneDrawList(
         drawables,
         cameras,
         valid,
-        if (valid) "" else "invalid or over-capacity glTF scene traversal"
+        if (valid) "" else "invalid or over-capacity glTF scene traversal",
+        worldTransforms,
+        visited
     )
 }
 

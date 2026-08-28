@@ -601,6 +601,31 @@ fun graphicsScalarF32Bits(value: f64): int {
     result
 }
 
+// Expand an IEEE-754 binary32 payload into the exact binary64 value used by
+// Abla. This keeps accessor decoding pure Abla and avoids a native cast shim.
+fun graphicsScalarF32Value(value: int): f64 {
+    val bits = value & 4294967295
+    val sign = (bits >>> 31) & 1
+    val exponent32 = (bits >>> 23) & 255
+    var fraction = bits & 8388607
+    var resultBits = sign << 63
+    if (exponent32 == 255) {
+        resultBits = resultBits | (2047 << 52) | (fraction << 29)
+    } else if (exponent32 > 0) {
+        resultBits = resultBits |
+            ((exponent32 - 127 + 1023) << 52) | (fraction << 29)
+    } else if (fraction != 0) {
+        var exponent = -126
+        while ((fraction & 8388608) == 0) {
+            fraction = fraction << 1
+            exponent = exponent - 1
+        }
+        resultBits = resultBits | ((exponent + 1023) << 52) |
+            ((fraction & 8388607) << 29)
+    }
+    f64FromBits(resultBits)
+}
+
 fun graphicsUnsignedIntegerF32Bits(value: int): int {
     var result = 0
     if (value > 0) {
@@ -710,6 +735,46 @@ class Mat4(
         val transformed = this.transform(Vec4(value.x, value.y, value.z, 0.0))
         Vec3(transformed.x, transformed.y, transformed.z)
     }
+}
+
+class Mat4InverseResult(val value: Mat4, val valid: bool)
+
+// glTF node transforms are affine. Inverting the full 3x3 basis preserves
+// rotation, non-uniform scale, and shear while rejecting singular matrices.
+fun mat4AffineInverse(value: Mat4): Mat4InverseResult {
+    val c00 = value.m11 * value.m22 - value.m12 * value.m21
+    val c01 = value.m02 * value.m21 - value.m01 * value.m22
+    val c02 = value.m01 * value.m12 - value.m02 * value.m11
+    val c10 = value.m12 * value.m20 - value.m10 * value.m22
+    val c11 = value.m00 * value.m22 - value.m02 * value.m20
+    val c12 = value.m02 * value.m10 - value.m00 * value.m12
+    val c20 = value.m10 * value.m21 - value.m11 * value.m20
+    val c21 = value.m01 * value.m20 - value.m00 * value.m21
+    val c22 = value.m00 * value.m11 - value.m01 * value.m10
+    val determinant = value.m00 * c00 + value.m01 * c10 + value.m02 * c20
+    val valid = value.m30 == 0.0 && value.m31 == 0.0 &&
+        value.m32 == 0.0 && value.m33 == 1.0 &&
+        (determinant < -0.000000000001 || determinant > 0.000000000001)
+    if (!valid) return Mat4InverseResult(mat4Identity(), false)
+    val inverseDeterminant = 1.0 / determinant
+    val r00 = c00 * inverseDeterminant
+    val r01 = c01 * inverseDeterminant
+    val r02 = c02 * inverseDeterminant
+    val r10 = c10 * inverseDeterminant
+    val r11 = c11 * inverseDeterminant
+    val r12 = c12 * inverseDeterminant
+    val r20 = c20 * inverseDeterminant
+    val r21 = c21 * inverseDeterminant
+    val r22 = c22 * inverseDeterminant
+    Mat4InverseResult(Mat4(
+        r00, r01, r02,
+        -(r00 * value.m03 + r01 * value.m13 + r02 * value.m23),
+        r10, r11, r12,
+        -(r10 * value.m03 + r11 * value.m13 + r12 * value.m23),
+        r20, r21, r22,
+        -(r20 * value.m03 + r21 * value.m13 + r22 * value.m23),
+        0.0, 0.0, 0.0, 1.0
+    ), true)
 }
 
 fun mat4Identity(): Mat4 = Mat4(
