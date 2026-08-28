@@ -1,0 +1,115 @@
+// Compact backend-neutral material, light, and tone-mapping parameters.
+
+import "core.ab"
+import "push_constants.ab"
+
+class PbrMaterial(
+    val baseColor: Color = Color(1.0, 1.0, 1.0),
+    val metallic: f64 = 0.0,
+    val roughness: f64 = 0.5,
+    val ambientOcclusion: f64 = 1.0,
+    val emissiveStrength: f64 = 0.0
+) {
+    fun valid(): bool = this.baseColor.valid() &&
+        this.metallic >= 0.0 && this.metallic <= 1.0 &&
+        this.roughness >= 0.04 && this.roughness <= 1.0 &&
+        this.ambientOcclusion >= 0.0 && this.ambientOcclusion <= 1.0 &&
+        this.emissiveStrength >= 0.0 && this.emissiveStrength <= 65504.0
+}
+
+class PbrDirectionalLight(
+    val direction: Vec3 = Vec3(0.0, -1.0, -1.0),
+    val color: Color = Color(1.0, 1.0, 1.0),
+    val intensity: f64 = 1.0
+) {
+    fun valid(): bool {
+        val lengthSquared = this.direction.dot(this.direction)
+        this.color.valid() && lengthSquared > 0.000001 &&
+            lengthSquared <= 1000000.0 &&
+            this.intensity >= 0.0 && this.intensity <= 65504.0
+    }
+}
+
+class PbrParameters(
+    val material: PbrMaterial = PbrMaterial(),
+    val light: PbrDirectionalLight = PbrDirectionalLight()
+) {
+    fun valid(): bool = this.material.valid() && this.light.valid()
+}
+
+class HdrToneMapping(
+    val exposure: f64 = 1.0,
+    val gamma: f64 = 2.2
+) {
+    fun valid(): bool = this.exposure > 0.0 && this.exposure <= 64.0 &&
+        this.gamma >= 1.0 && this.gamma <= 4.0
+}
+
+fun graphicsPushVec4Member(
+    layout: ShaderPushConstantLayout,
+    name: string
+): bool {
+    val index = layout.memberIndex(name)
+    index >= 0 && layout.members[index].dataType == "vec4" &&
+        layout.members[index].arraySize == 1
+}
+
+fun graphicsPbrPushLayoutCompatible(
+    layout: ShaderPushConstantLayout
+): bool = layout.valid && layout.size == 64 &&
+    graphicsPushVec4Member(layout, "baseColor") &&
+    graphicsPushVec4Member(layout, "material") &&
+    graphicsPushVec4Member(layout, "lightDirectionIntensity") &&
+    graphicsPushVec4Member(layout, "lightColor")
+
+fun graphicsHdrTonePushLayoutCompatible(
+    layout: ShaderPushConstantLayout
+): bool {
+    val exposure = layout.memberIndex("exposure")
+    val gamma = layout.memberIndex("gamma")
+    layout.valid && layout.size == 8 && exposure >= 0 && gamma >= 0 &&
+        layout.members[exposure].dataType == "float" &&
+        layout.members[gamma].dataType == "float" &&
+        layout.members[exposure].arraySize == 1 &&
+        layout.members[gamma].arraySize == 1
+}
+
+trusted fun GraphicsPushConstants.storePbr(
+    parameters: PbrParameters
+): bool = parameters.valid() &&
+    graphicsPbrPushLayoutCompatible(this.layout) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.red, 0) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.green, 1) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.blue, 2) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.alpha, 3) &&
+    this.storeMemberF32("material", parameters.material.metallic, 0) &&
+    this.storeMemberF32("material", parameters.material.roughness, 1) &&
+    this.storeMemberF32(
+        "material", parameters.material.ambientOcclusion, 2
+    ) &&
+    this.storeMemberF32(
+        "material", parameters.material.emissiveStrength, 3
+    ) &&
+    this.storeMemberF32(
+        "lightDirectionIntensity", parameters.light.direction.x, 0
+    ) &&
+    this.storeMemberF32(
+        "lightDirectionIntensity", parameters.light.direction.y, 1
+    ) &&
+    this.storeMemberF32(
+        "lightDirectionIntensity", parameters.light.direction.z, 2
+    ) &&
+    this.storeMemberF32(
+        "lightDirectionIntensity", parameters.light.intensity, 3
+    ) &&
+    this.storeMemberF32("lightColor", parameters.light.color.red, 0) &&
+    this.storeMemberF32("lightColor", parameters.light.color.green, 1) &&
+    this.storeMemberF32("lightColor", parameters.light.color.blue, 2) &&
+    this.storeMemberF32("lightColor", parameters.light.color.alpha, 3)
+
+trusted fun GraphicsPushConstants.storeHdrToneMapping(
+    tone: HdrToneMapping
+): bool = tone.valid() &&
+    graphicsHdrTonePushLayoutCompatible(this.layout) &&
+    this.storeMemberF32("exposure", tone.exposure) &&
+    this.storeMemberF32("gamma", tone.gamma)

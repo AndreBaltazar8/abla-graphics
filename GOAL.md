@@ -3320,3 +3320,31 @@ two-pass depth resource and warmed zero-growth checks.
 
 After verifying and publishing this checkpoint, use the complete comparison
 sampling foundation for the next broad HDR/PBR material and lighting slice.
+
+## Latest checkpoint: HDR and PBR materials
+
+The public pure-Abla API now exposes validated `PbrMaterial`,
+`PbrDirectionalLight`, `PbrParameters`, and `HdrToneMapping` values. One-call
+reflected push writers populate the standard 64-byte PBR block and 8-byte tone
+block, reject incompatible layouts before writing, and preserve the same
+logical ABI on both backends. OpenGL rounds its rewritten `std140` allocation
+to 16 bytes without changing the caller-visible tone block.
+
+The `$glsl` raster path now permits up to 255 still-bounded postfix tokens per
+expression and supports mixed vector/scalar constructors such as
+`vec4(lit, 1.0)`. Pure-Abla Vulkan lowering emits one compact
+`OpCompositeConstruct`, so the PBR expression is not repeated per output
+component.
+
+`examples/hdr-pbr` renders metallic/roughness directional lighting into an
+RGBA16F attachment, then samples, exposure-maps, Reinhard-tone-maps, gamma-
+corrects, and presents it. OpenGL, Vulkan, and automatic selection each produce
+pixel `4282671512`, four stable measured frames, and `live=0` (automatic chose
+Vulkan). Run the broad checkpoint once with:
+
+```bash
+nix-shell --run 'ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned ABLA_MAX_MEMORY_MB=8192 make test-hdr-pbr check-abla-only'
+```
+
+Continue with environment/IBL material inputs and glTF material integration,
+reusing this HDR scene/tone foundation rather than adding isolated demos.

@@ -436,6 +436,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   2D depth map and averages a four-comparison `sampler2DShadow` gather into a
   visible shadow-visibility window, with stable resources and zero warmed
   growth on both backends;
+- `examples/hdr-pbr`: typed metallic/roughness material and directional-light
+  parameters drive an RGBA16F scene pass, followed by exposure, Reinhard tone
+  mapping, and gamma correction with identical pixels and zero warmed growth
+  on OpenGL and Vulkan;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

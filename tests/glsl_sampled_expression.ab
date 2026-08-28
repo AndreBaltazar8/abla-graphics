@@ -438,6 +438,22 @@ trusted fun main: int {
             "#version 450\nlayout(location=0) out vec4 color; layout(binding=0) uniform samplerCubeShadow sky; void main(){ color=textureGatherOffset(sky,vec3(0.0,0.0,1.0),0.5,ivec2(0,0)); }"
         ]
     ).spirv(shaderStageFragment)
+    val mixedConstructor = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ vec3 lit=vec3(0.25); color=vec4(lit,1.0); }"
+        ]
+    )
+    val mixedConstructorFirst = mixedConstructor.spirv(shaderStageFragment)
+    val mixedConstructorSecond = mixedConstructor.spirv(shaderStageFragment)
+    val invalidMixedConstructor = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nvoid main(){ gl_Position=vec4(0.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; void main(){ color=vec4(vec3(0.25),1.0,1.0); }"
+        ]
+    ).spirv(shaderStageFragment)
     val fetchResult = if (!fetched.valid) 2
         else if (!fetchedProgram.valid) 3
         else if (fetchedProgram.integerExpressions.size != 6) 4
@@ -672,6 +688,19 @@ trusted fun main: int {
         else if (invalidShadowGatherCubeOffset.succeeded ||
             invalidShadowGatherCubeOffset.error == "") 142
         else 42
+    val mixedConstructorResult = if (!mixedConstructor.valid) 150
+        else if (!mixedConstructorFirst.succeeded ||
+            !mixedConstructorFirst.module.valid()) 151
+        else if (sampledInstructionFormCount(
+            mixedConstructorFirst.module, 327760
+        ) != 1) 152
+        else if (!sampledWordsEqual(
+            mixedConstructorFirst.module,
+            mixedConstructorSecond.module
+        )) 153
+        else if (invalidMixedConstructor.succeeded ||
+            invalidMixedConstructor.error == "") 154
+        else 42
     if (fetchResult != 42) fetchResult
     else if (offsetResult != 42) offsetResult
     else if (queryResult != 42) queryResult
@@ -679,6 +708,7 @@ trusted fun main: int {
     else if (biasResult != 42) biasResult
     else if (shadowResult != 42) shadowResult
     else if (shadowGatherResult != 42) shadowGatherResult
+    else if (mixedConstructorResult != 42) mixedConstructorResult
     else if (shader.valid && shader.bindings.size == 2 && program.valid &&
         program.samplers.size == 2 && program.samplers[0].binding == 0 &&
         program.samplers[1].binding == 1 && first.succeeded &&

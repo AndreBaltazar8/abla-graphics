@@ -2111,3 +2111,20 @@ Focused coverage checks exact instruction headers, operand masks, capability
 presence, stable words, all supported dimensions, and invalid signatures.
 `examples/shadow-mapping` uses the base gather live and averages its four
 comparison results into the visible shadow value.
+
+### HDR and PBR material slice
+
+The common API now includes validated `PbrMaterial`, `PbrDirectionalLight`,
+`PbrParameters`, and `HdrToneMapping` values plus reflected push-layout writers.
+The shader path raises its still-bounded raster expression capacity to 255
+postfix tokens and accepts mixed vector/scalar constructors. Vulkan lowers
+those constructors directly to compact `OpCompositeConstruct` instructions.
+OpenGL allocates rewritten `std140` push blocks at a 16-byte boundary while
+retaining the same logical bytes and member offsets used by Vulkan.
+
+`examples/hdr-pbr` evaluates a metallic/roughness directional-light model into
+an RGBA16F attachment, samples it in a second pass, applies exposure, Reinhard
+tone mapping, and gamma correction, and presents the result. OpenGL, Vulkan,
+and automatic selection produced exact tone-mapped pixel `4282671512`, four
+stable measured frames, and `live=0`; automatic selection chose Vulkan. The
+sample also rejects invalid material/light/tone ranges and cross-layout writes.

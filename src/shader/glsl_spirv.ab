@@ -100,6 +100,7 @@ val glslRasterTokenTexelFetch = 13
 val glslRasterTokenTextureQueryLod = 14
 val glslRasterTokenSignedToFloat = 15
 val glslRasterTokenTextureGather = 16
+val glslRasterExpressionTokenLimit = 256
 
 val glslRasterTypeInvalid = 0
 val glslRasterTypeScalar = 1
@@ -1586,23 +1587,36 @@ fun glslRasterPrimaryWithIntegers(
                 }
             }
         }
-        valid = valid && constructorDone &&
-            (arguments.size == 1 || arguments.size == constructorWidth)
+        valid = valid && constructorDone && arguments.size > 0
         val literalBits = [0, 0, 0, 0]
         var allLiterals = valid && constructorWidth == 4
+        var constructorComponents = 0
         var argumentIndex = 0
         while (valid && argumentIndex < arguments.size) {
-            valid = glslRasterExpressionType(
+            val argumentType = glslRasterExpressionType(
                 arguments[argumentIndex],
                 push,
                 inputs
-            ) == glslRasterTypeScalar
+            )
+            val argumentWidth = if (argumentType == glslRasterTypeScalar) 1
+                else glslRasterTypeVectorWidth(argumentType)
+            valid = argumentWidth > 0
+            constructorComponents = constructorComponents + argumentWidth
             val literal =
                 glslRasterLiteralExpression(arguments[argumentIndex])
-            allLiterals = allLiterals && literal.valid
-            if (literal.valid) literalBits[argumentIndex] = literal.bits
+            allLiterals = allLiterals && argumentIndex < 4 && literal.valid
+            if (literal.valid && argumentIndex < 4) {
+                literalBits[argumentIndex] = literal.bits
+            }
             argumentIndex = argumentIndex + 1
         }
+        valid = valid && (
+            (arguments.size == 1 &&
+             (constructorComponents == 1 ||
+              constructorComponents == constructorWidth)) ||
+            (arguments.size >= 2 &&
+             constructorComponents == constructorWidth)
+        )
         if (valid && allLiterals) {
             if (arguments.size == 1) {
                 literalBits[1] = literalBits[0]
@@ -1772,7 +1786,8 @@ fun glslRasterExpressionWithIntegers(
     var valid = first.valid
     var index = first.next
     var done = false
-    while (valid && !done && tokens.size < 64 &&
+    while (valid && !done &&
+        tokens.size < glslRasterExpressionTokenLimit &&
         index < sourceTokens.size) {
         val precedence = glslRasterBinaryPrecedence(
             sourceTokens[index].text
@@ -1806,8 +1821,8 @@ fun glslRasterExpressionWithIntegers(
             }
         } else done = true
     }
-    GlslRasterExpression(valid && tokens.size > 0 && tokens.size < 64,
-        tokens, index)
+    GlslRasterExpression(valid && tokens.size > 0 &&
+        tokens.size < glslRasterExpressionTokenLimit, tokens, index)
 }
 
 fun glslRasterExpression(
@@ -1929,13 +1944,23 @@ fun glslRasterExpressionType(
             val arity = token.memberIndex
             val constructedType = glslRasterTypeForVectorWidth(token.first)
             valid = constructedType != glslRasterTypeInvalid &&
-                (arity == 1 || arity == token.first) && stackSize >= arity
+                arity >= 1 && stackSize >= arity
+            var components = 0
             var argument = 0
             while (valid && argument < arity) {
-                valid = stack[stackSize - arity + argument] ==
-                    glslRasterTypeScalar
+                val argumentType = stack[stackSize - arity + argument]
+                val argumentWidth = if (
+                    argumentType == glslRasterTypeScalar
+                ) 1 else glslRasterTypeVectorWidth(argumentType)
+                valid = argumentWidth > 0
+                components = components + argumentWidth
                 argument = argument + 1
             }
+            valid = valid && (
+                (arity == 1 &&
+                 (components == 1 || components == token.first)) ||
+                (arity >= 2 && components == token.first)
+            )
             if (valid) {
                 stackSize = stackSize - arity
                 valueType = constructedType
@@ -2098,7 +2123,8 @@ fun glslRasterConditionExpression(
         ))
     }
     val expression = GlslRasterExpression(
-        valid && tokens.size > 0 && tokens.size < 64,
+        valid && tokens.size > 0 &&
+            tokens.size < glslRasterExpressionTokenLimit,
         tokens,
         right.next
     )
@@ -2834,7 +2860,8 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
                         opcode = if (updateText == "++") 327809 else 327811
                     ))
                     val updatedExpression = GlslRasterExpression(
-                        valid && updatedTokens.size < 64,
+                        valid && updatedTokens.size <
+                            glslRasterExpressionTokenLimit,
                         updatedTokens,
                         index + 3
                     )
@@ -2901,7 +2928,8 @@ fun ShaderPackage.rasterFragmentProgram(): GlslRasterFragmentProgram {
                     val assignedExpression = GlslRasterExpression(
                         valid && rightExpression.valid &&
                             assignedTokens.size > 0 &&
-                            assignedTokens.size < 64,
+                            assignedTokens.size <
+                                glslRasterExpressionTokenLimit,
                         assignedTokens,
                         index
                     )
@@ -4339,26 +4367,44 @@ fun glslRasterFragmentSpirv(
                 vectorType
             )
             valid = constructedSpirvType != 0 &&
-                (arity == 1 || arity == token.first) && stackSize >= arity
+                arity >= 1 && stackSize >= arity
+            var components = 0
             var argument = 0
             while (valid && argument < arity) {
-                valid = stackTypes[stackSize - arity + argument] ==
-                    glslRasterTypeScalar
+                val argumentType = stackTypes[
+                    stackSize - arity + argument
+                ]
+                val argumentWidth = if (
+                    argumentType == glslRasterTypeScalar
+                ) 1 else glslRasterTypeVectorWidth(argumentType)
+                valid = argumentWidth > 0
+                components = components + argumentWidth
                 argument = argument + 1
             }
+            valid = valid && (
+                (arity == 1 &&
+                 (components == 1 || components == token.first)) ||
+                (arity >= 2 && components == token.first)
+            )
             if (valid) {
                 val firstValue = stack[stackSize - arity]
                 stackSize = stackSize - arity
-                valueId = nextId
-                nextId = nextId + 1
-                words.append((token.first + 3) * 65536 + 80)
-                words.append(constructedSpirvType)
-                words.append(valueId)
-                argument = 0
-                while (argument < token.first) {
-                    words.append(if (arity == 1) firstValue
-                        else stack[stackSize + argument])
-                    argument = argument + 1
+                if (arity == 1 && components == token.first) {
+                    valueId = firstValue
+                } else {
+                    valueId = nextId
+                    nextId = nextId + 1
+                    val constituentCount = if (arity == 1)
+                        token.first else arity
+                    words.append((constituentCount + 3) * 65536 + 80)
+                    words.append(constructedSpirvType)
+                    words.append(valueId)
+                    argument = 0
+                    while (argument < constituentCount) {
+                        words.append(if (arity == 1) firstValue
+                            else stack[stackSize + argument])
+                        argument = argument + 1
+                    }
                 }
                 tokenTypes[tokenIndex] = constructedType
             }

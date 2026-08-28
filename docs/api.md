@@ -1277,6 +1277,28 @@ A render-target depth attachment carrying `textureUsageSampled` rests in shader
 read layout after a Vulkan pass, so it can feed the next pass without a copy.
 `examples/shadow-mapping` is the live two-pass reference.
 
+### PBR materials and HDR tone mapping
+
+`PbrMaterial`, `PbrDirectionalLight`, and `PbrParameters` are compact immutable
+values for a metallic/roughness material and one directional light. Their
+constructors provide useful defaults and reject invalid physical ranges before
+any backend call. `GraphicsPushConstants.storePbr(parameters)` writes the
+standard 64-byte block of four `vec4` members named `baseColor`, `material`,
+`lightDirectionIntensity`, and `lightColor`; an incompatible reflected layout
+is rejected without a partial write.
+
+`HdrToneMapping` carries exposure and gamma. The matching
+`storeHdrToneMapping(tone)` operation expects scalar `exposure` and `gamma`
+members in an 8-byte logical push block. Vulkan consumes that exact range;
+OpenGL preserves the logical ABI while rounding the rewritten `std140` uniform
+buffer allocation to its required 16-byte block boundary.
+
+The typed raster subset accepts up to 255 postfix tokens per expression and
+supports GLSL vector constructors assembled from mixed scalar/vector
+constituents, such as `vec4(lit, 1.0)`. Vulkan emits the compact corresponding
+`OpCompositeConstruct`, avoiding repeated expansion of the lighting tree.
+`examples/hdr-pbr` is the live RGBA16F scene and tone-mapping reference.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan
