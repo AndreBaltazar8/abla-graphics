@@ -3698,6 +3698,17 @@ create-info structures. `instanceCommandAdvertised`,
 with the correct negotiated API version, platform restriction, and generated
 dispatch scope. Their matching `...CommandSupported` methods additionally
 require a nonzero address from the correct resolver.
+
+`featureMatrix()` is the broad diagnostic form on both views. It walks the
+three compact schemas once through `RawCommandCapabilityCursor`, counts core
+and extension paths plus dispatch scopes, and resolves only advertised entry
+points. OpenGL captures version, profile, and the extension list once before
+the scan; Vulkan uses the instance/device state already retained at creation.
+The returned `RawFeatureMatrix` reports the first incomplete metadata row or
+advertised-but-unresolved command and is complete only when every registry row
+has capability ownership and every advertised entry point resolves. This does
+not replace the stricter common/raw/unsupported audit ledger.
+
 `callVoidPointer(command, pointer)` and the trailing-pointer
 `callVoidI32...Pointer` methods support zero through four preceding `i32`
 arguments. Every method accepts only its exact generated ABI family, makes the

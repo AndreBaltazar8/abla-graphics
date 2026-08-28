@@ -474,8 +474,12 @@ backends unless it demonstrates a backend-specific feature:
 11. multi-window and multi-monitor;
 12. headless image generation;
 13. GPU queries/profiler;
-14. raw OpenGL feature lab;
-15. raw Vulkan feature lab;
+14. raw OpenGL feature lab (delivered by
+    `examples/raw-opengl-feature-lab`, with a one-snapshot linear scan of all
+    2,892 generated capability rows);
+15. raw Vulkan feature lab (delivered by
+    `examples/raw-vulkan-feature-lab`, with generated dispatch scope and
+    negotiated-version/enabled-extension checks across all 842 rows);
 16. ray tracing when available;
 17. boids/particle stress benchmark;
 18. complete small 2D game (delivered by `examples/mini-breakout`, including

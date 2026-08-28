@@ -157,6 +157,12 @@ enable. Vulkan instances/devices retain exactly the extension-name arrays used
 at native creation, and a generated dispatch-scope schema keeps global,
 instance, and device resolver queries distinct.
 
+Full-registry diagnostics do not repeat name lookup or driver extension
+enumeration per command. A cursor consumes the three semicolon-indexed schemas
+in one pass. OpenGL snapshots its version/profile/extensions once; Vulkan reads
+the immutable negotiated versions and enabled-extension sets already owned by
+the application.
+
 `src/shader/` contains the `$glsl` parser, reflection model, and target emitters.
 The parser is an ordinary Abla compile-time subparser registered through
 `abla/compiler/parser` and returns normal typed Abla expressions.

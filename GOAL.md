@@ -4215,3 +4215,32 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make c
 Continue by generating broader positive and negative feature-lab cases from
 these gates rather than adding one-off address checks. Keep the persistent
 framework goal active.
+
+## Latest checkpoint: complete raw feature-lab samples
+
+The two backend-specific feature labs required by milestone 7 now exist as
+small documented, independently buildable Abla applications. A shared
+`RawFeatureMatrix` and linear `RawCommandCapabilityCursor` consume the
+compact command schemas once. OpenGL captures its version, profile, and
+extension strings once instead of repeating `glGetStringi` scans per command;
+Vulkan reuses the exact negotiated versions, enabled extension sets, platform,
+and generated dispatch scopes.
+
+`examples/raw-opengl-feature-lab` validates all 2,892 metadata rows and reports
+1,006 core-path commands, 2,270 extension-path commands, and 961 currently
+advertised/resolved entry points on the software OpenGL gate.
+`examples/raw-vulkan-feature-lab` validates all 842 rows, splits them into
+5 global/119 instance/718 device commands, and reports all 252 currently
+advertised entry points resolved with validation silent. Both binaries retain
+concrete native-library RUNPATHs and pass direct `ldd` checks with
+`LD_LIBRARY_PATH` removed.
+
+Focused validation:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make test-raw-feature-labs'
+```
+
+Continue advanced specification coverage by deriving executable family-level
+positive and unsupported-path cases from this matrix, and continue the other
+unfinished milestone-7 samples. Keep the persistent framework goal active.

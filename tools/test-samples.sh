@@ -27,7 +27,7 @@ samples=(x11-window wayland-info wayland-window wayland-pixels \
     wayland-clipboard \
     vulkan-info vulkan-surface headless-opengl \
     common-headless \
-    opengl-window common-clear mini-breakout viewport-scissor raw-command-addresses color-blending common-triangle common-buffer async-buffer async-texture async-wider-texture buffer-pool texture-pool common-texture wider-texture wider-sampling \
+    opengl-window common-clear mini-breakout viewport-scissor raw-command-addresses raw-opengl-feature-lab raw-vulkan-feature-lab color-blending common-triangle common-buffer async-buffer async-texture async-wider-texture buffer-pool texture-pool common-texture wider-texture wider-sampling \
     common-textured indexed-textured-cube render-to-texture \
     multiple-render-targets stencil-masking subpasses common-compute gpu-timestamp \
     push-color push-transform push-draw push-expression narrow-input \
@@ -107,6 +107,10 @@ env -u DISPLAY "$output_directory/frame-pacing"
 env -u DISPLAY "$output_directory/render-graph"
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
     "$output_directory/opengl-window"
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
+    "$output_directory/raw-opengl-feature-lab"
+xvfb-run -a -s "-screen 0 1024x768x24" \
+    "$output_directory/raw-vulkan-feature-lab"
 for backend in opengl vulkan; do
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-clear" "$backend"

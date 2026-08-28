@@ -12,7 +12,7 @@ Updated: 2026-08-28.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 71 roots. Samples 65 through 68 cover deferred rendering,
+  The matrix now has 73 roots. Samples 65 through 68 cover deferred rendering,
   compute-to-render handoff, typed blending, and typed stencil masking. Sample
   69 is the complete `mini-breakout` 2D game: its independently built stripped-
   environment binary passed OpenGL, validation-enabled Vulkan, and automatic
@@ -22,6 +22,10 @@ Updated: 2026-08-28.
   generated exact OpenGL calls alongside the stable raw families with zero
   live-byte growth in normal and optimized builds; both binaries also pass
   stripped-environment linkage.
+  Samples 72 and 73 are the independently buildable raw OpenGL and Vulkan
+  feature labs. Their optimized focused gate scans all 2,892/842 capability
+  rows, observes 961/252 advertised commands on the current drivers, resolves
+  every advertised entry point, and keeps Vulkan validation silent.
   These newer roots are
   queued for the next periodic complete matrix.
 - Generated raw command ABI foundation: all 2,892 OpenGL and 842 Vulkan

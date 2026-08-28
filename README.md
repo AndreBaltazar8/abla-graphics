@@ -211,6 +211,7 @@ nix-shell --run 'make test'
 nix-shell --run 'make test-toolchain'
 nix-shell --run 'make test-registry'
 nix-shell --run 'make test-raw-commands'
+nix-shell --run 'make test-raw-feature-labs'
 ```
 
 Use these Nix-shell entry points for native builds; bare `make` on NixOS does
@@ -287,6 +288,12 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   inputs also prove native 8-bit truncation and state restoration; its Vulkan path records and submits
   1,000 raw device-mask commands, resets the borrowed command pool, and stays
   validation-clean in normal and optimized builds;
+- `examples/raw-opengl-feature-lab`: captures one context capability snapshot,
+  scans all 2,892 pinned commands in linear schema order, and proves every
+  advertised entry point resolves;
+- `examples/raw-vulkan-feature-lab`: combines negotiated versions, enabled
+  extensions, platform filters, and generated dispatch scope across all 842
+  pinned commands, with validation-clean resolution through the correct loader;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
   pipeline plus an interleaved `vec2` position/`vec4` color/`uint` tag vertex
   buffer and common index buffer rendered unchanged on explicit OpenGL and

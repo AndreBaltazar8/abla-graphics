@@ -63,6 +63,73 @@ class RawCommandCapability(
         rawCapabilityExtensionPlatform(this.extensionProviders, extension)
 }
 
+class RawCommandCapabilityCursor(
+    val coreTransitionSchema: string,
+    val extensionProviderSchema: string,
+    val dispatchScopeSchema: string,
+    var coreOffset: int = 0,
+    var extensionOffset: int = 0,
+    var scopeOffset: int = 0
+) {
+    fun next(name: string): RawCommandCapability {
+        var coreEnd = this.coreOffset
+        while (coreEnd < this.coreTransitionSchema.size &&
+            this.coreTransitionSchema[coreEnd] != 59) {
+            coreEnd = coreEnd + 1
+        }
+        var extensionEnd = this.extensionOffset
+        while (extensionEnd < this.extensionProviderSchema.size &&
+            this.extensionProviderSchema[extensionEnd] != 59) {
+            extensionEnd = extensionEnd + 1
+        }
+        var scopeEnd = this.scopeOffset
+        while (scopeEnd < this.dispatchScopeSchema.size &&
+            this.dispatchScopeSchema[scopeEnd] != 59) {
+            scopeEnd = scopeEnd + 1
+        }
+        val capability = RawCommandCapability(
+            name,
+            this.coreTransitionSchema.slice(this.coreOffset, coreEnd),
+            this.extensionProviderSchema.slice(
+                this.extensionOffset, extensionEnd
+            ),
+            this.dispatchScopeSchema.slice(this.scopeOffset, scopeEnd)
+        )
+        this.coreOffset = coreEnd + 1
+        this.extensionOffset = extensionEnd + 1
+        this.scopeOffset = scopeEnd + 1
+        capability
+    }
+
+    fun exhausted(): bool =
+        this.coreOffset >= this.coreTransitionSchema.size &&
+        this.extensionOffset >= this.extensionProviderSchema.size &&
+        this.scopeOffset >= this.dispatchScopeSchema.size
+}
+
+class RawFeatureMatrix(
+    val totalCommands: int,
+    val metadataCommands: int,
+    val corePathCommands: int,
+    val extensionPathCommands: int,
+    val advertisedCommands: int,
+    val supportedCommands: int,
+    val contextCommands: int,
+    val globalCommands: int,
+    val instanceCommands: int,
+    val deviceCommands: int,
+    val firstInvalidMetadata: string,
+    val firstAdvertisedUnresolved: string
+) {
+    fun complete(): bool =
+        this.totalCommands > 0 &&
+        this.metadataCommands == this.totalCommands &&
+        this.advertisedCommands > 0 &&
+        this.supportedCommands == this.advertisedCommands &&
+        this.firstInvalidMetadata == "" &&
+        this.firstAdvertisedUnresolved == ""
+}
+
 fun rawCapabilityRecordContains(records: string, wanted: string): bool {
     var found = false
     var begin = 0
