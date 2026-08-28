@@ -3740,3 +3740,10 @@ and an unlit blue surface through retained multi-batch target rendering and one
 window presentation. OpenGL, Vulkan, and automatic selection produce identical
 exact pixels `4278706703/4294901760` after resize and across four warmed frames,
 with stable resources and `live=0`.
+
+Validation caveat: the optimized live proof and compact glTF/linkage gate pass,
+but the legacy 4,443-line `tests/glsl_subparser.ab` compiler fixture currently
+segfaults before execution under its 64 GiB address-space guard. The failure
+also reproduced with `--fast` and a 128 GiB guard; its harness was left
+unchanged. Split that mega-fixture or diagnose `ablac` before claiming the full
+`make test-glsl` gate again.
