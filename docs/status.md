@@ -26,6 +26,11 @@ Updated: 2026-08-28.
   feature labs. Their optimized focused gate scans all 2,892/842 capability
   rows, observes 961/252 advertised commands on the current drivers, resolves
   every advertised entry point, and keeps Vulkan validation silent.
+  The same registry pass now derives exact ABI-family evidence ledgers: 42 of
+  284 OpenGL families and 48 of 122 Vulkan families currently have at least one
+  reviewed command with both positive and unsupported-path evidence. Remaining
+  families are explicitly `unclaimed`, giving specification work a generated
+  queue without confusing representability or address resolution with support.
   These newer roots are
   queued for the next periodic complete matrix.
 - Generated raw command ABI foundation: all 2,892 OpenGL and 842 Vulkan

@@ -20,6 +20,16 @@ selected registry, unknown kinds/statuses, empty evidence, and Markdown control
 characters are hard errors. Offline fixtures exercise all four statuses and
 each rejection class.
 
+The generated coverage ledger groups every normalized command signature into
+an exact raw-call ABI family. For each family it reports the total registry
+commands, common/raw rows with paired positive and unsupported-path evidence,
+rejection-only unsupported/platform rows, and commands that remain
+unclassified. A family is marked `paired` when at least one reviewed executable
+command exercises that layout; this is a prioritization signal, not a claim
+that every command in the family is supported. The current pinned ledgers show
+42 of 284 OpenGL families and 48 of 122 Vulkan families with paired executable
+evidence.
+
 The same inventory and audit join now generate importable Abla modules behind
 `src/raw/opengl_dispatch.ab` and `src/raw/vulkan.ab`. They contain the pinned
 revision/hash and complete byte-sorted arrays for command names/forms/statuses,

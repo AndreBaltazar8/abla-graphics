@@ -13,6 +13,137 @@
 - Classified commands: 113/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
+- Raw call ABI families: 122
+- ABI families with paired executable evidence: 48/122
+
+## Raw call ABI family evidence
+
+A common/raw count means each counted command has both positive and unsupported-path evidence in the audit. Unsupported and platform-inapplicable rows are rejection evidence only. Unclassified commands make no support claim.
+
+| ABI family | Registry commands | Paired executable evidence | Rejection-only evidence | Unclassified | Gate |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `i32(pointer)` | 4 | 4 | 0 | 0 | paired |
+| `i32(pointer,i32)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i32,i32,i32,i32,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,i32,i32,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,i32,pointer)` | 3 | 0 | 0 | 3 | unclaimed |
+| `i32(pointer,i32,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,i64,i64,i64)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i32,i64,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `i32(pointer,i32,pointer)` | 18 | 1 | 0 | 17 | paired |
+| `i32(pointer,i32,pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,pointer,i32,i64)` | 1 | 1 | 0 | 0 | paired |
+| `i32(pointer,i32,pointer,i32,i64,pointer,i64)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i32,pointer,i64)` | 5 | 3 | 0 | 2 | paired |
+| `i32(pointer,i32,pointer,pointer)` | 10 | 0 | 0 | 10 | unclaimed |
+| `i32(pointer,i32,pointer,pointer,pointer)` | 5 | 0 | 0 | 5 | unclaimed |
+| `i32(pointer,i32,pointer,pointer,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i64)` | 18 | 1 | 0 | 17 | paired |
+| `i32(pointer,i64,i32)` | 4 | 1 | 0 | 3 | paired |
+| `i32(pointer,i64,i32,i32,i64,pointer)` | 3 | 0 | 0 | 3 | unclaimed |
+| `i32(pointer,i64,i32,i32,i64,pointer,i64,i32)` | 1 | 1 | 0 | 0 | paired |
+| `i32(pointer,i64,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i32,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i32,pointer)` | 8 | 0 | 0 | 8 | unclaimed |
+| `i32(pointer,i64,i32,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i64,i32,pointer,pointer,pointer)` | 4 | 2 | 0 | 2 | paired |
+| `i32(pointer,i64,i64,i32,pointer,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i64,i64,i64)` | 3 | 2 | 0 | 1 | paired |
+| `i32(pointer,i64,i64,i64,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `i32(pointer,i64,i64,i64,i64,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `i32(pointer,i64,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,pointer)` | 24 | 2 | 0 | 22 | paired |
+| `i32(pointer,i64,pointer,pointer)` | 18 | 2 | 0 | 16 | paired |
+| `i32(pointer,i64,pointer,pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,pointer,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,pointer)` | 36 | 3 | 0 | 33 | paired |
+| `i32(pointer,pointer,i32,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,pointer,i64)` | 3 | 1 | 0 | 2 | paired |
+| `i32(pointer,pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,pointer,pointer)` | 63 | 5 | 0 | 58 | paired |
+| `i32(pointer,pointer,pointer,pointer)` | 81 | 18 | 0 | 63 | paired |
+| `i32(pointer,pointer,pointer,pointer,pointer)` | 3 | 1 | 0 | 2 | paired |
+| `i64(pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i64(pointer,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i64(pointer,i64,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i64(pointer,pointer)` | 10 | 0 | 0 | 10 | unclaimed |
+| `pointer(pointer,pointer)` | 2 | 1 | 0 | 1 | paired |
+| `void(i64,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer)` | 12 | 2 | 0 | 10 | paired |
+| `void(pointer,f32)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32)` | 57 | 1 | 0 | 56 | paired |
+| `void(pointer,i32,i16)` | 3 | 0 | 0 | 3 | unclaimed |
+| `void(pointer,i32,i32)` | 4 | 0 | 0 | 4 | unclaimed |
+| `void(pointer,i32,i32,i32)` | 4 | 1 | 0 | 3 | paired |
+| `void(pointer,i32,i32,i32,i32)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i32,i32,i32,i32,i32)` | 3 | 1 | 0 | 2 | paired |
+| `void(pointer,i32,i32,i32,i32,i32,i32)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i32,i32,i32,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i32,i32,pointer,i32,pointer,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i32,i32,i32,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i32,i32,i64,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i64,i64,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,pointer)` | 19 | 4 | 0 | 15 | paired |
+| `void(pointer,i32,i32,pointer,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,pointer,pointer)` | 3 | 1 | 0 | 2 | paired |
+| `void(pointer,i32,i32,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,pointer,pointer,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i32,i64)` | 2 | 1 | 0 | 1 | paired |
+| `void(pointer,i32,i64,i32)` | 3 | 1 | 0 | 2 | paired |
+| `void(pointer,i32,i64,i32,i32,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i32,i64,i32,i32,pointer,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i32,i64,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i64,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i64,i64,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i32,pointer)` | 20 | 0 | 0 | 20 | unclaimed |
+| `void(pointer,i32,pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,pointer,i32,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,pointer,i32,i32,i32,pointer,i32,pointer,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,pointer,i32,i64,i32)` | 3 | 0 | 0 | 3 | unclaimed |
+| `void(pointer,i32,pointer,i32,pointer)` | 3 | 1 | 0 | 2 | paired |
+| `void(pointer,i32,pointer,pointer)` | 6 | 0 | 0 | 6 | unclaimed |
+| `void(pointer,i32,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,pointer,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64)` | 5 | 1 | 0 | 4 | paired |
+| `void(pointer,i64,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32)` | 10 | 0 | 0 | 10 | unclaimed |
+| `void(pointer,i64,i32,i32)` | 6 | 1 | 0 | 5 | paired |
+| `void(pointer,i64,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i32,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i64,i32,i32,i64,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i32,i64,i64,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i32,pointer,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i64,i32,i32,pointer)` | 2 | 2 | 0 | 0 | paired |
+| `void(pointer,i64,i32,i64,i32,i32,pointer,i32)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i64,i32,i64,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i64,i32,pointer)` | 4 | 0 | 0 | 4 | unclaimed |
+| `void(pointer,i64,i32,pointer,i32,pointer)` | 2 | 1 | 0 | 1 | paired |
+| `void(pointer,i64,i64)` | 5 | 0 | 0 | 5 | unclaimed |
+| `void(pointer,i64,i64,i32)` | 5 | 1 | 0 | 4 | paired |
+| `void(pointer,i64,i64,i32,i32)` | 4 | 2 | 0 | 2 | paired |
+| `void(pointer,i64,i64,i32,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,i64,i64,i32,pointer)` | 3 | 1 | 0 | 2 | paired |
+| `void(pointer,i64,i64,i64)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i64,i64,i64,i32)` | 4 | 1 | 0 | 3 | paired |
+| `void(pointer,i64,i64,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i64,i64,i32,i32)` | 8 | 0 | 0 | 8 | unclaimed |
+| `void(pointer,i64,i64,i64,i64,i64,i64,i64,i64,i64,i64,i64,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,pointer)` | 4 | 0 | 0 | 4 | unclaimed |
+| `void(pointer,i64,pointer)` | 66 | 21 | 0 | 45 | paired |
+| `void(pointer,i64,pointer,pointer)` | 5 | 0 | 0 | 5 | unclaimed |
+| `void(pointer,pointer)` | 104 | 8 | 0 | 96 | paired |
+| `void(pointer,pointer,i32)` | 1 | 1 | 0 | 0 | paired |
+| `void(pointer,pointer,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,i32,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,i64,i64,i32,i64,i64,i64,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,pointer)` | 48 | 1 | 0 | 47 | paired |
+| `void(pointer,pointer,pointer,pointer)` | 6 | 0 | 0 | 6 | unclaimed |
+| `void(pointer,pointer,pointer,pointer,pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,pointer,pointer,pointer,i64)` | 1 | 0 | 0 | 1 | unclaimed |
 
 ## Commands
 

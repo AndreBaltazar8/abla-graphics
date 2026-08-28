@@ -13,6 +13,77 @@
 - Classified commands: 1/68
 - Classified core features: 1/1
 - Classified extensions: 2/2
+- Raw call ABI families: 62
+- ABI families with paired executable evidence: 0/62
+
+## Raw call ABI family evidence
+
+A common/raw count means each counted command has both positive and unsupported-path evidence in the audit. Unsupported and platform-inapplicable rows are rejection evidence only. Unclassified commands make no support claim.
+
+| ABI family | Registry commands | Paired executable evidence | Rejection-only evidence | Unclassified | Gate |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `i32(pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,pointer,i32,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,pointer,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i32,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64)` | 2 | 0 | 0 | 2 | unclaimed |
+| `i32(pointer,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i32,i32,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i32,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i64,i32,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,i64,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,i64,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,pointer,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i32(pointer,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `i64(pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `unsupported` | 1 | 0 | 1 | 0 | rejected |
+| `void()` | 3 | 0 | 0 | 3 | unclaimed |
+| `void(pointer)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i32,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,f32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i64,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,i64,i32,i32,pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i32,pointer,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,i64,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i64,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 
 ## Commands
 

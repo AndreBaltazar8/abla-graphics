@@ -2418,6 +2418,48 @@ fun registryAppend(path: Path, batch: string, line: string): string {
     result
 }
 
+fun registryAbiFamilyIndex(families: array<string>, wanted: string): int {
+    var found = -1
+    var index = 0
+    while (found < 0 && index < families.size) {
+        if (families[index] == wanted) found = index
+        index = index + 1
+    }
+    found
+}
+
+fun registrySortFamilyEvidence(
+    var families: array<string>,
+    var commands: array<int>,
+    var executableEvidence: array<int>,
+    var rejectionEvidence: array<int>,
+    var unclassified: array<int>
+): void {
+    var index = 1
+    while (index < families.size) {
+        val family = families[index]
+        val commandCount = commands[index]
+        val executableCount = executableEvidence[index]
+        val rejectionCount = rejectionEvidence[index]
+        val unclassifiedCount = unclassified[index]
+        var target = index
+        while (target > 0 && registryStringLess(family, families[target - 1])) {
+            families[target] = families[target - 1]
+            commands[target] = commands[target - 1]
+            executableEvidence[target] = executableEvidence[target - 1]
+            rejectionEvidence[target] = rejectionEvidence[target - 1]
+            unclassified[target] = unclassified[target - 1]
+            target = target - 1
+        }
+        families[target] = family
+        commands[target] = commandCount
+        executableEvidence[target] = executableCount
+        rejectionEvidence[target] = rejectionCount
+        unclassified[target] = unclassifiedCount
+        index = index + 1
+    }
+}
+
 fun registryWrite(
     output: Path,
     api: string,
@@ -2432,6 +2474,54 @@ fun registryWrite(
     capabilities: RegistryCommandCapabilities
 ): bool {
     val title = if (api == "vulkan") "Vulkan" else "OpenGL"
+    val callAbis = registryCommandCallAbis(api, inventory, signatures, types)
+    val abiFamilies: array<string> = []
+    val abiCommands: array<int> = []
+    val abiExecutableEvidence: array<int> = []
+    val abiRejectionEvidence: array<int> = []
+    val abiUnclassified: array<int> = []
+    var commandIndex = 0
+    while (commandIndex < inventory.commands.size) {
+        val family = callAbis[commandIndex]
+        var familyIndex = registryAbiFamilyIndex(abiFamilies, family)
+        if (familyIndex < 0) {
+            familyIndex = abiFamilies.size
+            abiFamilies.append(family)
+            abiCommands.append(0)
+            abiExecutableEvidence.append(0)
+            abiRejectionEvidence.append(0)
+            abiUnclassified.append(0)
+        }
+        abiCommands[familyIndex] = abiCommands[familyIndex] + 1
+        val auditIndex = registryAuditIndex(
+            audit, "command", inventory.commands[commandIndex]
+        )
+        if (auditIndex < 0) {
+            abiUnclassified[familyIndex] = abiUnclassified[familyIndex] + 1
+        } else if (family == "unsupported") {
+            abiRejectionEvidence[familyIndex] =
+                abiRejectionEvidence[familyIndex] + 1
+        } else if (audit.statuses[auditIndex] == "common" ||
+            audit.statuses[auditIndex] == "raw") {
+            abiExecutableEvidence[familyIndex] =
+                abiExecutableEvidence[familyIndex] + 1
+        } else {
+            abiRejectionEvidence[familyIndex] =
+                abiRejectionEvidence[familyIndex] + 1
+        }
+        commandIndex = commandIndex + 1
+    }
+    registrySortFamilyEvidence(
+        abiFamilies, abiCommands, abiExecutableEvidence,
+        abiRejectionEvidence, abiUnclassified
+    )
+    var evidencedAbiFamilies = 0
+    var abiFamilyIndex = 0
+    while (abiFamilyIndex < abiFamilies.size) {
+        if (abiExecutableEvidence[abiFamilyIndex] > 0)
+            evidencedAbiFamilies = evidencedAbiFamilies + 1
+        abiFamilyIndex = abiFamilyIndex + 1
+    }
     var success = output.writeText("")
     var batch = ""
     if (success) batch = registryAppend(output, batch, "# $title registry inventory")
@@ -2483,6 +2573,39 @@ fun registryWrite(
     if (success) batch = registryAppend(
         output, batch, "- Classified extensions: $extensionAudits/${inventory.extensions.size}"
     )
+    if (success) batch = registryAppend(
+        output, batch, "- Raw call ABI families: ${abiFamilies.size}"
+    )
+    if (success) batch = registryAppend(
+        output, batch,
+        "- ABI families with paired executable evidence: $evidencedAbiFamilies/${abiFamilies.size}"
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(output, batch, "## Raw call ABI family evidence")
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(
+        output, batch,
+        "A common/raw count means each counted command has both positive and unsupported-path evidence in the audit. Unsupported and platform-inapplicable rows are rejection evidence only. Unclassified commands make no support claim."
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(
+        output, batch,
+        "| ABI family | Registry commands | Paired executable evidence | Rejection-only evidence | Unclassified | Gate |"
+    )
+    if (success) batch = registryAppend(
+        output, batch, "| --- | ---: | ---: | ---: | ---: | --- |"
+    )
+    abiFamilyIndex = 0
+    while (success && abiFamilyIndex < abiFamilies.size) {
+        val gate = if (abiExecutableEvidence[abiFamilyIndex] > 0)
+            "paired" else if (abiRejectionEvidence[abiFamilyIndex] > 0)
+            "rejected" else "unclaimed"
+        batch = registryAppend(
+            output, batch,
+            "| `${abiFamilies[abiFamilyIndex]}` | ${abiCommands[abiFamilyIndex]} | ${abiExecutableEvidence[abiFamilyIndex]} | ${abiRejectionEvidence[abiFamilyIndex]} | ${abiUnclassified[abiFamilyIndex]} | $gate |"
+        )
+        abiFamilyIndex = abiFamilyIndex + 1
+    }
     if (success) batch = registryAppend(output, batch, "")
     if (success) batch = registryAppend(output, batch, "## Commands")
     if (success) batch = registryAppend(output, batch, "")

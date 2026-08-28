@@ -46,6 +46,13 @@ cmp "$output_directory/first.builders.ab" \
     "$project_root/registry/fixtures/vulkan.builders.expected.ab"
 cmp "$output_directory/first.driver-builders.ab" \
     "$project_root/registry/fixtures/vulkan.driver-builders.expected.ab"
+rg -Fq -- '- Raw call ABI families: 62' "$output_directory/first.md"
+rg -Fq -- '- ABI families with paired executable evidence: 0/62' \
+    "$output_directory/first.md"
+rg -Fq '| `unsupported` | 1 | 0 | 1 | 0 | rejected |' \
+    "$output_directory/first.md"
+rg -Fq '| `void(pointer)` | 2 | 0 | 0 | 2 | unclaimed |' \
+    "$output_directory/first.md"
 
 if "$generator" vulkan \
     "$project_root/registry/fixtures/missing-definition.xml" \
@@ -130,6 +137,12 @@ rg -Fq 'fun rawVulkanCallDispatchScopeSchema' \
     "$output_directory/first.calls.ab"
 rg -Fq 'fun rawOpenGlCallDispatchScopeSchema' \
     "$output_directory/opengl-first.calls.ab"
+rg -Fq -- '- Raw call ABI families: 3' \
+    "$output_directory/opengl-first.md"
+rg -Fq -- '- ABI families with paired executable evidence: 2/3' \
+    "$output_directory/opengl-first.md"
+rg -Fq '| `f32(i32)` | 1 | 1 | 0 | 0 | paired |' \
+    "$output_directory/opengl-first.md"
 
 if "$generator" opengl \
     "$project_root/registry/fixtures/opengl-invalid-constant.xml" \

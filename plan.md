@@ -143,6 +143,11 @@ extension advertisement separately from resolver availability. Vulkan
 instances/devices retain their exact enabled-extension sets, and generated
 dispatch scope keeps global, instance, and device runtime advertisement/support
 queries on the correct negotiated version, platform, and resolver.
+The registry inventory also groups commands by exact generated raw-call ABI
+and counts paired executable, rejection-only, and unclassified evidence per
+family. The current generated queue has paired evidence for 42/284 OpenGL and
+48/122 Vulkan families; a paired family only proves its reviewed command rows,
+not every command sharing the signature.
 
 Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
 without perturbing established `vec4` modules. Their exact-width and scalar-splat

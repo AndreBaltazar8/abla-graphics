@@ -24,7 +24,11 @@ advertised extensions, while the latter also requires a nonzero resolver
 address. Vulkan instances/devices retain the exact extension-name sets passed
 at creation, and generated dispatch scope prevents global, instance, and device
 queries from being conflated. Continue by expanding the raw feature-lab
-matrices from these truthful gates.
+matrices from these truthful gates. The coverage ledgers now derive an exact
+ABI-family queue from the same generated command tags and reviewed audit rows:
+42/284 OpenGL and 48/122 Vulkan families have at least one command with paired
+positive and unsupported-path evidence. Unclassified commands remain
+unclaimed; neither ABI representability nor a resolved address upgrades them.
 
 The current broad raw OpenGL work has expanded the generated surface from 352
 to all 2,892 registry commands with target-correct ABI metadata. Return
@@ -4244,3 +4248,28 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make t
 Continue advanced specification coverage by deriving executable family-level
 positive and unsupported-path cases from this matrix, and continue the other
 unfinished milestone-7 samples. Keep the persistent framework goal active.
+
+## Latest checkpoint: generated ABI-family evidence queue
+
+The pure-Abla Khronos generator now groups every normalized raw command ABI in
+the committed coverage ledgers. Each row counts all registry commands, reviewed
+common/raw commands with both positive and unsupported-path evidence,
+rejection-only classifications, and unclassified commands. The gate is honest:
+`paired` means at least one reviewed command exercises the family, while all
+other commands retain their own classification state.
+
+The pinned OpenGL ledger contains 284 exact ABI families, 42 with paired
+executable evidence. Vulkan contains 122, 48 paired. Deterministic Vulkan and
+OpenGL fixture checks assert paired and unclaimed rows, and the registry gate
+passes. Use these generated `unclaimed` rows to select broad batches of real
+positive/rejection cases instead of repeatedly searching the full registries.
+
+Validated with:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make test-registry'
+```
+
+Continue by promoting batches that cover the highest-volume unclaimed families
+with safe live commands and exact wrong-shape or unavailable-feature rejection.
+Keep the persistent framework goal active.
