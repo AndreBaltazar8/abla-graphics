@@ -2,6 +2,7 @@
 
 import "binding.ab"
 import "gltf_texture.ab"
+import "render.ab"
 
 trusted fun GraphicsApplication.gltfGpuMaterialTextureBatch(
     document: GltfDocument,
@@ -36,4 +37,43 @@ trusted fun GraphicsApplication.gltfMaterialTextureEntries(
     }
     if (valid) return entries
     []
+}
+
+// Submits every planned group in drawable order. The first pass must clear the
+// target and following passes must load it, so opaque and transparent order is
+// preserved across descriptor/pipeline changes.
+trusted fun GraphicsApplication.renderGltfMaterialBatchesToTarget(
+    var target: GraphicsRenderTarget,
+    plan: GltfMaterialBatchPlan,
+    pipelines: array<GraphicsRenderPipeline>,
+    batches: array<GraphicsPushConstantBatch>,
+    passes: array<GraphicsRenderPass>,
+    vertices: GraphicsBuffer,
+    indices: GraphicsBuffer,
+    indexCount: int
+): bool {
+    var valid = this.valid() && plan.valid && plan.batchCount() > 0 &&
+        pipelines.size == plan.batchCount() &&
+        batches.size == plan.batchCount() &&
+        passes.size == plan.batchCount() &&
+        (passes[0].clearMask & 1) != 0
+    var batch = 0
+    while (valid && batch < plan.batchCount()) {
+        valid = batches[batch].drawCount ==
+            plan.batchDrawableCounts[batch] &&
+            passes[batch].discardAfterMask == 0 &&
+            (batch == 0 || (passes[batch].clearMask == 0 &&
+             passes[batch].discardBeforeMask == 0)) &&
+            this.renderPushBatchPassIndexedToTarget(
+                target,
+                pipelines[batch],
+                batches[batch],
+                passes[batch],
+                vertices,
+                indices,
+                indexCount
+            )
+        batch = batch + 1
+    }
+    valid
 }

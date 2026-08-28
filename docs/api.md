@@ -1412,6 +1412,18 @@ suppliedImages)` creates a deduplicated table from `plan.batchMaterials(batch)`.
 selector to place in a draw record. Planning is setup-time and does not reorder
 transparent draws.
 
+`app.renderPushBatchPassIndexedToTarget(target, pipeline, batch, pass,
+vertices, indices, indexCount)` is the pass-aware retained indexed-batch path.
+It supports per-draw index ranges and push records, including a one-draw batch.
+Use a clearing pass for the first group and a loading pass thereafter.
+
+`app.renderGltfMaterialBatchesToTarget(target, plan, pipelines, batches,
+passes, vertices, indices, indexCount)` validates one pipeline, push batch, and
+pass per planned group, then submits them in order. All arrays are setup-time
+owners/records; the frame path performs no table construction or allocation.
+The first pass must clear color attachment zero and following passes must load
+without discarding it; every pass must retain its attachments afterward.
+
 `app.gltfGpuTexturedPrimitive(document, buffers, meshIndex, primitiveIndex)`
 is the compact textured geometry contract. It requires FLOAT `VEC3` `POSITION`
 and accepts FLOAT, normalized `UNSIGNED_BYTE`, or normalized `UNSIGNED_SHORT`

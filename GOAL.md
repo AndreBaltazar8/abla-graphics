@@ -68,9 +68,9 @@ backends keep a single binding/pass without copying arrays in the frame loop.
 The live fixture now proves two position accessors, two geometry resources,
 two materials, and exact green/blue output with `live=0` on OpenGL, Vulkan,
 and auto. Continue with material batching beyond three complete bound
-materials now has an order-preserving planner; continue with multi-pipeline
-submission orchestration, skinning/morph targets, transmission/clearcoat
-extensions, and JPEG decoding.
+materials now has an order-preserving planner and retained multi-pipeline target
+submission; continue with window-wide multi-pipeline presentation,
+skinning/morph targets, transmission/clearcoat extensions, and JPEG decoding.
 
 ## Mission
 
@@ -3543,3 +3543,18 @@ and pushed material selectors from this plan. The independent
 `examples/gltf-material-batches` proof maps eight draws to two ordered batches,
 also verifies a tighter three-batch policy, default-material placement, slot
 reuse, and capacity rejection with `LD_LIBRARY_PATH` removed.
+
+## Latest checkpoint: retained multi-batch target submission
+
+`renderPushBatchPassIndexedToTarget(...)` extends the pass-aware render path to
+an entire retained push batch. `renderGltfMaterialBatchesToTarget(...)` submits
+the planned groups in drawable order, requires the first pass to clear and each
+following pass to load, and retains all pipelines, bindings, push records, and
+geometry across frames. A one-draw tail uses zero backend record stride while
+multi-draw groups keep the packed layout stride.
+
+The live glTF proof now submits two material pipelines as a two-draw group plus
+a one-draw tail. OpenGL, Vulkan, and auto preserve exact green/blue target
+pixels across four measured frames with no live-memory growth. Direct window
+presentation remains a single group until the swapchain path gains the same
+ordered multi-pipeline sequence contract.

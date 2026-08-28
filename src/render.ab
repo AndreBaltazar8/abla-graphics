@@ -1589,6 +1589,8 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
         batch.indexedDrawRanges.storage.address else nativeNullPointer()
     val indexedDrawRangeCount = if (usesIndexedDrawRanges)
         batch.drawCount else 0
+    val pushConstantStride = if (batch.drawCount > 1)
+        batch.layout.size else 0
     var succeeded = this.valid() && target.valid() && pipeline.valid() &&
         batch.valid() && batch.layout.matches(pipeline.pushConstantLayout) &&
         vertices.valid() && indices.valid() && clear.valid() &&
@@ -1649,7 +1651,7 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
                 indexOffset,
                 0,
                 batch.drawCount,
-                batch.layout.size,
+                pushConstantStride,
                 indexedDrawRanges,
                 indexedDrawRangeCount
             )
@@ -1678,7 +1680,7 @@ trusted fun GraphicsApplication.renderPushBatchIndexedToTarget(
                 indexOffset,
                 0,
                 batch.drawCount,
-                batch.layout.size,
+                pushConstantStride,
                 indexedDrawRanges,
                 indexedDrawRangeCount
             )
@@ -2497,6 +2499,134 @@ trusted fun GraphicsApplication.renderPushPassIndexedToTarget(
                 constants.layout.size,
                 vertexOffset,
                 indexOffset
+            )
+    } else if (succeeded) succeeded = false
+    if (succeeded) succeeded = this.finishRenderTarget(target)
+    succeeded
+}
+
+// Reuses one pass-compatible pipeline and one retained push record per draw.
+// Callers can compose several material/pipeline groups by clearing the first
+// pass and using attachmentLoadOperationLoad for every following pass.
+trusted fun GraphicsApplication.renderPushBatchPassIndexedToTarget(
+    var target: GraphicsRenderTarget,
+    pipeline: GraphicsRenderPipeline,
+    batch: GraphicsPushConstantBatch,
+    pass: GraphicsRenderPass,
+    vertices: GraphicsBuffer,
+    indices: GraphicsBuffer,
+    indexCount: int,
+    instanceCount: int = 1,
+    vertexOffset: int = 0,
+    vertexSize: int = -1,
+    indexOffset: int = 0,
+    indexSize: int = -1
+): bool {
+    val stride = pipeline.vertexLayout.stride
+    val vertexBytes = graphicsDrawBufferRangeSize(
+        vertexOffset,
+        vertexSize,
+        vertices.descriptor.size
+    )
+    val indexBytes = graphicsDrawBufferRangeSize(
+        indexOffset,
+        indexSize,
+        indices.descriptor.size
+    )
+    val usesIndexedDrawRanges = batch.usesIndexedDrawRanges()
+    val indexedDrawRanges = if (usesIndexedDrawRanges)
+        batch.indexedDrawRanges.storage.address else nativeNullPointer()
+    val indexedDrawRangeCount = if (usesIndexedDrawRanges)
+        batch.drawCount else 0
+    val pushConstantStride = if (batch.drawCount > 1)
+        batch.layout.size else 0
+    var succeeded = batch.valid() &&
+        batch.layout.matches(pipeline.pushConstantLayout) &&
+        this.renderPassMatchesTarget(target, pipeline, pass, true) &&
+        vertices.valid() && indices.valid() && stride > 0 &&
+        graphicsDrawBufferRangeValid(
+            vertexOffset,
+            vertexSize,
+            vertices.descriptor.size,
+            stride
+        ) && graphicsDrawBufferRangeValid(
+            indexOffset,
+            indexSize,
+            indices.descriptor.size,
+            4
+        ) && vertexBytes / stride > 0 && indexCount > 0 &&
+        instanceCount > 0 && indexCount <= indexBytes / 4 &&
+        this.ownsBuffer(vertices) && this.ownsBuffer(indices) &&
+        (vertices.descriptor.usage & bufferUsageVertex) != 0 &&
+        (indices.descriptor.usage & bufferUsageIndex) != 0 &&
+        batch.indexedDrawRangesValid(indices.descriptor.size)
+    if (succeeded && this.backend == graphicsBackendOpenGl) {
+        succeeded = pipeline.targetHandle == target.openGl.handle &&
+            this.openGl.renderProgramTarget(
+                target.openGl,
+                pipeline.openGl,
+                pass.red,
+                pass.green,
+                pass.blue,
+                pass.alpha,
+                pipeline.raster,
+                pipeline.depth,
+                pipeline.vertexLayout,
+                vertices.openGl.handle,
+                vertexBytes / stride,
+                indices.openGl.handle,
+                indexCount,
+                instanceCount,
+                pipeline.binding.openGlKinds,
+                pipeline.binding.openGlBindings,
+                pipeline.binding.openGlResources,
+                pipeline.binding.openGlOffsets,
+                pipeline.binding.openGlSizes,
+                pipeline.binding.openGlSamplers,
+                0,
+                false,
+                pass.clearAddress,
+                pass.clearMask,
+                pass.discardBeforeMask,
+                pass.discardAfterMask,
+                batch.bytes.storage.address,
+                batch.layout.size,
+                vertexOffset,
+                indexOffset,
+                0,
+                batch.drawCount,
+                pushConstantStride,
+                indexedDrawRanges,
+                indexedDrawRangeCount
+            )
+    } else if (succeeded && this.backend == graphicsBackendVulkan) {
+        succeeded = pipeline.targetHandle == target.vulkan.framebuffer &&
+            this.vulkanDevice.renderTargetProgram(
+                target.vulkan,
+                pipeline.vulkan,
+                pass.red,
+                pass.green,
+                pass.blue,
+                pass.alpha,
+                vertices.vulkan.handle,
+                vertexBytes / stride,
+                indices.vulkan.handle,
+                indexCount,
+                instanceCount,
+                pipeline.binding.vulkan.descriptorSet,
+                0,
+                false,
+                pass.clearAddress,
+                pass.vulkan.handle,
+                batch.bytes.storage.address,
+                batch.layout.size,
+                vertexOffset,
+                indexOffset,
+                0,
+                batch.drawCount,
+                pushConstantStride,
+                indexedDrawRanges,
+                indexedDrawRangeCount
             )
     } else if (succeeded) succeeded = false
     if (succeeded) succeeded = this.finishRenderTarget(target)
@@ -3627,6 +3757,8 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
         batch.indexedDrawRanges.storage.address else nativeNullPointer()
     val indexedDrawRangeCount = if (usesIndexedDrawRanges)
         batch.drawCount else 0
+    val pushConstantStride = if (batch.drawCount > 1)
+        batch.layout.size else 0
     if (!this.valid() || !pipeline.valid() || !batch.valid() ||
         !batch.layout.matches(pipeline.pushConstantLayout) ||
         !vertices.valid() || !indices.valid() || !clear.valid() ||
@@ -3671,7 +3803,7 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
             indexOffset,
             0,
             batch.drawCount,
-            batch.layout.size,
+            pushConstantStride,
             indexedDrawRanges,
             indexedDrawRangeCount
         )
@@ -3697,7 +3829,7 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
             indexOffset,
             0,
             batch.drawCount,
-            batch.layout.size,
+            pushConstantStride,
             indexedDrawRanges,
             indexedDrawRangeCount
         )
@@ -3728,7 +3860,7 @@ trusted fun GraphicsApplication.presentPushBatchRenderIndexed(
                 indexOffset,
                 0,
                 batch.drawCount,
-                batch.layout.size,
+                pushConstantStride,
                 indexedDrawRanges,
                 indexedDrawRangeCount
             )

@@ -2285,6 +2285,19 @@ independent sample proves eight draws become two ordered groups, while a tighter
 two-material policy becomes three, with exact offsets/counts and rejection
 paths.
 
+### Retained glTF multi-batch target submission
+
+Pass-aware indexed rendering now accepts a complete push batch, including a
+one-draw tail whose backend stride is correctly zero. The glTF orchestrator
+validates one retained pipeline, push batch, and pass per planned material group
+and submits them without reordering, clearing only the first group and loading
+the target for every following group.
+
+The live proof composes a two-draw material group and one-draw tail on OpenGL,
+Vulkan, and auto. Exact green/blue pixels survive four measured frames with
+zero live-byte growth. Swapchain-wide multi-pipeline presentation remains a
+separate next step; the current proof presents its final group to the window.
+
 ### glTF packed multi-geometry submission
 
 `GltfGpuTexturedScene` combines every unique accessor-plan primitive into one

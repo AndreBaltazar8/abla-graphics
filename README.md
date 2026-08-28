@@ -451,7 +451,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   implicit default materials, tighter policies, and capacity rejection;
 - `examples/gltf-live-scene`: an embedded base64 glTF buffer is decoded into
   one packed retained scene owner containing two distinct 48-byte
-  position/normalized-UV/normal/tangent surface primitives; a reusable push
+  position/normalized-UV/normal/tangent surface primitives; two ordered
+  material pipelines compose a two-draw group and one-draw tail through clear
+  then load passes; a reusable push
   batch supplies exact index ranges while a deduplicated ten-slot table binds
   both materials' base-color, metallic/roughness, normal, occlusion, and
   emissive channels, producing exact green/blue zero-growth output on OpenGL
