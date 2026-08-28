@@ -73,3 +73,8 @@ Updating a registry is a reviewed source change: change the revision and hash,
 regenerate, inspect inventory additions/removals, extend the parser for any
 newly consumed schema only with tests, and never carry forward a support status
 without its evidence still passing.
+
+`tools/update-registry.sh` and the registry/raw/linkage gates use `../ablac` by
+default. Set `ABLA_COMPILER_ROOT` to an isolated compiler checkout, or
+`ABLA_COMPILER` to a specific launcher inside that checkout, when validating a
+compiler-dependent ABI slice without replacing another active build.

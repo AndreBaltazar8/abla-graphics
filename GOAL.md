@@ -13,11 +13,12 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 1,932 callable commands. Exact pure-`i32` void calls cover one through six
+to 2,027 callable commands. Exact pure-`i32` void calls cover one through six
 arguments; pointer-only and trailing-pointer calls cover zero through four
 preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
-one through four float lanes. Continue in large normalized-signature batches
-from the remaining 960 explicit `unsupported` rows, pairing each compiler ABI
+one through four float lanes, with matching native double-precision layouts.
+Continue in large normalized-signature batches from the remaining 865 explicit
+`unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
 
@@ -3853,3 +3854,39 @@ nix-shell --run 'make test-raw-commands'
 Continue with another high-cardinality normalized family batch—double lanes,
 boolean/matrix signatures, and larger scalar/pointer layouts are the leading
 candidates. Keep the persistent framework goal active.
+
+## Latest checkpoint: raw OpenGL double-state families
+
+Twelve matching exact call layouts cover one through four pure `f64` lanes and
+the same suffix after one or two `i32` arguments. Only `GLdouble` and
+`GLclampd` map to this native width. The generator promotes exactly 95 more
+commands, raising raw OpenGL coverage from 1,932 to 2,027 of 2,892 and leaving
+865 explicit `unsupported` rows.
+
+Compiler commit `26d7907` extends the shared exact-call classifier with an
+untruncated native `f64` kind. Its boundary fixture checks all double values and
+integer prefixes across twelve exported pure-Abla targets. The patch was
+verified alone in a detached `31016ee` worktree: the complete 76-test suite and
+byte-identical pure self-rebuild pass. Concurrent compiler optimizer edits in
+the main worktree remain unrelated and must be preserved.
+
+The normal and optimized raw sample each perform 1,000 `glDepthRange` calls,
+query the state through raw `glGetDoublev`, verify exact IEEE-754 bits for
+`0.25/0.75`, restore `0.0/1.0`, and report `depth=true`, `live=0`, and
+`stable=true`. The existing four-lane float, integer/pointer, and Vulkan
+validation proofs remain green and silent.
+
+Registry, raw-command, and runtime-linkage tools now accept
+`ABLA_COMPILER_ROOT` and `ABLA_COMPILER`, allowing an isolated compiler
+worktree to be tested without overwriting another active compiler build.
+
+Validated with the isolated compiler root:
+
+```sh
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make test-registry test-raw-commands'
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only test-runtime-linkage'
+```
+
+The stripped-library proof reports `direct=true unresolved=0`. Continue with
+the largest remaining boolean/result and scalar/pointer signature families;
+keep the persistent framework goal active.

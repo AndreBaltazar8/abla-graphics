@@ -34,6 +34,8 @@ trusted fun main: int {
         val getInteger = raw.command("glGetIntegerv")
         val getIntegerIndexed = raw.command("glGetIntegeri_v")
         val clearColor = raw.command("glClearColor")
+        val depthRange = raw.command("glDepthRange")
+        val getDouble = raw.command("glGetDoublev")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -42,6 +44,8 @@ trusted fun main: int {
             !raw.callVoidI32I32I32I32(pixelStore, 0, 0, 0, 0) &&
             !raw.callVoidF32(finish, 0.0) &&
             !raw.callVoidF32F32F32F32(viewport, 0.0, 0.0, 0.0, 0.0) &&
+            !raw.callVoidF64(finish, 0.0) &&
+            !raw.callVoidF64F64(viewport, 0.0, 1.0) &&
             !raw.callVoid0(missing)
         val scissorWasEnabled = glIsEnabled(3089) != 0
         val packAlignment = nativeI64Cell(0)
@@ -49,6 +53,7 @@ trusted fun main: int {
         val originalPackAlignment = packAlignment.load()
         val workgroupCount = nativeI64Cell(0)
         val clearColorState = nativeByteBuffer(16)
+        val depthRangeState = nativeByteBuffer(16)
         val liveBefore = runtimeMemoryLiveBytes()
         var call = 0
         var called = true
@@ -66,13 +71,16 @@ trusted fun main: int {
                 raw.callVoidI32I32I32I32(viewport, 0, 0, 160, 120) &&
                 raw.callVoidF32F32F32F32(
                     clearColor, 0.25, 0.5, 0.75, 1.0
-                )
+                ) && raw.callVoidF64F64(depthRange, 0.25, 0.75) &&
+                raw.callVoidI32Pointer(getDouble, 2928, depthRangeState.address)
             if (called) glGetFloatv(3106, clearColorState.address)
             called = called &&
                 graphicsPackedU32(clearColorState.address, 0) == 1048576000 &&
                 graphicsPackedU32(clearColorState.address, 4) == 1056964608 &&
                 graphicsPackedU32(clearColorState.address, 8) == 1061158912 &&
-                graphicsPackedU32(clearColorState.address, 12) == 1065353216
+                graphicsPackedU32(clearColorState.address, 12) == 1065353216 &&
+                depthRangeState.loadI64(0) == 4598175219545276416 &&
+                depthRangeState.loadI64(8) == 4604930618986332160
             called = called && packAlignment.load() == 1 &&
                 raw.callVoidI32I32(pixelStore, 3333, 4)
             if (called) raw.callVoidI32Pointer(
@@ -97,6 +105,10 @@ trusted fun main: int {
             graphicsPackedU32(clearColorState.address, 4) == 0 &&
             graphicsPackedU32(clearColorState.address, 8) == 0 &&
             graphicsPackedU32(clearColorState.address, 12) == 0
+        raw.callVoidF64F64(depthRange, 0.0, 1.0)
+        raw.callVoidI32Pointer(getDouble, 2928, depthRangeState.address)
+        val depthRangeRestored = depthRangeState.loadI64(0) == 0 &&
+            depthRangeState.loadI64(8) == 4607182418800017408
         stable = raw.available && finish.valid() &&
             finish.callShape == "void()" && finish.callAbi == "void()" &&
             clear.callShape == "void(GLbitfield)" &&
@@ -109,13 +121,15 @@ trusted fun main: int {
             getInteger.callAbi == "void(i32,pointer)" &&
             getIntegerIndexed.callAbi == "void(i32,i32,pointer)" &&
             clearColor.callAbi == "void(f32,f32,f32,f32)" &&
+            depthRange.callAbi == "void(f64,f64)" &&
+            getDouble.callAbi == "void(i32,pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
-            restored && colorRestored &&
+            restored && colorRestored && depthRangeRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

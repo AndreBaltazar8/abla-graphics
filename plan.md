@@ -126,7 +126,7 @@ Descriptor updates, synchronization2 events, private-data operations,
 swapchain creation, acceleration queries, and larger pointer groups add 17
 more repeated layouts. A generated candidate ABI ledger preserves the exact
 normalized layout for every registry entry. Generated ABI classification marks
-exactly 1,932 currently callable OpenGL entries and all 842 pinned Vulkan
+exactly 2,027 currently callable OpenGL entries and all 842 pinned Vulkan
 entries. Vulkan's former 50 one-off layouts and nine platform-scalar boundaries
 are fully lowered with explicit native widths. Remaining OpenGL signature
 families, capability gates, live extension evidence, and the milestone work

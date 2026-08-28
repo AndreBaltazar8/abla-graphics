@@ -2,8 +2,8 @@
 set -euo pipefail
 
 project_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-compiler_root=$(cd -- "$project_root/../ablac" && pwd)
-compiler="$compiler_root/build/ablac"
+compiler_root=${ABLA_COMPILER_ROOT:-$(cd -- "$project_root/../ablac" && pwd)}
+compiler=${ABLA_COMPILER:-"$compiler_root/build/ablac"}
 output_directory="$project_root/build/registry-test"
 generator="$output_directory/registry-generator"
 

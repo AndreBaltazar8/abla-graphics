@@ -36,7 +36,8 @@ Updated: 2026-08-28.
   trailing-pointer commands through four preceding `i32` arguments as
   callable. Pure `f32`, one-`i32`/`f32`, and two-`i32`/`f32` families through
   four float lanes bring the total to 1,932 and leave 960 OpenGL entries
-  unsupported.
+  before matching double-precision families raise the total to 2,027 and leave
+  865 OpenGL entries unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
@@ -45,7 +46,8 @@ Updated: 2026-08-28.
   live raw path. Registry-driven schema emission remains the next builder step.
   The live raw sample observes and restores scissor and pack-alignment state,
   queries indexed compute limits, repeatedly sets the viewport, and writes and
-  reads back exact four-lane floating clear-color state through
+  reads back exact four-lane floating clear-color and two-lane double depth
+  range state through
   1,000 calls per exercised family with zero growth
   in normal and optimized builds. Its Vulkan path records 1,000 device-mask
   commands plus 1,000 stencil-reference commands, pairs an empty dynamic
