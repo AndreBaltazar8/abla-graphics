@@ -1,0 +1,46 @@
+import "abla/io"
+import "../../src/gltf_scene.ab"
+
+fun near(actual: f64, expected: f64): bool =
+    actual >= expected - 0.000001 && actual <= expected + 0.000001
+
+fun main: int {
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"triangle.bin\",\"byteLength\":78}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":72,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":2,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"materials\":[{\"name\":\"Scene material\",\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.3,0.6,0.9,1.0],\"metallicFactor\":0.2,\"roughnessFactor\":0.7}}],\"meshes\":[{\"name\":\"Triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"NORMAL\":1},\"indices\":2,\"material\":0}]}],\"cameras\":[{\"name\":\"Main camera\",\"type\":\"perspective\",\"perspective\":{\"aspectRatio\":1.777777,\"yfov\":0.785398,\"znear\":0.1,\"zfar\":100.0}}],\"nodes\":[{\"name\":\"Root\",\"children\":[1],\"translation\":[1.0,2.0,3.0]},{\"name\":\"Renderable\",\"mesh\":0,\"camera\":0,\"scale\":[2.0,2.0,2.0]}],\"scenes\":[{\"name\":\"Main\",\"nodes\":[0]}],\"scene\":0}"
+    val parsed = gltfDocument(source)
+    val document = parsed.document
+    val cycle = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"children\":[1]},{\"children\":[0]}]}")
+    val overflow = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":12}],\"bufferViews\":[{\"buffer\":0,\"byteLength\":12}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":2,\"type\":\"VEC3\"}]}")
+    val sparse = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"byteLength\":16}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":1},{\"buffer\":0,\"byteOffset\":4,\"byteLength\":12}],\"accessors\":[{\"componentType\":5126,\"count\":3,\"type\":\"VEC3\",\"sparse\":{\"count\":1,\"indices\":{\"bufferView\":0,\"componentType\":5121},\"values\":{\"bufferView\":1}}}]}")
+    val matrix = gltfDocument("{\"asset\":{\"version\":\"2.0\"},\"nodes\":[{\"matrix\":[1,0,0,0,0,1,0,0,0,0,1,0,4,5,6,1]}],\"cameras\":[{\"type\":\"orthographic\",\"orthographic\":{\"xmag\":2,\"ymag\":1,\"znear\":0,\"zfar\":10}}]}")
+    val paddedMatrix = GltfAccessor(
+        bufferView = 0,
+        componentType = gltfComponentU8,
+        normalized = true,
+        count = 1,
+        elementType = "MAT3"
+    )
+    val passed = parsed.succeeded && document.valid() &&
+        document.buffers.size == 1 && document.bufferViews.size == 3 &&
+        document.accessors.size == 3 && document.materials.size == 1 &&
+        document.meshes.size == 1 && document.cameras.size == 1 &&
+        document.nodes.size == 2 && document.scenes.size == 1 &&
+        document.defaultScene == 0 &&
+        document.accessors[0].elementByteSize() == 12 &&
+        document.accessors[2].elementByteSize() == 2 &&
+        document.meshes[0].primitives[0].position == 0 &&
+        document.meshes[0].primitives[0].normal == 1 &&
+        document.meshes[0].primitives[0].indices == 2 &&
+        document.meshes[0].primitives[0].material == 0 &&
+        near(document.nodes[0].transform.m03, 1.0) &&
+        near(document.nodes[0].transform.m13, 2.0) &&
+        near(document.nodes[0].transform.m23, 3.0) &&
+        near(document.nodes[1].transform.m00, 2.0) &&
+        document.cameras[0].kind == gltfCameraPerspective &&
+        sparse.succeeded && sparse.document.accessors[0].sparse.present() &&
+        matrix.succeeded && matrix.document.cameras[0].kind == gltfCameraOrthographic &&
+        near(matrix.document.nodes[0].transform.m03, 4.0) &&
+        paddedMatrix.elementByteSize() == 12 &&
+        !cycle.succeeded && !overflow.succeeded
+    println("gltf-scene: buffers=${document.buffers.size} accessors=${document.accessors.size} meshes=${document.meshes.size} nodes=${document.nodes.size} mapped=$passed")
+    if (passed) 0 else 1
+}

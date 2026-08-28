@@ -20,6 +20,14 @@ stripped-runtime, and Abla-only gates pass. Continue from scene/mesh/camera
 composition and glTF buffer/accessor decoding; do not mistake material mapping
 alone for general glTF scene loading.
 
+The scene metadata checkpoint now owns typed buffers, buffer views, dense and
+sparse accessors, mesh primitives, cameras, node transforms/hierarchies,
+scenes, exact cross-reference/byte-span validation, and an independent
+stripped-runtime pure-Abla sample. Its focused gate and Abla-only audit pass.
+Continue with binary buffer acquisition, typed accessor decoding, retained GPU
+materialization, and a live scene draw; metadata mapping alone is not a full
+glTF renderer.
+
 ## Mission
 
 Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and

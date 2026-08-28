@@ -443,6 +443,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/gltf-material`: strict pure-Abla glTF 2.0 metallic/roughness
   material mapping, including texture references, alpha/culling policy, and
   `KHR_materials_emissive_strength`;
+- `examples/gltf-scene`: bounded glTF 2.0 buffers, views, accessors, materials,
+  meshes, cameras, node transforms/hierarchies, and scene selection with
+  cross-reference, byte-span, and cycle rejection;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

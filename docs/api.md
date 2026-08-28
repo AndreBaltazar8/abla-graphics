@@ -1318,6 +1318,23 @@ modes, invalid ranges, missing texture indices, duplicate JSON keys, and limit
 violations fail the whole mapping instead of producing a partially valid
 material. `examples/gltf-material` is the independent mapping reference.
 
+Import `src/gltf_scene.ab` for scene metadata. `gltfDocument(source)` returns a
+validated `GltfDocument` containing buffers, buffer views, dense or sparse
+accessors, materials, meshes, cameras, nodes, scenes, and the default scene.
+Accessor component and element byte sizes are typed, and `fits(view)` accounts
+for byte offsets, element count, and optional interleaved stride. Mesh
+primitives retain the standard position, normal, tangent, texture-coordinate,
+color, joint, and weight accessor slots plus indices, material, and topology.
+
+Node matrices are normalized into Abla's row-first `Mat4` convention from glTF
+column-major matrices or translation/rotation/scale values. Parsing rejects
+out-of-range references, buffer-view and accessor byte-span overflow, duplicate
+children, multiple parents, cycles, malformed transforms/cameras, unsupported
+component/type combinations, and configured document limits.
+`examples/gltf-scene` covers one complete indexed triangle scene and cycle/span
+rejection. Binary buffer acquisition and GPU resource materialization remain a
+separate layer.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan

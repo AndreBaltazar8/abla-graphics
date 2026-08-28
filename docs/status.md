@@ -2152,3 +2152,23 @@ measured frames and `live=0`. The independently built glTF sample mapped one
 material and five texture references while rejecting an unknown alpha mode and
 an invalid factor. Both sample binaries launch with `LD_LIBRARY_PATH` removed,
 and the Abla-only source audit passes.
+
+### glTF scene metadata
+
+The optional pure-Abla `gltf_scene.ab` layer now maps a bounded glTF 2.0
+document into typed buffers, buffer views, dense/sparse accessors, materials,
+mesh primitives, perspective/orthographic cameras, nodes, hierarchies, scenes,
+and default-scene selection. Accessor layout accounts for interleaved stride,
+component alignment, and the glTF padding required by small-component `MAT2`
+and `MAT3` values. Standard position, normal, tangent, texture-coordinate,
+color, joint, weight, and index semantics validate their permitted shapes,
+component types, normalization, and vertex counts.
+
+Node matrices are converted from glTF column-major storage into Abla's
+row-first `Mat4`; translation/quaternion/scale composition produces the same
+form. Cross-reference validation rejects buffer/accessor span overflow, sparse
+span overflow, invalid semantic accessors, duplicate children, multiple
+parents, and cycles. The independent stripped-runtime `gltf-scene` sample maps
+one indexed triangle scene (`buffers=1 accessors=3 meshes=1 nodes=2`) and also
+covers sparse accessors, padded `MAT3`, both camera forms, matrix/TRS transforms,
+cycle rejection, and byte-span rejection. The Abla-only audit passes.
