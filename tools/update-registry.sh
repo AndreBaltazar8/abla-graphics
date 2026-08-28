@@ -71,4 +71,5 @@ cd "$compiler_root"
     "$project_root/registry/coverage/opengl.md" \
     "$project_root/src/raw/opengl_registry.ab" \
     "$opengl_revision" "$opengl_sha256" \
-    "$project_root/src/raw/opengl_calls.ab"
+    "$project_root/src/raw/opengl_calls.ab" \
+    "$project_root/src/raw/opengl_dispatch.ab"

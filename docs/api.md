@@ -3667,7 +3667,8 @@ native handle explicitly, and issue generated raw commands. Crossing this
 boundary disables common-layer state assumptions for the affected object until
 the documented synchronization/import operation is performed.
 
-The repository has stable `src/raw/opengl.ab` and `src/raw/vulkan.ab` facades
+The repository has stable `src/raw/opengl_dispatch.ab` and
+`src/raw/vulkan.ab` facades
 backed by deterministic generated registry modules. Full modules expose pinned
 revisions/hashes and complete command, form, feature, extension, audit-status,
 parameter, aggregate, underlying native type, and normalized call-shape
@@ -3695,8 +3696,12 @@ matching `callVoidF64...`, `callVoidI32F64...`, and
 double lanes. Wide checked methods additionally preserve OpenGL pointer-sized
 offsets and sizes, grouped pointer outputs, and long integer argument lists
 through eleven scalar lanes without a variadic fallback. The generated
-classification currently enables 2,666 OpenGL
-commands. Exact `callAddress...` families store native pointer results in a
+classification currently enables 2,847 OpenGL commands. Importing
+`src/raw/opengl_dispatch.ab` adds generated `callExact...` methods for all 266
+normalized ABI layouts. Their names encode every result and argument lane,
+and each checks the generated ABI tag and owning current context before one
+non-variadic indirect call. Existing stable hand-authored method names remain
+available. Exact `callAddress...` families store native pointer results in a
 caller-owned `i64*` cell after command-shape, context-owner, and current-context
 checks. Boolean `i8(...)`, unsigned `u32(...)`, and signed `i32(...)` result methods
 preserve their native return widths before writing the widened Abla value.

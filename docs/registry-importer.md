@@ -21,7 +21,7 @@ characters are hard errors. Offline fixtures exercise all four statuses and
 each rejection class.
 
 The same inventory and audit join now generate importable Abla modules behind
-`src/raw/opengl.ab` and `src/raw/vulkan.ab`. They contain the pinned
+`src/raw/opengl_dispatch.ab` and `src/raw/vulkan.ab`. They contain the pinned
 revision/hash and complete byte-sorted arrays for command names/forms/statuses,
 public core features/statuses, and extensions/statuses. Normal applications do
 not import or initialize these inspection arrays. The offline fixture compares
@@ -32,6 +32,14 @@ metadata, exact callable-command ABI families, a complete opt-in structure
 schema, and a compact manifest-selected production-driver schema.
 API-qualified desktop definitions override GLES-only collisions; unknown
 literal forms and conflicting equal-priority definitions are hard errors.
+
+For every distinct normalized OpenGL ABI, generation also emits one exact
+intrinsic declaration, one `RawNativeCommand` shape predicate, and one
+owner/current-context checked `RawOpenGlApi.callExact...` method. The intrinsic
+name uses `ablac`'s closed exact-signature grammar, so adding a representable
+Khronos layout is a deterministic registry output change rather than a new
+compiler allowlist entry. The offline fixture compares this dispatch output
+across two independent runs.
 
 The inventory parser recognizes only the XML structures needed for this stage;
 other registry structures are not interpreted or presented as generated ABI

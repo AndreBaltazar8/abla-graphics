@@ -13,7 +13,7 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,666 truthfully callable commands. Return declarators now preserve pointer
+to 2,847 truthfully callable commands. Return declarators now preserve pointer
 levels and `const`, so `void*`, `const GLubyte*`, `GLsync`, and function-pointer
 results cannot be mistaken for scalar or `void` returns. Exact pure-`i32` void
 calls now cover one through eleven
@@ -21,11 +21,13 @@ arguments; pointer-only and trailing-pointer calls cover zero through four
 preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
 Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
-buffer, texture, query, and long scalar families. Continue in large
-normalized-signature batches from the remaining 225 explicit
-`unsupported` rows, pairing each compiler ABI
-family with registry, wrong-shape, live-driver, validation, and zero-growth
-evidence. Do not infer callability merely because an address resolves.
+buffer, texture, query, and long scalar families. A closed encoded ABI grammar
+in `ablac` now lets the pure-Abla registry generator emit all 266 distinct
+normalized exact dispatch families without per-layout compiler edits. Continue
+from the remaining 45 explicit `unsupported` rows by normalizing their handful
+of special/platform types and result kinds, pairing each new family with
+registry, wrong-shape, live-driver, validation, and zero-growth evidence. Do
+not infer callability merely because an address resolves.
 
 The scene metadata checkpoint now owns typed buffers, buffer views, dense and
 sparse accessors, mesh primitives, cameras, node transforms/hierarchies,
@@ -4066,3 +4068,42 @@ and stripped direct-linkage gates remain green with `unresolved=0`.
 Continue by lowering the remaining lower-frequency families in generated
 batches and resolving the handful of special Khronos platform/half types.
 Keep the persistent framework goal active.
+
+## Latest checkpoint: generated exact OpenGL dispatch
+
+The per-signature compiler/raw-method loop has been replaced by one generated
+pipeline. Compiler commit `371a73eec57d2828137b94e502e8f3659a4651ce`
+recognizes a closed `ablaUnsafeCallExact_<Result>_<Argument>...` grammar with
+exact pointer, integer-width, float, and double argument lanes, explicit
+signed/unsigned integer result extension, a 32-argument ceiling, and a
+non-variadic LLVM function type at every call site. It does not accept a
+runtime-selected signature. The isolated compiler evidence is 75/76 on the
+first suite run plus a passing filtered retry of the pre-existing concurrency
+test after its process transiently received `SIGILL`; all other tests passed,
+and the canonical pure-Abla self-rebuild produced byte-identical LLVM IR and a
+working native child.
+
+The pure-Abla Khronos generator now emits `src/raw/opengl_dispatch.ab`: 266
+distinct intrinsic declarations, exact ABI predicates, and
+`RawOpenGlApi.callExact...` methods. It promotes 180 commands in one generation
+pass, raising truthful OpenGL raw coverage from 2,666 to 2,847 of 2,892 and
+leaving only 45 explicit `unsupported` declarations. Stable existing raw
+method names remain intact. The offline registry fixture generates the dispatch
+twice and compares exact bytes, so future representable signatures require a
+registry change rather than another compiler allowlist edit.
+
+Normal and optimized OpenGL live proofs each execute 1,000 generated exact
+`glIsEnabled` calls, retain all existing state/buffer/pointer/result proofs,
+and report `generated=true live=0 stable=true`. Both Vulkan runs remain
+validation-clean. The direct-launch gate clears `LD_LIBRARY_PATH`, runs both
+headless backends, and reports `direct=true unresolved=0`.
+
+Use one consolidated registry/raw/linkage batch for future changes:
+
+```sh
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run './tools/update-registry.sh && make check-abla-only test-registry test-raw-commands test-runtime-linkage'
+```
+
+Continue by classifying the remaining 45 special/platform OpenGL declarations,
+then reuse the generated-signature architecture for subsequent native API
+surfaces. Keep the persistent framework goal active.

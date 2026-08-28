@@ -126,11 +126,12 @@ Descriptor updates, synchronization2 events, private-data operations,
 swapchain creation, acceleration queries, and larger pointer groups add 17
 more repeated layouts. A generated candidate ABI ledger preserves the exact
 normalized layout for every registry entry. Generated ABI classification marks
-exactly 2,666 currently callable OpenGL entries and all 842 pinned Vulkan
+exactly 2,847 currently callable OpenGL entries and all 842 pinned Vulkan
 entries. Vulkan's former 50 one-off layouts and nine platform-scalar boundaries
-are fully lowered with explicit native widths. Remaining OpenGL signature
-families, capability gates, live extension evidence, and the milestone work
-below are still open.
+are fully lowered with explicit native widths. The remaining 45 OpenGL
+declarations require explicit normalization for special/platform types or
+currently unrepresented result kinds; capability gates, live extension
+evidence, and the milestone work below are still open.
 
 Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
 without perturbing established `vec4` modules. Their exact-width and scalar-splat

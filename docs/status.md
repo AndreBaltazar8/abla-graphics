@@ -19,8 +19,9 @@ Updated: 2026-08-28.
   selection for 1,001 frames with zero live-byte growth. Sample 70 proves exact
   asymmetric top-left viewport/scissor output through the same three modes.
   Sample 71 resolves both generated raw loader paths and proves 1,000 checked
-  indirect OpenGL `void()` calls with zero live-byte growth in normal and
-  optimized builds; both binaries also pass stripped-environment linkage.
+  generated exact OpenGL calls alongside the stable raw families with zero
+  live-byte growth in normal and optimized builds; both binaries also pass
+  stripped-environment linkage.
   These newer roots are
   queued for the next periodic complete matrix.
 - Generated raw command ABI foundation: all 2,892 OpenGL and 842 Vulkan
@@ -44,7 +45,11 @@ Updated: 2026-08-28.
   another 96 commands, reaching 2,429. Sixteen native byte/short argument
   layouts then promote 161 commands, reaching 2,590. Every remaining repeated
   representable void layout with at least three commands promotes another 76,
-  reaching 2,666 and leaving 225 OpenGL entries unsupported.
+  reaching 2,666. A closed encoded compiler signature grammar and generated
+  exact dispatch surface then promote 180 commands in one pass, reaching 2,847
+  and leaving 45 OpenGL declarations unsupported. The generated module owns
+  266 distinct non-variadic ABI methods, while the stable existing raw names
+  remain available.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.
@@ -81,8 +86,8 @@ Updated: 2026-08-28.
   execute in the same proof. Both timestamp queries return
   nonzero ticks before resources are released. Both build modes pass
   validation.
-  Remaining signatures
-  are still open and are not claimed by address or metadata presence.
+  The remaining special/platform declarations are still open and are not
+  claimed by address or metadata presence.
 - Pure core test: requirement-aware backend selection/fallback, explicit and
   automatic unsupported-feature errors, capability masks and limit validity,
   structured errors, window configuration,

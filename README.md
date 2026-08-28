@@ -181,14 +181,16 @@ proves the architecture rather than stopping at placeholder interfaces:
   7,413 members; compact separately generated callable-command modules avoid
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
-  unclassified; exact ABI-family metadata currently enables 2,666 OpenGL
+  unclassified; generated exact ABI dispatch currently enables 2,847 OpenGL
   commands and all 842 Vulkan commands. The Vulkan surface includes exact float,
   image transfer/clear/query, sparse query, pipeline creation, calibrated
   timestamp, fence-wait, descriptor/query, wide handle, mixed scalar/handle,
   pointer-group, and signed status families. The OpenGL surface includes exact
   pointer returns, boolean/unsigned/signed results, and native byte/short
-  argument and repeated mixed-layout families. OpenGL retains 225 explicitly
-  unsupported signatures for subsequent exact ABI batches;
+  argument and repeated mixed-layout families. A closed compiler signature
+  grammar and pure-Abla registry output generate 266 exact checked dispatch
+  families without per-layout compiler edits. OpenGL retains 45 explicitly
+  unsupported declarations involving types not yet normalized;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.

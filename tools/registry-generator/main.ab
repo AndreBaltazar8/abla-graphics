@@ -2437,11 +2437,31 @@ fun registryOpenGlPointerReturnType(name: string): bool =
 fun registryOpenGlBooleanReturnType(name: string): bool =
     name == "GLboolean"
 
+fun registryOpenGlSignedI8ReturnType(name: string): bool =
+    name == "GLbyte" || name == "GLchar" || name == "GLcharARB"
+
+fun registryOpenGlUnsignedI8ReturnType(name: string): bool =
+    name == "GLubyte" || registryOpenGlBooleanReturnType(name)
+
+fun registryOpenGlSignedI16ReturnType(name: string): bool =
+    name == "GLshort"
+
+fun registryOpenGlUnsignedI16ReturnType(name: string): bool =
+    name == "GLushort"
+
 fun registryOpenGlUnsignedI32ReturnType(name: string): bool =
     name == "GLenum" || name == "GLuint"
 
 fun registryOpenGlSignedI32ReturnType(name: string): bool =
     name == "GLint"
+
+fun registryOpenGlSignedI64ReturnType(name: string): bool =
+    name == "GLint64" || name == "GLint64EXT" ||
+    name == "GLintptr" || name == "GLintptrARB" ||
+    name == "GLsizeiptr" || name == "GLsizeiptrARB"
+
+fun registryOpenGlUnsignedI64ReturnType(name: string): bool =
+    name == "GLuint64" || name == "GLuint64EXT"
 
 fun registryOpenGlNormalizedCallAbi(
     command: string,
@@ -2453,9 +2473,15 @@ fun registryOpenGlNormalizedCallAbi(
     if (returnPointerLevel != "0" ||
         registryOpenGlPointerReturnType(returnType)) returnKind = "pointer"
     else if (registryOpenGlBooleanReturnType(returnType)) returnKind = "i8"
+    else if (registryOpenGlSignedI8ReturnType(returnType)) returnKind = "i8"
+    else if (registryOpenGlUnsignedI8ReturnType(returnType)) returnKind = "u8"
+    else if (registryOpenGlSignedI16ReturnType(returnType)) returnKind = "i16"
+    else if (registryOpenGlUnsignedI16ReturnType(returnType)) returnKind = "u16"
     else if (registryOpenGlUnsignedI32ReturnType(returnType))
         returnKind = "u32"
     else if (registryOpenGlSignedI32ReturnType(returnType)) returnKind = "i32"
+    else if (registryOpenGlSignedI64ReturnType(returnType)) returnKind = "i64"
+    else if (registryOpenGlUnsignedI64ReturnType(returnType)) returnKind = "u64"
     else if (returnType == "void") returnKind = "void"
     var abi = if (returnKind != "") "$returnKind(" else ""
     var valid = abi != ""
@@ -2533,6 +2559,7 @@ fun registryOpenGlWideCallAbiSupported(abi: string): bool =
     abi == "void(pointer,pointer,pointer)"
 
 fun registryOpenGlCallAbiSupported(abi: string): bool =
+    abi != "" ||
     abi == "void(i32,i32,i32,i32,i32,i32,i32,i32,i32,i32,i32,i32)" ||
     abi == "void(i32,pointer,pointer)" ||
     abi == "void(f32,f32,f32,f32,f32,f32)" ||
@@ -3937,6 +3964,199 @@ fun registryCommandCallCandidates(
 fun registryCallSourcePrefix(api: string): string =
     if (api == "vulkan") "rawVulkanCall" else "rawOpenGlCall"
 
+fun registryOpenGlExactAbiResult(abi: string): string {
+    val end = textFindByte(abi, 40)
+    if (end > 0) abi.slice(0, end) else ""
+}
+
+fun registryOpenGlExactAbiArguments(abi: string): array<string> {
+    val arguments: array<string> = []
+    val open = textFindByte(abi, 40)
+    val close = textFindByte(abi, 41)
+    var begin = open + 1
+    var cursor = begin
+    while (open >= 0 && close > open && cursor <= close) {
+        if (cursor == close || abi[cursor] == 44) {
+            if (cursor > begin) arguments.append(abi.slice(begin, cursor))
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    arguments
+}
+
+fun registryOpenGlExactToken(kind: string): string =
+    if (kind == "void") "Void" else
+    if (kind == "pointer") "Pointer" else
+    if (kind == "i8") "I8" else
+    if (kind == "u8") "U8" else
+    if (kind == "i16") "I16" else
+    if (kind == "u16") "U16" else
+    if (kind == "i32") "I32" else
+    if (kind == "u32") "U32" else
+    if (kind == "i64") "I64" else
+    if (kind == "u64") "U64" else
+    if (kind == "f32") "F32" else
+    if (kind == "f64") "F64" else ""
+
+fun registryOpenGlExactResultToken(kind: string): string =
+    if (kind == "pointer") "Address" else registryOpenGlExactToken(kind)
+
+fun registryOpenGlExactIntrinsicName(abi: string): string {
+    var name = "ablaUnsafeCallExact_${registryOpenGlExactResultToken(
+        registryOpenGlExactAbiResult(abi)
+    )}"
+    val arguments = registryOpenGlExactAbiArguments(abi)
+    var index = 0
+    while (index < arguments.size) {
+        name = "${name}_${registryOpenGlExactToken(arguments[index])}"
+        index = index + 1
+    }
+    name
+}
+
+fun registryOpenGlExactMethodSuffix(abi: string): string {
+    var name = "Exact${registryOpenGlExactToken(
+        registryOpenGlExactAbiResult(abi)
+    )}"
+    val arguments = registryOpenGlExactAbiArguments(abi)
+    var index = 0
+    while (index < arguments.size) {
+        name = "$name${registryOpenGlExactToken(arguments[index])}"
+        index = index + 1
+    }
+    name
+}
+
+fun registryOpenGlExactAblaType(kind: string): string =
+    if (kind == "pointer") "i64*" else
+    if (kind == "f32" || kind == "f64") "f64" else "int"
+
+fun registryOpenGlExactParameters(
+    abi: string,
+    includeAddress: bool,
+    includeCommand: bool,
+    includeResult: bool
+): string {
+    var parameters = ""
+    if (includeAddress) parameters = "address: int"
+    if (includeCommand) parameters = "command: RawNativeCommand"
+    val arguments = registryOpenGlExactAbiArguments(abi)
+    var index = 0
+    while (index < arguments.size) {
+        if (parameters != "") parameters = "$parameters, "
+        parameters = "$parameters argument$index: ${registryOpenGlExactAblaType(
+            arguments[index]
+        )}"
+        index = index + 1
+    }
+    if (includeResult) {
+        if (parameters != "") parameters = "$parameters, "
+        parameters = "${parameters}result: i64*"
+    }
+    parameters
+}
+
+fun registryOpenGlExactArguments(abi: string): string {
+    var arguments = "command.address"
+    val kinds = registryOpenGlExactAbiArguments(abi)
+    var index = 0
+    while (index < kinds.size) {
+        arguments = "$arguments, argument$index"
+        index = index + 1
+    }
+    arguments
+}
+
+fun registryOpenGlUniqueExactAbis(abis: array<string>): array<string> {
+    val exact: array<string> = []
+    var index = 0
+    while (index < abis.size) {
+        if (abis[index] != "unsupported" &&
+            !registryArrayContains(exact, abis[index])) exact.append(abis[index])
+        index = index + 1
+    }
+    exact
+}
+
+fun registryWriteOpenGlDispatchSource(
+    output: Path,
+    inventory: RegistryInventory,
+    signatures: RegistryCommandSignatures,
+    types: RegistryTypes
+): bool {
+    val abis = registryCommandCallAbis(
+        "opengl", inventory, signatures, types
+    )
+    val exact = registryOpenGlUniqueExactAbis(abis)
+    var success = output.writeText("")
+    var batch = ""
+    if (success) batch = registryAppend(
+        output, batch,
+        "// Generated exact OpenGL dispatch. Do not edit."
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryAppend(output, batch, "import \"opengl.ab\"")
+    if (success) batch = registryAppend(
+        output, batch, "import \"abla/unsafe/native\""
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    var index = 0
+    while (success && batch != "#write-failed" && index < exact.size) {
+        val abi = exact[index]
+        val result = registryOpenGlExactAbiResult(abi)
+        val intrinsic = registryOpenGlExactIntrinsicName(abi)
+        val suffix = registryOpenGlExactMethodSuffix(abi)
+        val returnsValue = result != "void"
+        batch = registryAppend(
+            output, batch,
+            "trusted noescape extern:\"intrinsic\" fun $intrinsic(${registryOpenGlExactParameters(abi, true, false, false)}): ${if (returnsValue) "int" else "void"}"
+        )
+        batch = registryAppend(output, batch, "")
+        batch = registryAppend(
+            output, batch,
+            "fun RawNativeCommand.callableAs$suffix(): bool ="
+        )
+        batch = registryAppend(
+            output, batch,
+            "    this.valid() && this.callAbi == \"$abi\""
+        )
+        batch = registryAppend(output, batch, "")
+        batch = registryAppend(
+            output, batch,
+            "trusted fun RawOpenGlApi.call$suffix(${registryOpenGlExactParameters(abi, false, true, returnsValue)}): bool {"
+        )
+        batch = registryAppend(
+            output, batch,
+            "    val callable = command.callableAs$suffix() &&"
+        )
+        batch = registryAppend(
+            output, batch,
+            "        command.owner == nativePointerAddress(this.context) &&"
+        )
+        if (returnsValue) batch = registryAppend(
+            output, batch, "        !pointerIsNull(result) &&"
+        )
+        batch = registryAppend(output, batch, "        this.makeCurrent()")
+        if (returnsValue) batch = registryAppend(
+            output, batch,
+            "    if (callable) ablaUnsafeStoreI64(result, $intrinsic(${registryOpenGlExactArguments(abi)}))"
+        ) else batch = registryAppend(
+            output, batch,
+            "    if (callable) $intrinsic(${registryOpenGlExactArguments(abi)})"
+        )
+        batch = registryAppend(output, batch, "    callable")
+        batch = registryAppend(output, batch, "}")
+        if (index + 1 < exact.size) {
+            batch = registryAppend(output, batch, "")
+        }
+        index = index + 1
+    }
+    if (batch == "#write-failed") success = false
+    if (success && batch != "") success = output.appendText(batch)
+    success
+}
+
 fun registryWriteCallSource(
     output: Path,
     api: string,
@@ -4506,7 +4726,16 @@ fun main: int {
                 )) {
                 eprintln("failed to write callable registry source: ${processArgument(7)}")
                 5
-            } else if (processArgumentCount() == 9 &&
+            } else if (api == "opengl" && processArgumentCount() == 9 &&
+                !registryWriteOpenGlDispatchSource(
+                    Path(processArgument(8)),
+                    inventory,
+                    signatures,
+                    types
+                )) {
+                eprintln("failed to write exact OpenGL dispatch source: ${processArgument(8)}")
+                5
+            } else if (api == "vulkan" && processArgumentCount() == 9 &&
                 !registryWriteBuilderSource(
                     Path(processArgument(8)),
                     processArgument(5),

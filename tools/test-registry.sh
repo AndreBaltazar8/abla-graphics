@@ -81,12 +81,35 @@ rg -q 'audit row is absent from selected registry' \
 "$generator" opengl \
     "$project_root/registry/fixtures/opengl-registry.xml" \
     "$project_root/registry/fixtures/opengl-audit.tsv" \
-    "$output_directory/opengl.md" "$output_directory/opengl.ab" \
-    fixture-revision fixture-sha256
+    "$output_directory/opengl-first.md" \
+    "$output_directory/opengl-first.ab" \
+    fixture-revision fixture-sha256 \
+    "$output_directory/opengl-first.calls.ab" \
+    "$output_directory/opengl-first.dispatch.ab"
+"$generator" opengl \
+    "$project_root/registry/fixtures/opengl-registry.xml" \
+    "$project_root/registry/fixtures/opengl-audit.tsv" \
+    "$output_directory/opengl-second.md" \
+    "$output_directory/opengl-second.ab" \
+    fixture-revision fixture-sha256 \
+    "$output_directory/opengl-second.calls.ab" \
+    "$output_directory/opengl-second.dispatch.ab"
+cmp "$output_directory/opengl-first.md" \
+    "$output_directory/opengl-second.md"
+cmp "$output_directory/opengl-first.ab" \
+    "$output_directory/opengl-second.ab"
+cmp "$output_directory/opengl-first.calls.ab" \
+    "$output_directory/opengl-second.calls.ab"
+cmp "$output_directory/opengl-first.dispatch.ab" \
+    "$output_directory/opengl-second.dispatch.ab"
 rg -q '^val rawOpenGlRegistryConstantCount = 2$' \
-    "$output_directory/opengl.ab"
-rg -q '^val GL_FIXTURE_ONE = 0x1$' "$output_directory/opengl.ab"
-rg -q '^val GL_FIXTURE_OVERRIDE = 0x3$' "$output_directory/opengl.ab"
+    "$output_directory/opengl-first.ab"
+rg -q '^val GL_FIXTURE_ONE = 0x1$' \
+    "$output_directory/opengl-first.ab"
+rg -q '^val GL_FIXTURE_OVERRIDE = 0x3$' \
+    "$output_directory/opengl-first.ab"
+rg -q 'ablaUnsafeCallExact_Void' \
+    "$output_directory/opengl-first.dispatch.ab"
 
 if "$generator" opengl \
     "$project_root/registry/fixtures/opengl-invalid-constant.xml" \
