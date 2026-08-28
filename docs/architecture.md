@@ -145,6 +145,16 @@ name/call-shape modules so importing a callable raw view does not inflate an
 application with coverage-report data. The views borrow application-owned
 native handles and must not outlive their `GraphicsApplication`.
 
+The compact raw modules also carry one command-indexed capability schema.
+OpenGL core transitions preserve registry order because a command may be
+introduced, removed from a profile, and later reintroduced. Extension providers
+retain their platform and profile restrictions. Vulkan's internal
+base/graphics/compute feature partitions normalize to their public
+`VK_VERSION_x_y` owner while extension platform restrictions remain explicit.
+Capability ownership is separate from address resolution: loaders may return
+addresses for commands that the current context/device did not advertise or
+enable.
+
 `src/shader/` contains the `$glsl` parser, reflection model, and target emitters.
 The parser is an ordinary Abla compile-time subparser registered through
 `abla/compiler/parser` and returns normal typed Abla expressions.

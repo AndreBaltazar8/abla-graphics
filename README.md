@@ -182,15 +182,18 @@ proves the architecture rather than stopping at placeholder interfaces:
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
   unclassified; generated exact ABI dispatch currently represents all 2,892
-  OpenGL commands and all 842 Vulkan commands. The Vulkan surface includes exact float,
+  OpenGL commands and all 842 Vulkan commands. Compact command capability
+  schemas preserve ordered core transitions and platform/profile-qualified
+  extension providers; OpenGL evaluates advertisement separately from address
+  resolution. The Vulkan surface includes exact float,
   image transfer/clear/query, sparse query, pipeline creation, calibrated
   timestamp, fence-wait, descriptor/query, wide handle, mixed scalar/handle,
   pointer-group, and signed status families. The OpenGL surface includes exact
   pointer returns, boolean/unsigned/signed results, and native byte/short
   argument and repeated mixed-layout families. A closed compiler signature
-  grammar and pure-Abla registry output generate 266 exact checked dispatch
-  families without per-layout compiler edits. OpenGL retains only three
-  explicitly unsupported platform-dependent `GLhandleARB` returns;
+  grammar and pure-Abla registry output generate 279 exact checked dispatch
+  families without per-layout compiler edits. Platform-aware `GLhandleARB`
+  lowering leaves zero unsupported OpenGL ABI rows;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
   installed driver loaders without a graphics-specific compiler exception.
@@ -571,6 +574,9 @@ resource descriptors, encoders, and render/compute passes described in
 resolves every known name through the appropriate EGL or Vulkan loader,
 retains its normalized call shape in `RawNativeCommand`, and safely invokes
 exact scalar, pointer, floating-point, and pointer-return OpenGL families.
+Both raw views expose generated `RawCommandCapability` ownership. OpenGL
+separately checks context advertisement and resolver availability, avoiding the
+common mistake of treating a nonzero loader address as feature support.
 Vulkan calls
 checked pointer-only, pointer-plus-scalars, resource create/destroy, handle
 status, and pointer-query families.

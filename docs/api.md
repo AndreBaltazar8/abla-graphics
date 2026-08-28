@@ -3683,6 +3683,17 @@ known registry name once and return a `RawNativeCommand` with its name, call
 shape, classified ABI family, address, and owning context/dispatch handle.
 Unknown names return an invalid command. `rawOpenGl.callVoid0(command)` and the
 pure-scalar `callVoidI32...` methods support one through six `i32` arguments.
+
+Both views expose `capability(name): RawCommandCapability`. Its
+`coreTransitions` field is an ordered `FEATURE:+/-:profile` sequence and its
+`extensionProviders` field is an `EXTENSION:platform:profile` sequence.
+`hasCoreFeature`, `hasExtension`, and `extensionPlatform` provide checked
+queries without making address availability a capability claim. OpenGL also
+offers `commandAdvertised(name)`, which evaluates those transitions against the
+current context version/profile and extension strings, and
+`commandSupported(name)`, which additionally requires a resolved address.
+Vulkan intentionally exposes metadata only at this layer until the raw view
+also owns an exact record of extensions enabled on its instance and device.
 `callVoidPointer(command, pointer)` and the trailing-pointer
 `callVoidI32...Pointer` methods support zero through four preceding `i32`
 arguments. Every method accepts only its exact generated ABI family, makes the

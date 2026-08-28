@@ -55,6 +55,14 @@ Updated: 2026-08-28.
   select unsigned-result/integer-parameter lanes. The generated ledger now
   covers all 2,892 commands with 279 concrete non-variadic ABI methods, while
   the stable existing raw names remain available.
+  Generated capability ownership now covers every command as well: ordered
+  core additions/removals preserve OpenGL profile semantics, Vulkan internal
+  core partitions normalize to public versions, and extension providers retain
+  platform/profile requirements. The compact schemas are parsed on demand by
+  `RawCommandCapability`. OpenGL's live raw view separately reports whether a
+  command is advertised and whether it is both advertised and addressable.
+  Vulkan enabled-extension runtime tracking is still open and is not inferred
+  from an address.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.

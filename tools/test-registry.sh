@@ -120,6 +120,12 @@ rg -q 'ablaUnsafeCallExact_U32_I32' \
     "$output_directory/opengl-first.dispatch.ab"
 rg -q 'ablaUnsafeCallExact_Address_Pointer' \
     "$output_directory/opengl-first.dispatch.ab"
+rg -Fq 'GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core|GL_VERSION_4_3:+:core' \
+    "$output_directory/opengl-first.calls.ab"
+rg -Fq 'GL_EXT_fixture:x11:all' \
+    "$output_directory/opengl-first.calls.ab"
+rg -Fq 'VK_EXT_alpha:xlib:all' \
+    "$output_directory/first.calls.ab"
 
 if "$generator" opengl \
     "$project_root/registry/fixtures/opengl-invalid-constant.xml" \

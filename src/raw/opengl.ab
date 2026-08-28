@@ -6,6 +6,104 @@ import "native.ab"
 import "../application.ab"
 import "../driver/native_symbols.ab"
 import "abla/unsafe/native"
+import "abla/text"
+
+fun rawOpenGlDecimal(text: string, begin: int, end: int): int {
+    var value = 0
+    var valid = begin < end
+    var index = begin
+    while (valid && index < end) {
+        val byte = text[index]
+        valid = byte >= 48 && byte <= 57
+        if (valid) value = value * 10 + byte - 48
+        index = index + 1
+    }
+    if (valid) value else -1
+}
+
+fun rawOpenGlCoreTransitionVersion(transition: string): int {
+    val prefix = "GL_VERSION_"
+    val featureEnd = textFindByte(transition, 58)
+    var version = -1
+    if (featureEnd > prefix.size && transition.size >= prefix.size &&
+        transition.slice(0, prefix.size) == prefix) {
+        val separator = textFindByte(
+            transition, 95, prefix.size, featureEnd
+        )
+        if (separator > prefix.size && separator + 1 < featureEnd) {
+            val major = rawOpenGlDecimal(
+                transition, prefix.size, separator
+            )
+            val minor = rawOpenGlDecimal(
+                transition, separator + 1, featureEnd
+            )
+            if (major >= 0 && minor >= 0) version = major * 100 + minor
+        }
+    }
+    version
+}
+
+fun rawOpenGlProfileMatches(profile: string, coreProfile: bool): bool =
+    profile == "all" || (profile == "core" && coreProfile) ||
+    (profile == "compatibility" && !coreProfile)
+
+fun rawOpenGlCoreTransitionsAdvertised(
+    transitions: string,
+    version: int,
+    coreProfile: bool
+): bool {
+    var advertised = false
+    var begin = 0
+    var cursor = 0
+    while (cursor <= transitions.size) {
+        if (cursor == transitions.size || transitions[cursor] == 124) {
+            val transition = transitions.slice(begin, cursor)
+            val first = textFindByte(transition, 58)
+            val second = if (first >= 0)
+                textFindByte(transition, 58, first + 1, transition.size)
+                else -1
+            val transitionVersion = rawOpenGlCoreTransitionVersion(
+                transition
+            )
+            if (first >= 0 && second > first &&
+                transitionVersion >= 0 && transitionVersion <= version &&
+                rawOpenGlProfileMatches(
+                    transition.slice(second + 1, transition.size),
+                    coreProfile
+                )) advertised = transition.slice(first + 1, second) == "+"
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    advertised
+}
+
+trusted fun rawOpenGlExtensionProvidersAdvertised(
+    providers: string,
+    coreProfile: bool
+): bool {
+    var advertised = false
+    var begin = 0
+    var cursor = 0
+    while (!advertised && cursor <= providers.size) {
+        if (cursor == providers.size || providers[cursor] == 124) {
+            val provider = providers.slice(begin, cursor)
+            val first = textFindByte(provider, 58)
+            val second = if (first >= 0)
+                textFindByte(provider, 58, first + 1, provider.size)
+                else -1
+            if (first > 0 && second > first &&
+                rawOpenGlProfileMatches(
+                    provider.slice(second + 1, provider.size), coreProfile
+                )) advertised = openGlExtensionAvailable(
+                    provider.slice(0, first)
+                )
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    advertised
+}
 
 // This non-owning view must not outlive the GraphicsApplication it came from.
 class RawOpenGlApi(
@@ -15,8 +113,46 @@ class RawOpenGlApi(
     val commands: array<string>,
     val callShapes: array<string>,
     val callAbis: array<string>,
+    val coreTransitionSchema: string,
+    val extensionProviderSchema: string,
     val available: bool
 ) {
+    fun capability(name: string): RawCommandCapability =
+        rawRegistryCommandCapability(
+            this.commands,
+            this.coreTransitionSchema,
+            this.extensionProviderSchema,
+            name
+        )
+
+    trusted fun commandAdvertised(name: string): bool {
+        val capability = this.capability(name)
+        var advertised = false
+        if (capability.valid() && this.makeCurrent()) {
+            val major = nativeI64Cell(0)
+            val minor = nativeI64Cell(0)
+            val profile = nativeI64Cell(0)
+            glGetIntegerv(33307, major.address)
+            glGetIntegerv(33308, minor.address)
+            val version = (major.load() & 4294967295) * 100 +
+                (minor.load() & 4294967295)
+            var coreProfile = false
+            if (version >= 302) {
+                glGetIntegerv(37158, profile.address)
+                coreProfile = (profile.load() & 1) != 0
+            }
+            advertised = rawOpenGlCoreTransitionsAdvertised(
+                capability.coreTransitions, version, coreProfile
+            ) || rawOpenGlExtensionProvidersAdvertised(
+                capability.extensionProviders, coreProfile
+            )
+        }
+        advertised
+    }
+
+    trusted fun commandSupported(name: string): bool =
+        this.commandAdvertised(name) && this.command(name).valid()
+
     trusted fun makeCurrent(): bool = this.available &&
         eglMakeCurrent(
             this.display,
@@ -2255,6 +2391,8 @@ trusted fun GraphicsApplication.rawOpenGlApi(): RawOpenGlApi {
         rawOpenGlCallNames(),
         rawOpenGlCallShapes(),
         rawOpenGlCallAbis(),
+        rawOpenGlCallCoreTransitionSchema(),
+        rawOpenGlCallExtensionProviderSchema(),
         available
     )
 }

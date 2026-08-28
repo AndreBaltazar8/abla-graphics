@@ -12,6 +12,13 @@ class RegistryInventory(
     val error: string
 )
 
+class RegistryCommandCapabilities(
+    val coreTransitions: array<string>,
+    val extensionProviders: array<string>,
+    val valid: bool,
+    val error: string
+)
+
 class RegistryAudit(
     val kinds: array<string>,
     val names: array<string>,
@@ -2132,6 +2139,252 @@ fun registryParse(source: string, api: string): RegistryInventory {
     )
 }
 
+fun registryAppendProvider(existing: string, provider: string): string =
+    if (registryTokenListContains(existing, provider)) existing else
+    if (existing == "") provider else "$existing|$provider"
+
+fun registryPublicCoreProvider(api: string, provider: string): string {
+    var result = provider
+    if (api == "vulkan") {
+        val base = "VK_BASE_VERSION_"
+        val compute = "VK_COMPUTE_VERSION_"
+        val graphics = "VK_GRAPHICS_VERSION_"
+        if (provider.size > base.size &&
+            provider.slice(0, base.size) == base) {
+            result = "VK_VERSION_${provider.slice(base.size, provider.size)}"
+        } else if (provider.size > compute.size &&
+            provider.slice(0, compute.size) == compute) {
+            result = "VK_VERSION_${provider.slice(compute.size, provider.size)}"
+        } else if (provider.size > graphics.size &&
+            provider.slice(0, graphics.size) == graphics) {
+            result = "VK_VERSION_${provider.slice(graphics.size, provider.size)}"
+        }
+    }
+    result
+}
+
+fun registryAppendCommandCapabilityTag(
+    source: string,
+    begin: int,
+    end: int,
+    tagName: string,
+    wantedApi: string,
+    owner: string,
+    platform: string,
+    inventory: RegistryInventory,
+    var coreTransitions: array<string>,
+    var extensionProviders: array<string>
+): bool {
+    var valid = true
+    var cursor = begin
+    val marker = "<$tagName"
+    val closing = "</$tagName>"
+    while (valid) {
+        val tagBegin = textFindSequence(source, marker, cursor, end)
+        if (tagBegin < 0) break
+        val afterName = tagBegin + marker.size
+        if (afterName < end && source[afterName] != 62 &&
+            source[afterName] != 32 && source[afterName] != 9 &&
+            source[afterName] != 10 && source[afterName] != 13) {
+            cursor = afterName
+            continue
+        }
+        val openEnd = textFindByte(source, 62, afterName, end)
+        if (openEnd < 0) valid = false
+        else {
+            val opening = source.slice(tagBegin, openEnd + 1)
+            val tagApi = registryAttribute(opening, "api")
+            val profileAttribute = registryAttribute(opening, "profile")
+            val profile = if (profileAttribute == "")
+                "all" else profileAttribute
+            val selectedApi = tagApi == "" ||
+                registryTokenListContains(tagApi, wantedApi)
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, closing, openEnd + 1, end
+                )
+                if (close < 0) valid = false
+                else {
+                    if (selectedApi) {
+                        var commandCursor = openEnd + 1
+                        while (valid && commandCursor < close) {
+                            val commandBegin = textFindSequence(
+                                source, "<command", commandCursor, close
+                            )
+                            if (commandBegin < 0) break
+                            val commandEnd = textFindByte(
+                                source, 62, commandBegin + 8, close
+                            )
+                            if (commandEnd < 0) valid = false
+                            else {
+                                val commandTag = source.slice(
+                                    commandBegin, commandEnd + 1
+                                )
+                                val name = registryAttribute(
+                                    commandTag, "name"
+                                )
+                                val index = registryArrayIndex(
+                                    inventory.commands, name
+                                )
+                                if (index >= 0) {
+                                    if (platform == "#core") {
+                                        val action = if (tagName == "remove")
+                                            "-" else "+"
+                                        coreTransitions[index] =
+                                            registryAppendProvider(
+                                                coreTransitions[index],
+                                                "$owner:$action:$profile"
+                                            )
+                                    } else if (tagName == "require") {
+                                        val providerPlatform =
+                                            if (platform == "")
+                                                "all" else platform
+                                        extensionProviders[index] =
+                                            registryAppendProvider(
+                                                extensionProviders[index],
+                                                "$owner:$providerPlatform:$profile"
+                                            )
+                                    }
+                                }
+                                commandCursor = commandEnd + 1
+                            }
+                        }
+                    }
+                    cursor = close + closing.size
+                }
+            }
+        }
+    }
+    valid
+}
+
+fun registryParseCommandCapabilities(
+    source: string,
+    api: string,
+    inventory: RegistryInventory
+): RegistryCommandCapabilities {
+    val coreTransitions: array<string> = []
+    val extensionProviders: array<string> = []
+    var index = 0
+    while (index < inventory.commands.size) {
+        coreTransitions.append("")
+        extensionProviders.append("")
+        index = index + 1
+    }
+    val wantedApi = if (api == "opengl") "gl" else "vulkan"
+    var valid = inventory.valid &&
+        (api == "opengl" || api == "vulkan")
+    var error = if (valid) "" else "invalid command capability input"
+    var cursor = 0
+    while (valid) {
+        val begin = textFindSequence(source, "<feature", cursor, source.size)
+        if (begin < 0) break
+        cursor = begin + 8
+        if (cursor < source.size && source[cursor] != 62 &&
+            source[cursor] != 32 && source[cursor] != 9 &&
+            source[cursor] != 10 && source[cursor] != 13) continue
+        val openEnd = registryOpeningTagEnd(source, cursor)
+        if (openEnd < 0) {
+            valid = false
+            error = "unterminated capability core feature"
+        } else {
+            val opening = source.slice(begin, openEnd + 1)
+            val featureApi = registryAttribute(opening, "api")
+            val name = registryAttribute(opening, "name")
+            val selected = name != "" &&
+                registryTokenListContains(featureApi, wantedApi)
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, "</feature>", openEnd + 1, source.size
+                )
+                if (close < 0) {
+                    valid = false
+                    error = "unterminated capability core feature"
+                } else {
+                    val provider = registryPublicCoreProvider(api, name)
+                    if (selected && !registryAppendCommandCapabilityTag(
+                        source, openEnd + 1, close, "require", wantedApi,
+                        provider, "#core", inventory, coreTransitions,
+                        extensionProviders
+                    )) {
+                        valid = false
+                        error = "malformed core capability requirement"
+                    }
+                    if (valid && selected &&
+                        !registryAppendCommandCapabilityTag(
+                            source, openEnd + 1, close, "remove", wantedApi,
+                            provider, "#core", inventory, coreTransitions,
+                            extensionProviders
+                        )) {
+                        valid = false
+                        error = "malformed core capability removal"
+                    }
+                    cursor = close + 10
+                }
+            }
+        }
+    }
+    cursor = 0
+    while (valid) {
+        val begin = textFindSequence(
+            source, "<extension", cursor, source.size
+        )
+        if (begin < 0) break
+        cursor = begin + 10
+        if (cursor < source.size && source[cursor] != 62 &&
+            source[cursor] != 32 && source[cursor] != 9 &&
+            source[cursor] != 10 && source[cursor] != 13) continue
+        val openEnd = registryOpeningTagEnd(source, cursor)
+        if (openEnd < 0) {
+            valid = false
+            error = "unterminated capability extension"
+        } else {
+            val opening = source.slice(begin, openEnd + 1)
+            val supported = registryAttribute(opening, "supported")
+            val name = registryAttribute(opening, "name")
+            val platform = registryAttribute(opening, "platform")
+            var selected = registryTokenListContains(supported, wantedApi)
+            if (api == "opengl" &&
+                registryTokenListContains(supported, "glcore")) selected = true
+            selected = selected && name != ""
+            if (registryTagSelfClosing(opening)) cursor = openEnd + 1
+            else {
+                val close = textFindSequence(
+                    source, "</extension>", openEnd + 1, source.size
+                )
+                if (close < 0) {
+                    valid = false
+                    error = "unterminated capability extension"
+                } else {
+                    if (selected && !registryAppendCommandCapabilityTag(
+                        source, openEnd + 1, close, "require", wantedApi,
+                        name, platform, inventory, coreTransitions,
+                        extensionProviders
+                    )) {
+                        valid = false
+                        error = "malformed extension capability requirement"
+                    }
+                    cursor = close + 12
+                }
+            }
+        }
+    }
+    index = 0
+    while (valid && index < inventory.commands.size) {
+        if (coreTransitions[index] == "" &&
+            extensionProviders[index] == "") {
+            valid = false
+            error = "command has no core or extension provider: ${inventory.commands[index]}"
+        }
+        index = index + 1
+    }
+    RegistryCommandCapabilities(
+        coreTransitions, extensionProviders, valid, error
+    )
+}
+
 fun registryAppend(path: Path, batch: string, line: string): string {
     if (batch == "#write-failed") return batch
     var result = "$batch$line\n"
@@ -2152,7 +2405,8 @@ fun registryWrite(
     constants: RegistryConstants,
     types: RegistryTypes,
     signatures: RegistryCommandSignatures,
-    aggregates: RegistryAggregates
+    aggregates: RegistryAggregates,
+    capabilities: RegistryCommandCapabilities
 ): bool {
     val title = if (api == "vulkan") "Vulkan" else "OpenGL"
     var success = output.writeText("")
@@ -2211,10 +2465,11 @@ fun registryWrite(
     if (success) batch = registryAppend(output, batch, "")
     if (success) batch = registryAppend(
         output, batch,
-        "| Name | Form | Status | Loader | ABI | Positive test | Unsupported path |"
+        "| Name | Form | Core transitions | Extension providers | Status | Loader | ABI | Positive test | Unsupported path |"
     )
     if (success) batch = registryAppend(
-        output, batch, "| --- | --- | --- | --- | --- | --- | --- |"
+        output, batch,
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
     )
     var index = 0
     while (success && index < inventory.commands.size) {
@@ -2229,7 +2484,7 @@ fun registryWrite(
             audit.unsupportedPaths[found] else "-"
         batch = registryAppend(
             output, batch,
-            "| `${inventory.commands[index]}` | ${inventory.commandForms[index]} | $status | $loader | $abi | $positive | $unsupported |"
+            "| `${inventory.commands[index]}` | ${inventory.commandForms[index]} | ${capabilities.coreTransitions[index]} | ${capabilities.extensionProviders[index]} | $status | $loader | $abi | $positive | $unsupported |"
         )
         index = index + 1
     }
@@ -4123,7 +4378,8 @@ fun registryWriteCallSource(
     sha256: string,
     inventory: RegistryInventory,
     signatures: RegistryCommandSignatures,
-    types: RegistryTypes
+    types: RegistryTypes,
+    capabilities: RegistryCommandCapabilities
 ): bool {
     val prefix = registryCallSourcePrefix(api)
     val shapes = registryCommandCallShapes(inventory, signatures)
@@ -4157,6 +4413,15 @@ fun registryWriteCallSource(
     )
     if (success) batch = registryWriteSourceArray(
         output, batch, "${prefix}Abis", abis, false
+    )
+    if (success) batch = registryAppend(output, batch, "")
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "${prefix}CoreTransitionSchema",
+        capabilities.coreTransitions
+    )
+    if (success) batch = registryWriteCompactSource(
+        output, batch, "${prefix}ExtensionProviderSchema",
+        capabilities.extensionProviders, false
     )
     if (success && api == "vulkan") batch = registryWriteSourceArray(
         output, batch, "${prefix}CandidateAbis", candidates, false
@@ -4333,7 +4598,8 @@ fun registryWriteSource(
     constants: RegistryConstants,
     types: RegistryTypes,
     signatures: RegistryCommandSignatures,
-    aggregates: RegistryAggregates
+    aggregates: RegistryAggregates,
+    capabilities: RegistryCommandCapabilities
 ): bool {
     val prefix = registrySourcePrefix(api)
     val commandStatuses = registryStatuses(
@@ -4622,15 +4888,19 @@ fun main: int {
             )
             3
         } else {
-            val inventory = registryParse(input.readText(), api)
+            val inputSource = input.readText()
+            val inventory = registryParse(inputSource, api)
             val audit = registryParseAudit(auditInput.readText())
-            val constants = registryParseConstants(input.readText(), api)
-            val types = registryParseTypes(input.readText(), api, inventory)
+            val constants = registryParseConstants(inputSource, api)
+            val types = registryParseTypes(inputSource, api, inventory)
             val signatures = registryParseCommandSignatures(
-                input.readText(), api, inventory
+                inputSource, api, inventory
             )
             val aggregates = registryParseAggregates(
-                input.readText(), api, types
+                inputSource, api, types
+            )
+            val capabilities = registryParseCommandCapabilities(
+                inputSource, api, inventory
             )
             if (!inventory.valid) {
                 eprintln("registry parse failed: ${inventory.error}")
@@ -4650,12 +4920,17 @@ fun main: int {
             } else if (!aggregates.valid) {
                 eprintln("registry aggregates failed: ${aggregates.error}")
                 4
+            } else if (!capabilities.valid) {
+                eprintln(
+                    "registry command capabilities failed: ${capabilities.error}"
+                )
+                4
             } else if (registryAuditValidate(audit, inventory) != "") {
                 eprintln("registry audit failed: ${registryAuditValidate(audit, inventory)}")
                 4
             } else if (!registryWrite(
                 output, api, processArgument(5), processArgument(6), inventory,
-                audit, constants, types, signatures, aggregates
+                audit, constants, types, signatures, aggregates, capabilities
             )) {
                 eprintln("failed to write registry inventory: ${output.text}")
                 5
@@ -4669,7 +4944,8 @@ fun main: int {
                 constants,
                 types,
                 signatures,
-                aggregates
+                aggregates,
+                capabilities
             )) {
                 eprintln("failed to write raw registry source: ${sourceOutput.text}")
                 5
@@ -4681,7 +4957,8 @@ fun main: int {
                     processArgument(6),
                     inventory,
                     signatures,
-                    types
+                    types,
+                    capabilities
                 )) {
                 eprintln("failed to write callable registry source: ${processArgument(7)}")
                 5

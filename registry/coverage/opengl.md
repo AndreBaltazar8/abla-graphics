@@ -16,2900 +16,2900 @@
 
 ## Commands
 
-| Name | Form | Status | Loader | ABI | Positive test | Unsupported path |
-| --- | --- | --- | --- | --- | --- | --- |
-| `glAccum` | definition | unclassified | - | - | - | - |
-| `glAccumxOES` | definition | unclassified | - | - | - | - |
-| `glAcquireKeyedMutexWin32EXT` | definition | unclassified | - | - | - | - |
-| `glActiveProgramEXT` | definition | unclassified | - | - | - | - |
-| `glActiveShaderProgram` | definition | unclassified | - | - | - | - |
-| `glActiveStencilFaceEXT` | definition | unclassified | - | - | - | - |
-| `glActiveTexture` | definition | common | src/driver/opengl.ab sampled-texture slot activation | src/driver/opengl.ab typed texture-unit ABI | examples/common-textured/main.ab repeated sampled rendering with stable binding | examples/common-textured/main.ab missing shader binding rejection |
-| `glActiveTextureARB` | definition | unclassified | - | - | - | - |
-| `glActiveVaryingNV` | definition | unclassified | - | - | - | - |
-| `glAddClientPointerRangeMESA` | definition | unclassified | - | - | - | - |
-| `glAlphaFragmentOp1ATI` | definition | unclassified | - | - | - | - |
-| `glAlphaFragmentOp2ATI` | definition | unclassified | - | - | - | - |
-| `glAlphaFragmentOp3ATI` | definition | unclassified | - | - | - | - |
-| `glAlphaFunc` | definition | unclassified | - | - | - | - |
-| `glAlphaFuncxOES` | definition | unclassified | - | - | - | - |
-| `glAlphaToCoverageDitherControlNV` | definition | unclassified | - | - | - | - |
-| `glApplyFramebufferAttachmentCMAAINTEL` | definition | unclassified | - | - | - | - |
-| `glApplyTextureEXT` | definition | unclassified | - | - | - | - |
-| `glAreProgramsResidentNV` | definition | unclassified | - | - | - | - |
-| `glAreTexturesResident` | definition | unclassified | - | - | - | - |
-| `glAreTexturesResidentEXT` | definition | unclassified | - | - | - | - |
-| `glArrayElement` | definition | unclassified | - | - | - | - |
-| `glArrayElementEXT` | definition | unclassified | - | - | - | - |
-| `glArrayObjectATI` | definition | unclassified | - | - | - | - |
-| `glAsyncCopyBufferSubDataNVX` | definition | unclassified | - | - | - | - |
-| `glAsyncCopyImageSubDataNVX` | definition | unclassified | - | - | - | - |
-| `glAsyncMarkerSGIX` | definition | unclassified | - | - | - | - |
-| `glAttachObjectARB` | definition | unclassified | - | - | - | - |
-| `glAttachShader` | definition | common | src/driver/opengl.ab render and compute program assembly | src/driver/opengl.ab typed program and shader-name ABI | tests/opengl/main.ab valid vertex and fragment program link | tests/opengl/main.ab empty program link rejection |
-| `glBegin` | definition | unclassified | - | - | - | - |
-| `glBeginConditionalRender` | definition | unclassified | - | - | - | - |
-| `glBeginConditionalRenderNV` | definition | unclassified | - | - | - | - |
-| `glBeginConditionalRenderNVX` | definition | unclassified | - | - | - | - |
-| `glBeginFragmentShaderATI` | definition | unclassified | - | - | - | - |
-| `glBeginOcclusionQueryNV` | definition | unclassified | - | - | - | - |
-| `glBeginPerfMonitorAMD` | definition | unclassified | - | - | - | - |
-| `glBeginPerfQueryINTEL` | definition | unclassified | - | - | - | - |
-| `glBeginQuery` | definition | unclassified | - | - | - | - |
-| `glBeginQueryARB` | definition | unclassified | - | - | - | - |
-| `glBeginQueryIndexed` | definition | unclassified | - | - | - | - |
-| `glBeginTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glBeginTransformFeedbackEXT` | definition | unclassified | - | - | - | - |
-| `glBeginTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glBeginVertexShaderEXT` | definition | unclassified | - | - | - | - |
-| `glBeginVideoCaptureNV` | definition | unclassified | - | - | - | - |
-| `glBindAttribLocation` | definition | unclassified | - | - | - | - |
-| `glBindAttribLocationARB` | definition | unclassified | - | - | - | - |
-| `glBindBuffer` | definition | common | src/driver/opengl.ab buffer target binding | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact buffer upload readback copy and fill | tests/application/main.ab range and usage rejection |
-| `glBindBufferARB` | definition | unclassified | - | - | - | - |
-| `glBindBufferBase` | definition | common | src/driver/opengl.ab uniform and storage binding slots | src/driver/opengl.ab typed target index and name ABI | tests/application/main.ab exact storage compute and bind-group validation | tests/application/main.ab wrong buffer usage rejection |
-| `glBindBufferBaseEXT` | definition | unclassified | - | - | - | - |
-| `glBindBufferBaseNV` | definition | unclassified | - | - | - | - |
-| `glBindBufferOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glBindBufferOffsetNV` | definition | unclassified | - | - | - | - |
-| `glBindBufferRange` | definition | common | src/driver/opengl.ab ranged uniform and storage binding slots | src/driver/opengl.ab typed target index name offset and size ABI | examples/indexed-textured-cube/main.ab nonzero pool uniform range rendering | tests/pool/main.ab misaligned range rejection |
-| `glBindBufferRangeEXT` | definition | unclassified | - | - | - | - |
-| `glBindBufferRangeNV` | definition | unclassified | - | - | - | - |
-| `glBindBuffersBase` | definition | unclassified | - | - | - | - |
-| `glBindBuffersRange` | definition | unclassified | - | - | - | - |
-| `glBindFragDataLocation` | definition | unclassified | - | - | - | - |
-| `glBindFragDataLocationEXT` | definition | unclassified | - | - | - | - |
-| `glBindFragDataLocationIndexed` | definition | unclassified | - | - | - | - |
-| `glBindFragmentShaderATI` | definition | unclassified | - | - | - | - |
-| `glBindFramebuffer` | definition | common | src/driver/opengl.ab draw read resolve and default framebuffer binding | src/driver/opengl.ab typed target and framebuffer-name ABI | tests/application/main.ab repeated offscreen MRT resolve and surfaced rendering | tests/application/main.ab incompatible target rejection |
-| `glBindFramebufferEXT` | definition | unclassified | - | - | - | - |
-| `glBindImageTexture` | definition | unclassified | - | - | - | - |
-| `glBindImageTextureEXT` | definition | unclassified | - | - | - | - |
-| `glBindImageTextures` | definition | unclassified | - | - | - | - |
-| `glBindLightParameterEXT` | definition | unclassified | - | - | - | - |
-| `glBindMaterialParameterEXT` | definition | unclassified | - | - | - | - |
-| `glBindMultiTextureEXT` | definition | unclassified | - | - | - | - |
-| `glBindParameterEXT` | definition | unclassified | - | - | - | - |
-| `glBindProgramARB` | definition | unclassified | - | - | - | - |
-| `glBindProgramNV` | definition | unclassified | - | - | - | - |
-| `glBindProgramPipeline` | definition | unclassified | - | - | - | - |
-| `glBindRenderbuffer` | definition | unclassified | - | - | - | - |
-| `glBindRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glBindSampler` | definition | common | src/driver/opengl.ab sampled-texture sampler binding | src/driver/opengl.ab typed unit and sampler-name ABI | examples/common-textured/main.ab repeated sampled rendering with stable binding | examples/common-textured/main.ab missing shader binding rejection |
-| `glBindSamplers` | definition | unclassified | - | - | - | - |
-| `glBindShadingRateImageNV` | definition | unclassified | - | - | - | - |
-| `glBindTexGenParameterEXT` | definition | unclassified | - | - | - | - |
-| `glBindTexture` | definition | common | src/driver/opengl.ab texture allocation and checked upload binding | src/driver/opengl.ab typed target and name ABI | tests/application/main.ab exact texture upload and reupload readback | tests/application/main.ab upload range and texture validity rejection |
-| `glBindTextureEXT` | definition | unclassified | - | - | - | - |
-| `glBindTextureUnit` | definition | common | src/driver/opengl.ab target-inherent sampled texture unit binding | src/driver/opengl.ab typed unit and texture name ABI | examples/wider-sampling/main.ab exact array cube and volume sampling | tests/application/main.ab reflected sampler dimension mismatch rejection |
-| `glBindTextureUnitParameterEXT` | definition | unclassified | - | - | - | - |
-| `glBindTextures` | definition | unclassified | - | - | - | - |
-| `glBindTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glBindTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glBindVertexArray` | definition | common | src/driver/opengl.ab raster vertex-state binding | src/driver/opengl.ab typed vertex-array name ABI | examples/common-triangle/main.ab repeated direct indexed and indirect rendering | examples/common-triangle/main.ab invalid layout pipeline rejection |
-| `glBindVertexArrayAPPLE` | definition | unclassified | - | - | - | - |
-| `glBindVertexBuffer` | definition | unclassified | - | - | - | - |
-| `glBindVertexBuffers` | definition | unclassified | - | - | - | - |
-| `glBindVertexShaderEXT` | definition | unclassified | - | - | - | - |
-| `glBindVideoCaptureStreamBufferNV` | definition | unclassified | - | - | - | - |
-| `glBindVideoCaptureStreamTextureNV` | definition | unclassified | - | - | - | - |
-| `glBinormal3bEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3bvEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3dEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3dvEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3fEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3fvEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3iEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3ivEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3sEXT` | definition | unclassified | - | - | - | - |
-| `glBinormal3svEXT` | definition | unclassified | - | - | - | - |
-| `glBinormalPointerEXT` | definition | unclassified | - | - | - | - |
-| `glBitmap` | definition | unclassified | - | - | - | - |
-| `glBitmapxOES` | definition | unclassified | - | - | - | - |
-| `glBlendBarrierKHR` | definition | unclassified | - | - | - | - |
-| `glBlendBarrierNV` | definition | unclassified | - | - | - | - |
-| `glBlendColor` | definition | unclassified | - | - | - | - |
-| `glBlendColorEXT` | definition | unclassified | - | - | - | - |
-| `glBlendColorxOES` | definition | unclassified | - | - | - | - |
-| `glBlendEquation` | definition | unclassified | - | - | - | - |
-| `glBlendEquationEXT` | definition | unclassified | - | - | - | - |
-| `glBlendEquationIndexedAMD` | definition | unclassified | - | - | - | - |
-| `glBlendEquationSeparate` | definition | common | src/driver/opengl.ab portable color and alpha blend equations | src/driver/opengl.ab typed equation-pair ABI | examples/common-triangle/main.ab repeated alpha-blended rendering | examples/common-triangle/main.ab invalid raster state rejection |
-| `glBlendEquationSeparateEXT` | definition | unclassified | - | - | - | - |
-| `glBlendEquationSeparateIndexedAMD` | definition | unclassified | - | - | - | - |
-| `glBlendEquationSeparatei` | definition | unclassified | - | - | - | - |
-| `glBlendEquationSeparateiARB` | definition | unclassified | - | - | - | - |
-| `glBlendEquationi` | definition | unclassified | - | - | - | - |
-| `glBlendEquationiARB` | definition | unclassified | - | - | - | - |
-| `glBlendFunc` | definition | unclassified | - | - | - | - |
-| `glBlendFuncIndexedAMD` | definition | unclassified | - | - | - | - |
-| `glBlendFuncSeparate` | definition | common | src/driver/opengl.ab portable source and destination blend factors | src/driver/opengl.ab typed color and alpha factor ABI | examples/common-triangle/main.ab repeated source-alpha rendering | examples/common-triangle/main.ab invalid raster state rejection |
-| `glBlendFuncSeparateEXT` | definition | unclassified | - | - | - | - |
-| `glBlendFuncSeparateINGR` | definition | unclassified | - | - | - | - |
-| `glBlendFuncSeparateIndexedAMD` | definition | unclassified | - | - | - | - |
-| `glBlendFuncSeparatei` | definition | unclassified | - | - | - | - |
-| `glBlendFuncSeparateiARB` | definition | unclassified | - | - | - | - |
-| `glBlendFunci` | definition | unclassified | - | - | - | - |
-| `glBlendFunciARB` | definition | unclassified | - | - | - | - |
-| `glBlendParameteriNV` | definition | unclassified | - | - | - | - |
-| `glBlitFramebuffer` | definition | common | src/driver/opengl.ab render-target resolve | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact multisample resolve | tests/application/main.ab incompatible resolve rejection |
-| `glBlitFramebufferEXT` | definition | unclassified | - | - | - | - |
-| `glBlitFramebufferLayerEXT` | definition | unclassified | - | - | - | - |
-| `glBlitFramebufferLayersEXT` | definition | unclassified | - | - | - | - |
-| `glBlitNamedFramebuffer` | definition | unclassified | - | - | - | - |
-| `glBufferAddressRangeNV` | definition | unclassified | - | - | - | - |
-| `glBufferAttachMemoryNV` | definition | unclassified | - | - | - | - |
-| `glBufferData` | definition | common | src/driver/opengl.ab affine buffer storage allocation | src/driver/opengl.ab typed size and pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab zero-size and oversized buffer rejection |
-| `glBufferDataARB` | definition | unclassified | - | - | - | - |
-| `glBufferPageCommitmentARB` | definition | unclassified | - | - | - | - |
-| `glBufferPageCommitmentMemNV` | definition | unclassified | - | - | - | - |
-| `glBufferParameteriAPPLE` | definition | unclassified | - | - | - | - |
-| `glBufferStorage` | definition | common | src/driver/opengl.ab immutable coherent persistent upload storage | src/driver/opengl.ab typed size data pointer and storage flags ABI | examples/common-buffer/main.ab repeated mapped GPU copies with zero growth | tests/core.ab persistent capability and descriptor rejection |
-| `glBufferStorageExternalEXT` | definition | unclassified | - | - | - | - |
-| `glBufferStorageMemEXT` | definition | unclassified | - | - | - | - |
-| `glBufferSubData` | definition | common | src/driver/opengl.ab checked buffer upload | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole uploads | tests/application/main.ab range and usage rejection |
-| `glBufferSubDataARB` | definition | unclassified | - | - | - | - |
-| `glCallCommandListNV` | definition | unclassified | - | - | - | - |
-| `glCallList` | definition | unclassified | - | - | - | - |
-| `glCallLists` | definition | unclassified | - | - | - | - |
-| `glCheckFramebufferStatus` | definition | common | src/driver/opengl.ab framebuffer completeness validation | src/driver/opengl.ab typed target result ABI | tests/application/main.ab color depth multisample and MRT target creation | tests/application/main.ab incompatible and missing attachment rejection |
-| `glCheckFramebufferStatusEXT` | definition | unclassified | - | - | - | - |
-| `glCheckNamedFramebufferStatus` | definition | unclassified | - | - | - | - |
-| `glCheckNamedFramebufferStatusEXT` | definition | unclassified | - | - | - | - |
-| `glClampColor` | definition | unclassified | - | - | - | - |
-| `glClampColorARB` | definition | unclassified | - | - | - | - |
-| `glClear` | definition | common | src/driver/opengl.ab surfaced color and depth clear execution | src/driver/opengl.ab typed mask ABI | tests/application/main.ab exact repeated color and depth output | tests/application/main.ab invalid clear descriptor rejection |
-| `glClearAccum` | definition | unclassified | - | - | - | - |
-| `glClearAccumxOES` | definition | unclassified | - | - | - | - |
-| `glClearBufferData` | definition | unclassified | - | - | - | - |
-| `glClearBufferSubData` | definition | common | src/driver/opengl.ab GPU buffer fill | src/driver/opengl.ab typed clear-subrange ABI | tests/application/main.ab exact partial fill readback | tests/application/main.ab alignment range and usage rejection |
-| `glClearBufferfi` | definition | unclassified | - | - | - | - |
-| `glClearBufferfv` | definition | common | src/driver/opengl.ab render-target clear | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact MRT clear | tests/application/main.ab attachment bounds rejection |
-| `glClearBufferiv` | definition | unclassified | - | - | - | - |
-| `glClearBufferuiv` | definition | unclassified | - | - | - | - |
-| `glClearColor` | definition | unclassified | - | - | - | - |
-| `glClearColorIiEXT` | definition | unclassified | - | - | - | - |
-| `glClearColorIuiEXT` | definition | unclassified | - | - | - | - |
-| `glClearColorxOES` | definition | unclassified | - | - | - | - |
-| `glClearDepth` | definition | common | src/driver/opengl.ab depth clear state | src/driver/opengl.ab typed binary64 ABI | tests/application/main.ab exact depth-tested target output | tests/application/main.ab invalid depth target rejection |
-| `glClearDepthdNV` | definition | unclassified | - | - | - | - |
-| `glClearDepthf` | definition | unclassified | - | - | - | - |
-| `glClearDepthfOES` | definition | unclassified | - | - | - | - |
-| `glClearDepthxOES` | definition | unclassified | - | - | - | - |
-| `glClearIndex` | definition | unclassified | - | - | - | - |
-| `glClearNamedBufferData` | definition | unclassified | - | - | - | - |
-| `glClearNamedBufferDataEXT` | definition | unclassified | - | - | - | - |
-| `glClearNamedBufferSubData` | definition | unclassified | - | - | - | - |
-| `glClearNamedBufferSubDataEXT` | definition | unclassified | - | - | - | - |
-| `glClearNamedFramebufferfi` | definition | unclassified | - | - | - | - |
-| `glClearNamedFramebufferfv` | definition | unclassified | - | - | - | - |
-| `glClearNamedFramebufferiv` | definition | unclassified | - | - | - | - |
-| `glClearNamedFramebufferuiv` | definition | unclassified | - | - | - | - |
-| `glClearStencil` | definition | unclassified | - | - | - | - |
-| `glClearTexImage` | definition | unclassified | - | - | - | - |
-| `glClearTexSubImage` | definition | unclassified | - | - | - | - |
-| `glClientActiveTexture` | definition | unclassified | - | - | - | - |
-| `glClientActiveTextureARB` | definition | unclassified | - | - | - | - |
-| `glClientActiveVertexStreamATI` | definition | unclassified | - | - | - | - |
-| `glClientAttribDefaultEXT` | definition | unclassified | - | - | - | - |
-| `glClientWaitSemaphoreui64NVX` | definition | unclassified | - | - | - | - |
-| `glClientWaitSync` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab targeted copy completion | src/driver/opengl.ab typed sync flags and unsigned-timeout ABI | tests/transfer/main.ab nonblocking poll and explicit three-slot completion | tests/transfer/main.ab stale ticket and invalid range rejection |
-| `glClipControl` | definition | unclassified | - | - | - | - |
-| `glClipPlane` | definition | unclassified | - | - | - | - |
-| `glClipPlanefOES` | definition | unclassified | - | - | - | - |
-| `glClipPlanexOES` | definition | unclassified | - | - | - | - |
-| `glColor3b` | definition | unclassified | - | - | - | - |
-| `glColor3bv` | definition | unclassified | - | - | - | - |
-| `glColor3d` | definition | unclassified | - | - | - | - |
-| `glColor3dv` | definition | unclassified | - | - | - | - |
-| `glColor3f` | definition | unclassified | - | - | - | - |
-| `glColor3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glColor3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glColor3fv` | definition | unclassified | - | - | - | - |
-| `glColor3hNV` | definition | unclassified | - | - | - | - |
-| `glColor3hvNV` | definition | unclassified | - | - | - | - |
-| `glColor3i` | definition | unclassified | - | - | - | - |
-| `glColor3iv` | definition | unclassified | - | - | - | - |
-| `glColor3s` | definition | unclassified | - | - | - | - |
-| `glColor3sv` | definition | unclassified | - | - | - | - |
-| `glColor3ub` | definition | unclassified | - | - | - | - |
-| `glColor3ubv` | definition | unclassified | - | - | - | - |
-| `glColor3ui` | definition | unclassified | - | - | - | - |
-| `glColor3uiv` | definition | unclassified | - | - | - | - |
-| `glColor3us` | definition | unclassified | - | - | - | - |
-| `glColor3usv` | definition | unclassified | - | - | - | - |
-| `glColor3xOES` | definition | unclassified | - | - | - | - |
-| `glColor3xvOES` | definition | unclassified | - | - | - | - |
-| `glColor4b` | definition | unclassified | - | - | - | - |
-| `glColor4bv` | definition | unclassified | - | - | - | - |
-| `glColor4d` | definition | unclassified | - | - | - | - |
-| `glColor4dv` | definition | unclassified | - | - | - | - |
-| `glColor4f` | definition | unclassified | - | - | - | - |
-| `glColor4fNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glColor4fNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glColor4fv` | definition | unclassified | - | - | - | - |
-| `glColor4hNV` | definition | unclassified | - | - | - | - |
-| `glColor4hvNV` | definition | unclassified | - | - | - | - |
-| `glColor4i` | definition | unclassified | - | - | - | - |
-| `glColor4iv` | definition | unclassified | - | - | - | - |
-| `glColor4s` | definition | unclassified | - | - | - | - |
-| `glColor4sv` | definition | unclassified | - | - | - | - |
-| `glColor4ub` | definition | unclassified | - | - | - | - |
-| `glColor4ubVertex2fSUN` | definition | unclassified | - | - | - | - |
-| `glColor4ubVertex2fvSUN` | definition | unclassified | - | - | - | - |
-| `glColor4ubVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glColor4ubVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glColor4ubv` | definition | unclassified | - | - | - | - |
-| `glColor4ui` | definition | unclassified | - | - | - | - |
-| `glColor4uiv` | definition | unclassified | - | - | - | - |
-| `glColor4us` | definition | unclassified | - | - | - | - |
-| `glColor4usv` | definition | unclassified | - | - | - | - |
-| `glColor4xOES` | definition | unclassified | - | - | - | - |
-| `glColor4xvOES` | definition | unclassified | - | - | - | - |
-| `glColorFormatNV` | definition | unclassified | - | - | - | - |
-| `glColorFragmentOp1ATI` | definition | unclassified | - | - | - | - |
-| `glColorFragmentOp2ATI` | definition | unclassified | - | - | - | - |
-| `glColorFragmentOp3ATI` | definition | unclassified | - | - | - | - |
-| `glColorMask` | definition | unclassified | - | - | - | - |
-| `glColorMaskIndexedEXT` | definition | unclassified | - | - | - | - |
-| `glColorMaski` | definition | unclassified | - | - | - | - |
-| `glColorMaterial` | definition | unclassified | - | - | - | - |
-| `glColorPointer` | definition | unclassified | - | - | - | - |
-| `glColorPointerEXT` | definition | unclassified | - | - | - | - |
-| `glColorPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glColorPointervINTEL` | definition | unclassified | - | - | - | - |
-| `glColorSubTableEXT` | definition | unclassified | - | - | - | - |
-| `glColorTableEXT` | definition | unclassified | - | - | - | - |
-| `glColorTableParameterfvSGI` | definition | unclassified | - | - | - | - |
-| `glColorTableParameterivSGI` | definition | unclassified | - | - | - | - |
-| `glColorTableSGI` | definition | unclassified | - | - | - | - |
-| `glCombinerInputNV` | definition | unclassified | - | - | - | - |
-| `glCombinerOutputNV` | definition | unclassified | - | - | - | - |
-| `glCombinerParameterfNV` | definition | unclassified | - | - | - | - |
-| `glCombinerParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glCombinerParameteriNV` | definition | unclassified | - | - | - | - |
-| `glCombinerParameterivNV` | definition | unclassified | - | - | - | - |
-| `glCombinerStageParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glCommandListSegmentsNV` | definition | unclassified | - | - | - | - |
-| `glCompileCommandListNV` | definition | unclassified | - | - | - | - |
-| `glCompileShader` | definition | common | src/driver/opengl.ab GLSL source compilation | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab valid vertex and fragment compilation | tests/opengl/main.ab malformed source compiler rejection |
-| `glCompileShaderARB` | definition | unclassified | - | - | - | - |
-| `glCompileShaderIncludeARB` | definition | unclassified | - | - | - | - |
-| `glCompressedMultiTexImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedMultiTexImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedMultiTexImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedMultiTexSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedMultiTexSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedMultiTexSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTexImage1D` | definition | unclassified | - | - | - | - |
-| `glCompressedTexImage1DARB` | definition | unclassified | - | - | - | - |
-| `glCompressedTexImage2D` | definition | unclassified | - | - | - | - |
-| `glCompressedTexImage2DARB` | definition | unclassified | - | - | - | - |
-| `glCompressedTexImage3D` | definition | unclassified | - | - | - | - |
-| `glCompressedTexImage3DARB` | definition | unclassified | - | - | - | - |
-| `glCompressedTexSubImage1D` | definition | unclassified | - | - | - | - |
-| `glCompressedTexSubImage1DARB` | definition | unclassified | - | - | - | - |
-| `glCompressedTexSubImage2D` | definition | unclassified | - | - | - | - |
-| `glCompressedTexSubImage2DARB` | definition | unclassified | - | - | - | - |
-| `glCompressedTexSubImage3D` | definition | unclassified | - | - | - | - |
-| `glCompressedTexSubImage3DARB` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureSubImage1D` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureSubImage2D` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab compressed two-dimensional byte upload | src/driver/opengl.ab typed DSA region format byte-count and pointer ABI | tests/wider_texture/main.ab and tests/wider_texture_transfer/main.ab exact pitched BC1 upload | tests/wider_texture/main.ab short source rejection |
-| `glCompressedTextureSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCompressedTextureSubImage3D` | definition | common | src/driver/opengl.ab compressed pitched layered and volume byte upload | src/driver/opengl.ab typed DSA xyz extent format byte-count and pointer ABI | tests/wider_texture/main.ab exact pitched two-layer BC1 array round trip | tests/texture_contract.ab compressed crossing and pitch rejection |
-| `glCompressedTextureSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glConservativeRasterParameterfNV` | definition | unclassified | - | - | - | - |
-| `glConservativeRasterParameteriNV` | definition | unclassified | - | - | - | - |
-| `glConvolutionFilter1DEXT` | definition | unclassified | - | - | - | - |
-| `glConvolutionFilter2DEXT` | definition | unclassified | - | - | - | - |
-| `glConvolutionParameterfEXT` | definition | unclassified | - | - | - | - |
-| `glConvolutionParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glConvolutionParameteriEXT` | definition | unclassified | - | - | - | - |
-| `glConvolutionParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glConvolutionParameterxOES` | definition | unclassified | - | - | - | - |
-| `glConvolutionParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glCopyBufferSubData` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab synchronous and queued GPU copies | src/driver/opengl.ab typed range ABI | tests/transfer/main.ab exact three-slot upload and readback | tests/transfer/main.ab invalid queued range rejection |
-| `glCopyColorSubTableEXT` | definition | unclassified | - | - | - | - |
-| `glCopyColorTableSGI` | definition | unclassified | - | - | - | - |
-| `glCopyConvolutionFilter1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyConvolutionFilter2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyImageSubData` | definition | common | src/driver/opengl.ab texture copy | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact texture copy | tests/application/main.ab incompatible copy rejection |
-| `glCopyImageSubDataNV` | definition | unclassified | - | - | - | - |
-| `glCopyMultiTexImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyMultiTexImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyMultiTexSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyMultiTexSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyMultiTexSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyNamedBufferSubData` | definition | unclassified | - | - | - | - |
-| `glCopyPathNV` | definition | unclassified | - | - | - | - |
-| `glCopyPixels` | definition | unclassified | - | - | - | - |
-| `glCopyTexImage1D` | definition | unclassified | - | - | - | - |
-| `glCopyTexImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTexImage2D` | definition | unclassified | - | - | - | - |
-| `glCopyTexImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTexSubImage1D` | definition | unclassified | - | - | - | - |
-| `glCopyTexSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTexSubImage2D` | definition | unclassified | - | - | - | - |
-| `glCopyTexSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTexSubImage3D` | definition | unclassified | - | - | - | - |
-| `glCopyTexSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTextureImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTextureImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTextureSubImage1D` | definition | unclassified | - | - | - | - |
-| `glCopyTextureSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTextureSubImage2D` | definition | unclassified | - | - | - | - |
-| `glCopyTextureSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glCopyTextureSubImage3D` | definition | unclassified | - | - | - | - |
-| `glCopyTextureSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glCoverFillPathInstancedNV` | definition | unclassified | - | - | - | - |
-| `glCoverFillPathNV` | definition | unclassified | - | - | - | - |
-| `glCoverStrokePathInstancedNV` | definition | unclassified | - | - | - | - |
-| `glCoverStrokePathNV` | definition | unclassified | - | - | - | - |
-| `glCoverageModulationNV` | definition | unclassified | - | - | - | - |
-| `glCoverageModulationTableNV` | definition | unclassified | - | - | - | - |
-| `glCreateBuffers` | definition | unclassified | - | - | - | - |
-| `glCreateCommandListsNV` | definition | unclassified | - | - | - | - |
-| `glCreateFramebuffers` | definition | unclassified | - | - | - | - |
-| `glCreateMemoryObjectsEXT` | definition | unclassified | - | - | - | - |
-| `glCreatePerfQueryINTEL` | definition | unclassified | - | - | - | - |
-| `glCreateProgram` | definition | common | src/driver/opengl.ab affine render and compute program creation | src/driver/opengl.ab typed result ABI | tests/opengl/main.ab valid linked program creation | tests/opengl/main.ab empty program link rejection |
-| `glCreateProgramObjectARB` | definition | unclassified | - | - | - | - |
-| `glCreateProgramPipelines` | definition | unclassified | - | - | - | - |
-| `glCreateProgressFenceNVX` | definition | unclassified | - | - | - | - |
-| `glCreateQueries` | definition | unclassified | - | - | - | - |
-| `glCreateRenderbuffers` | definition | unclassified | - | - | - | - |
-| `glCreateSamplers` | definition | unclassified | - | - | - | - |
-| `glCreateSemaphoresNV` | definition | unclassified | - | - | - | - |
-| `glCreateShader` | definition | common | src/driver/opengl.ab affine source and SPIR-V shader creation | src/driver/opengl.ab typed stage result ABI | tests/application/main.ab render and specialized compute shader creation | tests/opengl/main.ab malformed source rejection |
-| `glCreateShaderObjectARB` | definition | unclassified | - | - | - | - |
-| `glCreateShaderProgramEXT` | definition | unclassified | - | - | - | - |
-| `glCreateShaderProgramv` | definition | unclassified | - | - | - | - |
-| `glCreateStatesNV` | definition | unclassified | - | - | - | - |
-| `glCreateSyncFromCLeventARB` | definition | unclassified | - | - | - | - |
-| `glCreateTextures` | definition | unclassified | - | - | - | - |
-| `glCreateTransformFeedbacks` | definition | unclassified | - | - | - | - |
-| `glCreateVertexArrays` | definition | unclassified | - | - | - | - |
-| `glCullFace` | definition | common | src/driver/opengl.ab portable front and back face culling | src/driver/opengl.ab typed face-mode ABI | examples/common-triangle/main.ab live front-cull alternate pipeline | examples/common-triangle/main.ab invalid cull mode rejection |
-| `glCullParameterdvEXT` | definition | unclassified | - | - | - | - |
-| `glCullParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glCurrentPaletteMatrixARB` | definition | unclassified | - | - | - | - |
-| `glDebugMessageCallback` | definition | common | src/driver/opengl_debug.ab optional debug callback ownership | src/driver/opengl_debug_callback.ab process-resolved Abla callback ABI | tests/opengl/main.ab exact injected message counts | tests/opengl/main.ab explicitly disabled messenger |
-| `glDebugMessageCallbackAMD` | definition | unclassified | - | - | - | - |
-| `glDebugMessageCallbackARB` | definition | unclassified | - | - | - | - |
-| `glDebugMessageControl` | definition | common | src/driver/opengl_debug.ab all-severity debug configuration | src/driver/opengl_debug.ab typed extern signature | tests/opengl/main.ab high medium low and notification delivery | tests/opengl/main.ab invalid severity rejection |
-| `glDebugMessageControlARB` | definition | unclassified | - | - | - | - |
-| `glDebugMessageEnableAMD` | definition | unclassified | - | - | - | - |
-| `glDebugMessageInsert` | definition | common | src/driver/opengl_debug.ab allocation-free debug message injection | src/driver/opengl_debug.ab reusable string ABI storage | tests/opengl/main.ab exact type and severity accounting | tests/opengl/main.ab invalid type and empty message rejection |
-| `glDebugMessageInsertAMD` | definition | unclassified | - | - | - | - |
-| `glDebugMessageInsertARB` | definition | unclassified | - | - | - | - |
-| `glDeformSGIX` | definition | unclassified | - | - | - | - |
-| `glDeformationMap3dSGIX` | definition | unclassified | - | - | - | - |
-| `glDeformationMap3fSGIX` | definition | unclassified | - | - | - | - |
-| `glDeleteAsyncMarkersSGIX` | definition | unclassified | - | - | - | - |
-| `glDeleteBuffers` | definition | common | src/driver/opengl.ab affine buffer lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
-| `glDeleteBuffersARB` | definition | unclassified | - | - | - | - |
-| `glDeleteCommandListsNV` | definition | unclassified | - | - | - | - |
-| `glDeleteFencesAPPLE` | definition | unclassified | - | - | - | - |
-| `glDeleteFencesNV` | definition | unclassified | - | - | - | - |
-| `glDeleteFragmentShaderATI` | definition | unclassified | - | - | - | - |
-| `glDeleteFramebuffers` | definition | common | src/driver/opengl.ab affine framebuffer and resolve lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab stable repeated target lifecycle | tests/application/main.ab failed target cleanup |
-| `glDeleteFramebuffersEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteLists` | definition | unclassified | - | - | - | - |
-| `glDeleteMemoryObjectsEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteNamedStringARB` | definition | unclassified | - | - | - | - |
-| `glDeleteNamesAMD` | definition | unclassified | - | - | - | - |
-| `glDeleteObjectARB` | definition | unclassified | - | - | - | - |
-| `glDeleteOcclusionQueriesNV` | definition | unclassified | - | - | - | - |
-| `glDeletePathsNV` | definition | unclassified | - | - | - | - |
-| `glDeletePerfMonitorsAMD` | definition | unclassified | - | - | - | - |
-| `glDeletePerfQueryINTEL` | definition | unclassified | - | - | - | - |
-| `glDeleteProgram` | definition | common | src/driver/opengl.ab affine program lifetime | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid program drop invalidates wrapper | tests/opengl/main.ab rejected empty program cleanup |
-| `glDeleteProgramPipelines` | definition | unclassified | - | - | - | - |
-| `glDeleteProgramsARB` | definition | unclassified | - | - | - | - |
-| `glDeleteProgramsNV` | definition | unclassified | - | - | - | - |
-| `glDeleteQueries` | definition | common | src/driver/opengl.ab timestamp query lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
-| `glDeleteQueriesARB` | definition | unclassified | - | - | - | - |
-| `glDeleteQueryResourceTagNV` | definition | unclassified | - | - | - | - |
-| `glDeleteRenderbuffers` | definition | unclassified | - | - | - | - |
-| `glDeleteRenderbuffersEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteSamplers` | definition | common | src/driver/opengl.ab affine sampler lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
-| `glDeleteSemaphoresEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteShader` | definition | common | src/driver/opengl.ab affine attached-shader lifetime | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab linked source shader cleanup | tests/opengl/main.ab failed compile cleanup |
-| `glDeleteStatesNV` | definition | unclassified | - | - | - | - |
-| `glDeleteSync` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab affine copy-fence lifetime | src/driver/opengl.ab typed opaque sync-pointer ABI | tests/transfer/main.ab repeated queued copies with zero live growth | src/driver/opengl_transfer.ab failed submit and slot-drop cleanup |
-| `glDeleteTextures` | definition | common | src/driver/opengl.ab affine texture lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab texture target and upload lifecycle | tests/application/main.ab invalid texture descriptor rejection |
-| `glDeleteTexturesEXT` | definition | unclassified | - | - | - | - |
-| `glDeleteTransformFeedbacks` | definition | unclassified | - | - | - | - |
-| `glDeleteTransformFeedbacksNV` | definition | unclassified | - | - | - | - |
-| `glDeleteVertexArrays` | definition | common | src/driver/opengl.ab affine raster vertex-state lifetime | src/driver/opengl.ab typed name-array ABI | examples/common-triangle/main.ab alternate pipeline drop and stable primary state | examples/common-triangle/main.ab invalid pipeline cleanup |
-| `glDeleteVertexArraysAPPLE` | definition | unclassified | - | - | - | - |
-| `glDeleteVertexShaderEXT` | definition | unclassified | - | - | - | - |
-| `glDepthBoundsEXT` | definition | unclassified | - | - | - | - |
-| `glDepthBoundsdNV` | definition | unclassified | - | - | - | - |
-| `glDepthFunc` | definition | common | src/driver/opengl.ab portable depth comparison state | src/driver/opengl.ab typed comparison ABI | examples/common-triangle/main.ab repeated less-depth rendering | examples/common-triangle/main.ab invalid depth state rejection |
-| `glDepthMask` | definition | common | src/driver/opengl.ab portable depth write state | src/driver/opengl.ab typed boolean ABI | examples/common-triangle/main.ab enabled depth-write rendering | examples/common-triangle/main.ab write-without-depth rejection |
-| `glDepthRange` | definition | unclassified | - | - | - | - |
-| `glDepthRangeArraydvNV` | definition | unclassified | - | - | - | - |
-| `glDepthRangeArrayv` | definition | unclassified | - | - | - | - |
-| `glDepthRangeIndexed` | definition | unclassified | - | - | - | - |
-| `glDepthRangeIndexeddNV` | definition | unclassified | - | - | - | - |
-| `glDepthRangedNV` | definition | unclassified | - | - | - | - |
-| `glDepthRangef` | definition | unclassified | - | - | - | - |
-| `glDepthRangefOES` | definition | unclassified | - | - | - | - |
-| `glDepthRangexOES` | definition | unclassified | - | - | - | - |
-| `glDetachObjectARB` | definition | unclassified | - | - | - | - |
-| `glDetachShader` | definition | unclassified | - | - | - | - |
-| `glDetailTexFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glDisable` | definition | common | src/driver/opengl.ab cull blend and depth state disablement | src/driver/opengl.ab typed capability ABI | examples/common-triangle/main.ab alternate and primary fixed-function state transitions | examples/common-triangle/main.ab descriptor validation before state mutation |
-| `glDisableClientState` | definition | unclassified | - | - | - | - |
-| `glDisableClientStateIndexedEXT` | definition | unclassified | - | - | - | - |
-| `glDisableClientStateiEXT` | definition | unclassified | - | - | - | - |
-| `glDisableIndexedEXT` | definition | unclassified | - | - | - | - |
-| `glDisableVariantClientStateEXT` | definition | unclassified | - | - | - | - |
-| `glDisableVertexArrayAttrib` | definition | unclassified | - | - | - | - |
-| `glDisableVertexArrayAttribEXT` | definition | unclassified | - | - | - | - |
-| `glDisableVertexArrayEXT` | definition | unclassified | - | - | - | - |
-| `glDisableVertexAttribAPPLE` | definition | unclassified | - | - | - | - |
-| `glDisableVertexAttribArray` | definition | unclassified | - | - | - | - |
-| `glDisableVertexAttribArrayARB` | definition | unclassified | - | - | - | - |
-| `glDisablei` | definition | unclassified | - | - | - | - |
-| `glDispatchCompute` | definition | common | src/driver/opengl.ab reflected compute workgroup dispatch | src/driver/opengl.ab typed three-axis group-count ABI | examples/common-compute/main.ab repeated storage and push compute output | tests/application/main.ab zero and limit-exceeding dispatch rejection |
-| `glDispatchComputeGroupSizeARB` | definition | unclassified | - | - | - | - |
-| `glDispatchComputeIndirect` | definition | unclassified | - | - | - | - |
-| `glDrawArrays` | definition | common | src/driver/opengl.ab allocation-free pixel and simple triangle drawing | src/driver/opengl.ab typed mode first and count ABI | tests/application/main.ab exact repeated pixel and triangle presentation | tests/application/main.ab invalid vertex range rejection |
-| `glDrawArraysEXT` | definition | unclassified | - | - | - | - |
-| `glDrawArraysIndirect` | definition | common | src/driver/opengl.ab offset-aware indirect non-indexed rendering | src/driver/opengl.ab typed mode and indirect-pointer ABI | examples/render-to-texture/main.ab nonzero pooled render-pass vertex-indirect rendering | tests/pool/main.ab offscreen short and stale range rejection |
-| `glDrawArraysInstanced` | definition | common | src/driver/opengl.ab direct instanced vertex rendering | src/driver/opengl.ab typed mode range and instance-count ABI | tests/application/main.ab repeated direct triangle presentation | examples/common-triangle/main.ab zero instance-count rejection |
-| `glDrawArraysInstancedARB` | definition | unclassified | - | - | - | - |
-| `glDrawArraysInstancedBaseInstance` | definition | unclassified | - | - | - | - |
-| `glDrawArraysInstancedEXT` | definition | unclassified | - | - | - | - |
-| `glDrawBuffer` | definition | unclassified | - | - | - | - |
-| `glDrawBuffers` | definition | common | src/driver/opengl.ab MRT setup | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact dual attachment output | tests/application/main.ab attachment count rejection |
-| `glDrawBuffersARB` | definition | unclassified | - | - | - | - |
-| `glDrawBuffersATI` | definition | unclassified | - | - | - | - |
-| `glDrawCommandsAddressNV` | definition | unclassified | - | - | - | - |
-| `glDrawCommandsNV` | definition | unclassified | - | - | - | - |
-| `glDrawCommandsStatesAddressNV` | definition | unclassified | - | - | - | - |
-| `glDrawCommandsStatesNV` | definition | unclassified | - | - | - | - |
-| `glDrawElementArrayAPPLE` | definition | unclassified | - | - | - | - |
-| `glDrawElementArrayATI` | definition | unclassified | - | - | - | - |
-| `glDrawElements` | definition | common | src/driver/opengl.ab offset-aware single-instance indexed drawing | src/driver/opengl.ab typed mode count index-type and pointer ABI | examples/render-to-texture/main.ab nonzero pooled render-pass indexed rendering | tests/pool/main.ab surfaced and offscreen short range rejection |
-| `glDrawElementsBaseVertex` | definition | unclassified | - | - | - | - |
-| `glDrawElementsIndirect` | definition | common | src/driver/opengl.ab offset-aware indirect indexed rendering | src/driver/opengl.ab typed mode index-type and indirect-pointer ABI | tests/pool/main.ab absolute-firstIndex pooled target exact-pixel rendering | tests/pool/main.ab offscreen short and stale range rejection |
-| `glDrawElementsInstanced` | definition | common | src/driver/opengl.ab direct indexed instanced rendering | src/driver/opengl.ab typed mode count index-type pointer and instances ABI | examples/common-triangle/main.ab live indexed two-instance rendering | examples/common-triangle/main.ab invalid index count and instances rejection |
-| `glDrawElementsInstancedARB` | definition | unclassified | - | - | - | - |
-| `glDrawElementsInstancedBaseInstance` | definition | unclassified | - | - | - | - |
-| `glDrawElementsInstancedBaseVertex` | definition | unclassified | - | - | - | - |
-| `glDrawElementsInstancedBaseVertexBaseInstance` | definition | unclassified | - | - | - | - |
-| `glDrawElementsInstancedEXT` | definition | unclassified | - | - | - | - |
-| `glDrawMeshArraysSUN` | definition | unclassified | - | - | - | - |
-| `glDrawMeshTasksEXT` | definition | unclassified | - | - | - | - |
-| `glDrawMeshTasksIndirectEXT` | definition | unclassified | - | - | - | - |
-| `glDrawMeshTasksIndirectNV` | definition | unclassified | - | - | - | - |
-| `glDrawMeshTasksNV` | definition | unclassified | - | - | - | - |
-| `glDrawPixels` | definition | unclassified | - | - | - | - |
-| `glDrawRangeElementArrayAPPLE` | definition | unclassified | - | - | - | - |
-| `glDrawRangeElementArrayATI` | definition | unclassified | - | - | - | - |
-| `glDrawRangeElements` | definition | unclassified | - | - | - | - |
-| `glDrawRangeElementsBaseVertex` | definition | unclassified | - | - | - | - |
-| `glDrawRangeElementsEXT` | definition | unclassified | - | - | - | - |
-| `glDrawTextureNV` | definition | unclassified | - | - | - | - |
-| `glDrawTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glDrawTransformFeedbackInstanced` | definition | unclassified | - | - | - | - |
-| `glDrawTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glDrawTransformFeedbackStream` | definition | unclassified | - | - | - | - |
-| `glDrawTransformFeedbackStreamInstanced` | definition | unclassified | - | - | - | - |
-| `glDrawVkImageNV` | definition | unclassified | - | - | - | - |
-| `glEGLImageTargetTexStorageEXT` | definition | unclassified | - | - | - | - |
-| `glEGLImageTargetTextureStorageEXT` | definition | unclassified | - | - | - | - |
-| `glEdgeFlag` | definition | unclassified | - | - | - | - |
-| `glEdgeFlagFormatNV` | definition | unclassified | - | - | - | - |
-| `glEdgeFlagPointer` | definition | unclassified | - | - | - | - |
-| `glEdgeFlagPointerEXT` | definition | unclassified | - | - | - | - |
-| `glEdgeFlagPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glEdgeFlagv` | definition | unclassified | - | - | - | - |
-| `glElementPointerAPPLE` | definition | unclassified | - | - | - | - |
-| `glElementPointerATI` | definition | unclassified | - | - | - | - |
-| `glEnable` | definition | common | src/driver/opengl.ab cull blend and depth state enablement | src/driver/opengl.ab typed capability ABI | examples/common-triangle/main.ab live cull blend and depth pipelines | examples/common-triangle/main.ab invalid raster and depth rejection |
-| `glEnableClientState` | definition | unclassified | - | - | - | - |
-| `glEnableClientStateIndexedEXT` | definition | unclassified | - | - | - | - |
-| `glEnableClientStateiEXT` | definition | unclassified | - | - | - | - |
-| `glEnableIndexedEXT` | definition | unclassified | - | - | - | - |
-| `glEnableVariantClientStateEXT` | definition | unclassified | - | - | - | - |
-| `glEnableVertexArrayAttrib` | definition | unclassified | - | - | - | - |
-| `glEnableVertexArrayAttribEXT` | definition | unclassified | - | - | - | - |
-| `glEnableVertexArrayEXT` | definition | unclassified | - | - | - | - |
-| `glEnableVertexAttribAPPLE` | definition | unclassified | - | - | - | - |
-| `glEnableVertexAttribArray` | definition | common | src/driver/opengl.ab reflected vertex attribute enablement | src/driver/opengl.ab typed location ABI | examples/common-triangle/main.ab interleaved position and color attributes | examples/common-triangle/main.ab mismatched vertex layout rejection |
-| `glEnableVertexAttribArrayARB` | definition | unclassified | - | - | - | - |
-| `glEnablei` | definition | unclassified | - | - | - | - |
-| `glEnd` | definition | unclassified | - | - | - | - |
-| `glEndConditionalRender` | definition | unclassified | - | - | - | - |
-| `glEndConditionalRenderNV` | definition | unclassified | - | - | - | - |
-| `glEndConditionalRenderNVX` | definition | unclassified | - | - | - | - |
-| `glEndFragmentShaderATI` | definition | unclassified | - | - | - | - |
-| `glEndList` | definition | unclassified | - | - | - | - |
-| `glEndOcclusionQueryNV` | definition | unclassified | - | - | - | - |
-| `glEndPerfMonitorAMD` | definition | unclassified | - | - | - | - |
-| `glEndPerfQueryINTEL` | definition | unclassified | - | - | - | - |
-| `glEndQuery` | definition | unclassified | - | - | - | - |
-| `glEndQueryARB` | definition | unclassified | - | - | - | - |
-| `glEndQueryIndexed` | definition | unclassified | - | - | - | - |
-| `glEndTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glEndTransformFeedbackEXT` | definition | unclassified | - | - | - | - |
-| `glEndTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glEndVertexShaderEXT` | definition | unclassified | - | - | - | - |
-| `glEndVideoCaptureNV` | definition | unclassified | - | - | - | - |
-| `glEvalCoord1d` | definition | unclassified | - | - | - | - |
-| `glEvalCoord1dv` | definition | unclassified | - | - | - | - |
-| `glEvalCoord1f` | definition | unclassified | - | - | - | - |
-| `glEvalCoord1fv` | definition | unclassified | - | - | - | - |
-| `glEvalCoord1xOES` | definition | unclassified | - | - | - | - |
-| `glEvalCoord1xvOES` | definition | unclassified | - | - | - | - |
-| `glEvalCoord2d` | definition | unclassified | - | - | - | - |
-| `glEvalCoord2dv` | definition | unclassified | - | - | - | - |
-| `glEvalCoord2f` | definition | unclassified | - | - | - | - |
-| `glEvalCoord2fv` | definition | unclassified | - | - | - | - |
-| `glEvalCoord2xOES` | definition | unclassified | - | - | - | - |
-| `glEvalCoord2xvOES` | definition | unclassified | - | - | - | - |
-| `glEvalMapsNV` | definition | unclassified | - | - | - | - |
-| `glEvalMesh1` | definition | unclassified | - | - | - | - |
-| `glEvalMesh2` | definition | unclassified | - | - | - | - |
-| `glEvalPoint1` | definition | unclassified | - | - | - | - |
-| `glEvalPoint2` | definition | unclassified | - | - | - | - |
-| `glEvaluateDepthValuesARB` | definition | unclassified | - | - | - | - |
-| `glExecuteProgramNV` | definition | unclassified | - | - | - | - |
-| `glExtractComponentEXT` | definition | unclassified | - | - | - | - |
-| `glFeedbackBuffer` | definition | unclassified | - | - | - | - |
-| `glFeedbackBufferxOES` | definition | unclassified | - | - | - | - |
-| `glFenceSync` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab synchronous and queued copy fences | src/driver/opengl.ab typed condition flags and opaque result ABI | tests/transfer/main.ab three simultaneous native in-flight slots | tests/transfer/main.ab invalid queued range rejection |
-| `glFinalCombinerInputNV` | definition | unclassified | - | - | - | - |
-| `glFinish` | definition | common | src/driver/opengl.ab portable idle wait | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
-| `glFinishAsyncSGIX` | definition | unclassified | - | - | - | - |
-| `glFinishFenceAPPLE` | definition | unclassified | - | - | - | - |
-| `glFinishFenceNV` | definition | unclassified | - | - | - | - |
-| `glFinishObjectAPPLE` | definition | unclassified | - | - | - | - |
-| `glFinishTextureSUNX` | definition | unclassified | - | - | - | - |
-| `glFlush` | definition | unclassified | - | - | - | - |
-| `glFlushMappedBufferRange` | definition | unclassified | - | - | - | - |
-| `glFlushMappedBufferRangeAPPLE` | definition | unclassified | - | - | - | - |
-| `glFlushMappedNamedBufferRange` | definition | unclassified | - | - | - | - |
-| `glFlushMappedNamedBufferRangeEXT` | definition | unclassified | - | - | - | - |
-| `glFlushPixelDataRangeNV` | definition | unclassified | - | - | - | - |
-| `glFlushRasterSGIX` | definition | unclassified | - | - | - | - |
-| `glFlushStaticDataIBM` | definition | unclassified | - | - | - | - |
-| `glFlushVertexArrayRangeAPPLE` | definition | unclassified | - | - | - | - |
-| `glFlushVertexArrayRangeNV` | definition | unclassified | - | - | - | - |
-| `glFogCoordFormatNV` | definition | unclassified | - | - | - | - |
-| `glFogCoordPointer` | definition | unclassified | - | - | - | - |
-| `glFogCoordPointerEXT` | definition | unclassified | - | - | - | - |
-| `glFogCoordPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glFogCoordd` | definition | unclassified | - | - | - | - |
-| `glFogCoorddEXT` | definition | unclassified | - | - | - | - |
-| `glFogCoorddv` | definition | unclassified | - | - | - | - |
-| `glFogCoorddvEXT` | definition | unclassified | - | - | - | - |
-| `glFogCoordf` | definition | unclassified | - | - | - | - |
-| `glFogCoordfEXT` | definition | unclassified | - | - | - | - |
-| `glFogCoordfv` | definition | unclassified | - | - | - | - |
-| `glFogCoordfvEXT` | definition | unclassified | - | - | - | - |
-| `glFogCoordhNV` | definition | unclassified | - | - | - | - |
-| `glFogCoordhvNV` | definition | unclassified | - | - | - | - |
-| `glFogFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glFogf` | definition | unclassified | - | - | - | - |
-| `glFogfv` | definition | unclassified | - | - | - | - |
-| `glFogi` | definition | unclassified | - | - | - | - |
-| `glFogiv` | definition | unclassified | - | - | - | - |
-| `glFogxOES` | definition | unclassified | - | - | - | - |
-| `glFogxvOES` | definition | unclassified | - | - | - | - |
-| `glFragmentColorMaterialSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentCoverageColorNV` | definition | unclassified | - | - | - | - |
-| `glFragmentLightModelfSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightModelfvSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightModeliSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightModelivSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightfSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightfvSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightiSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentLightivSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentMaterialfSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentMaterialfvSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentMaterialiSGIX` | definition | unclassified | - | - | - | - |
-| `glFragmentMaterialivSGIX` | definition | unclassified | - | - | - | - |
-| `glFrameTerminatorGREMEDY` | definition | unclassified | - | - | - | - |
-| `glFrameZoomSGIX` | definition | unclassified | - | - | - | - |
-| `glFramebufferDrawBufferEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferDrawBuffersEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferFetchBarrierEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferParameteri` | definition | unclassified | - | - | - | - |
-| `glFramebufferParameteriMESA` | definition | unclassified | - | - | - | - |
-| `glFramebufferReadBufferEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferRenderbuffer` | definition | unclassified | - | - | - | - |
-| `glFramebufferRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferSampleLocationsfvARB` | definition | unclassified | - | - | - | - |
-| `glFramebufferSampleLocationsfvNV` | definition | unclassified | - | - | - | - |
-| `glFramebufferSamplePositionsfvAMD` | definition | unclassified | - | - | - | - |
-| `glFramebufferShadingRateEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTexture` | definition | unclassified | - | - | - | - |
-| `glFramebufferTexture1D` | definition | unclassified | - | - | - | - |
-| `glFramebufferTexture1DEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTexture2D` | definition | common | src/driver/opengl.ab target setup | src/driver/opengl.ab typed extern signature | tests/application/main.ab render-to-texture output | tests/application/main.ab incompatible attachment rejection |
-| `glFramebufferTexture2DEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTexture3D` | definition | unclassified | - | - | - | - |
-| `glFramebufferTexture3DEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureARB` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureFaceARB` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureFaceEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureLayer` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureLayerARB` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureLayerEXT` | definition | unclassified | - | - | - | - |
-| `glFramebufferTextureMultiviewOVR` | definition | unclassified | - | - | - | - |
-| `glFreeObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glFrontFace` | definition | common | src/driver/opengl.ab portable winding state | src/driver/opengl.ab typed winding ABI | examples/common-triangle/main.ab clockwise and counter-clockwise pipelines | examples/common-triangle/main.ab invalid front-face rejection |
-| `glFrustum` | definition | unclassified | - | - | - | - |
-| `glFrustumfOES` | definition | unclassified | - | - | - | - |
-| `glFrustumxOES` | definition | unclassified | - | - | - | - |
-| `glGenAsyncMarkersSGIX` | definition | unclassified | - | - | - | - |
-| `glGenBuffers` | definition | common | src/driver/opengl.ab affine buffer creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab invalid buffer descriptor rejection |
-| `glGenBuffersARB` | definition | unclassified | - | - | - | - |
-| `glGenFencesAPPLE` | definition | unclassified | - | - | - | - |
-| `glGenFencesNV` | definition | unclassified | - | - | - | - |
-| `glGenFragmentShadersATI` | definition | unclassified | - | - | - | - |
-| `glGenFramebuffers` | definition | common | src/driver/opengl.ab affine framebuffer and resolve creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab color depth multisample and MRT targets | tests/application/main.ab incompatible attachment rejection |
-| `glGenFramebuffersEXT` | definition | unclassified | - | - | - | - |
-| `glGenLists` | definition | unclassified | - | - | - | - |
-| `glGenNamesAMD` | definition | unclassified | - | - | - | - |
-| `glGenOcclusionQueriesNV` | definition | unclassified | - | - | - | - |
-| `glGenPathsNV` | definition | unclassified | - | - | - | - |
-| `glGenPerfMonitorsAMD` | definition | unclassified | - | - | - | - |
-| `glGenProgramPipelines` | definition | unclassified | - | - | - | - |
-| `glGenProgramsARB` | definition | unclassified | - | - | - | - |
-| `glGenProgramsNV` | definition | unclassified | - | - | - | - |
-| `glGenQueries` | definition | common | src/driver/opengl.ab timestamp query creation | src/driver/opengl.ab typed extern signature | tests/application/main.ab timestamp query creation | tests/application/main.ab invalid application rejection |
-| `glGenQueriesARB` | definition | unclassified | - | - | - | - |
-| `glGenQueryResourceTagNV` | definition | unclassified | - | - | - | - |
-| `glGenRenderbuffers` | definition | unclassified | - | - | - | - |
-| `glGenRenderbuffersEXT` | definition | unclassified | - | - | - | - |
-| `glGenSamplers` | definition | common | src/driver/opengl.ab affine sampler creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab comparison and anisotropic sampler creation | src/sampler.ab unsupported comparison and anisotropy rejection |
-| `glGenSemaphoresEXT` | definition | unclassified | - | - | - | - |
-| `glGenSymbolsEXT` | definition | unclassified | - | - | - | - |
-| `glGenTextures` | definition | common | src/driver/opengl.ab affine texture creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid sampled transfer and render-target textures | tests/application/main.ab invalid texture descriptor rejection |
-| `glGenTexturesEXT` | definition | unclassified | - | - | - | - |
-| `glGenTransformFeedbacks` | definition | unclassified | - | - | - | - |
-| `glGenTransformFeedbacksNV` | definition | unclassified | - | - | - | - |
-| `glGenVertexArrays` | definition | common | src/driver/opengl.ab affine raster vertex-state creation | src/driver/opengl.ab typed output-pointer ABI | examples/common-triangle/main.ab live pipeline creation with stable vertex array | examples/common-triangle/main.ab invalid pipeline cleanup |
-| `glGenVertexArraysAPPLE` | definition | unclassified | - | - | - | - |
-| `glGenVertexShadersEXT` | definition | unclassified | - | - | - | - |
-| `glGenerateMipmap` | definition | unclassified | - | - | - | - |
-| `glGenerateMipmapEXT` | definition | unclassified | - | - | - | - |
-| `glGenerateMultiTexMipmapEXT` | definition | unclassified | - | - | - | - |
-| `glGenerateTextureMipmap` | definition | common | src/driver/opengl.ab mip generation | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact first and final mip | tests/application/main.ab invalid mip generation rejection |
-| `glGenerateTextureMipmapEXT` | definition | unclassified | - | - | - | - |
-| `glGetActiveAtomicCounterBufferiv` | definition | unclassified | - | - | - | - |
-| `glGetActiveAttrib` | definition | unclassified | - | - | - | - |
-| `glGetActiveAttribARB` | definition | unclassified | - | - | - | - |
-| `glGetActiveSubroutineName` | definition | unclassified | - | - | - | - |
-| `glGetActiveSubroutineUniformName` | definition | unclassified | - | - | - | - |
-| `glGetActiveSubroutineUniformiv` | definition | unclassified | - | - | - | - |
-| `glGetActiveUniform` | definition | unclassified | - | - | - | - |
-| `glGetActiveUniformARB` | definition | unclassified | - | - | - | - |
-| `glGetActiveUniformBlockName` | definition | unclassified | - | - | - | - |
-| `glGetActiveUniformBlockiv` | definition | unclassified | - | - | - | - |
-| `glGetActiveUniformName` | definition | unclassified | - | - | - | - |
-| `glGetActiveUniformsiv` | definition | unclassified | - | - | - | - |
-| `glGetActiveVaryingNV` | definition | unclassified | - | - | - | - |
-| `glGetArrayObjectfvATI` | definition | unclassified | - | - | - | - |
-| `glGetArrayObjectivATI` | definition | unclassified | - | - | - | - |
-| `glGetAttachedObjectsARB` | definition | unclassified | - | - | - | - |
-| `glGetAttachedShaders` | definition | unclassified | - | - | - | - |
-| `glGetAttribLocation` | definition | unclassified | - | - | - | - |
-| `glGetAttribLocationARB` | definition | unclassified | - | - | - | - |
-| `glGetBooleanIndexedvEXT` | definition | unclassified | - | - | - | - |
-| `glGetBooleani_v` | definition | unclassified | - | - | - | - |
-| `glGetBooleanv` | definition | unclassified | - | - | - | - |
-| `glGetBufferParameteri64v` | definition | unclassified | - | - | - | - |
-| `glGetBufferParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetBufferParameterivARB` | definition | unclassified | - | - | - | - |
-| `glGetBufferParameterui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetBufferPointerv` | definition | unclassified | - | - | - | - |
-| `glGetBufferPointervARB` | definition | unclassified | - | - | - | - |
-| `glGetBufferSubData` | definition | common | src/driver/opengl.ab checked buffer readback | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole readback | tests/application/main.ab range and usage rejection |
-| `glGetBufferSubDataARB` | definition | unclassified | - | - | - | - |
-| `glGetClipPlane` | definition | unclassified | - | - | - | - |
-| `glGetClipPlanefOES` | definition | unclassified | - | - | - | - |
-| `glGetClipPlanexOES` | definition | unclassified | - | - | - | - |
-| `glGetColorTableEXT` | definition | unclassified | - | - | - | - |
-| `glGetColorTableParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetColorTableParameterfvSGI` | definition | unclassified | - | - | - | - |
-| `glGetColorTableParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetColorTableParameterivSGI` | definition | unclassified | - | - | - | - |
-| `glGetColorTableSGI` | definition | unclassified | - | - | - | - |
-| `glGetCombinerInputParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetCombinerInputParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetCombinerOutputParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetCombinerOutputParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetCombinerStageParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetCommandHeaderNV` | definition | unclassified | - | - | - | - |
-| `glGetCompressedMultiTexImageEXT` | definition | unclassified | - | - | - | - |
-| `glGetCompressedTexImage` | definition | unclassified | - | - | - | - |
-| `glGetCompressedTexImageARB` | definition | unclassified | - | - | - | - |
-| `glGetCompressedTextureImage` | definition | unclassified | - | - | - | - |
-| `glGetCompressedTextureImageEXT` | definition | unclassified | - | - | - | - |
-| `glGetCompressedTextureSubImage` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab compressed texture readback | src/driver/opengl.ab typed region buffer-size and byte-pointer ABI | tests/wider_texture/main.ab and tests/wider_texture_transfer/main.ab exact pitched BC1 readback | tests/wider_texture/main.ab short destination rejection |
-| `glGetConvolutionFilterEXT` | definition | unclassified | - | - | - | - |
-| `glGetConvolutionParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetConvolutionParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetConvolutionParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glGetCoverageModulationTableNV` | definition | unclassified | - | - | - | - |
-| `glGetDebugMessageLog` | definition | unclassified | - | - | - | - |
-| `glGetDebugMessageLogAMD` | definition | unclassified | - | - | - | - |
-| `glGetDebugMessageLogARB` | definition | unclassified | - | - | - | - |
-| `glGetDetailTexFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glGetDoubleIndexedvEXT` | definition | unclassified | - | - | - | - |
-| `glGetDoublei_v` | definition | unclassified | - | - | - | - |
-| `glGetDoublei_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetDoublev` | definition | unclassified | - | - | - | - |
-| `glGetError` | definition | common | src/driver/opengl.ab checked driver failure boundary | src/driver/opengl.ab typed error-code result ABI | tests/opengl/main.ab successful program use and malformed shader rejection | tests/application/main.ab unsupported OpenGL feature rejection |
-| `glGetFenceivNV` | definition | unclassified | - | - | - | - |
-| `glGetFinalCombinerInputParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetFinalCombinerInputParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetFirstPerfQueryIdINTEL` | definition | unclassified | - | - | - | - |
-| `glGetFixedvOES` | definition | unclassified | - | - | - | - |
-| `glGetFloatIndexedvEXT` | definition | unclassified | - | - | - | - |
-| `glGetFloati_v` | definition | unclassified | - | - | - | - |
-| `glGetFloati_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetFloatv` | definition | common | src/driver/opengl.ab sampler anisotropy capability query | src/driver/opengl.ab typed floating output-pointer ABI | tests/opengl/main.ab validated maximum anisotropy at least 16 | src/driver/opengl.ab conservative one-times fallback |
-| `glGetFogFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glGetFragDataIndex` | definition | unclassified | - | - | - | - |
-| `glGetFragDataLocation` | definition | unclassified | - | - | - | - |
-| `glGetFragDataLocationEXT` | definition | unclassified | - | - | - | - |
-| `glGetFragmentLightfvSGIX` | definition | unclassified | - | - | - | - |
-| `glGetFragmentLightivSGIX` | definition | unclassified | - | - | - | - |
-| `glGetFragmentMaterialfvSGIX` | definition | unclassified | - | - | - | - |
-| `glGetFragmentMaterialivSGIX` | definition | unclassified | - | - | - | - |
-| `glGetFragmentShadingRatesEXT` | definition | unclassified | - | - | - | - |
-| `glGetFramebufferAttachmentParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetFramebufferAttachmentParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetFramebufferParameterfvAMD` | definition | unclassified | - | - | - | - |
-| `glGetFramebufferParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetFramebufferParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetFramebufferParameterivMESA` | definition | unclassified | - | - | - | - |
-| `glGetGraphicsResetStatus` | definition | unclassified | - | - | - | - |
-| `glGetGraphicsResetStatusARB` | definition | unclassified | - | - | - | - |
-| `glGetHandleARB` | definition | unclassified | - | - | - | - |
-| `glGetHistogramEXT` | definition | unclassified | - | - | - | - |
-| `glGetHistogramParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetHistogramParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetHistogramParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glGetImageHandleARB` | definition | unclassified | - | - | - | - |
-| `glGetImageHandleNV` | definition | unclassified | - | - | - | - |
-| `glGetImageTransformParameterfvHP` | definition | unclassified | - | - | - | - |
-| `glGetImageTransformParameterivHP` | definition | unclassified | - | - | - | - |
-| `glGetInfoLogARB` | definition | unclassified | - | - | - | - |
-| `glGetInstrumentsSGIX` | definition | unclassified | - | - | - | - |
-| `glGetInteger64i_v` | definition | unclassified | - | - | - | - |
-| `glGetInteger64v` | definition | common | src/driver/opengl.ab storage-buffer limit query | src/driver/opengl.ab typed 64-bit output-pointer ABI | tests/opengl/main.ab validated positive storage limit | src/driver/opengl.ab bounded portable storage cap |
-| `glGetIntegerIndexedvEXT` | definition | unclassified | - | - | - | - |
-| `glGetIntegeri_v` | definition | common | src/driver/opengl.ab indexed compute workgroup limit query | src/driver/opengl.ab typed name index and output ABI | tests/opengl/main.ab validated three-axis group and local limits | tests/application/main.ab limit-exceeding dispatch rejection |
-| `glGetIntegerui64i_vNV` | definition | unclassified | - | - | - | - |
-| `glGetIntegerui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetIntegerv` | definition | common | src/driver/opengl.ab version extension and scalar limit queries | src/driver/opengl.ab typed integer output-pointer ABI | tests/opengl/main.ab validated version texture compute and extension counts | src/driver/opengl.ab conservative defaults for unavailable limits |
-| `glGetInternalformatSampleivNV` | definition | unclassified | - | - | - | - |
-| `glGetInternalformati64v` | definition | unclassified | - | - | - | - |
-| `glGetInternalformativ` | definition | unclassified | - | - | - | - |
-| `glGetInvariantBooleanvEXT` | definition | unclassified | - | - | - | - |
-| `glGetInvariantFloatvEXT` | definition | unclassified | - | - | - | - |
-| `glGetInvariantIntegervEXT` | definition | unclassified | - | - | - | - |
-| `glGetLightfv` | definition | unclassified | - | - | - | - |
-| `glGetLightiv` | definition | unclassified | - | - | - | - |
-| `glGetLightxOES` | definition | unclassified | - | - | - | - |
-| `glGetListParameterfvSGIX` | definition | unclassified | - | - | - | - |
-| `glGetListParameterivSGIX` | definition | unclassified | - | - | - | - |
-| `glGetLocalConstantBooleanvEXT` | definition | unclassified | - | - | - | - |
-| `glGetLocalConstantFloatvEXT` | definition | unclassified | - | - | - | - |
-| `glGetLocalConstantIntegervEXT` | definition | unclassified | - | - | - | - |
-| `glGetMapAttribParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetMapAttribParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetMapControlPointsNV` | definition | unclassified | - | - | - | - |
-| `glGetMapParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetMapParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetMapdv` | definition | unclassified | - | - | - | - |
-| `glGetMapfv` | definition | unclassified | - | - | - | - |
-| `glGetMapiv` | definition | unclassified | - | - | - | - |
-| `glGetMapxvOES` | definition | unclassified | - | - | - | - |
-| `glGetMaterialfv` | definition | unclassified | - | - | - | - |
-| `glGetMaterialiv` | definition | unclassified | - | - | - | - |
-| `glGetMaterialxOES` | definition | unclassified | - | - | - | - |
-| `glGetMemoryObjectDetachedResourcesuivNV` | definition | unclassified | - | - | - | - |
-| `glGetMemoryObjectParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMinmaxEXT` | definition | unclassified | - | - | - | - |
-| `glGetMinmaxParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetMinmaxParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexEnvfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexEnvivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexGendvEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexGenfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexGenivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexImageEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexLevelParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexLevelParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultiTexParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetMultisamplefv` | definition | unclassified | - | - | - | - |
-| `glGetMultisamplefvNV` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferParameteri64v` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferParameterui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferPointerv` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferPointervEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferSubData` | definition | unclassified | - | - | - | - |
-| `glGetNamedBufferSubDataEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedFramebufferAttachmentParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetNamedFramebufferAttachmentParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedFramebufferParameterfvAMD` | definition | unclassified | - | - | - | - |
-| `glGetNamedFramebufferParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetNamedFramebufferParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedProgramLocalParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedProgramLocalParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedProgramLocalParameterdvEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedProgramLocalParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedProgramStringEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedProgramivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedRenderbufferParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetNamedRenderbufferParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetNamedStringARB` | definition | unclassified | - | - | - | - |
-| `glGetNamedStringivARB` | definition | unclassified | - | - | - | - |
-| `glGetNextPerfQueryIdINTEL` | definition | unclassified | - | - | - | - |
-| `glGetObjectBufferfvATI` | definition | unclassified | - | - | - | - |
-| `glGetObjectBufferivATI` | definition | unclassified | - | - | - | - |
-| `glGetObjectLabel` | definition | unclassified | - | - | - | - |
-| `glGetObjectLabelEXT` | definition | unclassified | - | - | - | - |
-| `glGetObjectParameterfvARB` | definition | unclassified | - | - | - | - |
-| `glGetObjectParameterivAPPLE` | definition | unclassified | - | - | - | - |
-| `glGetObjectParameterivARB` | definition | unclassified | - | - | - | - |
-| `glGetObjectPtrLabel` | definition | unclassified | - | - | - | - |
-| `glGetOcclusionQueryivNV` | definition | unclassified | - | - | - | - |
-| `glGetOcclusionQueryuivNV` | definition | unclassified | - | - | - | - |
-| `glGetPathCommandsNV` | definition | unclassified | - | - | - | - |
-| `glGetPathCoordsNV` | definition | unclassified | - | - | - | - |
-| `glGetPathDashArrayNV` | definition | unclassified | - | - | - | - |
-| `glGetPathLengthNV` | definition | unclassified | - | - | - | - |
-| `glGetPathMetricRangeNV` | definition | unclassified | - | - | - | - |
-| `glGetPathMetricsNV` | definition | unclassified | - | - | - | - |
-| `glGetPathParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetPathParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetPathSpacingNV` | definition | unclassified | - | - | - | - |
-| `glGetPerfCounterInfoINTEL` | definition | unclassified | - | - | - | - |
-| `glGetPerfMonitorCounterDataAMD` | definition | unclassified | - | - | - | - |
-| `glGetPerfMonitorCounterInfoAMD` | definition | unclassified | - | - | - | - |
-| `glGetPerfMonitorCounterStringAMD` | definition | unclassified | - | - | - | - |
-| `glGetPerfMonitorCountersAMD` | definition | unclassified | - | - | - | - |
-| `glGetPerfMonitorGroupStringAMD` | definition | unclassified | - | - | - | - |
-| `glGetPerfMonitorGroupsAMD` | definition | unclassified | - | - | - | - |
-| `glGetPerfQueryDataINTEL` | definition | unclassified | - | - | - | - |
-| `glGetPerfQueryIdByNameINTEL` | definition | unclassified | - | - | - | - |
-| `glGetPerfQueryInfoINTEL` | definition | unclassified | - | - | - | - |
-| `glGetPixelMapfv` | definition | unclassified | - | - | - | - |
-| `glGetPixelMapuiv` | definition | unclassified | - | - | - | - |
-| `glGetPixelMapusv` | definition | unclassified | - | - | - | - |
-| `glGetPixelMapxv` | definition | unclassified | - | - | - | - |
-| `glGetPixelTexGenParameterfvSGIS` | definition | unclassified | - | - | - | - |
-| `glGetPixelTexGenParameterivSGIS` | definition | unclassified | - | - | - | - |
-| `glGetPixelTransformParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetPixelTransformParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetPointerIndexedvEXT` | definition | unclassified | - | - | - | - |
-| `glGetPointeri_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetPointerv` | definition | unclassified | - | - | - | - |
-| `glGetPointervEXT` | definition | unclassified | - | - | - | - |
-| `glGetPolygonStipple` | definition | unclassified | - | - | - | - |
-| `glGetProgramBinary` | definition | unclassified | - | - | - | - |
-| `glGetProgramEnvParameterIivNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramEnvParameterIuivNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramEnvParameterdvARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramEnvParameterfvARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramInfoLog` | definition | common | src/driver/opengl.ab bounded link diagnostic capture | src/driver/opengl.ab typed length and byte-output ABI | tests/opengl/main.ab empty-program link diagnostic path | src/driver/opengl.ab 4096-byte bounded adoption |
-| `glGetProgramInterfaceiv` | definition | unclassified | - | - | - | - |
-| `glGetProgramLocalParameterIivNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramLocalParameterIuivNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramLocalParameterdvARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramLocalParameterfvARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramNamedParameterdvNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramNamedParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramParameterdvNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramPipelineInfoLog` | definition | unclassified | - | - | - | - |
-| `glGetProgramPipelineiv` | definition | unclassified | - | - | - | - |
-| `glGetProgramResourceIndex` | definition | unclassified | - | - | - | - |
-| `glGetProgramResourceLocation` | definition | unclassified | - | - | - | - |
-| `glGetProgramResourceLocationIndex` | definition | unclassified | - | - | - | - |
-| `glGetProgramResourceName` | definition | unclassified | - | - | - | - |
-| `glGetProgramResourcefvNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramResourceiv` | definition | unclassified | - | - | - | - |
-| `glGetProgramStageiv` | definition | unclassified | - | - | - | - |
-| `glGetProgramStringARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramStringNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramSubroutineParameteruivNV` | definition | unclassified | - | - | - | - |
-| `glGetProgramiv` | definition | common | src/driver/opengl.ab program link-status query | src/driver/opengl.ab typed parameter output ABI | tests/opengl/main.ab valid and empty program link status | tests/opengl/main.ab empty program rejection |
-| `glGetProgramivARB` | definition | unclassified | - | - | - | - |
-| `glGetProgramivNV` | definition | unclassified | - | - | - | - |
-| `glGetQueryBufferObjecti64v` | definition | unclassified | - | - | - | - |
-| `glGetQueryBufferObjectiv` | definition | unclassified | - | - | - | - |
-| `glGetQueryBufferObjectui64v` | definition | unclassified | - | - | - | - |
-| `glGetQueryBufferObjectuiv` | definition | unclassified | - | - | - | - |
-| `glGetQueryIndexediv` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjecti64v` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjecti64vEXT` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjectiv` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjectivARB` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjectui64v` | definition | common | src/driver/opengl.ab timestamp readback | src/driver/opengl.ab typed extern signature | tests/application/main.ab monotonic timestamp samples | tests/application/main.ab invalid query rejection |
-| `glGetQueryObjectui64vEXT` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjectuiv` | definition | unclassified | - | - | - | - |
-| `glGetQueryObjectuivARB` | definition | unclassified | - | - | - | - |
-| `glGetQueryiv` | definition | unclassified | - | - | - | - |
-| `glGetQueryivARB` | definition | unclassified | - | - | - | - |
-| `glGetRenderbufferParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetRenderbufferParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetSamplerParameterIiv` | definition | unclassified | - | - | - | - |
-| `glGetSamplerParameterIuiv` | definition | unclassified | - | - | - | - |
-| `glGetSamplerParameterfv` | definition | unclassified | - | - | - | - |
-| `glGetSamplerParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetSemaphoreParameterivNV` | definition | unclassified | - | - | - | - |
-| `glGetSemaphoreParameterui64vEXT` | definition | unclassified | - | - | - | - |
-| `glGetSeparableFilterEXT` | definition | unclassified | - | - | - | - |
-| `glGetShaderInfoLog` | definition | common | src/driver/opengl.ab bounded compile diagnostic capture | src/driver/opengl.ab typed length and byte-output ABI | tests/opengl/main.ab exact malformed-source driver diagnostic | src/driver/opengl.ab 4096-byte bounded adoption |
-| `glGetShaderPrecisionFormat` | definition | unclassified | - | - | - | - |
-| `glGetShaderSource` | definition | unclassified | - | - | - | - |
-| `glGetShaderSourceARB` | definition | unclassified | - | - | - | - |
-| `glGetShaderiv` | definition | common | src/driver/opengl.ab source and specialized compile-status query | src/driver/opengl.ab typed parameter output ABI | tests/opengl/main.ab valid and malformed source status | tests/opengl/main.ab malformed source rejection |
-| `glGetShadingRateImagePaletteNV` | definition | unclassified | - | - | - | - |
-| `glGetShadingRateSampleLocationivNV` | definition | unclassified | - | - | - | - |
-| `glGetSharpenTexFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glGetStageIndexNV` | definition | unclassified | - | - | - | - |
-| `glGetString` | definition | unclassified | - | - | - | - |
-| `glGetStringi` | definition | common | src/driver/opengl.ab bounded extension-name enumeration | src/driver/opengl.ab typed name index and string-pointer ABI | tests/application/main.ab SPIR-V and anisotropy feature negotiation | src/driver/opengl.ab null extension pointer handling |
-| `glGetSubroutineIndex` | definition | unclassified | - | - | - | - |
-| `glGetSubroutineUniformLocation` | definition | unclassified | - | - | - | - |
-| `glGetSynciv` | definition | unclassified | - | - | - | - |
-| `glGetTexBumpParameterfvATI` | definition | unclassified | - | - | - | - |
-| `glGetTexBumpParameterivATI` | definition | unclassified | - | - | - | - |
-| `glGetTexEnvfv` | definition | unclassified | - | - | - | - |
-| `glGetTexEnviv` | definition | unclassified | - | - | - | - |
-| `glGetTexEnvxvOES` | definition | unclassified | - | - | - | - |
-| `glGetTexFilterFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glGetTexGendv` | definition | unclassified | - | - | - | - |
-| `glGetTexGenfv` | definition | unclassified | - | - | - | - |
-| `glGetTexGeniv` | definition | unclassified | - | - | - | - |
-| `glGetTexGenxvOES` | definition | unclassified | - | - | - | - |
-| `glGetTexImage` | definition | unclassified | - | - | - | - |
-| `glGetTexLevelParameterfv` | definition | unclassified | - | - | - | - |
-| `glGetTexLevelParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetTexLevelParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterIiv` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterIuiv` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterPointervAPPLE` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterfv` | definition | unclassified | - | - | - | - |
-| `glGetTexParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetTexParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glGetTextureHandleARB` | definition | unclassified | - | - | - | - |
-| `glGetTextureHandleNV` | definition | unclassified | - | - | - | - |
-| `glGetTextureImage` | definition | unclassified | - | - | - | - |
-| `glGetTextureImageEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureLevelParameterfv` | definition | unclassified | - | - | - | - |
-| `glGetTextureLevelParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureLevelParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetTextureLevelParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterIiv` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterIuiv` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterfv` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameteriv` | definition | unclassified | - | - | - | - |
-| `glGetTextureParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glGetTextureSamplerHandleARB` | definition | unclassified | - | - | - | - |
-| `glGetTextureSamplerHandleNV` | definition | unclassified | - | - | - | - |
-| `glGetTextureSubImage` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab texture readback | src/driver/opengl.ab typed extern signature | tests/application/main.ab and tests/wider_texture_transfer/main.ab exact texture readback | tests/application/main.ab readback range rejection |
-| `glGetTrackMatrixivNV` | definition | unclassified | - | - | - | - |
-| `glGetTransformFeedbackVarying` | definition | unclassified | - | - | - | - |
-| `glGetTransformFeedbackVaryingEXT` | definition | unclassified | - | - | - | - |
-| `glGetTransformFeedbackVaryingNV` | definition | unclassified | - | - | - | - |
-| `glGetTransformFeedbacki64_v` | definition | unclassified | - | - | - | - |
-| `glGetTransformFeedbacki_v` | definition | unclassified | - | - | - | - |
-| `glGetTransformFeedbackiv` | definition | unclassified | - | - | - | - |
-| `glGetUniformBlockIndex` | definition | unclassified | - | - | - | - |
-| `glGetUniformBufferSizeEXT` | definition | unclassified | - | - | - | - |
-| `glGetUniformIndices` | definition | unclassified | - | - | - | - |
-| `glGetUniformLocation` | definition | unclassified | - | - | - | - |
-| `glGetUniformLocationARB` | definition | unclassified | - | - | - | - |
-| `glGetUniformOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glGetUniformSubroutineuiv` | definition | unclassified | - | - | - | - |
-| `glGetUniformdv` | definition | unclassified | - | - | - | - |
-| `glGetUniformfv` | definition | unclassified | - | - | - | - |
-| `glGetUniformfvARB` | definition | unclassified | - | - | - | - |
-| `glGetUniformi64vARB` | definition | unclassified | - | - | - | - |
-| `glGetUniformi64vNV` | definition | unclassified | - | - | - | - |
-| `glGetUniformiv` | definition | unclassified | - | - | - | - |
-| `glGetUniformivARB` | definition | unclassified | - | - | - | - |
-| `glGetUniformui64vARB` | definition | unclassified | - | - | - | - |
-| `glGetUniformui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetUniformuiv` | definition | unclassified | - | - | - | - |
-| `glGetUniformuivEXT` | definition | unclassified | - | - | - | - |
-| `glGetUnsignedBytei_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetUnsignedBytevEXT` | definition | unclassified | - | - | - | - |
-| `glGetVariantArrayObjectfvATI` | definition | unclassified | - | - | - | - |
-| `glGetVariantArrayObjectivATI` | definition | unclassified | - | - | - | - |
-| `glGetVariantBooleanvEXT` | definition | unclassified | - | - | - | - |
-| `glGetVariantFloatvEXT` | definition | unclassified | - | - | - | - |
-| `glGetVariantIntegervEXT` | definition | unclassified | - | - | - | - |
-| `glGetVariantPointervEXT` | definition | unclassified | - | - | - | - |
-| `glGetVaryingLocationNV` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayIndexed64iv` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayIndexediv` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayIntegeri_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayIntegervEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayPointeri_vEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayPointervEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexArrayiv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribArrayObjectfvATI` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribArrayObjectivATI` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribIiv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribIivEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribIuiv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribIuivEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribLdv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribLdvEXT` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribLi64vNV` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribLui64vARB` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribLui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribPointerv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribPointervARB` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribPointervNV` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribdv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribdvARB` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribdvNV` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribfv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribfvARB` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribfvNV` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribiv` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribivARB` | definition | unclassified | - | - | - | - |
-| `glGetVertexAttribivNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoCaptureStreamdvNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoCaptureStreamfvNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoCaptureStreamivNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoCaptureivNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoi64vNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoivNV` | definition | unclassified | - | - | - | - |
-| `glGetVideoui64vNV` | definition | unclassified | - | - | - | - |
-| `glGetVideouivNV` | definition | unclassified | - | - | - | - |
-| `glGetVkProcAddrNV` | definition | unclassified | - | - | - | - |
-| `glGetnCompressedTexImage` | definition | unclassified | - | - | - | - |
-| `glGetnCompressedTexImageARB` | definition | unclassified | - | - | - | - |
-| `glGetnTexImage` | definition | unclassified | - | - | - | - |
-| `glGetnTexImageARB` | definition | unclassified | - | - | - | - |
-| `glGetnUniformdv` | definition | unclassified | - | - | - | - |
-| `glGetnUniformdvARB` | definition | unclassified | - | - | - | - |
-| `glGetnUniformfv` | definition | unclassified | - | - | - | - |
-| `glGetnUniformfvARB` | definition | unclassified | - | - | - | - |
-| `glGetnUniformi64vARB` | definition | unclassified | - | - | - | - |
-| `glGetnUniformiv` | definition | unclassified | - | - | - | - |
-| `glGetnUniformivARB` | definition | unclassified | - | - | - | - |
-| `glGetnUniformui64vARB` | definition | unclassified | - | - | - | - |
-| `glGetnUniformuiv` | definition | unclassified | - | - | - | - |
-| `glGetnUniformuivARB` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactorbSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactordSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactorfSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactoriSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactorsSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactorubSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactoruiSUN` | definition | unclassified | - | - | - | - |
-| `glGlobalAlphaFactorusSUN` | definition | unclassified | - | - | - | - |
-| `glHint` | definition | unclassified | - | - | - | - |
-| `glHintPGI` | definition | unclassified | - | - | - | - |
-| `glHistogramEXT` | definition | unclassified | - | - | - | - |
-| `glIglooInterfaceSGIX` | definition | unclassified | - | - | - | - |
-| `glImageTransformParameterfHP` | definition | unclassified | - | - | - | - |
-| `glImageTransformParameterfvHP` | definition | unclassified | - | - | - | - |
-| `glImageTransformParameteriHP` | definition | unclassified | - | - | - | - |
-| `glImageTransformParameterivHP` | definition | unclassified | - | - | - | - |
-| `glImportMemoryFdEXT` | definition | unclassified | - | - | - | - |
-| `glImportMemoryWin32HandleEXT` | definition | unclassified | - | - | - | - |
-| `glImportMemoryWin32NameEXT` | definition | unclassified | - | - | - | - |
-| `glImportSemaphoreFdEXT` | definition | unclassified | - | - | - | - |
-| `glImportSemaphoreWin32HandleEXT` | definition | unclassified | - | - | - | - |
-| `glImportSemaphoreWin32NameEXT` | definition | unclassified | - | - | - | - |
-| `glImportSyncEXT` | definition | unclassified | - | - | - | - |
-| `glIndexFormatNV` | definition | unclassified | - | - | - | - |
-| `glIndexFuncEXT` | definition | unclassified | - | - | - | - |
-| `glIndexMask` | definition | unclassified | - | - | - | - |
-| `glIndexMaterialEXT` | definition | unclassified | - | - | - | - |
-| `glIndexPointer` | definition | unclassified | - | - | - | - |
-| `glIndexPointerEXT` | definition | unclassified | - | - | - | - |
-| `glIndexPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glIndexd` | definition | unclassified | - | - | - | - |
-| `glIndexdv` | definition | unclassified | - | - | - | - |
-| `glIndexf` | definition | unclassified | - | - | - | - |
-| `glIndexfv` | definition | unclassified | - | - | - | - |
-| `glIndexi` | definition | unclassified | - | - | - | - |
-| `glIndexiv` | definition | unclassified | - | - | - | - |
-| `glIndexs` | definition | unclassified | - | - | - | - |
-| `glIndexsv` | definition | unclassified | - | - | - | - |
-| `glIndexub` | definition | unclassified | - | - | - | - |
-| `glIndexubv` | definition | unclassified | - | - | - | - |
-| `glIndexxOES` | definition | unclassified | - | - | - | - |
-| `glIndexxvOES` | definition | unclassified | - | - | - | - |
-| `glInitNames` | definition | unclassified | - | - | - | - |
-| `glInsertComponentEXT` | definition | unclassified | - | - | - | - |
-| `glInsertEventMarkerEXT` | definition | unclassified | - | - | - | - |
-| `glInstrumentsBufferSGIX` | definition | unclassified | - | - | - | - |
-| `glInterleavedArrays` | definition | unclassified | - | - | - | - |
-| `glInterpolatePathsNV` | definition | unclassified | - | - | - | - |
-| `glInvalidateBufferData` | definition | unclassified | - | - | - | - |
-| `glInvalidateBufferSubData` | definition | unclassified | - | - | - | - |
-| `glInvalidateFramebuffer` | definition | common | src/driver/opengl.ab discard store operation | src/driver/opengl.ab typed extern signature | tests/application/main.ab discard attachment pass | tests/application/main.ab attachment bounds rejection |
-| `glInvalidateNamedFramebufferData` | definition | unclassified | - | - | - | - |
-| `glInvalidateNamedFramebufferSubData` | definition | unclassified | - | - | - | - |
-| `glInvalidateSubFramebuffer` | definition | unclassified | - | - | - | - |
-| `glInvalidateTexImage` | definition | unclassified | - | - | - | - |
-| `glInvalidateTexSubImage` | definition | unclassified | - | - | - | - |
-| `glIsAsyncMarkerSGIX` | definition | unclassified | - | - | - | - |
-| `glIsBuffer` | definition | unclassified | - | - | - | - |
-| `glIsBufferARB` | definition | unclassified | - | - | - | - |
-| `glIsBufferResidentNV` | definition | unclassified | - | - | - | - |
-| `glIsCommandListNV` | definition | unclassified | - | - | - | - |
-| `glIsEnabled` | definition | unclassified | - | - | - | - |
-| `glIsEnabledIndexedEXT` | definition | unclassified | - | - | - | - |
-| `glIsEnabledi` | definition | unclassified | - | - | - | - |
-| `glIsFenceAPPLE` | definition | unclassified | - | - | - | - |
-| `glIsFenceNV` | definition | unclassified | - | - | - | - |
-| `glIsFramebuffer` | definition | unclassified | - | - | - | - |
-| `glIsFramebufferEXT` | definition | unclassified | - | - | - | - |
-| `glIsImageHandleResidentARB` | definition | unclassified | - | - | - | - |
-| `glIsImageHandleResidentNV` | definition | unclassified | - | - | - | - |
-| `glIsList` | definition | unclassified | - | - | - | - |
-| `glIsMemoryObjectEXT` | definition | unclassified | - | - | - | - |
-| `glIsNameAMD` | definition | unclassified | - | - | - | - |
-| `glIsNamedBufferResidentNV` | definition | unclassified | - | - | - | - |
-| `glIsNamedStringARB` | definition | unclassified | - | - | - | - |
-| `glIsObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glIsOcclusionQueryNV` | definition | unclassified | - | - | - | - |
-| `glIsPathNV` | definition | unclassified | - | - | - | - |
-| `glIsPointInFillPathNV` | definition | unclassified | - | - | - | - |
-| `glIsPointInStrokePathNV` | definition | unclassified | - | - | - | - |
-| `glIsProgram` | definition | unclassified | - | - | - | - |
-| `glIsProgramARB` | definition | unclassified | - | - | - | - |
-| `glIsProgramNV` | definition | unclassified | - | - | - | - |
-| `glIsProgramPipeline` | definition | unclassified | - | - | - | - |
-| `glIsQuery` | definition | unclassified | - | - | - | - |
-| `glIsQueryARB` | definition | unclassified | - | - | - | - |
-| `glIsRenderbuffer` | definition | unclassified | - | - | - | - |
-| `glIsRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glIsSampler` | definition | unclassified | - | - | - | - |
-| `glIsSemaphoreEXT` | definition | unclassified | - | - | - | - |
-| `glIsShader` | definition | unclassified | - | - | - | - |
-| `glIsStateNV` | definition | unclassified | - | - | - | - |
-| `glIsSync` | definition | unclassified | - | - | - | - |
-| `glIsTexture` | definition | unclassified | - | - | - | - |
-| `glIsTextureEXT` | definition | unclassified | - | - | - | - |
-| `glIsTextureHandleResidentARB` | definition | unclassified | - | - | - | - |
-| `glIsTextureHandleResidentNV` | definition | unclassified | - | - | - | - |
-| `glIsTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glIsTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glIsVariantEnabledEXT` | definition | unclassified | - | - | - | - |
-| `glIsVertexArray` | definition | unclassified | - | - | - | - |
-| `glIsVertexArrayAPPLE` | definition | unclassified | - | - | - | - |
-| `glIsVertexAttribEnabledAPPLE` | definition | unclassified | - | - | - | - |
-| `glLGPUCopyImageSubDataNVX` | definition | unclassified | - | - | - | - |
-| `glLGPUInterlockNVX` | definition | unclassified | - | - | - | - |
-| `glLGPUNamedBufferSubDataNVX` | definition | unclassified | - | - | - | - |
-| `glLabelObjectEXT` | definition | unclassified | - | - | - | - |
-| `glLightEnviSGIX` | definition | unclassified | - | - | - | - |
-| `glLightModelf` | definition | unclassified | - | - | - | - |
-| `glLightModelfv` | definition | unclassified | - | - | - | - |
-| `glLightModeli` | definition | unclassified | - | - | - | - |
-| `glLightModeliv` | definition | unclassified | - | - | - | - |
-| `glLightModelxOES` | definition | unclassified | - | - | - | - |
-| `glLightModelxvOES` | definition | unclassified | - | - | - | - |
-| `glLightf` | definition | unclassified | - | - | - | - |
-| `glLightfv` | definition | unclassified | - | - | - | - |
-| `glLighti` | definition | unclassified | - | - | - | - |
-| `glLightiv` | definition | unclassified | - | - | - | - |
-| `glLightxOES` | definition | unclassified | - | - | - | - |
-| `glLightxvOES` | definition | unclassified | - | - | - | - |
-| `glLineStipple` | definition | unclassified | - | - | - | - |
-| `glLineWidth` | definition | unclassified | - | - | - | - |
-| `glLineWidthxOES` | definition | unclassified | - | - | - | - |
-| `glLinkProgram` | definition | common | src/driver/opengl.ab render and compute program linking | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid vertex-fragment link | tests/opengl/main.ab empty program link rejection |
-| `glLinkProgramARB` | definition | unclassified | - | - | - | - |
-| `glListBase` | definition | unclassified | - | - | - | - |
-| `glListDrawCommandsStatesClientNV` | definition | unclassified | - | - | - | - |
-| `glListParameterfSGIX` | definition | unclassified | - | - | - | - |
-| `glListParameterfvSGIX` | definition | unclassified | - | - | - | - |
-| `glListParameteriSGIX` | definition | unclassified | - | - | - | - |
-| `glListParameterivSGIX` | definition | unclassified | - | - | - | - |
-| `glLoadIdentity` | definition | unclassified | - | - | - | - |
-| `glLoadIdentityDeformationMapSGIX` | definition | unclassified | - | - | - | - |
-| `glLoadMatrixd` | definition | unclassified | - | - | - | - |
-| `glLoadMatrixf` | definition | unclassified | - | - | - | - |
-| `glLoadMatrixxOES` | definition | unclassified | - | - | - | - |
-| `glLoadName` | definition | unclassified | - | - | - | - |
-| `glLoadProgramNV` | definition | unclassified | - | - | - | - |
-| `glLoadTransposeMatrixd` | definition | unclassified | - | - | - | - |
-| `glLoadTransposeMatrixdARB` | definition | unclassified | - | - | - | - |
-| `glLoadTransposeMatrixf` | definition | unclassified | - | - | - | - |
-| `glLoadTransposeMatrixfARB` | definition | unclassified | - | - | - | - |
-| `glLoadTransposeMatrixxOES` | definition | unclassified | - | - | - | - |
-| `glLockArraysEXT` | definition | unclassified | - | - | - | - |
-| `glLogicOp` | definition | unclassified | - | - | - | - |
-| `glMakeBufferNonResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeBufferResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeImageHandleNonResidentARB` | definition | unclassified | - | - | - | - |
-| `glMakeImageHandleNonResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeImageHandleResidentARB` | definition | unclassified | - | - | - | - |
-| `glMakeImageHandleResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeNamedBufferNonResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeNamedBufferResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeTextureHandleNonResidentARB` | definition | unclassified | - | - | - | - |
-| `glMakeTextureHandleNonResidentNV` | definition | unclassified | - | - | - | - |
-| `glMakeTextureHandleResidentARB` | definition | unclassified | - | - | - | - |
-| `glMakeTextureHandleResidentNV` | definition | unclassified | - | - | - | - |
-| `glMap1d` | definition | unclassified | - | - | - | - |
-| `glMap1f` | definition | unclassified | - | - | - | - |
-| `glMap1xOES` | definition | unclassified | - | - | - | - |
-| `glMap2d` | definition | unclassified | - | - | - | - |
-| `glMap2f` | definition | unclassified | - | - | - | - |
-| `glMap2xOES` | definition | unclassified | - | - | - | - |
-| `glMapBuffer` | definition | unclassified | - | - | - | - |
-| `glMapBufferARB` | definition | unclassified | - | - | - | - |
-| `glMapBufferRange` | definition | common | src/driver/opengl.ab mapped-at-creation and reusable read-write range mapping | src/driver/opengl.ab typed offset length flags and mapped-pointer ABI | examples/common-buffer/main.ab allocation-free repeated write and read maps | tests/application/main.ab access nested mapped-use and logical-range rejection |
-| `glMapControlPointsNV` | definition | unclassified | - | - | - | - |
-| `glMapGrid1d` | definition | unclassified | - | - | - | - |
-| `glMapGrid1f` | definition | unclassified | - | - | - | - |
-| `glMapGrid1xOES` | definition | unclassified | - | - | - | - |
-| `glMapGrid2d` | definition | unclassified | - | - | - | - |
-| `glMapGrid2f` | definition | unclassified | - | - | - | - |
-| `glMapGrid2xOES` | definition | unclassified | - | - | - | - |
-| `glMapNamedBuffer` | definition | unclassified | - | - | - | - |
-| `glMapNamedBufferEXT` | definition | unclassified | - | - | - | - |
-| `glMapNamedBufferRange` | definition | unclassified | - | - | - | - |
-| `glMapNamedBufferRangeEXT` | definition | unclassified | - | - | - | - |
-| `glMapObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glMapParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glMapParameterivNV` | definition | unclassified | - | - | - | - |
-| `glMapTexture2DINTEL` | definition | unclassified | - | - | - | - |
-| `glMapVertexAttrib1dAPPLE` | definition | unclassified | - | - | - | - |
-| `glMapVertexAttrib1fAPPLE` | definition | unclassified | - | - | - | - |
-| `glMapVertexAttrib2dAPPLE` | definition | unclassified | - | - | - | - |
-| `glMapVertexAttrib2fAPPLE` | definition | unclassified | - | - | - | - |
-| `glMaterialf` | definition | unclassified | - | - | - | - |
-| `glMaterialfv` | definition | unclassified | - | - | - | - |
-| `glMateriali` | definition | unclassified | - | - | - | - |
-| `glMaterialiv` | definition | unclassified | - | - | - | - |
-| `glMaterialxOES` | definition | unclassified | - | - | - | - |
-| `glMaterialxvOES` | definition | unclassified | - | - | - | - |
-| `glMatrixFrustumEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixIndexPointerARB` | definition | unclassified | - | - | - | - |
-| `glMatrixIndexubvARB` | definition | unclassified | - | - | - | - |
-| `glMatrixIndexuivARB` | definition | unclassified | - | - | - | - |
-| `glMatrixIndexusvARB` | definition | unclassified | - | - | - | - |
-| `glMatrixLoad3x2fNV` | definition | unclassified | - | - | - | - |
-| `glMatrixLoad3x3fNV` | definition | unclassified | - | - | - | - |
-| `glMatrixLoadIdentityEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixLoadTranspose3x3fNV` | definition | unclassified | - | - | - | - |
-| `glMatrixLoadTransposedEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixLoadTransposefEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixLoaddEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixLoadfEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixMode` | definition | unclassified | - | - | - | - |
-| `glMatrixMult3x2fNV` | definition | unclassified | - | - | - | - |
-| `glMatrixMult3x3fNV` | definition | unclassified | - | - | - | - |
-| `glMatrixMultTranspose3x3fNV` | definition | unclassified | - | - | - | - |
-| `glMatrixMultTransposedEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixMultTransposefEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixMultdEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixMultfEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixOrthoEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixPopEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixPushEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixRotatedEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixRotatefEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixScaledEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixScalefEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixTranslatedEXT` | definition | unclassified | - | - | - | - |
-| `glMatrixTranslatefEXT` | definition | unclassified | - | - | - | - |
-| `glMaxShaderCompilerThreadsARB` | definition | unclassified | - | - | - | - |
-| `glMaxShaderCompilerThreadsKHR` | definition | unclassified | - | - | - | - |
-| `glMemoryBarrier` | definition | common | src/driver/opengl.ab compute and coherent mapped-transfer visibility | src/driver/opengl.ab typed barrier-mask ABI | examples/common-buffer/main.ab exact wrapped persistent upload and readback | tests/application/main.ab invalid mapped transfer rejection |
-| `glMemoryBarrierByRegion` | definition | unclassified | - | - | - | - |
-| `glMemoryBarrierEXT` | definition | unclassified | - | - | - | - |
-| `glMemoryObjectParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glMinSampleShading` | definition | unclassified | - | - | - | - |
-| `glMinSampleShadingARB` | definition | unclassified | - | - | - | - |
-| `glMinmaxEXT` | definition | unclassified | - | - | - | - |
-| `glMultMatrixd` | definition | unclassified | - | - | - | - |
-| `glMultMatrixf` | definition | unclassified | - | - | - | - |
-| `glMultMatrixxOES` | definition | unclassified | - | - | - | - |
-| `glMultTransposeMatrixd` | definition | unclassified | - | - | - | - |
-| `glMultTransposeMatrixdARB` | definition | unclassified | - | - | - | - |
-| `glMultTransposeMatrixf` | definition | unclassified | - | - | - | - |
-| `glMultTransposeMatrixfARB` | definition | unclassified | - | - | - | - |
-| `glMultTransposeMatrixxOES` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArrays` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysEXT` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysIndirect` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysIndirectAMD` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysIndirectBindlessCountNV` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysIndirectBindlessNV` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysIndirectCount` | definition | unclassified | - | - | - | - |
-| `glMultiDrawArraysIndirectCountARB` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementArrayAPPLE` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElements` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsBaseVertex` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsEXT` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsIndirect` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsIndirectAMD` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsIndirectBindlessCountNV` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsIndirectBindlessNV` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsIndirectCount` | definition | unclassified | - | - | - | - |
-| `glMultiDrawElementsIndirectCountARB` | definition | unclassified | - | - | - | - |
-| `glMultiDrawMeshTasksIndirectCountEXT` | definition | unclassified | - | - | - | - |
-| `glMultiDrawMeshTasksIndirectCountNV` | definition | unclassified | - | - | - | - |
-| `glMultiDrawMeshTasksIndirectEXT` | definition | unclassified | - | - | - | - |
-| `glMultiDrawMeshTasksIndirectNV` | definition | unclassified | - | - | - | - |
-| `glMultiDrawRangeElementArrayAPPLE` | definition | unclassified | - | - | - | - |
-| `glMultiModeDrawArraysIBM` | definition | unclassified | - | - | - | - |
-| `glMultiModeDrawElementsIBM` | definition | unclassified | - | - | - | - |
-| `glMultiTexBufferEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1bOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1bvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1d` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1dARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1dv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1dvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1f` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1fARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1fv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1fvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1hNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1hvNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1i` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1iARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1iv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1ivARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1s` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1sARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1sv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1svARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1xOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord1xvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2bOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2bvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2d` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2dARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2dv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2dvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2f` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2fARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2fv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2fvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2hNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2hvNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2i` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2iARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2iv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2ivARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2s` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2sARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2sv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2svARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2xOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord2xvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3bOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3bvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3d` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3dARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3dv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3dvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3f` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3fARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3fv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3fvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3hNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3hvNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3i` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3iARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3iv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3ivARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3s` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3sARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3sv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3svARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3xOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord3xvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4bOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4bvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4d` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4dARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4dv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4dvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4f` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4fARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4fv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4fvARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4hNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4hvNV` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4i` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4iARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4iv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4ivARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4s` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4sARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4sv` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4svARB` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4xOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoord4xvOES` | definition | unclassified | - | - | - | - |
-| `glMultiTexCoordPointerEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexEnvfEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexEnvfvEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexEnviEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexEnvivEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexGendEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexGendvEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexGenfEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexGenfvEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexGeniEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexGenivEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexParameterfEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexParameteriEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glMultiTexSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glMulticastBarrierNV` | definition | unclassified | - | - | - | - |
-| `glMulticastBlitFramebufferNV` | definition | unclassified | - | - | - | - |
-| `glMulticastBufferSubDataNV` | definition | unclassified | - | - | - | - |
-| `glMulticastCopyBufferSubDataNV` | definition | unclassified | - | - | - | - |
-| `glMulticastCopyImageSubDataNV` | definition | unclassified | - | - | - | - |
-| `glMulticastFramebufferSampleLocationsfvNV` | definition | unclassified | - | - | - | - |
-| `glMulticastGetQueryObjecti64vNV` | definition | unclassified | - | - | - | - |
-| `glMulticastGetQueryObjectivNV` | definition | unclassified | - | - | - | - |
-| `glMulticastGetQueryObjectui64vNV` | definition | unclassified | - | - | - | - |
-| `glMulticastGetQueryObjectuivNV` | definition | unclassified | - | - | - | - |
-| `glMulticastScissorArrayvNVX` | definition | unclassified | - | - | - | - |
-| `glMulticastViewportArrayvNVX` | definition | unclassified | - | - | - | - |
-| `glMulticastViewportPositionWScaleNVX` | definition | unclassified | - | - | - | - |
-| `glMulticastWaitSyncNV` | definition | unclassified | - | - | - | - |
-| `glNamedBufferAttachMemoryNV` | definition | unclassified | - | - | - | - |
-| `glNamedBufferData` | definition | unclassified | - | - | - | - |
-| `glNamedBufferDataEXT` | definition | unclassified | - | - | - | - |
-| `glNamedBufferPageCommitmentARB` | definition | unclassified | - | - | - | - |
-| `glNamedBufferPageCommitmentEXT` | definition | unclassified | - | - | - | - |
-| `glNamedBufferPageCommitmentMemNV` | definition | unclassified | - | - | - | - |
-| `glNamedBufferStorage` | definition | unclassified | - | - | - | - |
-| `glNamedBufferStorageEXT` | definition | unclassified | - | - | - | - |
-| `glNamedBufferStorageExternalEXT` | definition | unclassified | - | - | - | - |
-| `glNamedBufferStorageMemEXT` | definition | unclassified | - | - | - | - |
-| `glNamedBufferSubData` | definition | unclassified | - | - | - | - |
-| `glNamedBufferSubDataEXT` | definition | unclassified | - | - | - | - |
-| `glNamedCopyBufferSubDataEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferDrawBuffer` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferDrawBuffers` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferParameteri` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferParameteriEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferReadBuffer` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferRenderbuffer` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferSampleLocationsfvARB` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferSampleLocationsfvNV` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferSamplePositionsfvAMD` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTexture` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTexture1DEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTexture2DEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTexture3DEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTextureEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTextureFaceEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTextureLayer` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTextureLayerEXT` | definition | unclassified | - | - | - | - |
-| `glNamedFramebufferTextureMultiviewOVR` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameter4dEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameter4dvEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameter4fEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameter4fvEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameterI4iEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameterI4ivEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameterI4uiEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameterI4uivEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParameters4fvEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParametersI4ivEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramLocalParametersI4uivEXT` | definition | unclassified | - | - | - | - |
-| `glNamedProgramStringEXT` | definition | unclassified | - | - | - | - |
-| `glNamedRenderbufferStorage` | definition | unclassified | - | - | - | - |
-| `glNamedRenderbufferStorageEXT` | definition | unclassified | - | - | - | - |
-| `glNamedRenderbufferStorageMultisample` | definition | unclassified | - | - | - | - |
-| `glNamedRenderbufferStorageMultisampleAdvancedAMD` | definition | unclassified | - | - | - | - |
-| `glNamedRenderbufferStorageMultisampleCoverageEXT` | definition | unclassified | - | - | - | - |
-| `glNamedRenderbufferStorageMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glNamedStringARB` | definition | unclassified | - | - | - | - |
-| `glNewList` | definition | unclassified | - | - | - | - |
-| `glNewObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glNormal3b` | definition | unclassified | - | - | - | - |
-| `glNormal3bv` | definition | unclassified | - | - | - | - |
-| `glNormal3d` | definition | unclassified | - | - | - | - |
-| `glNormal3dv` | definition | unclassified | - | - | - | - |
-| `glNormal3f` | definition | unclassified | - | - | - | - |
-| `glNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glNormal3fv` | definition | unclassified | - | - | - | - |
-| `glNormal3hNV` | definition | unclassified | - | - | - | - |
-| `glNormal3hvNV` | definition | unclassified | - | - | - | - |
-| `glNormal3i` | definition | unclassified | - | - | - | - |
-| `glNormal3iv` | definition | unclassified | - | - | - | - |
-| `glNormal3s` | definition | unclassified | - | - | - | - |
-| `glNormal3sv` | definition | unclassified | - | - | - | - |
-| `glNormal3xOES` | definition | unclassified | - | - | - | - |
-| `glNormal3xvOES` | definition | unclassified | - | - | - | - |
-| `glNormalFormatNV` | definition | unclassified | - | - | - | - |
-| `glNormalPointer` | definition | unclassified | - | - | - | - |
-| `glNormalPointerEXT` | definition | unclassified | - | - | - | - |
-| `glNormalPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glNormalPointervINTEL` | definition | unclassified | - | - | - | - |
-| `glNormalStream3bATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3bvATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3dATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3dvATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3fATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3fvATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3iATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3ivATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3sATI` | definition | unclassified | - | - | - | - |
-| `glNormalStream3svATI` | definition | unclassified | - | - | - | - |
-| `glObjectLabel` | definition | unclassified | - | - | - | - |
-| `glObjectPtrLabel` | definition | unclassified | - | - | - | - |
-| `glObjectPurgeableAPPLE` | definition | unclassified | - | - | - | - |
-| `glObjectUnpurgeableAPPLE` | definition | unclassified | - | - | - | - |
-| `glOrtho` | definition | unclassified | - | - | - | - |
-| `glOrthofOES` | definition | unclassified | - | - | - | - |
-| `glOrthoxOES` | definition | unclassified | - | - | - | - |
-| `glPNTrianglesfATI` | definition | unclassified | - | - | - | - |
-| `glPNTrianglesiATI` | definition | unclassified | - | - | - | - |
-| `glPassTexCoordATI` | definition | unclassified | - | - | - | - |
-| `glPassThrough` | definition | unclassified | - | - | - | - |
-| `glPassThroughxOES` | definition | unclassified | - | - | - | - |
-| `glPatchParameterfv` | definition | unclassified | - | - | - | - |
-| `glPatchParameteri` | definition | unclassified | - | - | - | - |
-| `glPathCommandsNV` | definition | unclassified | - | - | - | - |
-| `glPathCoordsNV` | definition | unclassified | - | - | - | - |
-| `glPathCoverDepthFuncNV` | definition | unclassified | - | - | - | - |
-| `glPathDashArrayNV` | definition | unclassified | - | - | - | - |
-| `glPathGlyphIndexArrayNV` | definition | unclassified | - | - | - | - |
-| `glPathGlyphIndexRangeNV` | definition | unclassified | - | - | - | - |
-| `glPathGlyphRangeNV` | definition | unclassified | - | - | - | - |
-| `glPathGlyphsNV` | definition | unclassified | - | - | - | - |
-| `glPathMemoryGlyphIndexArrayNV` | definition | unclassified | - | - | - | - |
-| `glPathParameterfNV` | definition | unclassified | - | - | - | - |
-| `glPathParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glPathParameteriNV` | definition | unclassified | - | - | - | - |
-| `glPathParameterivNV` | definition | unclassified | - | - | - | - |
-| `glPathStencilDepthOffsetNV` | definition | unclassified | - | - | - | - |
-| `glPathStencilFuncNV` | definition | unclassified | - | - | - | - |
-| `glPathStringNV` | definition | unclassified | - | - | - | - |
-| `glPathSubCommandsNV` | definition | unclassified | - | - | - | - |
-| `glPathSubCoordsNV` | definition | unclassified | - | - | - | - |
-| `glPauseTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glPauseTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glPixelDataRangeNV` | definition | unclassified | - | - | - | - |
-| `glPixelMapfv` | definition | unclassified | - | - | - | - |
-| `glPixelMapuiv` | definition | unclassified | - | - | - | - |
-| `glPixelMapusv` | definition | unclassified | - | - | - | - |
-| `glPixelMapx` | definition | unclassified | - | - | - | - |
-| `glPixelStoref` | definition | unclassified | - | - | - | - |
-| `glPixelStorei` | definition | common | src/driver/opengl.ab scoped pitched uncompressed and compressed pack-unpack state | src/driver/opengl.ab typed state-name and integer ABI | tests/wider_texture/main.ab exact padded array cube volume and BC1 round trips | tests/texture_contract.ab invalid pitch and block alignment rejection |
-| `glPixelStorex` | definition | unclassified | - | - | - | - |
-| `glPixelTexGenParameterfSGIS` | definition | unclassified | - | - | - | - |
-| `glPixelTexGenParameterfvSGIS` | definition | unclassified | - | - | - | - |
-| `glPixelTexGenParameteriSGIS` | definition | unclassified | - | - | - | - |
-| `glPixelTexGenParameterivSGIS` | definition | unclassified | - | - | - | - |
-| `glPixelTexGenSGIX` | definition | unclassified | - | - | - | - |
-| `glPixelTransferf` | definition | unclassified | - | - | - | - |
-| `glPixelTransferi` | definition | unclassified | - | - | - | - |
-| `glPixelTransferxOES` | definition | unclassified | - | - | - | - |
-| `glPixelTransformParameterfEXT` | definition | unclassified | - | - | - | - |
-| `glPixelTransformParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glPixelTransformParameteriEXT` | definition | unclassified | - | - | - | - |
-| `glPixelTransformParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glPixelZoom` | definition | unclassified | - | - | - | - |
-| `glPixelZoomxOES` | definition | unclassified | - | - | - | - |
-| `glPointAlongPathNV` | definition | unclassified | - | - | - | - |
-| `glPointParameterf` | definition | unclassified | - | - | - | - |
-| `glPointParameterfARB` | definition | unclassified | - | - | - | - |
-| `glPointParameterfEXT` | definition | unclassified | - | - | - | - |
-| `glPointParameterfSGIS` | definition | unclassified | - | - | - | - |
-| `glPointParameterfv` | definition | unclassified | - | - | - | - |
-| `glPointParameterfvARB` | definition | unclassified | - | - | - | - |
-| `glPointParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glPointParameterfvSGIS` | definition | unclassified | - | - | - | - |
-| `glPointParameteri` | definition | unclassified | - | - | - | - |
-| `glPointParameteriNV` | definition | unclassified | - | - | - | - |
-| `glPointParameteriv` | definition | unclassified | - | - | - | - |
-| `glPointParameterivNV` | definition | unclassified | - | - | - | - |
-| `glPointParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glPointSize` | definition | unclassified | - | - | - | - |
-| `glPointSizexOES` | definition | unclassified | - | - | - | - |
-| `glPollAsyncSGIX` | definition | unclassified | - | - | - | - |
-| `glPollInstrumentsSGIX` | definition | unclassified | - | - | - | - |
-| `glPolygonMode` | definition | unclassified | - | - | - | - |
-| `glPolygonOffset` | definition | unclassified | - | - | - | - |
-| `glPolygonOffsetClamp` | definition | unclassified | - | - | - | - |
-| `glPolygonOffsetClampEXT` | definition | unclassified | - | - | - | - |
-| `glPolygonOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glPolygonOffsetxOES` | definition | unclassified | - | - | - | - |
-| `glPolygonStipple` | definition | unclassified | - | - | - | - |
-| `glPopAttrib` | definition | unclassified | - | - | - | - |
-| `glPopClientAttrib` | definition | unclassified | - | - | - | - |
-| `glPopDebugGroup` | definition | unclassified | - | - | - | - |
-| `glPopGroupMarkerEXT` | definition | unclassified | - | - | - | - |
-| `glPopMatrix` | definition | unclassified | - | - | - | - |
-| `glPopName` | definition | unclassified | - | - | - | - |
-| `glPresentFrameDualFillNV` | definition | unclassified | - | - | - | - |
-| `glPresentFrameKeyedNV` | definition | unclassified | - | - | - | - |
-| `glPrimitiveBoundingBoxARB` | definition | unclassified | - | - | - | - |
-| `glPrimitiveRestartIndex` | definition | unclassified | - | - | - | - |
-| `glPrimitiveRestartIndexNV` | definition | unclassified | - | - | - | - |
-| `glPrimitiveRestartNV` | definition | unclassified | - | - | - | - |
-| `glPrioritizeTextures` | definition | unclassified | - | - | - | - |
-| `glPrioritizeTexturesEXT` | definition | unclassified | - | - | - | - |
-| `glPrioritizeTexturesxOES` | definition | unclassified | - | - | - | - |
-| `glProgramBinary` | definition | unclassified | - | - | - | - |
-| `glProgramBufferParametersIivNV` | definition | unclassified | - | - | - | - |
-| `glProgramBufferParametersIuivNV` | definition | unclassified | - | - | - | - |
-| `glProgramBufferParametersfvNV` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameter4dARB` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameter4dvARB` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameter4fARB` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameter4fvARB` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameterI4iNV` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameterI4ivNV` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameterI4uiNV` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameterI4uivNV` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParameters4fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParametersI4ivNV` | definition | unclassified | - | - | - | - |
-| `glProgramEnvParametersI4uivNV` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameter4dARB` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameter4dvARB` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameter4fARB` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameter4fvARB` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameterI4iNV` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameterI4ivNV` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameterI4uiNV` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameterI4uivNV` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParameters4fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParametersI4ivNV` | definition | unclassified | - | - | - | - |
-| `glProgramLocalParametersI4uivNV` | definition | unclassified | - | - | - | - |
-| `glProgramNamedParameter4dNV` | definition | unclassified | - | - | - | - |
-| `glProgramNamedParameter4dvNV` | definition | unclassified | - | - | - | - |
-| `glProgramNamedParameter4fNV` | definition | unclassified | - | - | - | - |
-| `glProgramNamedParameter4fvNV` | definition | unclassified | - | - | - | - |
-| `glProgramParameter4dNV` | definition | unclassified | - | - | - | - |
-| `glProgramParameter4dvNV` | definition | unclassified | - | - | - | - |
-| `glProgramParameter4fNV` | definition | unclassified | - | - | - | - |
-| `glProgramParameter4fvNV` | definition | unclassified | - | - | - | - |
-| `glProgramParameteri` | definition | unclassified | - | - | - | - |
-| `glProgramParameteriARB` | definition | unclassified | - | - | - | - |
-| `glProgramParameteriEXT` | definition | unclassified | - | - | - | - |
-| `glProgramParameters4dvNV` | definition | unclassified | - | - | - | - |
-| `glProgramParameters4fvNV` | definition | unclassified | - | - | - | - |
-| `glProgramPathFragmentInputGenNV` | definition | unclassified | - | - | - | - |
-| `glProgramStringARB` | definition | unclassified | - | - | - | - |
-| `glProgramSubroutineParametersuivNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1d` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1dEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1f` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1fEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1i` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1i64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1i64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1i64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1i64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1iEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1iv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1ivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1ui` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1ui64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1ui64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1ui64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1ui64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1uiEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1uiv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform1uivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2d` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2dEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2f` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2fEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2i` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2i64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2i64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2i64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2i64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2iEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2iv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2ivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2ui` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2ui64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2ui64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2ui64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2ui64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2uiEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2uiv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform2uivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3d` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3dEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3f` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3fEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3i` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3i64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3i64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3i64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3i64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3iEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3iv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3ivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3ui` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3ui64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3ui64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3ui64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3ui64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3uiEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3uiv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform3uivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4d` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4dEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4f` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4fEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4i` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4i64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4i64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4i64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4i64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4iEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4iv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4ivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4ui` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4ui64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4ui64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4ui64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4ui64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4uiEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4uiv` | definition | unclassified | - | - | - | - |
-| `glProgramUniform4uivEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformHandleui64ARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniformHandleui64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniformHandleui64vARB` | definition | unclassified | - | - | - | - |
-| `glProgramUniformHandleui64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x3dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x3dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x3fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x3fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x4dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x4dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x4fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix2x4fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x2dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x2dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x2fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x2fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x4dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x4dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x4fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix3x4fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x2dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x2dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x2fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x2fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x3dv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x3dvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x3fv` | definition | unclassified | - | - | - | - |
-| `glProgramUniformMatrix4x3fvEXT` | definition | unclassified | - | - | - | - |
-| `glProgramUniformui64NV` | definition | unclassified | - | - | - | - |
-| `glProgramUniformui64vNV` | definition | unclassified | - | - | - | - |
-| `glProgramVertexLimitNV` | definition | unclassified | - | - | - | - |
-| `glProvokingVertex` | definition | unclassified | - | - | - | - |
-| `glProvokingVertexEXT` | definition | unclassified | - | - | - | - |
-| `glPushAttrib` | definition | unclassified | - | - | - | - |
-| `glPushClientAttrib` | definition | unclassified | - | - | - | - |
-| `glPushClientAttribDefaultEXT` | definition | unclassified | - | - | - | - |
-| `glPushDebugGroup` | definition | unclassified | - | - | - | - |
-| `glPushGroupMarkerEXT` | definition | unclassified | - | - | - | - |
-| `glPushMatrix` | definition | unclassified | - | - | - | - |
-| `glPushName` | definition | unclassified | - | - | - | - |
-| `glQueryCounter` | definition | common | src/driver/opengl.ab timestamp sampling | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated timestamp samples | tests/application/main.ab invalid query rejection |
-| `glQueryMatrixxOES` | definition | unclassified | - | - | - | - |
-| `glQueryObjectParameteruiAMD` | definition | unclassified | - | - | - | - |
-| `glQueryResourceNV` | definition | unclassified | - | - | - | - |
-| `glQueryResourceTagNV` | definition | unclassified | - | - | - | - |
-| `glRasterPos2d` | definition | unclassified | - | - | - | - |
-| `glRasterPos2dv` | definition | unclassified | - | - | - | - |
-| `glRasterPos2f` | definition | unclassified | - | - | - | - |
-| `glRasterPos2fv` | definition | unclassified | - | - | - | - |
-| `glRasterPos2i` | definition | unclassified | - | - | - | - |
-| `glRasterPos2iv` | definition | unclassified | - | - | - | - |
-| `glRasterPos2s` | definition | unclassified | - | - | - | - |
-| `glRasterPos2sv` | definition | unclassified | - | - | - | - |
-| `glRasterPos2xOES` | definition | unclassified | - | - | - | - |
-| `glRasterPos2xvOES` | definition | unclassified | - | - | - | - |
-| `glRasterPos3d` | definition | unclassified | - | - | - | - |
-| `glRasterPos3dv` | definition | unclassified | - | - | - | - |
-| `glRasterPos3f` | definition | unclassified | - | - | - | - |
-| `glRasterPos3fv` | definition | unclassified | - | - | - | - |
-| `glRasterPos3i` | definition | unclassified | - | - | - | - |
-| `glRasterPos3iv` | definition | unclassified | - | - | - | - |
-| `glRasterPos3s` | definition | unclassified | - | - | - | - |
-| `glRasterPos3sv` | definition | unclassified | - | - | - | - |
-| `glRasterPos3xOES` | definition | unclassified | - | - | - | - |
-| `glRasterPos3xvOES` | definition | unclassified | - | - | - | - |
-| `glRasterPos4d` | definition | unclassified | - | - | - | - |
-| `glRasterPos4dv` | definition | unclassified | - | - | - | - |
-| `glRasterPos4f` | definition | unclassified | - | - | - | - |
-| `glRasterPos4fv` | definition | unclassified | - | - | - | - |
-| `glRasterPos4i` | definition | unclassified | - | - | - | - |
-| `glRasterPos4iv` | definition | unclassified | - | - | - | - |
-| `glRasterPos4s` | definition | unclassified | - | - | - | - |
-| `glRasterPos4sv` | definition | unclassified | - | - | - | - |
-| `glRasterPos4xOES` | definition | unclassified | - | - | - | - |
-| `glRasterPos4xvOES` | definition | unclassified | - | - | - | - |
-| `glRasterSamplesEXT` | definition | unclassified | - | - | - | - |
-| `glReadBuffer` | definition | common | src/driver/opengl.ab MRT resolve selection | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact second attachment resolve | tests/application/main.ab attachment bounds rejection |
-| `glReadInstrumentsSGIX` | definition | unclassified | - | - | - | - |
-| `glReadPixels` | definition | common | src/driver/opengl.ab bounded framebuffer pixel readback | src/driver/opengl.ab typed region format type and output-pointer ABI | tests/application/main.ab exact surfaced and render-target RGBA8 pixels | tests/application/main.ab out-of-range texture readback rejection |
-| `glReadnPixels` | definition | unclassified | - | - | - | - |
-| `glReadnPixelsARB` | definition | unclassified | - | - | - | - |
-| `glRectd` | definition | unclassified | - | - | - | - |
-| `glRectdv` | definition | unclassified | - | - | - | - |
-| `glRectf` | definition | unclassified | - | - | - | - |
-| `glRectfv` | definition | unclassified | - | - | - | - |
-| `glRecti` | definition | unclassified | - | - | - | - |
-| `glRectiv` | definition | unclassified | - | - | - | - |
-| `glRects` | definition | unclassified | - | - | - | - |
-| `glRectsv` | definition | unclassified | - | - | - | - |
-| `glRectxOES` | definition | unclassified | - | - | - | - |
-| `glRectxvOES` | definition | unclassified | - | - | - | - |
-| `glReferencePlaneSGIX` | definition | unclassified | - | - | - | - |
-| `glReleaseClientPointerRangeMESA` | definition | unclassified | - | - | - | - |
-| `glReleaseKeyedMutexWin32EXT` | definition | unclassified | - | - | - | - |
-| `glReleaseShaderCompiler` | definition | unclassified | - | - | - | - |
-| `glRenderGpuMaskNV` | definition | unclassified | - | - | - | - |
-| `glRenderMode` | definition | unclassified | - | - | - | - |
-| `glRenderbufferStorage` | definition | unclassified | - | - | - | - |
-| `glRenderbufferStorageEXT` | definition | unclassified | - | - | - | - |
-| `glRenderbufferStorageMultisample` | definition | unclassified | - | - | - | - |
-| `glRenderbufferStorageMultisampleAdvancedAMD` | definition | unclassified | - | - | - | - |
-| `glRenderbufferStorageMultisampleCoverageNV` | definition | unclassified | - | - | - | - |
-| `glRenderbufferStorageMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glReplacementCodePointerSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeubSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeubvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiColor3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiColor3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiColor4fNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiColor4fNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiColor4ubVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiColor4ubVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiTexCoord2fColor4fNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiTexCoord2fColor4fNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiTexCoord2fNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiTexCoord2fNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiTexCoord2fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiTexCoord2fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuiVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeuivSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeusSUN` | definition | unclassified | - | - | - | - |
-| `glReplacementCodeusvSUN` | definition | unclassified | - | - | - | - |
-| `glRequestResidentProgramsNV` | definition | unclassified | - | - | - | - |
-| `glResetHistogramEXT` | definition | unclassified | - | - | - | - |
-| `glResetMemoryObjectParameterNV` | definition | unclassified | - | - | - | - |
-| `glResetMinmaxEXT` | definition | unclassified | - | - | - | - |
-| `glResizeBuffersMESA` | definition | unclassified | - | - | - | - |
-| `glResolveDepthValuesNV` | definition | unclassified | - | - | - | - |
-| `glResumeTransformFeedback` | definition | unclassified | - | - | - | - |
-| `glResumeTransformFeedbackNV` | definition | unclassified | - | - | - | - |
-| `glRotated` | definition | unclassified | - | - | - | - |
-| `glRotatef` | definition | unclassified | - | - | - | - |
-| `glRotatexOES` | definition | unclassified | - | - | - | - |
-| `glSampleCoverage` | definition | unclassified | - | - | - | - |
-| `glSampleCoverageARB` | definition | unclassified | - | - | - | - |
-| `glSampleMapATI` | definition | unclassified | - | - | - | - |
-| `glSampleMaskEXT` | definition | unclassified | - | - | - | - |
-| `glSampleMaskIndexedNV` | definition | unclassified | - | - | - | - |
-| `glSampleMaskSGIS` | definition | unclassified | - | - | - | - |
-| `glSampleMaski` | definition | unclassified | - | - | - | - |
-| `glSamplePatternEXT` | definition | unclassified | - | - | - | - |
-| `glSamplePatternSGIS` | definition | unclassified | - | - | - | - |
-| `glSamplerParameterIiv` | definition | unclassified | - | - | - | - |
-| `glSamplerParameterIuiv` | definition | unclassified | - | - | - | - |
-| `glSamplerParameterf` | definition | unclassified | - | - | - | - |
-| `glSamplerParameterfv` | definition | common | src/driver/opengl.ab anisotropy configuration | src/driver/opengl.ab typed float-pointer ABI | tests/application/main.ab maximum anisotropy sampler creation | src/sampler.ab unsupported anisotropy rejection |
-| `glSamplerParameteri` | definition | common | src/driver/opengl.ab address filter LOD and comparison configuration | src/driver/opengl.ab typed integer parameter ABI | tests/application/main.ab repeat mirror linear and comparison sampler creation | src/resources.ab invalid address filter LOD and comparison rejection |
-| `glSamplerParameteriv` | definition | unclassified | - | - | - | - |
-| `glScaled` | definition | unclassified | - | - | - | - |
-| `glScalef` | definition | unclassified | - | - | - | - |
-| `glScalexOES` | definition | unclassified | - | - | - | - |
-| `glScissor` | definition | unclassified | - | - | - | - |
-| `glScissorArrayv` | definition | unclassified | - | - | - | - |
-| `glScissorExclusiveArrayvNV` | definition | unclassified | - | - | - | - |
-| `glScissorExclusiveNV` | definition | unclassified | - | - | - | - |
-| `glScissorIndexed` | definition | unclassified | - | - | - | - |
-| `glScissorIndexedv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3b` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3bEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3bv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3bvEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3d` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3dEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3dv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3dvEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3f` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3fEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3fv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3fvEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3hNV` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3hvNV` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3i` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3iEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3iv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3ivEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3s` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3sEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3sv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3svEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3ub` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3ubEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3ubv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3ubvEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3ui` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3uiEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3uiv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3uivEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3us` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3usEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3usv` | definition | unclassified | - | - | - | - |
-| `glSecondaryColor3usvEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColorFormatNV` | definition | unclassified | - | - | - | - |
-| `glSecondaryColorPointer` | definition | unclassified | - | - | - | - |
-| `glSecondaryColorPointerEXT` | definition | unclassified | - | - | - | - |
-| `glSecondaryColorPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glSelectBuffer` | definition | unclassified | - | - | - | - |
-| `glSelectPerfMonitorCountersAMD` | definition | unclassified | - | - | - | - |
-| `glSemaphoreParameterivNV` | definition | unclassified | - | - | - | - |
-| `glSemaphoreParameterui64vEXT` | definition | unclassified | - | - | - | - |
-| `glSeparableFilter2DEXT` | definition | unclassified | - | - | - | - |
-| `glSetFenceAPPLE` | definition | unclassified | - | - | - | - |
-| `glSetFenceNV` | definition | unclassified | - | - | - | - |
-| `glSetFragmentShaderConstantATI` | definition | unclassified | - | - | - | - |
-| `glSetInvariantEXT` | definition | unclassified | - | - | - | - |
-| `glSetLocalConstantEXT` | definition | unclassified | - | - | - | - |
-| `glSetMultisamplefvAMD` | definition | unclassified | - | - | - | - |
-| `glShadeModel` | definition | unclassified | - | - | - | - |
-| `glShaderBinary` | definition | common | src/driver/opengl.ab emitted SPIR-V shader upload | src/driver/opengl.ab typed shader-array format byte-buffer and length ABI | tests/application/main.ab specialized compute and raster SPIR-V pipelines | src/driver/opengl.ab binary upload error rejection |
-| `glShaderOp1EXT` | definition | unclassified | - | - | - | - |
-| `glShaderOp2EXT` | definition | unclassified | - | - | - | - |
-| `glShaderOp3EXT` | definition | unclassified | - | - | - | - |
-| `glShaderSource` | definition | common | src/driver/opengl.ab bounded GLSL source submission | src/driver/opengl.ab typed source-pointer array ABI | tests/opengl/main.ab valid source program creation | tests/opengl/main.ab malformed source rejection |
-| `glShaderSourceARB` | definition | unclassified | - | - | - | - |
-| `glShaderStorageBlockBinding` | definition | unclassified | - | - | - | - |
-| `glShadingRateCombinerOpsEXT` | definition | unclassified | - | - | - | - |
-| `glShadingRateEXT` | definition | unclassified | - | - | - | - |
-| `glShadingRateImageBarrierNV` | definition | unclassified | - | - | - | - |
-| `glShadingRateImagePaletteNV` | definition | unclassified | - | - | - | - |
-| `glShadingRateSampleOrderCustomNV` | definition | unclassified | - | - | - | - |
-| `glShadingRateSampleOrderNV` | definition | unclassified | - | - | - | - |
-| `glSharpenTexFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glSignalSemaphoreEXT` | definition | unclassified | - | - | - | - |
-| `glSignalSemaphoreui64NVX` | definition | unclassified | - | - | - | - |
-| `glSignalVkFenceNV` | definition | unclassified | - | - | - | - |
-| `glSignalVkSemaphoreNV` | definition | unclassified | - | - | - | - |
-| `glSpecializeShader` | definition | common | src/driver/opengl.ab scalar-specialized SPIR-V entry point | src/driver/opengl.ab typed entry-name index and value arrays ABI | tests/application/main.ab exact bool int uint and float specialization | tests/application/main.ab mismatched specialization rejection |
-| `glSpecializeShaderARB` | definition | unclassified | - | - | - | - |
-| `glSpriteParameterfSGIX` | definition | unclassified | - | - | - | - |
-| `glSpriteParameterfvSGIX` | definition | unclassified | - | - | - | - |
-| `glSpriteParameteriSGIX` | definition | unclassified | - | - | - | - |
-| `glSpriteParameterivSGIX` | definition | unclassified | - | - | - | - |
-| `glStartInstrumentsSGIX` | definition | unclassified | - | - | - | - |
-| `glStateCaptureNV` | definition | unclassified | - | - | - | - |
-| `glStencilClearTagEXT` | definition | unclassified | - | - | - | - |
-| `glStencilFillPathInstancedNV` | definition | unclassified | - | - | - | - |
-| `glStencilFillPathNV` | definition | unclassified | - | - | - | - |
-| `glStencilFunc` | definition | unclassified | - | - | - | - |
-| `glStencilFuncSeparate` | definition | unclassified | - | - | - | - |
-| `glStencilFuncSeparateATI` | definition | unclassified | - | - | - | - |
-| `glStencilMask` | definition | unclassified | - | - | - | - |
-| `glStencilMaskSeparate` | definition | unclassified | - | - | - | - |
-| `glStencilOp` | definition | unclassified | - | - | - | - |
-| `glStencilOpSeparate` | definition | unclassified | - | - | - | - |
-| `glStencilOpSeparateATI` | definition | unclassified | - | - | - | - |
-| `glStencilOpValueAMD` | definition | unclassified | - | - | - | - |
-| `glStencilStrokePathInstancedNV` | definition | unclassified | - | - | - | - |
-| `glStencilStrokePathNV` | definition | unclassified | - | - | - | - |
-| `glStencilThenCoverFillPathInstancedNV` | definition | unclassified | - | - | - | - |
-| `glStencilThenCoverFillPathNV` | definition | unclassified | - | - | - | - |
-| `glStencilThenCoverStrokePathInstancedNV` | definition | unclassified | - | - | - | - |
-| `glStencilThenCoverStrokePathNV` | definition | unclassified | - | - | - | - |
-| `glStopInstrumentsSGIX` | definition | unclassified | - | - | - | - |
-| `glStringMarkerGREMEDY` | definition | unclassified | - | - | - | - |
-| `glSubpixelPrecisionBiasNV` | definition | unclassified | - | - | - | - |
-| `glSwizzleEXT` | definition | unclassified | - | - | - | - |
-| `glSyncTextureINTEL` | definition | unclassified | - | - | - | - |
-| `glTagSampleBufferSGIX` | definition | unclassified | - | - | - | - |
-| `glTangent3bEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3bvEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3dEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3dvEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3fEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3fvEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3iEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3ivEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3sEXT` | definition | unclassified | - | - | - | - |
-| `glTangent3svEXT` | definition | unclassified | - | - | - | - |
-| `glTangentPointerEXT` | definition | unclassified | - | - | - | - |
-| `glTbufferMask3DFX` | definition | unclassified | - | - | - | - |
-| `glTessellationFactorAMD` | definition | unclassified | - | - | - | - |
-| `glTessellationModeAMD` | definition | unclassified | - | - | - | - |
-| `glTestFenceAPPLE` | definition | unclassified | - | - | - | - |
-| `glTestFenceNV` | definition | unclassified | - | - | - | - |
-| `glTestObjectAPPLE` | definition | unclassified | - | - | - | - |
-| `glTexAttachMemoryNV` | definition | unclassified | - | - | - | - |
-| `glTexBuffer` | definition | unclassified | - | - | - | - |
-| `glTexBufferARB` | definition | unclassified | - | - | - | - |
-| `glTexBufferEXT` | definition | unclassified | - | - | - | - |
-| `glTexBufferRange` | definition | unclassified | - | - | - | - |
-| `glTexBumpParameterfvATI` | definition | unclassified | - | - | - | - |
-| `glTexBumpParameterivATI` | definition | unclassified | - | - | - | - |
-| `glTexCoord1bOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord1bvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord1d` | definition | unclassified | - | - | - | - |
-| `glTexCoord1dv` | definition | unclassified | - | - | - | - |
-| `glTexCoord1f` | definition | unclassified | - | - | - | - |
-| `glTexCoord1fv` | definition | unclassified | - | - | - | - |
-| `glTexCoord1hNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord1hvNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord1i` | definition | unclassified | - | - | - | - |
-| `glTexCoord1iv` | definition | unclassified | - | - | - | - |
-| `glTexCoord1s` | definition | unclassified | - | - | - | - |
-| `glTexCoord1sv` | definition | unclassified | - | - | - | - |
-| `glTexCoord1xOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord1xvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord2bOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord2bvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord2d` | definition | unclassified | - | - | - | - |
-| `glTexCoord2dv` | definition | unclassified | - | - | - | - |
-| `glTexCoord2f` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fColor3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fColor3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fColor4fNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fColor4fNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fColor4ubVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fColor4ubVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fNormal3fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fNormal3fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fVertex3fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fVertex3fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord2fv` | definition | unclassified | - | - | - | - |
-| `glTexCoord2hNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord2hvNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord2i` | definition | unclassified | - | - | - | - |
-| `glTexCoord2iv` | definition | unclassified | - | - | - | - |
-| `glTexCoord2s` | definition | unclassified | - | - | - | - |
-| `glTexCoord2sv` | definition | unclassified | - | - | - | - |
-| `glTexCoord2xOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord2xvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord3bOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord3bvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord3d` | definition | unclassified | - | - | - | - |
-| `glTexCoord3dv` | definition | unclassified | - | - | - | - |
-| `glTexCoord3f` | definition | unclassified | - | - | - | - |
-| `glTexCoord3fv` | definition | unclassified | - | - | - | - |
-| `glTexCoord3hNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord3hvNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord3i` | definition | unclassified | - | - | - | - |
-| `glTexCoord3iv` | definition | unclassified | - | - | - | - |
-| `glTexCoord3s` | definition | unclassified | - | - | - | - |
-| `glTexCoord3sv` | definition | unclassified | - | - | - | - |
-| `glTexCoord3xOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord3xvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord4bOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord4bvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord4d` | definition | unclassified | - | - | - | - |
-| `glTexCoord4dv` | definition | unclassified | - | - | - | - |
-| `glTexCoord4f` | definition | unclassified | - | - | - | - |
-| `glTexCoord4fColor4fNormal3fVertex4fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord4fColor4fNormal3fVertex4fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord4fVertex4fSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord4fVertex4fvSUN` | definition | unclassified | - | - | - | - |
-| `glTexCoord4fv` | definition | unclassified | - | - | - | - |
-| `glTexCoord4hNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord4hvNV` | definition | unclassified | - | - | - | - |
-| `glTexCoord4i` | definition | unclassified | - | - | - | - |
-| `glTexCoord4iv` | definition | unclassified | - | - | - | - |
-| `glTexCoord4s` | definition | unclassified | - | - | - | - |
-| `glTexCoord4sv` | definition | unclassified | - | - | - | - |
-| `glTexCoord4xOES` | definition | unclassified | - | - | - | - |
-| `glTexCoord4xvOES` | definition | unclassified | - | - | - | - |
-| `glTexCoordFormatNV` | definition | unclassified | - | - | - | - |
-| `glTexCoordPointer` | definition | unclassified | - | - | - | - |
-| `glTexCoordPointerEXT` | definition | unclassified | - | - | - | - |
-| `glTexCoordPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glTexCoordPointervINTEL` | definition | unclassified | - | - | - | - |
-| `glTexEnvf` | definition | unclassified | - | - | - | - |
-| `glTexEnvfv` | definition | unclassified | - | - | - | - |
-| `glTexEnvi` | definition | unclassified | - | - | - | - |
-| `glTexEnviv` | definition | unclassified | - | - | - | - |
-| `glTexEnvxOES` | definition | unclassified | - | - | - | - |
-| `glTexEnvxvOES` | definition | unclassified | - | - | - | - |
-| `glTexFilterFuncSGIS` | definition | unclassified | - | - | - | - |
-| `glTexGend` | definition | unclassified | - | - | - | - |
-| `glTexGendv` | definition | unclassified | - | - | - | - |
-| `glTexGenf` | definition | unclassified | - | - | - | - |
-| `glTexGenfv` | definition | unclassified | - | - | - | - |
-| `glTexGeni` | definition | unclassified | - | - | - | - |
-| `glTexGeniv` | definition | unclassified | - | - | - | - |
-| `glTexGenxOES` | definition | unclassified | - | - | - | - |
-| `glTexGenxvOES` | definition | unclassified | - | - | - | - |
-| `glTexImage1D` | definition | unclassified | - | - | - | - |
-| `glTexImage2D` | definition | common | src/driver/opengl.ab per-mip texture storage allocation | src/driver/opengl.ab typed size format and data-pointer ABI | tests/application/main.ab exact multi-level texture upload and readback | tests/core.ab overflowing size and invalid multisample descriptor rejection |
-| `glTexImage2DMultisample` | definition | common | src/driver/opengl.ab multisample allocation | src/driver/opengl.ab typed extern signature | tests/application/main.ab four-sample render target | tests/application/main.ab sample count rejection |
-| `glTexImage2DMultisampleCoverageNV` | definition | unclassified | - | - | - | - |
-| `glTexImage3D` | definition | unclassified | - | - | - | - |
-| `glTexImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTexImage3DMultisample` | definition | unclassified | - | - | - | - |
-| `glTexImage3DMultisampleCoverageNV` | definition | unclassified | - | - | - | - |
-| `glTexImage4DSGIS` | definition | unclassified | - | - | - | - |
-| `glTexPageCommitmentARB` | definition | unclassified | - | - | - | - |
-| `glTexPageCommitmentMemNV` | definition | unclassified | - | - | - | - |
-| `glTexParameterIiv` | definition | unclassified | - | - | - | - |
-| `glTexParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glTexParameterIuiv` | definition | unclassified | - | - | - | - |
-| `glTexParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glTexParameterf` | definition | unclassified | - | - | - | - |
-| `glTexParameterfv` | definition | unclassified | - | - | - | - |
-| `glTexParameteri` | definition | common | src/driver/opengl.ab allocated mip range configuration | src/driver/opengl.ab typed target parameter and value ABI | tests/application/main.ab four-level mip generation and readback | tests/core.ab invalid multisample mip-count rejection |
-| `glTexParameteriv` | definition | unclassified | - | - | - | - |
-| `glTexParameterxOES` | definition | unclassified | - | - | - | - |
-| `glTexParameterxvOES` | definition | unclassified | - | - | - | - |
-| `glTexRenderbufferNV` | definition | unclassified | - | - | - | - |
-| `glTexStorage1D` | definition | common | src/driver/opengl.ab immutable one-dimensional texture allocation | src/driver/opengl.ab typed levels format and width ABI | tests/wider_texture/main.ab live one-dimensional texture creation | tests/texture_contract.ab invalid one-dimensional shape rejection |
-| `glTexStorage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorage2D` | definition | common | src/driver/opengl.ab immutable two-dimensional and cube texture allocation | src/driver/opengl.ab typed levels format width and height ABI | tests/wider_texture/main.ab live cube and BC1 texture creation | tests/texture_contract.ab invalid cube and compressed descriptor rejection |
-| `glTexStorage2DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorage2DMultisample` | definition | unclassified | - | - | - | - |
-| `glTexStorage3D` | definition | common | src/driver/opengl.ab immutable array and volume texture allocation | src/driver/opengl.ab typed levels format width height and depth ABI | tests/wider_texture/main.ab live array and volume texture creation | tests/texture_contract.ab invalid array and volume descriptor rejection |
-| `glTexStorage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorage3DMultisample` | definition | unclassified | - | - | - | - |
-| `glTexStorageMem1DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorageMem2DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorageMem2DMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorageMem3DEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorageMem3DMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glTexStorageSparseAMD` | definition | unclassified | - | - | - | - |
-| `glTexSubImage1D` | definition | unclassified | - | - | - | - |
-| `glTexSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTexSubImage2D` | definition | common | src/driver/opengl.ab checked pixel-region upload | src/driver/opengl.ab typed region format and pixel-pointer ABI | tests/application/main.ab exact partial upload and reupload readback | tests/application/main.ab out-of-range upload rejection |
-| `glTexSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glTexSubImage3D` | definition | unclassified | - | - | - | - |
-| `glTexSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTexSubImage4DSGIS` | definition | unclassified | - | - | - | - |
-| `glTextureAttachMemoryNV` | definition | unclassified | - | - | - | - |
-| `glTextureBarrier` | definition | unclassified | - | - | - | - |
-| `glTextureBarrierNV` | definition | unclassified | - | - | - | - |
-| `glTextureBuffer` | definition | unclassified | - | - | - | - |
-| `glTextureBufferEXT` | definition | unclassified | - | - | - | - |
-| `glTextureBufferRange` | definition | unclassified | - | - | - | - |
-| `glTextureBufferRangeEXT` | definition | unclassified | - | - | - | - |
-| `glTextureColorMaskSGIS` | definition | unclassified | - | - | - | - |
-| `glTextureImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureImage2DMultisampleCoverageNV` | definition | unclassified | - | - | - | - |
-| `glTextureImage2DMultisampleNV` | definition | unclassified | - | - | - | - |
-| `glTextureImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureImage3DMultisampleCoverageNV` | definition | unclassified | - | - | - | - |
-| `glTextureImage3DMultisampleNV` | definition | unclassified | - | - | - | - |
-| `glTextureLightEXT` | definition | unclassified | - | - | - | - |
-| `glTextureMaterialEXT` | definition | unclassified | - | - | - | - |
-| `glTextureNormalEXT` | definition | unclassified | - | - | - | - |
-| `glTexturePageCommitmentEXT` | definition | unclassified | - | - | - | - |
-| `glTexturePageCommitmentMemNV` | definition | unclassified | - | - | - | - |
-| `glTextureParameterIiv` | definition | unclassified | - | - | - | - |
-| `glTextureParameterIivEXT` | definition | unclassified | - | - | - | - |
-| `glTextureParameterIuiv` | definition | unclassified | - | - | - | - |
-| `glTextureParameterIuivEXT` | definition | unclassified | - | - | - | - |
-| `glTextureParameterf` | definition | unclassified | - | - | - | - |
-| `glTextureParameterfEXT` | definition | unclassified | - | - | - | - |
-| `glTextureParameterfv` | definition | unclassified | - | - | - | - |
-| `glTextureParameterfvEXT` | definition | unclassified | - | - | - | - |
-| `glTextureParameteri` | definition | unclassified | - | - | - | - |
-| `glTextureParameteriEXT` | definition | unclassified | - | - | - | - |
-| `glTextureParameteriv` | definition | unclassified | - | - | - | - |
-| `glTextureParameterivEXT` | definition | unclassified | - | - | - | - |
-| `glTextureRangeAPPLE` | definition | unclassified | - | - | - | - |
-| `glTextureRenderbufferEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorage1D` | definition | unclassified | - | - | - | - |
-| `glTextureStorage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorage2D` | definition | unclassified | - | - | - | - |
-| `glTextureStorage2DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorage2DMultisample` | definition | unclassified | - | - | - | - |
-| `glTextureStorage2DMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorage3D` | definition | unclassified | - | - | - | - |
-| `glTextureStorage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorage3DMultisample` | definition | unclassified | - | - | - | - |
-| `glTextureStorage3DMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorageMem1DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorageMem2DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorageMem2DMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorageMem3DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorageMem3DMultisampleEXT` | definition | unclassified | - | - | - | - |
-| `glTextureStorageSparseAMD` | definition | unclassified | - | - | - | - |
-| `glTextureSubImage1D` | definition | common | src/driver/opengl.ab raw one-dimensional byte upload | src/driver/opengl.ab typed DSA region format and pointer ABI | tests/wider_texture/main.ab exact one-dimensional raw byte round trip | tests/texture_contract.ab one-dimensional region shape rejection |
-| `glTextureSubImage1DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureSubImage2D` | definition | common | src/driver/opengl.ab raw pitched two-dimensional byte upload | src/driver/opengl.ab typed DSA region format and pointer ABI | tests/wider_texture/main.ab exact pitched R8 two-dimensional round trip | tests/wider_texture/main.ab short source rejection |
-| `glTextureSubImage2DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureSubImage3D` | definition | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab raw array cube and volume byte upload | src/driver/opengl.ab typed DSA xyz extent format and pointer ABI | tests/wider_texture/main.ab and tests/wider_texture_transfer/main.ab exact array cube and volume round trips | tests/texture_contract.ab crossing depth and layer rejection |
-| `glTextureSubImage3DEXT` | definition | unclassified | - | - | - | - |
-| `glTextureView` | definition | common | src/driver/opengl.ab owned subresource and compatible-format views | src/driver/opengl.ab typed target format mip and layer ABI | tests/wider_texture/main.ab live array cube volume and BC1 view ownership | tests/texture_contract.ab incompatible view rejection |
-| `glTrackMatrixNV` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackAttribsNV` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackBufferBase` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackBufferRange` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackStreamAttribsNV` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackVaryings` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackVaryingsEXT` | definition | unclassified | - | - | - | - |
-| `glTransformFeedbackVaryingsNV` | definition | unclassified | - | - | - | - |
-| `glTransformPathNV` | definition | unclassified | - | - | - | - |
-| `glTranslated` | definition | unclassified | - | - | - | - |
-| `glTranslatef` | definition | unclassified | - | - | - | - |
-| `glTranslatexOES` | definition | unclassified | - | - | - | - |
-| `glUniform1d` | definition | unclassified | - | - | - | - |
-| `glUniform1dv` | definition | unclassified | - | - | - | - |
-| `glUniform1f` | definition | unclassified | - | - | - | - |
-| `glUniform1fARB` | definition | unclassified | - | - | - | - |
-| `glUniform1fv` | definition | unclassified | - | - | - | - |
-| `glUniform1fvARB` | definition | unclassified | - | - | - | - |
-| `glUniform1i` | definition | unclassified | - | - | - | - |
-| `glUniform1i64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform1i64NV` | definition | unclassified | - | - | - | - |
-| `glUniform1i64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform1i64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform1iARB` | definition | unclassified | - | - | - | - |
-| `glUniform1iv` | definition | unclassified | - | - | - | - |
-| `glUniform1ivARB` | definition | unclassified | - | - | - | - |
-| `glUniform1ui` | definition | unclassified | - | - | - | - |
-| `glUniform1ui64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform1ui64NV` | definition | unclassified | - | - | - | - |
-| `glUniform1ui64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform1ui64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform1uiEXT` | definition | unclassified | - | - | - | - |
-| `glUniform1uiv` | definition | unclassified | - | - | - | - |
-| `glUniform1uivEXT` | definition | unclassified | - | - | - | - |
-| `glUniform2d` | definition | unclassified | - | - | - | - |
-| `glUniform2dv` | definition | unclassified | - | - | - | - |
-| `glUniform2f` | definition | unclassified | - | - | - | - |
-| `glUniform2fARB` | definition | unclassified | - | - | - | - |
-| `glUniform2fv` | definition | unclassified | - | - | - | - |
-| `glUniform2fvARB` | definition | unclassified | - | - | - | - |
-| `glUniform2i` | definition | unclassified | - | - | - | - |
-| `glUniform2i64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform2i64NV` | definition | unclassified | - | - | - | - |
-| `glUniform2i64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform2i64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform2iARB` | definition | unclassified | - | - | - | - |
-| `glUniform2iv` | definition | unclassified | - | - | - | - |
-| `glUniform2ivARB` | definition | unclassified | - | - | - | - |
-| `glUniform2ui` | definition | unclassified | - | - | - | - |
-| `glUniform2ui64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform2ui64NV` | definition | unclassified | - | - | - | - |
-| `glUniform2ui64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform2ui64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform2uiEXT` | definition | unclassified | - | - | - | - |
-| `glUniform2uiv` | definition | unclassified | - | - | - | - |
-| `glUniform2uivEXT` | definition | unclassified | - | - | - | - |
-| `glUniform3d` | definition | unclassified | - | - | - | - |
-| `glUniform3dv` | definition | unclassified | - | - | - | - |
-| `glUniform3f` | definition | unclassified | - | - | - | - |
-| `glUniform3fARB` | definition | unclassified | - | - | - | - |
-| `glUniform3fv` | definition | unclassified | - | - | - | - |
-| `glUniform3fvARB` | definition | unclassified | - | - | - | - |
-| `glUniform3i` | definition | unclassified | - | - | - | - |
-| `glUniform3i64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform3i64NV` | definition | unclassified | - | - | - | - |
-| `glUniform3i64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform3i64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform3iARB` | definition | unclassified | - | - | - | - |
-| `glUniform3iv` | definition | unclassified | - | - | - | - |
-| `glUniform3ivARB` | definition | unclassified | - | - | - | - |
-| `glUniform3ui` | definition | unclassified | - | - | - | - |
-| `glUniform3ui64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform3ui64NV` | definition | unclassified | - | - | - | - |
-| `glUniform3ui64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform3ui64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform3uiEXT` | definition | unclassified | - | - | - | - |
-| `glUniform3uiv` | definition | unclassified | - | - | - | - |
-| `glUniform3uivEXT` | definition | unclassified | - | - | - | - |
-| `glUniform4d` | definition | unclassified | - | - | - | - |
-| `glUniform4dv` | definition | unclassified | - | - | - | - |
-| `glUniform4f` | definition | unclassified | - | - | - | - |
-| `glUniform4fARB` | definition | unclassified | - | - | - | - |
-| `glUniform4fv` | definition | unclassified | - | - | - | - |
-| `glUniform4fvARB` | definition | unclassified | - | - | - | - |
-| `glUniform4i` | definition | unclassified | - | - | - | - |
-| `glUniform4i64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform4i64NV` | definition | unclassified | - | - | - | - |
-| `glUniform4i64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform4i64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform4iARB` | definition | unclassified | - | - | - | - |
-| `glUniform4iv` | definition | unclassified | - | - | - | - |
-| `glUniform4ivARB` | definition | unclassified | - | - | - | - |
-| `glUniform4ui` | definition | unclassified | - | - | - | - |
-| `glUniform4ui64ARB` | definition | unclassified | - | - | - | - |
-| `glUniform4ui64NV` | definition | unclassified | - | - | - | - |
-| `glUniform4ui64vARB` | definition | unclassified | - | - | - | - |
-| `glUniform4ui64vNV` | definition | unclassified | - | - | - | - |
-| `glUniform4uiEXT` | definition | unclassified | - | - | - | - |
-| `glUniform4uiv` | definition | unclassified | - | - | - | - |
-| `glUniform4uivEXT` | definition | unclassified | - | - | - | - |
-| `glUniformBlockBinding` | definition | unclassified | - | - | - | - |
-| `glUniformBufferEXT` | definition | unclassified | - | - | - | - |
-| `glUniformHandleui64ARB` | definition | unclassified | - | - | - | - |
-| `glUniformHandleui64NV` | definition | unclassified | - | - | - | - |
-| `glUniformHandleui64vARB` | definition | unclassified | - | - | - | - |
-| `glUniformHandleui64vNV` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2fvARB` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2x3dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2x3fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2x4dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix2x4fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3fvARB` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3x2dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3x2fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3x4dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix3x4fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4fvARB` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4x2dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4x2fv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4x3dv` | definition | unclassified | - | - | - | - |
-| `glUniformMatrix4x3fv` | definition | unclassified | - | - | - | - |
-| `glUniformSubroutinesuiv` | definition | unclassified | - | - | - | - |
-| `glUniformui64NV` | definition | unclassified | - | - | - | - |
-| `glUniformui64vNV` | definition | unclassified | - | - | - | - |
-| `glUnlockArraysEXT` | definition | unclassified | - | - | - | - |
-| `glUnmapBuffer` | definition | common | src/driver/opengl.ab explicit reusable and affine mapping completion | src/driver/opengl.ab typed result ABI | examples/common-buffer/main.ab repeated write-read unmap with zero growth | tests/application/main.ab repeated unmap and mapped GPU use rejection |
-| `glUnmapBufferARB` | definition | unclassified | - | - | - | - |
-| `glUnmapNamedBuffer` | definition | unclassified | - | - | - | - |
-| `glUnmapNamedBufferEXT` | definition | unclassified | - | - | - | - |
-| `glUnmapObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glUnmapTexture2DINTEL` | definition | unclassified | - | - | - | - |
-| `glUpdateObjectBufferATI` | definition | unclassified | - | - | - | - |
-| `glUploadGpuMaskNVX` | definition | unclassified | - | - | - | - |
-| `glUseProgram` | definition | common | src/driver/opengl.ab render and compute program binding | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid program bind and unbind | tests/application/main.ab invalid pipeline rejection before binding |
-| `glUseProgramObjectARB` | definition | unclassified | - | - | - | - |
-| `glUseProgramStages` | definition | unclassified | - | - | - | - |
-| `glUseShaderProgramEXT` | definition | unclassified | - | - | - | - |
-| `glVDPAUFiniNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUGetSurfaceivNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUInitNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUIsSurfaceNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUMapSurfacesNV` | definition | unclassified | - | - | - | - |
-| `glVDPAURegisterOutputSurfaceNV` | definition | unclassified | - | - | - | - |
-| `glVDPAURegisterVideoSurfaceNV` | definition | unclassified | - | - | - | - |
-| `glVDPAURegisterVideoSurfaceWithPictureStructureNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUSurfaceAccessNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUUnmapSurfacesNV` | definition | unclassified | - | - | - | - |
-| `glVDPAUUnregisterSurfaceNV` | definition | unclassified | - | - | - | - |
-| `glValidateProgram` | definition | unclassified | - | - | - | - |
-| `glValidateProgramARB` | definition | unclassified | - | - | - | - |
-| `glValidateProgramPipeline` | definition | unclassified | - | - | - | - |
-| `glVariantArrayObjectATI` | definition | unclassified | - | - | - | - |
-| `glVariantPointerEXT` | definition | unclassified | - | - | - | - |
-| `glVariantbvEXT` | definition | unclassified | - | - | - | - |
-| `glVariantdvEXT` | definition | unclassified | - | - | - | - |
-| `glVariantfvEXT` | definition | unclassified | - | - | - | - |
-| `glVariantivEXT` | definition | unclassified | - | - | - | - |
-| `glVariantsvEXT` | definition | unclassified | - | - | - | - |
-| `glVariantubvEXT` | definition | unclassified | - | - | - | - |
-| `glVariantuivEXT` | definition | unclassified | - | - | - | - |
-| `glVariantusvEXT` | definition | unclassified | - | - | - | - |
-| `glVertex2bOES` | definition | unclassified | - | - | - | - |
-| `glVertex2bvOES` | definition | unclassified | - | - | - | - |
-| `glVertex2d` | definition | unclassified | - | - | - | - |
-| `glVertex2dv` | definition | unclassified | - | - | - | - |
-| `glVertex2f` | definition | unclassified | - | - | - | - |
-| `glVertex2fv` | definition | unclassified | - | - | - | - |
-| `glVertex2hNV` | definition | unclassified | - | - | - | - |
-| `glVertex2hvNV` | definition | unclassified | - | - | - | - |
-| `glVertex2i` | definition | unclassified | - | - | - | - |
-| `glVertex2iv` | definition | unclassified | - | - | - | - |
-| `glVertex2s` | definition | unclassified | - | - | - | - |
-| `glVertex2sv` | definition | unclassified | - | - | - | - |
-| `glVertex2xOES` | definition | unclassified | - | - | - | - |
-| `glVertex2xvOES` | definition | unclassified | - | - | - | - |
-| `glVertex3bOES` | definition | unclassified | - | - | - | - |
-| `glVertex3bvOES` | definition | unclassified | - | - | - | - |
-| `glVertex3d` | definition | unclassified | - | - | - | - |
-| `glVertex3dv` | definition | unclassified | - | - | - | - |
-| `glVertex3f` | definition | unclassified | - | - | - | - |
-| `glVertex3fv` | definition | unclassified | - | - | - | - |
-| `glVertex3hNV` | definition | unclassified | - | - | - | - |
-| `glVertex3hvNV` | definition | unclassified | - | - | - | - |
-| `glVertex3i` | definition | unclassified | - | - | - | - |
-| `glVertex3iv` | definition | unclassified | - | - | - | - |
-| `glVertex3s` | definition | unclassified | - | - | - | - |
-| `glVertex3sv` | definition | unclassified | - | - | - | - |
-| `glVertex3xOES` | definition | unclassified | - | - | - | - |
-| `glVertex3xvOES` | definition | unclassified | - | - | - | - |
-| `glVertex4bOES` | definition | unclassified | - | - | - | - |
-| `glVertex4bvOES` | definition | unclassified | - | - | - | - |
-| `glVertex4d` | definition | unclassified | - | - | - | - |
-| `glVertex4dv` | definition | unclassified | - | - | - | - |
-| `glVertex4f` | definition | unclassified | - | - | - | - |
-| `glVertex4fv` | definition | unclassified | - | - | - | - |
-| `glVertex4hNV` | definition | unclassified | - | - | - | - |
-| `glVertex4hvNV` | definition | unclassified | - | - | - | - |
-| `glVertex4i` | definition | unclassified | - | - | - | - |
-| `glVertex4iv` | definition | unclassified | - | - | - | - |
-| `glVertex4s` | definition | unclassified | - | - | - | - |
-| `glVertex4sv` | definition | unclassified | - | - | - | - |
-| `glVertex4xOES` | definition | unclassified | - | - | - | - |
-| `glVertex4xvOES` | definition | unclassified | - | - | - | - |
-| `glVertexArrayAttribBinding` | definition | unclassified | - | - | - | - |
-| `glVertexArrayAttribFormat` | definition | unclassified | - | - | - | - |
-| `glVertexArrayAttribIFormat` | definition | unclassified | - | - | - | - |
-| `glVertexArrayAttribLFormat` | definition | unclassified | - | - | - | - |
-| `glVertexArrayBindVertexBufferEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayBindingDivisor` | definition | unclassified | - | - | - | - |
-| `glVertexArrayColorOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayEdgeFlagOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayElementBuffer` | definition | unclassified | - | - | - | - |
-| `glVertexArrayFogCoordOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayIndexOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayMultiTexCoordOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayNormalOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayParameteriAPPLE` | definition | unclassified | - | - | - | - |
-| `glVertexArrayRangeAPPLE` | definition | unclassified | - | - | - | - |
-| `glVertexArrayRangeNV` | definition | unclassified | - | - | - | - |
-| `glVertexArraySecondaryColorOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayTexCoordOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribBindingEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribDivisorEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribFormatEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribIFormatEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribIOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribLFormatEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribLOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexAttribOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexBindingDivisorEXT` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexBuffer` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexBuffers` | definition | unclassified | - | - | - | - |
-| `glVertexArrayVertexOffsetEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1d` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1dARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1dNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1dvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1f` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1fARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1fNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1fv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1fvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1hNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1s` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1sARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1sNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1sv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1svARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib1svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2d` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2dARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2dNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2dvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2f` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2fARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2fNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2fv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2fvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2hNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2s` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2sARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2sNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2sv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2svARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib2svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3d` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3dARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3dNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3dvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3f` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3fARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3fNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3fv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3fvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3hNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3s` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3sARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3sNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3sv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3svARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib3svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Nbv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NbvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Niv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NivARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Nsv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NsvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Nub` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NubARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Nubv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NubvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Nuiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NuivARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4Nusv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4NusvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4bv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4bvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4d` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4dARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4dNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4dvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4f` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4fARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4fNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4fv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4fvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4hNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4iv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4ivARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4s` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4sARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4sNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4sv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4svARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4ubNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4ubv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4ubvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4ubvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4uivARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4usv` | definition | unclassified | - | - | - | - |
-| `glVertexAttrib4usvARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttribArrayObjectATI` | definition | unclassified | - | - | - | - |
-| `glVertexAttribBinding` | definition | unclassified | - | - | - | - |
-| `glVertexAttribDivisor` | definition | unclassified | - | - | - | - |
-| `glVertexAttribDivisorARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttribFormat` | definition | unclassified | - | - | - | - |
-| `glVertexAttribFormatNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1i` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1iEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1iv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1ivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1uiEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI1uivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2i` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2iEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2iv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2ivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2uiEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI2uivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3i` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3iEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3iv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3ivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3uiEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI3uivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4bv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4bvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4i` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4iEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4iv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4ivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4sv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4svEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4ubv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4ubvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4uiEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4uivEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4usv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribI4usvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribIFormat` | definition | unclassified | - | - | - | - |
-| `glVertexAttribIFormatNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribIPointer` | definition | common | src/driver/opengl.ab reflected unsigned integer vertex layout | src/driver/opengl.ab typed location width type stride and offset ABI | examples/common-triangle/main.ab live interleaved uint vertex input on both backends | examples/common-triangle/main.ab missing or mismatched integer attribute rejection |
-| `glVertexAttribIPointerEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1d` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1dEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1dvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1i64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1i64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1ui64ARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1ui64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1ui64vARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL1ui64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2d` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2dEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2dvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2i64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2i64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2ui64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL2ui64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3d` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3dEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3dvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3i64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3i64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3ui64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL3ui64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4d` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4dEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4dv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4dvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4i64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4i64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4ui64NV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribL4ui64vNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribLFormat` | definition | unclassified | - | - | - | - |
-| `glVertexAttribLFormatNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribLPointer` | definition | unclassified | - | - | - | - |
-| `glVertexAttribLPointerEXT` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP1ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP1uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP2ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP2uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP3ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP3uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP4ui` | definition | unclassified | - | - | - | - |
-| `glVertexAttribP4uiv` | definition | unclassified | - | - | - | - |
-| `glVertexAttribParameteriAMD` | definition | unclassified | - | - | - | - |
-| `glVertexAttribPointer` | definition | common | src/driver/opengl.ab reflected floating vertex layout with buffer base offset | src/driver/opengl.ab typed location width type stride and summed offset ABI | examples/push-color/main.ab nonzero pooled target pass and surfaced rendering | tests/pool/main.ab surfaced and offscreen misaligned range rejection |
-| `glVertexAttribPointerARB` | definition | unclassified | - | - | - | - |
-| `glVertexAttribPointerNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs1dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs1fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs1hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs1svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs2dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs2fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs2hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs2svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs3dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs3fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs3hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs3svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs4dvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs4fvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs4hvNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs4svNV` | definition | unclassified | - | - | - | - |
-| `glVertexAttribs4ubvNV` | definition | unclassified | - | - | - | - |
-| `glVertexBindingDivisor` | definition | unclassified | - | - | - | - |
-| `glVertexBlendARB` | definition | unclassified | - | - | - | - |
-| `glVertexBlendEnvfATI` | definition | unclassified | - | - | - | - |
-| `glVertexBlendEnviATI` | definition | unclassified | - | - | - | - |
-| `glVertexFormatNV` | definition | unclassified | - | - | - | - |
-| `glVertexPointer` | definition | unclassified | - | - | - | - |
-| `glVertexPointerEXT` | definition | unclassified | - | - | - | - |
-| `glVertexPointerListIBM` | definition | unclassified | - | - | - | - |
-| `glVertexPointervINTEL` | definition | unclassified | - | - | - | - |
-| `glVertexStream1dATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1dvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1fATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1fvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1iATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1ivATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1sATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream1svATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2dATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2dvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2fATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2fvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2iATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2ivATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2sATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream2svATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3dATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3dvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3fATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3fvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3iATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3ivATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3sATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream3svATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4dATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4dvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4fATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4fvATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4iATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4ivATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4sATI` | definition | unclassified | - | - | - | - |
-| `glVertexStream4svATI` | definition | unclassified | - | - | - | - |
-| `glVertexWeightPointerEXT` | definition | unclassified | - | - | - | - |
-| `glVertexWeightfEXT` | definition | unclassified | - | - | - | - |
-| `glVertexWeightfvEXT` | definition | unclassified | - | - | - | - |
-| `glVertexWeighthNV` | definition | unclassified | - | - | - | - |
-| `glVertexWeighthvNV` | definition | unclassified | - | - | - | - |
-| `glVideoCaptureNV` | definition | unclassified | - | - | - | - |
-| `glVideoCaptureStreamParameterdvNV` | definition | unclassified | - | - | - | - |
-| `glVideoCaptureStreamParameterfvNV` | definition | unclassified | - | - | - | - |
-| `glVideoCaptureStreamParameterivNV` | definition | unclassified | - | - | - | - |
-| `glViewport` | definition | common | src/driver/opengl.ab surfaced and offscreen viewport state | src/driver/opengl.ab typed origin and extent ABI | examples/common-triangle/main.ab exact resize to 640 by 480 | tests/application/main.ab invalid zero extent rejection |
-| `glViewportArrayv` | definition | unclassified | - | - | - | - |
-| `glViewportIndexedf` | definition | unclassified | - | - | - | - |
-| `glViewportIndexedfv` | definition | unclassified | - | - | - | - |
-| `glViewportPositionWScaleNV` | definition | unclassified | - | - | - | - |
-| `glViewportSwizzleNV` | definition | unclassified | - | - | - | - |
-| `glWaitSemaphoreEXT` | definition | unclassified | - | - | - | - |
-| `glWaitSemaphoreui64NVX` | definition | unclassified | - | - | - | - |
-| `glWaitSync` | definition | unclassified | - | - | - | - |
-| `glWaitVkSemaphoreNV` | definition | unclassified | - | - | - | - |
-| `glWeightPathsNV` | definition | unclassified | - | - | - | - |
-| `glWeightPointerARB` | definition | unclassified | - | - | - | - |
-| `glWeightbvARB` | definition | unclassified | - | - | - | - |
-| `glWeightdvARB` | definition | unclassified | - | - | - | - |
-| `glWeightfvARB` | definition | unclassified | - | - | - | - |
-| `glWeightivARB` | definition | unclassified | - | - | - | - |
-| `glWeightsvARB` | definition | unclassified | - | - | - | - |
-| `glWeightubvARB` | definition | unclassified | - | - | - | - |
-| `glWeightuivARB` | definition | unclassified | - | - | - | - |
-| `glWeightusvARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2d` | definition | unclassified | - | - | - | - |
-| `glWindowPos2dARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2dMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2dv` | definition | unclassified | - | - | - | - |
-| `glWindowPos2dvARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2dvMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2f` | definition | unclassified | - | - | - | - |
-| `glWindowPos2fARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2fMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2fv` | definition | unclassified | - | - | - | - |
-| `glWindowPos2fvARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2fvMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2i` | definition | unclassified | - | - | - | - |
-| `glWindowPos2iARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2iMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2iv` | definition | unclassified | - | - | - | - |
-| `glWindowPos2ivARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2ivMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2s` | definition | unclassified | - | - | - | - |
-| `glWindowPos2sARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2sMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos2sv` | definition | unclassified | - | - | - | - |
-| `glWindowPos2svARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos2svMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3d` | definition | unclassified | - | - | - | - |
-| `glWindowPos3dARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3dMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3dv` | definition | unclassified | - | - | - | - |
-| `glWindowPos3dvARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3dvMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3f` | definition | unclassified | - | - | - | - |
-| `glWindowPos3fARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3fMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3fv` | definition | unclassified | - | - | - | - |
-| `glWindowPos3fvARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3fvMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3i` | definition | unclassified | - | - | - | - |
-| `glWindowPos3iARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3iMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3iv` | definition | unclassified | - | - | - | - |
-| `glWindowPos3ivARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3ivMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3s` | definition | unclassified | - | - | - | - |
-| `glWindowPos3sARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3sMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos3sv` | definition | unclassified | - | - | - | - |
-| `glWindowPos3svARB` | definition | unclassified | - | - | - | - |
-| `glWindowPos3svMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4dMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4dvMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4fMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4fvMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4iMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4ivMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4sMESA` | definition | unclassified | - | - | - | - |
-| `glWindowPos4svMESA` | definition | unclassified | - | - | - | - |
-| `glWindowRectanglesEXT` | definition | unclassified | - | - | - | - |
-| `glWriteMaskEXT` | definition | unclassified | - | - | - | - |
+| Name | Form | Core transitions | Extension providers | Status | Loader | ABI | Positive test | Unsupported path |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `glAccum` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glAccumxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glAcquireKeyedMutexWin32EXT` | definition |  | GL_EXT_win32_keyed_mutex:all:all | unclassified | - | - | - | - |
+| `glActiveProgramEXT` | definition |  | GL_EXT_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glActiveShaderProgram` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glActiveStencilFaceEXT` | definition |  | GL_EXT_stencil_two_side:all:all | unclassified | - | - | - | - |
+| `glActiveTexture` | definition | GL_VERSION_1_3:+:all |  | common | src/driver/opengl.ab sampled-texture slot activation | src/driver/opengl.ab typed texture-unit ABI | examples/common-textured/main.ab repeated sampled rendering with stable binding | examples/common-textured/main.ab missing shader binding rejection |
+| `glActiveTextureARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glActiveVaryingNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glAddClientPointerRangeMESA` | definition |  | GL_MESA_map_buffer_client_pointer:all:all | unclassified | - | - | - | - |
+| `glAlphaFragmentOp1ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glAlphaFragmentOp2ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glAlphaFragmentOp3ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glAlphaFunc` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glAlphaFuncxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glAlphaToCoverageDitherControlNV` | definition |  | GL_NV_alpha_to_coverage_dither_control:all:all | unclassified | - | - | - | - |
+| `glApplyFramebufferAttachmentCMAAINTEL` | definition |  | GL_INTEL_framebuffer_CMAA:all:all | unclassified | - | - | - | - |
+| `glApplyTextureEXT` | definition |  | GL_EXT_light_texture:all:all | unclassified | - | - | - | - |
+| `glAreProgramsResidentNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glAreTexturesResident` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glAreTexturesResidentEXT` | definition |  | GL_EXT_texture_object:all:all | unclassified | - | - | - | - |
+| `glArrayElement` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glArrayElementEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glArrayObjectATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glAsyncCopyBufferSubDataNVX` | definition |  | GL_NVX_gpu_multicast2:all:all | unclassified | - | - | - | - |
+| `glAsyncCopyImageSubDataNVX` | definition |  | GL_NVX_gpu_multicast2:all:all | unclassified | - | - | - | - |
+| `glAsyncMarkerSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
+| `glAttachObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glAttachShader` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab render and compute program assembly | src/driver/opengl.ab typed program and shader-name ABI | tests/opengl/main.ab valid vertex and fragment program link | tests/opengl/main.ab empty program link rejection |
+| `glBegin` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glBeginConditionalRender` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glBeginConditionalRenderNV` | definition |  | GL_NV_conditional_render:all:all | unclassified | - | - | - | - |
+| `glBeginConditionalRenderNVX` | definition |  | GL_NVX_conditional_render:all:all | unclassified | - | - | - | - |
+| `glBeginFragmentShaderATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glBeginOcclusionQueryNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glBeginPerfMonitorAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glBeginPerfQueryINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glBeginQuery` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glBeginQueryARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glBeginQueryIndexed` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback3:all:all | unclassified | - | - | - | - |
+| `glBeginTransformFeedback` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glBeginTransformFeedbackEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBeginTransformFeedbackNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBeginVertexShaderEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBeginVideoCaptureNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glBindAttribLocation` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glBindAttribLocationARB` | definition |  | GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindBuffer` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab buffer target binding | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact buffer upload readback copy and fill | tests/application/main.ab range and usage rejection |
+| `glBindBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glBindBufferBase` | definition | GL_VERSION_3_0:+:all|GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | common | src/driver/opengl.ab uniform and storage binding slots | src/driver/opengl.ab typed target index and name ABI | tests/application/main.ab exact storage compute and bind-group validation | tests/application/main.ab wrong buffer usage rejection |
+| `glBindBufferBaseEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBindBufferBaseNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBindBufferOffsetEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBindBufferOffsetNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBindBufferRange` | definition | GL_VERSION_3_0:+:all|GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | common | src/driver/opengl.ab ranged uniform and storage binding slots | src/driver/opengl.ab typed target index name offset and size ABI | examples/indexed-textured-cube/main.ab nonzero pool uniform range rendering | tests/pool/main.ab misaligned range rejection |
+| `glBindBufferRangeEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBindBufferRangeNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glBindBuffersBase` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
+| `glBindBuffersRange` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
+| `glBindFragDataLocation` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glBindFragDataLocationEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glBindFragDataLocationIndexed` | definition | GL_VERSION_3_3:+:all | GL_ARB_blend_func_extended:all:all | unclassified | - | - | - | - |
+| `glBindFragmentShaderATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glBindFramebuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab draw read resolve and default framebuffer binding | src/driver/opengl.ab typed target and framebuffer-name ABI | tests/application/main.ab repeated offscreen MRT resolve and surfaced rendering | tests/application/main.ab incompatible target rejection |
+| `glBindFramebufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glBindImageTexture` | definition | GL_VERSION_4_2:+:all | GL_ARB_shader_image_load_store:all:all | unclassified | - | - | - | - |
+| `glBindImageTextureEXT` | definition |  | GL_EXT_shader_image_load_store:all:all | unclassified | - | - | - | - |
+| `glBindImageTextures` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
+| `glBindLightParameterEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindMaterialParameterEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindMultiTextureEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glBindParameterEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindProgramARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glBindProgramNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glBindProgramPipeline` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glBindRenderbuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glBindRenderbufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glBindSampler` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | common | src/driver/opengl.ab sampled-texture sampler binding | src/driver/opengl.ab typed unit and sampler-name ABI | examples/common-textured/main.ab repeated sampled rendering with stable binding | examples/common-textured/main.ab missing shader binding rejection |
+| `glBindSamplers` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
+| `glBindShadingRateImageNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glBindTexGenParameterEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindTexture` | definition | GL_VERSION_1_1:+:all |  | common | src/driver/opengl.ab texture allocation and checked upload binding | src/driver/opengl.ab typed target and name ABI | tests/application/main.ab exact texture upload and reupload readback | tests/application/main.ab upload range and texture validity rejection |
+| `glBindTextureEXT` | definition |  | GL_EXT_texture_object:all:all | unclassified | - | - | - | - |
+| `glBindTextureUnit` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab target-inherent sampled texture unit binding | src/driver/opengl.ab typed unit and texture name ABI | examples/wider-sampling/main.ab exact array cube and volume sampling | tests/application/main.ab reflected sampler dimension mismatch rejection |
+| `glBindTextureUnitParameterEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindTextures` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
+| `glBindTransformFeedback` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glBindTransformFeedbackNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glBindVertexArray` | definition | GL_VERSION_3_0:+:all | GL_ARB_vertex_array_object:all:all | common | src/driver/opengl.ab raster vertex-state binding | src/driver/opengl.ab typed vertex-array name ABI | examples/common-triangle/main.ab repeated direct indexed and indirect rendering | examples/common-triangle/main.ab invalid layout pipeline rejection |
+| `glBindVertexArrayAPPLE` | definition |  | GL_APPLE_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glBindVertexBuffer` | definition | GL_VERSION_4_3:+:all | GL_ARB_vertex_attrib_binding:all:all | unclassified | - | - | - | - |
+| `glBindVertexBuffers` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
+| `glBindVertexShaderEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glBindVideoCaptureStreamBufferNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glBindVideoCaptureStreamTextureNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glBinormal3bEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3bvEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3dEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3dvEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3fEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3fvEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3iEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3ivEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3sEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormal3svEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBinormalPointerEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glBitmap` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glBitmapxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glBlendBarrierKHR` | definition |  | GL_KHR_blend_equation_advanced:all:all | unclassified | - | - | - | - |
+| `glBlendBarrierNV` | definition |  | GL_NV_blend_equation_advanced:all:all | unclassified | - | - | - | - |
+| `glBlendColor` | definition | GL_VERSION_1_4:+:all | GL_ARB_imaging:all:all | unclassified | - | - | - | - |
+| `glBlendColorEXT` | definition |  | GL_EXT_blend_color:all:all | unclassified | - | - | - | - |
+| `glBlendColorxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glBlendEquation` | definition | GL_VERSION_1_4:+:all | GL_ARB_imaging:all:all | unclassified | - | - | - | - |
+| `glBlendEquationEXT` | definition |  | GL_EXT_blend_minmax:all:all | unclassified | - | - | - | - |
+| `glBlendEquationIndexedAMD` | definition |  | GL_AMD_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendEquationSeparate` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab portable color and alpha blend equations | src/driver/opengl.ab typed equation-pair ABI | examples/common-triangle/main.ab repeated alpha-blended rendering | examples/common-triangle/main.ab invalid raster state rejection |
+| `glBlendEquationSeparateEXT` | definition |  | GL_EXT_blend_equation_separate:all:all | unclassified | - | - | - | - |
+| `glBlendEquationSeparateIndexedAMD` | definition |  | GL_AMD_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendEquationSeparatei` | definition | GL_VERSION_4_0:+:all |  | unclassified | - | - | - | - |
+| `glBlendEquationSeparateiARB` | definition |  | GL_ARB_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendEquationi` | definition | GL_VERSION_4_0:+:all |  | unclassified | - | - | - | - |
+| `glBlendEquationiARB` | definition |  | GL_ARB_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendFunc` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glBlendFuncIndexedAMD` | definition |  | GL_AMD_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendFuncSeparate` | definition | GL_VERSION_1_4:+:all |  | common | src/driver/opengl.ab portable source and destination blend factors | src/driver/opengl.ab typed color and alpha factor ABI | examples/common-triangle/main.ab repeated source-alpha rendering | examples/common-triangle/main.ab invalid raster state rejection |
+| `glBlendFuncSeparateEXT` | definition |  | GL_EXT_blend_func_separate:all:all | unclassified | - | - | - | - |
+| `glBlendFuncSeparateINGR` | definition |  | GL_INGR_blend_func_separate:all:all | unclassified | - | - | - | - |
+| `glBlendFuncSeparateIndexedAMD` | definition |  | GL_AMD_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendFuncSeparatei` | definition | GL_VERSION_4_0:+:all |  | unclassified | - | - | - | - |
+| `glBlendFuncSeparateiARB` | definition |  | GL_ARB_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendFunci` | definition | GL_VERSION_4_0:+:all |  | unclassified | - | - | - | - |
+| `glBlendFunciARB` | definition |  | GL_ARB_draw_buffers_blend:all:all | unclassified | - | - | - | - |
+| `glBlendParameteriNV` | definition |  | GL_NV_blend_equation_advanced:all:all | unclassified | - | - | - | - |
+| `glBlitFramebuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab render-target resolve | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact multisample resolve | tests/application/main.ab incompatible resolve rejection |
+| `glBlitFramebufferEXT` | definition |  | GL_EXT_framebuffer_blit:all:all | unclassified | - | - | - | - |
+| `glBlitFramebufferLayerEXT` | definition |  | GL_EXT_framebuffer_blit_layers:all:all | unclassified | - | - | - | - |
+| `glBlitFramebufferLayersEXT` | definition |  | GL_EXT_framebuffer_blit_layers:all:all | unclassified | - | - | - | - |
+| `glBlitNamedFramebuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glBufferAddressRangeNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glBufferAttachMemoryNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
+| `glBufferData` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab affine buffer storage allocation | src/driver/opengl.ab typed size and pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab zero-size and oversized buffer rejection |
+| `glBufferDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glBufferPageCommitmentARB` | definition |  | GL_ARB_sparse_buffer:all:all | unclassified | - | - | - | - |
+| `glBufferPageCommitmentMemNV` | definition |  | GL_NV_memory_object_sparse:all:all | unclassified | - | - | - | - |
+| `glBufferParameteriAPPLE` | definition |  | GL_APPLE_flush_buffer_range:all:all | unclassified | - | - | - | - |
+| `glBufferStorage` | definition | GL_VERSION_4_4:+:all | GL_ARB_buffer_storage:all:all | common | src/driver/opengl.ab immutable coherent persistent upload storage | src/driver/opengl.ab typed size data pointer and storage flags ABI | examples/common-buffer/main.ab repeated mapped GPU copies with zero growth | tests/core.ab persistent capability and descriptor rejection |
+| `glBufferStorageExternalEXT` | definition |  | GL_EXT_external_buffer:all:all | unclassified | - | - | - | - |
+| `glBufferStorageMemEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glBufferSubData` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab checked buffer upload | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole uploads | tests/application/main.ab range and usage rejection |
+| `glBufferSubDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glCallCommandListNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glCallList` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glCallLists` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glCheckFramebufferStatus` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab framebuffer completeness validation | src/driver/opengl.ab typed target result ABI | tests/application/main.ab color depth multisample and MRT target creation | tests/application/main.ab incompatible and missing attachment rejection |
+| `glCheckFramebufferStatusEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glCheckNamedFramebufferStatus` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCheckNamedFramebufferStatusEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClampColor` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glClampColorARB` | definition |  | GL_ARB_color_buffer_float:all:all | unclassified | - | - | - | - |
+| `glClear` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab surfaced color and depth clear execution | src/driver/opengl.ab typed mask ABI | tests/application/main.ab exact repeated color and depth output | tests/application/main.ab invalid clear descriptor rejection |
+| `glClearAccum` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glClearAccumxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glClearBufferData` | definition | GL_VERSION_4_3:+:all | GL_ARB_clear_buffer_object:all:all | unclassified | - | - | - | - |
+| `glClearBufferSubData` | definition | GL_VERSION_4_3:+:all | GL_ARB_clear_buffer_object:all:all | common | src/driver/opengl.ab GPU buffer fill | src/driver/opengl.ab typed clear-subrange ABI | tests/application/main.ab exact partial fill readback | tests/application/main.ab alignment range and usage rejection |
+| `glClearBufferfi` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glClearBufferfv` | definition | GL_VERSION_3_0:+:all |  | common | src/driver/opengl.ab render-target clear | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact MRT clear | tests/application/main.ab attachment bounds rejection |
+| `glClearBufferiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glClearBufferuiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glClearColor` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glClearColorIiEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
+| `glClearColorIuiEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
+| `glClearColorxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glClearDepth` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab depth clear state | src/driver/opengl.ab typed binary64 ABI | tests/application/main.ab exact depth-tested target output | tests/application/main.ab invalid depth target rejection |
+| `glClearDepthdNV` | definition |  | GL_NV_depth_buffer_float:all:all | unclassified | - | - | - | - |
+| `glClearDepthf` | definition | GL_VERSION_4_1:+:all | GL_ARB_ES2_compatibility:all:all | unclassified | - | - | - | - |
+| `glClearDepthfOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
+| `glClearDepthxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glClearIndex` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glClearNamedBufferData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedBufferDataEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedBufferSubData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedBufferSubDataEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedFramebufferfi` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedFramebufferfv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedFramebufferiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearNamedFramebufferuiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClearStencil` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glClearTexImage` | definition | GL_VERSION_4_4:+:all | GL_ARB_clear_texture:all:all | unclassified | - | - | - | - |
+| `glClearTexSubImage` | definition | GL_VERSION_4_4:+:all | GL_ARB_clear_texture:all:all | unclassified | - | - | - | - |
+| `glClientActiveTexture` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glClientActiveTextureARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glClientActiveVertexStreamATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glClientAttribDefaultEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glClientWaitSemaphoreui64NVX` | definition |  | GL_NVX_progress_fence:all:all | unclassified | - | - | - | - |
+| `glClientWaitSync` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab targeted copy completion | src/driver/opengl.ab typed sync flags and unsigned-timeout ABI | tests/transfer/main.ab nonblocking poll and explicit three-slot completion | tests/transfer/main.ab stale ticket and invalid range rejection |
+| `glClipControl` | definition | GL_VERSION_4_5:+:all | GL_ARB_clip_control:all:all | unclassified | - | - | - | - |
+| `glClipPlane` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glClipPlanefOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
+| `glClipPlanexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glColor3b` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3bv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor3fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glColor3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glColor3i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3ub` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3ubv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3ui` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3uiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3us` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3usv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor3xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glColor3xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glColor4b` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4bv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4fNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor4fNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor4fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glColor4hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glColor4i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4ub` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4ubVertex2fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor4ubVertex2fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor4ubVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor4ubVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glColor4ubv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4ui` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4uiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4us` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4usv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColor4xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glColor4xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glColorFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glColorFragmentOp1ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glColorFragmentOp2ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glColorFragmentOp3ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glColorMask` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glColorMaskIndexedEXT` | definition |  | GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
+| `glColorMaski` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glColorMaterial` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColorPointer` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glColorPointerEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glColorPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glColorPointervINTEL` | definition |  | GL_INTEL_parallel_arrays:all:all | unclassified | - | - | - | - |
+| `glColorSubTableEXT` | definition |  | GL_EXT_color_subtable:all:all | unclassified | - | - | - | - |
+| `glColorTableEXT` | definition |  | GL_EXT_paletted_texture:all:all | unclassified | - | - | - | - |
+| `glColorTableParameterfvSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glColorTableParameterivSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glColorTableSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glCombinerInputNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glCombinerOutputNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glCombinerParameterfNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glCombinerParameterfvNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glCombinerParameteriNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glCombinerParameterivNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glCombinerStageParameterfvNV` | definition |  | GL_NV_register_combiners2:all:all | unclassified | - | - | - | - |
+| `glCommandListSegmentsNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glCompileCommandListNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glCompileShader` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab GLSL source compilation | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab valid vertex and fragment compilation | tests/opengl/main.ab malformed source compiler rejection |
+| `glCompileShaderARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glCompileShaderIncludeARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
+| `glCompressedMultiTexImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedMultiTexImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedMultiTexImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedMultiTexSubImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedMultiTexSubImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedMultiTexSubImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTexImage1D` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glCompressedTexImage1DARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glCompressedTexImage2D` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glCompressedTexImage2DARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glCompressedTexImage3D` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glCompressedTexImage3DARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glCompressedTexSubImage1D` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glCompressedTexSubImage1DARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glCompressedTexSubImage2D` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glCompressedTexSubImage2DARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glCompressedTexSubImage3D` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glCompressedTexSubImage3DARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureSubImage1D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureSubImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureSubImage2D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab compressed two-dimensional byte upload | src/driver/opengl.ab typed DSA region format byte-count and pointer ABI | tests/wider_texture/main.ab and tests/wider_texture_transfer/main.ab exact pitched BC1 upload | tests/wider_texture/main.ab short source rejection |
+| `glCompressedTextureSubImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCompressedTextureSubImage3D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab compressed pitched layered and volume byte upload | src/driver/opengl.ab typed DSA xyz extent format byte-count and pointer ABI | tests/wider_texture/main.ab exact pitched two-layer BC1 array round trip | tests/texture_contract.ab compressed crossing and pitch rejection |
+| `glCompressedTextureSubImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glConservativeRasterParameterfNV` | definition |  | GL_NV_conservative_raster_dilate:all:all | unclassified | - | - | - | - |
+| `glConservativeRasterParameteriNV` | definition |  | GL_NV_conservative_raster_pre_snap_triangles:all:all | unclassified | - | - | - | - |
+| `glConvolutionFilter1DEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glConvolutionFilter2DEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glConvolutionParameterfEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glConvolutionParameterfvEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glConvolutionParameteriEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glConvolutionParameterivEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glConvolutionParameterxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glConvolutionParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glCopyBufferSubData` | definition | GL_VERSION_3_1:+:all | GL_ARB_copy_buffer:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab synchronous and queued GPU copies | src/driver/opengl.ab typed range ABI | tests/transfer/main.ab exact three-slot upload and readback | tests/transfer/main.ab invalid queued range rejection |
+| `glCopyColorSubTableEXT` | definition |  | GL_EXT_color_subtable:all:all | unclassified | - | - | - | - |
+| `glCopyColorTableSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glCopyConvolutionFilter1DEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glCopyConvolutionFilter2DEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glCopyImageSubData` | definition | GL_VERSION_4_3:+:all | GL_ARB_copy_image:all:all | common | src/driver/opengl.ab texture copy | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact texture copy | tests/application/main.ab incompatible copy rejection |
+| `glCopyImageSubDataNV` | definition |  | GL_NV_copy_image:all:all | unclassified | - | - | - | - |
+| `glCopyMultiTexImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyMultiTexImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyMultiTexSubImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyMultiTexSubImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyMultiTexSubImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyNamedBufferSubData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glCopyPixels` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glCopyTexImage1D` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glCopyTexImage1DEXT` | definition |  | GL_EXT_copy_texture:all:all | unclassified | - | - | - | - |
+| `glCopyTexImage2D` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glCopyTexImage2DEXT` | definition |  | GL_EXT_copy_texture:all:all | unclassified | - | - | - | - |
+| `glCopyTexSubImage1D` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glCopyTexSubImage1DEXT` | definition |  | GL_EXT_copy_texture:all:all | unclassified | - | - | - | - |
+| `glCopyTexSubImage2D` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glCopyTexSubImage2DEXT` | definition |  | GL_EXT_copy_texture:all:all | unclassified | - | - | - | - |
+| `glCopyTexSubImage3D` | definition | GL_VERSION_1_2:+:all |  | unclassified | - | - | - | - |
+| `glCopyTexSubImage3DEXT` | definition |  | GL_EXT_copy_texture:all:all | unclassified | - | - | - | - |
+| `glCopyTextureImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureSubImage1D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureSubImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureSubImage2D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureSubImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureSubImage3D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCopyTextureSubImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCoverFillPathInstancedNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glCoverFillPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glCoverStrokePathInstancedNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glCoverStrokePathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glCoverageModulationNV` | definition |  | GL_NV_framebuffer_mixed_samples:all:all | unclassified | - | - | - | - |
+| `glCoverageModulationTableNV` | definition |  | GL_NV_framebuffer_mixed_samples:all:all | unclassified | - | - | - | - |
+| `glCreateBuffers` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateCommandListsNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glCreateFramebuffers` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateMemoryObjectsEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glCreatePerfQueryINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glCreateProgram` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab affine render and compute program creation | src/driver/opengl.ab typed result ABI | tests/opengl/main.ab valid linked program creation | tests/opengl/main.ab empty program link rejection |
+| `glCreateProgramObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glCreateProgramPipelines` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateProgressFenceNVX` | definition |  | GL_NVX_progress_fence:all:all | unclassified | - | - | - | - |
+| `glCreateQueries` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateRenderbuffers` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateSamplers` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateSemaphoresNV` | definition |  | GL_NV_timeline_semaphore:all:all | unclassified | - | - | - | - |
+| `glCreateShader` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab affine source and SPIR-V shader creation | src/driver/opengl.ab typed stage result ABI | tests/application/main.ab render and specialized compute shader creation | tests/opengl/main.ab malformed source rejection |
+| `glCreateShaderObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glCreateShaderProgramEXT` | definition |  | GL_EXT_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glCreateShaderProgramv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glCreateStatesNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glCreateSyncFromCLeventARB` | definition |  | GL_ARB_cl_event:all:all | unclassified | - | - | - | - |
+| `glCreateTextures` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateTransformFeedbacks` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCreateVertexArrays` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glCullFace` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable front and back face culling | src/driver/opengl.ab typed face-mode ABI | examples/common-triangle/main.ab live front-cull alternate pipeline | examples/common-triangle/main.ab invalid cull mode rejection |
+| `glCullParameterdvEXT` | definition |  | GL_EXT_cull_vertex:all:all | unclassified | - | - | - | - |
+| `glCullParameterfvEXT` | definition |  | GL_EXT_cull_vertex:all:all | unclassified | - | - | - | - |
+| `glCurrentPaletteMatrixARB` | definition |  | GL_ARB_matrix_palette:all:all | unclassified | - | - | - | - |
+| `glDebugMessageCallback` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | common | src/driver/opengl_debug.ab optional debug callback ownership | src/driver/opengl_debug_callback.ab process-resolved Abla callback ABI | tests/opengl/main.ab exact injected message counts | tests/opengl/main.ab explicitly disabled messenger |
+| `glDebugMessageCallbackAMD` | definition |  | GL_AMD_debug_output:all:all | unclassified | - | - | - | - |
+| `glDebugMessageCallbackARB` | definition |  | GL_ARB_debug_output:all:all | unclassified | - | - | - | - |
+| `glDebugMessageControl` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | common | src/driver/opengl_debug.ab all-severity debug configuration | src/driver/opengl_debug.ab typed extern signature | tests/opengl/main.ab high medium low and notification delivery | tests/opengl/main.ab invalid severity rejection |
+| `glDebugMessageControlARB` | definition |  | GL_ARB_debug_output:all:all | unclassified | - | - | - | - |
+| `glDebugMessageEnableAMD` | definition |  | GL_AMD_debug_output:all:all | unclassified | - | - | - | - |
+| `glDebugMessageInsert` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | common | src/driver/opengl_debug.ab allocation-free debug message injection | src/driver/opengl_debug.ab reusable string ABI storage | tests/opengl/main.ab exact type and severity accounting | tests/opengl/main.ab invalid type and empty message rejection |
+| `glDebugMessageInsertAMD` | definition |  | GL_AMD_debug_output:all:all | unclassified | - | - | - | - |
+| `glDebugMessageInsertARB` | definition |  | GL_ARB_debug_output:all:all | unclassified | - | - | - | - |
+| `glDeformSGIX` | definition |  | GL_SGIX_polynomial_ffd:all:all | unclassified | - | - | - | - |
+| `glDeformationMap3dSGIX` | definition |  | GL_SGIX_polynomial_ffd:all:all | unclassified | - | - | - | - |
+| `glDeformationMap3fSGIX` | definition |  | GL_SGIX_polynomial_ffd:all:all | unclassified | - | - | - | - |
+| `glDeleteAsyncMarkersSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
+| `glDeleteBuffers` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab affine buffer lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
+| `glDeleteBuffersARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glDeleteCommandListsNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glDeleteFencesAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glDeleteFencesNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glDeleteFragmentShaderATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glDeleteFramebuffers` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab affine framebuffer and resolve lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab stable repeated target lifecycle | tests/application/main.ab failed target cleanup |
+| `glDeleteFramebuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glDeleteLists` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glDeleteMemoryObjectsEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glDeleteNamedStringARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
+| `glDeleteNamesAMD` | definition |  | GL_AMD_name_gen_delete:all:all | unclassified | - | - | - | - |
+| `glDeleteObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glDeleteOcclusionQueriesNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glDeletePathsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glDeletePerfMonitorsAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glDeletePerfQueryINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glDeleteProgram` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab affine program lifetime | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid program drop invalidates wrapper | tests/opengl/main.ab rejected empty program cleanup |
+| `glDeleteProgramPipelines` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glDeleteProgramsARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glDeleteProgramsNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glDeleteQueries` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab timestamp query lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab affine timestamp query drop | tests/application/main.ab invalid application rejection |
+| `glDeleteQueriesARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glDeleteQueryResourceTagNV` | definition |  | GL_NV_query_resource_tag:all:all | unclassified | - | - | - | - |
+| `glDeleteRenderbuffers` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glDeleteRenderbuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glDeleteSamplers` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | common | src/driver/opengl.ab affine sampler lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab comparison and anisotropic sampler lifecycle | src/sampler.ab invalid application and descriptor rejection |
+| `glDeleteSemaphoresEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glDeleteShader` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab affine attached-shader lifetime | src/driver/opengl.ab typed shader-name ABI | tests/opengl/main.ab linked source shader cleanup | tests/opengl/main.ab failed compile cleanup |
+| `glDeleteStatesNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glDeleteSync` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab affine copy-fence lifetime | src/driver/opengl.ab typed opaque sync-pointer ABI | tests/transfer/main.ab repeated queued copies with zero live growth | src/driver/opengl_transfer.ab failed submit and slot-drop cleanup |
+| `glDeleteTextures` | definition | GL_VERSION_1_1:+:all |  | common | src/driver/opengl.ab affine texture lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab texture target and upload lifecycle | tests/application/main.ab invalid texture descriptor rejection |
+| `glDeleteTexturesEXT` | definition |  | GL_EXT_texture_object:all:all | unclassified | - | - | - | - |
+| `glDeleteTransformFeedbacks` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glDeleteTransformFeedbacksNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glDeleteVertexArrays` | definition | GL_VERSION_3_0:+:all | GL_ARB_vertex_array_object:all:all | common | src/driver/opengl.ab affine raster vertex-state lifetime | src/driver/opengl.ab typed name-array ABI | examples/common-triangle/main.ab alternate pipeline drop and stable primary state | examples/common-triangle/main.ab invalid pipeline cleanup |
+| `glDeleteVertexArraysAPPLE` | definition |  | GL_APPLE_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glDeleteVertexShaderEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glDepthBoundsEXT` | definition |  | GL_EXT_depth_bounds_test:all:all | unclassified | - | - | - | - |
+| `glDepthBoundsdNV` | definition |  | GL_NV_depth_buffer_float:all:all | unclassified | - | - | - | - |
+| `glDepthFunc` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable depth comparison state | src/driver/opengl.ab typed comparison ABI | examples/common-triangle/main.ab repeated less-depth rendering | examples/common-triangle/main.ab invalid depth state rejection |
+| `glDepthMask` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable depth write state | src/driver/opengl.ab typed boolean ABI | examples/common-triangle/main.ab enabled depth-write rendering | examples/common-triangle/main.ab write-without-depth rejection |
+| `glDepthRange` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glDepthRangeArraydvNV` | definition |  | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glDepthRangeArrayv` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glDepthRangeIndexed` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glDepthRangeIndexeddNV` | definition |  | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glDepthRangedNV` | definition |  | GL_NV_depth_buffer_float:all:all | unclassified | - | - | - | - |
+| `glDepthRangef` | definition | GL_VERSION_4_1:+:all | GL_ARB_ES2_compatibility:all:all | unclassified | - | - | - | - |
+| `glDepthRangefOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
+| `glDepthRangexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glDetachObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glDetachShader` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glDetailTexFuncSGIS` | definition |  | GL_SGIS_detail_texture:all:all | unclassified | - | - | - | - |
+| `glDisable` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab cull blend and depth state disablement | src/driver/opengl.ab typed capability ABI | examples/common-triangle/main.ab alternate and primary fixed-function state transitions | examples/common-triangle/main.ab descriptor validation before state mutation |
+| `glDisableClientState` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glDisableClientStateIndexedEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glDisableClientStateiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glDisableIndexedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
+| `glDisableVariantClientStateEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glDisableVertexArrayAttrib` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glDisableVertexArrayAttribEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glDisableVertexArrayEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glDisableVertexAttribAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glDisableVertexAttribArray` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glDisableVertexAttribArrayARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glDisablei` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glDispatchCompute` | definition | GL_VERSION_4_3:+:all | GL_ARB_compute_shader:all:all | common | src/driver/opengl.ab reflected compute workgroup dispatch | src/driver/opengl.ab typed three-axis group-count ABI | examples/common-compute/main.ab repeated storage and push compute output | tests/application/main.ab zero and limit-exceeding dispatch rejection |
+| `glDispatchComputeGroupSizeARB` | definition |  | GL_ARB_compute_variable_group_size:all:all | unclassified | - | - | - | - |
+| `glDispatchComputeIndirect` | definition | GL_VERSION_4_3:+:all | GL_ARB_compute_shader:all:all | unclassified | - | - | - | - |
+| `glDrawArrays` | definition | GL_VERSION_1_1:+:all |  | common | src/driver/opengl.ab allocation-free pixel and simple triangle drawing | src/driver/opengl.ab typed mode first and count ABI | tests/application/main.ab exact repeated pixel and triangle presentation | tests/application/main.ab invalid vertex range rejection |
+| `glDrawArraysEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glDrawArraysIndirect` | definition | GL_VERSION_4_0:+:all | GL_ARB_draw_indirect:all:all | common | src/driver/opengl.ab offset-aware indirect non-indexed rendering | src/driver/opengl.ab typed mode and indirect-pointer ABI | examples/render-to-texture/main.ab nonzero pooled render-pass vertex-indirect rendering | tests/pool/main.ab offscreen short and stale range rejection |
+| `glDrawArraysInstanced` | definition | GL_VERSION_3_1:+:all |  | common | src/driver/opengl.ab direct instanced vertex rendering | src/driver/opengl.ab typed mode range and instance-count ABI | tests/application/main.ab repeated direct triangle presentation | examples/common-triangle/main.ab zero instance-count rejection |
+| `glDrawArraysInstancedARB` | definition |  | GL_ARB_draw_instanced:all:all | unclassified | - | - | - | - |
+| `glDrawArraysInstancedBaseInstance` | definition | GL_VERSION_4_2:+:all | GL_ARB_base_instance:all:all | unclassified | - | - | - | - |
+| `glDrawArraysInstancedEXT` | definition |  | GL_EXT_draw_instanced:all:all | unclassified | - | - | - | - |
+| `glDrawBuffer` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glDrawBuffers` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab MRT setup | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact dual attachment output | tests/application/main.ab attachment count rejection |
+| `glDrawBuffersARB` | definition |  | GL_ARB_draw_buffers:all:all | unclassified | - | - | - | - |
+| `glDrawBuffersATI` | definition |  | GL_ATI_draw_buffers:all:all | unclassified | - | - | - | - |
+| `glDrawCommandsAddressNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glDrawCommandsNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glDrawCommandsStatesAddressNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glDrawCommandsStatesNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glDrawElementArrayAPPLE` | definition |  | GL_APPLE_element_array:all:all | unclassified | - | - | - | - |
+| `glDrawElementArrayATI` | definition |  | GL_ATI_element_array:all:all | unclassified | - | - | - | - |
+| `glDrawElements` | definition | GL_VERSION_1_1:+:all |  | common | src/driver/opengl.ab offset-aware single-instance indexed drawing | src/driver/opengl.ab typed mode count index-type and pointer ABI | examples/render-to-texture/main.ab nonzero pooled render-pass indexed rendering | tests/pool/main.ab surfaced and offscreen short range rejection |
+| `glDrawElementsBaseVertex` | definition | GL_VERSION_3_2:+:all | GL_ARB_draw_elements_base_vertex:all:all | unclassified | - | - | - | - |
+| `glDrawElementsIndirect` | definition | GL_VERSION_4_0:+:all | GL_ARB_draw_indirect:all:all | common | src/driver/opengl.ab offset-aware indirect indexed rendering | src/driver/opengl.ab typed mode index-type and indirect-pointer ABI | tests/pool/main.ab absolute-firstIndex pooled target exact-pixel rendering | tests/pool/main.ab offscreen short and stale range rejection |
+| `glDrawElementsInstanced` | definition | GL_VERSION_3_1:+:all |  | common | src/driver/opengl.ab direct indexed instanced rendering | src/driver/opengl.ab typed mode count index-type pointer and instances ABI | examples/common-triangle/main.ab live indexed two-instance rendering | examples/common-triangle/main.ab invalid index count and instances rejection |
+| `glDrawElementsInstancedARB` | definition |  | GL_ARB_draw_instanced:all:all | unclassified | - | - | - | - |
+| `glDrawElementsInstancedBaseInstance` | definition | GL_VERSION_4_2:+:all | GL_ARB_base_instance:all:all | unclassified | - | - | - | - |
+| `glDrawElementsInstancedBaseVertex` | definition | GL_VERSION_3_2:+:all | GL_ARB_draw_elements_base_vertex:all:all | unclassified | - | - | - | - |
+| `glDrawElementsInstancedBaseVertexBaseInstance` | definition | GL_VERSION_4_2:+:all | GL_ARB_base_instance:all:all | unclassified | - | - | - | - |
+| `glDrawElementsInstancedEXT` | definition |  | GL_EXT_draw_instanced:all:all | unclassified | - | - | - | - |
+| `glDrawMeshArraysSUN` | definition |  | GL_SUN_mesh_array:all:all | unclassified | - | - | - | - |
+| `glDrawMeshTasksEXT` | definition |  | GL_EXT_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glDrawMeshTasksIndirectEXT` | definition |  | GL_EXT_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glDrawMeshTasksIndirectNV` | definition |  | GL_NV_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glDrawMeshTasksNV` | definition |  | GL_NV_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glDrawPixels` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glDrawRangeElementArrayAPPLE` | definition |  | GL_APPLE_element_array:all:all | unclassified | - | - | - | - |
+| `glDrawRangeElementArrayATI` | definition |  | GL_ATI_element_array:all:all | unclassified | - | - | - | - |
+| `glDrawRangeElements` | definition | GL_VERSION_1_2:+:all |  | unclassified | - | - | - | - |
+| `glDrawRangeElementsBaseVertex` | definition | GL_VERSION_3_2:+:all | GL_ARB_draw_elements_base_vertex:all:all | unclassified | - | - | - | - |
+| `glDrawRangeElementsEXT` | definition |  | GL_EXT_draw_range_elements:all:all | unclassified | - | - | - | - |
+| `glDrawTextureNV` | definition |  | GL_NV_draw_texture:all:all | unclassified | - | - | - | - |
+| `glDrawTransformFeedback` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glDrawTransformFeedbackInstanced` | definition | GL_VERSION_4_2:+:all | GL_ARB_transform_feedback_instanced:all:all | unclassified | - | - | - | - |
+| `glDrawTransformFeedbackNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glDrawTransformFeedbackStream` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback3:all:all | unclassified | - | - | - | - |
+| `glDrawTransformFeedbackStreamInstanced` | definition | GL_VERSION_4_2:+:all | GL_ARB_transform_feedback_instanced:all:all | unclassified | - | - | - | - |
+| `glDrawVkImageNV` | definition |  | GL_NV_draw_vulkan_image:all:all | unclassified | - | - | - | - |
+| `glEGLImageTargetTexStorageEXT` | definition |  | GL_EXT_EGL_image_storage:all:all | unclassified | - | - | - | - |
+| `glEGLImageTargetTextureStorageEXT` | definition |  | GL_EXT_EGL_image_storage:all:all | unclassified | - | - | - | - |
+| `glEdgeFlag` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEdgeFlagFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glEdgeFlagPointer` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEdgeFlagPointerEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glEdgeFlagPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glEdgeFlagv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glElementPointerAPPLE` | definition |  | GL_APPLE_element_array:all:all | unclassified | - | - | - | - |
+| `glElementPointerATI` | definition |  | GL_ATI_element_array:all:all | unclassified | - | - | - | - |
+| `glEnable` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab cull blend and depth state enablement | src/driver/opengl.ab typed capability ABI | examples/common-triangle/main.ab live cull blend and depth pipelines | examples/common-triangle/main.ab invalid raster and depth rejection |
+| `glEnableClientState` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEnableClientStateIndexedEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glEnableClientStateiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glEnableIndexedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
+| `glEnableVariantClientStateEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glEnableVertexArrayAttrib` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glEnableVertexArrayAttribEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glEnableVertexArrayEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glEnableVertexAttribAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glEnableVertexAttribArray` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab reflected vertex attribute enablement | src/driver/opengl.ab typed location ABI | examples/common-triangle/main.ab interleaved position and color attributes | examples/common-triangle/main.ab mismatched vertex layout rejection |
+| `glEnableVertexAttribArrayARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glEnablei` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glEnd` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEndConditionalRender` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glEndConditionalRenderNV` | definition |  | GL_NV_conditional_render:all:all | unclassified | - | - | - | - |
+| `glEndConditionalRenderNVX` | definition |  | GL_NVX_conditional_render:all:all | unclassified | - | - | - | - |
+| `glEndFragmentShaderATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glEndList` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEndOcclusionQueryNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glEndPerfMonitorAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glEndPerfQueryINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glEndQuery` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glEndQueryARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glEndQueryIndexed` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback3:all:all | unclassified | - | - | - | - |
+| `glEndTransformFeedback` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glEndTransformFeedbackEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glEndTransformFeedbackNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glEndVertexShaderEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glEndVideoCaptureNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glEvalCoord1d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord1dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord1f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord1fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord1xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glEvalCoord1xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glEvalCoord2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord2dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord2fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalCoord2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glEvalCoord2xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glEvalMapsNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glEvalMesh1` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalMesh2` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalPoint1` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvalPoint2` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glEvaluateDepthValuesARB` | definition |  | GL_ARB_sample_locations:all:all | unclassified | - | - | - | - |
+| `glExecuteProgramNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glExtractComponentEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glFeedbackBuffer` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFeedbackBufferxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glFenceSync` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab synchronous and queued copy fences | src/driver/opengl.ab typed condition flags and opaque result ABI | tests/transfer/main.ab three simultaneous native in-flight slots | tests/transfer/main.ab invalid queued range rejection |
+| `glFinalCombinerInputNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glFinish` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable idle wait | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated application waitIdle | tests/application/main.ab invalid application rejection |
+| `glFinishAsyncSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
+| `glFinishFenceAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glFinishFenceNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glFinishObjectAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glFinishTextureSUNX` | definition |  | GL_SUNX_constant_data:all:all | unclassified | - | - | - | - |
+| `glFlush` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glFlushMappedBufferRange` | definition | GL_VERSION_3_0:+:all | GL_ARB_map_buffer_range:all:all | unclassified | - | - | - | - |
+| `glFlushMappedBufferRangeAPPLE` | definition |  | GL_APPLE_flush_buffer_range:all:all | unclassified | - | - | - | - |
+| `glFlushMappedNamedBufferRange` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glFlushMappedNamedBufferRangeEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glFlushPixelDataRangeNV` | definition |  | GL_NV_pixel_data_range:all:all | unclassified | - | - | - | - |
+| `glFlushRasterSGIX` | definition |  | GL_SGIX_flush_raster:all:all | unclassified | - | - | - | - |
+| `glFlushStaticDataIBM` | definition |  | GL_IBM_static_data:all:all | unclassified | - | - | - | - |
+| `glFlushVertexArrayRangeAPPLE` | definition |  | GL_APPLE_vertex_array_range:all:all | unclassified | - | - | - | - |
+| `glFlushVertexArrayRangeNV` | definition |  | GL_NV_vertex_array_range:all:all | unclassified | - | - | - | - |
+| `glFogCoordFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glFogCoordPointer` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogCoordPointerEXT` | definition |  | GL_EXT_fog_coord:all:all | unclassified | - | - | - | - |
+| `glFogCoordPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glFogCoordd` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogCoorddEXT` | definition |  | GL_EXT_fog_coord:all:all | unclassified | - | - | - | - |
+| `glFogCoorddv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogCoorddvEXT` | definition |  | GL_EXT_fog_coord:all:all | unclassified | - | - | - | - |
+| `glFogCoordf` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogCoordfEXT` | definition |  | GL_EXT_fog_coord:all:all | unclassified | - | - | - | - |
+| `glFogCoordfv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogCoordfvEXT` | definition |  | GL_EXT_fog_coord:all:all | unclassified | - | - | - | - |
+| `glFogCoordhNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glFogCoordhvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glFogFuncSGIS` | definition |  | GL_SGIS_fog_function:all:all | unclassified | - | - | - | - |
+| `glFogf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogi` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFogxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glFogxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glFragmentColorMaterialSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentCoverageColorNV` | definition |  | GL_NV_fragment_coverage_to_color:all:all | unclassified | - | - | - | - |
+| `glFragmentLightModelfSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightModelfvSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightModeliSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightModelivSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightfSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightfvSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightiSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentLightivSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentMaterialfSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentMaterialfvSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentMaterialiSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFragmentMaterialivSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glFrameTerminatorGREMEDY` | definition |  | GL_GREMEDY_frame_terminator:all:all | unclassified | - | - | - | - |
+| `glFrameZoomSGIX` | definition |  | GL_SGIX_framezoom:all:all | unclassified | - | - | - | - |
+| `glFramebufferDrawBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glFramebufferDrawBuffersEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glFramebufferFetchBarrierEXT` | definition |  | GL_EXT_shader_framebuffer_fetch_non_coherent:all:all | unclassified | - | - | - | - |
+| `glFramebufferParameteri` | definition | GL_VERSION_4_3:+:all | GL_ARB_framebuffer_no_attachments:all:all | unclassified | - | - | - | - |
+| `glFramebufferParameteriMESA` | definition |  | GL_MESA_framebuffer_flip_y:all:all | unclassified | - | - | - | - |
+| `glFramebufferReadBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glFramebufferRenderbuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferRenderbufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferSampleLocationsfvARB` | definition |  | GL_ARB_sample_locations:all:all | unclassified | - | - | - | - |
+| `glFramebufferSampleLocationsfvNV` | definition |  | GL_NV_sample_locations:all:all | unclassified | - | - | - | - |
+| `glFramebufferSamplePositionsfvAMD` | definition |  | GL_AMD_framebuffer_sample_positions:all:all | unclassified | - | - | - | - |
+| `glFramebufferShadingRateEXT` | definition |  | GL_EXT_fragment_shading_rate:all:all | unclassified | - | - | - | - |
+| `glFramebufferTexture` | definition | GL_VERSION_3_2:+:all |  | unclassified | - | - | - | - |
+| `glFramebufferTexture1D` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferTexture1DEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferTexture2D` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab target setup | src/driver/opengl.ab typed extern signature | tests/application/main.ab render-to-texture output | tests/application/main.ab incompatible attachment rejection |
+| `glFramebufferTexture2DEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferTexture3D` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferTexture3DEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureARB` | definition |  | GL_ARB_geometry_shader4:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureEXT` | definition |  | GL_NV_geometry_program4:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureFaceARB` | definition |  | GL_ARB_geometry_shader4:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureFaceEXT` | definition |  | GL_NV_geometry_program4:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureLayer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureLayerARB` | definition |  | GL_ARB_geometry_shader4:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureLayerEXT` | definition |  | GL_EXT_texture_array:all:all|GL_NV_geometry_program4:all:all | unclassified | - | - | - | - |
+| `glFramebufferTextureMultiviewOVR` | definition |  | GL_OVR_multiview:all:all | unclassified | - | - | - | - |
+| `glFreeObjectBufferATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glFrontFace` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable winding state | src/driver/opengl.ab typed winding ABI | examples/common-triangle/main.ab clockwise and counter-clockwise pipelines | examples/common-triangle/main.ab invalid front-face rejection |
+| `glFrustum` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glFrustumfOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
+| `glFrustumxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGenAsyncMarkersSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
+| `glGenBuffers` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab affine buffer creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab invalid buffer descriptor rejection |
+| `glGenBuffersARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGenFencesAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glGenFencesNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glGenFragmentShadersATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glGenFramebuffers` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab affine framebuffer and resolve creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab color depth multisample and MRT targets | tests/application/main.ab incompatible attachment rejection |
+| `glGenFramebuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGenLists` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGenNamesAMD` | definition |  | GL_AMD_name_gen_delete:all:all | unclassified | - | - | - | - |
+| `glGenOcclusionQueriesNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGenPathsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGenPerfMonitorsAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGenProgramPipelines` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGenProgramsARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGenProgramsNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGenQueries` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab timestamp query creation | src/driver/opengl.ab typed extern signature | tests/application/main.ab timestamp query creation | tests/application/main.ab invalid application rejection |
+| `glGenQueriesARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGenQueryResourceTagNV` | definition |  | GL_NV_query_resource_tag:all:all | unclassified | - | - | - | - |
+| `glGenRenderbuffers` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGenRenderbuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGenSamplers` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | common | src/driver/opengl.ab affine sampler creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab comparison and anisotropic sampler creation | src/sampler.ab unsupported comparison and anisotropy rejection |
+| `glGenSemaphoresEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glGenSymbolsEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGenTextures` | definition | GL_VERSION_1_1:+:all |  | common | src/driver/opengl.ab affine texture creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid sampled transfer and render-target textures | tests/application/main.ab invalid texture descriptor rejection |
+| `glGenTexturesEXT` | definition |  | GL_EXT_texture_object:all:all | unclassified | - | - | - | - |
+| `glGenTransformFeedbacks` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glGenTransformFeedbacksNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glGenVertexArrays` | definition | GL_VERSION_3_0:+:all | GL_ARB_vertex_array_object:all:all | common | src/driver/opengl.ab affine raster vertex-state creation | src/driver/opengl.ab typed output-pointer ABI | examples/common-triangle/main.ab live pipeline creation with stable vertex array | examples/common-triangle/main.ab invalid pipeline cleanup |
+| `glGenVertexArraysAPPLE` | definition |  | GL_APPLE_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGenVertexShadersEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGenerateMipmap` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGenerateMipmapEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGenerateMultiTexMipmapEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGenerateTextureMipmap` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab mip generation | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact first and final mip | tests/application/main.ab invalid mip generation rejection |
+| `glGenerateTextureMipmapEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetActiveAtomicCounterBufferiv` | definition | GL_VERSION_4_2:+:all | GL_ARB_shader_atomic_counters:all:all | unclassified | - | - | - | - |
+| `glGetActiveAttrib` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetActiveAttribARB` | definition |  | GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetActiveSubroutineName` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetActiveSubroutineUniformName` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetActiveSubroutineUniformiv` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetActiveUniform` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetActiveUniformARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetActiveUniformBlockName` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetActiveUniformBlockiv` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetActiveUniformName` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetActiveUniformsiv` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetActiveVaryingNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glGetArrayObjectfvATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGetArrayObjectivATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGetAttachedObjectsARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetAttachedShaders` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetAttribLocation` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetAttribLocationARB` | definition |  | GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetBooleanIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
+| `glGetBooleani_v` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetBooleanv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetBufferParameteri64v` | definition | GL_VERSION_3_2:+:all |  | unclassified | - | - | - | - |
+| `glGetBufferParameteriv` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glGetBufferParameterivARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetBufferParameterui64vNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glGetBufferPointerv` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glGetBufferPointervARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetBufferSubData` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab checked buffer readback | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole readback | tests/application/main.ab range and usage rejection |
+| `glGetBufferSubDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetClipPlane` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetClipPlanefOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
+| `glGetClipPlanexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetColorTableEXT` | definition |  | GL_EXT_paletted_texture:all:all | unclassified | - | - | - | - |
+| `glGetColorTableParameterfvEXT` | definition |  | GL_EXT_paletted_texture:all:all | unclassified | - | - | - | - |
+| `glGetColorTableParameterfvSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glGetColorTableParameterivEXT` | definition |  | GL_EXT_paletted_texture:all:all | unclassified | - | - | - | - |
+| `glGetColorTableParameterivSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glGetColorTableSGI` | definition |  | GL_SGI_color_table:all:all | unclassified | - | - | - | - |
+| `glGetCombinerInputParameterfvNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glGetCombinerInputParameterivNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glGetCombinerOutputParameterfvNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glGetCombinerOutputParameterivNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glGetCombinerStageParameterfvNV` | definition |  | GL_NV_register_combiners2:all:all | unclassified | - | - | - | - |
+| `glGetCommandHeaderNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glGetCompressedMultiTexImageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetCompressedTexImage` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glGetCompressedTexImageARB` | definition |  | GL_ARB_texture_compression:all:all | unclassified | - | - | - | - |
+| `glGetCompressedTextureImage` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetCompressedTextureImageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetCompressedTextureSubImage` | definition | GL_VERSION_4_5:+:all | GL_ARB_get_texture_sub_image:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab compressed texture readback | src/driver/opengl.ab typed region buffer-size and byte-pointer ABI | tests/wider_texture/main.ab and tests/wider_texture_transfer/main.ab exact pitched BC1 readback | tests/wider_texture/main.ab short destination rejection |
+| `glGetConvolutionFilterEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glGetConvolutionParameterfvEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glGetConvolutionParameterivEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glGetConvolutionParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetCoverageModulationTableNV` | definition |  | GL_NV_framebuffer_mixed_samples:all:all | unclassified | - | - | - | - |
+| `glGetDebugMessageLog` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glGetDebugMessageLogAMD` | definition |  | GL_AMD_debug_output:all:all | unclassified | - | - | - | - |
+| `glGetDebugMessageLogARB` | definition |  | GL_ARB_debug_output:all:all | unclassified | - | - | - | - |
+| `glGetDetailTexFuncSGIS` | definition |  | GL_SGIS_detail_texture:all:all | unclassified | - | - | - | - |
+| `glGetDoubleIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetDoublei_v` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glGetDoublei_vEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetDoublev` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetError` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab checked driver failure boundary | src/driver/opengl.ab typed error-code result ABI | tests/opengl/main.ab successful program use and malformed shader rejection | tests/application/main.ab unsupported OpenGL feature rejection |
+| `glGetFenceivNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glGetFinalCombinerInputParameterfvNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glGetFinalCombinerInputParameterivNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
+| `glGetFirstPerfQueryIdINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glGetFixedvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetFloatIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetFloati_v` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glGetFloati_vEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetFloatv` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab sampler anisotropy capability query | src/driver/opengl.ab typed floating output-pointer ABI | tests/opengl/main.ab validated maximum anisotropy at least 16 | src/driver/opengl.ab conservative one-times fallback |
+| `glGetFogFuncSGIS` | definition |  | GL_SGIS_fog_function:all:all | unclassified | - | - | - | - |
+| `glGetFragDataIndex` | definition | GL_VERSION_3_3:+:all | GL_ARB_blend_func_extended:all:all | unclassified | - | - | - | - |
+| `glGetFragDataLocation` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetFragDataLocationEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glGetFragmentLightfvSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glGetFragmentLightivSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glGetFragmentMaterialfvSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glGetFragmentMaterialivSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glGetFragmentShadingRatesEXT` | definition |  | GL_EXT_fragment_shading_rate:all:all | unclassified | - | - | - | - |
+| `glGetFramebufferAttachmentParameteriv` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGetFramebufferAttachmentParameterivEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGetFramebufferParameterfvAMD` | definition |  | GL_AMD_framebuffer_sample_positions:all:all | unclassified | - | - | - | - |
+| `glGetFramebufferParameteriv` | definition | GL_VERSION_4_3:+:all | GL_ARB_framebuffer_no_attachments:all:all | unclassified | - | - | - | - |
+| `glGetFramebufferParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetFramebufferParameterivMESA` | definition |  | GL_MESA_framebuffer_flip_y:all:all | unclassified | - | - | - | - |
+| `glGetGraphicsResetStatus` | definition | GL_VERSION_4_5:+:all | GL_KHR_robustness:all:all | unclassified | - | - | - | - |
+| `glGetGraphicsResetStatusARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGetHandleARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetHistogramEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glGetHistogramParameterfvEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glGetHistogramParameterivEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glGetHistogramParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetImageHandleARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetImageHandleNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetImageTransformParameterfvHP` | definition |  | GL_HP_image_transform:all:all | unclassified | - | - | - | - |
+| `glGetImageTransformParameterivHP` | definition |  | GL_HP_image_transform:all:all | unclassified | - | - | - | - |
+| `glGetInfoLogARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetInstrumentsSGIX` | definition |  | GL_SGIX_instruments:all:all | unclassified | - | - | - | - |
+| `glGetInteger64i_v` | definition | GL_VERSION_3_2:+:all |  | unclassified | - | - | - | - |
+| `glGetInteger64v` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | common | src/driver/opengl.ab storage-buffer limit query | src/driver/opengl.ab typed 64-bit output-pointer ABI | tests/opengl/main.ab validated positive storage limit | src/driver/opengl.ab bounded portable storage cap |
+| `glGetIntegerIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
+| `glGetIntegeri_v` | definition | GL_VERSION_3_0:+:all|GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | common | src/driver/opengl.ab indexed compute workgroup limit query | src/driver/opengl.ab typed name index and output ABI | tests/opengl/main.ab validated three-axis group and local limits | tests/application/main.ab limit-exceeding dispatch rejection |
+| `glGetIntegerui64i_vNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glGetIntegerui64vNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glGetIntegerv` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab version extension and scalar limit queries | src/driver/opengl.ab typed integer output-pointer ABI | tests/opengl/main.ab validated version texture compute and extension counts | src/driver/opengl.ab conservative defaults for unavailable limits |
+| `glGetInternalformatSampleivNV` | definition |  | GL_NV_internalformat_sample_query:all:all | unclassified | - | - | - | - |
+| `glGetInternalformati64v` | definition | GL_VERSION_4_3:+:all | GL_ARB_internalformat_query2:all:all | unclassified | - | - | - | - |
+| `glGetInternalformativ` | definition | GL_VERSION_4_2:+:all | GL_ARB_internalformat_query:all:all | unclassified | - | - | - | - |
+| `glGetInvariantBooleanvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetInvariantFloatvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetInvariantIntegervEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetLightfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetLightiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetLightxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetListParameterfvSGIX` | definition |  | GL_SGIX_list_priority:all:all | unclassified | - | - | - | - |
+| `glGetListParameterivSGIX` | definition |  | GL_SGIX_list_priority:all:all | unclassified | - | - | - | - |
+| `glGetLocalConstantBooleanvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetLocalConstantFloatvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetLocalConstantIntegervEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetMapAttribParameterfvNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glGetMapAttribParameterivNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glGetMapControlPointsNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glGetMapParameterfvNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glGetMapParameterivNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glGetMapdv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetMapfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetMapiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetMapxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetMaterialfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetMaterialiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetMaterialxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetMemoryObjectDetachedResourcesuivNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
+| `glGetMemoryObjectParameterivEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glGetMinmaxEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glGetMinmaxParameterfvEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glGetMinmaxParameterivEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexEnvfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexEnvivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexGendvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexGenfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexGenivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexImageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexLevelParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexLevelParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexParameterIivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexParameterIuivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultiTexParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetMultisamplefv` | definition | GL_VERSION_3_2:+:all | GL_ARB_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glGetMultisamplefvNV` | definition |  | GL_NV_explicit_multisample:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferParameteri64v` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferParameterui64vNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferPointerv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferPointervEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferSubData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedBufferSubDataEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedFramebufferAttachmentParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedFramebufferAttachmentParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedFramebufferParameterfvAMD` | definition |  | GL_AMD_framebuffer_sample_positions:all:all | unclassified | - | - | - | - |
+| `glGetNamedFramebufferParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedFramebufferParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedProgramLocalParameterIivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedProgramLocalParameterIuivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedProgramLocalParameterdvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedProgramLocalParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedProgramStringEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedProgramivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedRenderbufferParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedRenderbufferParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetNamedStringARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
+| `glGetNamedStringivARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
+| `glGetNextPerfQueryIdINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glGetObjectBufferfvATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGetObjectBufferivATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGetObjectLabel` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glGetObjectLabelEXT` | definition |  | GL_EXT_debug_label:all:all | unclassified | - | - | - | - |
+| `glGetObjectParameterfvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetObjectParameterivAPPLE` | definition |  | GL_APPLE_object_purgeable:all:all | unclassified | - | - | - | - |
+| `glGetObjectParameterivARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetObjectPtrLabel` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glGetOcclusionQueryivNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGetOcclusionQueryuivNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGetPathCommandsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathCoordsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathDashArrayNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathLengthNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathMetricRangeNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathMetricsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathParameterfvNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathParameterivNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPathSpacingNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetPerfCounterInfoINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glGetPerfMonitorCounterDataAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGetPerfMonitorCounterInfoAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGetPerfMonitorCounterStringAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGetPerfMonitorCountersAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGetPerfMonitorGroupStringAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGetPerfMonitorGroupsAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glGetPerfQueryDataINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glGetPerfQueryIdByNameINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glGetPerfQueryInfoINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
+| `glGetPixelMapfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetPixelMapuiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetPixelMapusv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetPixelMapxv` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetPixelTexGenParameterfvSGIS` | definition |  | GL_SGIS_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glGetPixelTexGenParameterivSGIS` | definition |  | GL_SGIS_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glGetPixelTransformParameterfvEXT` | definition |  | GL_EXT_pixel_transform:all:all | unclassified | - | - | - | - |
+| `glGetPixelTransformParameterivEXT` | definition |  | GL_EXT_pixel_transform:all:all | unclassified | - | - | - | - |
+| `glGetPointerIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetPointeri_vEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetPointerv` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core|GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glGetPointervEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glGetPolygonStipple` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetProgramBinary` | definition | GL_VERSION_4_1:+:all | GL_ARB_get_program_binary:all:all | unclassified | - | - | - | - |
+| `glGetProgramEnvParameterIivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glGetProgramEnvParameterIuivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glGetProgramEnvParameterdvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramEnvParameterfvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramInfoLog` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab bounded link diagnostic capture | src/driver/opengl.ab typed length and byte-output ABI | tests/opengl/main.ab empty-program link diagnostic path | src/driver/opengl.ab 4096-byte bounded adoption |
+| `glGetProgramInterfaceiv` | definition | GL_VERSION_4_3:+:all | GL_ARB_program_interface_query:all:all | unclassified | - | - | - | - |
+| `glGetProgramLocalParameterIivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glGetProgramLocalParameterIuivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glGetProgramLocalParameterdvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramLocalParameterfvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramNamedParameterdvNV` | definition |  | GL_NV_fragment_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramNamedParameterfvNV` | definition |  | GL_NV_fragment_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramParameterdvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramParameterfvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramPipelineInfoLog` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetProgramPipelineiv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetProgramResourceIndex` | definition | GL_VERSION_4_3:+:all | GL_ARB_program_interface_query:all:all | unclassified | - | - | - | - |
+| `glGetProgramResourceLocation` | definition | GL_VERSION_4_3:+:all | GL_ARB_program_interface_query:all:all | unclassified | - | - | - | - |
+| `glGetProgramResourceLocationIndex` | definition | GL_VERSION_4_3:+:all | GL_ARB_program_interface_query:all:all | unclassified | - | - | - | - |
+| `glGetProgramResourceName` | definition | GL_VERSION_4_3:+:all | GL_ARB_program_interface_query:all:all | unclassified | - | - | - | - |
+| `glGetProgramResourcefvNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glGetProgramResourceiv` | definition | GL_VERSION_4_3:+:all | GL_ARB_program_interface_query:all:all | unclassified | - | - | - | - |
+| `glGetProgramStageiv` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetProgramStringARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramStringNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramSubroutineParameteruivNV` | definition |  | GL_NV_gpu_program5:all:all | unclassified | - | - | - | - |
+| `glGetProgramiv` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab program link-status query | src/driver/opengl.ab typed parameter output ABI | tests/opengl/main.ab valid and empty program link status | tests/opengl/main.ab empty program rejection |
+| `glGetProgramivARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetProgramivNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetQueryBufferObjecti64v` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetQueryBufferObjectiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetQueryBufferObjectui64v` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetQueryBufferObjectuiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetQueryIndexediv` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback3:all:all | unclassified | - | - | - | - |
+| `glGetQueryObjecti64v` | definition | GL_VERSION_3_3:+:all | GL_ARB_timer_query:all:all | unclassified | - | - | - | - |
+| `glGetQueryObjecti64vEXT` | definition |  | GL_EXT_timer_query:all:all | unclassified | - | - | - | - |
+| `glGetQueryObjectiv` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glGetQueryObjectivARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGetQueryObjectui64v` | definition | GL_VERSION_3_3:+:all | GL_ARB_timer_query:all:all | common | src/driver/opengl.ab timestamp readback | src/driver/opengl.ab typed extern signature | tests/application/main.ab monotonic timestamp samples | tests/application/main.ab invalid query rejection |
+| `glGetQueryObjectui64vEXT` | definition |  | GL_EXT_timer_query:all:all | unclassified | - | - | - | - |
+| `glGetQueryObjectuiv` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glGetQueryObjectuivARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGetQueryiv` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glGetQueryivARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glGetRenderbufferParameteriv` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGetRenderbufferParameterivEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGetSamplerParameterIiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glGetSamplerParameterIuiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glGetSamplerParameterfv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glGetSamplerParameteriv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glGetSemaphoreParameterivNV` | definition |  | GL_NV_timeline_semaphore:all:all | unclassified | - | - | - | - |
+| `glGetSemaphoreParameterui64vEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glGetSeparableFilterEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glGetShaderInfoLog` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab bounded compile diagnostic capture | src/driver/opengl.ab typed length and byte-output ABI | tests/opengl/main.ab exact malformed-source driver diagnostic | src/driver/opengl.ab 4096-byte bounded adoption |
+| `glGetShaderPrecisionFormat` | definition | GL_VERSION_4_1:+:all | GL_ARB_ES2_compatibility:all:all | unclassified | - | - | - | - |
+| `glGetShaderSource` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetShaderSourceARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetShaderiv` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab source and specialized compile-status query | src/driver/opengl.ab typed parameter output ABI | tests/opengl/main.ab valid and malformed source status | tests/opengl/main.ab malformed source rejection |
+| `glGetShadingRateImagePaletteNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glGetShadingRateSampleLocationivNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glGetSharpenTexFuncSGIS` | definition |  | GL_SGIS_sharpen_texture:all:all | unclassified | - | - | - | - |
+| `glGetStageIndexNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glGetString` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetStringi` | definition | GL_VERSION_3_0:+:all |  | common | src/driver/opengl.ab bounded extension-name enumeration | src/driver/opengl.ab typed name index and string-pointer ABI | tests/application/main.ab SPIR-V and anisotropy feature negotiation | src/driver/opengl.ab null extension pointer handling |
+| `glGetSubroutineIndex` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetSubroutineUniformLocation` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetSynciv` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | unclassified | - | - | - | - |
+| `glGetTexBumpParameterfvATI` | definition |  | GL_ATI_envmap_bumpmap:all:all | unclassified | - | - | - | - |
+| `glGetTexBumpParameterivATI` | definition |  | GL_ATI_envmap_bumpmap:all:all | unclassified | - | - | - | - |
+| `glGetTexEnvfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetTexEnviv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetTexEnvxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetTexFilterFuncSGIS` | definition |  | GL_SGIS_texture_filter4:all:all | unclassified | - | - | - | - |
+| `glGetTexGendv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetTexGenfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetTexGeniv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glGetTexGenxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetTexImage` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexLevelParameterfv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexLevelParameteriv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexLevelParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetTexParameterIiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexParameterIivEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
+| `glGetTexParameterIuiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexParameterIuivEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
+| `glGetTexParameterPointervAPPLE` | definition |  | GL_APPLE_texture_range:all:all | unclassified | - | - | - | - |
+| `glGetTexParameterfv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexParameteriv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTexParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glGetTextureHandleARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetTextureHandleNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetTextureImage` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureImageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureLevelParameterfv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureLevelParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureLevelParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureLevelParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterIiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterIivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterIuiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterIuivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterfv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTextureSamplerHandleARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetTextureSamplerHandleNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetTextureSubImage` | definition | GL_VERSION_4_5:+:all | GL_ARB_get_texture_sub_image:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab texture readback | src/driver/opengl.ab typed extern signature | tests/application/main.ab and tests/wider_texture_transfer/main.ab exact texture readback | tests/application/main.ab readback range rejection |
+| `glGetTrackMatrixivNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetTransformFeedbackVarying` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetTransformFeedbackVaryingEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glGetTransformFeedbackVaryingNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glGetTransformFeedbacki64_v` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTransformFeedbacki_v` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetTransformFeedbackiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetUniformBlockIndex` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetUniformBufferSizeEXT` | definition |  | GL_EXT_bindable_uniform:all:all | unclassified | - | - | - | - |
+| `glGetUniformIndices` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetUniformLocation` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetUniformLocationARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetUniformOffsetEXT` | definition |  | GL_EXT_bindable_uniform:all:all | unclassified | - | - | - | - |
+| `glGetUniformSubroutineuiv` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glGetUniformdv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glGetUniformfv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetUniformfvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetUniformi64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glGetUniformi64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glGetUniformiv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetUniformivARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glGetUniformui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glGetUniformui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glGetUniformuiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetUniformuivEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glGetUnsignedBytei_vEXT` | definition |  | GL_EXT_memory_object:all:all|GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glGetUnsignedBytevEXT` | definition |  | GL_EXT_memory_object:all:all|GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glGetVariantArrayObjectfvATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGetVariantArrayObjectivATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glGetVariantBooleanvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVariantFloatvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVariantIntegervEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVariantPointervEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVaryingLocationNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayIndexed64iv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayIndexediv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayIntegeri_vEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayIntegervEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayPointeri_vEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayPointervEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexArrayiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribArrayObjectfvATI` | definition |  | GL_ATI_vertex_attrib_array_object:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribArrayObjectivATI` | definition |  | GL_ATI_vertex_attrib_array_object:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribIiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetVertexAttribIivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribIuiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glGetVertexAttribIuivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribLdv` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribLdvEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribLi64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribLui64vARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribLui64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribPointerv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetVertexAttribPointervARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribPointervNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribdv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetVertexAttribdvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribdvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribfv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetVertexAttribfvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribfvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribiv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetVertexAttribivARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glGetVertexAttribivNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glGetVideoCaptureStreamdvNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glGetVideoCaptureStreamfvNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glGetVideoCaptureStreamivNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glGetVideoCaptureivNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glGetVideoi64vNV` | definition |  | GL_NV_present_video:all:all | unclassified | - | - | - | - |
+| `glGetVideoivNV` | definition |  | GL_NV_present_video:all:all | unclassified | - | - | - | - |
+| `glGetVideoui64vNV` | definition |  | GL_NV_present_video:all:all | unclassified | - | - | - | - |
+| `glGetVideouivNV` | definition |  | GL_NV_present_video:all:all | unclassified | - | - | - | - |
+| `glGetVkProcAddrNV` | definition |  | GL_NV_draw_vulkan_image:all:all | unclassified | - | - | - | - |
+| `glGetnCompressedTexImage` | definition | GL_VERSION_4_5:+:all |  | unclassified | - | - | - | - |
+| `glGetnCompressedTexImageARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnTexImage` | definition | GL_VERSION_4_5:+:all |  | unclassified | - | - | - | - |
+| `glGetnTexImageARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformdv` | definition | GL_VERSION_4_5:+:all |  | unclassified | - | - | - | - |
+| `glGetnUniformdvARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformfv` | definition | GL_VERSION_4_5:+:all | GL_KHR_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformfvARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformi64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glGetnUniformiv` | definition | GL_VERSION_4_5:+:all | GL_KHR_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformivARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glGetnUniformuiv` | definition | GL_VERSION_4_5:+:all | GL_KHR_robustness:all:all | unclassified | - | - | - | - |
+| `glGetnUniformuivARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactorbSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactordSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactorfSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactoriSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactorsSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactorubSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactoruiSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glGlobalAlphaFactorusSUN` | definition |  | GL_SUN_global_alpha:all:all | unclassified | - | - | - | - |
+| `glHint` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glHintPGI` | definition |  | GL_PGI_misc_hints:all:all | unclassified | - | - | - | - |
+| `glHistogramEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glIglooInterfaceSGIX` | definition |  | GL_SGIX_igloo_interface:all:all | unclassified | - | - | - | - |
+| `glImageTransformParameterfHP` | definition |  | GL_HP_image_transform:all:all | unclassified | - | - | - | - |
+| `glImageTransformParameterfvHP` | definition |  | GL_HP_image_transform:all:all | unclassified | - | - | - | - |
+| `glImageTransformParameteriHP` | definition |  | GL_HP_image_transform:all:all | unclassified | - | - | - | - |
+| `glImageTransformParameterivHP` | definition |  | GL_HP_image_transform:all:all | unclassified | - | - | - | - |
+| `glImportMemoryFdEXT` | definition |  | GL_EXT_memory_object_fd:all:all | unclassified | - | - | - | - |
+| `glImportMemoryWin32HandleEXT` | definition |  | GL_EXT_memory_object_win32:all:all | unclassified | - | - | - | - |
+| `glImportMemoryWin32NameEXT` | definition |  | GL_EXT_memory_object_win32:all:all | unclassified | - | - | - | - |
+| `glImportSemaphoreFdEXT` | definition |  | GL_EXT_semaphore_fd:all:all | unclassified | - | - | - | - |
+| `glImportSemaphoreWin32HandleEXT` | definition |  | GL_EXT_semaphore_win32:all:all | unclassified | - | - | - | - |
+| `glImportSemaphoreWin32NameEXT` | definition |  | GL_EXT_semaphore_win32:all:all | unclassified | - | - | - | - |
+| `glImportSyncEXT` | definition |  | GL_EXT_x11_sync_object:all:all | unclassified | - | - | - | - |
+| `glIndexFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glIndexFuncEXT` | definition |  | GL_EXT_index_func:all:all | unclassified | - | - | - | - |
+| `glIndexMask` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexMaterialEXT` | definition |  | GL_EXT_index_material:all:all | unclassified | - | - | - | - |
+| `glIndexPointer` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexPointerEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glIndexPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glIndexd` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexdv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexi` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexs` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexsv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexub` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexubv` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIndexxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glIndexxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glInitNames` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glInsertComponentEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glInsertEventMarkerEXT` | definition |  | GL_EXT_debug_marker:all:all | unclassified | - | - | - | - |
+| `glInstrumentsBufferSGIX` | definition |  | GL_SGIX_instruments:all:all | unclassified | - | - | - | - |
+| `glInterleavedArrays` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glInterpolatePathsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glInvalidateBufferData` | definition | GL_VERSION_4_3:+:all | GL_ARB_invalidate_subdata:all:all | unclassified | - | - | - | - |
+| `glInvalidateBufferSubData` | definition | GL_VERSION_4_3:+:all | GL_ARB_invalidate_subdata:all:all | unclassified | - | - | - | - |
+| `glInvalidateFramebuffer` | definition | GL_VERSION_4_3:+:all | GL_ARB_invalidate_subdata:all:all | common | src/driver/opengl.ab discard store operation | src/driver/opengl.ab typed extern signature | tests/application/main.ab discard attachment pass | tests/application/main.ab attachment bounds rejection |
+| `glInvalidateNamedFramebufferData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glInvalidateNamedFramebufferSubData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glInvalidateSubFramebuffer` | definition | GL_VERSION_4_3:+:all | GL_ARB_invalidate_subdata:all:all | unclassified | - | - | - | - |
+| `glInvalidateTexImage` | definition | GL_VERSION_4_3:+:all | GL_ARB_invalidate_subdata:all:all | unclassified | - | - | - | - |
+| `glInvalidateTexSubImage` | definition | GL_VERSION_4_3:+:all | GL_ARB_invalidate_subdata:all:all | unclassified | - | - | - | - |
+| `glIsAsyncMarkerSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
+| `glIsBuffer` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glIsBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glIsBufferResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glIsCommandListNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glIsEnabled` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glIsEnabledIndexedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
+| `glIsEnabledi` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glIsFenceAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glIsFenceNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glIsFramebuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glIsFramebufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glIsImageHandleResidentARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glIsImageHandleResidentNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glIsList` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glIsMemoryObjectEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glIsNameAMD` | definition |  | GL_AMD_name_gen_delete:all:all | unclassified | - | - | - | - |
+| `glIsNamedBufferResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glIsNamedStringARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
+| `glIsObjectBufferATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glIsOcclusionQueryNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glIsPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glIsPointInFillPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glIsPointInStrokePathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glIsProgram` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glIsProgramARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glIsProgramNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glIsProgramPipeline` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glIsQuery` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glIsQueryARB` | definition |  | GL_ARB_occlusion_query:all:all | unclassified | - | - | - | - |
+| `glIsRenderbuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glIsRenderbufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glIsSampler` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glIsSemaphoreEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glIsShader` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glIsStateNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glIsSync` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | unclassified | - | - | - | - |
+| `glIsTexture` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glIsTextureEXT` | definition |  | GL_EXT_texture_object:all:all | unclassified | - | - | - | - |
+| `glIsTextureHandleResidentARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glIsTextureHandleResidentNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glIsTransformFeedback` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glIsTransformFeedbackNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glIsVariantEnabledEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glIsVertexArray` | definition | GL_VERSION_3_0:+:all | GL_ARB_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glIsVertexArrayAPPLE` | definition |  | GL_APPLE_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glIsVertexAttribEnabledAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glLGPUCopyImageSubDataNVX` | definition |  | GL_NVX_linked_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glLGPUInterlockNVX` | definition |  | GL_NVX_linked_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glLGPUNamedBufferSubDataNVX` | definition |  | GL_NVX_linked_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glLabelObjectEXT` | definition |  | GL_EXT_debug_label:all:all | unclassified | - | - | - | - |
+| `glLightEnviSGIX` | definition |  | GL_SGIX_fragment_lighting:all:all | unclassified | - | - | - | - |
+| `glLightModelf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightModelfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightModeli` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightModeliv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightModelxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLightModelxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLightf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLighti` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLightxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLightxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLineStipple` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLineWidth` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glLineWidthxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLinkProgram` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab render and compute program linking | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid vertex-fragment link | tests/opengl/main.ab empty program link rejection |
+| `glLinkProgramARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glListBase` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glListDrawCommandsStatesClientNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glListParameterfSGIX` | definition |  | GL_SGIX_list_priority:all:all | unclassified | - | - | - | - |
+| `glListParameterfvSGIX` | definition |  | GL_SGIX_list_priority:all:all | unclassified | - | - | - | - |
+| `glListParameteriSGIX` | definition |  | GL_SGIX_list_priority:all:all | unclassified | - | - | - | - |
+| `glListParameterivSGIX` | definition |  | GL_SGIX_list_priority:all:all | unclassified | - | - | - | - |
+| `glLoadIdentity` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLoadIdentityDeformationMapSGIX` | definition |  | GL_SGIX_polynomial_ffd:all:all | unclassified | - | - | - | - |
+| `glLoadMatrixd` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLoadMatrixf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLoadMatrixxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLoadName` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLoadProgramNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glLoadTransposeMatrixd` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLoadTransposeMatrixdARB` | definition |  | GL_ARB_transpose_matrix:all:all | unclassified | - | - | - | - |
+| `glLoadTransposeMatrixf` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glLoadTransposeMatrixfARB` | definition |  | GL_ARB_transpose_matrix:all:all | unclassified | - | - | - | - |
+| `glLoadTransposeMatrixxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glLockArraysEXT` | definition |  | GL_EXT_compiled_vertex_array:all:all | unclassified | - | - | - | - |
+| `glLogicOp` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glMakeBufferNonResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glMakeBufferResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glMakeImageHandleNonResidentARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeImageHandleNonResidentNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeImageHandleResidentARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeImageHandleResidentNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeNamedBufferNonResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glMakeNamedBufferResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glMakeTextureHandleNonResidentARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeTextureHandleNonResidentNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeTextureHandleResidentARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMakeTextureHandleResidentNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glMap1d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMap1f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMap1xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMap2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMap2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMap2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMapBuffer` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glMapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glMapBufferRange` | definition | GL_VERSION_3_0:+:all | GL_ARB_map_buffer_range:all:all | common | src/driver/opengl.ab mapped-at-creation and reusable read-write range mapping | src/driver/opengl.ab typed offset length flags and mapped-pointer ABI | examples/common-buffer/main.ab allocation-free repeated write and read maps | tests/application/main.ab access nested mapped-use and logical-range rejection |
+| `glMapControlPointsNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glMapGrid1d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMapGrid1f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMapGrid1xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMapGrid2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMapGrid2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMapGrid2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMapNamedBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMapNamedBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMapNamedBufferRange` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMapNamedBufferRangeEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMapObjectBufferATI` | definition |  | GL_ATI_map_object_buffer:all:all | unclassified | - | - | - | - |
+| `glMapParameterfvNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glMapParameterivNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
+| `glMapTexture2DINTEL` | definition |  | GL_INTEL_map_texture:all:all | unclassified | - | - | - | - |
+| `glMapVertexAttrib1dAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glMapVertexAttrib1fAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glMapVertexAttrib2dAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glMapVertexAttrib2fAPPLE` | definition |  | GL_APPLE_vertex_program_evaluators:all:all | unclassified | - | - | - | - |
+| `glMaterialf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMaterialfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMateriali` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMaterialiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMaterialxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMaterialxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMatrixFrustumEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixIndexPointerARB` | definition |  | GL_ARB_matrix_palette:all:all | unclassified | - | - | - | - |
+| `glMatrixIndexubvARB` | definition |  | GL_ARB_matrix_palette:all:all | unclassified | - | - | - | - |
+| `glMatrixIndexuivARB` | definition |  | GL_ARB_matrix_palette:all:all | unclassified | - | - | - | - |
+| `glMatrixIndexusvARB` | definition |  | GL_ARB_matrix_palette:all:all | unclassified | - | - | - | - |
+| `glMatrixLoad3x2fNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoad3x3fNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoadIdentityEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoadTranspose3x3fNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoadTransposedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoadTransposefEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoaddEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixLoadfEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMode` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMatrixMult3x2fNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMult3x3fNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMultTranspose3x3fNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMultTransposedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMultTransposefEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMultdEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixMultfEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixOrthoEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixPopEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixPushEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixRotatedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixRotatefEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixScaledEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixScalefEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixTranslatedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMatrixTranslatefEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glMaxShaderCompilerThreadsARB` | definition |  | GL_ARB_parallel_shader_compile:all:all | unclassified | - | - | - | - |
+| `glMaxShaderCompilerThreadsKHR` | definition |  | GL_KHR_parallel_shader_compile:all:all | unclassified | - | - | - | - |
+| `glMemoryBarrier` | definition | GL_VERSION_4_2:+:all | GL_ARB_shader_image_load_store:all:all | common | src/driver/opengl.ab compute and coherent mapped-transfer visibility | src/driver/opengl.ab typed barrier-mask ABI | examples/common-buffer/main.ab exact wrapped persistent upload and readback | tests/application/main.ab invalid mapped transfer rejection |
+| `glMemoryBarrierByRegion` | definition | GL_VERSION_4_5:+:all | GL_ARB_ES3_1_compatibility:all:all | unclassified | - | - | - | - |
+| `glMemoryBarrierEXT` | definition |  | GL_EXT_shader_image_load_store:all:all | unclassified | - | - | - | - |
+| `glMemoryObjectParameterivEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glMinSampleShading` | definition | GL_VERSION_4_0:+:all |  | unclassified | - | - | - | - |
+| `glMinSampleShadingARB` | definition |  | GL_ARB_sample_shading:all:all | unclassified | - | - | - | - |
+| `glMinmaxEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glMultMatrixd` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultMatrixf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultMatrixxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultTransposeMatrixd` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultTransposeMatrixdARB` | definition |  | GL_ARB_transpose_matrix:all:all | unclassified | - | - | - | - |
+| `glMultTransposeMatrixf` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultTransposeMatrixfARB` | definition |  | GL_ARB_transpose_matrix:all:all | unclassified | - | - | - | - |
+| `glMultTransposeMatrixxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiDrawArrays` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glMultiDrawArraysEXT` | definition |  | GL_EXT_multi_draw_arrays:all:all | unclassified | - | - | - | - |
+| `glMultiDrawArraysIndirect` | definition | GL_VERSION_4_3:+:all | GL_ARB_multi_draw_indirect:all:all | unclassified | - | - | - | - |
+| `glMultiDrawArraysIndirectAMD` | definition |  | GL_AMD_multi_draw_indirect:all:all | unclassified | - | - | - | - |
+| `glMultiDrawArraysIndirectBindlessCountNV` | definition |  | GL_NV_bindless_multi_draw_indirect_count:all:all | unclassified | - | - | - | - |
+| `glMultiDrawArraysIndirectBindlessNV` | definition |  | GL_NV_bindless_multi_draw_indirect:all:all | unclassified | - | - | - | - |
+| `glMultiDrawArraysIndirectCount` | definition | GL_VERSION_4_6:+:all |  | unclassified | - | - | - | - |
+| `glMultiDrawArraysIndirectCountARB` | definition |  | GL_ARB_indirect_parameters:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementArrayAPPLE` | definition |  | GL_APPLE_element_array:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElements` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glMultiDrawElementsBaseVertex` | definition | GL_VERSION_3_2:+:all | GL_ARB_draw_elements_base_vertex:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementsEXT` | definition |  | GL_EXT_multi_draw_arrays:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementsIndirect` | definition | GL_VERSION_4_3:+:all | GL_ARB_multi_draw_indirect:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementsIndirectAMD` | definition |  | GL_AMD_multi_draw_indirect:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementsIndirectBindlessCountNV` | definition |  | GL_NV_bindless_multi_draw_indirect_count:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementsIndirectBindlessNV` | definition |  | GL_NV_bindless_multi_draw_indirect:all:all | unclassified | - | - | - | - |
+| `glMultiDrawElementsIndirectCount` | definition | GL_VERSION_4_6:+:all |  | unclassified | - | - | - | - |
+| `glMultiDrawElementsIndirectCountARB` | definition |  | GL_ARB_indirect_parameters:all:all | unclassified | - | - | - | - |
+| `glMultiDrawMeshTasksIndirectCountEXT` | definition |  | GL_EXT_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glMultiDrawMeshTasksIndirectCountNV` | definition |  | GL_NV_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glMultiDrawMeshTasksIndirectEXT` | definition |  | GL_EXT_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glMultiDrawMeshTasksIndirectNV` | definition |  | GL_NV_mesh_shader:all:all | unclassified | - | - | - | - |
+| `glMultiDrawRangeElementArrayAPPLE` | definition |  | GL_APPLE_element_array:all:all | unclassified | - | - | - | - |
+| `glMultiModeDrawArraysIBM` | definition |  | GL_IBM_multimode_draw_arrays:all:all | unclassified | - | - | - | - |
+| `glMultiModeDrawElementsIBM` | definition |  | GL_IBM_multimode_draw_arrays:all:all | unclassified | - | - | - | - |
+| `glMultiTexBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1d` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1dARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1dv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1dvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1f` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1fARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1fv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1fvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1i` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1iARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1iv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1ivARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1s` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1sARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1sv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord1svARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord1xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2d` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2dARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2dv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2dvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2f` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2fARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2fv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2fvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2i` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2iARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2iv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2ivARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2s` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2sARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2sv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord2svARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord2xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3d` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3dARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3dv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3dvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3f` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3fARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3fv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3fvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3i` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3iARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3iv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3ivARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3s` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3sARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3sv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord3svARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord3xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4d` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4dARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4dv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4dvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4f` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4fARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4fv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4fvARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4i` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4iARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4iv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4ivARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4s` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4sARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4sv` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glMultiTexCoord4svARB` | definition |  | GL_ARB_multitexture:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoord4xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glMultiTexCoordPointerEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexEnvfEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexEnvfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexEnviEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexEnvivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexGendEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexGendvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexGenfEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexGenfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexGeniEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexGenivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexParameterIivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexParameterIuivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexParameterfEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexParameteriEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexRenderbufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexSubImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexSubImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMultiTexSubImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glMulticastBarrierNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastBlitFramebufferNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastBufferSubDataNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastCopyBufferSubDataNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastCopyImageSubDataNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastFramebufferSampleLocationsfvNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastGetQueryObjecti64vNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastGetQueryObjectivNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastGetQueryObjectui64vNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastGetQueryObjectuivNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glMulticastScissorArrayvNVX` | definition |  | GL_NVX_gpu_multicast2:all:all | unclassified | - | - | - | - |
+| `glMulticastViewportArrayvNVX` | definition |  | GL_NVX_gpu_multicast2:all:all | unclassified | - | - | - | - |
+| `glMulticastViewportPositionWScaleNVX` | definition |  | GL_NVX_gpu_multicast2:all:all | unclassified | - | - | - | - |
+| `glMulticastWaitSyncNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glNamedBufferAttachMemoryNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
+| `glNamedBufferData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedBufferDataEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedBufferPageCommitmentARB` | definition |  | GL_ARB_sparse_buffer:all:all | unclassified | - | - | - | - |
+| `glNamedBufferPageCommitmentEXT` | definition |  | GL_ARB_sparse_buffer:all:all | unclassified | - | - | - | - |
+| `glNamedBufferPageCommitmentMemNV` | definition |  | GL_NV_memory_object_sparse:all:all | unclassified | - | - | - | - |
+| `glNamedBufferStorage` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedBufferStorageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedBufferStorageExternalEXT` | definition |  | GL_EXT_external_buffer:all:all | unclassified | - | - | - | - |
+| `glNamedBufferStorageMemEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glNamedBufferSubData` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedBufferSubDataEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedCopyBufferSubDataEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferDrawBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferDrawBuffers` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferParameteri` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferParameteriEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferReadBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferRenderbuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferRenderbufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferSampleLocationsfvARB` | definition |  | GL_ARB_sample_locations:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferSampleLocationsfvNV` | definition |  | GL_NV_sample_locations:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferSamplePositionsfvAMD` | definition |  | GL_AMD_framebuffer_sample_positions:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTexture` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTexture1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTexture2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTexture3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTextureEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTextureFaceEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTextureLayer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTextureLayerEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedFramebufferTextureMultiviewOVR` | definition |  | GL_OVR_multiview:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameter4dEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameter4dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameter4fEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameter4fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameterI4iEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameterI4ivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameterI4uiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameterI4uivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParameters4fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParametersI4ivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramLocalParametersI4uivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedProgramStringEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedRenderbufferStorage` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedRenderbufferStorageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedRenderbufferStorageMultisample` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedRenderbufferStorageMultisampleAdvancedAMD` | definition |  | GL_AMD_framebuffer_multisample_advanced:all:all | unclassified | - | - | - | - |
+| `glNamedRenderbufferStorageMultisampleCoverageEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedRenderbufferStorageMultisampleEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glNamedStringARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
+| `glNewList` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNewObjectBufferATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glNormal3b` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3bv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glNormal3fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glNormal3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glNormal3i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormal3xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glNormal3xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glNormalFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glNormalPointer` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glNormalPointerEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glNormalPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glNormalPointervINTEL` | definition |  | GL_INTEL_parallel_arrays:all:all | unclassified | - | - | - | - |
+| `glNormalStream3bATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3bvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3dATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3dvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3fATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3fvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3iATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3ivATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3sATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glNormalStream3svATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glObjectLabel` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glObjectPtrLabel` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glObjectPurgeableAPPLE` | definition |  | GL_APPLE_object_purgeable:all:all | unclassified | - | - | - | - |
+| `glObjectUnpurgeableAPPLE` | definition |  | GL_APPLE_object_purgeable:all:all | unclassified | - | - | - | - |
+| `glOrtho` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glOrthofOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
+| `glOrthoxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPNTrianglesfATI` | definition |  | GL_ATI_pn_triangles:all:all | unclassified | - | - | - | - |
+| `glPNTrianglesiATI` | definition |  | GL_ATI_pn_triangles:all:all | unclassified | - | - | - | - |
+| `glPassTexCoordATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glPassThrough` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPassThroughxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPatchParameterfv` | definition | GL_VERSION_4_0:+:all | GL_ARB_tessellation_shader:all:all | unclassified | - | - | - | - |
+| `glPatchParameteri` | definition | GL_VERSION_4_0:+:all | GL_ARB_tessellation_shader:all:all | unclassified | - | - | - | - |
+| `glPathCommandsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathCoordsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathCoverDepthFuncNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathDashArrayNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathGlyphIndexArrayNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathGlyphIndexRangeNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathGlyphRangeNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathGlyphsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathMemoryGlyphIndexArrayNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathParameterfNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathParameterfvNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathParameteriNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathParameterivNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathStencilDepthOffsetNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathStencilFuncNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathStringNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathSubCommandsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPathSubCoordsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPauseTransformFeedback` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glPauseTransformFeedbackNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glPixelDataRangeNV` | definition |  | GL_NV_pixel_data_range:all:all | unclassified | - | - | - | - |
+| `glPixelMapfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPixelMapuiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPixelMapusv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPixelMapx` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPixelStoref` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glPixelStorei` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab scoped pitched uncompressed and compressed pack-unpack state | src/driver/opengl.ab typed state-name and integer ABI | tests/wider_texture/main.ab exact padded array cube volume and BC1 round trips | tests/texture_contract.ab invalid pitch and block alignment rejection |
+| `glPixelStorex` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPixelTexGenParameterfSGIS` | definition |  | GL_SGIS_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glPixelTexGenParameterfvSGIS` | definition |  | GL_SGIS_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glPixelTexGenParameteriSGIS` | definition |  | GL_SGIS_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glPixelTexGenParameterivSGIS` | definition |  | GL_SGIS_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glPixelTexGenSGIX` | definition |  | GL_SGIX_pixel_texture:all:all | unclassified | - | - | - | - |
+| `glPixelTransferf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPixelTransferi` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPixelTransferxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPixelTransformParameterfEXT` | definition |  | GL_EXT_pixel_transform:all:all | unclassified | - | - | - | - |
+| `glPixelTransformParameterfvEXT` | definition |  | GL_EXT_pixel_transform:all:all | unclassified | - | - | - | - |
+| `glPixelTransformParameteriEXT` | definition |  | GL_EXT_pixel_transform:all:all | unclassified | - | - | - | - |
+| `glPixelTransformParameterivEXT` | definition |  | GL_EXT_pixel_transform:all:all | unclassified | - | - | - | - |
+| `glPixelZoom` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPixelZoomxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPointAlongPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glPointParameterf` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glPointParameterfARB` | definition |  | GL_ARB_point_parameters:all:all | unclassified | - | - | - | - |
+| `glPointParameterfEXT` | definition |  | GL_EXT_point_parameters:all:all | unclassified | - | - | - | - |
+| `glPointParameterfSGIS` | definition |  | GL_SGIS_point_parameters:all:all | unclassified | - | - | - | - |
+| `glPointParameterfv` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glPointParameterfvARB` | definition |  | GL_ARB_point_parameters:all:all | unclassified | - | - | - | - |
+| `glPointParameterfvEXT` | definition |  | GL_EXT_point_parameters:all:all | unclassified | - | - | - | - |
+| `glPointParameterfvSGIS` | definition |  | GL_SGIS_point_parameters:all:all | unclassified | - | - | - | - |
+| `glPointParameteri` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glPointParameteriNV` | definition |  | GL_NV_point_sprite:all:all | unclassified | - | - | - | - |
+| `glPointParameteriv` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glPointParameterivNV` | definition |  | GL_NV_point_sprite:all:all | unclassified | - | - | - | - |
+| `glPointParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPointSize` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glPointSizexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPollAsyncSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
+| `glPollInstrumentsSGIX` | definition |  | GL_SGIX_instruments:all:all | unclassified | - | - | - | - |
+| `glPolygonMode` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glPolygonOffset` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glPolygonOffsetClamp` | definition | GL_VERSION_4_6:+:all | GL_ARB_polygon_offset_clamp:all:all | unclassified | - | - | - | - |
+| `glPolygonOffsetClampEXT` | definition |  | GL_EXT_polygon_offset_clamp:all:all | unclassified | - | - | - | - |
+| `glPolygonOffsetEXT` | definition |  | GL_EXT_polygon_offset:all:all | unclassified | - | - | - | - |
+| `glPolygonOffsetxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glPolygonStipple` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPopAttrib` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPopClientAttrib` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPopDebugGroup` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glPopGroupMarkerEXT` | definition |  | GL_EXT_debug_marker:all:all | unclassified | - | - | - | - |
+| `glPopMatrix` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPopName` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPresentFrameDualFillNV` | definition |  | GL_NV_present_video:all:all | unclassified | - | - | - | - |
+| `glPresentFrameKeyedNV` | definition |  | GL_NV_present_video:all:all | unclassified | - | - | - | - |
+| `glPrimitiveBoundingBoxARB` | definition |  | GL_ARB_ES3_2_compatibility:all:all | unclassified | - | - | - | - |
+| `glPrimitiveRestartIndex` | definition | GL_VERSION_3_1:+:all |  | unclassified | - | - | - | - |
+| `glPrimitiveRestartIndexNV` | definition |  | GL_NV_primitive_restart:all:all | unclassified | - | - | - | - |
+| `glPrimitiveRestartNV` | definition |  | GL_NV_primitive_restart:all:all | unclassified | - | - | - | - |
+| `glPrioritizeTextures` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPrioritizeTexturesEXT` | definition |  | GL_EXT_texture_object:all:all | unclassified | - | - | - | - |
+| `glPrioritizeTexturesxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glProgramBinary` | definition | GL_VERSION_4_1:+:all | GL_ARB_get_program_binary:all:all | unclassified | - | - | - | - |
+| `glProgramBufferParametersIivNV` | definition |  | GL_NV_parameter_buffer_object:all:all | unclassified | - | - | - | - |
+| `glProgramBufferParametersIuivNV` | definition |  | GL_NV_parameter_buffer_object:all:all | unclassified | - | - | - | - |
+| `glProgramBufferParametersfvNV` | definition |  | GL_NV_parameter_buffer_object:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameter4dARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameter4dvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameter4fARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameter4fvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameterI4iNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameterI4ivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameterI4uiNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameterI4uivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParameters4fvEXT` | definition |  | GL_EXT_gpu_program_parameters:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParametersI4ivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramEnvParametersI4uivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameter4dARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameter4dvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameter4fARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameter4fvARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameterI4iNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameterI4ivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameterI4uiNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameterI4uivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParameters4fvEXT` | definition |  | GL_EXT_gpu_program_parameters:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParametersI4ivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramLocalParametersI4uivNV` | definition |  | GL_NV_gpu_program4:all:all | unclassified | - | - | - | - |
+| `glProgramNamedParameter4dNV` | definition |  | GL_NV_fragment_program:all:all | unclassified | - | - | - | - |
+| `glProgramNamedParameter4dvNV` | definition |  | GL_NV_fragment_program:all:all | unclassified | - | - | - | - |
+| `glProgramNamedParameter4fNV` | definition |  | GL_NV_fragment_program:all:all | unclassified | - | - | - | - |
+| `glProgramNamedParameter4fvNV` | definition |  | GL_NV_fragment_program:all:all | unclassified | - | - | - | - |
+| `glProgramParameter4dNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramParameter4dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramParameter4fNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramParameter4fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramParameteri` | definition | GL_VERSION_4_1:+:all | GL_ARB_get_program_binary:all:all|GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramParameteriARB` | definition |  | GL_ARB_geometry_shader4:all:all | unclassified | - | - | - | - |
+| `glProgramParameteriEXT` | definition |  | GL_EXT_geometry_shader4:all:all | unclassified | - | - | - | - |
+| `glProgramParameters4dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramParameters4fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramPathFragmentInputGenNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glProgramStringARB` | definition |  | GL_ARB_fragment_program:all:all|GL_ARB_vertex_program:all:all | unclassified | - | - | - | - |
+| `glProgramSubroutineParametersuivNV` | definition |  | GL_NV_gpu_program5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1d` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1dEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1f` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1fEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1i` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1iEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1iv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1ivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1ui` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1uiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1uiv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform1uivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2d` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2dEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2f` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2fEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2i` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2iEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2iv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2ivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2ui` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2uiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2uiv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform2uivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3d` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3dEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3f` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3fEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3i` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3iEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3iv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3ivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3ui` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3uiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3uiv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform3uivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4d` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4dEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4f` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4fEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4i` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4iEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4iv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4ivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4ui` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4uiEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4uiv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniform4uivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformHandleui64ARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glProgramUniformHandleui64NV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glProgramUniformHandleui64vARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glProgramUniformHandleui64vNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x3dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x3dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x3fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x3fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x4dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x4dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x4fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix2x4fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x2dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x2dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x2fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x2fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x4dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x4dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x4fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix3x4fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x2dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x2dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x2fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x2fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x3dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x3dvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x3fv` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glProgramUniformMatrix4x3fvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glProgramUniformui64NV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glProgramUniformui64vNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glProgramVertexLimitNV` | definition |  | GL_NV_geometry_program4:all:all | unclassified | - | - | - | - |
+| `glProvokingVertex` | definition | GL_VERSION_3_2:+:all | GL_ARB_provoking_vertex:all:all | unclassified | - | - | - | - |
+| `glProvokingVertexEXT` | definition |  | GL_EXT_provoking_vertex:all:all | unclassified | - | - | - | - |
+| `glPushAttrib` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPushClientAttrib` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPushClientAttribDefaultEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glPushDebugGroup` | definition | GL_VERSION_4_3:+:all | GL_KHR_debug:all:all | unclassified | - | - | - | - |
+| `glPushGroupMarkerEXT` | definition |  | GL_EXT_debug_marker:all:all | unclassified | - | - | - | - |
+| `glPushMatrix` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glPushName` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glQueryCounter` | definition | GL_VERSION_3_3:+:all | GL_ARB_timer_query:all:all | common | src/driver/opengl.ab timestamp sampling | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated timestamp samples | tests/application/main.ab invalid query rejection |
+| `glQueryMatrixxOES` | definition |  | GL_OES_query_matrix:all:all | unclassified | - | - | - | - |
+| `glQueryObjectParameteruiAMD` | definition |  | GL_AMD_occlusion_query_event:all:all | unclassified | - | - | - | - |
+| `glQueryResourceNV` | definition |  | GL_NV_query_resource:all:all | unclassified | - | - | - | - |
+| `glQueryResourceTagNV` | definition |  | GL_NV_query_resource_tag:all:all | unclassified | - | - | - | - |
+| `glRasterPos2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRasterPos2xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRasterPos3d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos3xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRasterPos3xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRasterPos4d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRasterPos4xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRasterPos4xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRasterSamplesEXT` | definition |  | GL_EXT_raster_multisample:all:all|GL_NV_framebuffer_mixed_samples:all:all | unclassified | - | - | - | - |
+| `glReadBuffer` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab MRT resolve selection | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact second attachment resolve | tests/application/main.ab attachment bounds rejection |
+| `glReadInstrumentsSGIX` | definition |  | GL_SGIX_instruments:all:all | unclassified | - | - | - | - |
+| `glReadPixels` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab bounded framebuffer pixel readback | src/driver/opengl.ab typed region format type and output-pointer ABI | tests/application/main.ab exact surfaced and render-target RGBA8 pixels | tests/application/main.ab out-of-range texture readback rejection |
+| `glReadnPixels` | definition | GL_VERSION_4_5:+:all | GL_KHR_robustness:all:all | unclassified | - | - | - | - |
+| `glReadnPixelsARB` | definition |  | GL_ARB_robustness:all:all | unclassified | - | - | - | - |
+| `glRectd` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRectdv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRectf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRectfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRecti` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRectiv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRects` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRectsv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRectxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glRectxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glReferencePlaneSGIX` | definition |  | GL_SGIX_reference_plane:all:all | unclassified | - | - | - | - |
+| `glReleaseClientPointerRangeMESA` | definition |  | GL_MESA_map_buffer_client_pointer:all:all | unclassified | - | - | - | - |
+| `glReleaseKeyedMutexWin32EXT` | definition |  | GL_EXT_win32_keyed_mutex:all:all | unclassified | - | - | - | - |
+| `glReleaseShaderCompiler` | definition | GL_VERSION_4_1:+:all | GL_ARB_ES2_compatibility:all:all | unclassified | - | - | - | - |
+| `glRenderGpuMaskNV` | definition |  | GL_NV_gpu_multicast:all:all | unclassified | - | - | - | - |
+| `glRenderMode` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRenderbufferStorage` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glRenderbufferStorageEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glRenderbufferStorageMultisample` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glRenderbufferStorageMultisampleAdvancedAMD` | definition |  | GL_AMD_framebuffer_multisample_advanced:all:all | unclassified | - | - | - | - |
+| `glRenderbufferStorageMultisampleCoverageNV` | definition |  | GL_NV_framebuffer_multisample_coverage:all:all | unclassified | - | - | - | - |
+| `glRenderbufferStorageMultisampleEXT` | definition |  | GL_EXT_framebuffer_multisample:all:all | unclassified | - | - | - | - |
+| `glReplacementCodePointerSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeubSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeubvSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiColor3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiColor3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiColor4fNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiColor4fNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiColor4ubVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiColor4ubVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiTexCoord2fColor4fNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiTexCoord2fColor4fNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiTexCoord2fNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiTexCoord2fNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiTexCoord2fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiTexCoord2fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuiVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeuivSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeusSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glReplacementCodeusvSUN` | definition |  | GL_SUN_triangle_list:all:all | unclassified | - | - | - | - |
+| `glRequestResidentProgramsNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glResetHistogramEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glResetMemoryObjectParameterNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
+| `glResetMinmaxEXT` | definition |  | GL_EXT_histogram:all:all | unclassified | - | - | - | - |
+| `glResizeBuffersMESA` | definition |  | GL_MESA_resize_buffers:all:all | unclassified | - | - | - | - |
+| `glResolveDepthValuesNV` | definition |  | GL_NV_sample_locations:all:all | unclassified | - | - | - | - |
+| `glResumeTransformFeedback` | definition | GL_VERSION_4_0:+:all | GL_ARB_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glResumeTransformFeedbackNV` | definition |  | GL_NV_transform_feedback2:all:all | unclassified | - | - | - | - |
+| `glRotated` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRotatef` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glRotatexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glSampleCoverage` | definition | GL_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `glSampleCoverageARB` | definition |  | GL_ARB_multisample:all:all | unclassified | - | - | - | - |
+| `glSampleMapATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glSampleMaskEXT` | definition |  | GL_EXT_multisample:all:all | unclassified | - | - | - | - |
+| `glSampleMaskIndexedNV` | definition |  | GL_NV_explicit_multisample:all:all | unclassified | - | - | - | - |
+| `glSampleMaskSGIS` | definition |  | GL_SGIS_multisample:all:all | unclassified | - | - | - | - |
+| `glSampleMaski` | definition | GL_VERSION_3_2:+:all | GL_ARB_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glSamplePatternEXT` | definition |  | GL_EXT_multisample:all:all | unclassified | - | - | - | - |
+| `glSamplePatternSGIS` | definition |  | GL_SGIS_multisample:all:all | unclassified | - | - | - | - |
+| `glSamplerParameterIiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glSamplerParameterIuiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glSamplerParameterf` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glSamplerParameterfv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | common | src/driver/opengl.ab anisotropy configuration | src/driver/opengl.ab typed float-pointer ABI | tests/application/main.ab maximum anisotropy sampler creation | src/sampler.ab unsupported anisotropy rejection |
+| `glSamplerParameteri` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | common | src/driver/opengl.ab address filter LOD and comparison configuration | src/driver/opengl.ab typed integer parameter ABI | tests/application/main.ab repeat mirror linear and comparison sampler creation | src/resources.ab invalid address filter LOD and comparison rejection |
+| `glSamplerParameteriv` | definition | GL_VERSION_3_3:+:all | GL_ARB_sampler_objects:all:all | unclassified | - | - | - | - |
+| `glScaled` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glScalef` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glScalexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glScissor` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glScissorArrayv` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glScissorExclusiveArrayvNV` | definition |  | GL_NV_scissor_exclusive:all:all | unclassified | - | - | - | - |
+| `glScissorExclusiveNV` | definition |  | GL_NV_scissor_exclusive:all:all | unclassified | - | - | - | - |
+| `glScissorIndexed` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glScissorIndexedv` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3b` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3bEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3bv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3bvEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3d` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3dEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3dv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3dvEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3f` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3fEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3fv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3fvEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3i` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3iEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3iv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3ivEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3s` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3sEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3sv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3svEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3ub` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3ubEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3ubv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3ubvEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3ui` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3uiEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3uiv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3uivEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3us` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3usEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColor3usv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColor3usvEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColorFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glSecondaryColorPointer` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSecondaryColorPointerEXT` | definition |  | GL_EXT_secondary_color:all:all | unclassified | - | - | - | - |
+| `glSecondaryColorPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glSelectBuffer` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glSelectPerfMonitorCountersAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
+| `glSemaphoreParameterivNV` | definition |  | GL_NV_timeline_semaphore:all:all | unclassified | - | - | - | - |
+| `glSemaphoreParameterui64vEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glSeparableFilter2DEXT` | definition |  | GL_EXT_convolution:all:all | unclassified | - | - | - | - |
+| `glSetFenceAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glSetFenceNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glSetFragmentShaderConstantATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
+| `glSetInvariantEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glSetLocalConstantEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glSetMultisamplefvAMD` | definition |  | GL_AMD_sample_positions:all:all | unclassified | - | - | - | - |
+| `glShadeModel` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glShaderBinary` | definition | GL_VERSION_4_1:+:all | GL_ARB_ES2_compatibility:all:all | common | src/driver/opengl.ab emitted SPIR-V shader upload | src/driver/opengl.ab typed shader-array format byte-buffer and length ABI | tests/application/main.ab specialized compute and raster SPIR-V pipelines | src/driver/opengl.ab binary upload error rejection |
+| `glShaderOp1EXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glShaderOp2EXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glShaderOp3EXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glShaderSource` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab bounded GLSL source submission | src/driver/opengl.ab typed source-pointer array ABI | tests/opengl/main.ab valid source program creation | tests/opengl/main.ab malformed source rejection |
+| `glShaderSourceARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glShaderStorageBlockBinding` | definition | GL_VERSION_4_3:+:all | GL_ARB_shader_storage_buffer_object:all:all | unclassified | - | - | - | - |
+| `glShadingRateCombinerOpsEXT` | definition |  | GL_EXT_fragment_shading_rate:all:all | unclassified | - | - | - | - |
+| `glShadingRateEXT` | definition |  | GL_EXT_fragment_shading_rate:all:all | unclassified | - | - | - | - |
+| `glShadingRateImageBarrierNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glShadingRateImagePaletteNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glShadingRateSampleOrderCustomNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glShadingRateSampleOrderNV` | definition |  | GL_NV_shading_rate_image:all:all | unclassified | - | - | - | - |
+| `glSharpenTexFuncSGIS` | definition |  | GL_SGIS_sharpen_texture:all:all | unclassified | - | - | - | - |
+| `glSignalSemaphoreEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glSignalSemaphoreui64NVX` | definition |  | GL_NVX_progress_fence:all:all | unclassified | - | - | - | - |
+| `glSignalVkFenceNV` | definition |  | GL_NV_draw_vulkan_image:all:all | unclassified | - | - | - | - |
+| `glSignalVkSemaphoreNV` | definition |  | GL_NV_draw_vulkan_image:all:all | unclassified | - | - | - | - |
+| `glSpecializeShader` | definition | GL_VERSION_4_6:+:all |  | common | src/driver/opengl.ab scalar-specialized SPIR-V entry point | src/driver/opengl.ab typed entry-name index and value arrays ABI | tests/application/main.ab exact bool int uint and float specialization | tests/application/main.ab mismatched specialization rejection |
+| `glSpecializeShaderARB` | definition |  | GL_ARB_gl_spirv:all:all | unclassified | - | - | - | - |
+| `glSpriteParameterfSGIX` | definition |  | GL_SGIX_sprite:all:all | unclassified | - | - | - | - |
+| `glSpriteParameterfvSGIX` | definition |  | GL_SGIX_sprite:all:all | unclassified | - | - | - | - |
+| `glSpriteParameteriSGIX` | definition |  | GL_SGIX_sprite:all:all | unclassified | - | - | - | - |
+| `glSpriteParameterivSGIX` | definition |  | GL_SGIX_sprite:all:all | unclassified | - | - | - | - |
+| `glStartInstrumentsSGIX` | definition |  | GL_SGIX_instruments:all:all | unclassified | - | - | - | - |
+| `glStateCaptureNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
+| `glStencilClearTagEXT` | definition |  | GL_EXT_stencil_clear_tag:all:all | unclassified | - | - | - | - |
+| `glStencilFillPathInstancedNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilFillPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilFunc` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glStencilFuncSeparate` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glStencilFuncSeparateATI` | definition |  | GL_ATI_separate_stencil:all:all | unclassified | - | - | - | - |
+| `glStencilMask` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glStencilMaskSeparate` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glStencilOp` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glStencilOpSeparate` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glStencilOpSeparateATI` | definition |  | GL_ATI_separate_stencil:all:all | unclassified | - | - | - | - |
+| `glStencilOpValueAMD` | definition |  | GL_AMD_stencil_operation_extended:all:all | unclassified | - | - | - | - |
+| `glStencilStrokePathInstancedNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilStrokePathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilThenCoverFillPathInstancedNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilThenCoverFillPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilThenCoverStrokePathInstancedNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStencilThenCoverStrokePathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glStopInstrumentsSGIX` | definition |  | GL_SGIX_instruments:all:all | unclassified | - | - | - | - |
+| `glStringMarkerGREMEDY` | definition |  | GL_GREMEDY_string_marker:all:all | unclassified | - | - | - | - |
+| `glSubpixelPrecisionBiasNV` | definition |  | GL_NV_conservative_raster:all:all | unclassified | - | - | - | - |
+| `glSwizzleEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glSyncTextureINTEL` | definition |  | GL_INTEL_map_texture:all:all | unclassified | - | - | - | - |
+| `glTagSampleBufferSGIX` | definition |  | GL_SGIX_tag_sample_buffer:all:all | unclassified | - | - | - | - |
+| `glTangent3bEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3bvEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3dEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3dvEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3fEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3fvEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3iEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3ivEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3sEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangent3svEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTangentPointerEXT` | definition |  | GL_EXT_coordinate_frame:all:all | unclassified | - | - | - | - |
+| `glTbufferMask3DFX` | definition |  | GL_3DFX_tbuffer:all:all | unclassified | - | - | - | - |
+| `glTessellationFactorAMD` | definition |  | GL_AMD_vertex_shader_tessellator:all:all | unclassified | - | - | - | - |
+| `glTessellationModeAMD` | definition |  | GL_AMD_vertex_shader_tessellator:all:all | unclassified | - | - | - | - |
+| `glTestFenceAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glTestFenceNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
+| `glTestObjectAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
+| `glTexAttachMemoryNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
+| `glTexBuffer` | definition | GL_VERSION_3_1:+:all |  | unclassified | - | - | - | - |
+| `glTexBufferARB` | definition |  | GL_ARB_texture_buffer_object:all:all | unclassified | - | - | - | - |
+| `glTexBufferEXT` | definition |  | GL_EXT_texture_buffer_object:all:all | unclassified | - | - | - | - |
+| `glTexBufferRange` | definition | GL_VERSION_4_3:+:all | GL_ARB_texture_buffer_range:all:all | unclassified | - | - | - | - |
+| `glTexBumpParameterfvATI` | definition |  | GL_ATI_envmap_bumpmap:all:all | unclassified | - | - | - | - |
+| `glTexBumpParameterivATI` | definition |  | GL_ATI_envmap_bumpmap:all:all | unclassified | - | - | - | - |
+| `glTexCoord1bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord1bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord1d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord1hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord1i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord1xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord1xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord2bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord2bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2fColor3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fColor3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fColor4fNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fColor4fNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fColor4ubVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fColor4ubVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fNormal3fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fNormal3fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fVertex3fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fVertex3fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord2fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord2hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord2i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord2xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord3bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord3bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord3d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord3i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord3xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord3xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord4bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord4bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glTexCoord4d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4fColor4fNormal3fVertex4fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord4fColor4fNormal3fVertex4fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord4fVertex4fSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord4fVertex4fvSUN` | definition |  | GL_SUN_vertex:all:all | unclassified | - | - | - | - |
+| `glTexCoord4fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord4hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glTexCoord4i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoord4xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoord4xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexCoordFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glTexCoordPointer` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexCoordPointerEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glTexCoordPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glTexCoordPointervINTEL` | definition |  | GL_INTEL_parallel_arrays:all:all | unclassified | - | - | - | - |
+| `glTexEnvf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexEnvfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexEnvi` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexEnviv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexEnvxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexEnvxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexFilterFuncSGIS` | definition |  | GL_SGIS_texture_filter4:all:all | unclassified | - | - | - | - |
+| `glTexGend` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexGendv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexGenf` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexGenfv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexGeni` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexGeniv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTexGenxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexGenxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexImage1D` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glTexImage2D` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab per-mip texture storage allocation | src/driver/opengl.ab typed size format and data-pointer ABI | tests/application/main.ab exact multi-level texture upload and readback | tests/core.ab overflowing size and invalid multisample descriptor rejection |
+| `glTexImage2DMultisample` | definition | GL_VERSION_3_2:+:all | GL_ARB_texture_multisample:all:all | common | src/driver/opengl.ab multisample allocation | src/driver/opengl.ab typed extern signature | tests/application/main.ab four-sample render target | tests/application/main.ab sample count rejection |
+| `glTexImage2DMultisampleCoverageNV` | definition |  | GL_NV_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTexImage3D` | definition | GL_VERSION_1_2:+:all |  | unclassified | - | - | - | - |
+| `glTexImage3DEXT` | definition |  | GL_EXT_texture3D:all:all | unclassified | - | - | - | - |
+| `glTexImage3DMultisample` | definition | GL_VERSION_3_2:+:all | GL_ARB_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTexImage3DMultisampleCoverageNV` | definition |  | GL_NV_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTexImage4DSGIS` | definition |  | GL_SGIS_texture4D:all:all | unclassified | - | - | - | - |
+| `glTexPageCommitmentARB` | definition |  | GL_ARB_sparse_texture:all:all | unclassified | - | - | - | - |
+| `glTexPageCommitmentMemNV` | definition |  | GL_NV_memory_object_sparse:all:all | unclassified | - | - | - | - |
+| `glTexParameterIiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glTexParameterIivEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
+| `glTexParameterIuiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glTexParameterIuivEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
+| `glTexParameterf` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glTexParameterfv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glTexParameteri` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab allocated mip range configuration | src/driver/opengl.ab typed target parameter and value ABI | tests/application/main.ab four-level mip generation and readback | tests/core.ab invalid multisample mip-count rejection |
+| `glTexParameteriv` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glTexParameterxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexParameterxvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glTexRenderbufferNV` | definition |  | GL_NV_explicit_multisample:all:all | unclassified | - | - | - | - |
+| `glTexStorage1D` | definition | GL_VERSION_4_2:+:all | GL_ARB_texture_storage:all:all | common | src/driver/opengl.ab immutable one-dimensional texture allocation | src/driver/opengl.ab typed levels format and width ABI | tests/wider_texture/main.ab live one-dimensional texture creation | tests/texture_contract.ab invalid one-dimensional shape rejection |
+| `glTexStorage1DEXT` | definition |  | GL_EXT_texture_storage:all:all | unclassified | - | - | - | - |
+| `glTexStorage2D` | definition | GL_VERSION_4_2:+:all | GL_ARB_texture_storage:all:all | common | src/driver/opengl.ab immutable two-dimensional and cube texture allocation | src/driver/opengl.ab typed levels format width and height ABI | tests/wider_texture/main.ab live cube and BC1 texture creation | tests/texture_contract.ab invalid cube and compressed descriptor rejection |
+| `glTexStorage2DEXT` | definition |  | GL_EXT_texture_storage:all:all | unclassified | - | - | - | - |
+| `glTexStorage2DMultisample` | definition | GL_VERSION_4_3:+:all | GL_ARB_texture_storage_multisample:all:all | unclassified | - | - | - | - |
+| `glTexStorage3D` | definition | GL_VERSION_4_2:+:all | GL_ARB_texture_storage:all:all | common | src/driver/opengl.ab immutable array and volume texture allocation | src/driver/opengl.ab typed levels format width height and depth ABI | tests/wider_texture/main.ab live array and volume texture creation | tests/texture_contract.ab invalid array and volume descriptor rejection |
+| `glTexStorage3DEXT` | definition |  | GL_EXT_texture_storage:all:all | unclassified | - | - | - | - |
+| `glTexStorage3DMultisample` | definition | GL_VERSION_4_3:+:all | GL_ARB_texture_storage_multisample:all:all | unclassified | - | - | - | - |
+| `glTexStorageMem1DEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTexStorageMem2DEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTexStorageMem2DMultisampleEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTexStorageMem3DEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTexStorageMem3DMultisampleEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTexStorageSparseAMD` | definition |  | GL_AMD_sparse_texture:all:all | unclassified | - | - | - | - |
+| `glTexSubImage1D` | definition | GL_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `glTexSubImage1DEXT` | definition |  | GL_EXT_subtexture:all:all | unclassified | - | - | - | - |
+| `glTexSubImage2D` | definition | GL_VERSION_1_1:+:all |  | common | src/driver/opengl.ab checked pixel-region upload | src/driver/opengl.ab typed region format and pixel-pointer ABI | tests/application/main.ab exact partial upload and reupload readback | tests/application/main.ab out-of-range upload rejection |
+| `glTexSubImage2DEXT` | definition |  | GL_EXT_subtexture:all:all | unclassified | - | - | - | - |
+| `glTexSubImage3D` | definition | GL_VERSION_1_2:+:all |  | unclassified | - | - | - | - |
+| `glTexSubImage3DEXT` | definition |  | GL_EXT_texture3D:all:all | unclassified | - | - | - | - |
+| `glTexSubImage4DSGIS` | definition |  | GL_SGIS_texture4D:all:all | unclassified | - | - | - | - |
+| `glTextureAttachMemoryNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
+| `glTextureBarrier` | definition | GL_VERSION_4_5:+:all | GL_ARB_texture_barrier:all:all | unclassified | - | - | - | - |
+| `glTextureBarrierNV` | definition |  | GL_NV_texture_barrier:all:all | unclassified | - | - | - | - |
+| `glTextureBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureBufferRange` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureBufferRangeEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureColorMaskSGIS` | definition |  | GL_SGIS_texture_color_mask:all:all | unclassified | - | - | - | - |
+| `glTextureImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureImage2DMultisampleCoverageNV` | definition |  | GL_NV_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTextureImage2DMultisampleNV` | definition |  | GL_NV_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTextureImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureImage3DMultisampleCoverageNV` | definition |  | GL_NV_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTextureImage3DMultisampleNV` | definition |  | GL_NV_texture_multisample:all:all | unclassified | - | - | - | - |
+| `glTextureLightEXT` | definition |  | GL_EXT_light_texture:all:all | unclassified | - | - | - | - |
+| `glTextureMaterialEXT` | definition |  | GL_EXT_light_texture:all:all | unclassified | - | - | - | - |
+| `glTextureNormalEXT` | definition |  | GL_EXT_texture_perturb_normal:all:all | unclassified | - | - | - | - |
+| `glTexturePageCommitmentEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTexturePageCommitmentMemNV` | definition |  | GL_NV_memory_object_sparse:all:all | unclassified | - | - | - | - |
+| `glTextureParameterIiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterIivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterIuiv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterIuivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterf` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterfEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterfv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterfvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameteri` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameteriEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameteriv` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureParameterivEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureRangeAPPLE` | definition |  | GL_APPLE_texture_range:all:all | unclassified | - | - | - | - |
+| `glTextureRenderbufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage1D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_texture_storage:all:all | unclassified | - | - | - | - |
+| `glTextureStorage2D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_texture_storage:all:all | unclassified | - | - | - | - |
+| `glTextureStorage2DMultisample` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage2DMultisampleEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage3D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_texture_storage:all:all | unclassified | - | - | - | - |
+| `glTextureStorage3DMultisample` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorage3DMultisampleEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureStorageMem1DEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTextureStorageMem2DEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTextureStorageMem2DMultisampleEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTextureStorageMem3DEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTextureStorageMem3DMultisampleEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
+| `glTextureStorageSparseAMD` | definition |  | GL_AMD_sparse_texture:all:all | unclassified | - | - | - | - |
+| `glTextureSubImage1D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab raw one-dimensional byte upload | src/driver/opengl.ab typed DSA region format and pointer ABI | tests/wider_texture/main.ab exact one-dimensional raw byte round trip | tests/texture_contract.ab one-dimensional region shape rejection |
+| `glTextureSubImage1DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureSubImage2D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab raw pitched two-dimensional byte upload | src/driver/opengl.ab typed DSA region format and pointer ABI | tests/wider_texture/main.ab exact pitched R8 two-dimensional round trip | tests/wider_texture/main.ab short source rejection |
+| `glTextureSubImage2DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureSubImage3D` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | common | src/driver/opengl.ab and src/driver/opengl_transfer.ab raw array cube and volume byte upload | src/driver/opengl.ab typed DSA xyz extent format and pointer ABI | tests/wider_texture/main.ab and tests/wider_texture_transfer/main.ab exact array cube and volume round trips | tests/texture_contract.ab crossing depth and layer rejection |
+| `glTextureSubImage3DEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTextureView` | definition | GL_VERSION_4_3:+:all | GL_ARB_texture_view:all:all | common | src/driver/opengl.ab owned subresource and compatible-format views | src/driver/opengl.ab typed target format mip and layer ABI | tests/wider_texture/main.ab live array cube volume and BC1 view ownership | tests/texture_contract.ab incompatible view rejection |
+| `glTrackMatrixNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glTransformFeedbackAttribsNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glTransformFeedbackBufferBase` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTransformFeedbackBufferRange` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glTransformFeedbackStreamAttribsNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glTransformFeedbackVaryings` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glTransformFeedbackVaryingsEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glTransformFeedbackVaryingsNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
+| `glTransformPathNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glTranslated` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTranslatef` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glTranslatexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glUniform1d` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform1dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform1f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform1fARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform1fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform1fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform1i` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform1i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform1i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform1i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform1i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform1iARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform1iv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform1ivARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform1ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform1ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform1ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform1ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform1ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform1uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform1uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform1uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform2d` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform2dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform2f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform2fARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform2fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform2fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform2i` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform2i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform2i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform2i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform2i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform2iARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform2iv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform2ivARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform2ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform2ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform2ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform2ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform2ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform2uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform2uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform2uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform3d` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform3dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform3f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform3fARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform3fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform3fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform3i` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform3i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform3i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform3i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform3i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform3iARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform3iv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform3ivARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform3ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform3ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform3ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform3ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform3ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform3uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform3uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform3uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform4d` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform4dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniform4f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform4fARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform4fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform4fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform4i` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform4i64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform4i64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform4i64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform4i64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform4iARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform4iv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform4ivARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniform4ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform4ui64ARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform4ui64NV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform4ui64vARB` | definition |  | GL_ARB_gpu_shader_int64:all:all | unclassified | - | - | - | - |
+| `glUniform4ui64vNV` | definition |  | GL_AMD_gpu_shader_int64:all:all|GL_NV_gpu_shader5:all:all | unclassified | - | - | - | - |
+| `glUniform4uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniform4uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glUniform4uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all | unclassified | - | - | - | - |
+| `glUniformBlockBinding` | definition | GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | unclassified | - | - | - | - |
+| `glUniformBufferEXT` | definition |  | GL_EXT_bindable_uniform:all:all | unclassified | - | - | - | - |
+| `glUniformHandleui64ARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glUniformHandleui64NV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glUniformHandleui64vARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glUniformHandleui64vNV` | definition |  | GL_NV_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix2dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix2fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix2fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix2x3dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix2x3fv` | definition | GL_VERSION_2_1:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix2x4dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix2x4fv` | definition | GL_VERSION_2_1:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix3dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix3fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix3fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix3x2dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix3x2fv` | definition | GL_VERSION_2_1:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix3x4dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix3x4fv` | definition | GL_VERSION_2_1:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix4dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix4fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix4fvARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix4x2dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix4x2fv` | definition | GL_VERSION_2_1:+:all |  | unclassified | - | - | - | - |
+| `glUniformMatrix4x3dv` | definition | GL_VERSION_4_0:+:all | GL_ARB_gpu_shader_fp64:all:all | unclassified | - | - | - | - |
+| `glUniformMatrix4x3fv` | definition | GL_VERSION_2_1:+:all |  | unclassified | - | - | - | - |
+| `glUniformSubroutinesuiv` | definition | GL_VERSION_4_0:+:all | GL_ARB_shader_subroutine:all:all | unclassified | - | - | - | - |
+| `glUniformui64NV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glUniformui64vNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
+| `glUnlockArraysEXT` | definition |  | GL_EXT_compiled_vertex_array:all:all | unclassified | - | - | - | - |
+| `glUnmapBuffer` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab explicit reusable and affine mapping completion | src/driver/opengl.ab typed result ABI | examples/common-buffer/main.ab repeated write-read unmap with zero growth | tests/application/main.ab repeated unmap and mapped GPU use rejection |
+| `glUnmapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glUnmapNamedBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glUnmapNamedBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glUnmapObjectBufferATI` | definition |  | GL_ATI_map_object_buffer:all:all | unclassified | - | - | - | - |
+| `glUnmapTexture2DINTEL` | definition |  | GL_INTEL_map_texture:all:all | unclassified | - | - | - | - |
+| `glUpdateObjectBufferATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glUploadGpuMaskNVX` | definition |  | GL_NVX_gpu_multicast2:all:all | unclassified | - | - | - | - |
+| `glUseProgram` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab render and compute program binding | src/driver/opengl.ab typed program-name ABI | tests/opengl/main.ab valid program bind and unbind | tests/application/main.ab invalid pipeline rejection before binding |
+| `glUseProgramObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUseProgramStages` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glUseShaderProgramEXT` | definition |  | GL_EXT_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glVDPAUFiniNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAUGetSurfaceivNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAUInitNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAUIsSurfaceNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAUMapSurfacesNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAURegisterOutputSurfaceNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAURegisterVideoSurfaceNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAURegisterVideoSurfaceWithPictureStructureNV` | definition |  | GL_NV_vdpau_interop2:all:all | unclassified | - | - | - | - |
+| `glVDPAUSurfaceAccessNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAUUnmapSurfacesNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glVDPAUUnregisterSurfaceNV` | definition |  | GL_NV_vdpau_interop:all:all | unclassified | - | - | - | - |
+| `glValidateProgram` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glValidateProgramARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glValidateProgramPipeline` | definition | GL_VERSION_4_1:+:all | GL_ARB_separate_shader_objects:all:all | unclassified | - | - | - | - |
+| `glVariantArrayObjectATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
+| `glVariantPointerEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantbvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantdvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantfvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantivEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantsvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantubvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantuivEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVariantusvEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertex2bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glVertex2bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glVertex2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertex2hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertex2i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glVertex2xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glVertex3bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glVertex3bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glVertex3d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertex3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertex3i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex3xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glVertex3xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glVertex4bOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glVertex4bvOES` | definition |  | GL_OES_byte_coordinates:all:all | unclassified | - | - | - | - |
+| `glVertex4d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4dv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4fv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertex4hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertex4i` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4iv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4s` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4sv` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertex4xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glVertex4xvOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
+| `glVertexArrayAttribBinding` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayAttribFormat` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayAttribIFormat` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayAttribLFormat` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayBindVertexBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayBindingDivisor` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayColorOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayEdgeFlagOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayElementBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayFogCoordOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayIndexOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayMultiTexCoordOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayNormalOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayParameteriAPPLE` | definition |  | GL_APPLE_vertex_array_range:all:all | unclassified | - | - | - | - |
+| `glVertexArrayRangeAPPLE` | definition |  | GL_APPLE_vertex_array_range:all:all | unclassified | - | - | - | - |
+| `glVertexArrayRangeNV` | definition |  | GL_NV_vertex_array_range:all:all | unclassified | - | - | - | - |
+| `glVertexArraySecondaryColorOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayTexCoordOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribBindingEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribDivisorEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribFormatEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribIFormatEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribIOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribLFormatEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribLOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexAttribOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexBindingDivisorEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexBuffers` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexArrayVertexOffsetEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1d` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib1dARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1dNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1dv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib1dvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib1fARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1fNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib1fvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1s` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib1sARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1sNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1sv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib1svARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib1svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2d` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib2dARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2dNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2dv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib2dvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib2fARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2fNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib2fvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2s` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib2sARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2sNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2sv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib2svARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib2svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3d` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib3dARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3dNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3dv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib3dvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib3fARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3fNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib3fvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3s` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib3sARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3sNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3sv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib3svARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib3svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Nbv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NbvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Niv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NivARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Nsv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NsvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Nub` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NubARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Nubv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NubvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Nuiv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NuivARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4Nusv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4NusvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4bv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4bvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4d` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4dARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4dNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4dv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4dvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4f` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4fARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4fNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4fv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4fvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4hNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4iv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4ivARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4s` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4sARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4sNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4sv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4svARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4ubNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4ubv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4ubvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4ubvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4uiv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4uivARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttrib4usv` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttrib4usvARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttribArrayObjectATI` | definition |  | GL_ATI_vertex_attrib_array_object:all:all | unclassified | - | - | - | - |
+| `glVertexAttribBinding` | definition | GL_VERSION_4_3:+:all | GL_ARB_vertex_attrib_binding:all:all | unclassified | - | - | - | - |
+| `glVertexAttribDivisor` | definition | GL_VERSION_3_3:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribDivisorARB` | definition |  | GL_ARB_instanced_arrays:all:all | unclassified | - | - | - | - |
+| `glVertexAttribFormat` | definition | GL_VERSION_4_3:+:all | GL_ARB_vertex_attrib_binding:all:all | unclassified | - | - | - | - |
+| `glVertexAttribFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI1i` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI1iEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI1iv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI1ivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI1ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI1uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI1uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI1uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI2i` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI2iEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI2iv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI2ivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI2ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI2uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI2uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI2uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI3i` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI3iEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI3iv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI3ivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI3ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI3uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI3uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI3uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4bv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4bvEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4i` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4iEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4iv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4ivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4sv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4svEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4ubv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4ubvEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4ui` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4uiEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4uiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4uivEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribI4usv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
+| `glVertexAttribI4usvEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribIFormat` | definition | GL_VERSION_4_3:+:all | GL_ARB_vertex_attrib_binding:all:all | unclassified | - | - | - | - |
+| `glVertexAttribIFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glVertexAttribIPointer` | definition | GL_VERSION_3_0:+:all |  | common | src/driver/opengl.ab reflected unsigned integer vertex layout | src/driver/opengl.ab typed location width type stride and offset ABI | examples/common-triangle/main.ab live interleaved uint vertex input on both backends | examples/common-triangle/main.ab missing or mismatched integer attribute rejection |
+| `glVertexAttribIPointerEXT` | definition |  | GL_EXT_gpu_shader4:all:all|GL_NV_vertex_program4:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1d` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1dEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1dvEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1i64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1i64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1ui64ARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1ui64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1ui64vARB` | definition |  | GL_ARB_bindless_texture:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL1ui64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2d` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2dEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2dvEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2i64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2i64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2ui64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL2ui64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3d` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3dEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3dvEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3i64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3i64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3ui64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL3ui64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4d` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4dEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4dv` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4dvEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4i64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4i64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4ui64NV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribL4ui64vNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribLFormat` | definition | GL_VERSION_4_3:+:all | GL_ARB_vertex_attrib_binding:all:all | unclassified | - | - | - | - |
+| `glVertexAttribLFormatNV` | definition |  | GL_NV_vertex_attrib_integer_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribLPointer` | definition | GL_VERSION_4_1:+:all | GL_ARB_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribLPointerEXT` | definition |  | GL_EXT_vertex_attrib_64bit:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP1ui` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP1uiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP2ui` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP2uiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP3ui` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP3uiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP4ui` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribP4uiv` | definition | GL_VERSION_3_3:+:all | GL_ARB_vertex_type_2_10_10_10_rev:all:all | unclassified | - | - | - | - |
+| `glVertexAttribParameteriAMD` | definition |  | GL_AMD_interleaved_elements:all:all | unclassified | - | - | - | - |
+| `glVertexAttribPointer` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab reflected floating vertex layout with buffer base offset | src/driver/opengl.ab typed location width type stride and summed offset ABI | examples/push-color/main.ab nonzero pooled target pass and surfaced rendering | tests/pool/main.ab surfaced and offscreen misaligned range rejection |
+| `glVertexAttribPointerARB` | definition |  | GL_ARB_vertex_program:all:all|GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
+| `glVertexAttribPointerNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs1dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs1fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs1hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs1svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs2dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs2fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs2hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs2svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs3dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs3fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs3hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs3svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs4dvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs4fvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs4hvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs4svNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexAttribs4ubvNV` | definition |  | GL_NV_vertex_program:all:all | unclassified | - | - | - | - |
+| `glVertexBindingDivisor` | definition | GL_VERSION_4_3:+:all | GL_ARB_vertex_attrib_binding:all:all | unclassified | - | - | - | - |
+| `glVertexBlendARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glVertexBlendEnvfATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexBlendEnviATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexFormatNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
+| `glVertexPointer` | definition | GL_VERSION_1_1:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glVertexPointerEXT` | definition |  | GL_EXT_vertex_array:all:all | unclassified | - | - | - | - |
+| `glVertexPointerListIBM` | definition |  | GL_IBM_vertex_array_lists:all:all | unclassified | - | - | - | - |
+| `glVertexPointervINTEL` | definition |  | GL_INTEL_parallel_arrays:all:all | unclassified | - | - | - | - |
+| `glVertexStream1dATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1dvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1fATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1fvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1iATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1ivATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1sATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream1svATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2dATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2dvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2fATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2fvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2iATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2ivATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2sATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream2svATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3dATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3dvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3fATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3fvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3iATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3ivATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3sATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream3svATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4dATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4dvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4fATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4fvATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4iATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4ivATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4sATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexStream4svATI` | definition |  | GL_ATI_vertex_streams:all:all | unclassified | - | - | - | - |
+| `glVertexWeightPointerEXT` | definition |  | GL_EXT_vertex_weighting:all:all | unclassified | - | - | - | - |
+| `glVertexWeightfEXT` | definition |  | GL_EXT_vertex_weighting:all:all | unclassified | - | - | - | - |
+| `glVertexWeightfvEXT` | definition |  | GL_EXT_vertex_weighting:all:all | unclassified | - | - | - | - |
+| `glVertexWeighthNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVertexWeighthvNV` | definition |  | GL_NV_half_float:all:all | unclassified | - | - | - | - |
+| `glVideoCaptureNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glVideoCaptureStreamParameterdvNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glVideoCaptureStreamParameterfvNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glVideoCaptureStreamParameterivNV` | definition |  | GL_NV_video_capture:all:all | unclassified | - | - | - | - |
+| `glViewport` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab surfaced and offscreen viewport state | src/driver/opengl.ab typed origin and extent ABI | examples/common-triangle/main.ab exact resize to 640 by 480 | tests/application/main.ab invalid zero extent rejection |
+| `glViewportArrayv` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glViewportIndexedf` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glViewportIndexedfv` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
+| `glViewportPositionWScaleNV` | definition |  | GL_NV_clip_space_w_scaling:all:all | unclassified | - | - | - | - |
+| `glViewportSwizzleNV` | definition |  | GL_NV_viewport_swizzle:all:all | unclassified | - | - | - | - |
+| `glWaitSemaphoreEXT` | definition |  | GL_EXT_semaphore:all:all | unclassified | - | - | - | - |
+| `glWaitSemaphoreui64NVX` | definition |  | GL_NVX_progress_fence:all:all | unclassified | - | - | - | - |
+| `glWaitSync` | definition | GL_VERSION_3_2:+:all | GL_ARB_sync:all:all | unclassified | - | - | - | - |
+| `glWaitVkSemaphoreNV` | definition |  | GL_NV_draw_vulkan_image:all:all | unclassified | - | - | - | - |
+| `glWeightPathsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
+| `glWeightPointerARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightbvARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightdvARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightfvARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightivARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightsvARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightubvARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightuivARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWeightusvARB` | definition |  | GL_ARB_vertex_blend:all:all | unclassified | - | - | - | - |
+| `glWindowPos2d` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2dARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2dMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2dv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2dvARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2dvMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2f` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2fARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2fMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2fv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2fvARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2fvMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2i` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2iARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2iMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2iv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2ivARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2ivMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2s` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2sARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2sMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2sv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos2svARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos2svMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3d` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3dARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3dMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3dv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3dvARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3dvMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3f` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3fARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3fMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3fv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3fvARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3fvMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3i` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3iARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3iMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3iv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3ivARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3ivMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3s` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3sARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3sMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3sv` | definition | GL_VERSION_1_4:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
+| `glWindowPos3svARB` | definition |  | GL_ARB_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos3svMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4dMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4dvMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4fMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4fvMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4iMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4ivMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4sMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowPos4svMESA` | definition |  | GL_MESA_window_pos:all:all | unclassified | - | - | - | - |
+| `glWindowRectanglesEXT` | definition |  | GL_EXT_window_rectangles:all:all | unclassified | - | - | - | - |
+| `glWriteMaskEXT` | definition |  | GL_EXT_vertex_shader:all:all | unclassified | - | - | - | - |
 
 ## Core features
 

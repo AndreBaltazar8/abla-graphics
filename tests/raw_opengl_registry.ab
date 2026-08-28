@@ -1,4 +1,5 @@
 import "../src/raw/opengl_registry.ab"
+import "../src/raw/opengl_calls.ab"
 import "../src/raw/native.ab"
 
 fun registryContains(values: array<string>, wanted: string): bool {
@@ -64,8 +65,14 @@ fun main: int {
     val constness = rawOpenGlRegistryCommandParameterConstness()
     val callShapes = rawOpenGlRegistryCommandCallShapes()
     val callAbis = rawOpenGlRegistryCommandCallAbis()
+    val coreTransitionSchema = rawOpenGlCallCoreTransitionSchema()
+    val extensionProviderSchema = rawOpenGlCallExtensionProviderSchema()
     val glEnum = registryIndex(types, "GLenum")
     val glClear = registryIndex(commands, "glClear")
+    val glBegin = registryIndex(commands, "glBegin")
+    val debugMessageCallback = registryIndex(
+        commands, "glDebugMessageCallback"
+    )
     val mask = registryParameterIndex(owners, names, "glClear", "mask")
     val viewport = registryIndex(commands, "glViewport")
     val getInteger = registryIndex(commands, "glGetIntegerv")
@@ -196,6 +203,20 @@ fun main: int {
         parameterTypes[mask] == "GLbitfield" && pointers[mask] == "0" &&
         constness[mask] == "false" && callShapes.size == commands.size &&
         callAbis.size == commands.size &&
+        glBegin >= 0 && rawCapabilitySchemaRecord(
+            coreTransitionSchema, glBegin
+        ) ==
+            "GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core" &&
+        rawCapabilitySchemaRecord(extensionProviderSchema, glBegin) == "" &&
+        debugMessageCallback >= 0 &&
+        rawCapabilitySchemaRecord(
+            coreTransitionSchema, debugMessageCallback
+        ) ==
+            "GL_VERSION_4_3:+:all" &&
+        rawCapabilitySchemaRecord(
+            extensionProviderSchema, debugMessageCallback
+        ) ==
+            "GL_KHR_debug:all:all" &&
         callShapes[glClear] == "void(GLbitfield)" &&
         callAbis[glClear] == "void(i32)" &&
         viewport >= 0 &&
@@ -359,6 +380,13 @@ fun main: int {
         callAbis[legacyHandle] == "handleResult(i32)" &&
         createProgramObject >= 0 &&
         callAbis[createProgramObject] == "handleResult()" &&
+        rawCapabilitySchemaRecord(
+            coreTransitionSchema, createProgramObject
+        ) == "" &&
+        rawCapabilitySchemaRecord(
+            extensionProviderSchema, createProgramObject
+        ) ==
+            "GL_ARB_shader_objects:all:all" &&
         createShaderObject >= 0 &&
         callAbis[createShaderObject] == "handleResult(i32)" &&
         deleteObject >= 0 && callAbis[deleteObject] == "void(handle)" &&

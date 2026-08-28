@@ -16,76 +16,76 @@
 
 ## Commands
 
-| Name | Form | Status | Loader | ABI | Positive test | Unsupported path |
-| --- | --- | --- | --- | --- | --- | --- |
-| `vkAddressResult` | definition | unclassified | - | - | - | - |
-| `vkAlias` | alias | unclassified | - | - | - | - |
-| `vkAlpha` | definition | common | fixture loader | fixture ABI | fixture positive | fixture unsupported |
-| `vkBindWide` | definition | unclassified | - | - | - | - |
-| `vkBindWideResult` | definition | unclassified | - | - | - | - |
-| `vkBufferImageWide` | definition | unclassified | - | - | - | - |
-| `vkClearImageWide` | definition | unclassified | - | - | - | - |
-| `vkCopyWide` | definition | unclassified | - | - | - | - |
-| `vkCountedResult` | definition | unclassified | - | - | - | - |
-| `vkCreateFixture` | definition | unclassified | - | - | - | - |
-| `vkDestroyFixture` | definition | unclassified | - | - | - | - |
-| `vkDeviceOnly` | definition | unclassified | - | - | - | - |
-| `vkDrawCountWide` | definition | unclassified | - | - | - | - |
-| `vkDrawWide` | definition | unclassified | - | - | - | - |
-| `vkEnumOutput` | definition | unclassified | - | - | - | - |
-| `vkEnumerateFixture` | definition | unclassified | - | - | - | - |
-| `vkFillWide` | definition | unclassified | - | - | - | - |
-| `vkFloatState` | definition | unclassified | - | - | - | - |
-| `vkFloatState2` | definition | unclassified | - | - | - | - |
-| `vkFloatState3` | definition | unclassified | - | - | - | - |
-| `vkFourPointers` | definition | unclassified | - | - | - | - |
-| `vkHandleEnumerateResult` | definition | unclassified | - | - | - | - |
-| `vkHandleFlags` | definition | unclassified | - | - | - | - |
-| `vkHandleFloatState` | definition | unclassified | - | - | - | - |
-| `vkHandleOutputResult` | definition | unclassified | - | - | - | - |
-| `vkHandlePointerPair` | definition | unclassified | - | - | - | - |
-| `vkHandleScalarPointer` | definition | unclassified | - | - | - | - |
-| `vkHandleTwoScalars` | definition | unclassified | - | - | - | - |
-| `vkHandleWideFlags` | definition | unclassified | - | - | - | - |
-| `vkImageFilteredWide` | definition | unclassified | - | - | - | - |
-| `vkImageWide` | definition | unclassified | - | - | - | - |
-| `vkInternal` | definition | unclassified | - | - | - | - |
-| `vkPhysicalStatusHandle` | definition | unclassified | - | - | - | - |
-| `vkPointerHandlePointer` | definition | unclassified | - | - | - | - |
-| `vkPointerOnly` | definition | unclassified | - | - | - | - |
-| `vkPointerPair` | definition | unclassified | - | - | - | - |
-| `vkPointerResult` | definition | unclassified | - | - | - | - |
-| `vkPointerScalar` | definition | unclassified | - | - | - | - |
-| `vkPointerTwoScalar` | definition | unclassified | - | - | - | - |
-| `vkPointerWideResult` | definition | unclassified | - | - | - | - |
-| `vkQueryPointer` | definition | unclassified | - | - | - | - |
-| `vkQueryTwoPointers` | definition | unclassified | - | - | - | - |
-| `vkQueueLikeResult` | definition | unclassified | - | - | - | - |
-| `vkQueueScalar` | definition | unclassified | - | - | - | - |
-| `vkScalarFive` | definition | unclassified | - | - | - | - |
-| `vkScalarFour` | definition | unclassified | - | - | - | - |
-| `vkScalarOutput` | definition | unclassified | - | - | - | - |
-| `vkScalarPointerPair` | definition | unclassified | - | - | - | - |
-| `vkScalarSix` | definition | unclassified | - | - | - | - |
-| `vkScalarThree` | definition | unclassified | - | - | - | - |
-| `vkStatusCalibrated` | definition | unclassified | - | - | - | - |
-| `vkStatusCreateDeferredPipelines` | definition | unclassified | - | - | - | - |
-| `vkStatusCreatePipelines` | definition | unclassified | - | - | - | - |
-| `vkStatusHandle` | definition | unclassified | - | - | - | - |
-| `vkStatusHandleScalarPointer` | definition | unclassified | - | - | - | - |
-| `vkStatusPointer` | definition | unclassified | - | - | - | - |
-| `vkStatusScalar` | definition | unclassified | - | - | - | - |
-| `vkStatusShaderGroup` | definition | unclassified | - | - | - | - |
-| `vkStatusWait` | definition | unclassified | - | - | - | - |
-| `vkStatusWideScalar` | definition | unclassified | - | - | - | - |
-| `vkThreeScalarOutput` | definition | unclassified | - | - | - | - |
-| `vkTimestampWide` | definition | unclassified | - | - | - | - |
-| `vkTwoHandlePointer` | definition | unclassified | - | - | - | - |
-| `vkTwoWideScalar` | definition | unclassified | - | - | - | - |
-| `vkTwoWideValues` | definition | unclassified | - | - | - | - |
-| `vkUpdateWide` | definition | unclassified | - | - | - | - |
-| `vkVoidWide` | definition | unclassified | - | - | - | - |
-| `vkZulu` | definition | unclassified | - | - | - | - |
+| Name | Form | Core transitions | Extension providers | Status | Loader | ABI | Positive test | Unsupported path |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `vkAddressResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkAlias` | alias | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkAlpha` | definition | VK_VERSION_1_0:+:all | VK_EXT_alpha:xlib:all | common | fixture loader | fixture ABI | fixture positive | fixture unsupported |
+| `vkBindWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkBindWideResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkBufferImageWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkClearImageWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCopyWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCountedResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCreateFixture` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkDestroyFixture` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkDeviceOnly` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkDrawCountWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkDrawWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkEnumOutput` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkEnumerateFixture` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkFillWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkFloatState` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkFloatState2` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkFloatState3` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkFourPointers` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleEnumerateResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleFlags` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleFloatState` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleOutputResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandlePointerPair` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleScalarPointer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleTwoScalars` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkHandleWideFlags` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkImageFilteredWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkImageWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkInternal` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPhysicalStatusHandle` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerHandlePointer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerOnly` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerPair` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerScalar` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerTwoScalar` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkPointerWideResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkQueryPointer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkQueryTwoPointers` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkQueueLikeResult` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkQueueScalar` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkScalarFive` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkScalarFour` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkScalarOutput` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkScalarPointerPair` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkScalarSix` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkScalarThree` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusCalibrated` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusCreateDeferredPipelines` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusCreatePipelines` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusHandle` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusHandleScalarPointer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusPointer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusScalar` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusShaderGroup` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusWait` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkStatusWideScalar` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkThreeScalarOutput` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkTimestampWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkTwoHandlePointer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkTwoWideScalar` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkTwoWideValues` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkUpdateWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkVoidWide` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkZulu` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
 
 ## Core features
 

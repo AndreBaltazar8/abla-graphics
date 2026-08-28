@@ -134,6 +134,15 @@ kind: it resolves to pointer returns and parameters on Apple and unsigned
 evidence, and the milestone work below remain separate from ABI
 representability.
 
+The generated command tables now include ordered core add/remove transitions
+and every extension provider with its platform/profile restriction. Compact
+schemas keep those records aligned with all 2,892 OpenGL and 842 Vulkan names
+without retaining duplicate per-command arrays. Both raw views expose
+`RawCommandCapability`; OpenGL evaluates the current version, profile, and
+extension advertisement separately from resolver availability. Vulkan
+capability metadata is present, while exact instance/device enabled-extension
+tracking remains required before claiming runtime support.
+
 Width-aware raster local vectors now conditionally emit `vec2` and `vec3` types
 without perturbing established `vec4` modules. Their exact-width and scalar-splat
 constructors, equal-width arithmetic and dot products, scalar mixed operations,

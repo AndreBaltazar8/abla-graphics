@@ -194,6 +194,39 @@ trusted fun main: int {
             } else legacyLive = false
             legacyLive = legacyLive && glGetError() == 0
         }
+        val finishCapability = raw.capability("glFinish")
+        val beginCapability = raw.capability("glBegin")
+        val legacyCapability = raw.capability(
+            "glCreateProgramObjectARB"
+        )
+        val missingCapability = raw.capability("glAblaMissing")
+        val profileMask = nativeI64Cell(0)
+        glGetIntegerv(37158, profileMask.address)
+        val coreProfile = (profileMask.load() & 1) != 0
+        val coreCapabilityReady = finishCapability.valid() &&
+            finishCapability.hasCoreFeature("GL_VERSION_1_0") &&
+            !finishCapability.hasExtensionPath() &&
+            raw.commandAdvertised("glFinish") &&
+            raw.commandSupported("glFinish")
+        val removedCapabilityReady = beginCapability.valid() &&
+            beginCapability.hasCoreFeature("GL_VERSION_1_0") &&
+            beginCapability.coreTransitions ==
+                "GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core" &&
+            raw.commandAdvertised("glBegin") == !coreProfile &&
+            raw.commandSupported("glBegin") == !coreProfile
+        val extensionCapabilityReady = legacyCapability.valid() &&
+            !legacyCapability.hasCorePath() &&
+            legacyCapability.hasExtension("GL_ARB_shader_objects") &&
+            legacyCapability.extensionPlatform(
+                "GL_ARB_shader_objects"
+            ) == "all" &&
+            raw.commandAdvertised("glCreateProgramObjectARB") ==
+                legacyAdvertised &&
+            raw.commandSupported("glCreateProgramObjectARB") ==
+                legacyAdvertised
+        val missingCapabilityReady = !missingCapability.valid() &&
+            !raw.commandAdvertised("glAblaMissing") &&
+            !raw.commandSupported("glAblaMissing")
         var pendingError = glGetError()
         while (pendingError != 0) pendingError = glGetError()
         val liveBefore = runtimeMemoryLiveBytes()
@@ -343,13 +376,15 @@ trusted fun main: int {
             wideBuffersReady && pointerReturnReady && floatWrongShapeRejected &&
             floatResultReady && (legacyIntegerAbi || legacyPointerAbi) &&
             legacyWrongShapeRejected && legacyLive &&
+            coreCapabilityReady && removedCapabilityReady &&
+            extensionCapabilityReady && missingCapabilityReady &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
             unsupportedRejected && called && call == 1000 &&
             restored && colorRestored && depthRangeRestored && masksRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true floatShape=$floatResultReady platformHandle=$legacyIntegerAbi/$legacyPointerAbi advertised=$legacyAdvertised liveCall=$legacyLive wrongShape=$legacyWrongShapeRejected buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true capability=$coreCapabilityReady/$removedCapabilityReady/$extensionCapabilityReady/$missingCapabilityReady coreProfile=$coreProfile floatShape=$floatResultReady platformHandle=$legacyIntegerAbi/$legacyPointerAbi advertised=$legacyAdvertised liveCall=$legacyLive wrongShape=$legacyWrongShapeRejected buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")
@@ -417,6 +452,23 @@ trusted fun main: int {
         val clearColorImage = raw.deviceCommand("vkCmdClearColorImage")
         val waitForFences = raw.deviceCommand("vkWaitForFences")
         val missing = raw.deviceCommand("vkAblaMissing")
+        val enumerateCapability = raw.capability(
+            "vkEnumeratePhysicalDevices"
+        )
+        val surfaceCapability = raw.capability(
+            "vkGetPhysicalDeviceSurfaceSupportKHR"
+        )
+        val xlibCapability = raw.capability("vkCreateXlibSurfaceKHR")
+        val missingCapability = raw.capability("vkAblaMissing")
+        val capabilityReady = enumerateCapability.valid() &&
+            enumerateCapability.hasCoreFeature("VK_VERSION_1_0") &&
+            surfaceCapability.valid() &&
+            surfaceCapability.hasExtension("VK_KHR_surface") &&
+            xlibCapability.valid() &&
+            xlibCapability.hasExtension("VK_KHR_xlib_surface") &&
+            xlibCapability.extensionPlatform(
+                "VK_KHR_xlib_surface"
+            ) == "xlib" && !missingCapability.valid()
         val command = app.vulkanPixels.frames[0].command.load()
         val idleStatus = nativeI64Cell(-1)
         val instanceVersion = nativeI64Cell(0)
@@ -1688,6 +1740,7 @@ trusted fun main: int {
             idle.callAbi == "i32(pointer)" &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" && unsupportedRejected &&
+            capabilityReady &&
             pointerQueries && timelineRoundTrip && createdTimeline != 0 &&
             timeline.valid() && createdQueryPool != 0 &&
             timestampQuery.valid() && createdLegacyQueryPool != 0 &&
@@ -1707,7 +1760,7 @@ trusted fun main: int {
             rawImagePixel == 4278190335 &&
             beginStatus.load() == vulkanSuccess && recorded && restored &&
             loopLiveAfter == loopLiveBefore
-        detail = "enumerate=${enumerate.address} resolved=${resolvedEnumerateAddress.load()} version=${instanceVersion.load()} surface=${surfaceSupported.load()} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} features=${featureChain.bytes.loadI64(featureChain.offsets[0] + 16)}/${featureChain.bytes.loadI64(featureChain.offsets[1] + 16)} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond image=$rawImagePixel unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} fenceWait=${waitFenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
+        detail = "enumerate=${enumerate.address} resolved=${resolvedEnumerateAddress.load()} capability=$capabilityReady version=${instanceVersion.load()} surface=${surfaceSupported.load()} devices=${physicalDeviceCount.load()} queue=${nativePointerAddress(queriedQueue.load())} legacyQueue=${nativePointerAddress(queriedLegacyQueue.load())} images=${swapchainImageCount.load()} features=${featureChain.bytes.loadI64(featureChain.offsets[0] + 16)}/${featureChain.bytes.loadI64(featureChain.offsets[1] + 16)} begin=${beginStatus.load()} format=${formatProperties.loadI64(0)} timeline=$createdTimeline timelineValue=${timelineValue.load()} wait=${timelineWaitStatus.load()} queryPool=$createdQueryPool ticks=${timestampQuery.result.load()} legacyPool=$createdLegacyQueryPool legacyTicks=${legacyTimestampQuery.result.load()} compute=${rawCompute.vulkan.handle} transfer=$transferFirst/$transferSecond image=$rawImagePixel unmapped=$rawUnmapped submit=${submitStatus.load()} mask=${setDeviceMask.address} event=$createdEvent eventStatus=${eventStatus.load()} fence=$createdFence fenceStatus=${fenceStatus.load()} fenceWait=${waitFenceStatus.load()} reset=${resetStatus.load()}/${resetPoolStatus.load()} calls=$call status=${idleStatus.load()} loopLive=${loopLiveAfter - loopLiveBefore} live=${liveAfter - liveBefore}"
         rawCompute.drop()
         timeline.drop()
         timestampQuery.drop()

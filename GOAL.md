@@ -12,6 +12,19 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 
 ## Current continuation focus
 
+The registry now also generates command capability ownership for every pinned
+OpenGL and Vulkan command. Core additions/removals are retained in declaration
+order with their profiles, and extension providers retain platform/profile
+requirements. Compact semicolon-indexed schemas keep this information aligned
+with the callable command tables without retaining thousands of duplicate Abla
+strings. `RawCommandCapability` exposes the truthful metadata on both raw
+views. OpenGL additionally distinguishes `commandAdvertised(name)` from
+`commandSupported(name)`: the former evaluates the current version/profile and
+advertised extensions, while the latter also requires a nonzero resolver
+address. Continue by feeding the same generated ownership into Vulkan
+instance/device extension enablement and the raw feature-lab matrices; metadata
+alone is not proof that a Vulkan extension was enabled at device creation.
+
 The current broad raw OpenGL work has expanded the generated surface from 352
 to all 2,892 registry commands with target-correct ABI metadata. Return
 declarators now preserve pointer
@@ -4148,3 +4161,34 @@ the pointer-shaped call, and reports `live=0` in normal and optimized builds.
 Continue with the next incomplete specification/platform milestone while
 retaining generated ABI coverage and capability evidence. Keep the persistent
 framework goal active.
+
+## Latest checkpoint: generated command capability ownership
+
+The pure-Abla registry generator now parses each pinned XML input once and emits
+compact command-indexed capability schemas beside the callable name/ABI tables.
+All 2,892 OpenGL and 842 Vulkan commands retain ordered core transitions plus
+every extension provider's platform/profile requirements. Vulkan's private
+base/compute/graphics feature partitions normalize to public
+`VK_VERSION_x_y` ownership.
+
+Both raw views return `RawCommandCapability`. OpenGL additionally evaluates
+ordered removal/re-addition semantics against the live context
+version/profile, checks extension advertisement, and only reports
+`commandSupported` when a command is both advertised and addressable. The
+fixture gate proves core removal/re-addition and X11-qualified providers.
+Normal and optimized live runs report
+`capability=true/true/true/true coreProfile=true live=0 stable=true` on
+OpenGL and `capability=true` on validation-clean Vulkan. The Abla-only audit
+passes, and stripped direct launches report `unresolved=0`.
+
+Validated with two milestone commands:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic make test-registry
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-raw-commands test-runtime-linkage'
+```
+
+Continue by recording Vulkan instance/device enabled extensions so generated
+metadata can become a truthful runtime advertisement query, then use the same
+ownership records to generate broad raw feature-lab coverage. Keep the
+persistent framework goal active.

@@ -45,6 +45,102 @@ fun rawResolvePlatformCallAbiFor(
 fun rawResolvePlatformCallAbi(callAbi: string): string =
     rawResolvePlatformCallAbiFor(callAbi, ablaHostIsMacOS())
 
+class RawCommandCapability(
+    val name: string,
+    val coreTransitions: string,
+    val extensionProviders: string
+) {
+    fun valid(): bool = this.name != "" &&
+        (this.coreTransitions != "" || this.extensionProviders != "")
+    fun hasCorePath(): bool = this.coreTransitions != ""
+    fun hasExtensionPath(): bool = this.extensionProviders != ""
+    fun hasCoreFeature(feature: string): bool =
+        rawCapabilityRecordContains(this.coreTransitions, feature)
+    fun hasExtension(extension: string): bool =
+        rawCapabilityRecordContains(this.extensionProviders, extension)
+    fun extensionPlatform(extension: string): string =
+        rawCapabilityExtensionPlatform(this.extensionProviders, extension)
+}
+
+fun rawCapabilityRecordContains(records: string, wanted: string): bool {
+    var found = false
+    var begin = 0
+    var cursor = 0
+    while (!found && cursor <= records.size) {
+        if (cursor == records.size || records[cursor] == 124) {
+            val record = records.slice(begin, cursor)
+            val end = textFindByte(record, 58)
+            found = end > 0 && record.slice(0, end) == wanted
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    found
+}
+
+fun rawCapabilityExtensionPlatform(
+    records: string,
+    wanted: string
+): string {
+    var platform = ""
+    var begin = 0
+    var cursor = 0
+    while (platform == "" && cursor <= records.size) {
+        if (cursor == records.size || records[cursor] == 124) {
+            val record = records.slice(begin, cursor)
+            val first = textFindByte(record, 58)
+            val second = if (first >= 0)
+                textFindByte(record, 58, first + 1, record.size)
+                else -1
+            if (first > 0 && second > first &&
+                record.slice(0, first) == wanted) {
+                platform = record.slice(first + 1, second)
+            }
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    platform
+}
+
+fun rawRegistryCommandCapability(
+    commands: array<string>,
+    coreTransitionSchema: string,
+    extensionProviderSchema: string,
+    name: string
+): RawCommandCapability {
+    val index = rawRegistryCommandIndex(commands, name)
+    RawCommandCapability(
+        if (index >= 0) name else "",
+        if (index >= 0) rawCapabilitySchemaRecord(
+            coreTransitionSchema, index
+        ) else "",
+        if (index >= 0) rawCapabilitySchemaRecord(
+            extensionProviderSchema, index
+        ) else ""
+    )
+}
+
+fun rawCapabilitySchemaRecord(schema: string, wanted: int): string {
+    var record = ""
+    var found = false
+    var index = 0
+    var begin = 0
+    var cursor = 0
+    while (!found && index <= wanted && cursor <= schema.size) {
+        if (cursor == schema.size || schema[cursor] == 59) {
+            if (index == wanted) {
+                record = schema.slice(begin, cursor)
+                found = true
+            }
+            index = index + 1
+            begin = cursor + 1
+        }
+        cursor = cursor + 1
+    }
+    record
+}
+
 class RawNativeCommand(
     val name: string,
     val callShape: string,
