@@ -41,6 +41,10 @@ trusted fun main: int {
         val copyBufferSubData = raw.command("glCopyBufferSubData")
         val getBufferSubData = raw.command("glGetBufferSubData")
         val mapBuffer = raw.command("glMapBuffer")
+        val isEnabled = raw.command("glIsEnabled")
+        val getError = raw.command("glGetError")
+        val checkFramebuffer = raw.command("glCheckFramebufferStatus")
+        val getAttribLocation = raw.command("glGetAttribLocation")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -55,6 +59,11 @@ trusted fun main: int {
             !raw.callVoidI32I32(mapBuffer, 36662, 35001) &&
             !raw.callAddressI32(
                 mapBuffer, 36662, nativeNullPointer()
+            ) &&
+            !raw.callI8I32(isEnabled, 3089, nativeNullPointer()) &&
+            !raw.callU32Zero(clear, nativeNullPointer()) &&
+            !raw.callI32I32Pointer(
+                getAttribLocation, 0, nativeNullPointer(), nativeNullPointer()
             ) &&
             !raw.callVoidI32I64I64Pointer(
                 finish, 0, 0, 0, nativeNullPointer()
@@ -71,6 +80,13 @@ trusted fun main: int {
         val uploadValue = nativeI64Cell(72623859790382856)
         val copiedValue = nativeI64Cell(0)
         val mappedAddress = nativeI64Cell(0)
+        val booleanResult = nativeI64Cell(-1)
+        val unsignedResult = nativeI64Cell(-1)
+        val signedResult = nativeI64Cell(0)
+        val errorResult = nativeI64Cell(0)
+        val missingAttribute = nativePointerFromAddress(
+            nativeCStringAddress("ablaMissing")
+        )
         glGenBuffers(2, bufferNames.address)
         val sourceBuffer = graphicsPackedU32(bufferNames.address, 0)
         val destinationBuffer = graphicsPackedU32(bufferNames.address, 4)
@@ -108,15 +124,32 @@ trusted fun main: int {
                     getBufferSubData, 36662, 0, 8, copiedValue.address
                 ) && copiedValue.load() == uploadValue.load()
         }
+        var pendingError = glGetError()
+        while (pendingError != 0) pendingError = glGetError()
         val liveBefore = runtimeMemoryLiveBytes()
         var call = 0
         var called = true
         while (called && call < 1000) {
             called = raw.callVoid0(finish) &&
                 raw.callVoidI32(enable, 3089) &&
-                glIsEnabled(3089) != 0 &&
+                raw.callI8I32(
+                    isEnabled, 3089, booleanResult.address
+                ) && booleanResult.load() == 1 &&
                 raw.callVoidI32(disable, 3089) &&
-                glIsEnabled(3089) == 0 &&
+                raw.callI8I32(
+                    isEnabled, 3089, booleanResult.address
+                ) && booleanResult.load() == 0 &&
+                raw.callU32I32(
+                    checkFramebuffer, 36160, unsignedResult.address
+                ) && unsignedResult.load() == 36053 &&
+                raw.callI32I32Pointer(
+                    getAttribLocation,
+                    0,
+                    missingAttribute,
+                    signedResult.address
+                ) && signedResult.load() == -1 &&
+                raw.callU32Zero(getError, errorResult.address) &&
+                errorResult.load() == 1281 &&
                 raw.callVoidI32I32(pixelStore, 3333, 1) &&
                 raw.callVoidI32Pointer(getInteger, 3333, packAlignment.address) &&
                 raw.callVoidI32I32Pointer(
@@ -192,6 +225,10 @@ trusted fun main: int {
             clearColor.callAbi == "void(f32,f32,f32,f32)" &&
             depthRange.callAbi == "void(f64,f64)" &&
             getDouble.callAbi == "void(i32,pointer)" &&
+            isEnabled.callAbi == "i8(i32)" &&
+            getError.callAbi == "u32()" &&
+            checkFramebuffer.callAbi == "u32(i32)" &&
+            getAttribLocation.callAbi == "i32(i32,pointer)" &&
             wideBuffersReady && pointerReturnReady &&
             !missing.valid() && missing.callShape == "" &&
             missing.callAbi == "unsupported" &&
@@ -199,7 +236,7 @@ trusted fun main: int {
             restored && colorRestored && depthRangeRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true buffer=true pointer=true live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} color=true depth=true buffer=true pointer=true results=true live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

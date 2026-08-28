@@ -13,7 +13,7 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,334 truthfully callable commands. Return declarators now preserve pointer
+to 2,429 truthfully callable commands. Return declarators now preserve pointer
 levels and `const`, so `void*`, `const GLubyte*`, `GLsync`, and function-pointer
 results cannot be mistaken for scalar or `void` returns. Exact pure-`i32` void
 calls now cover one through eleven
@@ -22,7 +22,7 @@ preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
 Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
 buffer, texture, query, and long scalar families. Continue in large
-normalized-signature batches from the remaining 558 explicit
+normalized-signature batches from the remaining 462 explicit
 `unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
@@ -3972,3 +3972,41 @@ ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only
 Continue with the remaining narrow-scalar/boolean result families and the
 lower-cardinality mixed pointer layouts in broad batches. Keep the persistent
 framework goal active.
+
+## Latest checkpoint: broad OpenGL scalar results
+
+Fourteen exact result layouts promote 96 commands in one batch, raising raw
+OpenGL coverage from 2,334 to 2,429 of 2,892 and leaving 462 explicit
+`unsupported` rows. Forty-six one-/two-scalar boolean queries and seven
+additional boolean layouts use exact 8-bit native returns; unsigned
+`GLuint`/`GLenum` results use zero-extended 32-bit returns, while signed
+`GLint` results retain sign extension. `GLhandleARB` remains unsupported as a
+return because its Khronos declaration is platform-dependent.
+
+Compiler commit `37460a4cc1dd1be8ec89ac1851deea1226cebaa0` adds thirteen
+new exact intrinsics, a bounded result-family classifier, zero-argument result
+lowering, and distinct LLVM zero/sign-extension paths. Its isolated worktree
+passed all 76 compiler tests and the byte-identical pure self-rebuild.
+
+`RawOpenGlApi` now writes boolean, unsigned 32-bit, and signed 32-bit returns
+into caller-owned result cells after exact-shape, context-owner, pointer, and
+current-context checks. Both normal and optimized live proofs run 1,000 raw
+`glIsEnabled`, `glCheckFramebufferStatus`, `glGetAttribLocation`, and
+`glGetError` result sequences. They verify exact `1/0`, framebuffer-complete,
+signed `-1`, and `GL_INVALID_VALUE` values, retain the pointer/buffer/state
+proofs, and report `results=true live=0 stable=true`. Vulkan validation remains
+clean, and stripped direct launch still reports
+`runtime-linkage direct=true unresolved=0`.
+
+The focused graphics batch was:
+
+```sh
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only test-registry test-raw-commands test-runtime-linkage'
+```
+
+The unrelated main `ablac` work in `src/backend/llvm/backend.ab`,
+`src/backend/llvm/exports.ab`, `src/eval.ab`, `src/ir.ab`, `src/module.ab`,
+`src/orc_main.ab`, `src/parser.ab`, `src/sema.ab`, and `src/toolchain.ab`
+remains untouched. Continue with the remaining narrow argument families,
+lower-volume scalar results, and mixed pointer layouts in broad batches. Keep
+the persistent framework goal active.

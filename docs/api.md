@@ -3695,10 +3695,12 @@ matching `callVoidF64...`, `callVoidI32F64...`, and
 double lanes. Wide checked methods additionally preserve OpenGL pointer-sized
 offsets and sizes, grouped pointer outputs, and long integer argument lists
 through eleven scalar lanes without a variadic fallback. The generated
-classification currently enables 2,334 OpenGL
+classification currently enables 2,429 OpenGL
 commands. Exact `callAddress...` families store native pointer results in a
 caller-owned `i64*` cell after command-shape, context-owner, and current-context
-checks. Vulkan
+checks. Boolean `i8(...)`, unsigned `u32(...)`, and signed `i32(...)` result methods
+preserve their native return widths before writing the widened Abla value.
+Vulkan
 exposes `callVoidPointer(command, pointer)`,
 `callVoidPointerI32(command, pointer, second)`, and
 `callVoidPointerI32I32(command, pointer, second, third)` for their exact
