@@ -41,8 +41,9 @@ Updated: 2026-08-28.
   grouped-pointer, and long-integer layouts raise coverage to 2,327. Truthful
   pointer-return parsing and exact address-result layouts then raise coverage
   to 2,334. Boolean, unsigned 32-bit, and signed 32-bit result layouts promote
-  another 96 commands, reaching 2,429 and leaving 462 OpenGL entries
-  unsupported.
+  another 96 commands, reaching 2,429. Sixteen native byte/short argument
+  layouts then promote 161 commands, reaching 2,590 and leaving 301 OpenGL
+  entries unsupported.
   Vulkan now assigns exact call ABIs to all 842 pinned commands, including
   explicit `i16`, platform-handle, pointer-return, and full-width result lanes;
   runtime callability still requires a nonzero platform/extension resolver.

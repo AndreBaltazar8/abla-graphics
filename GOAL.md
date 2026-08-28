@@ -13,7 +13,7 @@ not be marked complete until every exit condition in `plan.md` is satisfied.
 ## Current continuation focus
 
 The current broad raw OpenGL work has expanded the generated surface from 352
-to 2,429 truthfully callable commands. Return declarators now preserve pointer
+to 2,590 truthfully callable commands. Return declarators now preserve pointer
 levels and `const`, so `void*`, `const GLubyte*`, `GLsync`, and function-pointer
 results cannot be mistaken for scalar or `void` returns. Exact pure-`i32` void
 calls now cover one through eleven
@@ -22,7 +22,7 @@ preceding `i32` arguments; pure and one-/two-`i32`-prefixed `f32` families cover
 one through four float lanes, with matching native double-precision layouts.
 Exact 64-bit offset/size and grouped-pointer layouts cover the highest-volume
 buffer, texture, query, and long scalar families. Continue in large
-normalized-signature batches from the remaining 462 explicit
+normalized-signature batches from the remaining 301 explicit
 `unsupported` rows, pairing each compiler ABI
 family with registry, wrong-shape, live-driver, validation, and zero-growth
 evidence. Do not infer callability merely because an address resolves.
@@ -4010,3 +4010,35 @@ The unrelated main `ablac` work in `src/backend/llvm/backend.ab`,
 remains untouched. Continue with the remaining narrow argument families,
 lower-volume scalar results, and mixed pointer layouts in broad batches. Keep
 the persistent framework goal active.
+
+## Latest checkpoint: broad OpenGL narrow arguments
+
+Sixteen exact argument layouts promote 161 commands in one batch, raising raw
+OpenGL coverage from 2,429 to 2,590 of 2,892 and leaving 301 explicit
+`unsupported` rows. The batch covers the two high-volume uniform/program
+matrix families, one- through four-lane byte and short vectors, mixed leading
+`i32` variants, multisample boolean tails, and `f32/i8` coverage controls.
+
+Compiler commit `75246f35ea0d11005b2f1f43238c60460f878c58` adds a native
+8-bit argument kind with exact LLVM truncation, sixteen bounded intrinsic
+layouts, and trusted pure-Abla wrappers. Existing native 16-bit truncation is
+reused for the short families. The isolated compiler worktree passed all 76
+tests and the byte-identical pure self-rebuild.
+
+The normal and optimized OpenGL proofs each run 1,000 raw `glColorMask` and
+`glDepthMask` updates. Inputs `257/256/513/512` are observed as exact native
+`1/0/1/0` mask lanes, proving 8-bit truncation rather than width-erased calls;
+the previous mask state is restored, warmed live growth stays zero, and both
+runs report `mask=true live=0 stable=true`. Vulkan remains validation-clean,
+the Abla-only audit passes, and the stripped direct launch again reports
+`runtime-linkage direct=true unresolved=0`.
+
+Validated as one focused graphics batch:
+
+```sh
+ABLA_COMPILER_ROOT=/path/to/isolated/ablac nix-shell --run 'make check-abla-only test-registry test-raw-commands test-runtime-linkage'
+```
+
+Continue with the remaining 301 mixed, wide, lower-volume result, and platform
+specific layouts in generated batches. Keep the persistent framework goal
+active.

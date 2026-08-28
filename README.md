@@ -181,12 +181,13 @@ proves the architecture rather than stopping at placeholder interfaces:
   7,413 members; compact separately generated callable-command modules avoid
   pulling the full audit/type reports into applications, while independently
   compiled raw metadata modules leave every unaudited row visibly
-  unclassified; exact ABI-family metadata currently enables 2,429 OpenGL
+  unclassified; exact ABI-family metadata currently enables 2,590 OpenGL
   commands and all 842 Vulkan commands. The Vulkan surface includes exact float,
   image transfer/clear/query, sparse query, pipeline creation, calibrated
   timestamp, fence-wait, descriptor/query, wide handle, mixed scalar/handle,
-  pointer-group, pointer-return, boolean, unsigned-result, and signed-result
-  families. OpenGL retains 462 explicitly
+  pointer-group, and signed status families. The OpenGL surface includes exact
+  pointer returns, boolean/unsigned/signed results, and native byte/short
+  argument families. OpenGL retains 301 explicitly
   unsupported signatures for subsequent exact ABI batches;
   and
 - the general `ablac` `nativeLibraries` manifest contract, used to link
@@ -277,7 +278,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   indirect `glFinish`, scissor enable/disable, and pack-alignment state changes
   with exact state observation/restoration, plus maps a real buffer through an
   exact pointer-return call, verifies the mapped write, and checks exact
-  boolean, unsigned, and signed query results; its Vulkan path records and submits
+  boolean, unsigned, and signed query results. Over-width color/depth mask
+  inputs also prove native 8-bit truncation and state restoration; its Vulkan path records and submits
   1,000 raw device-mask commands, resets the borrowed command pool, and stays
   validation-clean in normal and optimized builds;
 - `examples/common-triangle`: one `$glsl` vertex/fragment package and affine
