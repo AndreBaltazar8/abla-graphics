@@ -437,9 +437,12 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   visible shadow-visibility window, with stable resources and zero warmed
   growth on both backends;
 - `examples/hdr-pbr`: typed metallic/roughness material and directional-light
-  parameters drive an RGBA16F scene pass, followed by exposure, Reinhard tone
-  mapping, and gamma correction with identical pixels and zero warmed growth
-  on OpenGL and Vulkan;
+  parameters plus reusable diffuse/specular cube environments drive an RGBA16F
+  scene pass, followed by exposure, Reinhard tone mapping, and gamma correction
+  with identical pixels and zero warmed growth on OpenGL and Vulkan;
+- `examples/gltf-material`: strict pure-Abla glTF 2.0 metallic/roughness
+  material mapping, including texture references, alpha/culling policy, and
+  `KHR_materials_emissive_strength`;
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;

@@ -1299,6 +1299,25 @@ constituents, such as `vec4(lit, 1.0)`. Vulkan emits the compact corresponding
 `OpCompositeConstruct`, avoiding repeated expansion of the lighting tree.
 `examples/hdr-pbr` is the live RGBA16F scene and tone-mapping reference.
 
+`PbrEnvironmentLight` adds independently scaled diffuse and specular tints.
+`PbrEnvironmentParameters` combines it with a material and directional light;
+`storePbrEnvironment` writes the reflected 112-byte block named `baseColor`,
+`material`, `emissiveColor`, `lightDirectionIntensity`, `lightColor`,
+`environmentDiffuse`, and `environmentSpecular`. Environment textures remain
+ordinary `samplerCube` bindings, so changing a material does not recreate or
+duplicate cube resources.
+
+Import `src/gltf_material.ab` to use the optional asset-mapping layer.
+`gltfMaterials(source)` strictly parses a bounded glTF 2.0 JSON document and
+maps every entry in its `materials` array. The result preserves base color,
+metallic/roughness, emissive factors and strength, alpha mode/cutoff,
+double-sided policy, texture indices, texture-coordinate sets, normal scale,
+and occlusion strength. `GltfMaterial.blendState()` and `cullMode()` translate
+the glTF policy into portable pipeline state. Malformed numbers, unknown alpha
+modes, invalid ranges, missing texture indices, duplicate JSON keys, and limit
+violations fail the whole mapping instead of producing a partially valid
+material. `examples/gltf-material` is the independent mapping reference.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan

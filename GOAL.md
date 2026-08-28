@@ -1,6 +1,6 @@
 # Abla Graphics goal and continuation handoff
 
-Updated: 2026-08-27 (Europe/Lisbon).
+Updated: 2026-08-28 (Europe/Lisbon).
 
 This file is the operational handoff for the next person continuing the goal.
 Read it before changing code, then read `plan.md`, `docs/status.md`,
@@ -9,6 +9,16 @@ Read it before changing code, then read `plan.md`, `docs/status.md`,
 Abla Graphics is an active, incomplete framework. A succession of working
 vertical slices is published, but the long-term goal is not complete and must
 not be marked complete until every exit condition in `plan.md` is satisfied.
+
+## Current continuation focus
+
+The current broad slice adds typed environment lighting and strict glTF 2.0
+metallic/roughness material mapping. The live HDR/PBR sample now uses reusable
+diffuse and specular cube inputs, and the independent mapping sample covers the
+material contract and rejection paths. The consolidated OpenGL/Vulkan/auto,
+stripped-runtime, and Abla-only gates pass. Continue from scene/mesh/camera
+composition and glTF buffer/accessor decoding; do not mistake material mapping
+alone for general glTF scene loading.
 
 ## Mission
 

@@ -3,6 +3,24 @@ import "abla/process/arguments"
 import "abla/runtime/memory"
 import "../../src/graphics.ab"
 
+trusted fun fillEnvironment(
+    var bytes: BufferBytes,
+    red: int,
+    green: int,
+    blue: int
+): bool {
+    var valid = bytes.valid() && bytes.size == 96
+    var offset = 0
+    while (valid && offset < bytes.size) {
+        valid = bytes.store(offset, red) &&
+            bytes.store(offset + 1, green) &&
+            bytes.store(offset + 2, blue) &&
+            bytes.store(offset + 3, 255)
+        offset = offset + 4
+    }
+    valid
+}
+
 fun main: int {
     val requested = if (processArgumentCount() > 0)
         processArgument(0)
@@ -41,11 +59,16 @@ fun main: int {
             #version 450
             layout(location = 0) in vec2 texCoord;
             layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform samplerCube irradianceMap;
+            layout(binding = 1) uniform samplerCube prefilteredMap;
             layout(push_constant) uniform Pbr {
                 vec4 baseColor;
                 vec4 material;
+                vec4 emissiveColor;
                 vec4 lightDirectionIntensity;
                 vec4 lightColor;
+                vec4 environmentDiffuse;
+                vec4 environmentSpecular;
             } pbr;
             void main() {
                 vec3 normal = normalize(vec3(
@@ -56,24 +79,27 @@ fun main: int {
                 vec3 lightDirection = normalize(
                     -pbr.lightDirectionIntensity.xyz
                 );
-                vec3 halfway = normalize(
-                    lightDirection + vec3(0.0, 0.0, 1.0)
-                );
-                float diffuseTerm = max(dot(normal, lightDirection), 0.0);
-                float specularTerm = pow(
-                    max(dot(normal, halfway), 0.0),
-                    mix(256.0, 8.0, pbr.material.y)
-                );
                 vec3 f0 = mix(
                     vec3(0.04), pbr.baseColor.rgb, pbr.material.x
                 );
-                vec3 diffuseSpecular = pbr.baseColor.rgb *
-                    (1.0 - pbr.material.x) * diffuseTerm +
-                    f0 * specularTerm;
-                vec3 lit = diffuseSpecular * pbr.lightColor.rgb *
-                    pbr.lightDirectionIntensity.w + pbr.baseColor.rgb *
-                    (0.03 * pbr.material.z + pbr.material.w) + vec3(0.02);
-                color = vec4(lit, 1.0);
+                vec3 irradiance = texture(irradianceMap, normal).rgb;
+                vec3 prefiltered = texture(prefilteredMap, normal).rgb;
+                vec3 environment = irradiance * pbr.baseColor.rgb *
+                    (1.0 - pbr.material.x) * pbr.material.z *
+                    pbr.environmentDiffuse.rgb * pbr.environmentDiffuse.w +
+                    prefiltered * f0 * (1.0 - pbr.material.y) *
+                    pbr.environmentSpecular.rgb * pbr.environmentSpecular.w;
+                vec3 emission = pbr.emissiveColor.rgb * pbr.material.w;
+                vec3 direct = (pbr.baseColor.rgb *
+                    (1.0 - pbr.material.x) *
+                    max(dot(normal, lightDirection), 0.0) + f0 * pow(
+                        max(dot(
+                            normal,
+                            normalize(lightDirection + vec3(0.0, 0.0, 1.0))
+                        ), 0.0),
+                        mix(256.0, 8.0, pbr.material.y)
+                    )) * pbr.lightColor.rgb * pbr.lightDirectionIntensity.w;
+                color = vec4(direct + environment + emission, 1.0);
             }
         }
     }
@@ -127,12 +153,46 @@ fun main: int {
         format = textureFormatRgba8Unorm,
         usage = textureUsageRenderAttachment | textureUsageCopySource
     )))
-    val pbrPipeline = app.renderTargetPipeline(hdrTarget, pbrShader)
     val sampler = app.sampler(SamplerDescriptor(
         magFilter = samplerFilterNearest,
         minFilter = samplerFilterNearest,
         mipmapFilter = samplerFilterNearest
     ))
+    val environmentUsage = textureUsageSampled | textureUsageCopyDestination
+    val irradianceMap = app.texture(TextureDescriptor(
+        label = "pbr-irradiance",
+        size = Extent3D(2, 2, 6),
+        dimension = textureDimensionCube,
+        usage = environmentUsage
+    ))
+    val prefilteredMap = app.texture(TextureDescriptor(
+        label = "pbr-prefiltered",
+        size = Extent3D(2, 2, 6),
+        dimension = textureDimensionCube,
+        usage = environmentUsage
+    ))
+    val irradianceBytes = bufferBytes(96)
+    val prefilteredBytes = bufferBytes(96)
+    val environmentUploaded = fillEnvironment(irradianceBytes, 52, 74, 108) &&
+        fillEnvironment(prefilteredBytes, 196, 146, 82) &&
+        irradianceMap.writeBytes(irradianceBytes) &&
+        prefilteredMap.writeBytes(prefilteredBytes)
+    val environmentBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment, irradianceMap, sampler
+        ),
+        app.sampledTextureEntry(
+            1, shaderVisibilityFragment, prefilteredMap, sampler
+        )
+    ])
+    val pbrPipeline = app.renderTargetPipeline(
+        hdrTarget,
+        pbrShader,
+        VertexBufferLayout(),
+        RasterPipelineState(),
+        DepthStencilState(),
+        move(environmentBinding)
+    )
     val toneTargetBinding = app.bindGroup([
         app.sampledTextureEntry(
             0, shaderVisibilityFragment, hdrTarget.texture, sampler
@@ -160,32 +220,45 @@ fun main: int {
     )
     val pbrValues = pbrShader.pushConstants()
     val toneValues = toneShader.pushConstants()
-    val parameters = PbrParameters(
+    val parameters = PbrEnvironmentParameters(
         PbrMaterial(
             baseColor = Color(0.82, 0.22, 0.08),
             metallic = 0.65,
             roughness = 0.28,
             ambientOcclusion = 1.0,
-            emissiveStrength = 0.04
+            emissiveStrength = 0.2,
+            emissiveColor = Color(0.08, 0.015, 0.002)
         ),
         PbrDirectionalLight(
             direction = Vec3(-0.4, -0.7, -1.0),
             color = Color(1.0, 0.92, 0.78),
             intensity = 6.0
+        ),
+        PbrEnvironmentLight(
+            diffuseColor = Color(0.72, 0.82, 1.0),
+            diffuseIntensity = 0.7,
+            specularColor = Color(1.0, 0.9, 0.72),
+            specularIntensity = 1.4
         )
     )
     val tone = HdrToneMapping(exposure = 1.15, gamma = 2.2)
-    val contracts = parameters.valid() && tone.valid() &&
+    val contracts = parameters.valid() && tone.valid() && environmentUploaded &&
         !PbrMaterial(roughness = 0.0).valid() &&
+        !PbrEnvironmentLight(diffuseIntensity = -1.0).valid() &&
         !PbrDirectionalLight(direction = Vec3(0.0, 0.0, 0.0)).valid() &&
         !HdrToneMapping(exposure = 0.0).valid() &&
-        !toneValues.storePbr(parameters) &&
+        !toneValues.storePbrEnvironment(parameters) &&
         !pbrValues.storeHdrToneMapping(tone)
+    val pbrStored = pbrValues.storePbrEnvironment(parameters)
+    val toneStored = toneValues.storeHdrToneMapping(tone)
     val initialized = app.valid() && pbrShader.valid && toneShader.valid &&
         hdrTarget.valid() && toneTarget.valid() && pbrPipeline.valid() &&
         toneTargetPipeline.valid() && windowPipeline.valid() &&
-        sampler.valid() && contracts && pbrValues.storePbr(parameters) &&
-        toneValues.storeHdrToneMapping(tone)
+        sampler.valid() && irradianceMap.valid() && prefilteredMap.valid() &&
+        contracts && pbrStored && toneStored
+    if (!initialized) println(
+        "hdr-pbr setup: app=${app.valid()} shaders=${pbrShader.valid}:${toneShader.valid} targets=${hdrTarget.valid()}:${toneTarget.valid()} pipelines=${pbrPipeline.valid()}:${toneTargetPipeline.valid()}:${windowPipeline.valid()} sampler=${sampler.valid()} cubes=${irradianceMap.valid()}:${prefilteredMap.valid()}:${environmentUploaded} contracts=$contracts push=$pbrStored:$toneStored pipelineError=${pbrPipeline.error.operation}:${pbrPipeline.error.message}"
+    )
     val hdrClear = Color(0.0, 0.0, 0.0)
     val displayClear = Color(0.01, 0.01, 0.015)
     var rendered = initialized && app.renderPushToTarget(

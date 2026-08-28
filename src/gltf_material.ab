@@ -1,0 +1,210 @@
+// Strict, bounded glTF 2.0 metallic/roughness material mapping in pure Abla.
+
+import "abla/float"
+import "abla/json"
+import "core.ab"
+import "material.ab"
+
+val gltfAlphaOpaque = 0
+val gltfAlphaMask = 1
+val gltfAlphaBlend = 2
+
+class GltfTextureInfo(
+    val index: int = -1,
+    val texCoord: int = 0,
+    val scale: f64 = 1.0
+) {
+    fun present(): bool = this.index >= 0
+    fun valid(): bool = this.index >= -1 && this.index <= 1048575 &&
+        this.texCoord >= 0 && this.texCoord <= 7 &&
+        this.scale >= 0.0 && this.scale <= 64.0
+}
+
+class GltfMaterial(
+    val name: string = "",
+    val pbr: PbrMaterial = PbrMaterial(),
+    val alphaMode: int = gltfAlphaOpaque,
+    val alphaCutoff: f64 = 0.5,
+    val doubleSided: bool = false,
+    val baseColorTexture: GltfTextureInfo = GltfTextureInfo(),
+    val metallicRoughnessTexture: GltfTextureInfo = GltfTextureInfo(),
+    val normalTexture: GltfTextureInfo = GltfTextureInfo(),
+    val occlusionTexture: GltfTextureInfo = GltfTextureInfo(),
+    val emissiveTexture: GltfTextureInfo = GltfTextureInfo()
+) {
+    fun valid(): bool = this.name.size <= 4096 && this.pbr.valid() &&
+        this.alphaMode >= gltfAlphaOpaque && this.alphaMode <= gltfAlphaBlend &&
+        this.alphaCutoff >= 0.0 && this.alphaCutoff <= 1.0 &&
+        this.baseColorTexture.valid() &&
+        this.metallicRoughnessTexture.valid() && this.normalTexture.valid() &&
+        this.occlusionTexture.valid() && this.emissiveTexture.valid()
+
+    fun blendState(): ColorBlendState = if (this.alphaMode == gltfAlphaBlend)
+        graphicsAlphaBlendState() else ColorBlendState()
+
+    fun cullMode(): int = if (this.doubleSided) cullModeNone else cullModeBack
+}
+
+class GltfMaterialParseResult(
+    val materials: array<GltfMaterial>,
+    val succeeded: bool,
+    val error: string
+)
+
+class GltfScalar(val value: f64, val valid: bool)
+
+fun gltfPositivePower10(exponent: int): f64 {
+    if (exponent <= 0) return 1.0
+    val half = gltfPositivePower10(exponent / 2)
+    val squared = half * half
+    if (exponent - exponent / 2 * 2 == 0) squared else squared * 10.0
+}
+
+// JsonNumber retains its exact source spelling. Decode it here so glTF users
+// do not need a native strtod dependency and integer-only factors are not a
+// special case. JSON grammar validation has already happened in jsonParse.
+fun gltfScalar(number: Json): GltfScalar {
+    val text = number.asNumber().text
+    var valid = number.isNumber() && text.size > 0 && text.size <= 128
+    var cursor = 0
+    var negative = false
+    if (valid && text[cursor] == 45) {
+        negative = true
+        cursor = cursor + 1
+    }
+    var mantissa = 0
+    var digits = 0
+    while (valid && cursor < text.size && text[cursor] >= 48 && text[cursor] <= 57) {
+        if (digits < 18) mantissa = mantissa * 10 + text[cursor] - 48
+        digits = digits + 1
+        cursor = cursor + 1
+    }
+    var fractionDigits = 0
+    if (valid && cursor < text.size && text[cursor] == 46) {
+        cursor = cursor + 1
+        while (cursor < text.size && text[cursor] >= 48 && text[cursor] <= 57) {
+            if (digits < 18) mantissa = mantissa * 10 + text[cursor] - 48
+            digits = digits + 1
+            fractionDigits = fractionDigits + 1
+            cursor = cursor + 1
+        }
+    }
+    var exponent = 0
+    var exponentNegative = false
+    if (valid && cursor < text.size && (text[cursor] == 101 || text[cursor] == 69)) {
+        cursor = cursor + 1
+        if (cursor < text.size && (text[cursor] == 43 || text[cursor] == 45)) {
+            exponentNegative = text[cursor] == 45
+            cursor = cursor + 1
+        }
+        while (cursor < text.size && text[cursor] >= 48 && text[cursor] <= 57) {
+            if (exponent <= 308) exponent = exponent * 10 + text[cursor] - 48
+            cursor = cursor + 1
+        }
+    }
+    val signedExponent = if (exponentNegative) -exponent else exponent
+    val scaleExponent = signedExponent - fractionDigits
+    valid = valid && cursor == text.size && digits <= 18 &&
+        exponent <= 308 && scaleExponent >= -308 && scaleExponent <= 308
+    val unscaled = f64FromInt(mantissa)
+    val value = if (scaleExponent < 0)
+        unscaled / gltfPositivePower10(-scaleExponent)
+    else unscaled * gltfPositivePower10(scaleExponent)
+    GltfScalar(if (negative) -value else value, valid)
+}
+
+fun gltfOptionalScalar(object: Json, key: string, fallback: f64): GltfScalar =
+    if (!object.has(key)) GltfScalar(fallback, true)
+    else gltfScalar(object.get(key))
+
+fun gltfTextureInfo(object: Json, key: string, scaleKey: string = ""): GltfTextureInfo {
+    if (!object.has(key)) return GltfTextureInfo()
+    val value = object.get(key)
+    if (!value.isObject() || !value.has("index") || !value.get("index").intAvailable()) {
+        return GltfTextureInfo(index = -2)
+    }
+    val coordinate = if (value.has("texCoord") && value.get("texCoord").intAvailable())
+        value.getInt("texCoord") else if (value.has("texCoord")) -1 else 0
+    val scale = if (scaleKey.size > 0)
+        gltfOptionalScalar(value, scaleKey, 1.0) else GltfScalar(1.0, true)
+    GltfTextureInfo(value.getInt("index"), coordinate, if (scale.valid) scale.value else -1.0)
+}
+
+fun gltfColor(arrayValue: Json, expected: int, fallback: Color): Color {
+    if (!arrayValue.isArray() || arrayValue.size() != expected) return Color(-1.0, 0.0, 0.0)
+    val red = gltfScalar(arrayValue.at(0))
+    val green = gltfScalar(arrayValue.at(1))
+    val blue = gltfScalar(arrayValue.at(2))
+    val alpha = if (expected == 4) gltfScalar(arrayValue.at(3)) else GltfScalar(fallback.alpha, true)
+    if (red.valid && green.valid && blue.valid && alpha.valid)
+        Color(red.value, green.value, blue.value, alpha.value)
+    else Color(-1.0, 0.0, 0.0)
+}
+
+fun gltfMaterial(value: Json): GltfMaterial {
+    if (!value.isObject()) return GltfMaterial(alphaMode = -1)
+    val pbrValue = if (value.has("pbrMetallicRoughness"))
+        value.get("pbrMetallicRoughness") else jsonObject([], [])
+    if (!pbrValue.isObject()) return GltfMaterial(alphaMode = -1)
+    val baseColor = if (pbrValue.has("baseColorFactor"))
+        gltfColor(pbrValue.get("baseColorFactor"), 4, Color(1.0, 1.0, 1.0))
+    else Color(1.0, 1.0, 1.0)
+    val emissive = if (value.has("emissiveFactor"))
+        gltfColor(value.get("emissiveFactor"), 3, Color(0.0, 0.0, 0.0))
+    else Color(0.0, 0.0, 0.0)
+    val metallic = gltfOptionalScalar(pbrValue, "metallicFactor", 1.0)
+    val roughness = gltfOptionalScalar(pbrValue, "roughnessFactor", 1.0)
+    val cutoff = gltfOptionalScalar(value, "alphaCutoff", 0.5)
+    val extensions = value.get("extensions")
+    val emissiveExtension = if (extensions.isObject())
+        extensions.get("KHR_materials_emissive_strength") else jsonNull()
+    val emissiveStrength = if (emissiveExtension.isObject())
+        gltfOptionalScalar(emissiveExtension, "emissiveStrength", 1.0)
+    else GltfScalar(1.0, true)
+    val alphaText = if (value.has("alphaMode")) value.getString("alphaMode") else "OPAQUE"
+    val alpha = if (alphaText == "OPAQUE") gltfAlphaOpaque
+        else if (alphaText == "MASK") gltfAlphaMask
+        else if (alphaText == "BLEND") gltfAlphaBlend else -1
+    val normal = gltfTextureInfo(value, "normalTexture", "scale")
+    val occlusion = gltfTextureInfo(value, "occlusionTexture", "strength")
+    GltfMaterial(
+        name = if (value.has("name") && value.get("name").isString()) value.getString("name") else "",
+        pbr = PbrMaterial(
+            baseColor = baseColor,
+            metallic = if (metallic.valid) metallic.value else -1.0,
+            roughness = if (roughness.valid) roughness.value else -1.0,
+            ambientOcclusion = if (occlusion.present()) occlusion.scale else 1.0,
+            emissiveStrength = if (emissiveStrength.valid) emissiveStrength.value else -1.0,
+            emissiveColor = emissive
+        ),
+        alphaMode = alpha,
+        alphaCutoff = if (cutoff.valid) cutoff.value else -1.0,
+        doubleSided = value.has("doubleSided") && value.get("doubleSided").isBoolean() && value.get("doubleSided").asBoolean(),
+        baseColorTexture = gltfTextureInfo(pbrValue, "baseColorTexture"),
+        metallicRoughnessTexture = gltfTextureInfo(pbrValue, "metallicRoughnessTexture"),
+        normalTexture = normal,
+        occlusionTexture = occlusion,
+        emissiveTexture = gltfTextureInfo(value, "emissiveTexture")
+    )
+}
+
+fun gltfMaterials(source: string): GltfMaterialParseResult {
+    val parsed = jsonParse(source, JsonLimits(8388608, 64, 250000, 1048576, 100000, true))
+    if (!parsed.succeeded) return GltfMaterialParseResult([], false, "${parsed.error.code} at ${parsed.error.line}:${parsed.error.column}")
+    if (!parsed.value.isObject() || !parsed.value.has("materials") || !parsed.value.get("materials").isArray()) {
+        return GltfMaterialParseResult([], false, "glTF materials array is missing")
+    }
+    val values = parsed.value.get("materials")
+    if (values.size() > 65536) return GltfMaterialParseResult([], false, "glTF material limit exceeded")
+    var materials: array<GltfMaterial> = []
+    var valid = true
+    var index = 0
+    while (valid && index < values.size()) {
+        val material = gltfMaterial(values.at(index))
+        valid = material.valid()
+        if (valid) materials.append(material)
+        index = index + 1
+    }
+    if (valid) GltfMaterialParseResult(materials, true, "")
+    else GltfMaterialParseResult([], false, "invalid glTF material at index ${index - 1}")
+}

@@ -2128,3 +2128,27 @@ tone mapping, and gamma correction, and presents the result. OpenGL, Vulkan,
 and automatic selection produced exact tone-mapped pixel `4282671512`, four
 stable measured frames, and `live=0`; automatic selection chose Vulkan. The
 sample also rejects invalid material/light/tone ranges and cross-layout writes.
+
+### Environment lighting and glTF material mapping
+
+The environment extension preserves the existing compact material path while
+adding `PbrEnvironmentLight`, emissive color, and one reflected 112-byte writer.
+Diffuse irradiance and prefiltered specular cube maps remain reusable sampled
+bindings. The HDR/PBR sample uploads both cube inputs once, executes them in the
+RGBA16F pass, and retains the existing bounded, allocation-free frame loop.
+
+The pure-Abla `gltfMaterials` mapper consumes the standard library's bounded
+JSON tree and decodes exact JSON decimal/exponent spellings without `strtod` or
+another native helper. It covers metallic/roughness factors and textures,
+base-color, normal, occlusion, and emissive inputs, alpha and culling policy,
+and `KHR_materials_emissive_strength`. The independent
+`examples/gltf-material` program checks mapped values and invalid-mode/range
+rejection. This is material mapping, not yet full glTF buffer, accessor, mesh,
+node, camera, or scene loading.
+
+The consolidated environment/glTF gate produced exact tone-mapped pixel
+`4282610358` on OpenGL, Vulkan, and automatic selection, with four stable
+measured frames and `live=0`. The independently built glTF sample mapped one
+material and five texture references while rejecting an unknown alpha mode and
+an invalid factor. Both sample binaries launch with `LD_LIBRARY_PATH` removed,
+and the Abla-only source audit passes.

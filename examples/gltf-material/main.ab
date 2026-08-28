@@ -1,0 +1,35 @@
+import "abla/io"
+import "../../src/graphics.ab"
+import "../../src/gltf_material.ab"
+
+fun close(actual: f64, expected: f64): bool =
+    actual >= expected - 0.000001 && actual <= expected + 0.000001
+
+fun main: int {
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"materials\":[{\"name\":\"Painted metal\",\"pbrMetallicRoughness\":{\"baseColorFactor\":[0.82,0.22,0.08,0.75],\"baseColorTexture\":{\"index\":2,\"texCoord\":1},\"metallicFactor\":0.65,\"roughnessFactor\":4.2e-1,\"metallicRoughnessTexture\":{\"index\":3}},\"normalTexture\":{\"index\":4,\"scale\":0.8},\"occlusionTexture\":{\"index\":5,\"strength\":0.7},\"emissiveTexture\":{\"index\":6},\"emissiveFactor\":[0.1,0.02,0.005],\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":3.5}},\"alphaMode\":\"BLEND\",\"alphaCutoff\":0.33,\"doubleSided\":true}]}"
+    val parsed = gltfMaterials(source)
+    val material = if (parsed.succeeded && parsed.materials.size == 1)
+        parsed.materials[0] else GltfMaterial(alphaMode = -1)
+    val rejectedMode = gltfMaterials("{\"materials\":[{\"alphaMode\":\"UNKNOWN\"}]}")
+    val rejectedFactor = gltfMaterials("{\"materials\":[{\"pbrMetallicRoughness\":{\"roughnessFactor\":-0.1}}]}")
+    val passed = parsed.succeeded && parsed.error.size == 0 &&
+        material.valid() && material.name == "Painted metal" &&
+        close(material.pbr.baseColor.red, 0.82) &&
+        close(material.pbr.baseColor.alpha, 0.75) &&
+        close(material.pbr.metallic, 0.65) &&
+        close(material.pbr.roughness, 0.42) &&
+        close(material.pbr.ambientOcclusion, 0.7) &&
+        close(material.pbr.emissiveColor.red, 0.1) &&
+        close(material.pbr.emissiveStrength, 3.5) &&
+        material.baseColorTexture.index == 2 &&
+        material.baseColorTexture.texCoord == 1 &&
+        material.metallicRoughnessTexture.index == 3 &&
+        material.normalTexture.index == 4 &&
+        close(material.normalTexture.scale, 0.8) &&
+        material.emissiveTexture.index == 6 &&
+        material.alphaMode == gltfAlphaBlend &&
+        material.blendState().enabled && material.cullMode() == cullModeNone &&
+        !rejectedMode.succeeded && !rejectedFactor.succeeded
+    println("gltf-material: materials=${parsed.materials.size} textures=5 mapped=$passed error=${parsed.error}")
+    if (passed) 0 else 1
+}

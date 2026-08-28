@@ -8,13 +8,29 @@ class PbrMaterial(
     val metallic: f64 = 0.0,
     val roughness: f64 = 0.5,
     val ambientOcclusion: f64 = 1.0,
-    val emissiveStrength: f64 = 0.0
+    val emissiveStrength: f64 = 0.0,
+    val emissiveColor: Color = Color(0.0, 0.0, 0.0)
 ) {
-    fun valid(): bool = this.baseColor.valid() &&
+    fun valid(): bool = this.baseColor.valid() && this.emissiveColor.valid() &&
         this.metallic >= 0.0 && this.metallic <= 1.0 &&
         this.roughness >= 0.04 && this.roughness <= 1.0 &&
         this.ambientOcclusion >= 0.0 && this.ambientOcclusion <= 1.0 &&
         this.emissiveStrength >= 0.0 && this.emissiveStrength <= 65504.0
+}
+
+// Environment terms are deliberately independent from the cube textures that
+// provide them. Applications may reuse one environment across many materials
+// without rebuilding bind groups or material values.
+class PbrEnvironmentLight(
+    val diffuseColor: Color = Color(1.0, 1.0, 1.0),
+    val diffuseIntensity: f64 = 0.03,
+    val specularColor: Color = Color(1.0, 1.0, 1.0),
+    val specularIntensity: f64 = 1.0
+) {
+    fun valid(): bool = this.diffuseColor.valid() &&
+        this.specularColor.valid() &&
+        this.diffuseIntensity >= 0.0 && this.diffuseIntensity <= 65504.0 &&
+        this.specularIntensity >= 0.0 && this.specularIntensity <= 65504.0
 }
 
 class PbrDirectionalLight(
@@ -35,6 +51,15 @@ class PbrParameters(
     val light: PbrDirectionalLight = PbrDirectionalLight()
 ) {
     fun valid(): bool = this.material.valid() && this.light.valid()
+}
+
+class PbrEnvironmentParameters(
+    val material: PbrMaterial = PbrMaterial(),
+    val light: PbrDirectionalLight = PbrDirectionalLight(),
+    val environment: PbrEnvironmentLight = PbrEnvironmentLight()
+) {
+    fun valid(): bool = this.material.valid() && this.light.valid() &&
+        this.environment.valid()
 }
 
 class HdrToneMapping(
@@ -73,6 +98,17 @@ fun graphicsHdrTonePushLayoutCompatible(
         layout.members[exposure].arraySize == 1 &&
         layout.members[gamma].arraySize == 1
 }
+
+fun graphicsPbrEnvironmentPushLayoutCompatible(
+    layout: ShaderPushConstantLayout
+): bool = layout.valid && layout.size == 112 &&
+    graphicsPushVec4Member(layout, "baseColor") &&
+    graphicsPushVec4Member(layout, "material") &&
+    graphicsPushVec4Member(layout, "emissiveColor") &&
+    graphicsPushVec4Member(layout, "lightDirectionIntensity") &&
+    graphicsPushVec4Member(layout, "lightColor") &&
+    graphicsPushVec4Member(layout, "environmentDiffuse") &&
+    graphicsPushVec4Member(layout, "environmentSpecular")
 
 trusted fun GraphicsPushConstants.storePbr(
     parameters: PbrParameters
@@ -113,3 +149,36 @@ trusted fun GraphicsPushConstants.storeHdrToneMapping(
     graphicsHdrTonePushLayoutCompatible(this.layout) &&
     this.storeMemberF32("exposure", tone.exposure) &&
     this.storeMemberF32("gamma", tone.gamma)
+
+trusted fun GraphicsPushConstants.storePbrEnvironment(
+    parameters: PbrEnvironmentParameters
+): bool = parameters.valid() &&
+    graphicsPbrEnvironmentPushLayoutCompatible(this.layout) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.red, 0) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.green, 1) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.blue, 2) &&
+    this.storeMemberF32("baseColor", parameters.material.baseColor.alpha, 3) &&
+    this.storeMemberF32("material", parameters.material.metallic, 0) &&
+    this.storeMemberF32("material", parameters.material.roughness, 1) &&
+    this.storeMemberF32("material", parameters.material.ambientOcclusion, 2) &&
+    this.storeMemberF32("material", parameters.material.emissiveStrength, 3) &&
+    this.storeMemberF32("emissiveColor", parameters.material.emissiveColor.red, 0) &&
+    this.storeMemberF32("emissiveColor", parameters.material.emissiveColor.green, 1) &&
+    this.storeMemberF32("emissiveColor", parameters.material.emissiveColor.blue, 2) &&
+    this.storeMemberF32("emissiveColor", parameters.material.emissiveColor.alpha, 3) &&
+    this.storeMemberF32("lightDirectionIntensity", parameters.light.direction.x, 0) &&
+    this.storeMemberF32("lightDirectionIntensity", parameters.light.direction.y, 1) &&
+    this.storeMemberF32("lightDirectionIntensity", parameters.light.direction.z, 2) &&
+    this.storeMemberF32("lightDirectionIntensity", parameters.light.intensity, 3) &&
+    this.storeMemberF32("lightColor", parameters.light.color.red, 0) &&
+    this.storeMemberF32("lightColor", parameters.light.color.green, 1) &&
+    this.storeMemberF32("lightColor", parameters.light.color.blue, 2) &&
+    this.storeMemberF32("lightColor", parameters.light.color.alpha, 3) &&
+    this.storeMemberF32("environmentDiffuse", parameters.environment.diffuseColor.red, 0) &&
+    this.storeMemberF32("environmentDiffuse", parameters.environment.diffuseColor.green, 1) &&
+    this.storeMemberF32("environmentDiffuse", parameters.environment.diffuseColor.blue, 2) &&
+    this.storeMemberF32("environmentDiffuse", parameters.environment.diffuseIntensity, 3) &&
+    this.storeMemberF32("environmentSpecular", parameters.environment.specularColor.red, 0) &&
+    this.storeMemberF32("environmentSpecular", parameters.environment.specularColor.green, 1) &&
+    this.storeMemberF32("environmentSpecular", parameters.environment.specularColor.blue, 2) &&
+    this.storeMemberF32("environmentSpecular", parameters.environment.specularIntensity, 3)
