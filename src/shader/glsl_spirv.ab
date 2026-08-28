@@ -8621,6 +8621,71 @@ fun glslPushAffineTexturedVertexSpirv(): array<int> = [
     49, 52, 65789, 65592
 ]
 
+fun glslPushAffineUvVertexSource(source: string): bool =
+    glslSourceMatchesTokens(source, [
+        "#", "version", glslSourceVersionPattern,
+        "layout", "(", "location", "=", "0", ")",
+        "in", "vec3", "position", ";",
+        "layout", "(", "location", "=", "1", ")",
+        "in", "vec2", "uv", ";",
+        "layout", "(", "location", "=", "0", ")",
+        "out", "vec2", "texCoord", ";",
+        "layout", "(", "push_constant", ")", "uniform", "Draw", "{",
+        "vec4", "row0", ";", "vec4", "row1", ";",
+        "vec4", "row2", ";", "vec4", "tint", ";", "}", "draw", ";",
+        "void", "main", "(", ")", "{",
+        "vec4", "point", "=", "vec4", "(",
+        "position", ",", "1.0", ")", ";",
+        "gl_Position", "=", "vec4", "(",
+        "dot", "(", "draw", ".", "row0", ",", "point", ")", ",",
+        "dot", "(", "draw", ".", "row1", ",", "point", ")", ",",
+        "dot", "(", "draw", ".", "row2", ",", "point", ")", ",",
+        "1.0", ")", ";", "texCoord", "=", "uv", ";", "}"
+    ])
+
+fun glslPushAffineUvVertexSpirv(): array<int> = [
+    119734787, 65536, 524299, 54, 0, 131089, 1, 393227,
+    1, 1280527431, 1685353262, 808793134, 0, 196622, 0, 1,
+    589839, 0, 4, 1852399981, 0, 12, 24, 50,
+    52, 262215, 12, 30, 0, 196679, 22, 2,
+    327752, 22, 0, 11, 0, 327752, 22, 1,
+    11, 1, 327752, 22, 2, 11, 3, 327752,
+    22, 3, 11, 4, 196679, 27, 2, 327752,
+    27, 0, 35, 0, 327752, 27, 1, 35,
+    16, 327752, 27, 2, 35, 32, 327752, 27,
+    3, 35, 48, 262215, 50, 30, 0, 262215,
+    52, 30, 1, 131091, 2, 196641, 3, 2,
+    196630, 6, 32, 262167, 7, 6, 4, 262176,
+    8, 7, 7, 262167, 10, 6, 3, 262176,
+    11, 1, 10, 262203, 11, 12, 1, 262187,
+    6, 14, 1065353216, 262165, 19, 32, 0, 262187,
+    19, 20, 1, 262172, 21, 6, 20, 393246,
+    22, 7, 6, 21, 21, 262176, 23, 3,
+    22, 262203, 23, 24, 3, 262165, 25, 32,
+    1, 262187, 25, 26, 0, 393246, 27, 7,
+    7, 7, 7, 262176, 28, 9, 27, 262203,
+    28, 29, 9, 262176, 30, 9, 7, 262187,
+    25, 35, 1, 262187, 25, 40, 2, 262176,
+    46, 3, 7, 262167, 48, 6, 2, 262176,
+    49, 3, 48, 262203, 49, 50, 3, 262176,
+    51, 1, 48, 262203, 51, 52, 1, 327734,
+    2, 4, 0, 3, 131320, 5, 262203, 8,
+    9, 7, 262205, 10, 13, 12, 327761, 6,
+    15, 13, 0, 327761, 6, 16, 13, 1,
+    327761, 6, 17, 13, 2, 458832, 7, 18,
+    15, 16, 17, 14, 196670, 9, 18, 327745,
+    30, 31, 29, 26, 262205, 7, 32, 31,
+    262205, 7, 33, 9, 327828, 6, 34, 32,
+    33, 327745, 30, 36, 29, 35, 262205, 7,
+    37, 36, 262205, 7, 38, 9, 327828, 6,
+    39, 37, 38, 327745, 30, 41, 29, 40,
+    262205, 7, 42, 41, 262205, 7, 43, 9,
+    327828, 6, 44, 42, 43, 458832, 7, 45,
+    34, 39, 44, 14, 327745, 46, 47, 24,
+    26, 196670, 47, 45, 262205, 48, 53, 52,
+    196670, 50, 53, 65789, 65592
+]
+
 fun glslColoredVertexSource(source: string): bool =
     glslSourceMatchesTokens(source, [
         "#", "version", glslSourceVersionPattern,
@@ -11307,6 +11372,13 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         glslPushAffineTexturedVertexSource(
             this.source(shaderStageVertex)
         )
+    val pushAffineUvVertex = graphicsCommon &&
+        stage == shaderStageVertex && this.pushConstants.size >= 1 &&
+        this.pushConstants.size <= 2 && this.bindings.size >= 1 &&
+        this.bindings.size <= 8 && this.bindings[0].set == 0 &&
+        this.bindings[0].binding == 0 &&
+        this.bindings[0].dataType == "sampler2D" &&
+        glslPushAffineUvVertexSource(this.source(shaderStageVertex))
     val vertexBuffer = graphicsCommon && stage == shaderStageVertex &&
         glslVertexBufferTriangleSource(this.source(shaderStageVertex))
     val coloredVertex = graphicsCommon && stage == shaderStageVertex &&
@@ -11355,7 +11427,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         storageImageFragment ||
         vertex || proceduralTexturedVertex ||
         pushTransformVertex || uniformTransformVertex || pushDrawVertex ||
-        pushAffineVertexBuffer || pushAffineTexturedVertex || vertexBuffer ||
+        pushAffineVertexBuffer || pushAffineTexturedVertex ||
+        pushAffineUvVertex || vertexBuffer ||
         rasterFragmentExpression ||
         coloredVertex || coloredUintVertex || texturedVertex ||
         texturedCubeVertex || transformCubeVertex || texturedFragment ||
@@ -11461,6 +11534,8 @@ fun ShaderPackage.spirv(stage: string): GlslSpirvResult {
         words = glslPushAffineVertexBufferSpirv()
     } else if (pushAffineTexturedVertex) {
         words = glslPushAffineTexturedVertexSpirv()
+    } else if (pushAffineUvVertex) {
+        words = glslPushAffineUvVertexSpirv()
     } else if (vertex) {
         words = [
             119734787, 65536, 458752, 42, 0,

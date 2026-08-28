@@ -2227,3 +2227,20 @@ two-node scene binds the parsed base-color material while preserving one shared
 geometry owner and one native pass. OpenGL, Vulkan, and automatic selection
 all report exact pixels `4278255360/4278255360`, four stable frames, and
 `live=0`.
+
+### glTF texture-coordinate and multi-material submission
+
+The first retained textured primitive path accepts FLOAT `VEC3` `POSITION` and
+FLOAT `VEC2` `TEXCOORD_0`, repacks dense/sparse accessor bytes, and interleaves
+one 20-byte vertex record at setup. The typed affine vertex shader now consumes
+both real attributes and forwards uploaded coordinates rather than using a
+fixture constant.
+
+An accessor-identity resource plan deduplicates all geometry accessor slots and
+topology while deliberately leaving material identity on each drawable. The
+live fixture uses two mesh/material entries referencing the same position, UV,
+and index accessors; one GPU geometry owner serves both. One retained two-entry
+sampled bind group and the existing push batch select the material texture per
+draw without frame-loop descriptor creation. OpenGL, Vulkan, and auto report
+`drawables=2 materials=0/1 resources=1`, exact green/blue pixels
+`4278255360/4294901760`, four stable frames, and `live=0`.

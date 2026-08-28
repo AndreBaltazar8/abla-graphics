@@ -55,9 +55,12 @@ through pure-Abla stored/fixed/dynamic DEFLATE, PNG filters, CRC32, and Adler32.
 `GltfGpuTexture` retains the uploaded texture and sampler. The live two-node
 scene binds its parsed base-color texture on OpenGL/Vulkan/auto, samples exact
 green pixels from both transformed instances, repeats four frames, and reports
-zero live-byte growth. Continue with per-draw material selection, texture
-coordinates/accessor layouts, full PBR channel binding, JPEG support, and a
-general multi-mesh scene; one shared base-color material is not a full loader.
+zero live-byte growth. FLOAT `VEC3` positions and FLOAT `VEC2` `TEXCOORD_0`
+now interleave into one retained vertex resource, and an accessor-identity plan
+lets two mesh primitives reuse that geometry while selecting two material-table
+textures per draw. Continue with normalized integer texture coordinates, larger
+material tables, all PBR channels, JPEG support, and genuinely distinct
+multi-geometry scenes; the current two-material fixture is not a full loader.
 
 ## Mission
 
@@ -3450,6 +3453,23 @@ ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned \
   'make test-gltf-texture test-glsl test-application test-gltf-live-scene check-abla-only'
 ```
 
-Next, decode `TEXCOORD_0` into an interleaved or multi-buffer vertex contract,
-select material/bind-group state per planned drawable without per-frame
-allocation, and cover multiple primitives and materials in one scene.
+Next, broaden the retained vertex contract beyond FLOAT UVs, cover larger
+material tables and non-identical geometry resources, and bind the remaining
+PBR texture channels without per-frame allocation.
+
+## Latest checkpoint: glTF texture coordinates and material table
+
+`app.gltfGpuTexturedPrimitive(...)` decodes matching FLOAT `VEC3` `POSITION`
+and FLOAT `VEC2` `TEXCOORD_0` accessors, applies dense/sparse repacking, and
+interleaves them once into a retained 20-byte portable vertex stream. The
+deterministic `$glsl` subset transforms the real three-component position and
+passes the uploaded UV to the existing sampled fragment path.
+
+`gltfSceneAccessorResourcePlan(...)` deduplicates immutable geometry by its
+complete accessor/topology identity rather than mesh/primitive names. Material
+identity remains per drawable, so two meshes using the same accessors can share
+one GPU upload while selecting different entries from a bounded sampled-texture
+table through their existing push record. The live fixture reports
+`drawables=2 materials=0/1 resources=1`, exact green/blue pixels
+`4278255360/4294901760`, four stable frames, and `live=0` on OpenGL, Vulkan,
+and auto.

@@ -270,9 +270,13 @@ owner. The live two-node fixture produces exact distinct proof pixels on
 OpenGL, Vulkan, and auto for four zero-growth frames. Images, samplers, textures,
 and material references are now cross-validated; embedded/buffer-view/external
 payload acquisition, strict pure-Abla RGBA8 PNG decoding, retained GPU upload,
-and one parsed base-color binding are live on all three selections. Per-draw
-material switching, texture-coordinate accessor upload, all PBR channels,
-JPEG decoding, and broader multi-mesh fixtures remain open.
+and parsed base-color binding are live on all three selections. FLOAT `VEC3`
+positions plus FLOAT `VEC2` `TEXCOORD_0` now become one retained interleaved
+stream. Geometry deduplicates by accessor identity across two mesh/material
+drawables, and the push batch selects exact green/blue entries from one bounded
+texture table with zero warmed growth. Normalized integer UVs, larger material
+tables, all PBR channels, JPEG decoding, and distinct multi-geometry fixtures
+remain open.
 
 ## Non-negotiable design rules
 

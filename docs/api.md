@@ -1385,6 +1385,20 @@ the common descriptor contract; invalid metadata, decoding, resource creation,
 or upload never yields a partially valid owner. The live scene demonstrates a
 parsed base-color texture shared by two transformed draws.
 
+`app.gltfGpuTexturedPrimitive(document, buffers, meshIndex, primitiveIndex)`
+is the typed first textured geometry contract. It requires matching FLOAT
+`VEC3` `POSITION` and FLOAT `VEC2` `TEXCOORD_0`, repacks either dense or sparse
+sources, and interleaves them once into a retained 20-byte layout at locations
+0 and 1. Indices retain the common widened `uint32` contract. Unsupported UV
+component formats fail explicitly rather than being interpreted incorrectly.
+
+`gltfSceneAccessorResourcePlan(document, drawList)` deduplicates geometry by
+all standard accessor indices plus topology, deliberately excluding material.
+Two mesh primitives can therefore preserve distinct per-draw material indices
+while reusing one immutable upload. A bounded bind group can retain several
+material textures and the existing push record can select the corresponding
+entry without rebuilding pipeline or descriptor state in the frame loop.
+
 `GraphicsTexture` owns an allocated OpenGL texture or Vulkan image plus bound
 device memory. A full matching OpenGL view is a non-owning alias; subresource
 and compatible-format views own independent `glTextureView` names. Vulkan

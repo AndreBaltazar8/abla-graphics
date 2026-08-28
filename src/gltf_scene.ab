@@ -384,6 +384,60 @@ fun gltfSceneResourcePlan(
     )
 }
 
+fun gltfPrimitiveGeometryEqual(left: GltfPrimitive, right: GltfPrimitive): bool =
+    left.position == right.position && left.normal == right.normal &&
+    left.tangent == right.tangent && left.texCoord0 == right.texCoord0 &&
+    left.texCoord1 == right.texCoord1 && left.color0 == right.color0 &&
+    left.joints0 == right.joints0 && left.weights0 == right.weights0 &&
+    left.indices == right.indices && left.mode == right.mode
+
+// Materials are intentionally excluded: primitives referencing the same
+// accessor set can reuse one immutable geometry upload while selecting a
+// different material-table entry for each draw.
+fun gltfSceneAccessorResourcePlan(
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    maximumUniquePrimitives: int = 65536
+): GltfSceneResourcePlan {
+    val meshes: array<int> = []
+    val primitives: array<int> = []
+    val resources: array<int> = []
+    var valid = document.valid() && drawList.valid &&
+        drawList.drawables.size > 0 && maximumUniquePrimitives > 0 &&
+        maximumUniquePrimitives <= 1048576
+    var drawableIndex = 0
+    while (valid && drawableIndex < drawList.drawables.size) {
+        val drawable = drawList.drawables[drawableIndex]
+        val geometry = document.meshes[drawable.mesh].primitives[
+            drawable.primitive
+        ]
+        var resourceIndex = -1
+        var candidate = 0
+        while (resourceIndex < 0 && candidate < meshes.size) {
+            val retained = document.meshes[meshes[candidate]].primitives[
+                primitives[candidate]
+            ]
+            if (gltfPrimitiveGeometryEqual(geometry, retained))
+                resourceIndex = candidate
+            candidate = candidate + 1
+        }
+        if (resourceIndex < 0) {
+            valid = meshes.size < maximumUniquePrimitives
+            if (valid) {
+                resourceIndex = meshes.size
+                meshes.append(drawable.mesh)
+                primitives.append(drawable.primitive)
+            }
+        }
+        if (valid) resources.append(resourceIndex)
+        drawableIndex = drawableIndex + 1
+    }
+    GltfSceneResourcePlan(
+        meshes, primitives, resources, valid,
+        if (valid) "" else "invalid or over-capacity glTF accessor resource plan"
+    )
+}
+
 fun gltfEmptyDocument(): GltfDocument = GltfDocument()
 
 fun gltfSceneDrawList(

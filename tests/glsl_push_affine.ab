@@ -32,6 +32,13 @@ fun main: int {
     )
     val texturedVertex = textured.spirv(shaderStageVertex)
     val texturedFragment = textured.spirv(shaderStageFragment)
+    val texturedUv = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec3 position; layout(location=1) in vec2 uv; layout(location=0) out vec2 texCoord; layout(push_constant) uniform Draw { vec4 row0; vec4 row1; vec4 row2; vec4 tint; } draw; void main(){ vec4 point=vec4(position,1.0); gl_Position=vec4(dot(draw.row0,point),dot(draw.row1,point),dot(draw.row2,point),1.0); texCoord=uv; }",
+            "#version 450\nlayout(location=0) in vec2 texCoord; layout(location=0) out vec4 color; layout(binding=0) uniform sampler2D atlas; void main(){ color=texture(atlas,texCoord); }"
+        ]
+    ).spirv(shaderStageVertex)
     if (shader.valid && shader.locations.size == 2 &&
         layout.valid && layout.size == 64 && layout.members.size == 4 &&
         layout.stageMask ==
@@ -44,6 +51,8 @@ fun main: int {
         texturedVertex.succeeded && texturedVertex.module.valid() &&
         texturedVertex.module.bound() == 53 &&
         texturedFragment.succeeded && texturedFragment.module.valid() &&
+        texturedUv.succeeded && texturedUv.module.valid() &&
+        texturedUv.module.bound() == 54 &&
         glslContainsText(openGl, "layout(std140, binding = 15)") &&
         !glslContainsText(openGl, "push_constant")) 42 else 1
 }

@@ -27,6 +27,25 @@ resource class GltfGpuPrimitive(
     }
 }
 
+resource class GltfGpuTexturedPrimitive(
+    val vertices: GraphicsBuffer,
+    val indices: GraphicsBuffer,
+    val vertexCount: int,
+    val indexCount: int,
+    val layout: VertexBufferLayout,
+    val error: string
+) {
+    fun valid(): bool = this.error.size == 0 && this.vertices.valid() &&
+        this.indices.valid() && this.vertexCount > 0 && this.indexCount > 0 &&
+        this.layout.valid()
+
+    trusted fun drop(): void {
+        this.vertices.drop()
+        this.indices.drop()
+        return
+    }
+}
+
 fun gltfDataUriPayload(uri: string): string {
     val prefix = "data:application/octet-stream;base64,"
     val generic = "data:application/gltf-buffer;base64,"
@@ -227,5 +246,127 @@ trusted fun GraphicsApplication.gltfGpuPrimitive(
         error = "glTF GPU buffer upload failed"
     GltfGpuPrimitive(
         move(vertices), move(indices), vertexCount, indexCount, error
+    )
+}
+
+// The first textured path deliberately accepts the portable core glTF shape:
+// FLOAT VEC3 positions plus FLOAT VEC2 TEXCOORD_0, packed once at setup into a
+// retained 20-byte position/UV vertex stream. Normalized integer UV expansion
+// remains a later format-broadening step.
+trusted fun GraphicsApplication.gltfGpuTexturedPrimitive(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    meshIndex: int,
+    primitiveIndex: int
+): GltfGpuTexturedPrimitive {
+    val layout = VertexBufferLayout(20, [
+        VertexAttribute(0, 0, vertexFormatFloat32x3),
+        VertexAttribute(1, 12, vertexFormatFloat32x2)
+    ])
+    var error = ""
+    var vertexCount = 0
+    var indexCount = 0
+    var vertexBytes = bufferBytes(0)
+    var indexBytes = bufferBytes(0)
+    if (!this.valid() || !document.valid() || !payloads.valid ||
+        meshIndex < 0 || meshIndex >= document.meshes.size ||
+        primitiveIndex < 0 ||
+        primitiveIndex >= document.meshes[meshIndex].primitives.size) {
+        error = "invalid textured glTF primitive materialization request"
+    } else {
+        val primitive = document.meshes[meshIndex].primitives[primitiveIndex]
+        if (primitive.texCoord0 < 0) {
+            error = "textured glTF primitive requires TEXCOORD_0"
+        } else {
+            val position = document.accessors[primitive.position]
+            val texCoord = document.accessors[primitive.texCoord0]
+            vertexCount = position.count
+            if (position.componentType != gltfComponentF32 ||
+                position.elementType != "VEC3" ||
+                texCoord.componentType != gltfComponentF32 ||
+                texCoord.elementType != "VEC2" ||
+                texCoord.count != vertexCount) {
+                error = "textured glTF primitive requires matching FLOAT VEC3/VEC2 accessors"
+            } else {
+                val positions = gltfAccessorBytes(
+                    document, payloads, primitive.position
+                )
+                val coordinates = gltfAccessorBytes(
+                    document, payloads, primitive.texCoord0
+                )
+                vertexBytes = bufferBytes(vertexCount * 20)
+                var vertex = 0
+                var stored = positions.valid() && coordinates.valid() &&
+                    vertexBytes.valid()
+                while (stored && vertex < vertexCount) {
+                    var byteIndex = 0
+                    while (stored && byteIndex < 12) {
+                        stored = vertexBytes.store(
+                            vertex * 20 + byteIndex,
+                            positions.load(vertex * 12 + byteIndex)
+                        )
+                        byteIndex = byteIndex + 1
+                    }
+                    byteIndex = 0
+                    while (stored && byteIndex < 8) {
+                        stored = vertexBytes.store(
+                            vertex * 20 + 12 + byteIndex,
+                            coordinates.load(vertex * 8 + byteIndex)
+                        )
+                        byteIndex = byteIndex + 1
+                    }
+                    vertex = vertex + 1
+                }
+                if (!stored) error = "textured glTF vertex interleave failed"
+            }
+            if (primitive.indices >= 0) {
+                val source = gltfAccessorBytes(
+                    document, payloads, primitive.indices
+                )
+                val accessor = document.accessors[primitive.indices]
+                val sourceSize = accessor.componentByteSize()
+                indexCount = accessor.count
+                indexBytes = bufferBytes(indexCount * 4)
+                var index = 0
+                var stored = source.valid() && indexBytes.valid()
+                while (stored && index < indexCount) {
+                    stored = indexBytes.storeU32(
+                        gltfLoadUnsignedBuffer(
+                            source, index * sourceSize, sourceSize
+                        ),
+                        index * 4
+                    )
+                    index = index + 1
+                }
+                if (!stored) error = "glTF index accessor decoding failed"
+            } else {
+                indexCount = vertexCount
+                indexBytes = bufferBytes(indexCount * 4)
+                var index = 0
+                var stored = indexBytes.valid()
+                while (stored && index < indexCount) {
+                    stored = indexBytes.storeU32(index, index * 4)
+                    index = index + 1
+                }
+                if (!stored) error = "glTF generated index decoding failed"
+            }
+        }
+    }
+    val vertices = this.buffer(BufferDescriptor(
+        label = "gltf-position-uv",
+        size = if (vertexBytes.valid()) vertexBytes.size else 0,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val indices = this.buffer(BufferDescriptor(
+        label = "gltf-indices",
+        size = if (indexBytes.valid()) indexBytes.size else 0,
+        usage = bufferUsageIndex | bufferUsageCopyDestination
+    ))
+    if (error.size == 0 &&
+        (!vertices.writeAllBytes(vertexBytes) ||
+         !indices.writeAllBytes(indexBytes)))
+        error = "textured glTF GPU buffer upload failed"
+    GltfGpuTexturedPrimitive(
+        move(vertices), move(indices), vertexCount, indexCount, layout, error
     )
 }

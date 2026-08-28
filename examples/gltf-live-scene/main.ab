@@ -11,8 +11,8 @@ fun storeGltfDraw(
     var batch: GraphicsPushConstantBatch,
     draw: int,
     transform: Mat4,
-    red: f64,
-    green: f64
+    material: f64,
+    reserved: f64
 ): bool =
     batch.storeMemberF32(draw, "row0", transform.m00, 0) &&
     batch.storeMemberF32(draw, "row0", transform.m01, 1) &&
@@ -26,8 +26,8 @@ fun storeGltfDraw(
     batch.storeMemberF32(draw, "row2", transform.m21, 1) &&
     batch.storeMemberF32(draw, "row2", transform.m22, 2) &&
     batch.storeMemberF32(draw, "row2", transform.m23, 3) &&
-    batch.storeMemberF32(draw, "tint", red, 0) &&
-    batch.storeMemberF32(draw, "tint", green, 1) &&
+    batch.storeMemberF32(draw, "tint", material, 0) &&
+    batch.storeMemberF32(draw, "tint", reserved, 1) &&
     batch.storeMemberF32(draw, "tint", 0.0, 2) &&
     batch.storeMemberF32(draw, "tint", 1.0, 3)
 
@@ -42,16 +42,18 @@ fun main: int {
         WindowConfig(title = "Abla Graphics glTF scene", width = 640, height = 360)
     )
     val png = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mP4z8DwHwyBNBAw/AcAR8oI+FuapL4AAAAASUVORK5CYII="
-    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIA\",\"byteLength\":42}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"images\":[{\"name\":\"four colors\",\"uri\":\"data:image/png;base64,$png\"}],\"samplers\":[{\"name\":\"nearest repeat\",\"magFilter\":9728,\"minFilter\":9984,\"wrapS\":10497,\"wrapT\":10497}],\"textures\":[{\"name\":\"albedo\",\"sampler\":0,\"source\":0}],\"materials\":[{\"name\":\"textured\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}}}],\"meshes\":[{\"name\":\"Embedded triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1,\"material\":0}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":0,\"translation\":[0.5,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
+    val bluePng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYPj/HwADAgH/OSkZvgAAAABJRU5ErkJggg=="
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIAAAAAAEA/AACAPgAAQD8AAIA+AABAPwAAgD4=\",\"byteLength\":68}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963},{\"buffer\":0,\"byteOffset\":44,\"byteLength\":24,\"target\":34962}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"},{\"bufferView\":2,\"componentType\":5126,\"count\":3,\"type\":\"VEC2\"}],\"images\":[{\"name\":\"four colors\",\"uri\":\"data:image/png;base64,$png\"},{\"name\":\"blue\",\"uri\":\"data:image/png;base64,$bluePng\"}],\"samplers\":[{\"name\":\"nearest repeat\",\"magFilter\":9728,\"minFilter\":9984,\"wrapS\":10497,\"wrapT\":10497}],\"textures\":[{\"name\":\"albedo green\",\"sampler\":0,\"source\":0},{\"name\":\"albedo blue\",\"sampler\":0,\"source\":1}],\"materials\":[{\"name\":\"green\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}}},{\"name\":\"blue\",\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":1}}}],\"meshes\":[{\"name\":\"green triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"TEXCOORD_0\":2},\"indices\":1,\"material\":0}]},{\"name\":\"blue triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0,\"TEXCOORD_0\":2},\"indices\":1,\"material\":1}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":1,\"translation\":[0.5,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
     val parsed = gltfDocument(source)
     val payloads = if (parsed.succeeded)
         gltfBufferPayloads(parsed.document) else GltfBufferPayloads([], false, "parse")
     val drawList = gltfSceneDrawList(parsed.document)
-    val resourcePlan = gltfSceneResourcePlan(drawList)
+    val resourcePlan = gltfSceneAccessorResourcePlan(parsed.document, drawList)
     val shader = $glsl {
         vertex {
             #version 450
-            layout(location = 0) in vec2 position;
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec2 uv;
             layout(location = 0) out vec2 texCoord;
             layout(push_constant) uniform Draw {
                 vec4 row0;
@@ -60,23 +62,32 @@ fun main: int {
                 vec4 tint;
             } draw;
             void main() {
-                vec4 point = vec4(position, 0.0, 1.0);
+                vec4 point = vec4(position, 1.0);
                 gl_Position = vec4(
                     dot(draw.row0, point),
                     dot(draw.row1, point),
                     dot(draw.row2, point),
                     1.0
                 );
-                texCoord = vec2(0.75, 0.25);
+                texCoord = uv;
             }
         }
         fragment {
             #version 450
             layout(location = 0) in vec2 texCoord;
             layout(location = 0) out vec4 color;
-            layout(binding = 0) uniform sampler2D atlas;
+            layout(binding = 0) uniform sampler2D greenAtlas;
+            layout(binding = 1) uniform sampler2D blueAtlas;
+            layout(push_constant) uniform Draw {
+                vec4 row0;
+                vec4 row1;
+                vec4 row2;
+                vec4 tint;
+            } draw;
             void main() {
-                color = texture(atlas, texCoord);
+                vec4 green = texture(greenAtlas, texCoord);
+                vec4 blue = texture(blueAtlas, texCoord);
+                color = mix(green, blue, draw.tint.x);
             }
         }
     }
@@ -86,34 +97,52 @@ fun main: int {
         format = textureFormatRgba8Unorm,
         usage = textureUsageRenderAttachment | textureUsageCopySource
     )))
-    val layout = VertexBufferLayout(12, [
-        VertexAttribute(0, 0, vertexFormatFloat32x2)
-    ])
-    val materialTexture = app.gltfGpuTexture(
+    val greenTexture = app.gltfGpuTexture(
         parsed.document, payloads,
         parsed.document.materials[0].baseColorTexture.index
     )
-    val primitive = app.gltfGpuPrimitive(parsed.document, payloads, 0, 0)
-    val targetBinding = app.textureBinding(
-        materialTexture.texture, materialTexture.sampler
+    val blueTexture = app.gltfGpuTexture(
+        parsed.document, payloads,
+        parsed.document.materials[1].baseColorTexture.index
     )
-    val windowBinding = app.textureBinding(
-        materialTexture.texture, materialTexture.sampler
+    val primitive = app.gltfGpuTexturedPrimitive(
+        parsed.document, payloads, 0, 0
     )
+    val targetBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment,
+            greenTexture.texture, greenTexture.sampler
+        ),
+        app.sampledTextureEntry(
+            1, shaderVisibilityFragment,
+            blueTexture.texture, blueTexture.sampler
+        )
+    ])
+    val windowBinding = app.bindGroup([
+        app.sampledTextureEntry(
+            0, shaderVisibilityFragment,
+            greenTexture.texture, greenTexture.sampler
+        ),
+        app.sampledTextureEntry(
+            1, shaderVisibilityFragment,
+            blueTexture.texture, blueTexture.sampler
+        )
+    ])
     val targetPipeline = app.renderTargetPipeline(
-        target, shader, layout, RasterPipelineState(), DepthStencilState(),
+        target, shader, primitive.layout,
+        RasterPipelineState(), DepthStencilState(),
         move(targetBinding)
     )
     val windowPipeline = app.renderPipeline(
-        shader, layout, RasterPipelineState(), DepthStencilState(),
+        shader, primitive.layout, RasterPipelineState(), DepthStencilState(),
         move(windowBinding)
     )
     val batch = shader.pushConstantBatch(drawList.drawables.size)
     val batchReady = batch.valid() && batch.drawCount == 2 &&
         batch.layout.size == 64 && storeGltfDraw(
-            batch, 0, drawList.drawables[0].worldTransform, 1.0, 0.0
+            batch, 0, drawList.drawables[0].worldTransform, 0.0, 0.0
         ) && storeGltfDraw(
-            batch, 1, drawList.drawables[1].worldTransform, 0.0, 1.0
+            batch, 1, drawList.drawables[1].worldTransform, 1.0, 0.0
         )
     val clear = Color(0.01, 0.01, 0.015)
     val initialized = app.valid() && parsed.succeeded && payloads.valid &&
@@ -125,11 +154,12 @@ fun main: int {
         primitive.valid() && primitive.vertexCount == 3 &&
         primitive.indexCount == 3 &&
         drawList.drawables[0].material == 0 &&
-        drawList.drawables[1].material == 0 && materialTexture.valid() &&
+        drawList.drawables[1].material == 1 && greenTexture.valid() &&
+        blueTexture.valid() &&
         shader.valid && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() && batchReady
     if (!initialized) println(
-        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} primitive=${primitive.valid()}:${primitive.error} texture=${materialTexture.valid()}:${materialTexture.error}:${materialTexture.texture.valid()}:${materialTexture.sampler.valid()} shader=${shader.valid} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
+        "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} primitive=${primitive.valid()}:${primitive.error} textures=${greenTexture.valid()}:${greenTexture.error}/${blueTexture.valid()}:${blueTexture.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
     )
     var rendered = initialized && app.renderPushBatchIndexedToTarget(
         target, targetPipeline, batch, primitive.vertices, primitive.indices,
@@ -170,9 +200,9 @@ fun main: int {
     val indexHandle = if (app.backend == graphicsBackendOpenGl)
         primitive.indices.openGl.handle else primitive.indices.vulkan.handle
     val stable = rendered && frame == 4 &&
-        firstPixel == 4278255360 && secondPixel == 4278255360 &&
+        firstPixel == 4278255360 && secondPixel == 4294901760 &&
         liveAfter == liveBefore &&
         vertexHandle != 0 && indexHandle != 0
-    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} texture=${materialTexture.valid()} drawables=${drawList.drawables.size} resources=${resourcePlan.meshIndices.size} vertices=${primitive.vertexCount} indices=${primitive.indexCount} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
+    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} textures=${greenTexture.valid()}:${blueTexture.valid()} drawables=${drawList.drawables.size} materials=${drawList.drawables[0].material}/${drawList.drawables[1].material} resources=${resourcePlan.meshIndices.size} vertices=${primitive.vertexCount} indices=${primitive.indexCount} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
     if (stable) 0 else 1
 }
