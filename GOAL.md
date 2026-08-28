@@ -40,10 +40,13 @@ resolved parent/child transforms and rejects overlapping roots or repeated
 visits. Continue by materializing the whole draw list, reusing shared accessor
 buffers across primitives, and binding parsed materials and images per draw.
 
-The resource plan now maps two node instances onto one shared mesh-primitive
-upload without duplicating geometry. The next execution slice must submit all
-instances with their world transforms and then add parsed image/texture/sampler
-ownership and material bindings.
+The resource plan maps two node instances onto one shared mesh-primitive
+upload without duplicating geometry. The live renderer now submits both
+instances inside one native pass using a reflected 64-byte affine/tint record
+per drawable. OpenGL, Vulkan, and auto produce exact red/green proof pixels,
+four stable frames, and zero warmed-loop live-byte growth. Continue with parsed
+glTF images, textures, samplers, and per-material bindings; multi-node geometry
+submission is no longer the blocker.
 
 ## Mission
 
@@ -3383,3 +3386,31 @@ nix-shell --run 'ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned ABLA_MAX_ME
 
 Continue with environment/IBL material inputs and glTF material integration,
 reusing this HDR scene/tone foundation rather than adding isolated demos.
+
+## Latest checkpoint: shared-geometry glTF instance submission
+
+`GraphicsPushConstantBatch` owns one contiguous reflected record per indexed
+draw. The common target and presentation APIs bind shared pipeline, geometry,
+indices, and descriptors once, then update push data and issue all draws inside
+one native pass. OpenGL uses one retained push uniform buffer; Vulkan records
+one `vkCmdPushConstants` plus `vkCmdDrawIndexed` pair per record. The warmed
+path performs no general allocation.
+
+The deterministic `$glsl` path now has a typed vertex-buffer affine subset:
+three `vec4` matrix rows transform `vec2 position`, and a fourth `vec4` carries
+the per-draw tint. `examples/gltf-live-scene` resolves two node world
+transforms, maps both to one retained primitive, and submits both. OpenGL,
+Vulkan, and auto all report `drawables=2 resources=1`, exact pixels
+`4278190335/4278255360`, four frames, `live=0`, and `stable=true`.
+
+The maintained consolidated gate is:
+
+```bash
+ABLA_COMPILER_PAYLOAD=../ablac/build/.ablac-aligned \
+  ABLA_MAX_MEMORY_MB=8192 nix-shell --run \
+  'make test-glsl test-application test-gltf-live-scene check-abla-only'
+```
+
+`tools/test-glsl.sh` locally raises only the monolithic subparser fixture's
+virtual-address-space ceiling; all other builds retain the caller's 8 GiB cap.
+Continue with glTF image/texture/sampler decoding and parsed material bindings.

@@ -6,6 +6,30 @@ import "../../src/texture_pool.ab"
 import "../../src/render.ab"
 import "../../src/gltf_buffer.ab"
 
+fun storeGltfDraw(
+    var batch: GraphicsPushConstantBatch,
+    draw: int,
+    transform: Mat4,
+    red: f64,
+    green: f64
+): bool =
+    batch.storeMemberF32(draw, "row0", transform.m00, 0) &&
+    batch.storeMemberF32(draw, "row0", transform.m01, 1) &&
+    batch.storeMemberF32(draw, "row0", transform.m02, 2) &&
+    batch.storeMemberF32(draw, "row0", transform.m03, 3) &&
+    batch.storeMemberF32(draw, "row1", transform.m10, 0) &&
+    batch.storeMemberF32(draw, "row1", transform.m11, 1) &&
+    batch.storeMemberF32(draw, "row1", transform.m12, 2) &&
+    batch.storeMemberF32(draw, "row1", transform.m13, 3) &&
+    batch.storeMemberF32(draw, "row2", transform.m20, 0) &&
+    batch.storeMemberF32(draw, "row2", transform.m21, 1) &&
+    batch.storeMemberF32(draw, "row2", transform.m22, 2) &&
+    batch.storeMemberF32(draw, "row2", transform.m23, 3) &&
+    batch.storeMemberF32(draw, "tint", red, 0) &&
+    batch.storeMemberF32(draw, "tint", green, 1) &&
+    batch.storeMemberF32(draw, "tint", 0.0, 2) &&
+    batch.storeMemberF32(draw, "tint", 1.0, 3)
+
 fun main: int {
     val requested = if (processArgumentCount() > 0)
         processArgument(0) else "auto"
@@ -16,7 +40,7 @@ fun main: int {
         GraphicsConfig(backend = backend, framesInFlight = 2),
         WindowConfig(title = "Abla Graphics glTF scene", width = 640, height = 360)
     )
-    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIA\",\"byteLength\":42}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"meshes\":[{\"name\":\"Embedded triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":0,\"translation\":[0.1,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
+    val source = "{\"asset\":{\"version\":\"2.0\"},\"buffers\":[{\"uri\":\"data:application/octet-stream;base64,MzMzv5qZGb8AAAAAMzMzP5qZGb8AAAAAAAAAADMzMz8AAAAAAAABAAIA\",\"byteLength\":42}],\"bufferViews\":[{\"buffer\":0,\"byteOffset\":0,\"byteLength\":36,\"target\":34962},{\"buffer\":0,\"byteOffset\":36,\"byteLength\":6,\"target\":34963}],\"accessors\":[{\"bufferView\":0,\"componentType\":5126,\"count\":3,\"type\":\"VEC3\"},{\"bufferView\":1,\"componentType\":5123,\"count\":3,\"type\":\"SCALAR\"}],\"meshes\":[{\"name\":\"Embedded triangle\",\"primitives\":[{\"attributes\":{\"POSITION\":0},\"indices\":1}]}],\"nodes\":[{\"mesh\":0},{\"mesh\":0,\"translation\":[0.5,0.0,0.0]}],\"scenes\":[{\"nodes\":[0,1]}],\"scene\":0}"
     val parsed = gltfDocument(source)
     val payloads = if (parsed.succeeded)
         gltfBufferPayloads(parsed.document) else GltfBufferPayloads([], false, "parse")
@@ -27,20 +51,33 @@ fun main: int {
         vertex {
             #version 450
             layout(location = 0) in vec2 position;
-            layout(location = 1) in vec2 uv;
-            layout(location = 0) out vec2 texCoord;
+            layout(push_constant) uniform Draw {
+                vec4 row0;
+                vec4 row1;
+                vec4 row2;
+                vec4 tint;
+            } draw;
             void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-                texCoord = uv;
+                vec4 point = vec4(position, 0.0, 1.0);
+                gl_Position = vec4(
+                    dot(draw.row0, point),
+                    dot(draw.row1, point),
+                    dot(draw.row2, point),
+                    1.0
+                );
             }
         }
         fragment {
             #version 450
-            layout(location = 0) in vec2 texCoord;
-            layout(location = 0) out vec3 color;
+            layout(location = 0) out vec4 color;
+            layout(push_constant) uniform Draw {
+                vec4 row0;
+                vec4 row1;
+                vec4 row2;
+                vec4 tint;
+            } draw;
             void main() {
-                vec2 swapped = texCoord.yx;
-                color = vec3(swapped.y, swapped.x, 0.0);
+                color = draw.tint;
             }
         }
     }
@@ -51,11 +88,17 @@ fun main: int {
         usage = textureUsageRenderAttachment | textureUsageCopySource
     )))
     val layout = VertexBufferLayout(12, [
-        VertexAttribute(0, 0, vertexFormatFloat32x2),
-        VertexAttribute(1, 0, vertexFormatFloat32x2)
+        VertexAttribute(0, 0, vertexFormatFloat32x2)
     ])
     val targetPipeline = app.renderTargetPipeline(target, shader, layout)
     val windowPipeline = app.renderPipeline(shader, layout)
+    val batch = shader.pushConstantBatch(drawList.drawables.size)
+    val batchReady = batch.valid() && batch.drawCount == 2 &&
+        batch.layout.size == 64 && storeGltfDraw(
+            batch, 0, drawList.drawables[0].worldTransform, 1.0, 0.0
+        ) && storeGltfDraw(
+            batch, 1, drawList.drawables[1].worldTransform, 0.0, 1.0
+        )
     val clear = Color(0.01, 0.01, 0.015)
     val initialized = app.valid() && parsed.succeeded && payloads.valid &&
         drawList.valid && drawList.drawables.size == 2 && resourcePlan.valid &&
@@ -66,39 +109,41 @@ fun main: int {
         primitive.valid() && primitive.vertexCount == 3 &&
         primitive.indexCount == 3 &&
         shader.valid && target.valid() &&
-        targetPipeline.valid() && windowPipeline.valid()
+        targetPipeline.valid() && windowPipeline.valid() && batchReady
     if (!initialized) println(
         "gltf-live setup: app=${app.valid()} plan=${resourcePlan.valid}:${resourcePlan.error} primitive=${primitive.valid()}:${primitive.error} shader=${shader.valid} target=${target.valid()} pipelines=${targetPipeline.valid()}:${windowPipeline.valid()} errors=${targetPipeline.error.operation}:${targetPipeline.error.message}/${windowPipeline.error.operation}:${windowPipeline.error.message}"
     )
-    var rendered = initialized && app.renderIndexedToTarget(
-        target, targetPipeline, primitive.vertices, primitive.indices,
+    var rendered = initialized && app.renderPushBatchIndexedToTarget(
+        target, targetPipeline, batch, primitive.vertices, primitive.indices,
         primitive.indexCount, clear
-    ) && app.presentRenderIndexed(
-        windowPipeline, primitive.vertices, primitive.indices,
+    ) && app.presentPushBatchRenderIndexed(
+        windowPipeline, batch, primitive.vertices, primitive.indices,
         primitive.indexCount, clear
     )
     var warm = 0
     while (rendered && warm < 4) {
-        rendered = app.renderIndexedToTarget(
-            target, targetPipeline, primitive.vertices, primitive.indices,
-            primitive.indexCount, clear
-        ) && app.presentRenderIndexed(
-            windowPipeline, primitive.vertices, primitive.indices,
+        rendered = app.renderPushBatchIndexedToTarget(
+            target, targetPipeline, batch, primitive.vertices,
+            primitive.indices, primitive.indexCount, clear
+        ) && app.presentPushBatchRenderIndexed(
+            windowPipeline, batch, primitive.vertices, primitive.indices,
             primitive.indexCount, clear
         )
         warm = warm + 1
     }
-    val firstPixel = if (rendered) target.texture.rgba8(32, 32) else -1
+    val firstPixel = if (rendered) target.texture.rgba8(24, 32) else -1
+    val secondPixel = if (rendered) target.texture.rgba8(51, 32) else -1
     val liveBefore = runtimeMemoryLiveBytes()
     var frame = 0
     while (rendered && frame < 4) {
-        rendered = app.renderIndexedToTarget(
-            target, targetPipeline, primitive.vertices, primitive.indices,
+        rendered = app.renderPushBatchIndexedToTarget(
+            target, targetPipeline, batch, primitive.vertices,
+            primitive.indices, primitive.indexCount, clear
+        ) && app.presentPushBatchRenderIndexed(
+            windowPipeline, batch, primitive.vertices, primitive.indices,
             primitive.indexCount, clear
-        ) && app.presentRenderIndexed(
-            windowPipeline, primitive.vertices, primitive.indices,
-            primitive.indexCount, clear
-        ) && target.texture.rgba8(32, 32) == firstPixel
+        ) && target.texture.rgba8(24, 32) == firstPixel &&
+            target.texture.rgba8(51, 32) == secondPixel
         frame = frame + 1
     }
     val liveAfter = runtimeMemoryLiveBytes()
@@ -107,8 +152,10 @@ fun main: int {
     val indexHandle = if (app.backend == graphicsBackendOpenGl)
         primitive.indices.openGl.handle else primitive.indices.vulkan.handle
     val stable = rendered && frame == 4 && firstPixel >= 0 &&
-        firstPixel != 4278190080 && liveAfter == liveBefore &&
+        secondPixel >= 0 && firstPixel != secondPixel &&
+        firstPixel != 4278190080 && secondPixel != 4278190080 &&
+        liveAfter == liveBefore &&
         vertexHandle != 0 && indexHandle != 0
-    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} drawables=${drawList.drawables.size} resources=${resourcePlan.meshIndices.size} vertices=${primitive.vertexCount} indices=${primitive.indexCount} pixel=$firstPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
+    println("gltf-live-scene ${graphicsBackendName(app.backend)}: parsed=${parsed.succeeded} payloads=${payloads.valid} drawables=${drawList.drawables.size} resources=${resourcePlan.meshIndices.size} vertices=${primitive.vertexCount} indices=${primitive.indexCount} pixels=$firstPixel/$secondPixel frames=$frame live=${liveAfter - liveBefore} stable=$stable")
     if (stable) 0 else 1
 }

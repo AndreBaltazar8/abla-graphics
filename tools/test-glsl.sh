@@ -19,6 +19,21 @@ if [[ $status -ne 42 ]]; then
     exit 1
 fi
 
+"$compiler" build "$project_root/tests/glsl_push_affine.ab" \
+    -o "$output_directory/glsl-push-affine" --no-cache
+set +e
+"$output_directory/glsl-push-affine"
+status=$?
+set -e
+if [[ $status -ne 42 ]]; then
+    printf 'GLSL push-affine test returned %s, expected 42\n' "$status" >&2
+    exit 1
+fi
+
+# This monolithic parser/emitter contract maps substantially more virtual
+# address space than the independently buildable samples. Keep its exception
+# local rather than weakening the compiler guard for every project build.
+ABLA_MAX_MEMORY_MB=${ABLA_GLSL_TEST_MEMORY_MB:-65536} \
 "$compiler" build "$project_root/tests/glsl_subparser.ab" \
     -o "$output_directory/glsl" --no-cache
 set +e

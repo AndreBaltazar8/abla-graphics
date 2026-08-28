@@ -24,6 +24,8 @@ fun main: int {
         ["layout(push_constant) uniform Typed { float scalar; vec3 floats; int signedValue; uvec2 unsigneds; bvec2 flags; vec2 samples[2]; } typed; void main() {}"]
     )
     val typedValues = typedShader.pushConstants()
+    val typedBatch = typedShader.pushConstantBatch(3)
+    val emptyBatch = typedShader.pushConstantBatch(0)
     val subpassBytes = bufferBytes(128)
     val subpassValues = GraphicsSubpassPushConstants(
         [typedValues.layout, typedValues.layout],
@@ -93,6 +95,19 @@ fun main: int {
         !typedValues.storeMemberF32("scalar", 1.0, 0, 1) &&
         !typedValues.storeMemberU32("unsigneds", -1) &&
         !typedValues.storeMemberI32("signedValue", 2147483648) &&
+        typedBatch.valid() && typedBatch.drawCount == 3 &&
+        typedBatch.drawOffset(0) == 0 && typedBatch.drawOffset(2) == 128 &&
+        typedBatch.drawOffset(3) == -1 && typedBatch.bytes.size == 192 &&
+        typedBatch.fill() &&
+        typedBatch.storeMemberF32(1, "scalar", 0.5) &&
+        typedBatch.bytes.load(66) == 0 &&
+        typedBatch.bytes.load(67) == 63 &&
+        typedBatch.writeDraw(2, typedValues) &&
+        typedBatch.bytes.load(130) == 128 &&
+        typedBatch.bytes.load(131) == 62 &&
+        !typedBatch.storeMemberF32(3, "scalar", 1.0) &&
+        !typedBatch.storeMemberI32(0, "unsigneds", 1) &&
+        !emptyBatch.valid() &&
         subpassValues.valid() && subpassValues.fill() &&
         subpassValues.storeMemberF32(1, "samples", 0.5, 1, 1) &&
         subpassValues.storeMemberI32(0, "signedValue", -2) &&

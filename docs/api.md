@@ -2736,6 +2736,22 @@ leading subpass index. Member offsets and sizes remain queryable. The reusable
 native byte block feeds OpenGL uniform-buffer uploads and Vulkan command
 recording directly, so name-based updates do not allocate per frame.
 
+`shader.pushConstantBatch(drawCount)` allocates one contiguous reflected
+record per draw as affine `GraphicsPushConstantBatch`. Its typed stores take a
+leading draw index, while `writeDraw()` copies a complete compatible
+`GraphicsPushConstants` record. `renderPushBatchIndexedToTarget()` and
+`presentPushBatchRenderIndexed()` bind the shared pipeline, geometry, indices,
+and descriptors once, then update push data and issue every indexed draw
+inside the same render pass. Counts are bounded to 65,536 and total storage to
+8 MiB; the warmed submission path performs no general allocation.
+
+The deterministic vertex-buffer shader subset includes a reflected 64-byte
+affine draw block containing `row0`, `row1`, `row2`, and `tint`. The vertex
+stage transforms a `vec2 position` through the three meaningful rows of a
+glTF affine matrix, while the fragment stage consumes the shared tint. This
+subset produces deterministic Vulkan SPIR-V and an equivalent rewritten
+OpenGL `std140` block.
+
 Scalar
 `layout(constant_id = N) const` declarations produce stage-tagged
 `ShaderSpecializationConstant` values containing the ID, type, name, and exact

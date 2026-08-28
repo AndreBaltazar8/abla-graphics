@@ -2752,7 +2752,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
     pushConstantSize: int = 0,
     vertexOffset: int = 0,
     indexOffset: int = 0,
-    indirectOffset: int = 0
+    indirectOffset: int = 0,
+    drawCount: int = 1,
+    pushConstantStride: int = 0
 ): bool {
     val indexed = indexCount > 0 || indexedIndirect
     var rendered = this.valid() && target.valid() && program.valid() &&
@@ -2763,12 +2765,13 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             clearAlpha
         ) && raster.fits(target.width, target.height) && depth.valid() &&
         vertexLayout.valid() && vertexCount > 0 && indexCount >= 0 &&
-        instanceCount > 0 &&
+        instanceCount > 0 && drawCount > 0 && drawCount <= 65536 &&
         ((vertexLayout.buffered() && vertexBuffer != 0) ||
          (!vertexLayout.buffered() && vertexBuffer == 0 && !indexed)) &&
         ((!indexed && indexBuffer == 0) ||
          (vertexLayout.buffered() && indexed && indexBuffer != 0)) &&
         (!indexedIndirect || indirectBuffer != 0) &&
+        (drawCount == 1 || indirectBuffer == 0) &&
         vertexOffset >= 0 && indexOffset >= 0 && indirectOffset >= 0 &&
         (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
         (indirectOffset & 3) == 0 &&
@@ -2777,6 +2780,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
          (program.pushConstantSize > 0 &&
           pushConstantSize == program.pushConstantSize &&
           !pointerIsNull(pushConstantData))) &&
+        ((drawCount == 1 && pushConstantStride == 0) ||
+         (drawCount > 1 && program.pushConstantSize > 0 &&
+          pushConstantStride >= program.pushConstantSize)) &&
         target.display == this.display && target.context == this.context &&
         this.makeCurrent()
     if (rendered) {
@@ -2856,12 +2862,6 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         glBindVertexArray(program.vertexArray)
         if (program.pushConstantSize > 0) {
             glBindBuffer(35345, program.pushConstantBuffer)
-            glBufferSubData(
-                35345,
-                0,
-                program.pushConstantSize,
-                pushConstantData
-            )
             glBindBufferBase(
                 35345,
                 openGlPushConstantBinding,
@@ -2886,39 +2886,52 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         if (indexed) glBindBuffer(34963, indexBuffer)
         rendered = rendered && openGlApplyDepthState(depth) &&
             openGlApplyRasterState(raster, target.width, target.height)
-        if (rendered && indexed && indirectBuffer != 0) {
-            glBindBuffer(36671, indirectBuffer)
-            glDrawElementsIndirect(
-                openGlPrimitiveMode(raster.topology),
-                5125,
-                nativePointerFromAddress(indirectOffset)
+        var drawIndex = 0
+        while (rendered && drawIndex < drawCount) {
+            if (program.pushConstantSize > 0) glBufferSubData(
+                35345,
+                0,
+                program.pushConstantSize,
+                nativePointerFromAddress(
+                    nativePointerAddress(pushConstantData) +
+                        drawIndex * pushConstantStride
+                )
             )
-        } else if (rendered && indexed && instanceCount == 1) {
-            glDrawElements(
+            if (indexed && indirectBuffer != 0) {
+                glBindBuffer(36671, indirectBuffer)
+                glDrawElementsIndirect(
+                    openGlPrimitiveMode(raster.topology),
+                    5125,
+                    nativePointerFromAddress(indirectOffset)
+                )
+            } else if (indexed && instanceCount == 1) {
+                glDrawElements(
+                    openGlPrimitiveMode(raster.topology),
+                    indexCount,
+                    5125,
+                    nativePointerFromAddress(indexOffset)
+                )
+            } else if (indexed) glDrawElementsInstanced(
                 openGlPrimitiveMode(raster.topology),
                 indexCount,
                 5125,
-                nativePointerFromAddress(indexOffset)
-            )
-        } else if (rendered && indexed) glDrawElementsInstanced(
-            openGlPrimitiveMode(raster.topology),
-            indexCount,
-            5125,
-            nativePointerFromAddress(indexOffset),
-            instanceCount
-        )
-        else if (rendered && indirectBuffer != 0) {
-            glBindBuffer(36671, indirectBuffer)
-            glDrawArraysIndirect(
-                openGlPrimitiveMode(raster.topology),
-                nativePointerFromAddress(indirectOffset)
-            )
-        } else if (rendered) glDrawArraysInstanced(
-                openGlPrimitiveMode(raster.topology),
-                0,
-                vertexCount,
+                nativePointerFromAddress(indexOffset),
                 instanceCount
             )
+            else if (indirectBuffer != 0) {
+                glBindBuffer(36671, indirectBuffer)
+                glDrawArraysIndirect(
+                    openGlPrimitiveMode(raster.topology),
+                    nativePointerFromAddress(indirectOffset)
+                )
+            } else glDrawArraysInstanced(
+                    openGlPrimitiveMode(raster.topology),
+                    0,
+                    vertexCount,
+                    instanceCount
+                )
+            drawIndex = drawIndex + 1
+        }
         if (rendered) {
             glDisable(3089)
             glColorMask(1, 1, 1, 1)
@@ -4073,13 +4086,17 @@ resource class OpenGlWindowContext(
         pushConstantSize: int = 0,
         vertexOffset: int = 0,
         indexOffset: int = 0,
-        indirectOffset: int = 0
+        indirectOffset: int = 0,
+        drawCount: int = 1,
+        pushConstantStride: int = 0
     ): bool {
         var presented = program.valid() && vertices.valid() &&
             indices.valid() && indexCount > 0 && instanceCount > 0 &&
+            drawCount > 0 && drawCount <= 65536 &&
             vertexOffset >= 0 && indexOffset >= 0 && indirectOffset >= 0 &&
             (vertexOffset & 3) == 0 && (indexOffset & 3) == 0 &&
             (indirectOffset & 3) == 0 &&
+            (drawCount == 1 || indirectBuffer == 0) &&
             vertexLayout.valid() && vertexLayout.buffered() &&
             clear.valid() && raster.fits(this.width, this.height) &&
             depth.valid() &&
@@ -4088,6 +4105,9 @@ resource class OpenGlWindowContext(
              (program.pushConstantSize > 0 &&
               pushConstantSize == program.pushConstantSize &&
               !pointerIsNull(pushConstantData))) &&
+            ((drawCount == 1 && pushConstantStride == 0) ||
+             (drawCount > 1 && program.pushConstantSize > 0 &&
+              pushConstantStride >= program.pushConstantSize)) &&
             this.makeCurrent()
         if (presented) {
             openGlStoreI32(
@@ -4117,12 +4137,6 @@ resource class OpenGlWindowContext(
             glBindVertexArray(program.vertexArray)
             if (program.pushConstantSize > 0) {
                 glBindBuffer(35345, program.pushConstantBuffer)
-                glBufferSubData(
-                    35345,
-                    0,
-                    program.pushConstantSize,
-                    pushConstantData
-                )
                 glBindBufferBase(
                     35345,
                     openGlPushConstantBinding,
@@ -4145,25 +4159,38 @@ resource class OpenGlWindowContext(
             glBindBuffer(34963, indices.handle)
             presented = presented && openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster, this.width, this.height)
-            if (presented && indirectBuffer != 0) {
-                glBindBuffer(36671, indirectBuffer)
-                glDrawElementsIndirect(
-                    openGlPrimitiveMode(raster.topology),
-                    5125,
-                    nativePointerFromAddress(indirectOffset)
+            var drawIndex = 0
+            while (presented && drawIndex < drawCount) {
+                if (program.pushConstantSize > 0) glBufferSubData(
+                    35345,
+                    0,
+                    program.pushConstantSize,
+                    nativePointerFromAddress(
+                        nativePointerAddress(pushConstantData) +
+                            drawIndex * pushConstantStride
+                    )
                 )
-            } else if (presented && instanceCount == 1) glDrawElements(
-                openGlPrimitiveMode(raster.topology),
-                indexCount,
-                5125,
-                nativePointerFromAddress(indexOffset)
-            ) else if (presented) glDrawElementsInstanced(
-                openGlPrimitiveMode(raster.topology),
-                indexCount,
-                5125,
-                nativePointerFromAddress(indexOffset),
-                instanceCount
-            )
+                if (indirectBuffer != 0) {
+                    glBindBuffer(36671, indirectBuffer)
+                    glDrawElementsIndirect(
+                        openGlPrimitiveMode(raster.topology),
+                        5125,
+                        nativePointerFromAddress(indirectOffset)
+                    )
+                } else if (instanceCount == 1) glDrawElements(
+                    openGlPrimitiveMode(raster.topology),
+                    indexCount,
+                    5125,
+                    nativePointerFromAddress(indexOffset)
+                ) else glDrawElementsInstanced(
+                    openGlPrimitiveMode(raster.topology),
+                    indexCount,
+                    5125,
+                    nativePointerFromAddress(indexOffset),
+                    instanceCount
+                )
+                drawIndex = drawIndex + 1
+            }
             if (presented) {
                 glDisable(3089)
                 glColorMask(1, 1, 1, 1)

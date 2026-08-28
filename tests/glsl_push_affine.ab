@@ -1,0 +1,36 @@
+import "../src/shader/glsl_spirv.ab"
+
+fun containsWord(module: SpirvModule, word: int): bool {
+    var found = false
+    var index = 0
+    while (!found && index < module.words.size) {
+        found = module.words[index] == word
+        index = index + 1
+    }
+    found
+}
+
+fun main: int {
+    val shader = glslPackage(
+        [shaderStageVertex, shaderStageFragment],
+        [
+            "#version 450\nlayout(location=0) in vec2 position; layout(push_constant) uniform Draw { vec4 row0; vec4 row1; vec4 row2; vec4 tint; } draw; void main(){ vec4 point=vec4(position,0.0,1.0); gl_Position=vec4(dot(draw.row0,point),dot(draw.row1,point),dot(draw.row2,point),1.0); }",
+            "#version 450\nlayout(location=0) out vec4 color; layout(push_constant) uniform Draw { vec4 row0; vec4 row1; vec4 row2; vec4 tint; } draw; void main(){ color=draw.tint; }"
+        ]
+    )
+    val vertex = shader.spirv(shaderStageVertex)
+    val again = shader.spirv(shaderStageVertex)
+    val fragment = shader.spirv(shaderStageFragment)
+    val layout = shader.pushConstantLayout()
+    val openGl = shader.openGlSource(shaderStageVertex)
+    if (shader.valid && shader.locations.size == 2 &&
+        layout.valid && layout.size == 64 && layout.members.size == 4 &&
+        layout.stageMask ==
+            (shaderStageMaskVertex | shaderStageMaskFragment) &&
+        vertex.succeeded && vertex.module.valid() &&
+        vertex.module.bound() == 48 && containsWord(vertex.module, 327828) &&
+        spirvWordsEqual(vertex.module, again.module) &&
+        fragment.succeeded && fragment.module.valid() &&
+        glslContainsText(openGl, "layout(std140, binding = 15)") &&
+        !glslContainsText(openGl, "push_constant")) 42 else 1
+}

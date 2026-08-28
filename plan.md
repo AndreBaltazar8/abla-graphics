@@ -1,6 +1,6 @@
 # Abla Graphics implementation plan
 
-Status: active implementation contract, 2026-08-26.
+Status: active implementation contract, 2026-08-28.
 
 Abla Graphics is the graphics and windowing framework for the Abla ecosystem.
 It targets OpenGL 4.6 core and Vulkan 1.4, with an idiomatic common API for
@@ -260,6 +260,15 @@ barrier provides compute-write to fragment-read visibility without an extra
 submission or layout transition. The retained compute/render sample verifies
 exact output, validation silence, 1,001 single-submission replays, linkage, and
 zero warmed growth on both backends.
+
+The glTF path now maps strict materials and environment inputs, validates
+scene metadata and hierarchy, resolves world transforms, decodes embedded or
+supplied dense/sparse accessors, widens indices, and deduplicates geometry by
+mesh/primitive. `GraphicsPushConstantBatch` submits every planned instance
+with one reflected affine/tint record while retaining one shared geometry
+owner. The live two-node fixture produces exact distinct proof pixels on
+OpenGL, Vulkan, and auto for four zero-growth frames. Parsed images, textures,
+samplers, and full material bindings remain the next glTF execution slice.
 
 ## Non-negotiable design rules
 

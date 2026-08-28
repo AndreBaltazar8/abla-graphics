@@ -318,6 +318,189 @@ resource class GraphicsPushConstants(
     }
 }
 
+// Contiguous, reusable push data for repeated draws that share a pipeline and
+// geometry. The backends consume one layout-sized record per draw without
+// allocating or reopening the render pass.
+resource class GraphicsPushConstantBatch(
+    val layout: ShaderPushConstantLayout,
+    val drawCount: int,
+    val bytes: BufferBytes,
+    val error: string
+) {
+    fun valid(): bool = this.error == "" && this.layout.valid &&
+        this.layout.size > 0 && this.drawCount > 0 &&
+        this.drawCount <= 65536 && this.bytes.valid() &&
+        this.bytes.size == this.layout.size * this.drawCount
+
+    fun drawOffset(draw: int): int =
+        if (draw >= 0 && draw < this.drawCount)
+            draw * this.layout.size
+        else -1
+
+    trusted fun writeDraw(
+        draw: int,
+        values: GraphicsPushConstants
+    ): bool {
+        val offset = this.drawOffset(draw)
+        var accepted = this.valid() && values.valid() && offset >= 0 &&
+            values.layout.matches(this.layout)
+        if (accepted) graphicsUnsafeCopyMemory(
+            this.bytes.storage.pointerAt(offset),
+            values.bytes.storage.address,
+            this.layout.size
+        )
+        accepted
+    }
+
+    trusted fun storeMemberF32(
+        draw: int,
+        name: string,
+        value: f64,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberFloat,
+            component,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeF32(value, drawOffset + memberOffset)
+    }
+
+    trusted fun storeMemberI32(
+        draw: int,
+        name: string,
+        value: int,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberSigned,
+            component,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeI32(value, drawOffset + memberOffset)
+    }
+
+    trusted fun storeMemberU32(
+        draw: int,
+        name: string,
+        value: int,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberUnsigned,
+            component,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeU32(value, drawOffset + memberOffset)
+    }
+
+    trusted fun storeMemberBool(
+        draw: int,
+        name: string,
+        value: bool,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberBoolean,
+            component,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeU32(
+                if (value) 1 else 0,
+                drawOffset + memberOffset
+            )
+    }
+
+    trusted fun storeMemberF64(
+        draw: int,
+        name: string,
+        value: f64,
+        component: int = 0,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMemberComponentOffset(
+            this.layout,
+            name,
+            graphicsPushMemberDouble,
+            component,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeF64(value, drawOffset + memberOffset)
+    }
+
+    trusted fun storeMemberMatrixF32(
+        draw: int,
+        name: string,
+        value: f64,
+        column: int,
+        row: int,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMatrixComponentOffset(
+            this.layout,
+            name,
+            4,
+            column,
+            row,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeF32(value, drawOffset + memberOffset)
+    }
+
+    trusted fun storeMemberMatrixF64(
+        draw: int,
+        name: string,
+        value: f64,
+        column: int,
+        row: int,
+        arrayIndex: int = 0
+    ): bool {
+        val memberOffset = graphicsPushMatrixComponentOffset(
+            this.layout,
+            name,
+            8,
+            column,
+            row,
+            arrayIndex
+        )
+        val drawOffset = this.drawOffset(draw)
+        this.valid() && drawOffset >= 0 && memberOffset >= 0 &&
+            this.bytes.storeF64(value, drawOffset + memberOffset)
+    }
+
+    trusted fun fill(value: int = 0): bool =
+        this.valid() && this.bytes.fill(value)
+
+    trusted fun drop(): void {
+        this.bytes.storage.close()
+        return
+    }
+}
+
 resource class GraphicsSubpassPushConstants(
     val layouts: array<ShaderPushConstantLayout>,
     val offsets: array<int>,
@@ -564,6 +747,28 @@ trusted fun ShaderPackage.pushConstants(
         move(bytes),
         if (!layout.valid) layout.error
         else if (layout.size <= 0) "shader has no push-constant block"
+        else ""
+    )
+}
+
+trusted fun ShaderPackage.pushConstantBatch(
+    drawCount: int,
+    maximumSize: int = 128
+): GraphicsPushConstantBatch {
+    val layout = this.pushConstantLayout(maximumSize)
+    val valid = layout.valid && layout.size > 0 && drawCount > 0 &&
+        drawCount <= 65536 && layout.size <= 8388608 / drawCount
+    val bytes = bufferBytes(if (valid) layout.size * drawCount else 0)
+    GraphicsPushConstantBatch(
+        layout,
+        drawCount,
+        move(bytes),
+        if (!layout.valid) layout.error
+        else if (layout.size <= 0) "shader has no push-constant block"
+        else if (drawCount <= 0 || drawCount > 65536)
+            "push-constant draw count must be between 1 and 65536"
+        else if (layout.size > 8388608 / drawCount)
+            "push-constant batch exceeds 8 MiB"
         else ""
     )
 }

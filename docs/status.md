@@ -2184,10 +2184,13 @@ contract; non-indexed primitives receive deterministic sequential indices.
 
 `GltfGpuPrimitive` affinely owns retained vertex and index buffers uploaded
 through the selected backend. The independent `gltf-live-scene` sample parses
-an embedded indexed-triangle document, decodes and uploads its accessors, draws
-to a readable target, and presents the same buffers. OpenGL, Vulkan, and auto
-all produced exact pixel `1028`, four stable measured frames, and `live=0` with
-`LD_LIBRARY_PATH` removed; automatic selection chose Vulkan.
+an embedded indexed-triangle document, decodes and uploads its accessors, and
+maps two node instances to one geometry resource. A 64-byte reflected affine
+record per drawable drives two indexed submissions inside one target pass and
+one presentation pass without rebuilding buffers. OpenGL, Vulkan, and auto
+all produced exact red/green proof pixels `4278190335/4278255360`, four stable
+measured frames, and `live=0` with `LD_LIBRARY_PATH` removed; automatic
+selection chose Vulkan.
 
 ### glTF world traversal
 
@@ -2203,8 +2206,6 @@ composition and deliberate root/descendant overlap rejection.
 
 The resource planner now deduplicates mesh/primitive pairs across node
 instances and emits an exact drawable-to-resource mapping in deterministic
-first-use order. The live glTF fixture contains two nodes referencing the same
-primitive and proves `drawables=2 resources=1` on OpenGL, Vulkan, and auto while
-retaining exact pixel `1028`, four stable frames, and `live=0`. GPU owners stay
-affine and explicit; this checkpoint does not claim that both node transforms
-are submitted in one render pass yet.
+first-use order. `GraphicsPushConstantBatch` now carries the resolved affine
+rows and per-draw tint, while the common render API reuses the retained vertex
+and index handles for every planned drawable in one native pass.
