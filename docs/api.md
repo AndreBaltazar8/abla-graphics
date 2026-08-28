@@ -1366,6 +1366,28 @@ generated sequential index buffer. Upload failure produces an invalid owner
 with a stable error, never a partially usable pair. `examples/gltf-live-scene`
 is the end-to-end embedded-buffer reference.
 
+For animated geometry, `gltfAccessorCache(document, payloads)` expands every
+dense/sparse accessor once into one affine `GltfAccessorCache`.
+`gltfTexturedSceneUpdateCache(document, payloads, resourcePlan)` combines that
+decoded data with one fixed 48-byte-per-vertex scratch stream and retained
+resource/index ranges. Keep this cache beside `GltfGpuTexturedScene`.
+
+`gltfAnimationPlaybackPoseCached(document, cache.accessors, animation, elapsed,
+mode)` evaluates clamped or looping STEP/LINEAR/CUBICSPLINE TRS and morph
+channels without decoding accessors again. The higher-level
+`geometry.refreshAnimationCached(document, drawList, plan, animation, elapsed,
+mode, cache)` samples and uploads one pose while preserving both GPU buffer
+handles, index contents, vertex count/layout, and every draw range.
+`refreshDeformationCached` accepts an already evaluated state directly.
+
+Pose and skin-matrix values are transient Abla region allocations. Long-running
+applications should bracket their complete update/render unit with
+`runtimeMemoryCheckpoint()` and `runtimeMemoryReset(checkpoint)`, leaving the
+application, scene, cache, pipelines, and GPU resources outside that scope.
+`examples/gltf-live-animation` is the reference: it performs 240 alternating
+updates with exact readback, real presentation, stable native handles, a
+30-updates/s minimum gate, and zero live-byte growth on OpenGL and Vulkan.
+
 Import `src/gltf_texture.ab` for image and sampled-material resources.
 `GltfDocument` stores images, samplers, and textures and validates every image
 buffer-view, texture source/sampler, and material texture reference before any

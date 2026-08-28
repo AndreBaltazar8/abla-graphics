@@ -1,8 +1,10 @@
 import "abla/io"
 import "abla/process/arguments"
+import "abla/runtime/memory"
 import "../../src/texture.ab"
 import "../../src/texture_pool.ab"
 import "../../src/render.ab"
+import "../../src/time.ab"
 import "../../src/gltf_animation.ab"
 
 fun main: int {
@@ -31,11 +33,29 @@ fun main: int {
     val resources = if (parsed.succeeded)
         gltfSceneAccessorResourcePlan(parsed.document, draws)
         else GltfSceneResourcePlan([], [], [], false, "parse")
-    val startPose = if (buffers.valid)
-        gltfAnimationPose(parsed.document, buffers, 0, 0.0)
+    var updates = if (buffers.valid)
+        gltfTexturedSceneUpdateCache(parsed.document, buffers, resources)
+        else gltfTexturedSceneUpdateCache(
+            GltfDocument(), GltfBufferPayloads([], false, "parse"),
+            GltfSceneResourcePlan([], [], [], false, "parse")
+        )
+    val startPose = if (updates.valid)
+        gltfAnimationPlaybackPoseCached(
+            parsed.document, updates.accessors, 0, 0.0,
+            gltfAnimationPlaybackClamp
+        )
         else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
-    val endPose = if (buffers.valid)
-        gltfAnimationPose(parsed.document, buffers, 0, 1.0)
+    val endPose = if (updates.valid)
+        gltfAnimationPlaybackPoseCached(
+            parsed.document, updates.accessors, 0, 1.0,
+            gltfAnimationPlaybackClamp
+        )
+        else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
+    val loopPose = if (updates.valid)
+        gltfAnimationPlaybackPoseCached(
+            parsed.document, updates.accessors, 0, 1.5,
+            gltfAnimationPlaybackLoop
+        )
         else GltfAnimationPose([], [], [], [], [], 0.0, 0.0, false, "parse")
     val geometry = app.gltfGpuTexturedScene(
         parsed.document, buffers, draws, resources,
@@ -102,7 +122,10 @@ fun main: int {
     )
     val clear = Color(0.01, 0.01, 0.015)
     var ready = app.valid() && parsed.succeeded && buffers.valid &&
-        draws.valid && resources.valid && startPose.valid && endPose.valid &&
+        draws.valid && resources.valid && updates.valid &&
+        startPose.valid && endPose.valid && loopPose.valid &&
+        loopPose.nodeWeight(0, 0) >= 0.499 &&
+        loopPose.nodeWeight(0, 0) <= 0.501 &&
         geometry.valid() && shader.valid && target.valid() &&
         targetPipeline.valid() && windowPipeline.valid() &&
         pixels.clearRgba8(0, 255, 0) &&
@@ -125,9 +148,9 @@ fun main: int {
     )
     val beforeCenter = if (ready) target.texture.rgba8(32, 32) else -1
     val beforeMoved = if (ready) target.texture.rgba8(48, 32) else -1
-    if (ready) ready = geometry.refreshDeformation(
-        parsed.document, buffers, draws, resources,
-        endPose.deformationState()
+    if (ready) ready = geometry.refreshDeformationCached(
+        parsed.document, draws, resources,
+        endPose.deformationState(), updates
     )
     var stableHandles = false
     if (ready && app.backend == graphicsBackendOpenGl)
@@ -146,9 +169,57 @@ fun main: int {
     val afterCenter = if (ready) target.texture.rgba8(32, 32) else -1
     val afterMoved = if (ready) target.texture.rgba8(48, 32) else -1
     val green = 4278255360
+    var warm = 0
+    while (ready && warm < 2) {
+        var sampleTime = 0.0
+        if ((warm & 1) != 0) sampleTime = 1.0
+        ready = geometry.refreshAnimationCached(
+            parsed.document, draws, resources, 0, sampleTime,
+            gltfAnimationPlaybackClamp, updates
+        ) && app.renderIndexedToTarget(
+            target, targetPipeline, geometry.vertices, geometry.indices,
+            geometry.indexCount, clear
+        ) && app.presentRenderIndexed(
+            windowPipeline, geometry.vertices, geometry.indices,
+            geometry.indexCount, clear
+        )
+        warm = warm + 1
+    }
+    val liveBefore = runtimeMemoryLiveBytes()
+    val playbackMemory = runtimeMemoryCheckpoint()
+    val started = graphicsMonotonicNanoseconds()
+    var frame = 0
+    while (ready && frame < 240) {
+        var sampleTime = 0.0
+        if ((frame & 1) != 0) sampleTime = 1.0
+        ready = geometry.refreshAnimationCached(
+            parsed.document, draws, resources, 0, sampleTime,
+            gltfAnimationPlaybackClamp, updates
+        ) && app.renderIndexedToTarget(
+            target, targetPipeline, geometry.vertices, geometry.indices,
+            geometry.indexCount, clear
+        ) && app.presentRenderIndexed(
+            windowPipeline, geometry.vertices, geometry.indices,
+            geometry.indexCount, clear
+        )
+        if (ready && (frame & 1) == 0)
+            ready = target.texture.rgba8(32, 32) == green &&
+                target.texture.rgba8(48, 32) != green
+        else if (ready) ready = target.texture.rgba8(32, 32) != green &&
+            target.texture.rgba8(48, 32) == green
+        frame = frame + 1
+    }
+    val elapsed = graphicsMonotonicNanoseconds() - started
+    runtimeMemoryReset(playbackMemory)
+    val liveAfter = runtimeMemoryLiveBytes()
+    var updatesPerSecond = 0
+    if (elapsed > 0) updatesPerSecond = frame * 1000000000 / elapsed
     val passed = ready && stableHandles && beforeCenter == green &&
-        beforeMoved != green && afterCenter != green && afterMoved == green
-    if (!passed) println("gltf-live-animation setup: parsed=${parsed.succeeded}:${parsed.error} buffers=${buffers.valid}:${buffers.error} draws=${draws.valid}:${draws.error} resources=${resources.valid}:${resources.error} poses=${startPose.valid}:${startPose.error}/${endPose.valid}:${endPose.error} geometry=${geometry.valid()}:${geometry.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${targetPipeline.error.message}/${windowPipeline.valid()}:${windowPipeline.error.message}")
-    println("gltf-live-animation ${graphicsBackendName(app.backend)}: pixels=$beforeCenter/$beforeMoved->$afterCenter/$afterMoved handles=$stableHandles passed=$passed")
+        beforeMoved != green && afterCenter != green && afterMoved == green &&
+        warm == 2 && frame == 240 && elapsed > 0 &&
+        updatesPerSecond >= 30 &&
+        liveAfter == liveBefore
+    if (!passed) println("gltf-live-animation setup: parsed=${parsed.succeeded}:${parsed.error} buffers=${buffers.valid}:${buffers.error} draws=${draws.valid}:${draws.error} resources=${resources.valid}:${resources.error} updates=${updates.valid}:${updates.error} poses=${startPose.valid}:${startPose.error}/${endPose.valid}:${endPose.error}/${loopPose.valid}:${loopPose.error} geometry=${geometry.valid()}:${geometry.error} shader=${shader.valid}:${shader.error} target=${target.valid()} pipelines=${targetPipeline.valid()}:${targetPipeline.error.message}/${windowPipeline.valid()}:${windowPipeline.error.message}")
+    println("gltf-live-animation ${graphicsBackendName(app.backend)}: pixels=$beforeCenter/$beforeMoved->$afterCenter/$afterMoved handles=$stableHandles frames=$frame rate=$updatesPerSecond live=${liveAfter - liveBefore} passed=$passed")
     if (passed) 0 else 1
 }

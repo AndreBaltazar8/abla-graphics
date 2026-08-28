@@ -456,8 +456,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   applies a node morph-weight override and a joint/inverse-bind palette before
   identical zero-growth OpenGL and Vulkan indexed rendering;
 - `examples/gltf-live-animation`: evaluated morph-weight and joint-translation
-  channels repack vertex contents in place while preserving the retained GPU
-  vertex/index handles and exact draw topology on OpenGL and Vulkan;
+  channels reuse one decoded-accessor/vertex-scratch cache, support clamped and
+  looping playback, and preserve GPU handles/draw topology across a 240-update
+  zero-growth OpenGL/Vulkan throughput gate;
 - `examples/gltf-material-batches`: order-preserving partitioning of arbitrary
   draw lists into bounded three-material groups, including repeated-slot reuse,
   implicit default materials, tighter policies, and capacity rejection;

@@ -1,5 +1,6 @@
 // Pure-Abla glTF 2.0 animation sampling and pose propagation.
 
+import "abla/runtime/memory"
 import "gltf_buffer.ab"
 
 class GltfAnimationPose(
@@ -33,6 +34,9 @@ class GltfAnimationKeyInterval(
     val duration: f64,
     val valid: bool
 )
+
+val gltfAnimationPlaybackClamp = 0
+val gltfAnimationPlaybackLoop = 1
 
 fun gltfAnimationSqrt(value: f64): f64 {
     if (value <= 0.0) return 0.0
@@ -267,9 +271,9 @@ trusted fun gltfAnimationSampleWeight(
     )
 }
 
-trusted fun gltfAnimationPose(
+trusted fun gltfAnimationPoseCached(
     document: GltfDocument,
-    payloads: GltfBufferPayloads,
+    cache: GltfAccessorCache,
     animationIndex: int,
     time: f64
 ): GltfAnimationPose {
@@ -281,7 +285,8 @@ trusted fun gltfAnimationPose(
     val weightOffsets: array<int> = []
     val weightCounts: array<int> = []
     val weights: array<f64> = []
-    var valid = document.valid() && payloads.valid && time >= 0.0 &&
+    var valid = document.valid() && cache.valid &&
+        cache.values.size == document.accessors.size && time >= 0.0 &&
         animationIndex >= 0 && animationIndex < document.animations.size
     var nodeIndex = 0
     while (valid && nodeIndex < document.nodes.size) {
@@ -314,8 +319,8 @@ trusted fun gltfAnimationPose(
         val sampler = animation.samplers[channel.sampler]
         val inputAccessor = document.accessors[sampler.input]
         val outputAccessor = document.accessors[sampler.output]
-        val input = gltfAccessorBytes(document, payloads, sampler.input)
-        val output = gltfAccessorBytes(document, payloads, sampler.output)
+        val input = cache.values[sampler.input]
+        val output = cache.values[sampler.output]
         val interval = gltfAnimationKeyInterval(input, inputAccessor, time)
         valid = input.valid() && output.valid() && interval.valid
         if (valid) {
@@ -432,4 +437,121 @@ trusted fun gltfAnimationPose(
         weights, time, duration, valid,
         if (valid) "" else "invalid glTF animation payload or pose"
     )
+}
+
+trusted fun gltfAnimationPose(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    animationIndex: int,
+    time: f64
+): GltfAnimationPose {
+    val cache = gltfAccessorCache(document, payloads)
+    gltfAnimationPoseCached(document, cache, animationIndex, time)
+}
+
+trusted fun gltfAnimationDurationCached(
+    document: GltfDocument,
+    cache: GltfAccessorCache,
+    animationIndex: int
+): f64 {
+    var duration = -1.0
+    var valid = document.valid() && cache.valid &&
+        cache.values.size == document.accessors.size &&
+        animationIndex >= 0 && animationIndex < document.animations.size
+    val animation = if (valid) document.animations[animationIndex]
+        else GltfAnimation()
+    var samplerIndex = 0
+    while (valid && samplerIndex < animation.samplers.size) {
+        val sampler = animation.samplers[samplerIndex]
+        val accessor = document.accessors[sampler.input]
+        val input = cache.values[sampler.input]
+        valid = input.valid() && accessor.count > 0
+        if (valid) {
+            val last = input.loadF32((accessor.count - 1) * 4)
+            if (last > duration) duration = last
+        }
+        samplerIndex = samplerIndex + 1
+    }
+    if (!valid) duration = -1.0
+    duration
+}
+
+// Binary-scaled subtraction provides bounded looping without depending on a
+// host math library or iterating once per elapsed animation cycle.
+fun gltfAnimationLoopTime(elapsed: f64, duration: f64): f64 {
+    if (elapsed < 0.0 || duration <= 0.0) return -1.0
+    var sampled = elapsed
+    var interval = duration
+    while (interval <= sampled * 0.5 && interval <= 500000000000.0)
+        interval = interval * 2.0
+    while (interval >= duration) {
+        if (sampled >= interval) sampled = sampled - interval
+        interval = interval * 0.5
+    }
+    if (sampled >= duration) sampled = sampled - duration
+    sampled
+}
+
+trusted fun gltfAnimationPlaybackPoseCached(
+    document: GltfDocument,
+    cache: GltfAccessorCache,
+    animationIndex: int,
+    elapsed: f64,
+    playback: int = gltfAnimationPlaybackLoop
+): GltfAnimationPose {
+    val duration = gltfAnimationDurationCached(
+        document, cache, animationIndex
+    )
+    var sampled = elapsed
+    var valid = duration >= 0.0 && elapsed >= 0.0 &&
+        elapsed <= 1000000000000.0 &&
+        (playback == gltfAnimationPlaybackClamp ||
+         playback == gltfAnimationPlaybackLoop)
+    if (valid && playback == gltfAnimationPlaybackLoop)
+        sampled = gltfAnimationLoopTime(elapsed, duration)
+    if (!valid || sampled < 0.0) return GltfAnimationPose(
+        [], [], [], [], [], elapsed, duration, false,
+        "invalid glTF animation playback request"
+    )
+    gltfAnimationPoseCached(document, cache, animationIndex, sampled)
+}
+
+trusted fun gltfRefreshAnimationCachedTransient(
+    var geometry: GltfGpuTexturedScene,
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    animationIndex: int,
+    elapsed: f64,
+    playback: int,
+    var cache: GltfTexturedSceneUpdateCache
+): bool {
+    val pose = gltfAnimationPlaybackPoseCached(
+        document, cache.accessors, animationIndex, elapsed, playback
+    )
+    pose.valid && geometry.refreshDeformationCached(
+        document, drawList, plan, pose.deformationState(), cache
+    )
+}
+
+// Sampling creates short-lived pose values. The outer function checkpoints
+// before entering the allocation-bearing inner frame, then releases that
+// entire frame after the synchronous upload. Retained cache/GPU objects predate
+// the checkpoint and remain untouched.
+trusted fun GltfGpuTexturedScene.refreshAnimationCached(
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    animationIndex: int,
+    elapsed: f64,
+    playback: int,
+    var cache: GltfTexturedSceneUpdateCache
+): bool {
+    val checkpoint = runtimeMemoryCheckpoint()
+    val refreshed = gltfRefreshAnimationCachedTransient(
+        this, document, drawList, plan, animationIndex, elapsed,
+        playback, cache
+    )
+    runtimeMemoryReset(checkpoint)
+    refreshed
 }

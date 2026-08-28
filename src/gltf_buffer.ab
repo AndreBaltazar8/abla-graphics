@@ -11,6 +11,15 @@ class GltfBufferPayloads(
     val error: string
 )
 
+// Dense accessor decoding is setup work. Keeping every validated accessor in
+// one affine cache lets animation and deformation reuse sparse expansion,
+// stride removal, and normalized source bytes across every frame.
+resource class GltfAccessorCache(
+    var values: array<BufferBytes>,
+    val valid: bool,
+    val error: string
+)
+
 resource class GltfGpuPrimitive(
     val vertices: GraphicsBuffer,
     val indices: GraphicsBuffer,
@@ -94,6 +103,19 @@ resource class GltfPackedTexturedScene(
         return
     }
 }
+
+// Reusable CPU-side data for animated retained geometry. Accessors are decoded
+// once and the fixed-size vertex stream is overwritten on every sampled pose.
+resource class GltfTexturedSceneUpdateCache(
+    val accessors: GltfAccessorCache,
+    val vertices: BufferBytes,
+    val vertexBases: array<int>,
+    val resourceIndexCounts: array<int>,
+    val resourceIndexOffsets: array<int>,
+    val vertexCount: int,
+    val valid: bool,
+    val error: string
+)
 
 fun gltfDataUriPayload(uri: string): string {
     val prefix = "data:application/octet-stream;base64,"
@@ -296,6 +318,76 @@ trusted fun gltfAccessorBytes(
     if (valid) output else bufferBytes(0)
 }
 
+trusted fun gltfAccessorCache(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads
+): GltfAccessorCache {
+    val values: array<BufferBytes> = []
+    var valid = document.valid() && payloads.valid &&
+        document.accessors.size > 0
+    var accessor = 0
+    while (valid && accessor < document.accessors.size) {
+        val bytes = gltfAccessorBytes(document, payloads, accessor)
+        valid = bytes.valid()
+        values.append(move(bytes))
+        accessor = accessor + 1
+    }
+    GltfAccessorCache(
+        move(values), valid,
+        if (valid) "" else "glTF accessor cache decoding failed"
+    )
+}
+
+trusted fun gltfTexturedSceneUpdateCache(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    plan: GltfSceneResourcePlan
+): GltfTexturedSceneUpdateCache {
+    val accessors = gltfAccessorCache(document, payloads)
+    val vertexBases: array<int> = []
+    val resourceIndexCounts: array<int> = []
+    val resourceIndexOffsets: array<int> = []
+    var vertexCount = 0
+    var indexCount = 0
+    var valid = accessors.valid && plan.valid &&
+        plan.meshIndices.size == plan.primitiveIndices.size &&
+        plan.meshIndices.size == plan.resourceNodes.size &&
+        plan.meshIndices.size > 0
+    var resourceIndex = 0
+    while (valid && resourceIndex < plan.meshIndices.size) {
+        val mesh = plan.meshIndices[resourceIndex]
+        val primitiveIndex = plan.primitiveIndices[resourceIndex]
+        valid = mesh >= 0 && mesh < document.meshes.size &&
+            primitiveIndex >= 0 &&
+            primitiveIndex < document.meshes[mesh].primitives.size
+        if (valid) {
+            val primitive = document.meshes[mesh].primitives[primitiveIndex]
+            val positions = document.accessors[primitive.position]
+            val indices = if (primitive.indices >= 0)
+                document.accessors[primitive.indices].count
+                else positions.count
+            valid = positions.count > 0 && indices > 0 &&
+                positions.count <= 16777216 - vertexCount &&
+                indices <= 16777216 - indexCount
+            if (valid) {
+                vertexBases.append(vertexCount)
+                resourceIndexCounts.append(indices)
+                resourceIndexOffsets.append(indexCount * 4)
+                vertexCount = vertexCount + positions.count
+                indexCount = indexCount + indices
+            }
+        }
+        resourceIndex = resourceIndex + 1
+    }
+    val vertices = bufferBytes(if (valid) vertexCount * 48 else 0)
+    valid = valid && vertices.valid()
+    GltfTexturedSceneUpdateCache(
+        move(accessors), move(vertices), vertexBases,
+        resourceIndexCounts, resourceIndexOffsets, vertexCount, valid,
+        if (valid) "" else "glTF animated scene cache creation failed"
+    )
+}
+
 trusted fun gltfAccessorComponentF64(
     bytes: BufferBytes,
     accessor: GltfAccessor,
@@ -364,13 +456,15 @@ trusted fun gltfAddWeightedVec3(
     valid
 }
 
-trusted fun gltfBakeSkin(
+trusted fun gltfBakeSkinDecoded(
     document: GltfDocument,
-    payloads: GltfBufferPayloads,
     drawList: GltfSceneDrawList,
     state: GltfDeformationState,
     nodeIndex: int,
     primitive: GltfPrimitive,
+    inverseBindBytes: BufferBytes,
+    jointBytes: BufferBytes,
+    weightBytes: BufferBytes,
     var vertices: BufferBytes,
     vertexBase: int,
     vertexCount: int
@@ -381,9 +475,6 @@ trusted fun gltfBakeSkin(
     var meshWorld = drawList.nodeWorldTransforms[nodeIndex]
     if (state.valid) meshWorld = state.worldTransforms[nodeIndex]
     val inverseMesh = mat4AffineInverse(meshWorld)
-    val inverseBindBytes = if (skin.inverseBindMatrices >= 0)
-        gltfAccessorBytes(document, payloads, skin.inverseBindMatrices)
-        else bufferBytes(0)
     val matrices: array<Mat4> = []
     var valid = vertices.valid() && inverseMesh.valid &&
         primitive.joints0 >= 0 && primitive.weights0 >= 0 &&
@@ -409,8 +500,6 @@ trusted fun gltfBakeSkin(
     }
     val jointAccessor = document.accessors[primitive.joints0]
     val weightAccessor = document.accessors[primitive.weights0]
-    val jointBytes = gltfAccessorBytes(document, payloads, primitive.joints0)
-    val weightBytes = gltfAccessorBytes(document, payloads, primitive.weights0)
     valid = valid && jointBytes.valid() && weightBytes.valid() &&
         jointAccessor.count == vertexCount && weightAccessor.count == vertexCount
     var vertex = 0
@@ -490,6 +579,55 @@ trusted fun gltfBakeSkin(
         vertex = vertex + 1
     }
     valid
+}
+
+trusted fun gltfBakeSkin(
+    document: GltfDocument,
+    payloads: GltfBufferPayloads,
+    drawList: GltfSceneDrawList,
+    state: GltfDeformationState,
+    nodeIndex: int,
+    primitive: GltfPrimitive,
+    var vertices: BufferBytes,
+    vertexBase: int,
+    vertexCount: int
+): bool {
+    val node = document.nodes[nodeIndex]
+    if (node.skin < 0) return true
+    val skin = document.skins[node.skin]
+    val inverseBindBytes = if (skin.inverseBindMatrices >= 0)
+        gltfAccessorBytes(document, payloads, skin.inverseBindMatrices)
+        else bufferBytes(0)
+    val jointBytes = gltfAccessorBytes(document, payloads, primitive.joints0)
+    val weightBytes = gltfAccessorBytes(document, payloads, primitive.weights0)
+    gltfBakeSkinDecoded(
+        document, drawList, state, nodeIndex, primitive,
+        inverseBindBytes, jointBytes, weightBytes,
+        vertices, vertexBase, vertexCount
+    )
+}
+
+trusted fun gltfBakeSkinCached(
+    document: GltfDocument,
+    cache: GltfAccessorCache,
+    drawList: GltfSceneDrawList,
+    state: GltfDeformationState,
+    nodeIndex: int,
+    primitive: GltfPrimitive,
+    var vertices: BufferBytes,
+    vertexBase: int,
+    vertexCount: int
+): bool {
+    val node = document.nodes[nodeIndex]
+    if (node.skin < 0) return true
+    val skin = document.skins[node.skin]
+    val inverseBindIndex = if (skin.inverseBindMatrices >= 0)
+        skin.inverseBindMatrices else primitive.joints0
+    gltfBakeSkinDecoded(
+        document, drawList, state, nodeIndex, primitive,
+        cache.values[inverseBindIndex], cache.values[primitive.joints0],
+        cache.values[primitive.weights0], vertices, vertexBase, vertexCount
+    )
 }
 
 trusted fun GraphicsApplication.gltfGpuPrimitive(
@@ -983,4 +1121,179 @@ trusted fun GltfGpuTexturedScene.refreshDeformation(
         draw = draw + 1
     }
     valid && this.vertices.writeAllBytes(packed.vertices)
+}
+
+trusted fun gltfRepackTexturedSceneVerticesCached(
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    state: GltfDeformationState,
+    var cache: GltfTexturedSceneUpdateCache
+): bool {
+    var valid = document.valid() && drawList.valid && plan.valid &&
+        state.valid && state.compatible(document.nodes.size) && cache.valid &&
+        cache.accessors.values.size == document.accessors.size &&
+        cache.vertexBases.size == plan.meshIndices.size &&
+        cache.resourceIndexCounts.size == plan.meshIndices.size &&
+        cache.resourceIndexOffsets.size == plan.meshIndices.size &&
+        cache.vertices.size == cache.vertexCount * 48 &&
+        plan.meshIndices.size == plan.primitiveIndices.size &&
+        plan.meshIndices.size == plan.resourceNodes.size &&
+        plan.drawableResources.size == drawList.drawables.size
+    var drawable = 0
+    while (valid && drawable < drawList.drawables.size) {
+        val resourceIndex = plan.drawableResources[drawable]
+        valid = resourceIndex >= 0 &&
+            resourceIndex < plan.resourceNodes.size
+        if (valid) {
+            val draw = drawList.drawables[drawable]
+            val primitive = document.meshes[draw.mesh].primitives[draw.primitive]
+            valid = ((primitive.targets.size == 0 &&
+                document.nodes[draw.node].skin < 0) ||
+                plan.resourceNodes[resourceIndex] == draw.node) &&
+                (primitive.targets.size == 0 ||
+                 state.nodeWeightCounts[draw.node] == primitive.targets.size)
+        }
+        drawable = drawable + 1
+    }
+    var resourceIndex = 0
+    while (valid && resourceIndex < plan.meshIndices.size) {
+        val primitive = document.meshes[
+            plan.meshIndices[resourceIndex]
+        ].primitives[
+            plan.primitiveIndices[resourceIndex]
+        ]
+        val position = document.accessors[primitive.position]
+        val coordinateIndex = if (primitive.texCoord0 >= 0 &&
+            primitive.texCoord0 < document.accessors.size)
+            primitive.texCoord0 else primitive.position
+        val coordinateAccessor = document.accessors[coordinateIndex]
+        val positions = cache.accessors.values[primitive.position]
+        val coordinates = cache.accessors.values[coordinateIndex]
+        val vertexBase = cache.vertexBases[resourceIndex]
+        valid = primitive.texCoord0 >= 0 &&
+            position.componentType == gltfComponentF32 &&
+            position.elementType == "VEC3" && !position.normalized &&
+            gltfTextureCoordinateAccessorSupported(coordinateAccessor) &&
+            coordinateAccessor.count == position.count &&
+            positions.valid() && coordinates.valid() &&
+            vertexBase >= 0 && vertexBase <= cache.vertexCount &&
+            position.count <= cache.vertexCount - vertexBase
+        if (valid && primitive.normal >= 0) {
+            val normalAccessor = document.accessors[primitive.normal]
+            valid = normalAccessor.componentType == gltfComponentF32 &&
+                normalAccessor.elementType == "VEC3" &&
+                !normalAccessor.normalized &&
+                normalAccessor.count == position.count &&
+                cache.accessors.values[primitive.normal].valid()
+        }
+        if (valid && primitive.tangent >= 0) {
+            val tangentAccessor = document.accessors[primitive.tangent]
+            valid = tangentAccessor.componentType == gltfComponentF32 &&
+                tangentAccessor.elementType == "VEC4" &&
+                !tangentAccessor.normalized &&
+                tangentAccessor.count == position.count &&
+                cache.accessors.values[primitive.tangent].valid()
+        }
+        var vertex = 0
+        while (valid && vertex < position.count) {
+            val destinationOffset = (vertexBase + vertex) * 48
+            var byteIndex = 0
+            while (valid && byteIndex < 12) {
+                valid = cache.vertices.store(
+                    destinationOffset + byteIndex,
+                    positions.load(vertex * 12 + byteIndex)
+                )
+                byteIndex = byteIndex + 1
+            }
+            if (valid) valid = gltfStoreAccessorElementF32(
+                cache.vertices, destinationOffset + 12,
+                coordinates, coordinateAccessor, vertex, 2
+            )
+            if (valid && primitive.normal >= 0)
+                valid = gltfStoreAccessorElementF32(
+                    cache.vertices, destinationOffset + 20,
+                    cache.accessors.values[primitive.normal],
+                    document.accessors[primitive.normal], vertex, 3
+                )
+            else if (valid) valid = gltfStoreDefaultSurfaceDirection(
+                cache.vertices, destinationOffset + 20, false
+            )
+            if (valid && primitive.tangent >= 0)
+                valid = gltfStoreAccessorElementF32(
+                    cache.vertices, destinationOffset + 32,
+                    cache.accessors.values[primitive.tangent],
+                    document.accessors[primitive.tangent], vertex, 4
+                )
+            else if (valid) valid = gltfStoreDefaultSurfaceDirection(
+                cache.vertices, destinationOffset + 32, true
+            )
+            vertex = vertex + 1
+        }
+        val nodeIndex = plan.resourceNodes[resourceIndex]
+        var targetIndex = 0
+        while (valid && targetIndex < primitive.targets.size) {
+            val target = primitive.targets[targetIndex]
+            val weight = state.weights[
+                state.nodeWeightOffsets[nodeIndex] + targetIndex
+            ]
+            if (weight != 0.0 && target.position >= 0)
+                valid = gltfAddWeightedVec3(
+                    cache.vertices, vertexBase, position.count, 0,
+                    cache.accessors.values[target.position],
+                    document.accessors[target.position], weight
+                )
+            if (valid && weight != 0.0 && target.normal >= 0)
+                valid = gltfAddWeightedVec3(
+                    cache.vertices, vertexBase, position.count, 20,
+                    cache.accessors.values[target.normal],
+                    document.accessors[target.normal], weight
+                )
+            if (valid && weight != 0.0 && target.tangent >= 0)
+                valid = gltfAddWeightedVec3(
+                    cache.vertices, vertexBase, position.count, 32,
+                    cache.accessors.values[target.tangent],
+                    document.accessors[target.tangent], weight
+                )
+            targetIndex = targetIndex + 1
+        }
+        if (valid) valid = gltfBakeSkinCached(
+            document, cache.accessors, drawList, state, nodeIndex, primitive,
+            cache.vertices, vertexBase, position.count
+        )
+        resourceIndex = resourceIndex + 1
+    }
+    valid
+}
+
+// Cached animation refresh performs no accessor decoding, index repacking, or
+// vertex-scratch allocation. The caller retains one cache beside the scene.
+trusted fun GltfGpuTexturedScene.refreshDeformationCached(
+    document: GltfDocument,
+    drawList: GltfSceneDrawList,
+    plan: GltfSceneResourcePlan,
+    state: GltfDeformationState,
+    var cache: GltfTexturedSceneUpdateCache
+): bool {
+    var valid = this.valid() && cache.valid && state.valid &&
+        cache.vertexCount == this.vertexCount &&
+        this.layout.stride == 48 &&
+        plan.drawableResources.size == this.drawIndexCounts.size &&
+        cache.resourceIndexCounts.size == plan.meshIndices.size &&
+        cache.resourceIndexOffsets.size == plan.meshIndices.size
+    var draw = 0
+    while (valid && draw < this.drawIndexCounts.size) {
+        val resourceIndex = plan.drawableResources[draw]
+        valid = resourceIndex >= 0 &&
+            resourceIndex < cache.resourceIndexCounts.size &&
+            this.drawIndexCounts[draw] ==
+                cache.resourceIndexCounts[resourceIndex] &&
+            this.drawIndexOffsets[draw] ==
+                cache.resourceIndexOffsets[resourceIndex]
+        draw = draw + 1
+    }
+    if (valid) valid = gltfRepackTexturedSceneVerticesCached(
+        document, drawList, plan, state, cache
+    )
+    valid && this.vertices.writeAllBytes(cache.vertices)
 }

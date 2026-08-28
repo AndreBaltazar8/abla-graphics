@@ -2322,3 +2322,18 @@ The live fixture uses two genuinely distinct position accessors and material
 textures. OpenGL, Vulkan, and automatic selection report
 `resources=2 vertices=6 indices=6 ranges=0:3/12:3`, exact pixels
 `4278255360/4294901760`, four stable frames, and `live=0`.
+
+### Cached retained glTF animation playback
+
+Typed glTF animation samplers/channels now evaluate translation, rotation,
+scale, and morph weights through STEP, quaternion LINEAR, and CUBICSPLINE
+interpolation. Playback supports explicit clamp and loop modes, including
+bounded pure-Abla loop-time reduction.
+
+`GltfAccessorCache` performs dense/sparse accessor expansion once.
+`GltfTexturedSceneUpdateCache` retains those bytes, fixed vertex scratch, and
+topology metadata; cached refresh rewrites vertices only, never indices,
+handles, layouts, or draw ranges. The live animation proof alternates morph and
+joint poses for 240 update/render/readback/present cycles. OpenGL reports over
+1,400 updates/s and Vulkan over 300 updates/s under the Xvfb software proof,
+with exact pixels, stable handles, and `live=0` after the playback arena reset.

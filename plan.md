@@ -286,8 +286,12 @@ groups without reordering and feed tables/selectors directly. Multi-pipeline
 target submission now composes retained groups with one clear followed by load
 passes, including a one-draw tail. Window presentation now records compatible
 retained groups into one swap/present operation and rebuilds the entire Vulkan
-sequence on resize. Skinning/morph targets, extended PBR material models, and
-JPEG decoding remain open.
+sequence on resize. Static and animated morph/skin deformation now use typed
+STEP/LINEAR/CUBICSPLINE poses; the cached path decodes accessors once, reuses
+fixed vertex scratch, preserves retained GPU topology, and proves 240 clamped/
+looping updates with zero playback-arena growth on both backends. Shader-side
+deformation, clip blending, extended PBR material models, and JPEG decoding
+remain open.
 
 ## Non-negotiable design rules
 

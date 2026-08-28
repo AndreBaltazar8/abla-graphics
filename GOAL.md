@@ -3585,9 +3585,9 @@ in-range joints, consistent target counts across a mesh, and complete
 maps every drawable to its skin, and retains flattened morph accessor/weight
 ranges with node weights overriding mesh defaults. The independent
 `examples/gltf-deformation-plan` proof also rejects duplicate joints, inverse
-bind count mismatches, and invalid target shapes. GPU palette upload, shader
-deformation, and a cached allocation-free animation player remain open; later
-checkpoints below complete static and CPU-refreshed live deformation.
+bind count mismatches, and invalid target shapes. GPU palette upload and
+shader-side deformation remain open; later checkpoints below complete static,
+CPU-refreshed, and cached live deformation.
 
 The pure metadata samples no longer request Vulkan/X11/EGL/GL at link time.
 For live programs, the pinned graphics shell injects the concrete Vulkan,
@@ -3641,10 +3641,26 @@ buffer.
 translation channel, renders the initial pose, refreshes the same retained
 scene to the final pose, and verifies exact before/after pixels plus identical
 native vertex/index handles. Explicit OpenGL and Vulkan pass with
-`LD_LIBRARY_PATH` removed. This first correct refresh uses temporary CPU packing
-storage; cached decoded accessors, reusable scratch storage, shader-side
-skinning/morphing, animation playback controls, and performance measurement on
-larger animated assets remain open optimization work.
+`LD_LIBRARY_PATH` removed.
+
+## Latest checkpoint: cached glTF animation playback
+
+`GltfAccessorCache` now expands every dense/sparse accessor once, while
+`GltfTexturedSceneUpdateCache` retains one fixed vertex scratch stream plus the
+resource/index topology. `refreshDeformationCached(...)` rewrites only that
+scratch and uploads it into the existing vertex buffer: there is no accessor
+redecoding, index repacking, scratch allocation, handle replacement, layout
+change, or draw-range change per pose.
+
+Clamp and loop playback are explicit. `refreshAnimationCached(...)` scopes its
+pose work beneath a memory checkpoint, and the complete application frame may
+use the normal Abla checkpoint/reset arena so caller-owned temporary result
+slots are reclaimed together. The live sample alternates morph and joint poses
+across 240 update/render/readback/present cycles. The consolidated Xvfb gate
+reports about 1,658 updates/s on OpenGL and 338 updates/s on Vulkan, exact pixels,
+stable vertex/index handles, and `live=0`; the enforced portable floor is 30
+updates/s. Shader-side skinning/morphing, blending between animation clips,
+and performance measurement on larger real assets remain open.
 
 Validated with:
 
