@@ -2188,3 +2188,15 @@ an embedded indexed-triangle document, decodes and uploads its accessors, draws
 to a readable target, and presents the same buffers. OpenGL, Vulkan, and auto
 all produced exact pixel `1028`, four stable measured frames, and `live=0` with
 `LD_LIBRARY_PATH` removed; automatic selection chose Vulkan.
+
+### glTF world traversal
+
+`gltfSceneDrawList` now converts a validated scene hierarchy into a bounded,
+deterministically ordered list of primitive drawables and camera instances.
+Parent-to-child `Mat4` multiplication resolves world transforms once during
+traversal. Each drawable preserves node, mesh, primitive, and material indices;
+each camera preserves its node and camera indices. The traversal uses bounded
+preallocated-by-growth arrays rather than recursion and rejects duplicate
+roots, a root repeated through an ancestor, repeated visits, and drawable or
+camera capacity exhaustion. The scene sample proves translation-plus-scale
+composition and deliberate root/descendant overlap rejection.

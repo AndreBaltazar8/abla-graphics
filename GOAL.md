@@ -35,6 +35,11 @@ exact output and zero warmed growth. Continue with full node traversal,
 world-transform propagation, multi-primitive/material scene submission, and
 texture/image acquisition; one live primitive is not yet a full glTF renderer.
 
+World traversal now emits bounded ordered drawable and camera instances with
+resolved parent/child transforms and rejects overlapping roots or repeated
+visits. Continue by materializing the whole draw list, reusing shared accessor
+buffers across primitives, and binding parsed materials and images per draw.
+
 ## Mission
 
 Build and publish `AndreBaltazar8/abla-graphics` as the native graphics and

@@ -270,7 +270,107 @@ class GltfDocumentParseResult(
     val error: string
 )
 
+class GltfSceneDrawable(
+    val node: int,
+    val mesh: int,
+    val primitive: int,
+    val material: int,
+    val worldTransform: Mat4
+)
+
+class GltfSceneCameraInstance(
+    val node: int,
+    val camera: int,
+    val worldTransform: Mat4
+)
+
+class GltfSceneDrawList(
+    val drawables: array<GltfSceneDrawable>,
+    val cameras: array<GltfSceneCameraInstance>,
+    val valid: bool,
+    val error: string
+)
+
 fun gltfEmptyDocument(): GltfDocument = GltfDocument()
+
+fun gltfSceneDrawList(
+    document: GltfDocument,
+    sceneIndex: int = -1,
+    maximumDrawables: int = 65536
+): GltfSceneDrawList {
+    val drawables: array<GltfSceneDrawable> = []
+    val cameras: array<GltfSceneCameraInstance> = []
+    val selected = if (sceneIndex >= 0) sceneIndex else document.defaultScene
+    var valid = document.valid() && selected >= 0 &&
+        selected < document.scenes.size && maximumDrawables > 0 &&
+        maximumDrawables <= 1048576
+    val queuedNodes: array<int> = []
+    val queuedParents: array<Mat4> = []
+    val visited: array<bool> = []
+    var index = 0
+    while (index < document.nodes.size) {
+        visited.append(false)
+        index = index + 1
+    }
+    if (valid) {
+        index = 0
+        while (valid && index < document.scenes[selected].nodes.size) {
+            val root = document.scenes[selected].nodes[index]
+            valid = !visited[root]
+            if (valid) {
+                queuedNodes.append(root)
+                queuedParents.append(mat4Identity())
+                visited[root] = true
+            }
+            index = index + 1
+        }
+    }
+    var queueIndex = 0
+    while (valid && queueIndex < queuedNodes.size) {
+        val nodeIndex = queuedNodes[queueIndex]
+        val node = document.nodes[nodeIndex]
+        val world = queuedParents[queueIndex].multiplied(node.transform)
+        if (node.mesh >= 0) {
+            val mesh = document.meshes[node.mesh]
+            var primitiveIndex = 0
+            while (valid && primitiveIndex < mesh.primitives.size) {
+                valid = drawables.size < maximumDrawables
+                if (valid) drawables.append(GltfSceneDrawable(
+                    nodeIndex,
+                    node.mesh,
+                    primitiveIndex,
+                    mesh.primitives[primitiveIndex].material,
+                    world
+                ))
+                primitiveIndex = primitiveIndex + 1
+            }
+        }
+        if (valid && node.camera >= 0) {
+            valid = cameras.size < 65536
+            if (valid) cameras.append(GltfSceneCameraInstance(
+                nodeIndex, node.camera, world
+            ))
+        }
+        var childIndex = 0
+        while (valid && childIndex < node.children.size) {
+            val child = node.children[childIndex]
+            valid = !visited[child]
+            if (valid) {
+                queuedNodes.append(child)
+                queuedParents.append(world)
+                visited[child] = true
+            }
+            childIndex = childIndex + 1
+        }
+        queueIndex = queueIndex + 1
+    }
+    GltfSceneDrawList(
+        drawables,
+        cameras,
+        valid,
+        if (valid) "" else "invalid or over-capacity glTF scene traversal"
+    )
+}
 
 fun gltfOptionalInt(object: Json, key: string, fallback: int): int =
     if (!object.has(key)) fallback

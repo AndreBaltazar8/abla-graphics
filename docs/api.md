@@ -1335,6 +1335,15 @@ component/type combinations, and configured document limits.
 rejection. Binary buffer acquisition and GPU resource materialization remain a
 separate layer.
 
+`gltfSceneDrawList(document, sceneIndex, maximumDrawables)` traverses one
+selected scene breadth-first without recursion. It composes each node's local
+matrix after its parent world matrix and emits one `GltfSceneDrawable` for
+every mesh primitive plus one `GltfSceneCameraInstance` for every camera node.
+Each entry retains its source node and resource indices alongside the resolved
+world transform. The caller controls a hard drawable bound; duplicate roots,
+root/descendant overlap, repeated visits, and capacity exhaustion fail the
+whole result rather than silently omitting instances.
+
 Import `src/gltf_buffer.ab` to connect metadata to bytes and retained GPU
 resources. `gltfBufferPayloads(document, supplied)` accepts caller-provided
 external or GLB payloads by buffer index and falls back to bounded base64 data
