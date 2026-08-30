@@ -1,0 +1,52 @@
+import "abla/fs"
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/graphics.ab"
+
+fun headlessPpmPixel(color: int): string =
+    "${color & 255} ${(color >>> 8) & 255} ${(color >>> 16) & 255}"
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val output = if (processArgumentCount() > 1)
+        processArgument(1) else "headless-image.ppm"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsHeadlessApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        16,
+        16
+    )
+    val colors = [
+        app.solidRgba8(255, 0, 0),
+        app.solidRgba8(0, 255, 0),
+        app.solidRgba8(0, 0, 255),
+        app.solidRgba8(255, 255, 255)
+    ]
+    var valid = app.valid() && colors[0] == 4278190335 &&
+        colors[1] == 4278255360 && colors[2] == 4294901760 &&
+        colors[3] == 4294967295 && app.solidRgba8(-1, 0, 0) == -1
+    var ppm = "P3\n16 16\n255\n"
+    var y = 0
+    while (valid && y < 16) {
+        var x = 0
+        while (x < 16) {
+            val quadrant = (if (y < 8) 0 else 2) +
+                (if (x < 8) 0 else 1)
+            ppm = "$ppm${headlessPpmPixel(colors[quadrant])}"
+            if (x + 1 < 16) ppm = "$ppm "
+            x = x + 1
+        }
+        ppm = "$ppm\n"
+        y = y + 1
+    }
+    val path = Path(output)
+    valid = valid && y == 16 && path.writeText(ppm) &&
+        path.readText() == ppm
+    println(
+        "Headless image ${graphicsBackendName(app.backend)}: output=$output size=${ppm.size} colors=${colors[0]}/${colors[1]}/${colors[2]}/${colors[3]} exact=$valid display=false"
+    )
+    if (valid) 0 else 1
+}

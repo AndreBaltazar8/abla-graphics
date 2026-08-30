@@ -36,6 +36,34 @@ resource class GraphicsHeadlessApplication(
         succeeded
     }
 
+    trusted fun solidRgba8(
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): int {
+        var result = -1
+        val validColor = red >= 0 && red <= 255 &&
+            green >= 0 && green <= 255 && blue >= 0 && blue <= 255 &&
+            alpha >= 0 && alpha <= 255
+        if (this.valid() && validColor &&
+            this.backend == graphicsBackendOpenGl) {
+            result = this.openGl.clearAndReadRgba8(
+                red, green, blue, alpha
+            )
+        } else if (this.valid() && validColor &&
+            this.backend == graphicsBackendVulkan) {
+            val packed = red + green * 256 + blue * 65536 +
+                alpha * 16777216
+            val buffer = this.vulkanDevice.buffer(8)
+            if (buffer.valid() && this.vulkanDevice.fillBuffer(
+                buffer,
+                BufferFillDescriptor(packed)
+            ) && (buffer.readI64() & 4294967295) == packed) result = packed
+        }
+        result
+    }
+
     trusted fun drop(): void {
         this.vulkanDevice.drop()
         this.vulkanInstance.drop()

@@ -4350,3 +4350,30 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make t
 Continue with the next missing milestone-7 sample and later add RandR output
 enumeration without weakening this core-screen contract. Keep the persistent
 framework goal active.
+
+## Latest checkpoint: deterministic headless image generation
+
+Milestone-7 sample 12 is now explicit. `examples/headless-image` asks the
+selected backend for four exact GPU-derived RGBA8 colors and arranges them into
+a deterministic 16x16 quadrant PPM. OpenGL clears and reads a surfaceless
+pbuffer pixel; Vulkan fills and reads device-owned storage. Invalid channels
+are rejected, both explicit backends produce byte-identical output, and the
+golden SHA-256 is pinned in the focused gate.
+
+The sample manifest declares its complete installed loader boundary, so the
+freshly built executable has no unresolved `ldd` entries and launches directly
+with `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`, and `LD_LIBRARY_PATH`
+removed. Vulkan remains validation-clean. The independently buildable matrix
+now contains 75 roots; the last complete matrix run remains the earlier
+54-root checkpoint, so the newer roots are still queued for the next periodic
+matrix run.
+
+Validated with:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-headless-image'
+```
+
+Continue with another high-value missing milestone-7 application or a broad
+specification family batch, using one focused boundary gate per slice. Keep the
+persistent framework goal active.

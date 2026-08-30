@@ -2,7 +2,7 @@ PROJECT_DIR := $(abspath .)
 export ABLA_MAX_MEMORY_MB ?= 4096
 
 .PHONY: all test test-core test-x11 test-wayland test-headless test-vulkan test-opengl \
-	test-vulkan-window test-opengl-window test-glsl test-raw-commands test-raw-feature-labs test-gpu-profiler test-multi-window test-samples test-toolchain \
+	test-vulkan-window test-opengl-window test-glsl test-raw-commands test-raw-feature-labs test-gpu-profiler test-multi-window test-headless-image test-samples test-toolchain \
 	test-application test-transfer test-texture-transfer test-wider-texture-transfer test-debug test-registry update-registry \
 	test-texture-contract test-wider-texture test-wider-sampling test-shadow-mapping test-hdr-pbr test-gltf-material test-gltf-material-batches test-gltf-scene test-gltf-deformation-plan test-gltf-animation test-gltf-texture test-gltf-live-scene test-gltf-live-deformation test-gltf-live-animation test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage check-abla-only clean
 
@@ -12,7 +12,7 @@ check-abla-only:
 	./tools/check-abla-only.sh
 
 test: test-core test-texture-contract test-wider-texture test-wider-sampling test-shadow-mapping test-hdr-pbr test-gltf-material test-gltf-material-batches test-gltf-scene test-gltf-deformation-plan test-gltf-animation test-gltf-texture test-gltf-live-scene test-gltf-live-deformation test-gltf-live-animation test-x11 test-wayland test-headless test-vulkan test-vulkan-window test-opengl \
-	test-opengl-window test-glsl test-application test-transfer test-texture-transfer test-wider-texture-transfer test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage test-debug test-registry test-raw-feature-labs test-gpu-profiler test-multi-window
+	test-opengl-window test-glsl test-application test-transfer test-texture-transfer test-wider-texture-transfer test-pool test-texture-pool test-graph-texture test-graph-execute test-graph-commands test-runtime-linkage test-debug test-registry test-raw-feature-labs test-gpu-profiler test-multi-window test-headless-image
 
 test-core:
 	./tools/test-core.sh
@@ -130,6 +130,9 @@ test-gpu-profiler:
 
 test-multi-window:
 	./tools/test-multi-window.sh
+
+test-headless-image:
+	./tools/test-headless-image.sh
 
 update-registry:
 	./tools/update-registry.sh

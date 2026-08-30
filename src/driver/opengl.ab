@@ -4,6 +4,7 @@
 // configuration arrays, output storage, ownership, and calls are Abla.
 
 import "abla/unsafe/memory"
+import "abla/unsafe/native"
 import "../core.ab"
 import "../resources.ab"
 import "../pixels.ab"
@@ -1145,20 +1146,40 @@ resource class OpenGlContext(
         if (this.makeCurrent()) openGlCurrentCapabilities()
         else GraphicsCapabilities()
 
-    trusted fun clearBlackAndReadRgba8(): int {
+    trusted fun clearAndReadRgba8(
+        red: int,
+        green: int,
+        blue: int,
+        alpha: int = 255
+    ): int {
         var result = -1
-        if (this.makeCurrent()) {
+        if (red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+            blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255 &&
+            this.makeCurrent()) {
             glViewport(0, 0, this.width, this.height)
-            glClear(16384)
-            glFinish()
-            val pixel = nativeByteBuffer(8)
-            glReadPixels(0, 0, 1, 1, 6408, 5121, pixel.address)
-            if (glGetError() == 0) {
-                result = pixel.loadI64(0) & 4294967295
+            val clearColor = eglGetProcAddress("glClearColor")
+            if (!pointerIsNull(clearColor)) {
+                callNativeVoidF32F32F32F32(
+                    nativePointerAddress(clearColor),
+                    f64FromInt(red) / 255.0,
+                    f64FromInt(green) / 255.0,
+                    f64FromInt(blue) / 255.0,
+                    f64FromInt(alpha) / 255.0
+                )
+                glClear(16384)
+                glFinish()
+                val pixel = nativeByteBuffer(8)
+                glReadPixels(0, 0, 1, 1, 6408, 5121, pixel.address)
+                if (glGetError() == 0) {
+                    result = pixel.loadI64(0) & 4294967295
+                }
             }
         }
         result
     }
+
+    trusted fun clearBlackAndReadRgba8(): int =
+        this.clearAndReadRgba8(0, 0, 0, 0)
 
     trusted fun drop(): void {
         if (!pointerIsNull(this.display)) {

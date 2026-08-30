@@ -471,6 +471,14 @@ if (headless.valid()) headless.probe()
 available headless driver, preferring Vulkan; explicit Vulkan/OpenGL requests
 never silently cross over. No X11 connection is opened on this path.
 
+`headless.solidRgba8(red, green, blue, alpha)` performs backend work and
+returns the exact packed little-endian RGBA8 word, or `-1` for an invalid
+channel/backend operation. OpenGL clears and reads one surfaceless pixel;
+Vulkan fills and reads device-owned storage. `examples/headless-image` uses
+four such colors to write a deterministic 16x16 plain PPM whose OpenGL and
+Vulkan bytes share one pinned SHA-256 digest with every display variable and
+`LD_LIBRARY_PATH` removed.
+
 Vectors and matrices use native `f64` values. `Mat4` names elements row-first
 (`m23` is row 2, column 3) and transforms column vectors. Composition is
 explicit: `left.multiplied(right)` applies `right` before `left`.

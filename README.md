@@ -108,7 +108,9 @@ proves the architecture rather than stopping at placeholder interfaces:
   repeated clear presentation reuses backend-native state without live-memory
   growth on both backends;
 - a backend-neutral affine headless application that selects a real Vulkan or
-  surfaceless EGL/OpenGL device and probes it without connecting to a display;
+  surfaceless EGL/OpenGL device and probes it without connecting to a display,
+  including exact portable RGBA8 solid-color generation for deterministic
+  image workflows;
 - reusable affine RGBA8 pixel storage with allocation-free clipped rectangles,
   outlined rectangles, integer lines, and filled circles, a persistent
   nearest-filtered OpenGL allocation-free repeated upload path, and a
@@ -268,6 +270,8 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/vulkan-info`: loader and physical-adapter report;
 - `examples/vulkan-surface`: X11 WSI adapter/capability selection;
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
+- `examples/headless-image`: display-free GPU color generation and identical
+  golden 16x16 PPM export through explicit OpenGL and Vulkan backends;
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
 - `examples/multi-window`: two simultaneous retained windows, independent
