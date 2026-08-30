@@ -23,31 +23,55 @@ fun main: int {
         )
     )
     val query = app.timestampQuery()
-    val first = query.sampleTicks()
-    val queryLiveBefore = runtimeMemoryLiveBytes()
-    val warmSecond = query.sampleTicks()
-    val warmThird = query.sampleTicks()
-    val queryLiveAfter = runtimeMemoryLiveBytes()
     val clear = Color(0.08, 0.18, 0.32)
+    val warmFirst = query.sampleTicks()
+    val warmSecond = query.sampleTicks()
+    val warmed = app.valid() && query.valid() && warmFirst >= 0 &&
+        warmSecond >= warmFirst && app.presentClear(clear) &&
+        app.presentClear(clear)
+    val nativeHandleBefore = if (app.backend == graphicsBackendOpenGl)
+        query.openGl.handle else query.vulkan.queryPool
+    val nativeCommandBefore = if (app.backend == graphicsBackendVulkan &&
+        query.vulkan.valid()) nativePointerAddress(query.vulkan.command.load())
+        else 0
     val liveBefore = runtimeMemoryLiveBytes()
-    var presented = app.valid() && query.valid()
+    var profiled = warmed
     var frame = 0
-    while (presented && frame < 4) {
-        presented = app.presentClear(clear)
+    var minimumNanoseconds = 0.0
+    var maximumNanoseconds = 0.0
+    var totalNanoseconds = 0.0
+    while (profiled && frame < 64) {
+        val begin = query.sampleTicks()
+        val presented = begin >= 0 && app.presentClear(clear)
+        val end = if (presented) query.sampleTicks() else -1
+        val elapsed = query.elapsedNanoseconds(begin, end)
+        profiled = presented && end >= begin && elapsed > 0.0
+        if (profiled) {
+            if (frame == 0 || elapsed < minimumNanoseconds)
+                minimumNanoseconds = elapsed
+            if (frame == 0 || elapsed > maximumNanoseconds)
+                maximumNanoseconds = elapsed
+            totalNanoseconds = totalNanoseconds + elapsed
+        }
         frame = frame + 1
     }
-    val last = query.sampleTicks()
     val liveAfter = runtimeMemoryLiveBytes()
-    val repeatLiveBefore = runtimeMemoryLiveBytes()
-    val repeated = query.sampleTicks() >= last && query.sampleTicks() >= last
-    val repeatLiveAfter = runtimeMemoryLiveBytes()
-    val elapsed = query.elapsedNanoseconds(first, last)
-    val succeeded = presented && frame == 4 && first >= 0 && last >= first &&
-        warmSecond >= first && warmThird >= warmSecond &&
-        queryLiveAfter == queryLiveBefore && elapsed > 0.0 && repeated &&
-        liveAfter == liveBefore && repeatLiveAfter == repeatLiveBefore
+    val averageNanoseconds = if (frame > 0)
+        totalNanoseconds / f64FromInt(frame) else -1.0
+    val estimatedFramesPerSecond = if (averageNanoseconds > 0.0)
+        1000000000.0 / averageNanoseconds else -1.0
+    val handlesStable = if (app.backend == graphicsBackendOpenGl)
+        query.openGl.handle == nativeHandleBefore
+    else query.vulkan.queryPool == nativeHandleBefore &&
+        nativePointerAddress(query.vulkan.command.load()) == nativeCommandBefore
+    val succeeded = profiled && frame == 64 && minimumNanoseconds > 0.0 &&
+        maximumNanoseconds >= minimumNanoseconds &&
+        averageNanoseconds >= minimumNanoseconds &&
+        averageNanoseconds <= maximumNanoseconds &&
+        estimatedFramesPerSecond > 0.0 && handlesStable &&
+        liveAfter == liveBefore
     println(
-        "GPU timestamp ${graphicsBackendName(app.backend)}: frames=$frame ticks=$first..$last periodBits=${f64ToBits(query.periodNanoseconds)} elapsedBits=${f64ToBits(elapsed)} queryLiveDelta=${queryLiveAfter - queryLiveBefore}/${repeatLiveAfter - repeatLiveBefore} frameLiveDelta=${liveAfter - liveBefore}"
+        "GPU profiler ${graphicsBackendName(app.backend)}: profiled=$frame minBits=${f64ToBits(minimumNanoseconds)} averageBits=${f64ToBits(averageNanoseconds)} maxBits=${f64ToBits(maximumNanoseconds)} fpsBits=${f64ToBits(estimatedFramesPerSecond)} periodBits=${f64ToBits(query.periodNanoseconds)} validBits=${query.validBits} stable=$handlesStable live=${liveAfter - liveBefore}"
     )
     if (succeeded) 0 else 1
 }

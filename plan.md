@@ -478,7 +478,9 @@ backends unless it demonstrates a backend-specific feature:
 10. UI overlay and text rendering;
 11. multi-window and multi-monitor;
 12. headless image generation;
-13. GPU queries/profiler;
+13. GPU queries/profiler (delivered by `examples/gpu-timestamp`, with one
+    retained affine query producing minimum/average/maximum GPU frame times
+    across 64 allocation-stable frames on both backends);
 14. raw OpenGL feature lab (delivered by
     `examples/raw-opengl-feature-lab`, with a one-snapshot linear scan of all
     2,892 generated capability rows);

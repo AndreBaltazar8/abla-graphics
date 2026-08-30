@@ -1,6 +1,6 @@
 # Abla Graphics goal and continuation handoff
 
-Updated: 2026-08-28 (Europe/Lisbon).
+Updated: 2026-08-30 (Europe/Lisbon).
 
 This file is the operational handoff for the next person continuing the goal.
 Read it before changing code, then read `plan.md`, `docs/status.md`,
@@ -4299,3 +4299,26 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make c
 Continue with another safe multi-family batch from the generated unclaimed
 queue, then resume the remaining milestone-7 samples. Keep the persistent
 framework goal active.
+
+## Latest checkpoint: portable GPU profiler sample
+
+Milestone-7 sample 13 is now explicit. `examples/gpu-timestamp` warms the
+selected backend and uses one retained affine timestamp query to bracket 64
+clear/present frames. It computes minimum, average, and maximum GPU nanoseconds
+plus an estimated frame rate, while checking duration ordering, native query
+handle stability, and zero live-memory growth across the measured loop.
+
+The focused `test-gpu-profiler` target builds the project manifest so the
+binary retains concrete loader RUNPATHs, checks direct linkage with
+`LD_LIBRARY_PATH` removed, runs software OpenGL, and runs Vulkan with the
+Khronos validation layer. Both report `profiled=64 stable=true live=0`; Vulkan
+is validation-clean. The sample now includes its own build/run documentation.
+
+Validated with:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-gpu-profiler'
+```
+
+Continue with the next missing milestone-7 application while retaining this
+focused gate in `make test`. Keep the persistent framework goal active.

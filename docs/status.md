@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-08-28.
+Updated: 2026-08-30.
 
 ## Verified now
 
@@ -1112,10 +1112,12 @@ Updated: 2026-08-28.
 - Portable GPU timestamps: one affine query owns an OpenGL timer-query object
   or a Vulkan timestamp query pool plus dedicated reusable command state.
   Vulkan reads the queue-family timestamp width and device period; common
-  elapsed-time conversion handles counter wrap. Four monotonic application
-  samples and the dedicated profiler sample preserve native handles and report
-  zero live-memory growth on both backends. Invalid applications reject query
-  creation and sampling before driver calls.
+  elapsed-time conversion handles counter wrap. The dedicated profiler warms
+  both drivers, measures 64 clear/present frames, reports consistent minimum,
+  average, and maximum GPU nanoseconds plus estimated frame rate, preserves
+  native handles, and reports zero live-memory growth on explicit OpenGL and
+  validation-enabled Vulkan. Invalid applications reject query creation and
+  sampling before driver calls.
 - Pure-Abla Khronos inventory generation: exact official Vulkan and OpenGL
   registry commits and SHA-256 digests are pinned in one manifest; the generator
   filters Vulkan SC, OpenGL ES, and compatibility-only requirement branches,
@@ -1125,9 +1127,10 @@ Updated: 2026-08-28.
   commands/5 public core versions/473 extensions and 2,892 OpenGL commands/19
   core versions/623 extensions. Offline fixtures prove API filtering, internal
   dependency collection, aliases, exact output, and repeated-run determinism.
-  A strict audit join currently classifies 113 Vulkan and 108 OpenGL commands as
-  `common`, with separate loader, ABI, positive-test, and unsupported-path
-  evidence. Duplicate, incomplete, invalid-status, and registry-unknown audit
+  A strict audit join currently classifies 113 Vulkan and 109 OpenGL commands as
+  `common`, plus 13 Vulkan and 10 OpenGL commands as `raw`, with separate
+  loader, ABI, positive-test, and unsupported-path evidence. Duplicate,
+  incomplete, invalid-status, and registry-unknown audit
   rows are rejected. Every other row remains explicitly `unclassified`, so
   inventory presence is not represented as backend support.
   The same deterministic pass generates independently importable raw Abla

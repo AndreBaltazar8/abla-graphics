@@ -552,9 +552,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   scalar bounds, scalar-factor vector `mix`, plus addition,
   producing exact alternating red/green pixels with stable handles and
   zero-growth repeated frames on both backends;
-- `examples/gpu-timestamp`: one affine timestamp query measures four submitted
-  frames on explicit OpenGL and Vulkan, including counter-period conversion,
-  stable native handles, and zero steady-state live-memory growth; and
+- `examples/gpu-timestamp`: one retained affine query profiles 64 submitted
+  frames on explicit OpenGL and validation-enabled Vulkan, reports minimum,
+  average, and maximum GPU time plus estimated frame rate, and proves stable
+  native handles with zero steady-state live-memory growth; and
 - `examples/frame-pacing`: display-free high-resolution pacing with a live-memory
   assertion across the steady-state frame loop; and
 - `examples/render-graph`: display-free dependency planning with deterministic

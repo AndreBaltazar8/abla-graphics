@@ -2434,7 +2434,11 @@ family's timestamp-valid width, and converts ticks using the device's
 `timestampPeriod`. Counter wrap is handled within the usable width (capped at
 63 bits because Abla's public integer is signed).
 Sampling is synchronous in this first profiler slice; render-pass-integrated
-query resolves will make multi-frame profiling asynchronous.
+query resolves will make multi-frame profiling asynchronous. The
+`examples/gpu-timestamp` profiler demonstrates the current portable contract:
+after warming the backend, it brackets 64 submitted frames, accumulates
+minimum/average/maximum nanoseconds without allocating, derives an estimated
+frame rate, and asserts that the retained native query handles do not change.
 
 ## Window and events
 
