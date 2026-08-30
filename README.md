@@ -529,6 +529,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   comparison/logical/ternary mutation and readback plus reusable reflected push
   constants with exact output, stable handles, and zero-growth repeated
   dispatch;
+- `examples/compute-particles`: 16,384 `gl_GlobalInvocationID`-indexed GPU
+  particles scatter into a sampled RGBA8 storage image for 120 surfaced frames,
+  reporting updates per second with exact output, stable handles, and `live=0`
+  on OpenGL and validation-enabled Vulkan;
 - `examples/narrow-input`: one interleaved `vec2` vertex attribute is
   interpolated through a typed `vec2` fragment location, permuted through `.yx`,
   and composed into a `vec3` color output, proving exact pixels, stable handles,

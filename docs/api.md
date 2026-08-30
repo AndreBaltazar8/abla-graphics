@@ -3199,6 +3199,16 @@ accepts the documented binding-zero `uint value` plus compute-visible
 `uint addend` block and `value = value + addend` program. Integration tests run
 that exact program on both real drivers, reject wrong stages and byte sizes,
 verify repeated value updates, and assert zero steady-state allocation growth.
+
+The particle-compute subset adds a deterministic `gl_GlobalInvocationID.x`
+form with a 64-invocation local size, one RGBA8 write-only storage image, and
+one reflected unsigned frame push value. Its checked integer coordinate
+expression covers unsigned multiply/add, logical right shift, bitwise masking,
+and explicit `uint` to `int` conversion before `imageStore`. Vulkan receives a
+word-stable SPIR-V 1.0 module with the `GlobalInvocationId` built-in; OpenGL
+compiles the same source after the normal push-block rewrite. The exact form is
+used by `examples/compute-particles` for 16,384 invocations per frame. Nearby
+source changes are rejected rather than treated as supported general GLSL.
 The first raster push-constant slice accepts the strict fragment form
 `layout(push_constant) uniform Draw { vec4 tint; } draw` with
 `color = draw.tint`. `renderPushToTarget(target, pipeline, values, clear)` and

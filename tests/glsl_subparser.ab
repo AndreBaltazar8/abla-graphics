@@ -597,6 +597,33 @@ fun main: int {
         [shaderStageCompute],
         ["#version 450\nlayout(local_size_x=1) in; layout(rgba8,binding=0) uniform writeonly image2D outputImage; void main(){ imageStore(outputImage,ivec2(1,0),vec4(1.0,0.0,0.0,1.0)); }"]
     ).spirv(shaderStageCompute)
+    val particleStress = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 64) in;
+            layout(rgba8, binding = 0) uniform writeonly image2D particleImage;
+            layout(push_constant) uniform Simulation {
+                uint frame;
+            } simulation;
+            void main() {
+                uint id = gl_GlobalInvocationID.x;
+                uint x = (id * 73u + simulation.frame * 3u) & 255u;
+                uint y = (id * 151u + (id >> 8u) * 37u +
+                    simulation.frame * 2u) & 255u;
+                imageStore(
+                    particleImage,
+                    ivec2(int(x), int(y)),
+                    vec4(0.125, 0.75, 1.0, 1.0)
+                );
+            }
+        }
+    }
+    val particleStressSpirv = particleStress.spirv(shaderStageCompute)
+    val particleStressSpirvAgain = particleStress.spirv(shaderStageCompute)
+    val unsupportedParticleStress = glslPackage(
+        [shaderStageCompute],
+        ["#version 450\nlayout(local_size_x=64) in; layout(rgba8,binding=0) uniform writeonly image2D particleImage; layout(push_constant) uniform Simulation { uint frame; } simulation; void main(){ uint id=gl_GlobalInvocationID.x; uint x=(id*73u+simulation.frame*4u)&255u; uint y=(id*151u+(id>>8u)*37u+simulation.frame*2u)&255u; imageStore(particleImage,ivec2(int(x),int(y)),vec4(0.125,0.75,1.0,1.0)); }"]
+    ).spirv(shaderStageCompute)
     val storageImageReadWrite = $glsl {
         compute {
             #version 450
@@ -3312,6 +3339,24 @@ fun main: int {
             storageImageSpirv.module,
             storageImageSpirvAgain.module
         ) && !unsupportedStorageImage.succeeded &&
+        particleStress.valid && particleStress.workgroups.size == 1 &&
+        particleStress.workgroups[0].x == 64 &&
+        particleStress.bindings.size == 1 &&
+        particleStress.bindings[0].dataType == "image2D" &&
+        particleStress.bindings[0].access == "writeonly" &&
+        particleStress.pushConstants.size == 1 &&
+        particleStress.pushConstants[0].members.size == 1 &&
+        particleStress.pushConstants[0].members[0].dataType == "uint" &&
+        particleStressSpirv.succeeded &&
+        particleStressSpirv.module.valid() &&
+        particleStressSpirv.module.bound() == 68 &&
+        spirvContainsWords(
+            particleStressSpirv.module, [262215, 11, 11, 28]
+        ) && spirvContainsWord(particleStressSpirv.module, 262243) &&
+        spirvWordsEqual(
+            particleStressSpirv.module,
+            particleStressSpirvAgain.module
+        ) && !unsupportedParticleStress.succeeded &&
         storageImageReadWrite.valid &&
         storageImageReadWrite.bindings.size == 1 &&
         storageImageReadWrite.bindings[0].access == "" &&

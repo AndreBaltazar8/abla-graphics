@@ -12,7 +12,7 @@ Updated: 2026-08-30.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 76 roots. Samples 65 through 68 cover deferred rendering,
+  The matrix now has 77 roots. Samples 65 through 68 cover deferred rendering,
   compute-to-render handoff, typed blending, and typed stencil masking. Sample
   69 is the complete `mini-breakout` 2D game: its independently built stripped-
   environment binary passed OpenGL, validation-enabled Vulkan, and automatic
@@ -43,6 +43,14 @@ Updated: 2026-08-30.
   each render at least three frames of the same pure-Abla 5x7 text overlay at
   1024x768.
   Its directly launched executable also has no unresolved shared libraries.
+  Sample 77 is the compute-particle stress proof. The deterministic `$glsl`
+  subset now lowers `gl_GlobalInvocationID.x`, unsigned coordinate arithmetic,
+  and an unsigned frame push value into word-stable SPIR-V. Across 120 surfaced
+  frames, 16,384 invocations per frame produced exact RGBA8 output, stable
+  native handles, and `live=0`: the final software gate measured 13,655,290
+  updates/s on OpenGL and 3,194,004 on Vulkan, with validation silent and
+  direct linkage complete. These rates are environment-specific evidence, not
+  release thresholds.
   The same registry pass now derives exact ABI-family evidence ledgers: 49 of
   284 OpenGL families and 54 of 122 Vulkan families currently have at least one
   reviewed command with both positive and unsupported-path evidence. Remaining

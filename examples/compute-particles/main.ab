@@ -1,0 +1,182 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/process/time"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+val particleImageSize = 256
+val particleCount = 16384
+val particleWorkgroupSize = 64
+val particleWorkgroups = particleCount / particleWorkgroupSize
+val particleMeasuredFrames = 120
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val app = graphicsApplication(
+        GraphicsConfig(
+            backend = backend,
+            validation = true,
+            requiredFeatures = graphicsFeatureCompute |
+                graphicsFeatureStorageTextures
+        ),
+        WindowConfig(
+            title = "Abla Compute Particles — 16,384 GPU particles",
+            width = 640,
+            height = 640,
+            resizable = false
+        )
+    )
+    val particleShader = $glsl {
+        compute {
+            #version 450
+            layout(local_size_x = 64) in;
+            layout(rgba8, binding = 0) uniform writeonly image2D particleImage;
+            layout(push_constant) uniform Simulation {
+                uint frame;
+            } simulation;
+            void main() {
+                uint id = gl_GlobalInvocationID.x;
+                uint x = (id * 73u + simulation.frame * 3u) & 255u;
+                uint y = (id * 151u + (id >> 8u) * 37u +
+                    simulation.frame * 2u) & 255u;
+                imageStore(
+                    particleImage,
+                    ivec2(int(x), int(y)),
+                    vec4(0.125, 0.75, 1.0, 1.0)
+                );
+            }
+        }
+    }
+    val renderShader = $glsl {
+        vertex {
+            #version 450
+            layout(location = 0) in vec2 position;
+            layout(location = 1) in vec2 uv;
+            layout(location = 0) out vec2 texCoord;
+            void main() {
+                gl_Position = vec4(position, 0.0, 1.0);
+                texCoord = uv;
+            }
+        }
+        fragment {
+            #version 450
+            layout(location = 0) in vec2 texCoord;
+            layout(location = 0) out vec4 color;
+            layout(binding = 0) uniform sampler2D atlas;
+            void main() {
+                color = texture(atlas, texCoord);
+            }
+        }
+    }
+    val particleTexture = app.texture(TextureDescriptor(
+        label = "particle-trails",
+        size = Extent3D(particleImageSize, particleImageSize),
+        format = textureFormatRgba8Unorm,
+        usage = textureUsageStorage | textureUsageSampled |
+            textureUsageCopySource
+    ))
+    val computeEntry = app.storageTextureEntry(
+        0,
+        shaderVisibilityCompute,
+        particleTexture,
+        graphicsStorageTextureWriteOnly
+    )
+    val computePipeline = app.computeBindingPipeline(
+        particleShader,
+        app.bindGroup([computeEntry])
+    )
+    val simulation = particleShader.pushConstants()
+    val sampler = app.sampler(SamplerDescriptor(
+        magFilter = samplerFilterNearest,
+        minFilter = samplerFilterNearest,
+        mipmapFilter = samplerFilterNearest
+    ))
+    val renderEntry = app.sampledTextureEntry(
+        0, shaderVisibilityFragment, particleTexture, sampler
+    )
+    val renderPipeline = app.renderPipeline(
+        renderShader,
+        VertexBufferLayout(16, [
+            VertexAttribute(0, 0, vertexFormatFloat32x2),
+            VertexAttribute(1, 8, vertexFormatFloat32x2)
+        ]),
+        RasterPipelineState(),
+        DepthStencilState(),
+        app.bindGroup([renderEntry])
+    )
+    val vertexBytes = bufferBytes(48)
+    val verticesReady = vertexBytes.storeF32(-1.0, 0) &&
+        vertexBytes.storeF32(-1.0, 4) &&
+        vertexBytes.storeF32(0.0, 8) &&
+        vertexBytes.storeF32(0.0, 12) &&
+        vertexBytes.storeF32(3.0, 16) &&
+        vertexBytes.storeF32(-1.0, 20) &&
+        vertexBytes.storeF32(2.0, 24) &&
+        vertexBytes.storeF32(0.0, 28) &&
+        vertexBytes.storeF32(-1.0, 32) &&
+        vertexBytes.storeF32(3.0, 36) &&
+        vertexBytes.storeF32(0.0, 40) &&
+        vertexBytes.storeF32(2.0, 44)
+    val vertices = app.buffer(BufferDescriptor(
+        label = "particle-fullscreen-triangle",
+        size = 48,
+        usage = bufferUsageVertex | bufferUsageCopyDestination
+    ))
+    val clear = Color(0.002, 0.004, 0.012)
+    val clock = monotonicClock()
+    var succeeded = app.valid() && particleShader.valid &&
+        renderShader.valid && particleTexture.valid() && computeEntry.valid() &&
+        computePipeline.valid() && simulation.valid() && sampler.valid() &&
+        renderEntry.valid() && renderPipeline.valid() && clock.valid() &&
+        verticesReady &&
+        vertices.writeAllBytes(vertexBytes)
+    var frame = 0
+    while (succeeded && frame < 3) {
+        succeeded = simulation.storeMemberU32("frame", frame) &&
+            computePipeline.dispatchPush(simulation, particleWorkgroups) &&
+            app.presentRenderVertices(renderPipeline, vertices, 3, clear)
+        frame = frame + 1
+    }
+    val computeHandle = if (app.backend == graphicsBackendOpenGl)
+        computePipeline.openGl.handle else computePipeline.vulkan.handle
+    val renderHandle = if (app.backend == graphicsBackendOpenGl)
+        renderPipeline.openGl.handle else renderPipeline.vulkan.handle
+    val textureHandle = if (app.backend == graphicsBackendOpenGl)
+        particleTexture.openGl.handle else particleTexture.vulkan.image
+    val liveBefore = runtimeMemoryLiveBytes()
+    val started = clock.nanoseconds()
+    var measured = 0
+    while (succeeded && measured < particleMeasuredFrames) {
+        succeeded = simulation.storeMemberU32("frame", frame) &&
+            computePipeline.dispatchPush(simulation, particleWorkgroups) &&
+            app.presentRenderVertices(renderPipeline, vertices, 3, clear)
+        frame = frame + 1
+        measured = measured + 1
+    }
+    val elapsed = clock.nanoseconds() - started
+    val liveAfter = runtimeMemoryLiveBytes()
+    val stable = computeHandle != 0 && renderHandle != 0 &&
+        textureHandle != 0 &&
+        (if (app.backend == graphicsBackendOpenGl)
+            computePipeline.openGl.handle == computeHandle &&
+                renderPipeline.openGl.handle == renderHandle &&
+                particleTexture.openGl.handle == textureHandle
+         else computePipeline.vulkan.handle == computeHandle &&
+                renderPipeline.vulkan.handle == renderHandle &&
+                particleTexture.vulkan.image == textureHandle)
+    val exact = particleTexture.rgba8(0, 0) == 4294950688
+    val updatesPerSecond = if (elapsed > 0)
+        particleCount * measured * graphicsNanosecondsPerSecond / elapsed
+        else 0
+    val passed = succeeded && measured == particleMeasuredFrames &&
+        elapsed > 0 && updatesPerSecond > 0 && liveAfter == liveBefore &&
+        stable && exact
+    println(
+        "Compute particles ${graphicsBackendName(app.backend)}: particles=$particleCount frames=$measured updatesPerSecond=$updatesPerSecond exact=$exact stable=$stable live=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}

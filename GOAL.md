@@ -4406,3 +4406,39 @@ Continue with a missing high-value rendering application or a broad raw
 specification-family batch. Reserve the full sample matrix for periodic
 integration checkpoints rather than repeating it after every focused slice.
 Keep the persistent framework goal active.
+
+## Latest checkpoint: GPU compute particles and stress measurement
+
+Milestone-7 samples 7 and 17 now share a real GPU workload.
+`examples/compute-particles` dispatches 16,384 invocations per frame, uses a
+reusable unsigned frame push constant to scatter moving points into a 256x256
+RGBA8 storage image, and samples the accumulating trails through a surfaced
+full-screen render. The 120-frame measured loop retains every native pipeline,
+descriptor, texture, command, and vertex-buffer identity and reports particle
+updates per second with zero live-memory growth.
+
+This required a new deterministic `$glsl` boundary rather than a CPU
+substitute. The pure-Abla translator recognizes one typed
+`gl_GlobalInvocationID.x` particle form, validates its workgroup, storage-image,
+and push reflection, and emits word-stable SPIR-V 1.0 containing the
+`GlobalInvocationId` built-in plus unsigned multiply/add, logical shift,
+bitwise mask, conversion, and `OpImageWrite`. A one-token arithmetic variant is
+explicitly rejected in the shader test.
+
+The final software-driver gate measured 13,655,290 particle updates/s on
+OpenGL and 3,194,004 on validation-enabled Vulkan. Both completed 120 frames
+with exact RGBA8 `4294950688`, stable handles, `live=0`, no unresolved shared
+libraries, and silent Vulkan validation. These machine-specific rates are
+recorded evidence rather than portable performance thresholds. The canonical
+sample matrix now contains 77 roots; the last complete matrix remains the
+earlier 54-root run.
+
+Validate this slice with one boundary command:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-glsl test-compute-particles'
+```
+
+Continue with a broad raw-specification family batch or the next missing
+high-value 3D/ray-tracing/mobile sample. Keep full-matrix runs periodic and keep
+the persistent framework goal active.

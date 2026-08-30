@@ -473,7 +473,9 @@ backends unless it demonstrates a backend-specific feature:
 4. camera, meshes, materials, and glTF scene;
 5. instancing and indirect drawing;
 6. render-to-texture and post-processing;
-7. compute particles;
+7. compute particles (delivered by `examples/compute-particles`, with 16,384
+   `gl_GlobalInvocationID`-indexed storage-image particles sampled into a
+   surfaced OpenGL/Vulkan render);
 8. shadow mapping (delivered by `examples/shadow-mapping` with a sampled depth
    attachment and comparison sampler) and HDR/PBR lighting;
 9. deferred renderer/render graph;
@@ -496,7 +498,9 @@ backends unless it demonstrates a backend-specific feature:
     `examples/raw-vulkan-feature-lab`, with generated dispatch scope and
     negotiated-version/enabled-extension checks across all 842 rows);
 16. ray tracing when available;
-17. boids/particle stress benchmark;
+17. boids/particle stress benchmark (delivered initially by the same 120-frame
+    particle workload, reporting updates per second with exact output, stable
+    handles, and zero live-memory growth on both software backends);
 18. complete small 2D game (delivered by `examples/mini-breakout`, including
     portable input, scoring/lives, win/loss/reset, and allocation-free
     OpenGL/Vulkan automated proof);
