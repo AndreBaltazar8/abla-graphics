@@ -51,6 +51,18 @@ trusted fun main: int {
         val getPathLength = raw.command("glGetPathLengthNV")
         val createProgramObject = raw.command("glCreateProgramObjectARB")
         val deleteObject = raw.command("glDeleteObjectARB")
+        val bindBufferArb = raw.command("glBindBufferARB")
+        val bufferDataArb = raw.command("glBufferDataARB")
+        val bufferSubDataArb = raw.command("glBufferSubDataARB")
+        val getBufferSubDataArb = raw.command("glGetBufferSubDataARB")
+        val mapBufferArb = raw.command("glMapBufferARB")
+        val unmapBufferArb = raw.command("glUnmapBufferARB")
+        val genBuffersArb = raw.command("glGenBuffersARB")
+        val deleteBuffersArb = raw.command("glDeleteBuffersARB")
+        val bindFramebufferExt = raw.command("glBindFramebufferEXT")
+        val checkFramebufferExt = raw.command("glCheckFramebufferStatusEXT")
+        val genFramebuffersExt = raw.command("glGenFramebuffersEXT")
+        val deleteFramebuffersExt = raw.command("glDeleteFramebuffersEXT")
         val missing = raw.command("glAblaMissing")
         val unsupportedRejected = !raw.callVoid0(clear) &&
             !raw.callVoidI32(finish, 0) &&
@@ -82,6 +94,8 @@ trusted fun main: int {
             !raw.callVoidI32I64I64Pointer(
                 finish, 0, 0, 0, nativeNullPointer()
             ) &&
+            !raw.callVoid0(bufferDataArb) &&
+            !raw.callVoidI32(checkFramebufferExt, 36160) &&
             !raw.callVoid0(missing)
         val scissorWasEnabled = glIsEnabled(3089) != 0
         val packAlignment = nativeI64Cell(0)
@@ -152,6 +166,88 @@ trusted fun main: int {
                 raw.callVoidI32I64I64Pointer(
                     getBufferSubData, 36662, 0, 8, copiedValue.address
                 ) && copiedValue.load() == uploadValue.load()
+        }
+        val arbVboAdvertised = raw.commandAdvertised("glBufferDataARB")
+        val arbVboNames = nativeByteBuffer(8)
+        val arbMappedAddress = nativeI64Cell(0)
+        val arbUnmapped = nativeI64Cell(0)
+        val arbCopiedValue = nativeI64Cell(0)
+        var arbVboReady = !arbVboAdvertised
+        if (arbVboAdvertised) {
+            arbVboReady = bindBufferArb.valid() && bufferDataArb.valid() &&
+                bufferSubDataArb.valid() &&
+                getBufferSubDataArb.valid() && mapBufferArb.valid() &&
+                unmapBufferArb.valid() && genBuffersArb.valid() &&
+                deleteBuffersArb.valid() &&
+                bindBufferArb.callAbi == "void(i32,i32)" &&
+                bufferDataArb.callAbi == "void(i32,i64,pointer,i32)" &&
+                bufferSubDataArb.callAbi == "void(i32,i64,i64,pointer)" &&
+                getBufferSubDataArb.callAbi ==
+                    "void(i32,i64,i64,pointer)" &&
+                mapBufferArb.callAbi == "pointer(i32,i32)" &&
+                unmapBufferArb.callAbi == "i8(i32)" &&
+                genBuffersArb.callAbi == "void(i32,pointer)" &&
+                deleteBuffersArb.callAbi == "void(i32,pointer)" &&
+                raw.callVoidI32Pointer(genBuffersArb, 2, arbVboNames.address)
+            val arbSource = graphicsPackedU32(arbVboNames.address, 0)
+            val arbDestination = graphicsPackedU32(arbVboNames.address, 4)
+            arbVboReady = arbVboReady && arbSource > 0 && arbDestination > 0 &&
+                raw.callVoidI32I32(bindBufferArb, 36662, arbSource) &&
+                raw.callVoidI32I64PointerI32(
+                    bufferDataArb, 36662, 8, uploadValue.address, 35048
+                ) && raw.callAddressI32I32(
+                    mapBufferArb, 36662, 35000, arbMappedAddress.address
+                ) && arbMappedAddress.load() != 0 &&
+                ablaUnsafeLoadI64(
+                    nativePointerFromAddress(arbMappedAddress.load())
+                ) == uploadValue.load() && raw.callExactI8I32(
+                    unmapBufferArb, 36662, arbUnmapped.address
+                ) && arbUnmapped.load() == 1 &&
+                raw.callVoidI32I32(bindBufferArb, 36663, arbDestination) &&
+                raw.callVoidI32I64PointerI32(
+                    bufferDataArb, 36663, 8, nativeNullPointer(), 35048
+                ) && raw.callVoidI32I32(bindBufferArb, 36662, arbSource) &&
+                raw.callVoidI32I64I64Pointer(
+                    bufferSubDataArb, 36662, 0, 8, uploadValue.address
+                ) && raw.callVoidI32I32I64I64I64(
+                    copyBufferSubData, 36662, 36663, 0, 0, 8
+                ) && raw.callVoidI32I32(bindBufferArb, 36663, arbDestination) &&
+                raw.callVoidI32I64I64Pointer(
+                    getBufferSubDataArb,
+                    36663,
+                    0,
+                    8,
+                    arbCopiedValue.address
+                ) && arbCopiedValue.load() == uploadValue.load()
+            raw.callVoidI32I32(bindBufferArb, 36662, 0)
+            raw.callVoidI32I32(bindBufferArb, 36663, 0)
+            raw.callVoidI32Pointer(
+                deleteBuffersArb, 2, arbVboNames.address
+            )
+        }
+        val framebufferExtAdvertised = raw.commandAdvertised(
+            "glGenFramebuffersEXT"
+        )
+        val extFramebuffer = nativeI64Cell(0)
+        var framebufferExtReady = !framebufferExtAdvertised
+        if (framebufferExtAdvertised) {
+            framebufferExtReady = bindFramebufferExt.valid() &&
+                checkFramebufferExt.valid() && genFramebuffersExt.valid() &&
+                deleteFramebuffersExt.valid() &&
+                bindFramebufferExt.callAbi == "void(i32,i32)" &&
+                checkFramebufferExt.callAbi == "u32(i32)" &&
+                genFramebuffersExt.callAbi == "void(i32,pointer)" &&
+                deleteFramebuffersExt.callAbi == "void(i32,pointer)" &&
+                raw.callVoidI32Pointer(
+                    genFramebuffersExt, 1, extFramebuffer.address
+                ) && extFramebuffer.load() > 0 &&
+                raw.callVoidI32I32(bindFramebufferExt, 36160, 0) &&
+                raw.callU32I32(
+                    checkFramebufferExt, 36160, unsignedResult.address
+                ) && unsignedResult.load() == 36053 &&
+                raw.callVoidI32Pointer(
+                    deleteFramebuffersExt, 1, extFramebuffer.address
+                )
         }
         val floatWrongShapeRejected = !raw.callExactF32I32I32I32(
             clear, 0, 0, 0, pathLengthResult.address
@@ -376,6 +472,7 @@ trusted fun main: int {
             wideBuffersReady && pointerReturnReady && floatWrongShapeRejected &&
             floatResultReady && (legacyIntegerAbi || legacyPointerAbi) &&
             legacyWrongShapeRejected && legacyLive &&
+            arbVboReady && framebufferExtReady &&
             coreCapabilityReady && removedCapabilityReady &&
             extensionCapabilityReady && missingCapabilityReady &&
             !missing.valid() && missing.callShape == "" &&
@@ -384,7 +481,7 @@ trusted fun main: int {
             restored && colorRestored && depthRangeRestored && masksRestored &&
             packAlignment.load() == originalPackAlignment &&
             liveAfter == liveBefore
-        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true capability=$coreCapabilityReady/$removedCapabilityReady/$extensionCapabilityReady/$missingCapabilityReady coreProfile=$coreProfile floatShape=$floatResultReady platformHandle=$legacyIntegerAbi/$legacyPointerAbi advertised=$legacyAdvertised liveCall=$legacyLive wrongShape=$legacyWrongShapeRejected buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
+        detail = "finish=${finish.address} calls=$call pack=$originalPackAlignment workgroups=${workgroupCount.load()} generated=true capability=$coreCapabilityReady/$removedCapabilityReady/$extensionCapabilityReady/$missingCapabilityReady coreProfile=$coreProfile floatShape=$floatResultReady platformHandle=$legacyIntegerAbi/$legacyPointerAbi advertised=$legacyAdvertised liveCall=$legacyLive aliases=$arbVboAdvertised/$arbVboReady/$framebufferExtAdvertised/$framebufferExtReady wrongShape=$legacyWrongShapeRejected buffer=$wideBuffersReady pointer=$pointerReturnReady unsupported=$unsupportedRejected called=$called restored=$restored/$colorRestored/$depthRangeRestored/$masksRestored live=${liveAfter - liveBefore}"
     } else if (app.valid() && app.backend == graphicsBackendVulkan) {
         val raw = app.rawVulkanApi()
         val enumerate = raw.instanceCommand("vkEnumeratePhysicalDevices")

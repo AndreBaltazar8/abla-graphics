@@ -10,7 +10,7 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 119/2892
+- Classified commands: 131/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 - Raw call ABI families: 284
@@ -36,7 +36,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `i64(i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i64(pointer,i32,i32,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
 | `i64(pointer,i32,i32,pointer,i8)` | 1 | 0 | 0 | 1 | unclaimed |
-| `i8(i32)` | 40 | 2 | 0 | 38 | paired |
+| `i8(i32)` | 40 | 3 | 0 | 37 | paired |
 | `i8(i32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i8(i32,i32)` | 6 | 0 | 0 | 6 | unclaimed |
 | `i8(i32,i32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -48,7 +48,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `i8(i64)` | 5 | 0 | 0 | 5 | unclaimed |
 | `i8(pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `pointer(i32)` | 2 | 0 | 0 | 2 | unclaimed |
-| `pointer(i32,i32)` | 6 | 3 | 0 | 3 | paired |
+| `pointer(i32,i32)` | 6 | 4 | 0 | 2 | paired |
 | `pointer(i32,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `pointer(i32,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `pointer(i32,i64,i64,i32)` | 3 | 1 | 0 | 2 | paired |
@@ -57,7 +57,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `pointer(pointer,pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `u16(i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `u32()` | 5 | 2 | 0 | 3 | paired |
-| `u32(i32)` | 9 | 2 | 0 | 7 | paired |
+| `u32(i32)` | 9 | 3 | 0 | 6 | paired |
 | `u32(i32,i32)` | 6 | 0 | 0 | 6 | unclaimed |
 | `u32(i32,i32,i32)` | 3 | 0 | 0 | 3 | unclaimed |
 | `u32(i32,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -131,7 +131,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(i32,i16,i16)` | 8 | 0 | 0 | 8 | unclaimed |
 | `void(i32,i16,i16,i16)` | 9 | 0 | 0 | 9 | unclaimed |
 | `void(i32,i16,i16,i16,i16)` | 8 | 0 | 0 | 8 | unclaimed |
-| `void(i32,i32)` | 151 | 9 | 0 | 142 | paired |
+| `void(i32,i32)` | 151 | 11 | 0 | 140 | paired |
 | `void(i32,i32,f32)` | 16 | 0 | 0 | 16 | unclaimed |
 | `void(i32,i32,f32,f32)` | 3 | 0 | 0 | 3 | unclaimed |
 | `void(i32,i32,f32,f32,f32)` | 2 | 0 | 0 | 2 | unclaimed |
@@ -258,16 +258,16 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(i32,i64,i64,i64)` | 6 | 0 | 0 | 6 | unclaimed |
 | `void(i32,i64,i64,i64,i64)` | 6 | 0 | 0 | 6 | unclaimed |
 | `void(i32,i64,i64,i8)` | 3 | 0 | 0 | 3 | unclaimed |
-| `void(i32,i64,i64,pointer)` | 8 | 2 | 0 | 6 | paired |
+| `void(i32,i64,i64,pointer)` | 8 | 4 | 0 | 4 | paired |
 | `void(i32,i64,i64,pointer,i32)` | 2 | 0 | 0 | 2 | unclaimed |
-| `void(i32,i64,pointer,i32)` | 7 | 2 | 0 | 5 | paired |
+| `void(i32,i64,pointer,i32)` | 7 | 3 | 0 | 4 | paired |
 | `void(i32,i8)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,i8,i32,i32,pointer)` | 3 | 0 | 0 | 3 | unclaimed |
 | `void(i32,i8,i8)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(i32,i8,i8,i8)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,i8,i8,i8,i8)` | 6 | 0 | 0 | 6 | unclaimed |
 | `void(i32,i8,i8,i8,i8,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
-| `void(i32,pointer)` | 349 | 18 | 0 | 331 | paired |
+| `void(i32,pointer)` | 349 | 22 | 0 | 327 | paired |
 | `void(i32,pointer,i32)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,pointer,i32,i32)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -359,7 +359,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glBindAttribLocation` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
 | `glBindAttribLocationARB` | definition |  | GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
 | `glBindBuffer` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab buffer target binding | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact buffer upload readback copy and fill | tests/application/main.ab range and usage rejection |
-| `glBindBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glBindBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated target and buffer-name ABI | examples/raw-command-addresses/main.ab advertised alias buffer round trip | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glBindBufferBase` | definition | GL_VERSION_3_0:+:all|GL_VERSION_3_1:+:all | GL_ARB_uniform_buffer_object:all:all | common | src/driver/opengl.ab uniform and storage binding slots | src/driver/opengl.ab typed target index and name ABI | tests/application/main.ab exact storage compute and bind-group validation | tests/application/main.ab wrong buffer usage rejection |
 | `glBindBufferBaseEXT` | definition |  | GL_EXT_transform_feedback:all:all | unclassified | - | - | - | - |
 | `glBindBufferBaseNV` | definition |  | GL_NV_transform_feedback:all:all | unclassified | - | - | - | - |
@@ -375,7 +375,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glBindFragDataLocationIndexed` | definition | GL_VERSION_3_3:+:all | GL_ARB_blend_func_extended:all:all | unclassified | - | - | - | - |
 | `glBindFragmentShaderATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
 | `glBindFramebuffer` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab draw read resolve and default framebuffer binding | src/driver/opengl.ab typed target and framebuffer-name ABI | tests/application/main.ab repeated offscreen MRT resolve and surfaced rendering | tests/application/main.ab incompatible target rejection |
-| `glBindFramebufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glBindFramebufferEXT` | definition |  | GL_EXT_framebuffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated target and framebuffer-name ABI | examples/raw-command-addresses/main.ab advertised alias default-framebuffer bind | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glBindImageTexture` | definition | GL_VERSION_4_2:+:all | GL_ARB_shader_image_load_store:all:all | unclassified | - | - | - | - |
 | `glBindImageTextureEXT` | definition |  | GL_EXT_shader_image_load_store:all:all | unclassified | - | - | - | - |
 | `glBindImageTextures` | definition | GL_VERSION_4_4:+:all | GL_ARB_multi_bind:all:all | unclassified | - | - | - | - |
@@ -453,7 +453,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glBufferAddressRangeNV` | definition |  | GL_NV_vertex_buffer_unified_memory:all:all | unclassified | - | - | - | - |
 | `glBufferAttachMemoryNV` | definition |  | GL_NV_memory_attachment:all:all | unclassified | - | - | - | - |
 | `glBufferData` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab affine buffer storage allocation | src/driver/opengl.ab typed size and pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab zero-size and oversized buffer rejection |
-| `glBufferDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glBufferDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated wide-size upload ABI | examples/raw-command-addresses/main.ab advertised alias allocation and initialized upload | examples/raw-command-addresses/main.ab explicit wrong-arity rejection before dispatch |
 | `glBufferPageCommitmentARB` | definition |  | GL_ARB_sparse_buffer:all:all | unclassified | - | - | - | - |
 | `glBufferPageCommitmentMemNV` | definition |  | GL_NV_memory_object_sparse:all:all | unclassified | - | - | - | - |
 | `glBufferParameteriAPPLE` | definition |  | GL_APPLE_flush_buffer_range:all:all | unclassified | - | - | - | - |
@@ -461,12 +461,12 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glBufferStorageExternalEXT` | definition |  | GL_EXT_external_buffer:all:all | unclassified | - | - | - | - |
 | `glBufferStorageMemEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
 | `glBufferSubData` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab checked buffer upload | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole uploads | tests/application/main.ab range and usage rejection |
-| `glBufferSubDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glBufferSubDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated offset size and pointer ABI | examples/raw-command-addresses/main.ab advertised alias exact subrange upload | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glCallCommandListNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
 | `glCallList` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glCallLists` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glCheckFramebufferStatus` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab framebuffer completeness validation | src/driver/opengl.ab typed target result ABI | tests/application/main.ab color depth multisample and MRT target creation | tests/application/main.ab incompatible and missing attachment rejection |
-| `glCheckFramebufferStatusEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glCheckFramebufferStatusEXT` | definition |  | GL_EXT_framebuffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated unsigned-result target ABI | examples/raw-command-addresses/main.ab advertised alias exact complete default status | examples/raw-command-addresses/main.ab explicit wrong-result-pointer rejection before dispatch |
 | `glCheckNamedFramebufferStatus` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
 | `glCheckNamedFramebufferStatusEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
 | `glClampColor` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
@@ -704,13 +704,13 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glDeformationMap3fSGIX` | definition |  | GL_SGIX_polynomial_ffd:all:all | unclassified | - | - | - | - |
 | `glDeleteAsyncMarkersSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
 | `glDeleteBuffers` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab affine buffer lifetime | src/driver/opengl.ab typed extern signature | tests/application/main.ab repeated buffer lifecycle | tests/application/main.ab invalid buffer descriptor rejection |
-| `glDeleteBuffersARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glDeleteBuffersARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated count and name-pointer ABI | examples/raw-command-addresses/main.ab advertised alias releases round-trip buffers | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glDeleteCommandListsNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
 | `glDeleteFencesAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
 | `glDeleteFencesNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
 | `glDeleteFragmentShaderATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
 | `glDeleteFramebuffers` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab affine framebuffer and resolve lifetime | src/driver/opengl.ab typed name-array ABI | tests/application/main.ab stable repeated target lifecycle | tests/application/main.ab failed target cleanup |
-| `glDeleteFramebuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glDeleteFramebuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated count and name-pointer ABI | examples/raw-command-addresses/main.ab advertised alias releases created framebuffer | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glDeleteLists` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glDeleteMemoryObjectsEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
 | `glDeleteNamedStringARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
@@ -968,12 +968,12 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glFrustumxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
 | `glGenAsyncMarkersSGIX` | definition |  | GL_SGIX_async:all:all | unclassified | - | - | - | - |
 | `glGenBuffers` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab affine buffer creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab valid transfer and storage buffers | tests/application/main.ab invalid buffer descriptor rejection |
-| `glGenBuffersARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGenBuffersARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated count and output-pointer ABI | examples/raw-command-addresses/main.ab advertised alias creates two nonzero names | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glGenFencesAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
 | `glGenFencesNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
 | `glGenFragmentShadersATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
 | `glGenFramebuffers` | definition | GL_VERSION_3_0:+:all | GL_ARB_framebuffer_object:all:all | common | src/driver/opengl.ab affine framebuffer and resolve creation | src/driver/opengl.ab typed output-pointer ABI | tests/application/main.ab color depth multisample and MRT targets | tests/application/main.ab incompatible attachment rejection |
-| `glGenFramebuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | unclassified | - | - | - | - |
+| `glGenFramebuffersEXT` | definition |  | GL_EXT_framebuffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated count and output-pointer ABI | examples/raw-command-addresses/main.ab advertised alias creates one nonzero framebuffer | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glGenLists` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glGenNamesAMD` | definition |  | GL_AMD_name_gen_delete:all:all | unclassified | - | - | - | - |
 | `glGenOcclusionQueriesNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
@@ -1031,7 +1031,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glGetBufferPointerv` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
 | `glGetBufferPointervARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
 | `glGetBufferSubData` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab checked buffer readback | src/driver/opengl.ab typed offset size and pointer ABI | tests/application/main.ab exact partial and whole readback | tests/application/main.ab range and usage rejection |
-| `glGetBufferSubDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glGetBufferSubDataARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated offset size and output-pointer ABI | examples/raw-command-addresses/main.ab advertised alias exact copied-value readback | examples/raw-command-addresses/main.ab generated ABI mismatch rejection before dispatch |
 | `glGetClipPlane` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glGetClipPlanefOES` | definition |  | GL_OES_single_precision:all:all | unclassified | - | - | - | - |
 | `glGetClipPlanexOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
@@ -1582,7 +1582,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glMap2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glMap2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
 | `glMapBuffer` | definition | GL_VERSION_1_5:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated pointer-result target-access ABI | examples/raw-command-addresses/main.ab mapped write unmap and exact readback | examples/raw-command-addresses/main.ab wrong-result-shape rejection |
-| `glMapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glMapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated pointer-result target-access ABI | examples/raw-command-addresses/main.ab advertised alias mapped pointer value readback | examples/raw-command-addresses/main.ab generated result-shape rejection before dispatch |
 | `glMapBufferRange` | definition | GL_VERSION_3_0:+:all | GL_ARB_map_buffer_range:all:all | common | src/driver/opengl.ab mapped-at-creation and reusable read-write range mapping | src/driver/opengl.ab typed offset length flags and mapped-pointer ABI | examples/common-buffer/main.ab allocation-free repeated write and read maps | tests/application/main.ab access nested mapped-use and logical-range rejection |
 | `glMapControlPointsNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
 | `glMapGrid1d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
@@ -2745,7 +2745,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glUniformui64vNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
 | `glUnlockArraysEXT` | definition |  | GL_EXT_compiled_vertex_array:all:all | unclassified | - | - | - | - |
 | `glUnmapBuffer` | definition | GL_VERSION_1_5:+:all |  | common | src/driver/opengl.ab explicit reusable and affine mapping completion | src/driver/opengl.ab typed result ABI | examples/common-buffer/main.ab repeated write-read unmap with zero growth | tests/application/main.ab repeated unmap and mapped GPU use rejection |
-| `glUnmapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
+| `glUnmapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated boolean-result target ABI | examples/raw-command-addresses/main.ab advertised alias successful mapped-buffer release | examples/raw-command-addresses/main.ab generated result-shape rejection before dispatch |
 | `glUnmapNamedBuffer` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
 | `glUnmapNamedBufferEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
 | `glUnmapObjectBufferATI` | definition |  | GL_ATI_map_object_buffer:all:all | unclassified | - | - | - | - |

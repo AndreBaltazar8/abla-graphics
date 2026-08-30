@@ -4442,3 +4442,45 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make c
 Continue with a broad raw-specification family batch or the next missing
 high-value 3D/ray-tracing/mobile sample. Keep full-matrix runs periodic and keep
 the persistent framework goal active.
+
+## Latest checkpoint: promoted OpenGL extension entry points
+
+The raw OpenGL lab now proves twelve previously unclassified promoted alias
+commands in one shared-state executable batch. Advertised ARB buffer entry
+points create two buffers, allocate and update storage, expose an exact mapped
+value, unmap successfully, copy and read back the value, and release both
+objects. Advertised EXT framebuffer entry points create and destroy an object
+and report the exact complete status for the restored default framebuffer.
+Every call goes through the generated exact ABI gate; representative
+wrong-arity and wrong-result forms are rejected before native dispatch.
+
+The pinned OpenGL ledger consequently advances from 119 to 131 classified
+commands without adding handwritten native bindings. Its 284 generated ABI
+families remain structurally complete, and 49 families have paired executable
+evidence; this slice deepens nine already-proven families rather than inflating
+the family count.
+
+The publication boundary deliberately used one consolidated gate. The
+Abla-only audit and pinned registry fixtures passed first. After correcting two
+test assertions that had accidentally requested valid shapes, the affected raw
+gate passed independent normal and `--fast` builds on OpenGL and Vulkan:
+1,000 OpenGL iterations, exact alias buffer readback, restored state, zero live
+growth, stable Vulkan resource/submit evidence, no unresolved shared libraries,
+and a silent validation log.
+
+Validate the maintained boundary with:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-registry test-raw-commands'
+```
+
+For subsequent work, continue batching commands that share live objects and
+ABI families, use one focused executable during implementation, and run one
+consolidated publication gate. Reserve `make all` and the complete sample matrix
+for periodic integration milestones or changes to shared platform/linkage
+infrastructure.
+
+The raw gate supports change-driven filtering without weakening its default:
+set `ABLA_RAW_COMMAND_TEST_MODES` to `normal` or `fast`, and
+`ABLA_RAW_COMMAND_TEST_BACKENDS` to `opengl` or `vulkan`. With neither set it
+still performs all four publication combinations.
