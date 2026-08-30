@@ -1,0 +1,94 @@
+import "abla/io"
+import "abla/process/arguments"
+import "abla/runtime/memory"
+import "../../src/graphics.ab"
+
+fun multiWindowNativeIdentity(app: GraphicsApplication): int =
+    if (app.backend == graphicsBackendOpenGl)
+        nativePointerAddress(app.openGl.context)
+    else if (app.backend == graphicsBackendVulkan)
+        nativePointerAddress(app.vulkanInstance.handle)
+    else 0
+
+fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val first = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics multi-window first",
+            width = 320,
+            height = 180
+        )
+    )
+    val second = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Graphics multi-window second",
+            width = 360,
+            height = 200
+        )
+    )
+    val monitorCount = first.monitorCount()
+    var monitorsValid = monitorCount > 0 &&
+        second.monitorCount() == monitorCount &&
+        !first.monitor(-1).valid() && !first.monitor(monitorCount).valid()
+    var monitorIndex = 0
+    while (monitorsValid && monitorIndex < monitorCount) {
+        val firstMonitor = first.monitor(monitorIndex)
+        val secondMonitor = second.monitor(monitorIndex)
+        monitorsValid = firstMonitor.valid() && secondMonitor.valid() &&
+            firstMonitor.name == secondMonitor.name &&
+            firstMonitor.width == secondMonitor.width &&
+            firstMonitor.height == secondMonitor.height
+        monitorIndex = monitorIndex + 1
+    }
+    var resized = first.valid() && second.valid() && monitorsValid &&
+        first.backend == second.backend &&
+        first.window.descriptor != second.window.descriptor &&
+        first.setTitle("Abla Graphics first retained window") &&
+        second.setTitle("Abla Graphics second retained window") &&
+        second.resize(400, 240)
+    var resizeEvent = WindowEvent()
+    var resizeAttempts = 0
+    while (resized && resizeEvent.kind != windowEventResized &&
+        resizeAttempts < 32) {
+        resizeEvent = second.pollEvent(50)
+        resizeAttempts = resizeAttempts + 1
+    }
+    resized = resized && resizeEvent.kind == windowEventResized &&
+        resizeEvent.first == 400 && resizeEvent.second == 240 &&
+        first.window.width == 320 && first.window.height == 180 &&
+        second.window.width == 400 && second.window.height == 240
+    val firstColor = Color(0.8, 0.1, 0.2)
+    val secondColor = Color(0.1, 0.25, 0.85)
+    var presented = resized && first.presentClear(firstColor) &&
+        second.presentClear(secondColor)
+    val firstIdentity = multiWindowNativeIdentity(first)
+    val secondIdentity = multiWindowNativeIdentity(second)
+    val liveBefore = runtimeMemoryLiveBytes()
+    var frame = 0
+    while (presented && frame < 64) {
+        presented = first.presentClear(firstColor) &&
+            second.presentClear(secondColor)
+        frame = frame + 1
+    }
+    val liveAfter = runtimeMemoryLiveBytes()
+    val identitiesStable = firstIdentity != 0 && secondIdentity != 0 &&
+        firstIdentity != secondIdentity &&
+        multiWindowNativeIdentity(first) == firstIdentity &&
+        multiWindowNativeIdentity(second) == secondIdentity
+    val firstMonitor = first.monitor(0)
+    val secondMonitor = if (monitorCount > 1)
+        first.monitor(1) else Monitor()
+    val passed = presented && frame == 64 && monitorsValid &&
+        monitorIndex == monitorCount && resized && identitiesStable &&
+        liveAfter == liveBefore
+    println(
+        "Multi-window ${graphicsBackendName(first.backend)}: windows=2 monitors=$monitorCount screen0=${firstMonitor.width}x${firstMonitor.height} screen1=${secondMonitor.width}x${secondMonitor.height} resized=${second.window.width}x${second.window.height} frames=$frame distinct=$identitiesStable stable=$passed live=${liveAfter - liveBefore}"
+    )
+    if (passed) 0 else 1
+}

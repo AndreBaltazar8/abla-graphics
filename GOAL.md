@@ -4322,3 +4322,31 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make c
 
 Continue with the next missing milestone-7 application while retaining this
 focused gate in `make test`. Keep the persistent framework goal active.
+
+## Latest checkpoint: multi-window and core X11 monitor inventory
+
+The X11 setup parser no longer assumes a single fixed-size screen record. It
+walks every screen and its variable depth/visual lists, retains immutable
+`Monitor` snapshots, and exposes allocation-free `monitorCount()` and
+`monitor(index)` queries through `GraphicsApplication`. Invalid indices return
+an invalid value. `primaryMonitor()` remains the first screen for compatibility.
+
+`examples/multi-window` owns two surfaced applications simultaneously, routes a
+400x240 resize only through the second event queue, and alternates 64 red/blue
+presentations. Its focused gate runs a deterministic two-screen Xvfb server
+(800x600 and 1024x768), strips `LD_LIBRARY_PATH`, and passes on software OpenGL
+and validation-enabled Vulkan with distinct stable native identities and
+`live=0`. The canonical independently buildable matrix now contains 74 roots.
+
+This checkpoint truthfully covers core X11 screens; RandR outputs subdividing a
+single screen remain a separate extension milestone.
+
+Validated with:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make test-x11 test-multi-window'
+```
+
+Continue with the next missing milestone-7 sample and later add RandR output
+enumeration without weakening this core-screen contract. Keep the persistent
+framework goal active.

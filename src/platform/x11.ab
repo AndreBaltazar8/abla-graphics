@@ -216,7 +216,8 @@ class X11Setup(
     val screenWidth: int,
     val screenHeight: int,
     val screenWidthMillimeters: int,
-    val screenHeightMillimeters: int
+    val screenHeightMillimeters: int,
+    val monitors: array<Monitor>
 )
 
 fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
@@ -271,6 +272,7 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
     var screenHeight = 0
     var screenWidthMillimeters = 0
     var screenHeightMillimeters = 0
+    val monitors: array<Monitor> = []
     if (succeeded) {
         resourceBase = x11U32(body, 4)
         resourceMask = x11U32(body, 8)
@@ -279,22 +281,62 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
         val screenCount = body[20]
         minimumKeycode = body[26]
         maximumKeycode = body[27]
-        val screenOffset =
+        var screenOffset =
             32 + ((vendorLength + 3) / 4) * 4 + formatCount * 8
-        succeeded = screenCount > 0 && screenOffset + 40 <= body.size
-        if (succeeded) {
-            root = x11U32(body, screenOffset)
-            whitePixel = x11U32(body, screenOffset + 8)
-            blackPixel = x11U32(body, screenOffset + 12)
-            screenWidth = x11U16(body, screenOffset + 20)
-            screenHeight = x11U16(body, screenOffset + 22)
-            screenWidthMillimeters = x11U16(body, screenOffset + 24)
-            screenHeightMillimeters = x11U16(body, screenOffset + 26)
-            rootVisual = x11U32(body, screenOffset + 32)
-            rootDepth = body[screenOffset + 38]
-            succeeded = root != 0 && resourceMask != 0 && rootDepth > 0 &&
-                screenWidth > 0 && screenHeight > 0
+        succeeded = screenCount > 0
+        var screenIndex = 0
+        while (succeeded && screenIndex < screenCount) {
+            succeeded = screenOffset + 40 <= body.size
+            if (succeeded) {
+                val screenRoot = x11U32(body, screenOffset)
+                val width = x11U16(body, screenOffset + 20)
+                val height = x11U16(body, screenOffset + 22)
+                val widthMillimeters = x11U16(body, screenOffset + 24)
+                val heightMillimeters = x11U16(body, screenOffset + 26)
+                val visual = x11U32(body, screenOffset + 32)
+                val depth = body[screenOffset + 38]
+                val depthCount = body[screenOffset + 39]
+                succeeded = screenRoot != 0 && visual != 0 && depth > 0 &&
+                    width > 0 && height > 0
+                if (succeeded) {
+                    monitors.append(Monitor(
+                        "X11 screen $screenIndex",
+                        width,
+                        height,
+                        widthMillimeters,
+                        heightMillimeters
+                    ))
+                    if (screenIndex == 0) {
+                        root = screenRoot
+                        whitePixel = x11U32(body, screenOffset + 8)
+                        blackPixel = x11U32(body, screenOffset + 12)
+                        screenWidth = width
+                        screenHeight = height
+                        screenWidthMillimeters = widthMillimeters
+                        screenHeightMillimeters = heightMillimeters
+                        rootVisual = visual
+                        rootDepth = depth
+                    }
+                }
+                var depthOffset = screenOffset + 40
+                var depthIndex = 0
+                while (succeeded && depthIndex < depthCount) {
+                    succeeded = depthOffset + 8 <= body.size
+                    if (succeeded) {
+                        val visualCount = x11U16(body, depthOffset + 2)
+                        val nextOffset = depthOffset + 8 + visualCount * 24
+                        succeeded = nextOffset >= depthOffset &&
+                            nextOffset <= body.size
+                        if (succeeded) depthOffset = nextOffset
+                    }
+                    depthIndex = depthIndex + 1
+                }
+                if (succeeded) screenOffset = depthOffset
+            }
+            screenIndex = screenIndex + 1
         }
+        succeeded = succeeded && monitors.size == screenCount &&
+            resourceMask != 0
     }
     X11Setup(
         succeeded,
@@ -310,7 +352,8 @@ fun x11Setup(descriptor: int, authority: X11Authority): X11Setup {
         screenWidth,
         screenHeight,
         screenWidthMillimeters,
-        screenHeightMillimeters
+        screenHeightMillimeters,
+        monitors
     )
 }
 
@@ -1094,6 +1137,7 @@ resource class X11Window(
     val targetsAtom: int,
     val clipboardPropertyAtom: int,
     val keysyms: array<int>,
+    val monitors: array<Monitor>,
     val primaryMonitor: Monitor,
     var width: int,
     var height: int,
@@ -1584,6 +1628,7 @@ fun x11Window(
     var clipboardPropertyAtom = 0
     var invisibleCursor = 0
     var keysyms: array<int> = []
+    var monitors: array<Monitor> = []
     var primaryMonitor = Monitor()
     if (config.valid() && !config.transparent) {
         descriptor = x11ConnectUnix(displayNumber)
@@ -1598,6 +1643,7 @@ fun x11Window(
                 setup.screenWidthMillimeters,
                 setup.screenHeightMillimeters
             )
+            monitors = setup.monitors
             keysyms = x11KeyboardMapping(
                 descriptor,
                 setup.minimumKeycode,
@@ -1718,6 +1764,7 @@ fun x11Window(
         targetsAtom,
         clipboardPropertyAtom,
         keysyms,
+        monitors,
         primaryMonitor,
         config.width,
         config.height,

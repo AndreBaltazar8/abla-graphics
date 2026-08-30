@@ -12,7 +12,7 @@ Updated: 2026-08-30.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 73 roots. Samples 65 through 68 cover deferred rendering,
+  The matrix now has 74 roots. Samples 65 through 68 cover deferred rendering,
   compute-to-render handoff, typed blending, and typed stencil masking. Sample
   69 is the complete `mini-breakout` 2D game: its independently built stripped-
   environment binary passed OpenGL, validation-enabled Vulkan, and automatic
@@ -26,6 +26,11 @@ Updated: 2026-08-30.
   feature labs. Their optimized focused gate scans all 2,892/842 capability
   rows, observes 961/252 advertised commands on the current drivers, resolves
   every advertised entry point, and keeps Vulkan validation silent.
+  Sample 74 is the multi-window/multi-monitor proof: a two-screen Xvfb setup is
+  parsed directly from the core X11 handshake, two independent windows route a
+  resize only to the second, and 64 alternating presentations retain distinct
+  OpenGL contexts or Vulkan instances with `live=0`; Vulkan validation is
+  silent.
   The same registry pass now derives exact ABI-family evidence ledgers: 49 of
   284 OpenGL families and 54 of 122 Vulkan families currently have at least one
   reviewed command with both positive and unsupported-path evidence. Remaining
@@ -441,6 +446,12 @@ Updated: 2026-08-30.
   X11/EGL WSI bridge, window surface and core context creation, GLSL shader
   compile/link diagnostics, VAO/full-screen triangle draw, pixel readback,
   buffer swap, and reverse-order affine cleanup.
+- Multi-window and X11 screen inventory: the setup parser walks every variable-
+  length screen, depth, and visual record instead of assuming one fixed screen.
+  The common API exposes bounded monitor lookup, while the focused two-screen
+  gate proves independent resize/event state and alternating presentation for
+  two simultaneously owned applications on both graphics backends. Core X11
+  screens are reported exactly; RandR output subdivision remains unclaimed.
 - Common application test: explicit OpenGL, explicit Vulkan, automatic Vulkan
   preference, automatic fallback to OpenGL, explicit-unavailable rejection,
   and explicit unsupported-feature rejection. Every successful path requires

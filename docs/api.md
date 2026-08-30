@@ -487,9 +487,14 @@ Integer extents never silently wrap: `areaChecked()`/`volumeChecked()` return a
 invalid or overflowing dimensions. `Rect2D.contains` rejects bounds whose
 exclusive endpoint cannot be represented.
 
-`app.primaryMonitor()` reports the X11 setup screen's pixel and physical
-dimensions plus derived DPI/content scale. A server that omits physical size
-uses the portable 96 DPI baseline rather than returning zero or dividing by it.
+`app.monitorCount()` and `app.monitor(index)` expose immutable snapshots for
+every screen in the X11 setup handshake; an invalid index returns an invalid
+monitor. `app.primaryMonitor()` remains the first setup screen and reports its
+pixel and physical dimensions plus derived DPI/content scale. A server that
+omits physical size uses the portable 96 DPI baseline rather than returning
+zero or dividing by it. These are core X11 screens. Subdividing one screen into
+RandR outputs is a separate extension surface and is not inferred from the
+screen dimensions.
 `app.setPointerPosition(x, y)` emits a direct core X11 `WarpPointer` request;
 the resulting motion is delivered through the same copied event queue.
 `app.setPointerCaptured(true)` performs an idempotent core pointer grab confined

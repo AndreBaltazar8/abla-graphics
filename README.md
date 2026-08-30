@@ -270,6 +270,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/headless-opengl`: surfaceless context and framebuffer clear; and
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
+- `examples/multi-window`: two simultaneous retained windows, independent
+  resize/event state, complete core X11 setup-screen inventory, and 64
+  alternating zero-growth presentations on OpenGL and Vulkan;
 - `examples/mini-breakout`: a complete playable pure-Abla 2D game with portable
   keyboard controls, deterministic fixed-step simulation, bricks, scoring,
   lives, win/loss/reset states, and the same allocation-free `PixelBuffer`

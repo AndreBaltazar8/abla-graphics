@@ -476,7 +476,9 @@ backends unless it demonstrates a backend-specific feature:
    attachment and comparison sampler) and HDR/PBR lighting;
 9. deferred renderer/render graph;
 10. UI overlay and text rendering;
-11. multi-window and multi-monitor;
+11. multi-window and multi-monitor (delivered on X11 by
+    `examples/multi-window`, with complete setup-screen inventory, independent
+    resize/event routing, and 64 alternating zero-growth presentations);
 12. headless image generation;
 13. GPU queries/profiler (delivered by `examples/gpu-timestamp`, with one
     retained affine query producing minimum/average/maximum GPU frame times
