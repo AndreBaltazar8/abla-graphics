@@ -10,11 +10,11 @@
 - Command parameters: 2809
 - Aggregates: 1450
 - Aggregate members: 7413
-- Classified commands: 113/842
+- Classified commands: 126/842
 - Classified core features: 0/5
 - Classified extensions: 0/473
 - Raw call ABI families: 122
-- ABI families with paired executable evidence: 48/122
+- ABI families with paired executable evidence: 54/122
 
 ## Raw call ABI family evidence
 
@@ -38,7 +38,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `i32(pointer,i32,pointer,pointer)` | 10 | 0 | 0 | 10 | unclaimed |
 | `i32(pointer,i32,pointer,pointer,pointer)` | 5 | 0 | 0 | 5 | unclaimed |
 | `i32(pointer,i32,pointer,pointer,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
-| `i32(pointer,i64)` | 18 | 1 | 0 | 17 | paired |
+| `i32(pointer,i64)` | 18 | 2 | 0 | 16 | paired |
 | `i32(pointer,i64,i32)` | 4 | 1 | 0 | 3 | paired |
 | `i32(pointer,i64,i32,i32,i64,pointer)` | 3 | 0 | 0 | 3 | unclaimed |
 | `i32(pointer,i64,i32,i32,i64,pointer,i64,i32)` | 1 | 1 | 0 | 0 | paired |
@@ -61,7 +61,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `i32(pointer,pointer,i64)` | 3 | 1 | 0 | 2 | paired |
 | `i32(pointer,pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i32(pointer,pointer,pointer)` | 63 | 5 | 0 | 58 | paired |
-| `i32(pointer,pointer,pointer,pointer)` | 81 | 18 | 0 | 63 | paired |
+| `i32(pointer,pointer,pointer,pointer)` | 81 | 19 | 0 | 62 | paired |
 | `i32(pointer,pointer,pointer,pointer,pointer)` | 3 | 1 | 0 | 2 | paired |
 | `i64(pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i64(pointer,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -70,12 +70,12 @@ A common/raw count means each counted command has both positive and unsupported-
 | `pointer(pointer,pointer)` | 2 | 1 | 0 | 1 | paired |
 | `void(i64,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer)` | 12 | 2 | 0 | 10 | paired |
-| `void(pointer,f32)` | 2 | 0 | 0 | 2 | unclaimed |
+| `void(pointer,f32)` | 2 | 1 | 0 | 1 | paired |
 | `void(pointer,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
-| `void(pointer,i32)` | 57 | 1 | 0 | 56 | paired |
+| `void(pointer,i32)` | 57 | 2 | 0 | 55 | paired |
 | `void(pointer,i32,i16)` | 3 | 0 | 0 | 3 | unclaimed |
-| `void(pointer,i32,i32)` | 4 | 0 | 0 | 4 | unclaimed |
+| `void(pointer,i32,i32)` | 4 | 1 | 0 | 3 | paired |
 | `void(pointer,i32,i32,i32)` | 4 | 1 | 0 | 3 | paired |
 | `void(pointer,i32,i32,i32,i32)` | 1 | 1 | 0 | 0 | paired |
 | `void(pointer,i32,i32,i32,i32,i32)` | 3 | 1 | 0 | 2 | paired |
@@ -97,7 +97,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(pointer,i32,i64,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i32,i64,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i32,i64,i64,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
-| `void(pointer,i32,pointer)` | 20 | 0 | 0 | 20 | unclaimed |
+| `void(pointer,i32,pointer)` | 20 | 1 | 0 | 19 | paired |
 | `void(pointer,i32,pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i32,pointer,i32,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i32,pointer,i32,i32,i32,pointer,i32,pointer,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -108,7 +108,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(pointer,i32,pointer,pointer,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i64)` | 5 | 1 | 0 | 4 | paired |
 | `void(pointer,i64,f32)` | 1 | 0 | 0 | 1 | unclaimed |
-| `void(pointer,i64,i32)` | 10 | 0 | 0 | 10 | unclaimed |
+| `void(pointer,i64,i32)` | 10 | 1 | 0 | 9 | paired |
 | `void(pointer,i64,i32,i32)` | 6 | 1 | 0 | 5 | paired |
 | `void(pointer,i64,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i64,i32,i32,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
@@ -120,8 +120,8 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(pointer,i64,i32,i64,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
 | `void(pointer,i64,i32,pointer)` | 4 | 0 | 0 | 4 | unclaimed |
 | `void(pointer,i64,i32,pointer,i32,pointer)` | 2 | 1 | 0 | 1 | paired |
-| `void(pointer,i64,i64)` | 5 | 0 | 0 | 5 | unclaimed |
-| `void(pointer,i64,i64,i32)` | 5 | 1 | 0 | 4 | paired |
+| `void(pointer,i64,i64)` | 5 | 1 | 0 | 4 | paired |
+| `void(pointer,i64,i64,i32)` | 5 | 2 | 0 | 3 | paired |
 | `void(pointer,i64,i64,i32,i32)` | 4 | 2 | 0 | 2 | paired |
 | `void(pointer,i64,i64,i32,i32,pointer)` | 1 | 1 | 0 | 0 | paired |
 | `void(pointer,i64,i64,i32,pointer)` | 3 | 1 | 0 | 2 | paired |
@@ -130,9 +130,9 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(pointer,i64,i64,i64,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,i64,i64,i64,i64,i32,i32)` | 8 | 0 | 0 | 8 | unclaimed |
 | `void(pointer,i64,i64,i64,i64,i64,i64,i64,i64,i64,i64,i64,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
-| `void(pointer,i64,i64,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
+| `void(pointer,i64,i64,i64,pointer)` | 1 | 1 | 0 | 0 | paired |
 | `void(pointer,i64,i64,pointer)` | 4 | 0 | 0 | 4 | unclaimed |
-| `void(pointer,i64,pointer)` | 66 | 21 | 0 | 45 | paired |
+| `void(pointer,i64,pointer)` | 66 | 23 | 0 | 43 | paired |
 | `void(pointer,i64,pointer,pointer)` | 5 | 0 | 0 | 5 | unclaimed |
 | `void(pointer,pointer)` | 104 | 8 | 0 | 96 | paired |
 | `void(pointer,pointer,i32)` | 1 | 1 | 0 | 0 | paired |
@@ -140,7 +140,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(pointer,pointer,i32,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,pointer,i64,i64,i32,i64,i64,i64,i64)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,pointer,i64,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
-| `void(pointer,pointer,pointer)` | 48 | 1 | 0 | 47 | paired |
+| `void(pointer,pointer,pointer)` | 48 | 2 | 0 | 46 | paired |
 | `void(pointer,pointer,pointer,pointer)` | 6 | 0 | 0 | 6 | unclaimed |
 | `void(pointer,pointer,pointer,pointer,pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer,pointer,pointer,pointer,pointer,i64)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -357,8 +357,8 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCmdPushDescriptorSetWithTemplate2` | definition | VK_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
 | `vkCmdPushDescriptorSetWithTemplate2KHR` | alias |  | VK_KHR_maintenance6:all:all | unclassified | - | - | - | - |
 | `vkCmdPushDescriptorSetWithTemplateKHR` | alias |  | VK_KHR_push_descriptor:all:all|VK_KHR_descriptor_update_template:all:all | unclassified | - | - | - | - |
-| `vkCmdResetEvent` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
-| `vkCmdResetEvent2` | definition | VK_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `vkCmdResetEvent` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command event stage-mask ABI | examples/raw-command-addresses/main.ab recorded real event reset and submitted status proof | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
+| `vkCmdResetEvent2` | definition | VK_VERSION_1_3:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command event 64-bit-stage ABI | examples/raw-command-addresses/main.ab recorded synchronization2 event reset and status proof | examples/raw-command-addresses/main.ab wrong-width rejection before dispatch |
 | `vkCmdResetEvent2KHR` | alias |  | VK_KHR_synchronization2:all:all | unclassified | - | - | - | - |
 | `vkCmdResetQueryPool` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab timestamp reset recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab repeated timestamp samples | tests/application/main.ab invalid query rejection |
 | `vkCmdResolveImage` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab explicit resolve recording | src/driver/vulkan.ab packed resolve ABI | tests/application/main.ab exact multisample resolve | tests/application/main.ab incompatible resolve rejection |
@@ -404,14 +404,14 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCmdSetDepthWriteEnableEXT` | alias |  | VK_EXT_extended_dynamic_state:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
 | `vkCmdSetDescriptorBufferOffsets2EXT` | definition |  | VK_KHR_maintenance6:all:all | unclassified | - | - | - | - |
 | `vkCmdSetDescriptorBufferOffsetsEXT` | definition |  | VK_EXT_descriptor_buffer:all:all | unclassified | - | - | - | - |
-| `vkCmdSetDeviceMask` | definition | VK_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `vkCmdSetDeviceMask` | definition | VK_VERSION_1_1:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command and mask ABI | examples/raw-command-addresses/main.ab one thousand recorded device-mask commands | examples/raw-command-addresses/main.ab wrong-shape and null-owner rejection |
 | `vkCmdSetDeviceMaskKHR` | alias |  | VK_KHR_device_group:all:all | unclassified | - | - | - | - |
 | `vkCmdSetDiscardRectangleEXT` | definition |  | VK_EXT_discard_rectangles:all:all | unclassified | - | - | - | - |
 | `vkCmdSetDiscardRectangleEnableEXT` | definition |  | VK_EXT_discard_rectangles:all:all | unclassified | - | - | - | - |
 | `vkCmdSetDiscardRectangleModeEXT` | definition |  | VK_EXT_discard_rectangles:all:all | unclassified | - | - | - | - |
 | `vkCmdSetDispatchParametersARM` | definition |  | VK_ARM_scheduling_controls:all:all | unclassified | - | - | - | - |
 | `vkCmdSetEvent` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
-| `vkCmdSetEvent2` | definition | VK_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `vkCmdSetEvent2` | definition | VK_VERSION_1_3:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command event dependency-pointer ABI | examples/raw-command-addresses/main.ab submitted packed synchronization2 dependency | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkCmdSetEvent2KHR` | alias |  | VK_KHR_synchronization2:all:all | unclassified | - | - | - | - |
 | `vkCmdSetExclusiveScissorEnableNV` | definition |  | VK_NV_scissor_exclusive:all:all | unclassified | - | - | - | - |
 | `vkCmdSetExclusiveScissorNV` | definition |  | VK_NV_scissor_exclusive:all:all | unclassified | - | - | - | - |
@@ -425,7 +425,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCmdSetLineStippleEXT` | alias |  | VK_EXT_line_rasterization:all:all | unclassified | - | - | - | - |
 | `vkCmdSetLineStippleEnableEXT` | definition |  | VK_EXT_extended_dynamic_state3:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
 | `vkCmdSetLineStippleKHR` | alias |  | VK_KHR_line_rasterization:all:all | unclassified | - | - | - | - |
-| `vkCmdSetLineWidth` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCmdSetLineWidth` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command and native-float ABI | examples/raw-command-addresses/main.ab recorded valid dynamic line width | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkCmdSetLogicOpEXT` | definition |  | VK_EXT_extended_dynamic_state2:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
 | `vkCmdSetLogicOpEnableEXT` | definition |  | VK_EXT_extended_dynamic_state3:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
 | `vkCmdSetPatchControlPointsEXT` | definition |  | VK_EXT_extended_dynamic_state2:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
@@ -459,7 +459,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCmdSetStencilCompareMask` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
 | `vkCmdSetStencilOp` | definition | VK_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
 | `vkCmdSetStencilOpEXT` | alias |  | VK_EXT_extended_dynamic_state:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
-| `vkCmdSetStencilReference` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCmdSetStencilReference` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command face-mask reference ABI | examples/raw-command-addresses/main.ab one thousand recorded stencil-reference commands | examples/raw-command-addresses/main.ab wrong-shape and null-owner rejection |
 | `vkCmdSetStencilTestEnable` | definition | VK_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
 | `vkCmdSetStencilTestEnableEXT` | alias |  | VK_EXT_extended_dynamic_state:all:all|VK_EXT_shader_object:all:all | unclassified | - | - | - | - |
 | `vkCmdSetStencilWriteMask` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
@@ -477,7 +477,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCmdTraceRaysIndirectKHR` | definition |  | VK_KHR_ray_tracing_pipeline:all:all | unclassified | - | - | - | - |
 | `vkCmdTraceRaysKHR` | definition |  | VK_KHR_ray_tracing_pipeline:all:all | unclassified | - | - | - | - |
 | `vkCmdTraceRaysNV` | definition |  | VK_NV_ray_tracing:all:all | unclassified | - | - | - | - |
-| `vkCmdUpdateBuffer` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCmdUpdateBuffer` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command buffer offset size data ABI | examples/raw-command-addresses/main.ab submitted update with exact host readback | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkCmdUpdateMemoryKHR` | definition |  | VK_KHR_device_address_commands:all:all | unclassified | - | - | - | - |
 | `vkCmdUpdatePipelineIndirectBufferNV` | definition |  | VK_NV_device_generated_commands_compute:all:all | unclassified | - | - | - | - |
 | `vkCmdWaitEvents` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
@@ -490,7 +490,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCmdWriteMarkerToMemoryAMD` | definition |  | VK_KHR_device_address_commands:all:all | unclassified | - | - | - | - |
 | `vkCmdWriteMicromapsPropertiesEXT` | definition |  | VK_EXT_opacity_micromap:all:all | unclassified | - | - | - | - |
 | `vkCmdWriteTimestamp` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab timestamp recording | src/driver/vulkan.ab typed extern signature | tests/application/main.ab monotonic timestamp samples | tests/application/main.ab invalid query rejection |
-| `vkCmdWriteTimestamp2` | definition | VK_VERSION_1_3:+:all |  | unclassified | - | - | - | - |
+| `vkCmdWriteTimestamp2` | definition | VK_VERSION_1_3:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated command 64-bit-stage query-pool index ABI | examples/raw-command-addresses/main.ab submitted synchronization2 timestamp and nonzero result | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkCmdWriteTimestamp2KHR` | alias |  | VK_KHR_synchronization2:all:all | unclassified | - | - | - | - |
 | `vkCompileDeferredNV` | definition |  | VK_NV_ray_tracing:all:all | unclassified | - | - | - | - |
 | `vkConvertCooperativeVectorMatrixNV` | definition |  | VK_NV_cooperative_vector:all:all | unclassified | - | - | - | - |
@@ -532,7 +532,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkCreateDirectFBSurfaceEXT` | definition |  | VK_EXT_directfb_surface:directfb:all | unclassified | - | - | - | - |
 | `vkCreateDisplayModeKHR` | definition |  | VK_KHR_display:all:all | unclassified | - | - | - | - |
 | `vkCreateDisplayPlaneSurfaceKHR` | definition |  | VK_KHR_display:all:all | unclassified | - | - | - | - |
-| `vkCreateEvent` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkCreateEvent` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated create-info allocator output ABI | examples/raw-command-addresses/main.ab live event creation and status round trip | examples/raw-command-addresses/main.ab wrong-result-shape rejection |
 | `vkCreateExecutionGraphPipelinesAMDX` | definition |  | VK_AMDX_shader_enqueue:provisional:all | unclassified | - | - | - | - |
 | `vkCreateExternalComputeQueueNV` | definition |  | VK_NV_external_compute_queue:all:all | unclassified | - | - | - | - |
 | `vkCreateFence` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab affine frame and transfer completion fences | src/driver/vulkan.ab packed FenceCreateInfo ABI | tests/transfer/main.ab three stable asynchronous transfer fences | src/driver/vulkan_transfer.ab partial slot creation cleanup |
@@ -609,7 +609,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkDestroyDescriptorUpdateTemplate` | definition | VK_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
 | `vkDestroyDescriptorUpdateTemplateKHR` | alias |  | VK_KHR_descriptor_update_template:all:all | unclassified | - | - | - | - |
 | `vkDestroyDevice` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab affine logical-device lifetime | src/driver/vulkan.ab typed extern signature | tests/vulkan/main.ab complete device resource lifecycle | src/driver/vulkan.ab partial device creation cleanup |
-| `vkDestroyEvent` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkDestroyEvent` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated device event allocator ABI | examples/raw-command-addresses/main.ab live created-event destruction | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkDestroyExternalComputeQueueNV` | definition |  | VK_NV_external_compute_queue:all:all | unclassified | - | - | - | - |
 | `vkDestroyFence` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab and src/driver/vulkan_transfer.ab affine fence lifetime | src/driver/vulkan.ab typed extern signature | tests/transfer/main.ab complete three-slot queue lifecycle | src/driver/vulkan_transfer.ab partial slot cleanup |
 | `vkDestroyFramebuffer` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab affine legacy framebuffer lifetime | src/driver/vulkan.ab typed extern signature | tests/application/main.ab stable target and subpass framebuffer lifecycle | tests/application/main.ab failed target cleanup |
@@ -720,7 +720,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkGetDeviceMicromapCompatibilityEXT` | definition |  | VK_EXT_opacity_micromap:all:all | unclassified | - | - | - | - |
 | `vkGetDeviceProcAddr` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
 | `vkGetDeviceQueue` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab selected graphics-compute queue retrieval | src/driver/vulkan.ab typed family index queue index and output ABI | tests/vulkan/main.ab live compute transfer and render queue | src/driver/vulkan.ab invalid queue handle rejects device |
-| `vkGetDeviceQueue2` | definition | VK_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
+| `vkGetDeviceQueue2` | definition | VK_VERSION_1_1:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated queue-info and output-pointer ABI | examples/raw-command-addresses/main.ab exact selected queue identity query | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkGetDeviceSubpassShadingMaxWorkgroupSizeHUAWEI` | definition |  | VK_HUAWEI_subpass_shading:all:all | unclassified | - | - | - | - |
 | `vkGetDeviceTensorMemoryRequirementsARM` | definition |  | VK_ARM_tensors:all:all | unclassified | - | - | - | - |
 | `vkGetDisplayModeProperties2KHR` | definition |  | VK_KHR_get_display_properties2:all:all | unclassified | - | - | - | - |
@@ -731,7 +731,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkGetDrmDisplayEXT` | definition |  | VK_EXT_acquire_drm_display:all:all | unclassified | - | - | - | - |
 | `vkGetDynamicRenderingTilePropertiesQCOM` | definition |  | VK_QCOM_tile_properties:all:all | unclassified | - | - | - | - |
 | `vkGetEncodedVideoSessionParametersKHR` | definition |  | VK_KHR_video_encode_queue:all:all | unclassified | - | - | - | - |
-| `vkGetEventStatus` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkGetEventStatus` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab device-scope capability resolver | src/raw/vulkan.ab generated device event result ABI | examples/raw-command-addresses/main.ab exact reset and set event-status proof | examples/raw-command-addresses/main.ab wrong-result-shape rejection |
 | `vkGetExecutionGraphPipelineNodeIndexAMDX` | definition |  | VK_AMDX_shader_enqueue:provisional:all | unclassified | - | - | - | - |
 | `vkGetExecutionGraphPipelineScratchSizeAMDX` | definition |  | VK_AMDX_shader_enqueue:provisional:all | unclassified | - | - | - | - |
 | `vkGetExternalComputeQueueDataNV` | definition |  | VK_NV_external_compute_queue:all:all | unclassified | - | - | - | - |
@@ -807,7 +807,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `vkGetPhysicalDeviceFeatures` | definition | VK_VERSION_1_0:+:all |  | common | src/driver/vulkan.ab base feature availability query | src/driver/vulkan.ab packed PhysicalDeviceFeatures ABI | tests/vulkan/main.ab sampler anisotropy and core feature negotiation | tests/application/main.ab required feature rejection |
 | `vkGetPhysicalDeviceFeatures2` | definition | VK_VERSION_1_1:+:all |  | common | src/driver/vulkan.ab promoted feature query | src/driver/vulkan.ab Vulkan 12 and 13 feature-chain ABI | tests/vulkan/main.ab timeline and synchronization2 enablement | src/driver/vulkan.ab core-version gating |
 | `vkGetPhysicalDeviceFeatures2KHR` | alias |  | VK_KHR_get_physical_device_properties2:all:all | unclassified | - | - | - | - |
-| `vkGetPhysicalDeviceFormatProperties` | definition | VK_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `vkGetPhysicalDeviceFormatProperties` | definition | VK_VERSION_1_0:+:all |  | raw | src/raw/vulkan.ab instance-scope capability resolver | src/raw/vulkan.ab generated adapter format output ABI | examples/raw-command-addresses/main.ab live nonzero format-feature query | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `vkGetPhysicalDeviceFormatProperties2` | definition | VK_VERSION_1_1:+:all |  | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceFormatProperties2KHR` | alias |  | VK_KHR_get_physical_device_properties2:all:all | unclassified | - | - | - | - |
 | `vkGetPhysicalDeviceFragmentShadingRatesKHR` | definition |  | VK_KHR_fragment_shading_rate:all:all | unclassified | - | - | - | - |

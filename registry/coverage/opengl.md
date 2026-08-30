@@ -10,11 +10,11 @@
 - Command parameters: 9526
 - Aggregates: 0
 - Aggregate members: 0
-- Classified commands: 109/2892
+- Classified commands: 119/2892
 - Classified core features: 0/19
 - Classified extensions: 0/623
 - Raw call ABI families: 284
-- ABI families with paired executable evidence: 42/284
+- ABI families with paired executable evidence: 49/284
 
 ## Raw call ABI family evidence
 
@@ -23,7 +23,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | ABI family | Registry commands | Paired executable evidence | Rejection-only evidence | Unclassified | Gate |
 | --- | ---: | ---: | ---: | ---: | --- |
 | `f32(i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
-| `handleResult()` | 1 | 0 | 0 | 1 | unclaimed |
+| `handleResult()` | 1 | 1 | 0 | 0 | paired |
 | `handleResult(i32)` | 2 | 0 | 0 | 2 | unclaimed |
 | `i32()` | 1 | 0 | 0 | 1 | unclaimed |
 | `i32(handle,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
@@ -31,12 +31,12 @@ A common/raw count means each counted command has both positive and unsupported-
 | `i32(i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i32(i32,i32,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i32(i32,i32,pointer)` | 3 | 0 | 0 | 3 | unclaimed |
-| `i32(i32,pointer)` | 6 | 0 | 0 | 6 | unclaimed |
+| `i32(i32,pointer)` | 6 | 1 | 0 | 5 | paired |
 | `i32(pointer)` | 3 | 0 | 0 | 3 | unclaimed |
 | `i64(i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i64(pointer,i32,i32,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
 | `i64(pointer,i32,i32,pointer,i8)` | 1 | 0 | 0 | 1 | unclaimed |
-| `i8(i32)` | 40 | 1 | 0 | 39 | paired |
+| `i8(i32)` | 40 | 2 | 0 | 38 | paired |
 | `i8(i32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `i8(i32,i32)` | 6 | 0 | 0 | 6 | unclaimed |
 | `i8(i32,i32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -48,7 +48,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `i8(i64)` | 5 | 0 | 0 | 5 | unclaimed |
 | `i8(pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `pointer(i32)` | 2 | 0 | 0 | 2 | unclaimed |
-| `pointer(i32,i32)` | 6 | 2 | 0 | 4 | paired |
+| `pointer(i32,i32)` | 6 | 3 | 0 | 3 | paired |
 | `pointer(i32,i32,i32,pointer,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `pointer(i32,i64,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `pointer(i32,i64,i64,i32)` | 3 | 1 | 0 | 2 | paired |
@@ -81,7 +81,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(f32)` | 16 | 0 | 0 | 16 | unclaimed |
 | `void(f32,f32)` | 13 | 0 | 0 | 13 | unclaimed |
 | `void(f32,f32,f32)` | 16 | 0 | 0 | 16 | unclaimed |
-| `void(f32,f32,f32,f32)` | 11 | 0 | 0 | 11 | unclaimed |
+| `void(f32,f32,f32,f32)` | 11 | 1 | 0 | 10 | paired |
 | `void(f32,f32,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(f32,f32,f32,f32,f32,f32)` | 4 | 0 | 0 | 4 | unclaimed |
 | `void(f32,f32,f32,f32,f32,f32,f32,f32)` | 4 | 0 | 0 | 4 | unclaimed |
@@ -91,11 +91,11 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(f32,f32,i8,i8,i8,i8,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(f32,i8)` | 4 | 0 | 0 | 4 | unclaimed |
 | `void(f64)` | 8 | 1 | 0 | 7 | paired |
-| `void(f64,f64)` | 11 | 0 | 0 | 11 | unclaimed |
+| `void(f64,f64)` | 11 | 1 | 0 | 10 | paired |
 | `void(f64,f64,f64)` | 14 | 0 | 0 | 14 | unclaimed |
 | `void(f64,f64,f64,f64)` | 7 | 0 | 0 | 7 | unclaimed |
 | `void(f64,f64,f64,f64,f64,f64)` | 2 | 0 | 0 | 2 | unclaimed |
-| `void(handle)` | 5 | 0 | 0 | 5 | unclaimed |
+| `void(handle)` | 5 | 1 | 0 | 4 | paired |
 | `void(handle,handle)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(handle,i32,i32,pointer,pointer,pointer,pointer)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(handle,i32,pointer)` | 5 | 0 | 0 | 5 | unclaimed |
@@ -267,7 +267,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(i32,i8,i8,i8)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,i8,i8,i8,i8)` | 6 | 0 | 0 | 6 | unclaimed |
 | `void(i32,i8,i8,i8,i8,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
-| `void(i32,pointer)` | 349 | 17 | 0 | 332 | paired |
+| `void(i32,pointer)` | 349 | 18 | 0 | 331 | paired |
 | `void(i32,pointer,i32)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,pointer,i32,i32)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,pointer,i32,i32,i32)` | 1 | 0 | 0 | 1 | unclaimed |
@@ -278,7 +278,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(i32,pointer,i32,pointer,pointer)` | 3 | 1 | 0 | 2 | paired |
 | `void(i32,pointer,i64,i32,i32)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i32,pointer,pointer)` | 6 | 0 | 0 | 6 | unclaimed |
-| `void(i32,pointer,pointer,i32)` | 4 | 0 | 0 | 4 | unclaimed |
+| `void(i32,pointer,pointer,i32)` | 4 | 1 | 0 | 3 | paired |
 | `void(i32,pointer,pointer,i32,pointer)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(i32,pointer,pointer,pointer,pointer,i32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(i64)` | 13 | 0 | 0 | 13 | unclaimed |
@@ -290,7 +290,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `void(i8)` | 8 | 1 | 0 | 7 | paired |
 | `void(i8,i8)` | 2 | 0 | 0 | 2 | unclaimed |
 | `void(i8,i8,i8)` | 11 | 0 | 0 | 11 | unclaimed |
-| `void(i8,i8,i8,i8)` | 6 | 0 | 0 | 6 | unclaimed |
+| `void(i8,i8,i8,i8)` | 6 | 1 | 0 | 5 | paired |
 | `void(i8,i8,i8,i8,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(i8,i8,i8,i8,f32,f32,f32)` | 1 | 0 | 0 | 1 | unclaimed |
 | `void(pointer)` | 191 | 1 | 0 | 190 | paired |
@@ -480,7 +480,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glClearBufferfv` | definition | GL_VERSION_3_0:+:all |  | common | src/driver/opengl.ab render-target clear | src/driver/opengl.ab typed extern signature | tests/application/main.ab exact MRT clear | tests/application/main.ab attachment bounds rejection |
 | `glClearBufferiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
 | `glClearBufferuiv` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
-| `glClearColor` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glClearColor` | definition | GL_VERSION_1_0:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated exact four-float ABI | examples/raw-command-addresses/main.ab repeated exact color state and readback | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `glClearColorIiEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
 | `glClearColorIuiEXT` | definition |  | GL_EXT_texture_integer:all:all | unclassified | - | - | - | - |
 | `glClearColorxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
@@ -563,7 +563,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glColorFragmentOp1ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
 | `glColorFragmentOp2ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
 | `glColorFragmentOp3ATI` | definition |  | GL_ATI_fragment_shader:all:all | unclassified | - | - | - | - |
-| `glColorMask` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glColorMask` | definition | GL_VERSION_1_0:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated exact four-byte ABI | examples/raw-command-addresses/main.ab repeated exact mask state and restoration | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `glColorMaskIndexedEXT` | definition |  | GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
 | `glColorMaski` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
 | `glColorMaterial` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
@@ -670,7 +670,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glCreateMemoryObjectsEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
 | `glCreatePerfQueryINTEL` | definition |  | GL_INTEL_performance_query:all:all | unclassified | - | - | - | - |
 | `glCreateProgram` | definition | GL_VERSION_2_0:+:all |  | common | src/driver/opengl.ab affine render and compute program creation | src/driver/opengl.ab typed result ABI | tests/opengl/main.ab valid linked program creation | tests/opengl/main.ab empty program link rejection |
-| `glCreateProgramObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glCreateProgramObjectARB` | definition |  | GL_ARB_shader_objects:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated platform-handle result ABI | examples/raw-command-addresses/main.ab advertised extension live create-delete round trip | examples/raw-command-addresses/main.ab opposite platform-shape rejection |
 | `glCreateProgramPipelines` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
 | `glCreateProgressFenceNVX` | definition |  | GL_NVX_progress_fence:all:all | unclassified | - | - | - | - |
 | `glCreateQueries` | definition | GL_VERSION_4_5:+:all | GL_ARB_direct_state_access:all:all | unclassified | - | - | - | - |
@@ -715,7 +715,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glDeleteMemoryObjectsEXT` | definition |  | GL_EXT_memory_object:all:all | unclassified | - | - | - | - |
 | `glDeleteNamedStringARB` | definition |  | GL_ARB_shading_language_include:all:all | unclassified | - | - | - | - |
 | `glDeleteNamesAMD` | definition |  | GL_AMD_name_gen_delete:all:all | unclassified | - | - | - | - |
-| `glDeleteObjectARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
+| `glDeleteObjectARB` | definition |  | GL_ARB_shader_objects:all:all | raw | src/raw/opengl_dispatch.ab capability-checked extension resolver | src/raw/opengl_dispatch.ab generated platform-handle argument ABI | examples/raw-command-addresses/main.ab advertised extension live create-delete round trip | examples/raw-command-addresses/main.ab opposite platform-shape rejection |
 | `glDeleteOcclusionQueriesNV` | definition |  | GL_NV_occlusion_query:all:all | unclassified | - | - | - | - |
 | `glDeletePathsNV` | definition |  | GL_NV_path_rendering:all:all | unclassified | - | - | - | - |
 | `glDeletePerfMonitorsAMD` | definition |  | GL_AMD_performance_monitor:all:all | unclassified | - | - | - | - |
@@ -745,7 +745,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glDepthBoundsdNV` | definition |  | GL_NV_depth_buffer_float:all:all | unclassified | - | - | - | - |
 | `glDepthFunc` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable depth comparison state | src/driver/opengl.ab typed comparison ABI | examples/common-triangle/main.ab repeated less-depth rendering | examples/common-triangle/main.ab invalid depth state rejection |
 | `glDepthMask` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab portable depth write state | src/driver/opengl.ab typed boolean ABI | examples/common-triangle/main.ab enabled depth-write rendering | examples/common-triangle/main.ab write-without-depth rejection |
-| `glDepthRange` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glDepthRange` | definition | GL_VERSION_1_0:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated exact binary64 pair ABI | examples/raw-command-addresses/main.ab repeated exact depth-range query and restoration | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `glDepthRangeArraydvNV` | definition |  | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
 | `glDepthRangeArrayv` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
 | `glDepthRangeIndexed` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
@@ -1019,7 +1019,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glGetArrayObjectivATI` | definition |  | GL_ATI_vertex_array_object:all:all | unclassified | - | - | - | - |
 | `glGetAttachedObjectsARB` | definition |  | GL_ARB_shader_objects:all:all | unclassified | - | - | - | - |
 | `glGetAttachedShaders` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
-| `glGetAttribLocation` | definition | GL_VERSION_2_0:+:all |  | unclassified | - | - | - | - |
+| `glGetAttribLocation` | definition | GL_VERSION_2_0:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated signed-result name-pointer ABI | examples/raw-command-addresses/main.ab repeated exact missing-name result | examples/raw-command-addresses/main.ab wrong-result-shape rejection |
 | `glGetAttribLocationARB` | definition |  | GL_ARB_vertex_shader:all:all | unclassified | - | - | - | - |
 | `glGetBooleanIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
 | `glGetBooleani_v` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
@@ -1065,7 +1065,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glGetDoubleIndexedvEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
 | `glGetDoublei_v` | definition | GL_VERSION_4_1:+:all | GL_ARB_viewport_array:all:all | unclassified | - | - | - | - |
 | `glGetDoublei_vEXT` | definition |  | GL_EXT_direct_state_access:all:all | unclassified | - | - | - | - |
-| `glGetDoublev` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glGetDoublev` | definition | GL_VERSION_1_0:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated enum and output-pointer ABI | examples/raw-command-addresses/main.ab repeated exact binary64 state readback | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `glGetError` | definition | GL_VERSION_1_0:+:all |  | common | src/driver/opengl.ab checked driver failure boundary | src/driver/opengl.ab typed error-code result ABI | tests/opengl/main.ab successful program use and malformed shader rejection | tests/application/main.ab unsupported OpenGL feature rejection |
 | `glGetFenceivNV` | definition |  | GL_NV_fence:all:all | unclassified | - | - | - | - |
 | `glGetFinalCombinerInputParameterfvNV` | definition |  | GL_NV_register_combiners:all:all | unclassified | - | - | - | - |
@@ -1479,7 +1479,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glIsBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
 | `glIsBufferResidentNV` | definition |  | GL_NV_shader_buffer_load:all:all | unclassified | - | - | - | - |
 | `glIsCommandListNV` | definition |  | GL_NV_command_list:all:all | unclassified | - | - | - | - |
-| `glIsEnabled` | definition | GL_VERSION_1_0:+:all |  | unclassified | - | - | - | - |
+| `glIsEnabled` | definition | GL_VERSION_1_0:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated boolean-result capability ABI | examples/raw-command-addresses/main.ab repeated enable-disable result round trip | examples/raw-command-addresses/main.ab wrong-result-shape rejection |
 | `glIsEnabledIndexedEXT` | definition |  | GL_EXT_direct_state_access:all:all|GL_EXT_draw_buffers2:all:all | unclassified | - | - | - | - |
 | `glIsEnabledi` | definition | GL_VERSION_3_0:+:all |  | unclassified | - | - | - | - |
 | `glIsFenceAPPLE` | definition |  | GL_APPLE_fence:all:all | unclassified | - | - | - | - |
@@ -1581,7 +1581,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glMap2d` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glMap2f` | definition | GL_VERSION_1_0:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glMap2xOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
-| `glMapBuffer` | definition | GL_VERSION_1_5:+:all |  | unclassified | - | - | - | - |
+| `glMapBuffer` | definition | GL_VERSION_1_5:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated pointer-result target-access ABI | examples/raw-command-addresses/main.ab mapped write unmap and exact readback | examples/raw-command-addresses/main.ab wrong-result-shape rejection |
 | `glMapBufferARB` | definition |  | GL_ARB_vertex_buffer_object:all:all | unclassified | - | - | - | - |
 | `glMapBufferRange` | definition | GL_VERSION_3_0:+:all | GL_ARB_map_buffer_range:all:all | common | src/driver/opengl.ab mapped-at-creation and reusable read-write range mapping | src/driver/opengl.ab typed offset length flags and mapped-pointer ABI | examples/common-buffer/main.ab allocation-free repeated write and read maps | tests/application/main.ab access nested mapped-use and logical-range rejection |
 | `glMapControlPointsNV` | definition |  | GL_NV_evaluators:all:all | unclassified | - | - | - | - |
@@ -1656,7 +1656,7 @@ A common/raw count means each counted command has both positive and unsupported-
 | `glMultTransposeMatrixf` | definition | GL_VERSION_1_3:+:all|GL_VERSION_3_2:-:core |  | unclassified | - | - | - | - |
 | `glMultTransposeMatrixfARB` | definition |  | GL_ARB_transpose_matrix:all:all | unclassified | - | - | - | - |
 | `glMultTransposeMatrixxOES` | definition |  | GL_OES_fixed_point:all:all | unclassified | - | - | - | - |
-| `glMultiDrawArrays` | definition | GL_VERSION_1_4:+:all |  | unclassified | - | - | - | - |
+| `glMultiDrawArrays` | definition | GL_VERSION_1_4:+:all |  | raw | src/raw/opengl_dispatch.ab current-context command resolver | src/raw/opengl_dispatch.ab generated mode pointer pointer count ABI | examples/raw-command-addresses/main.ab repeated zero-count valid command execution | examples/raw-command-addresses/main.ab wrong-shape rejection before dispatch |
 | `glMultiDrawArraysEXT` | definition |  | GL_EXT_multi_draw_arrays:all:all | unclassified | - | - | - | - |
 | `glMultiDrawArraysIndirect` | definition | GL_VERSION_4_3:+:all | GL_ARB_multi_draw_indirect:all:all | unclassified | - | - | - | - |
 | `glMultiDrawArraysIndirectAMD` | definition |  | GL_AMD_multi_draw_indirect:all:all | unclassified | - | - | - | - |

@@ -27,7 +27,7 @@ rejection-only unsupported/platform rows, and commands that remain
 unclassified. A family is marked `paired` when at least one reviewed executable
 command exercises that layout; this is a prioritization signal, not a claim
 that every command in the family is supported. The current pinned ledgers show
-42 of 284 OpenGL families and 48 of 122 Vulkan families with paired executable
+49 of 284 OpenGL families and 54 of 122 Vulkan families with paired executable
 evidence.
 
 The same inventory and audit join now generate importable Abla modules behind

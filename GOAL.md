@@ -26,7 +26,7 @@ at creation, and generated dispatch scope prevents global, instance, and device
 queries from being conflated. Continue by expanding the raw feature-lab
 matrices from these truthful gates. The coverage ledgers now derive an exact
 ABI-family queue from the same generated command tags and reviewed audit rows:
-42/284 OpenGL and 48/122 Vulkan families have at least one command with paired
+49/284 OpenGL and 54/122 Vulkan families have at least one command with paired
 positive and unsupported-path evidence. Unclassified commands remain
 unclaimed; neither ABI representability nor a resolved address upgrades them.
 
@@ -4258,11 +4258,12 @@ rejection-only classifications, and unclassified commands. The gate is honest:
 `paired` means at least one reviewed command exercises the family, while all
 other commands retain their own classification state.
 
-The pinned OpenGL ledger contains 284 exact ABI families, 42 with paired
-executable evidence. Vulkan contains 122, 48 paired. Deterministic Vulkan and
-OpenGL fixture checks assert paired and unclaimed rows, and the registry gate
-passes. Use these generated `unclaimed` rows to select broad batches of real
-positive/rejection cases instead of repeatedly searching the full registries.
+The pinned OpenGL ledger initially contained 284 exact ABI families, 42 with
+paired executable evidence. Vulkan initially contained 122, 48 paired.
+Deterministic Vulkan and OpenGL fixture checks assert paired and unclaimed rows,
+and the registry gate passes. Use these generated `unclaimed` rows to select
+broad batches of real positive/rejection cases instead of repeatedly searching
+the full registries.
 
 Validated with:
 
@@ -4273,3 +4274,28 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make t
 Continue by promoting batches that cover the highest-volume unclaimed families
 with safe live commands and exact wrong-shape or unavailable-feature rejection.
 Keep the persistent framework goal active.
+
+## Latest checkpoint: first ledger-driven raw evidence batch
+
+The first generated queue batch adds reviewed `raw` classifications only for
+commands already exercised by the normal and optimized live raw sample. Ten
+OpenGL commands cover exact floating state, byte masks, platform handles,
+signed/boolean/pointer results, mapping, and grouped draw pointers. Thirteen
+Vulkan commands cover event creation/status/destruction, legacy and
+synchronization2 event recording, device masks, stencil and line state, buffer
+updates, timestamps, queue identity, and format properties.
+
+Each new row points to the generated resolver/ABI and the sample's real positive
+operation plus exact wrong-shape rejection. Shape-only probes remain
+unclassified. The committed ledgers now classify 119/2,892 OpenGL commands and
+126/842 Vulkan commands, raising paired family coverage to 49/284 and 54/122.
+
+Validate this slice with one consolidated boundary gate:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-registry test-raw-commands'
+```
+
+Continue with another safe multi-family batch from the generated unclaimed
+queue, then resume the remaining milestone-7 samples. Keep the persistent
+framework goal active.
