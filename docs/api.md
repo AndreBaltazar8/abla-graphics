@@ -490,6 +490,33 @@ val model = mat4Translation(Vec3(3.0, 5.0, 7.0)).multiplied(
 val worldPoint = model.transformPoint(Vec3(1.0, 1.0, 1.0))
 ```
 
+`PerspectiveCamera3D` adds checked look-at and perspective construction without
+a native math library. Degenerate position/target/up bases, invalid fields of
+view, non-positive aspect ratios, and invalid near/far planes return an invalid
+`CameraMatrix` with a stable error. Projection is backend-correct: OpenGL uses
+negative-one-to-one depth, while Vulkan uses zero-to-one depth and compensates
+for its positive-height framebuffer viewport.
+
+```abla
+val camera = PerspectiveCamera3D(
+    position = Vec3(0.0, 1.5, 4.0),
+    target = Vec3(0.0, 0.5, 0.0),
+    verticalFieldOfViewDegrees = 70.0,
+    nearPlane = 0.1,
+    farPlane = 100.0
+)
+val viewProjection = camera.viewProjectionMatrix(app.backend, 16.0 / 9.0)
+val uniformBytes = bufferBytes(64)
+val ready = viewProjection.valid &&
+    uniformBytes.storeMat4(viewProjection.value)
+```
+
+`Vec3.minus`, `cross`, `lengthSquared`, and checked `normalized` support camera
+and scene math. `BufferBytes.storeMat4` writes the row-named CPU matrix in the
+column-major byte order expected by default GLSL/SPIR-V uniforms. Hot loops can
+place temporary immutable camera values inside a runtime memory checkpoint and
+reset it after the submitted frame, as demonstrated by the cube explorer.
+
 Integer extents never silently wrap: `areaChecked()`/`volumeChecked()` return a
 `GraphicsIntResult`, while the convenience `area()`/`volume()` return zero for
 invalid or overflowing dimensions. `Rect2D.contains` rejects bounds whose

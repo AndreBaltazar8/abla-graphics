@@ -1,0 +1,206 @@
+// Portable 3D camera construction and GPU matrix packing.
+
+import "core.ab"
+import "bytes.ab"
+
+// A checked matrix result keeps degenerate camera inputs out of shader-visible
+// state without introducing exceptions or sentinel matrices.
+class CameraMatrix(
+    val value: Mat4,
+    val valid: bool,
+    val error: string = ""
+)
+
+class PerspectiveCamera3D(
+    val position: Vec3,
+    val target: Vec3,
+    val up: Vec3 = Vec3(0.0, 1.0, 0.0),
+    val verticalFieldOfViewDegrees: f64 = 60.0,
+    val nearPlane: f64 = 0.1,
+    val farPlane: f64 = 1000.0
+) {
+    fun viewMatrix(): CameraMatrix = cameraLookAt(
+        this.position,
+        this.target,
+        this.up
+    )
+
+    fun projectionMatrix(backend: int, aspectRatio: f64): CameraMatrix =
+        cameraPerspective(
+            backend,
+            this.verticalFieldOfViewDegrees,
+            aspectRatio,
+            this.nearPlane,
+            this.farPlane
+        )
+
+    fun viewProjectionMatrix(
+        backend: int,
+        aspectRatio: f64
+    ): CameraMatrix {
+        val view = this.viewMatrix()
+        val projection = this.projectionMatrix(backend, aspectRatio)
+        if (!view.valid) return view
+        if (!projection.valid) return projection
+        CameraMatrix(projection.value.multiplied(view.value), true)
+    }
+
+    fun valid(backend: int, aspectRatio: f64): bool =
+        this.viewProjectionMatrix(backend, aspectRatio).valid
+}
+
+// Newton iteration is deterministic, allocation-free, and sufficient for the
+// normalized camera bases used here. Invalid and zero lengths are rejected by
+// the caller rather than turned into a direction.
+fun cameraSquareRoot(value: f64): f64 {
+    if (value <= 0.0) return 0.0
+    var estimate = 1.0
+    if (value >= 1.0) estimate = value
+    var iteration = 0
+    while (iteration < 24) {
+        estimate = (estimate + value / estimate) * 0.5
+        iteration = iteration + 1
+    }
+    estimate
+}
+
+class NormalizedVec3(val value: Vec3, val valid: bool)
+
+fun Vec3.minus(other: Vec3): Vec3 = Vec3(
+    this.x - other.x,
+    this.y - other.y,
+    this.z - other.z
+)
+
+fun Vec3.cross(other: Vec3): Vec3 = Vec3(
+    this.y * other.z - this.z * other.y,
+    this.z * other.x - this.x * other.z,
+    this.x * other.y - this.y * other.x
+)
+
+fun Vec3.lengthSquared(): f64 = this.dot(this)
+
+fun Vec3.normalized(): NormalizedVec3 {
+    val lengthSquared = this.lengthSquared()
+    if (lengthSquared <= 0.000000000000000001)
+        return NormalizedVec3(Vec3(0.0, 0.0, 0.0), false)
+    val length = cameraSquareRoot(lengthSquared)
+    if (length <= 0.0)
+        return NormalizedVec3(Vec3(0.0, 0.0, 0.0), false)
+    NormalizedVec3(this.scaled(1.0 / length), true)
+}
+
+fun cameraLookAt(position: Vec3, target: Vec3, up: Vec3): CameraMatrix {
+    val forward = target.minus(position).normalized()
+    if (!forward.valid) return CameraMatrix(
+        mat4Identity(), false, "camera position and target must differ"
+    )
+    val right = forward.value.cross(up).normalized()
+    if (!right.valid) return CameraMatrix(
+        mat4Identity(), false, "camera up direction is parallel to its view"
+    )
+    val correctedUp = right.value.cross(forward.value).normalized()
+    if (!correctedUp.valid) return CameraMatrix(
+        mat4Identity(), false, "camera basis is degenerate"
+    )
+    val backward = forward.value.scaled(-1.0)
+    CameraMatrix(Mat4(
+        right.value.x,
+        right.value.y,
+        right.value.z,
+        -right.value.dot(position),
+        correctedUp.value.x,
+        correctedUp.value.y,
+        correctedUp.value.z,
+        -correctedUp.value.dot(position),
+        backward.x,
+        backward.y,
+        backward.z,
+        -backward.dot(position),
+        0.0, 0.0, 0.0, 1.0
+    ), true)
+}
+
+// The public API accepts the familiar vertical field of view in degrees. This
+// bounded half-angle series is pure Abla and avoids a native math dependency.
+fun cameraHalfFieldTangent(verticalFieldOfViewDegrees: f64): f64 {
+    val x = verticalFieldOfViewDegrees *
+        3.1415926535897932384626433832795 / 360.0
+    val x2 = x * x
+    val sine = x * (1.0 + x2 * (-1.0 / 6.0 + x2 * (
+        1.0 / 120.0 + x2 * (-1.0 / 5040.0 + x2 * (
+        1.0 / 362880.0 + x2 * (-1.0 / 39916800.0 + x2 * (
+        1.0 / 6227020800.0 + x2 * (-1.0 / 1307674368000.0 +
+        x2 / 355687428096000.0))))))))
+    val cosine = 1.0 + x2 * (-1.0 / 2.0 + x2 * (
+        1.0 / 24.0 + x2 * (-1.0 / 720.0 + x2 * (
+        1.0 / 40320.0 + x2 * (-1.0 / 3628800.0 + x2 * (
+        1.0 / 479001600.0 + x2 * (-1.0 / 87178291200.0 +
+        x2 / 20922789888000.0)))))))
+    if (cosine <= 0.0) 0.0 else sine / cosine
+}
+
+fun cameraPerspective(
+    backend: int,
+    verticalFieldOfViewDegrees: f64,
+    aspectRatio: f64,
+    nearPlane: f64,
+    farPlane: f64
+): CameraMatrix {
+    val backendValid = backend == graphicsBackendOpenGl ||
+        backend == graphicsBackendVulkan
+    val inputValid = backendValid && verticalFieldOfViewDegrees > 0.0 &&
+        verticalFieldOfViewDegrees < 180.0 && aspectRatio > 0.0 &&
+        nearPlane > 0.0 && farPlane > nearPlane
+    if (!inputValid) return CameraMatrix(
+        mat4Identity(), false, "invalid perspective camera parameters"
+    )
+    val tangent = cameraHalfFieldTangent(verticalFieldOfViewDegrees)
+    if (tangent <= 0.0) return CameraMatrix(
+        mat4Identity(), false, "invalid perspective field of view"
+    )
+    val verticalScale = 1.0 / tangent
+    val horizontalScale = verticalScale / aspectRatio
+    if (backend == graphicsBackendOpenGl) return CameraMatrix(Mat4(
+        horizontalScale, 0.0, 0.0, 0.0,
+        0.0, verticalScale, 0.0, 0.0,
+        0.0, 0.0,
+        (farPlane + nearPlane) / (nearPlane - farPlane),
+        (2.0 * farPlane * nearPlane) / (nearPlane - farPlane),
+        0.0, 0.0, -1.0, 0.0
+    ), true)
+    // Vulkan uses zero-to-one depth. The negative Y scale compensates for its
+    // positive-height framebuffer viewport so portable scenes retain the same
+    // orientation as OpenGL.
+    CameraMatrix(Mat4(
+        horizontalScale, 0.0, 0.0, 0.0,
+        0.0, -verticalScale, 0.0, 0.0,
+        0.0, 0.0,
+        farPlane / (nearPlane - farPlane),
+        (farPlane * nearPlane) / (nearPlane - farPlane),
+        0.0, 0.0, -1.0, 0.0
+    ), true)
+}
+
+// GLSL and SPIR-V matrices use column-major storage by default. Mat4 keeps
+// row-first names for readable CPU math, so upload explicitly transposes the
+// naming order into the byte layout expected by both backends.
+trusted fun BufferBytes.storeMat4(
+    value: Mat4,
+    offset: int = 0
+): bool = this.storeF32(value.m00, offset) &&
+    this.storeF32(value.m10, offset + 4) &&
+    this.storeF32(value.m20, offset + 8) &&
+    this.storeF32(value.m30, offset + 12) &&
+    this.storeF32(value.m01, offset + 16) &&
+    this.storeF32(value.m11, offset + 20) &&
+    this.storeF32(value.m21, offset + 24) &&
+    this.storeF32(value.m31, offset + 28) &&
+    this.storeF32(value.m02, offset + 32) &&
+    this.storeF32(value.m12, offset + 36) &&
+    this.storeF32(value.m22, offset + 40) &&
+    this.storeF32(value.m32, offset + 44) &&
+    this.storeF32(value.m03, offset + 48) &&
+    this.storeF32(value.m13, offset + 52) &&
+    this.storeF32(value.m23, offset + 56) &&
+    this.storeF32(value.m33, offset + 60)

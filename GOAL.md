@@ -4484,3 +4484,38 @@ The raw gate supports change-driven filtering without weakening its default:
 set `ABLA_RAW_COMMAND_TEST_MODES` to `normal` or `fast`, and
 `ABLA_RAW_COMMAND_TEST_BACKENDS` to `opengl` or `vulkan`. With neither set it
 still performs all four publication combinations.
+
+## Latest checkpoint: portable camera and complete cube explorer
+
+Milestone-7 sample 19 is now delivered by the upgraded
+`examples/indexed-textured-cube`. The public pure-Abla camera layer provides
+checked right-handed look-at construction, a familiar degree-based vertical
+field of view, OpenGL negative-one-to-one depth, Vulkan zero-to-one depth with
+Y compensation, checked vector normalization/cross products, and explicit
+column-major `Mat4` upload. Invalid view bases, field of view, aspect, and clip
+planes reject before reaching GPU state.
+
+Direct launch now enters a real WASD-controlled cube explorer. Its bounded
+self-test remains in the canonical sample matrix, while the focused live gate
+finds the surfaced X11 window and sends W/A/S/D/W with `xdotool`. Each accepted
+input batch updates the same ranged uniform allocation; a subsequent 120-frame
+camera-update loop preserves the pipeline, binding, transform-buffer, and
+geometry handles. An explicit Abla runtime checkpoint bounds temporary
+immutable camera values without retaining per-frame memory.
+
+The final focused run measured 496 FPS on OpenGL and 190 FPS on Vulkan. Both
+processed all five real movements, completed all 120 steady frames, retained
+stable native handles, returned `liveDelta=0`, launched with `LD_LIBRARY_PATH`
+removed and no unresolved libraries, and passed with a silent Vulkan validation
+log. `make test-core` independently proves both clip-depth mappings, Vulkan Y
+orientation, exact look-at placement, invalid inputs, and matrix byte order.
+
+Validate this slice with one boundary command:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-core test-cube-explorer'
+```
+
+The sample matrix remains at 77 roots; the complete 77-root matrix is deferred
+to the next periodic integration checkpoint rather than duplicated after this
+stricter sample-specific dual-backend gate. Keep the persistent goal active.

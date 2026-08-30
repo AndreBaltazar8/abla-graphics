@@ -504,7 +504,10 @@ backends unless it demonstrates a backend-specific feature:
 18. complete small 2D game (delivered by `examples/mini-breakout`, including
     portable input, scoring/lives, win/loss/reset, and allocation-free
     OpenGL/Vulkan automated proof);
-19. complete small 3D application;
+19. complete small 3D application (delivered by the upgraded
+    `examples/indexed-textured-cube` cube explorer with portable perspective
+    camera math, real WASD input, depth-tested textured geometry, steady-state
+    performance/memory evidence, and direct-launch checks on both backends);
 20. Abla Mobile/native surface integration proof.
 
 Exit gate: sample matrix builds in CI, smoke samples run headlessly, surfaced

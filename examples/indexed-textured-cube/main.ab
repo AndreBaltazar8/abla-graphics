@@ -3,6 +3,46 @@ import "abla/process/arguments"
 import "abla/runtime/memory"
 import "../../src/graphics.ab"
 
+class CubeExplorerState(
+    var cameraX: f64 = 0.0,
+    var cameraZ: f64 = 3.0,
+    var forward: bool = false,
+    var backward: bool = false,
+    var left: bool = false,
+    var right: bool = false,
+    var movements: int = 0
+) {
+    fun camera(backend: int): CameraMatrix = PerspectiveCamera3D(
+        position = Vec3(this.cameraX, 0.0, this.cameraZ),
+        target = Vec3(this.cameraX, 0.0, 0.45),
+        verticalFieldOfViewDegrees = 70.0,
+        nearPlane = 0.1,
+        farPlane = 20.0
+    ).viewProjectionMatrix(backend, 4.0 / 3.0)
+
+    fun ready(): bool = this.forward && this.backward &&
+        this.left && this.right
+
+    fun observe(event: WindowEvent): bool {
+        if (event.kind != windowEventKey || !event.keyPressed()) return false
+        if (event.key() == keyW) {
+            this.cameraZ = this.cameraZ - 0.2
+            this.forward = true
+        } else if (event.key() == keyS) {
+            this.cameraZ = this.cameraZ + 0.2
+            this.backward = true
+        } else if (event.key() == keyA) {
+            this.cameraX = this.cameraX - 0.2
+            this.left = true
+        } else if (event.key() == keyD) {
+            this.cameraX = this.cameraX + 0.2
+            this.right = true
+        } else return false
+        this.movements = this.movements + 1
+        true
+    }
+}
+
 fun main: int {
     val requested = if (processArgumentCount() > 0)
         processArgument(0)
@@ -10,6 +50,10 @@ fun main: int {
     val backend = if (requested == "opengl") graphicsBackendOpenGl
         else if (requested == "vulkan") graphicsBackendVulkan
         else graphicsBackendAuto
+    val mode = if (processArgumentCount() > 1)
+        processArgument(1) else "interactive"
+    val automated = mode == "automated" || mode == "self-test"
+    val selfTest = mode == "self-test"
     val app = graphicsApplication(
         GraphicsConfig(
             backend = backend,
@@ -17,9 +61,10 @@ fun main: int {
             requiredFeatures = graphicsFeaturePersistentMapping
         ),
         WindowConfig(
-            title = "Abla Graphics indexed textured cube",
+            title = "Abla Graphics Cube Explorer",
             width = 720,
-            height = 540
+            height = 540,
+            resizable = false
         )
     )
     val shader = $glsl {
@@ -130,21 +175,10 @@ fun main: int {
         mipmapFilter = samplerFilterNearest
     ))
     val transformBytes = bufferBytes(64)
-    val identityValues = [
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    ]
-    var transformStored = identityValues.size == 16
-    var transformIndex = 0
-    while (transformStored && transformIndex < identityValues.size) {
-        transformStored = transformBytes.storeF32(
-            identityValues[transformIndex],
-            transformIndex * 4
-        )
-        transformIndex = transformIndex + 1
-    }
+    val explorer = CubeExplorerState()
+    val initialCamera = explorer.camera(app.backend)
+    val transformStored = initialCamera.valid &&
+        transformBytes.storeMat4(initialCamera.value)
     val transformAlignment =
         app.capabilities.limits.minimumUniformBufferOffsetAlignment
     val transformPool = app.bufferPool(BufferPoolDescriptor(
@@ -225,15 +259,65 @@ fun main: int {
     val transformBufferHandle = if (app.backend == graphicsBackendOpenGl)
         transformPool.backing.openGl.handle
     else transformPool.backing.vulkan.handle
-    val liveBefore = runtimeMemoryLiveBytes()
-    var presented = warmed
-    var frame = 0
-    while (presented && frame < 4) {
-        var offset = 0.0
-        if (frame == 1) offset = 0.01
-        else if (frame == 2) offset = 0.02
-        else if (frame == 3) offset = 0.03
-        val upload = if (transformBytes.storeF32(offset, 48))
+    val deadline = graphicsMonotonicNanoseconds() + 10000000000
+    var running = warmed
+    var presentedFrames = if (warmed) 1 else 0
+    var matrixUpdates = 0
+    while (running && (!automated || !explorer.ready() ||
+        (!selfTest && explorer.movements < 5)) &&
+        (!automated || graphicsMonotonicNanoseconds() < deadline)) {
+        var event = WindowEvent()
+        if (selfTest && explorer.movements == 0)
+            event = WindowEvent(windowEventKey, keyW, 1)
+        else if (selfTest && explorer.movements == 1)
+            event = WindowEvent(windowEventKey, keyA, 1)
+        else if (selfTest && explorer.movements == 2)
+            event = WindowEvent(windowEventKey, keyD, 1)
+        else if (selfTest && explorer.movements == 3)
+            event = WindowEvent(windowEventKey, keyS, 1)
+        else event = app.pollEvent(20)
+        var changed = false
+        while (event.happened()) {
+            if (event.kind == windowEventCloseRequested ||
+                (event.kind == windowEventKey &&
+                 event.key() == keyEscape && event.keyPressed())) {
+                running = false
+            } else if (explorer.observe(event)) changed = true
+            if (selfTest) event = WindowEvent()
+            else event = app.pollEvent(0)
+        }
+        if (running && changed) {
+            val cameraMatrix = explorer.camera(app.backend)
+            val upload = if (cameraMatrix.valid &&
+                transformBytes.storeMat4(cameraMatrix.value))
+                app.enqueueUploadBufferPoolRange(
+                    transformUploads,
+                    transformBytes,
+                    transformPool,
+                    transformAllocation
+                )
+            else 0
+            running = bufferTransferTicketValid(upload) &&
+                transformUploads.wait(upload) && app.presentRenderIndexed(
+                    pipeline,
+                    vertices,
+                    indices,
+                    36,
+                    clear
+                )
+            if (running) {
+                matrixUpdates = matrixUpdates + 1
+                presentedFrames = presentedFrames + 1
+            }
+        }
+    }
+    val inputMatrixUpdates = matrixUpdates
+    var warmFrames = 0
+    while (running && automated && warmFrames < 2) {
+        explorer.cameraX = if ((warmFrames & 1) == 0) 0.02 else -0.02
+        val cameraMatrix = explorer.camera(app.backend)
+        val upload = if (cameraMatrix.valid &&
+            transformBytes.storeMat4(cameraMatrix.value))
             app.enqueueUploadBufferPoolRange(
                 transformUploads,
                 transformBytes,
@@ -241,18 +325,48 @@ fun main: int {
                 transformAllocation
             )
         else 0
-        presented = bufferTransferTicketValid(upload) &&
+        running = bufferTransferTicketValid(upload) &&
             transformUploads.wait(upload) && app.presentRenderIndexed(
-                pipeline,
-                vertices,
-                indices,
-                36,
-                clear
+                pipeline, vertices, indices, 36, clear
             )
-        frame = frame + 1
+        if (running) {
+            matrixUpdates = matrixUpdates + 1
+            presentedFrames = presentedFrames + 1
+        }
+        warmFrames = warmFrames + 1
     }
+    val liveBefore = runtimeMemoryLiveBytes()
+    val steadyMemory = runtimeMemoryCheckpoint()
+    val started = graphicsMonotonicNanoseconds()
+    var steadyFrames = 0
+    while (running && automated && steadyFrames < 120) {
+        explorer.cameraX = if ((steadyFrames & 1) == 0) 0.02 else -0.02
+        val cameraMatrix = explorer.camera(app.backend)
+        val upload = if (cameraMatrix.valid &&
+            transformBytes.storeMat4(cameraMatrix.value))
+            app.enqueueUploadBufferPoolRange(
+                transformUploads,
+                transformBytes,
+                transformPool,
+                transformAllocation
+            )
+        else 0
+        running = bufferTransferTicketValid(upload) &&
+            transformUploads.wait(upload) && app.presentRenderIndexed(
+                pipeline, vertices, indices, 36, clear
+            )
+        if (running) {
+            matrixUpdates = matrixUpdates + 1
+            presentedFrames = presentedFrames + 1
+            steadyFrames = steadyFrames + 1
+        }
+    }
+    val elapsed = graphicsMonotonicNanoseconds() - started
+    runtimeMemoryReset(steadyMemory)
     val liveAfter = runtimeMemoryLiveBytes()
     val noGrowth = liveBefore == liveAfter
+    val framesPerSecond = if (elapsed > 0)
+        steadyFrames * 1000000000 / elapsed else 0
     val handlesStable = pipelineHandle != 0 && bindingHandle != 0 &&
         transformBufferHandle != 0 &&
         (if (app.backend == graphicsBackendOpenGl)
@@ -268,10 +382,15 @@ fun main: int {
             transformPool.allocationOffset(transformAllocation) &&
         pipeline.binding.entries[1].size == 64 &&
         pipeline.binding.entries[1].offset > 0
+    val passed = if (automated) running && explorer.ready() &&
+        explorer.movements >= (if (selfTest) 4 else 5) &&
+        inputMatrixUpdates >= 1 && warmFrames == 2 && steadyFrames == 120 &&
+        matrixUpdates >= 123 && presentedFrames >= 124 &&
+        framesPerSecond >= 30 &&
+        uniformRange && noGrowth && handlesStable
+    else !running && uniformRange && handlesStable
     println(
-        "Indexed textured cube ${graphicsBackendName(app.backend)}: vertices=24, indices=36, frames=$frame, uniformRange=$uniformRange/${pipeline.binding.entries[1].offset}/64, depth=${pipeline.depth.enabled}/${pipeline.depth.write}, repeatNoGrowth=$noGrowth, handlesStable=$handlesStable, liveDelta=${liveAfter - liveBefore} on ${app.adapterName}"
+        "Cube explorer ${graphicsBackendName(app.backend)}: camera=true input=${explorer.forward}/${explorer.backward}/${explorer.left}/${explorer.right} movements=${explorer.movements} inputMatrices=$inputMatrixUpdates matrices=$matrixUpdates steady=$steadyFrames rate=$framesPerSecond frames=$presentedFrames uniformRange=$uniformRange/${pipeline.binding.entries[1].offset}/64 depth=${pipeline.depth.enabled}/${pipeline.depth.write} repeatNoGrowth=$noGrowth handlesStable=$handlesStable liveDelta=${liveAfter - liveBefore} adapter=${app.adapterName} passed=$passed"
     )
-    if (presented && frame == 4 && uniformRange && noGrowth && handlesStable)
-        0
-    else 1
+    if (passed) 0 else 1
 }

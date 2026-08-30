@@ -220,7 +220,7 @@ for backend in opengl vulkan; do
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/common-textured" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \
-        "$output_directory/indexed-textured-cube" "$backend"
+        "$output_directory/indexed-textured-cube" "$backend" self-test
     xvfb-run -a -s "-screen 0 1024x768x24" \
         "$output_directory/render-to-texture" "$backend"
     xvfb-run -a -s "-screen 0 1024x768x24" \

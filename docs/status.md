@@ -2444,3 +2444,21 @@ midpoint pixels, then alternates two clips for 240 update/render/readback/
 present cycles. The consolidated Xvfb proof reports 880 updates/s on OpenGL
 and 339 updates/s on Vulkan, with stable handles and `live=0` after the
 playback arena reset.
+
+### Portable perspective camera and complete 3D application
+
+`PerspectiveCamera3D` now builds checked right-handed look-at matrices and
+backend-specific perspective projections entirely in Abla. OpenGL receives
+negative-one-to-one clip depth; Vulkan receives zero-to-one depth plus a Y
+orientation correction for its positive-height viewport. Degenerate view
+bases and projection domains reject with stable errors. `Vec3` supplies checked
+normalization/cross-product operations, and `BufferBytes.storeMat4` performs
+the row-named CPU to column-major shader upload explicitly.
+
+The indexed textured cube is now a complete small 3D cube explorer rather than
+a four-frame static proof. Direct launch enters an interactive WASD loop; the
+bounded modes exercise the same camera/upload/present path. The live X11 gate
+drives W/A/S/D/W through `xdotool` on OpenGL and Vulkan, checks direct linkage,
+then alternates camera transforms through 120 steady frames. The measured run
+reported 496 FPS on OpenGL and 190 FPS on Vulkan, stable pipeline/binding/buffer
+handles, zero post-checkpoint live growth, and no Vulkan validation diagnostics.

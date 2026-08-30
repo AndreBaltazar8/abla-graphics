@@ -132,6 +132,85 @@ fun main: int {
     val transformedPoint = transform.transformPoint(Vec3(1.0, 1.0, 1.0))
     val transformedDirection = transform.transformDirection(Vec3(1.0, 1.0, 1.0))
     val identityPoint = mat4Identity().transformPoint(Vec3(2.0, 4.0, 8.0))
+    val camera = PerspectiveCamera3D(
+        position = Vec3(0.0, 0.0, 3.0),
+        target = Vec3(0.0, 0.0, 0.0),
+        verticalFieldOfViewDegrees = 90.0,
+        nearPlane = 0.1,
+        farPlane = 100.0
+    )
+    val cameraView = camera.viewMatrix()
+    val openGlProjection = camera.projectionMatrix(
+        graphicsBackendOpenGl, 2.0
+    )
+    val vulkanProjection = camera.projectionMatrix(
+        graphicsBackendVulkan, 2.0
+    )
+    val cameraViewProjection = camera.viewProjectionMatrix(
+        graphicsBackendVulkan, 2.0
+    )
+    val viewedOrigin = cameraView.value.transform(
+        Vec4(0.0, 0.0, 0.0, 1.0)
+    )
+    val openGlNear = openGlProjection.value.transform(
+        Vec4(0.0, 0.0, -0.1, 1.0)
+    )
+    val openGlFar = openGlProjection.value.transform(
+        Vec4(0.0, 0.0, -100.0, 1.0)
+    )
+    val vulkanNear = vulkanProjection.value.transform(
+        Vec4(0.0, 0.0, -0.1, 1.0)
+    )
+    val vulkanFar = vulkanProjection.value.transform(
+        Vec4(0.0, 0.0, -100.0, 1.0)
+    )
+    val openGlUp = openGlProjection.value.transform(
+        Vec4(0.0, 1.0, -1.0, 1.0)
+    )
+    val vulkanUp = vulkanProjection.value.transform(
+        Vec4(0.0, 1.0, -1.0, 1.0)
+    )
+    val invalidCamera = PerspectiveCamera3D(
+        position = Vec3(1.0, 1.0, 1.0),
+        target = Vec3(1.0, 1.0, 1.0)
+    ).viewMatrix()
+    val invalidCameraUp = cameraLookAt(
+        Vec3(0.0, 0.0, 1.0),
+        Vec3(0.0, 0.0, 0.0),
+        Vec3(0.0, 0.0, 1.0)
+    )
+    val invalidProjection = cameraPerspective(
+        graphicsBackendVulkan, 180.0, 1.0, 0.1, 100.0
+    )
+    val matrixBytes = bufferBytes(80)
+    val packedMatrix = Mat4(
+        1.0, 2.0, 3.0, 4.0,
+        5.0, 6.0, 7.0, 8.0,
+        9.0, 10.0, 11.0, 12.0,
+        13.0, 14.0, 15.0, 16.0
+    )
+    val matrixStored = matrixBytes.storeMat4(packedMatrix, 8)
+    val cameraContracts = cameraView.valid && openGlProjection.valid &&
+        vulkanProjection.valid && cameraViewProjection.valid &&
+        camera.valid(graphicsBackendOpenGl, 2.0) &&
+        viewedOrigin.x == 0.0 && viewedOrigin.y == 0.0 &&
+        viewedOrigin.z == -3.0 && viewedOrigin.w == 1.0 &&
+        openGlNear.z / openGlNear.w > -1.000000001 &&
+        openGlNear.z / openGlNear.w < -0.999999999 &&
+        openGlFar.z / openGlFar.w > 0.999999999 &&
+        openGlFar.z / openGlFar.w < 1.000000001 &&
+        vulkanNear.z / vulkanNear.w > -0.000000001 &&
+        vulkanNear.z / vulkanNear.w < 0.000000001 &&
+        vulkanFar.z / vulkanFar.w > 0.999999999 &&
+        vulkanFar.z / vulkanFar.w < 1.000000001 &&
+        openGlUp.y > 0.0 && vulkanUp.y < 0.0 &&
+        !invalidCamera.valid && invalidCamera.error != "" &&
+        !invalidCameraUp.valid && invalidCameraUp.error != "" &&
+        !invalidProjection.valid && invalidProjection.error != "" &&
+        matrixStored && matrixBytes.loadF32(8) == 1.0 &&
+        matrixBytes.loadF32(12) == 5.0 &&
+        matrixBytes.loadF32(24) == 2.0 &&
+        matrixBytes.loadF32(68) == 16.0
     val color = Color(0.5, 0.25, 1.0, 0.5).premultiplied()
     val pixels = pixelBuffer(2, 2)
     val pixelsCleared = pixels.clearRgba8(3, 5, 7, 11)
@@ -822,6 +901,7 @@ fun main: int {
         transformedDirection.z == 4.0 &&
         identityPoint.x == 2.0 && identityPoint.y == 4.0 &&
         identityPoint.z == 8.0 &&
+        cameraContracts &&
         color.red == 0.25 && color.alpha == 0.5 &&
         graphicsScalarF32Bits(0.0) == 0 &&
         graphicsScalarF32Bits(0.25) == 1048576000 &&

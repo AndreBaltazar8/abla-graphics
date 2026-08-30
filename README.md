@@ -505,9 +505,10 @@ also runs on clean GitHub-hosted machines without physical GPUs.
 - `examples/common-textured`: an uploaded 2x2 atlas, explicit affine bind group,
   reflected texture shader, and indexed textured triangle exercised unchanged
   on explicit OpenGL and Vulkan, including no-growth repeated draws and resize;
-- `examples/indexed-textured-cube`: 24 interleaved position/UV vertices, 36
-  reusable indices, a four-color atlas, a 64-byte transform uniform, and depth-
-  tested cube faces rendered unchanged on explicit OpenGL and Vulkan;
+- `examples/indexed-textured-cube`: a complete small 3D cube explorer with 24
+  interleaved position/UV vertices, 36 reusable indices, a four-color atlas,
+  backend-correct perspective camera, WASD navigation, a ranged 64-byte
+  transform uniform, and depth-tested faces on explicit OpenGL and Vulkan;
 - `examples/render-to-texture`: direct, indexed, and GPU-indirect vertex-buffer
   scene draws from one device-local pool at nonzero offsets render with depth
   into a 4x multisampled 256x256 affine
