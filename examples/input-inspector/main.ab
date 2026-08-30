@@ -1,0 +1,162 @@
+import "abla/io"
+import "abla/process/arguments"
+import "../../src/graphics.ab"
+
+class InputInspectorState(
+    var keyDowns: int = 0,
+    var keyUps: int = 0,
+    var textEvents: int = 0,
+    var pointerMoves: int = 0,
+    var buttonDowns: int = 0,
+    var buttonUps: int = 0,
+    var scrollEvents: int = 0,
+    var pointerX: int = 0,
+    var pointerY: int = 0,
+    var lastKey: int = 0,
+    var lastCodepoint: int = 0,
+    var focused: bool = false
+) {
+    fun ready(): bool = this.keyDowns > 0 && this.keyUps > 0 &&
+        this.textEvents > 0 && this.pointerMoves > 0 &&
+        this.buttonDowns > 0 && this.buttonUps > 0 &&
+        this.scrollEvents > 0
+
+    fun observe(event: WindowEvent): void {
+        if (event.kind == windowEventKey) {
+            this.lastKey = event.key()
+            if (event.keyPressed()) this.keyDowns = this.keyDowns + 1
+            else this.keyUps = this.keyUps + 1
+        } else if (event.kind == windowEventText) {
+            this.lastCodepoint = event.codepoint()
+            this.textEvents = this.textEvents + 1
+        } else if (event.kind == windowEventPointerMoved) {
+            this.pointerX = event.pointerX()
+            this.pointerY = event.pointerY()
+            this.pointerMoves = this.pointerMoves + 1
+        } else if (event.kind == windowEventPointerButton) {
+            if (event.pointerButtonPressed()) {
+                this.buttonDowns = this.buttonDowns + 1
+            } else this.buttonUps = this.buttonUps + 1
+        } else if (event.kind == windowEventScrolled) {
+            this.scrollEvents = this.scrollEvents + 1
+        } else if (event.kind == windowEventFocused) {
+            this.focused = event.first != 0
+        }
+        return
+    }
+}
+
+trusted fun drawInputInspector(
+    var pixels: PixelBuffer,
+    state: InputInspectorState,
+    backend: string,
+    monitor: Monitor
+): bool = pixels.clearRgba8(8, 13, 27) &&
+    pixels.fillClippedRectRgba8(0, 0, 400, 28, 18, 31, 57) &&
+    drawBitmapText5x7Rgba8(
+        pixels, "ABLA INPUT INSPECTOR", 12, 7, 2, 96, 214, 255
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels, "BACKEND $backend", 12, 42, 2, 255, 255, 255
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels,
+        "KEY ${state.lastKey} DOWN ${state.keyDowns} UP ${state.keyUps}",
+        12, 68, 2, 255, 205, 92
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels,
+        "TEXT ${state.lastCodepoint} COUNT ${state.textEvents}",
+        12, 94, 2, 135, 232, 183
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels,
+        "POINTER ${state.pointerX} ${state.pointerY} MOVE ${state.pointerMoves}",
+        12, 120, 2, 245, 167, 208
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels,
+        "BUTTON ${state.buttonDowns}/${state.buttonUps} SCROLL ${state.scrollEvents}",
+        12, 146, 2, 196, 181, 253
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels,
+        "MONITOR ${monitor.width} X ${monitor.height}",
+        12, 172, 2, 147, 197, 253
+    ) &&
+    drawBitmapText5x7Rgba8(
+        pixels,
+        if (state.focused) "FOCUSED" else "WAITING FOR INPUT",
+        12, 204, 2, 94, 234, 212
+    )
+
+trusted fun main: int {
+    val requested = if (processArgumentCount() > 0)
+        processArgument(0) else "auto"
+    val backend = if (requested == "opengl") graphicsBackendOpenGl
+        else if (requested == "vulkan") graphicsBackendVulkan
+        else graphicsBackendAuto
+    val mode = if (processArgumentCount() > 1) processArgument(1) else ""
+    val automated = mode == "automated" || mode == "self-test"
+    val selfTest = mode == "self-test"
+    val app = graphicsApplication(
+        GraphicsConfig(backend = backend, validation = true),
+        WindowConfig(
+            title = "Abla Input Inspector",
+            width = 400,
+            height = 240,
+            resizable = false
+        )
+    )
+    val pixels = pixelBuffer(400, 240)
+    val state = InputInspectorState()
+    val monitor = app.primaryMonitor()
+    var overlay = app.valid() && pixels.valid() && monitor.valid() &&
+        drawInputInspector(
+            pixels, state, graphicsBackendName(app.backend), monitor
+        )
+    var presented = 0
+    if (overlay && app.presentPixels(pixels)) presented = 1
+    if (selfTest && presented == 1) {
+        state.observe(WindowEvent(windowEventFocused, 1))
+        state.observe(WindowEvent(windowEventPointerMoved, 120, 90))
+        state.observe(WindowEvent(windowEventPointerButton, pointerButtonLeft, 1))
+        state.observe(WindowEvent(windowEventPointerButton, pointerButtonLeft, 0))
+        state.observe(WindowEvent(windowEventScrolled, 0, 1))
+        state.observe(WindowEvent(windowEventKey, keyA, 1))
+        state.observe(WindowEvent(windowEventText, 97))
+        state.observe(WindowEvent(windowEventKey, keyA, 0))
+        overlay = drawInputInspector(
+            pixels, state, graphicsBackendName(app.backend), monitor
+        )
+        if (overlay && app.presentPixels(pixels)) presented = 2
+    }
+    val deadline = graphicsMonotonicNanoseconds() + 10000000000
+    var running = overlay && presented >= 1
+    while (running && (!automated || !state.ready()) &&
+        (!automated || graphicsMonotonicNanoseconds() < deadline)) {
+        var event = app.pollEvent(20)
+        var changed = false
+        while (event.happened()) {
+            if (event.kind == windowEventCloseRequested ||
+                (event.kind == windowEventKey && event.key() == keyEscape &&
+                 event.keyPressed())) running = false
+            state.observe(event)
+            changed = true
+            event = app.pollEvent(0)
+        }
+        if (running && changed) {
+            overlay = drawInputInspector(
+                pixels, state, graphicsBackendName(app.backend), monitor
+            )
+            running = overlay && app.presentPixels(pixels)
+            if (running) presented = presented + 1
+        }
+    }
+    val passed = if (automated) running && state.ready() && overlay &&
+        presented >= 2 else !running
+    if (automated) println(
+        "Input inspector ${graphicsBackendName(app.backend)}: key=${state.keyDowns > 0 && state.keyUps > 0} text=${state.textEvents > 0} pointer=${state.pointerMoves > 0} button=${state.buttonDowns > 0 && state.buttonUps > 0} scroll=${state.scrollEvents > 0} overlay=$overlay presented=$presented monitor=${monitor.width}x${monitor.height}"
+    )
+    if (passed) 0 else 1
+}

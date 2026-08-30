@@ -4377,3 +4377,32 @@ ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make c
 Continue with another high-value missing milestone-7 application or a broad
 specification family batch, using one focused boundary gate per slice. Keep the
 persistent framework goal active.
+
+## Latest checkpoint: portable input inspector and bitmap UI text
+
+Milestone-7 samples 1 and 10 now share one useful vertical slice.
+`src/bitmap_text.ab` adds deterministic measurement and clipped drawing for a
+compact pure-Abla 5x7 font directly into affine `PixelBuffer` storage.
+Uppercase ASCII, digits, common UI punctuation, lowercase folding, unknown
+glyph fallback, multiline measurement, scaling, clipping, and invalid-input
+rejection are covered by the core test.
+
+`examples/input-inspector` renders backend, keyboard, UTF-8 text, pointer,
+button, wheel, focus, and monitor state through that overlay. Its focused Xvfb
+gate uses real `xdotool` input rather than seeded sample state: both OpenGL and
+validation-enabled Vulkan observed key press/release, text, motion, button
+press/release, and scrolling, then rendered at least three successful frames at
+the reported 1024x768 monitor extent. Direct `ldd` linkage passes with
+`LD_LIBRARY_PATH` removed. The canonical matrix now contains 76 independently
+buildable roots; the last complete matrix remains the earlier 54-root run.
+
+Validate this slice with one boundary command:
+
+```sh
+ABLA_COMPILER_ROOT=/tmp/ablac-graphics-generic nix-shell shell.nix --run 'make check-abla-only test-core test-input-inspector'
+```
+
+Continue with a missing high-value rendering application or a broad raw
+specification-family batch. Reserve the full sample matrix for periodic
+integration checkpoints rather than repeating it after every focused slice.
+Keep the persistent framework goal active.

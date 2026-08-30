@@ -26,7 +26,7 @@ samples=(x11-window wayland-info wayland-window wayland-pixels \
     wayland-output \
     wayland-clipboard \
     vulkan-info vulkan-surface headless-opengl \
-    common-headless headless-image \
+    common-headless headless-image input-inspector \
     opengl-window common-clear multi-window mini-breakout viewport-scissor raw-command-addresses raw-opengl-feature-lab raw-vulkan-feature-lab color-blending common-triangle common-buffer async-buffer async-texture async-wider-texture buffer-pool texture-pool common-texture wider-texture wider-sampling \
     common-textured indexed-textured-cube render-to-texture \
     multiple-render-targets stencil-masking subpasses common-compute gpu-timestamp \
@@ -109,6 +109,11 @@ env -u DISPLAY -u WAYLAND_DISPLAY -u XDG_RUNTIME_DIR -u LD_LIBRARY_PATH \
 env -u DISPLAY -u WAYLAND_DISPLAY -u XDG_RUNTIME_DIR -u LD_LIBRARY_PATH \
     "$output_directory/headless-image" vulkan \
     "$output_directory/headless-image-vulkan.ppm"
+LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \
+    "$output_directory/input-inspector" opengl self-test
+VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation \
+    xvfb-run -a -s "-screen 0 1024x768x24" \
+    "$output_directory/input-inspector" vulkan self-test
 env -u DISPLAY "$output_directory/frame-pacing"
 env -u DISPLAY "$output_directory/render-graph"
 LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1024x768x24" \

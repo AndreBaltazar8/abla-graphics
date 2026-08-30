@@ -562,6 +562,23 @@ channels. All four primitives write directly into the affine native buffer and
 perform no managed allocation, so a warmed software renderer can draw and
 present each frame without growing runtime live memory.
 
+Pixel-buffer UI overlays can use the built-in compact text path:
+
+```abla
+drawBitmapText5x7Rgba8(
+    pixels, "FPS 144", 8, 8, 2, 255, 255, 255
+)
+```
+
+`bitmapText5x7Width` and `bitmapText5x7Height` provide matching deterministic
+measurement. The font covers uppercase ASCII, digits, space, `-`, `.`, `/`,
+`:`, and `_`; lowercase folds to uppercase and unsupported bytes render as
+`?`. Drawing is clipped to the destination `PixelBuffer`, supports integer
+scales 1 through 32, and rejects invalid coordinates, channel values, or input
+larger than 4,096 bytes. `examples/input-inspector` combines it with the
+portable event vocabulary and verifies real keyboard, text, pointer, button,
+and wheel delivery on both surfaced backends.
+
 Its native storage is affine and released deterministically. OpenGL uploads it
 through a persistent nearest-filtered texture. Vulkan keeps a host-visible
 staging buffer, adapts RGBA/BGRA order for the selected swapchain format, and

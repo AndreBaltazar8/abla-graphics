@@ -112,7 +112,8 @@ proves the architecture rather than stopping at placeholder interfaces:
   including exact portable RGBA8 solid-color generation for deterministic
   image workflows;
 - reusable affine RGBA8 pixel storage with allocation-free clipped rectangles,
-  outlined rectangles, integer lines, and filled circles, a persistent
+  outlined rectangles, integer lines, filled circles, and a compact pure-Abla
+  5x7 bitmap text overlay with deterministic measurement/clipping, a persistent
   nearest-filtered OpenGL allocation-free repeated upload path, and a
   configurable one-to-eight-frame
   allocation-free repeated Vulkan
@@ -274,6 +275,9 @@ also runs on clean GitHub-hosted machines without physical GPUs.
   golden 16x16 PPM export through explicit OpenGL and Vulkan backends;
 - `examples/opengl-window`: surfaced shader-backed triangle;
 - `examples/common-clear`: backend-neutral automatic selection and clear/present;
+- `examples/input-inspector`: portable keyboard, text, pointer, button, wheel,
+  focus, and monitor state rendered through the same pure-Abla bitmap overlay
+  on OpenGL and Vulkan;
 - `examples/multi-window`: two simultaneous retained windows, independent
   resize/event state, complete core X11 setup-screen inventory, and 64
   alternating zero-growth presentations on OpenGL and Vulkan;

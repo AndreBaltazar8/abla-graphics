@@ -12,7 +12,7 @@ Updated: 2026-08-30.
   runs one freshly built Abla executable through both headless backends. The
   last complete 54-root no-cache sample matrix audited every then-canonical
   executable and ran its full live suite after unsetting `LD_LIBRARY_PATH`.
-  The matrix now has 75 roots. Samples 65 through 68 cover deferred rendering,
+  The matrix now has 76 roots. Samples 65 through 68 cover deferred rendering,
   compute-to-render handoff, typed blending, and typed stencil masking. Sample
   69 is the complete `mini-breakout` 2D game: its independently built stripped-
   environment binary passed OpenGL, validation-enabled Vulkan, and automatic
@@ -37,6 +37,12 @@ Updated: 2026-08-30.
   `409d6b25e43d58aca1f5cadbb1ab3b417fc7a1ceea47ea3d16f92ab7c35b9c04`.
   Its executable has no unresolved `ldd` entries and runs with display and
   shell-only library variables removed.
+  Sample 76 is the portable input-inspector/UI proof. A real X11 gate drives
+  key press/release, UTF-8 text, pointer motion, pointer-button press/release,
+  and wheel events into the shared API; OpenGL and validation-enabled Vulkan
+  each render at least three frames of the same pure-Abla 5x7 text overlay at
+  1024x768.
+  Its directly launched executable also has no unresolved shared libraries.
   The same registry pass now derives exact ABI-family evidence ledgers: 49 of
   284 OpenGL families and 54 of 122 Vulkan families currently have at least one
   reviewed command with both positive and unsupported-path evidence. Remaining

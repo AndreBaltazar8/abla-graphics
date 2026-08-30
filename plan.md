@@ -465,7 +465,9 @@ Exit gate: there are no unclassified items in either registry coverage ledger.
 Every sample is small, documented, independently buildable, and runs on both
 backends unless it demonstrates a backend-specific feature:
 
-1. window and input inspector;
+1. window and input inspector (delivered by `examples/input-inspector`, with
+   real scripted keyboard, text, pointer, button, wheel, focus, and monitor
+   state through the portable OpenGL/Vulkan event and pixel APIs);
 2. clear color and animated triangle;
 3. indexed textured cube with depth;
 4. camera, meshes, materials, and glTF scene;
@@ -475,7 +477,9 @@ backends unless it demonstrates a backend-specific feature:
 8. shadow mapping (delivered by `examples/shadow-mapping` with a sampled depth
    attachment and comparison sampler) and HDR/PBR lighting;
 9. deferred renderer/render graph;
-10. UI overlay and text rendering;
+10. UI overlay and text rendering (delivered initially by the pure-Abla compact
+    5x7 bitmap font and the live `examples/input-inspector` overlay; scalable
+    outline-font shaping remains a broader future text stack);
 11. multi-window and multi-monitor (delivered on X11 by
     `examples/multi-window`, with complete setup-screen inventory, independent
     resize/event routing, and 64 alternating zero-growth presentations);

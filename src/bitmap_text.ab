@@ -1,0 +1,128 @@
+// Compact allocation-light 5x7 bitmap text for pixel-buffer overlays.
+// Lowercase ASCII maps to uppercase; unsupported bytes use the question mark.
+
+import "pixels.ab"
+
+fun bitmapGlyph5x7(character: int): string {
+    val code = if (character >= 97 && character <= 122)
+        character - 32 else character
+    if (code == 32) return "00000000000000000000000000000000000"
+    if (code == 48) return "01110100011001110101110011000101110"
+    if (code == 49) return "00100011000010000100001000010001110"
+    if (code == 50) return "01110100010000100010001000100011111"
+    if (code == 51) return "11110000010000101110000010000111110"
+    if (code == 52) return "00010001100101010010111110001000010"
+    if (code == 53) return "11111100001000011110000010000111110"
+    if (code == 54) return "01110100001000011110100011000101110"
+    if (code == 55) return "11111000010001000100010000100001000"
+    if (code == 56) return "01110100011000101110100011000101110"
+    if (code == 57) return "01110100011000101111000010000101110"
+    if (code == 65) return "01110100011000111111100011000110001"
+    if (code == 66) return "11110100011000111110100011000111110"
+    if (code == 67) return "01111100001000010000100001000001111"
+    if (code == 68) return "11110100011000110001100011000111110"
+    if (code == 69) return "11111100001000011110100001000011111"
+    if (code == 70) return "11111100001000011110100001000010000"
+    if (code == 71) return "01111100001000010111100011000101111"
+    if (code == 72) return "10001100011000111111100011000110001"
+    if (code == 73) return "01110001000010000100001000010001110"
+    if (code == 74) return "00111000100001000010000101001001100"
+    if (code == 75) return "10001100101010011000101001001010001"
+    if (code == 76) return "10000100001000010000100001000011111"
+    if (code == 77) return "10001110111010110101100011000110001"
+    if (code == 78) return "10001110011010110011100011000110001"
+    if (code == 79) return "01110100011000110001100011000101110"
+    if (code == 80) return "11110100011000111110100001000010000"
+    if (code == 81) return "01110100011000110001101011001001101"
+    if (code == 82) return "11110100011000111110101001001010001"
+    if (code == 83) return "01111100001000001110000010000111110"
+    if (code == 84) return "11111001000010000100001000010000100"
+    if (code == 85) return "10001100011000110001100011000101110"
+    if (code == 86) return "10001100011000110001100010101000100"
+    if (code == 87) return "10001100011000110101101011010101010"
+    if (code == 88) return "10001100010101000100010101000110001"
+    if (code == 89) return "10001100010101000100001000010000100"
+    if (code == 90) return "11111000010001000100010001000011111"
+    if (code == 45) return "00000000000000011111000000000000000"
+    if (code == 46) return "00000000000000000000000000011000110"
+    if (code == 47) return "00001000100010001000100000000000000"
+    if (code == 58) return "00000001000010000000001000010000000"
+    if (code == 95) return "00000000000000000000000000000011111"
+    "01110100010000100010001000000000100"
+}
+
+fun bitmapText5x7Width(text: string, scale: int = 1): int {
+    if (scale < 1 || scale > 32 || text.size > 4096) return -1
+    var width = 0
+    var lineWidth = 0
+    var index = 0
+    while (index < text.size) {
+        if (text[index] == 10) {
+            if (lineWidth > width) width = lineWidth
+            lineWidth = 0
+        } else lineWidth = lineWidth + 6 * scale
+        index = index + 1
+    }
+    if (lineWidth > width) width = lineWidth
+    if (width > 0) width - scale else 0
+}
+
+fun bitmapText5x7Height(text: string, scale: int = 1): int {
+    if (scale < 1 || scale > 32 || text.size > 4096) return -1
+    var lines = 1
+    var index = 0
+    while (index < text.size) {
+        if (text[index] == 10) lines = lines + 1
+        index = index + 1
+    }
+    lines * 8 * scale - scale
+}
+
+trusted fun drawBitmapText5x7Rgba8(
+    var pixels: PixelBuffer,
+    text: string,
+    x: int,
+    y: int,
+    scale: int,
+    red: int,
+    green: int,
+    blue: int,
+    alpha: int = 255
+): bool {
+    val valid = pixels.valid() && text.size <= 4096 &&
+        x >= -65536 && x <= 65536 && y >= -65536 && y <= 65536 &&
+        scale >= 1 && scale <= 32 &&
+        red >= 0 && red <= 255 && green >= 0 && green <= 255 &&
+        blue >= 0 && blue <= 255 && alpha >= 0 && alpha <= 255
+    var cursorX = x
+    var cursorY = y
+    var index = 0
+    var drawn = valid
+    while (drawn && index < text.size) {
+        val character = text[index]
+        if (character == 10) {
+            cursorX = x
+            cursorY = cursorY + 8 * scale
+        } else {
+            val glyph = bitmapGlyph5x7(character)
+            var bit = 0
+            while (drawn && bit < 35) {
+                val column = bit - (bit / 5) * 5
+                val pixelX = cursorX + column * scale
+                val pixelY = cursorY + (bit / 5) * scale
+                if (glyph[bit] == 49 && pixelX < pixels.width &&
+                    pixelY < pixels.height && pixelX + scale > 0 &&
+                    pixelY + scale > 0) {
+                    drawn = pixels.fillClippedRectRgba8(
+                        pixelX, pixelY, scale, scale,
+                        red, green, blue, alpha
+                    )
+                }
+                bit = bit + 1
+            }
+            cursorX = cursorX + 6 * scale
+        }
+        index = index + 1
+    }
+    drawn
+}
