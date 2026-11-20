@@ -177,7 +177,9 @@ for backend in opengl vulkan; do
         source_file="$project_root/tests/raw_registry.ab"
     fi
     executable="$output_directory/raw-$backend-registry"
-    "$compiler" build "$source_file" -o "$executable" --fast --no-cache
+    # The generated Vulkan registry needs more than 4096 MB of address space to compile (any ablac since v0.2.63).
+    ABLA_MAX_MEMORY_MB=${ABLA_REGISTRY_TEST_MEMORY_MB:-8192} \
+        "$compiler" build "$source_file" -o "$executable" --fast --no-cache
     set +e
     "$executable"
     status=$?
