@@ -2937,6 +2937,9 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
         if (indexed) glBindBuffer(34963, i32(indexBuffer))
         rendered = rendered && openGlApplyDepthState(depth) &&
             openGlApplyRasterState(raster, target.width, target.height)
+        // Indexed uniform-buffer binds also change the generic binding.
+        if (program.pushConstantSize > 0)
+            glBindBuffer(35345, i32(program.pushConstantBuffer))
         var drawIndex = 0
         while (rendered && drawIndex < drawCount) {
             val selectedIndexCount = if (indexedDrawRangeCount == drawCount)
@@ -2945,7 +2948,8 @@ trusted fun OpenGlWindowContext.renderProgramTarget(
             val selectedIndexOffset = if (indexedDrawRangeCount == drawCount)
                 graphicsPackedIndexedDrawOffset(indexedDrawRanges, drawIndex)
                 else indexOffset
-            rendered = !indexed || (selectedIndexCount > 0 &&
+            // An indexed indirect command gets its index count from the buffer.
+            rendered = !indexed || indexedIndirect || (selectedIndexCount > 0 &&
                 selectedIndexOffset >= 0 &&
                 (selectedIndexOffset & 3) == 0)
             if (program.pushConstantSize > 0) glBufferSubData(
@@ -3109,11 +3113,8 @@ fun OpenGlTexture.view(
                     i32(descriptor.resolvedMipLevelCount(texture)),
                     i32(if (texture.dimension == textureDimension3D) 0
                     else descriptor.baseArrayLayer),
-                    i32(if (texture.dimension == textureDimension3D)
-                        textureMipDimension(
-                            texture.size.depth,
-                            descriptor.baseMipLevel
-                        )
+                    // OpenGL uses one layer for a 3D view of the whole volume.
+                    i32(if (texture.dimension == textureDimension3D) 1
                     else descriptor.resolvedArrayLayerCount(texture))
                 )
                 if (glGetError() == 0) owned = true
@@ -4224,6 +4225,8 @@ resource class OpenGlWindowContext(
             glBindBuffer(34963, i32(indices.handle))
             presented = presented && openGlApplyDepthState(depth) &&
                 openGlApplyRasterState(raster, this.width, this.height)
+            if (program.pushConstantSize > 0)
+                glBindBuffer(35345, i32(program.pushConstantBuffer))
             var drawIndex = 0
             while (presented && drawIndex < drawCount) {
                 val selectedIndexCount = if (
@@ -4384,6 +4387,7 @@ resource class OpenGlWindowContext(
                 glBindBuffer(34963, i32(indices.handle))
                 presented = presented && openGlApplyDepthState(depth) &&
                     openGlApplyRasterState(raster, this.width, this.height)
+                glBindBuffer(35345, i32(pushBuffers[group]))
                 var draw = 0
                 while (presented && draw < drawCounts[group]) {
                     val range = nativePointerFromAddress(
