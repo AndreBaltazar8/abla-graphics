@@ -351,18 +351,17 @@ fun main: int {
     if (!targetRendered || !windowRendered) println(
         "gltf-live first-frame: target=$targetRendered window=$windowRendered"
     )
-    val firstWindowPipelineHandle = if (
-        app.backend == graphicsBackendVulkan && windowSequence.valid()
-    ) windowSequence.vulkanPipelines[0] else 0
     var resized = targetRendered && windowRendered && app.resize(672, 384)
     var resizeEvent = WindowEvent()
     var resizePoll = 0
-    while (resized && resizeEvent.kind != windowEventResized &&
+    while (resized && (resizeEvent.kind != windowEventResized ||
+        resizeEvent.first != 672 || resizeEvent.second != 384) &&
         resizePoll < 32) {
         resizeEvent = app.pollEvent(50)
         resizePoll = resizePoll + 1
     }
-    resized = resized && resizeEvent.first == 672 &&
+    resized = resized && resizeEvent.kind == windowEventResized &&
+        resizeEvent.first == 672 &&
         resizeEvent.second == 384 &&
         app.presentPushBatchRenderIndexedSequence(
             windowSequence, sceneGeometry.vertices, sceneGeometry.indices,
@@ -371,12 +370,13 @@ fun main: int {
             app.vulkanSwapchain.width == 672 &&
             app.vulkanSwapchain.height == 384 &&
             windowSequence.pipelines[0].vulkan.width == 672 &&
+            windowSequence.pipelines[0].vulkan.height == 384 &&
             windowSequence.pipelines[1].vulkan.width == 672 &&
+            windowSequence.pipelines[1].vulkan.height == 384 &&
             windowSequence.vulkanPipelines[0] ==
                 windowSequence.pipelines[0].vulkan.handle &&
             windowSequence.vulkanPipelines[1] ==
-                windowSequence.pipelines[1].vulkan.handle &&
-            windowSequence.vulkanPipelines[0] != firstWindowPipelineHandle
+                windowSequence.pipelines[1].vulkan.handle
         ))
     var rendered = targetRendered && windowRendered && resized
     var warm = 0

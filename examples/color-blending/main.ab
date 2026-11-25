@@ -91,10 +91,13 @@ trusted fun main: int {
     val liveAfter = runtimeMemoryLiveBytes()
     val center = target.texture.rgba8(32, 32)
     val corner = target.texture.rgba8(0, 0)
-    val expectedCenter = if (app.backend == graphicsBackendOpenGl)
-        4286513280 else 4286578815
+    // Either adjacent UNORM8 value represents the blended half intensity.
+    val red = center & 255
+    val blue = (center >> 16) & 255
+    val centerMatches = (center & 4278255360) == 4278190080 &&
+        red >= 127 && red <= 128 && blue >= 127 && blue <= 128
     val stable = rendered && frame == 1000 && validationPassed &&
-        center == expectedCenter && corner == 4294901760 &&
+        centerMatches && corner == 4294901760 &&
         liveAfter == liveBefore
     println(
         "color-blending ${graphicsBackendName(app.backend)}: center=$center corner=$corner mask=${blend.writeMask} validation=$validationPassed frames=${frame + 1} live=${liveAfter - liveBefore} stable=$stable"
