@@ -14,7 +14,7 @@ fun main: int {
     val idleInhibitEnabled = if (succeeded && idleInhibitAvailable)
         window.setIdleInhibited(true)
     else false
-    succeeded = succeeded &&
+    succeeded &&=
         idleInhibitEnabled == idleInhibitAvailable &&
         (!idleInhibitEnabled || (window.idleInhibited &&
          window.setIdleInhibited(true) &&
@@ -37,7 +37,7 @@ fun main: int {
             window.disableTearingControl()
         else window.setTearingAllowed(false) &&
             !window.setTearingAllowed(true)) && window.connection.valid()
-    succeeded = succeeded && tearingPassed
+    succeeded &&= tearingPassed
     val contentTypeAvailable = window.contentTypeAvailable()
     val contentTypeEnabled = if (succeeded && contentTypeAvailable)
         window.enableContentType()
@@ -57,13 +57,13 @@ fun main: int {
         else window.setContentType(waylandContentTypeNone) &&
             !window.setContentType(waylandContentTypeGame)) &&
         window.connection.valid()
-    succeeded = succeeded && contentTypePassed
+    succeeded &&= contentTypePassed
     val presentationAvailable = window.presentationTimingAvailable()
     val presentationEnabled = if (succeeded && presentationAvailable)
         window.enablePresentationTiming()
     else false
     var presentationRequested = false
-    succeeded = succeeded && presentationEnabled == presentationAvailable &&
+    succeeded &&= presentationEnabled == presentationAvailable &&
         window.connection.valid()
     val decorationAvailable = window.connection.global(
         "zxdg_decoration_manager_v1"
@@ -71,7 +71,7 @@ fun main: int {
     val decorationEnabled = if (succeeded && decorationAvailable)
         window.enableDecorations()
     else false
-    succeeded = succeeded && decorationEnabled == decorationAvailable &&
+    succeeded &&= decorationEnabled == decorationAvailable &&
         (!decorationEnabled || (window.decorationConfigured &&
          (window.decorationMode == waylandDecorationModeClient ||
           window.decorationMode == waylandDecorationModeServer) &&
@@ -110,12 +110,12 @@ fun main: int {
         window.resetInputRegion() &&
         window.inputRegionMode == waylandInputRegionDefault &&
         window.connection.valid()
-    succeeded = succeeded && surfaceStatePassed
+    succeeded &&= surfaceStatePassed
     val viewporterAvailable = window.connection.global(
         "wp_viewporter"
     ).valid
     val viewportEnabled = if (succeeded) window.enableViewport() else false
-    succeeded = succeeded && viewportEnabled == viewporterAvailable &&
+    succeeded &&= viewportEnabled == viewporterAvailable &&
         window.connection.valid()
     val bufferWidth = if (viewportEnabled) 640 else 320
     val bufferHeight = if (viewportEnabled) 400 else 200
@@ -123,7 +123,7 @@ fun main: int {
         window.setPreferredViewportDestination() &&
         window.setViewportSource(0, 0, bufferWidth, bufferHeight) &&
         window.viewportSourceSet()
-    succeeded = succeeded &&
+    succeeded &&=
         window.createSharedBuffers(bufferWidth, bufferHeight, 2) &&
         window.bufferSurfaceWidth() == bufferWidth &&
         window.bufferSurfaceHeight() == bufferHeight &&
@@ -146,7 +146,7 @@ fun main: int {
         (window.presentationDiscarded ||
          window.presentationNanoseconds < 1000000000)
     else !presentationRequested
-    succeeded = succeeded && presentationPassed
+    succeeded &&= presentationPassed
     val preferredScaleFromCompositor = window.preferredBufferScale > 0
     val preferredTransformFromCompositor =
         window.preferredBufferTransform >= 0
@@ -162,7 +162,7 @@ fun main: int {
     while (preferredEvent.happened()) {
         preferredEvent = window.nextInputEvent()
     }
-    succeeded = succeeded && preferredSurfacePassed
+    succeeded &&= preferredSurfacePassed
     val firstSerial = window.lastConfigureSerial
     if (succeeded) succeeded = window.setFullscreen(true)
     var attempts = 0
@@ -173,7 +173,7 @@ fun main: int {
         attempts = attempts + 1
     }
     val fullscreenSerial = window.lastConfigureSerial
-    succeeded = succeeded &&
+    succeeded &&=
         window.hasToplevelState(waylandToplevelStateFullscreen) &&
         window.width == 1024 && window.height == 768 &&
         window.commit() &&
@@ -212,7 +212,7 @@ fun main: int {
     val fractionalEnabled = if (succeeded)
         window.enableFractionalScale()
     else false
-    succeeded = succeeded && fractionalEnabled == fractionalAvailable &&
+    succeeded &&= fractionalEnabled == fractionalAvailable &&
         window.connection.valid()
     attempts = 0
     while (succeeded && fractionalEnabled &&
@@ -230,7 +230,7 @@ fun main: int {
             waylandPacket(999, 0, waylandU32Payload(180))
         )) == 1
         val framebufferEvent = window.nextInputEvent()
-        succeeded = succeeded &&
+        succeeded &&=
             framebufferEvent.kind == windowEventFramebufferResized &&
             framebufferEvent.first == 1536 &&
             framebufferEvent.second == 1152 &&
@@ -238,7 +238,7 @@ fun main: int {
         window.fractionalScaleIdentifier = 0
         window.preferredFractionalScale = 0
     }
-    succeeded = succeeded &&
+    succeeded &&=
         !window.hasToplevelState(waylandToplevelStateFullscreen) &&
         window.setResizable(false) && window.setResizable(true) &&
         window.requestClose()
@@ -247,7 +247,7 @@ fun main: int {
         closeEvent.kind != windowEventCloseRequested) {
         closeEvent = window.nextInputEvent()
     }
-    succeeded = succeeded && closeEvent.kind == windowEventCloseRequested
+    succeeded &&= closeEvent.kind == windowEventCloseRequested
     println(
         "wayland-window-test: succeeded=$succeeded size=${window.width}x${window.height} framebuffer=${window.preferredFramebufferWidth()}x${window.preferredFramebufferHeight()} buffer=${window.bufferWidth}x${window.bufferHeight} surfaceState=$surfaceStatePassed/${window.bufferScale}/${window.bufferTransform}/${window.bufferSurfaceWidth()}x${window.bufferSurfaceHeight()}/${window.opaqueRegionSet}/${window.inputRegionMode} preferred=$preferredSurfacePassed/$preferredScaleFromCompositor/$preferredTransformFromCompositor/${window.preferredBufferScale}/${window.preferredBufferTransform} tearing=$tearingAvailable/$tearingEnabled/$tearingPassed/${window.presentationHint} content=$contentTypeAvailable/$contentTypeEnabled/$contentTypePassed/${window.contentType} timing=$presentationAvailable/$presentationEnabled/$presentationPassed/${window.presentationDiscarded}/${window.presentationRefreshNanoseconds}/${window.presentationFlags} idle=$idleInhibitAvailable/$idleInhibitEnabled/${window.idleInhibited} decoration=$decorationAvailable/$decorationEnabled/${window.decorationMode} viewport=$viewporterAvailable/$viewportEnabled/${window.viewportDestinationWidth}x${window.viewportDestinationHeight}/${window.viewportSourceWidthFixed}x${window.viewportSourceHeightFixed} fractional=$fractionalAvailable/$fractionalEnabled/${window.preferredFractionalScale} states=${window.states.size} fullscreen=${window.hasToplevelState(waylandToplevelStateFullscreen)} serial=$firstSerial/$fullscreenSerial/${window.lastConfigureSerial} error=${window.connection.error}"
     )
