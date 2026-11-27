@@ -233,6 +233,12 @@ fun waylandStoreU32(
     return
 }
 
+/** Marks `bytes`, a view of a mapping this window unmaps itself, as closed: dropping it then frees nothing. */
+trusted fun waylandForgetMapping(var bytes: NativeByteBuffer): void {
+    bytes.closed = true
+    return
+}
+
 trusted fun waylandNativeU32(
     var buffer: NativeByteBuffer,
     offset: int
@@ -5475,13 +5481,13 @@ resource class WaylandXdgWindow(
             )
         }
         if (this.mappedAddress > 0 && this.mappedLength > 0) {
-            this.mappedBytes.closed = true
+            waylandForgetMapping(this.mappedBytes)
             linuxSyscall2(11, this.mappedAddress, this.mappedLength)
             this.mappedAddress = 0
             this.mappedLength = 0
         } else this.mappedBytes.close()
         if (this.cursorMappedAddress > 0 && this.cursorMappedLength > 0) {
-            this.cursorMappedBytes.closed = true
+            waylandForgetMapping(this.cursorMappedBytes)
             linuxSyscall2(
                 11,
                 this.cursorMappedAddress,
