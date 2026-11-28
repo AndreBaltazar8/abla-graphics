@@ -1,4 +1,4 @@
-import "abla/runtime/memory"
+import "abla/memory"
 import "abla/io"
 import "../../src/driver/vulkan.ab"
 import "../../src/driver/vulkan_debug.ab"
@@ -24,7 +24,7 @@ trusted fun main: int {
         vulkanDebugTypeGeneral,
         debugMessage
     )
-    val debugLiveBefore = runtimeMemoryLiveBytes()
+    val debugLiveBefore = memoryLiveBytes()
     var debugPassed = debugWarmup &&
         debug.submit(
             vulkanDebugSeverityInfo,
@@ -52,7 +52,7 @@ trusted fun main: int {
         !debug.submit(8, vulkanDebugTypeGeneral, debugMessage) &&
         !debug.submit(vulkanDebugSeverityInfo, 8, debugMessage) &&
         !debug.submit(vulkanDebugSeverityInfo, vulkanDebugTypeGeneral, "")
-    val debugLiveAfter = runtimeMemoryLiveBytes()
+    val debugLiveAfter = memoryLiveBytes()
     val debugCounts = debug.counts()
     debugPassed &&= debug.handle == debugHandle &&
         debugLiveAfter == debugLiveBefore && debugCounts.total == 8 &&
@@ -102,7 +102,7 @@ trusted fun main: int {
     val invalidTimeline = device.timelineSemaphore(-1)
     val timelineHandle = timeline.handle
     val timelineInitial = timeline.currentValue()
-    val timelineLiveBefore = runtimeMemoryLiveBytes()
+    val timelineLiveBefore = memoryLiveBytes()
     var timelinePassed = timeline.valid() && !invalidTimeline.valid() &&
         timelineInitial == 3 && timeline.signal(4) &&
         timeline.wait(4, 1000000000) && timeline.currentValue() == 4
@@ -116,7 +116,7 @@ trusted fun main: int {
     timelinePassed &&= !timeline.signal(8) &&
         !timeline.wait(-1, 1000000000) && !timeline.wait(8, -1) &&
         invalidTimeline.currentValue() == -1
-    val timelineLiveAfter = runtimeMemoryLiveBytes()
+    val timelineLiveAfter = memoryLiveBytes()
     val computePackage = $glsl {
         compute {
             #version 450
@@ -192,14 +192,14 @@ trusted fun main: int {
     val commandBuffer = nativePointerAddress(pipeline.command.load())
     val dispatched = pipeline.dispatch(2)
     val dispatchedAgain = pipeline.dispatch(3)
-    val dispatchLiveBefore = runtimeMemoryLiveBytes()
+    val dispatchLiveBefore = memoryLiveBytes()
     var dispatchRepeated = dispatched && dispatchedAgain
     var dispatchRepeat = 0
     while (dispatchRepeated && dispatchRepeat < 4) {
         dispatchRepeated = pipeline.dispatch(2)
         dispatchRepeat = dispatchRepeat + 1
     }
-    val dispatchLiveAfter = runtimeMemoryLiveBytes()
+    val dispatchLiveAfter = memoryLiveBytes()
     val storageBuffer = device.buffer(8)
     val storageCleared = storageBuffer.writeI64(2)
     val storagePipeline = device.computeStoragePipeline(

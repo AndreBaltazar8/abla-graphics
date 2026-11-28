@@ -1,6 +1,7 @@
 import "abla/io"
 import "abla/process/arguments"
 import "abla/runtime/memory"
+import "abla/memory"
 import "../../src/graphics.ab"
 import "../../src/bytes.ab"
 import "../../src/buffer.ab"
@@ -17,6 +18,11 @@ import "../../src/render.ab"
 import "../../src/time.ab"
 import "../../src/window.ab"
 import "../../src/application.ab"
+
+// The runtime's checkpoint and reset are trusted-only outside the standard library: what runs between them makes nothing that
+// outlives the reset.
+private trusted fun graphicsMemoryCheckpoint(): int = runtimeMemoryCheckpoint()
+private trusted fun graphicsMemoryReset(checkpoint: int): void = runtimeMemoryReset(checkpoint)
 
 class CubeExplorerState(
     var cameraX: f64 = 0.0,
@@ -352,8 +358,8 @@ fun main: int {
     }
     // The checkpoint is a marker allocation of its own (the first one in the process adds 8 live bytes that a reset keeps), so it is taken
     // before the live bytes are read: what the loop leaves is then compared with what stood when the marker was already there.
-    val steadyMemory = runtimeMemoryCheckpoint()
-    val liveBefore = runtimeMemoryLiveBytes()
+    val steadyMemory = graphicsMemoryCheckpoint()
+    val liveBefore = memoryLiveBytes()
     val started = graphicsMonotonicNanoseconds()
     var steadyFrames = 0
     while (running && automated && steadyFrames < 120) {
@@ -379,8 +385,8 @@ fun main: int {
         }
     }
     val elapsed = graphicsMonotonicNanoseconds() - started
-    runtimeMemoryReset(steadyMemory)
-    val liveAfter = runtimeMemoryLiveBytes()
+    graphicsMemoryReset(steadyMemory)
+    val liveAfter = memoryLiveBytes()
     val noGrowth = liveBefore == liveAfter
     val framesPerSecond = if (elapsed > 0)
         steadyFrames * 1000000000 / elapsed else 0

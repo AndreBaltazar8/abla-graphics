@@ -7,6 +7,11 @@ import "./bytes.ab"
 import "./gltf_scene.ab"
 import "abla/float"
 
+// The runtime's checkpoint and reset are trusted-only outside the standard library: what runs between them makes nothing that
+// outlives the reset.
+private trusted fun graphicsMemoryCheckpoint(): int = runtimeMemoryCheckpoint()
+private trusted fun graphicsMemoryReset(checkpoint: int): void = runtimeMemoryReset(checkpoint)
+
 class GltfAnimationPose(
     val localTransforms: array<Mat4>,
     val worldTransforms: array<Mat4>,
@@ -700,12 +705,12 @@ trusted fun GltfGpuTexturedScene.refreshAnimationCached(
     playback: int,
     var cache: GltfTexturedSceneUpdateCache
 ): bool {
-    val checkpoint = runtimeMemoryCheckpoint()
+    val checkpoint = graphicsMemoryCheckpoint()
     val refreshed = gltfRefreshAnimationCachedTransient(
         this, document, drawList, plan, animationIndex, elapsed,
         playback, cache
     )
-    runtimeMemoryReset(checkpoint)
+    graphicsMemoryReset(checkpoint)
     refreshed
 }
 
@@ -750,13 +755,13 @@ trusted fun GltfGpuTexturedScene.refreshAnimationBlendCached(
     amount: f64,
     var cache: GltfTexturedSceneUpdateCache
 ): bool {
-    val checkpoint = runtimeMemoryCheckpoint()
+    val checkpoint = graphicsMemoryCheckpoint()
     val refreshed = gltfRefreshAnimationBlendCachedTransient(
         this, document, drawList, plan,
         leftAnimation, leftElapsed, leftPlayback,
         rightAnimation, rightElapsed, rightPlayback,
         amount, cache
     )
-    runtimeMemoryReset(checkpoint)
+    graphicsMemoryReset(checkpoint)
     refreshed
 }

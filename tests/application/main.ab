@@ -1,6 +1,6 @@
 import "abla/io"
 import "abla/process/arguments"
-import "abla/runtime/memory"
+import "abla/memory"
 import "../../src/graphics.ab"
 import "../../src/shader/specialization.ab"
 import "../../src/compute.ab"
@@ -90,10 +90,10 @@ trusted fun applicationBackendProbe(
         0.45,
         0.85
     ))
-    val waitLiveBefore = runtimeMemoryLiveBytes()
+    val waitLiveBefore = memoryLiveBytes()
     val waited = app.waitIdle() && app.waitIdle() && app.waitIdle() &&
         app.waitIdle()
-    val waitLiveAfter = runtimeMemoryLiveBytes()
+    val waitLiveAfter = memoryLiveBytes()
     val waitNoGrowth = waitLiveAfter == waitLiveBefore
     val timestampQuery = app.timestampQuery()
     val timestampHandleBefore = if (app.backend == graphicsBackendOpenGl)
@@ -104,12 +104,12 @@ trusted fun applicationBackendProbe(
             timestampQuery.vulkan.command.load()
         )
     else 0
-    val timestampLiveBefore = runtimeMemoryLiveBytes()
+    val timestampLiveBefore = memoryLiveBytes()
     val timestampFirst = timestampQuery.sampleTicks()
     val timestampSecond = timestampQuery.sampleTicks()
     val timestampThird = timestampQuery.sampleTicks()
     val timestampFourth = timestampQuery.sampleTicks()
-    val timestampLiveAfter = runtimeMemoryLiveBytes()
+    val timestampLiveAfter = memoryLiveBytes()
     val timestampElapsed = timestampQuery.elapsedNanoseconds(
         timestampFirst,
         timestampFourth
@@ -147,11 +147,11 @@ trusted fun applicationBackendProbe(
     val pixelCommand2Before = if (app.backend == graphicsBackendVulkan)
         nativePointerAddress(app.vulkanPixels.frames[2].command.load())
     else 0
-    val pixelLiveBefore = runtimeMemoryLiveBytes()
+    val pixelLiveBefore = memoryLiveBytes()
     val pixelsPresented = app.presentPixels(pixels) &&
         app.presentPixels(pixels) && app.presentPixels(pixels) &&
         app.presentPixels(pixels)
-    val pixelLiveAfter = runtimeMemoryLiveBytes()
+    val pixelLiveAfter = memoryLiveBytes()
     val pixelNoGrowth = pixelLiveAfter == pixelLiveBefore
     val pixelHandlesStable = if (app.backend == graphicsBackendOpenGl)
         app.openGlPixels.program.handle == pixelProgramBefore &&
@@ -455,7 +455,7 @@ trusted fun applicationBackendProbe(
     val uploadRingHandle = if (app.backend == graphicsBackendOpenGl)
         uploadRing.staging.openGl.handle
     else uploadRing.staging.vulkan.handle
-    val uploadRingLiveBefore = runtimeMemoryLiveBytes()
+    val uploadRingLiveBefore = memoryLiveBytes()
     var uploadRingRepeated = uploadRing.valid()
     var uploadRingRepeat = 0
     while (uploadRingRepeated && uploadRingRepeat < 4) {
@@ -469,7 +469,7 @@ trusted fun applicationBackendProbe(
         )
         uploadRingRepeat = uploadRingRepeat + 1
     }
-    val uploadRingLiveAfter = runtimeMemoryLiveBytes()
+    val uploadRingLiveAfter = memoryLiveBytes()
     val uploadRingReadback = bufferBytes(8)
     val uploadRingRead = uploadRingReadback.fill(0) &&
         gpuCopyDestination.readBytes(
@@ -505,7 +505,7 @@ trusted fun applicationBackendProbe(
         readbackRing.staging.openGl.handle
     else readbackRing.staging.vulkan.handle
     val readbackRingBytes = bufferBytes(8)
-    val readbackRingLiveBefore = runtimeMemoryLiveBytes()
+    val readbackRingLiveBefore = memoryLiveBytes()
     var readbackRingRepeated = readbackRing.valid()
     var readbackRingRepeat = 0
     while (readbackRingRepeated && readbackRingRepeat < 4) {
@@ -519,7 +519,7 @@ trusted fun applicationBackendProbe(
         )
         readbackRingRepeat = readbackRingRepeat + 1
     }
-    val readbackRingLiveAfter = runtimeMemoryLiveBytes()
+    val readbackRingLiveAfter = memoryLiveBytes()
     val readbackRingStateBeforeInvalid = readbackRing.cursor
     val invalidReadbackRingRangeRejected = !app.downloadBufferRange(
         readbackRing,
@@ -635,14 +635,14 @@ trusted fun applicationBackendProbe(
         app.backend == graphicsBackendVulkan &&
         !mipmapTexture.vulkan.command.closed
     ) nativePointerAddress(mipmapTexture.vulkan.command.load()) else 0
-    val mipmapLiveBefore = runtimeMemoryLiveBytes()
+    val mipmapLiveBefore = memoryLiveBytes()
     var mipmapRepeated = mipmapGenerated
     var mipmapRepeat = 0
     while (mipmapRepeated && mipmapRepeat < 4) {
         mipmapRepeated = mipmapTexture.generateMipmaps()
         mipmapRepeat = mipmapRepeat + 1
     }
-    val mipmapLiveAfter = runtimeMemoryLiveBytes()
+    val mipmapLiveAfter = memoryLiveBytes()
     val mipmapNoGrowth = mipmapLiveAfter == mipmapLiveBefore
     val mipmapHandlesStable = if (app.backend == graphicsBackendOpenGl)
         mipmapTexture.openGl.handle == mipmapOpenGlHandle
@@ -810,14 +810,14 @@ trusted fun applicationBackendProbe(
     val targetTransferCommand = if (app.backend == graphicsBackendVulkan)
         nativePointerAddress(app.vulkanDevice.transferCommand.load())
     else 0
-    val targetLiveBefore = runtimeMemoryLiveBytes()
+    val targetLiveBefore = memoryLiveBytes()
     var targetRepeated = renderTargetCleared
     var targetRepeat = 0
     while (targetRepeated && targetRepeat < 4) {
         targetRepeated = app.clearRenderTarget(renderTarget, targetClear)
         targetRepeat = targetRepeat + 1
     }
-    val targetLiveAfter = runtimeMemoryLiveBytes()
+    val targetLiveAfter = memoryLiveBytes()
     val targetNoGrowth = targetLiveAfter == targetLiveBefore
     val targetHandlesStable = if (app.backend == graphicsBackendOpenGl)
         renderTarget.openGl.handle == targetOpenGlHandle
@@ -1160,14 +1160,14 @@ trusted fun applicationBackendProbe(
     )
     val dualComputed = dualCompute.dispatch(1)
     val dualFirstValue = dualDestination.readI64()
-    val dualLiveBefore = runtimeMemoryLiveBytes()
+    val dualLiveBefore = memoryLiveBytes()
     var dualRepeated = true
     var dualRepeat = 0
     while (dualRepeated && dualRepeat < 4) {
         dualRepeated = dualCompute.dispatch(1)
         dualRepeat = dualRepeat + 1
     }
-    val dualLiveAfter = runtimeMemoryLiveBytes()
+    val dualLiveAfter = memoryLiveBytes()
     val dualFinalValue = dualDestination.readI64()
     val dualSourceValue = dualSource.readI64()
     val pushStorageShader = $glsl {
@@ -1215,14 +1215,14 @@ trusted fun applicationBackendProbe(
     val pushDispatched = pushStorageCompute.dispatchPush(pushValues, 1)
     val pushFirstValue = pushStorageBuffer.readI64()
     val pushUpdated = pushValues.storeU32(5)
-    val pushLiveBefore = runtimeMemoryLiveBytes()
+    val pushLiveBefore = memoryLiveBytes()
     var pushRepeated = pushUpdated
     var pushRepeat = 0
     while (pushRepeated && pushRepeat < 4) {
         pushRepeated = pushStorageCompute.dispatchPush(pushValues, 1)
         pushRepeat = pushRepeat + 1
     }
-    val pushLiveAfter = runtimeMemoryLiveBytes()
+    val pushLiveAfter = memoryLiveBytes()
     val pushValue = pushStorageBuffer.readI64()
     val specializedStorageShader = $glsl {
         compute {
@@ -1313,7 +1313,7 @@ trusted fun applicationBackendProbe(
     else 0
     val computeOpenGlHandle = compute.openGl.handle
     val storageOpenGlHandle = storageCompute.openGl.handle
-    val computeLiveBefore = runtimeMemoryLiveBytes()
+    val computeLiveBefore = memoryLiveBytes()
     var computeRepeated = storageComputed
     var computeRepeat = 0
     while (computeRepeated && computeRepeat < 4) {
@@ -1321,7 +1321,7 @@ trusted fun applicationBackendProbe(
             storageCompute.dispatch(1)
         computeRepeat = computeRepeat + 1
     }
-    val computeLiveAfter = runtimeMemoryLiveBytes()
+    val computeLiveAfter = memoryLiveBytes()
     val computeNoGrowth = computeLiveAfter == computeLiveBefore
     val computeHandlesStable = if (app.backend == graphicsBackendOpenGl)
         compute.openGl.handle == computeOpenGlHandle &&
@@ -1527,7 +1527,7 @@ trusted fun applicationBackendProbe(
     val pushColorPixel = renderTarget.texture.rgba8(16, 12)
     val pushColorOpenGlBuffer = pushColorPipeline.openGl.pushConstantBuffer
     val pushColorVulkanHandle = pushColorPipeline.vulkan.handle
-    val pushColorLiveBefore = runtimeMemoryLiveBytes()
+    val pushColorLiveBefore = memoryLiveBytes()
     var pushColorRepeated = pushColorRendered
     var pushColorRepeat = 0
     while (pushColorRepeated && pushColorRepeat < 4) {
@@ -1543,7 +1543,7 @@ trusted fun applicationBackendProbe(
             )
         pushColorRepeat = pushColorRepeat + 1
     }
-    val pushColorLiveAfter = runtimeMemoryLiveBytes()
+    val pushColorLiveAfter = memoryLiveBytes()
     val pushColorFinalPixel = renderTarget.texture.rgba8(16, 12)
     val pushColorNoGrowth = pushColorLiveAfter == pushColorLiveBefore
     val pushColorHandlesStable = if (
@@ -1628,7 +1628,7 @@ trusted fun applicationBackendProbe(
     val multisamplePipelineHandle = if (
         app.backend == graphicsBackendOpenGl
     ) multisamplePipeline.openGl.handle else multisamplePipeline.vulkan.handle
-    val multisampleLiveBefore = runtimeMemoryLiveBytes()
+    val multisampleLiveBefore = memoryLiveBytes()
     var multisampleRepeated = multisampleResolved
     var multisampleRepeat = 0
     while (multisampleRepeated && multisampleRepeat < 4) {
@@ -1642,7 +1642,7 @@ trusted fun applicationBackendProbe(
         )
         multisampleRepeat = multisampleRepeat + 1
     }
-    val multisampleLiveAfter = runtimeMemoryLiveBytes()
+    val multisampleLiveAfter = memoryLiveBytes()
     val multisamplePixel = multisampleTarget.resolveTextures[0].rgba8(12, 12)
     val multisampleNoGrowth =
         multisampleLiveAfter == multisampleLiveBefore
@@ -1780,7 +1780,7 @@ trusted fun applicationBackendProbe(
     val subpassSecondHandle = if (app.backend == graphicsBackendOpenGl)
         subpassSequence.pipelines[1].openGl.handle
     else subpassSequence.vulkanHandles[1]
-    val subpassLiveBefore = runtimeMemoryLiveBytes()
+    val subpassLiveBefore = memoryLiveBytes()
     var subpassesRendered = app.renderSubpassesToTarget(
         multipleColorTarget,
         subpassSequence,
@@ -1795,7 +1795,7 @@ trusted fun applicationBackendProbe(
         )
         subpassRepeat = subpassRepeat + 1
     }
-    val subpassLiveAfter = runtimeMemoryLiveBytes()
+    val subpassLiveAfter = memoryLiveBytes()
     val subpassPixelZero = multipleColorTarget.texture.rgba8(8, 8)
     val subpassPixelOne =
         multipleColorTarget.additionalTextures[0].rgba8(8, 8)
@@ -1848,7 +1848,7 @@ trusted fun applicationBackendProbe(
         app.backend == graphicsBackendOpenGl
     ) multipleColorTarget.openGl.additionalTextures[0] else
         multipleColorTarget.vulkan.additionalViews[0]
-    val multipleColorLiveBefore = runtimeMemoryLiveBytes()
+    val multipleColorLiveBefore = memoryLiveBytes()
     var multipleColorRepeated = multipleColorRendered
     var multipleColorRepeat = 0
     while (multipleColorRepeated && multipleColorRepeat < 4) {
@@ -1859,7 +1859,7 @@ trusted fun applicationBackendProbe(
         )
         multipleColorRepeat = multipleColorRepeat + 1
     }
-    val multipleColorLiveAfter = runtimeMemoryLiveBytes()
+    val multipleColorLiveAfter = memoryLiveBytes()
     val multipleColorNoGrowth =
         multipleColorLiveAfter == multipleColorLiveBefore
     val multipleColorHandlesStable = if (
@@ -1890,7 +1890,7 @@ trusted fun applicationBackendProbe(
     val targetRenderedPixel = renderTarget.texture.rgba8(16, 12)
     val targetPipelineOpenGl = targetPipeline.openGl.handle
     val targetPipelineVulkan = targetPipeline.vulkan.handle
-    val targetDrawLiveBefore = runtimeMemoryLiveBytes()
+    val targetDrawLiveBefore = memoryLiveBytes()
     var targetDrawRepeated = targetRendered
     var targetDrawRepeat = 0
     while (targetDrawRepeated && targetDrawRepeat < 4) {
@@ -1901,7 +1901,7 @@ trusted fun applicationBackendProbe(
         )
         targetDrawRepeat = targetDrawRepeat + 1
     }
-    val targetDrawLiveAfter = runtimeMemoryLiveBytes()
+    val targetDrawLiveAfter = memoryLiveBytes()
     val targetDrawNoGrowth = targetDrawLiveAfter == targetDrawLiveBefore
     val targetPipelineStable = if (app.backend == graphicsBackendOpenGl)
         targetPipeline.openGl.handle == targetPipelineOpenGl
@@ -1926,14 +1926,14 @@ trusted fun applicationBackendProbe(
     val renderCommand0 = if (app.backend == graphicsBackendVulkan)
         nativePointerAddress(app.vulkanPixels.frames[0].command.load())
     else 0
-    val renderLiveBefore = runtimeMemoryLiveBytes()
+    val renderLiveBefore = memoryLiveBytes()
     var renderRepeated = rendered
     var renderIndex = 0
     while (renderRepeated && renderIndex < 4) {
         renderRepeated = app.presentRender(renderPipeline, renderClear)
         renderIndex = renderIndex + 1
     }
-    val renderLiveAfter = runtimeMemoryLiveBytes()
+    val renderLiveAfter = memoryLiveBytes()
     val renderNoGrowth = renderLiveAfter == renderLiveBefore
     val renderHandlesStable = if (app.backend == graphicsBackendOpenGl)
         renderPipeline.openGl.handle == renderOpenGlHandle &&

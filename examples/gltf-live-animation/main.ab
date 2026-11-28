@@ -1,6 +1,7 @@
 import "abla/io"
 import "abla/process/arguments"
 import "abla/runtime/memory"
+import "abla/memory"
 import "../../src/texture.ab"
 import "../../src/texture_pool.ab"
 import "../../src/render.ab"
@@ -16,6 +17,11 @@ import "../../src/window.ab"
 import "../../src/gltf_scene.ab"
 import "../../src/gltf_buffer.ab"
 import "../../src/target.ab"
+
+// The runtime's checkpoint and reset are trusted-only outside the standard library: what runs between them makes nothing that
+// outlives the reset.
+private trusted fun graphicsMemoryCheckpoint(): int = runtimeMemoryCheckpoint()
+private trusted fun graphicsMemoryReset(checkpoint: int): void = runtimeMemoryReset(checkpoint)
 
 fun main: int {
     val requested = if (processArgumentCount() > 0)
@@ -256,8 +262,8 @@ fun main: int {
         )
         warm = warm + 1
     }
-    val liveBefore = runtimeMemoryLiveBytes()
-    val playbackMemory = runtimeMemoryCheckpoint()
+    val liveBefore = memoryLiveBytes()
+    val playbackMemory = graphicsMemoryCheckpoint()
     val started = graphicsMonotonicNanoseconds()
     var frame = 0
     while (ready && frame < 240) {
@@ -283,8 +289,8 @@ fun main: int {
         frame = frame + 1
     }
     val elapsed = graphicsMonotonicNanoseconds() - started
-    runtimeMemoryReset(playbackMemory)
-    val liveAfter = runtimeMemoryLiveBytes()
+    graphicsMemoryReset(playbackMemory)
+    val liveAfter = memoryLiveBytes()
     var updatesPerSecond = 0
     if (elapsed > 0) updatesPerSecond = frame * 1000000000 / elapsed
     val passed = ready && stableHandles && beforeCenter == green &&
